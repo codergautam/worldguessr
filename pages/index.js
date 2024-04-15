@@ -39,14 +39,14 @@ export default function Home() {
    integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
    crossorigin=""/>
       </Head>
-      <Script
+      {/* <Script
       referrerPolicy="no-referrer-when-downgrade"
         src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDpIxJVFjMHOYsOv14lVN9Imlsh6pYI7z0&callback=initialize"
         onLoad={() => {
           console.log('Google Maps API loaded');
           initialize();
         }}
-      />
+      /> */}
       <main className={`${styles.main} ${inter.className}`} id="main">
         <div className="top">
           <div className="topItem topLeft">
@@ -65,6 +65,8 @@ export default function Home() {
         <div className="MainDiv">
           <div id="innerMainDiv" ref={mapDivRef}>
 
+
+          <iframe src='https://www.google.com/maps/embed/v1/streetview?location=-1.9732753828837546,30.03042687178718&key=AIzaSyDpIxJVFjMHOYsOv14lVN9Imlsh6pYI7z0&fov=90' style={{width: '100vw', height: '100vh', zIndex: 10}} />
             <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`}>
             <button className="toggleMap" onClick={() => setMapShown(!mapShown)}>
             {mapShown ? 'Hide Map' : 'Show Map'}
