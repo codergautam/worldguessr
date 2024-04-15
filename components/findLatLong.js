@@ -30,11 +30,6 @@ const loader = new Loader({
   });
 });
 }
-// send post to https://maps.googleapis.com/$rpc/google.internal.maps.mapsjs.v1.MapsJsInternalService/SingleImageSearch
-// with payload [["apiv3",null,null,null,"US",null,null,null,null,null,[[0]]],[[null,null,X,Y],50000],[[null,null,1],["en","US"],null,null,null,null,null,null,[1],null,[[[2,1,2],[3,1,2],[10,1,2]]]],[[1,2,3,4,8,6]]]
-// x and y are the lat and long
-// if output is [[5, "generic", "Search returned no images."]] then the lat and long are invalid
-
 
 export default async function findLatLongRandom() {
   console.log('Finding random location...');
