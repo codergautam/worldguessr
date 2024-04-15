@@ -58,7 +58,7 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm }) => {
       {pinPoint && <Marker position={pinPoint} /> }
       { guessed && (
         <>
-       <Marker position={{lat: location.lat, lng: location.long}} icon={destIcon} />
+       <Marker position={{lat: location.lat, lng: location.long}} />
       <Polyline positions={[pinPoint, {lat: location.lat, lng: location.long}]} />
       {/* display distance */}
       {/* <p>{Math.round(pinPoint.distanceTo({lat: location.lat, lng: location.long}) / 1000)} km</p> */}
