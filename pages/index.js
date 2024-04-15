@@ -5,6 +5,7 @@ import styles from '@/styles/Home.module.css';
 import Script from 'next/script';
 import dynamic from 'next/dynamic';
 import findLatLongRandom from '@/components/findLatLong';
+import useWindowDimensions from '@/components/useWindowDimensions';
 const inter = Inter({ subsets: ['latin'] });
 const Map = dynamic(() => import("../components/Map"), { ssr: false });
 export default function Home() {
@@ -15,6 +16,7 @@ export default function Home() {
   const [latLong, setLatLong] = useState(null);
   const [guessed, setGuessed] = useState(false);
   const [km, setKm] = useState(null);
+  const {width, height} = useWindowDimensions();
 
   function resetMap() {
     setLatLong(null);
@@ -33,6 +35,9 @@ export default function Home() {
 
   useEffect(() => {
     resetMap();
+    if(width < 600) {
+      setMapShown(false);
+    }
   }, []);
 
   return (
@@ -56,7 +61,7 @@ export default function Home() {
         }}
       /> */}
       <main className={`${styles.main} ${inter.className}`} id="main">
-        <div className="top">
+        <div className={`top ${mapShown?'hideOnMobile':''}`}>
           <div className="topItem topLeft">
             <a id="logo" alt="worldguessr logo">
               <img id="icon" src="/logo.png" alt="WorldGuessr logo" />
@@ -92,7 +97,7 @@ export default function Home() {
             {mapShown ? 'Hide Map' : 'Show Map'}
             </button>
             { mapShown && !guessed && (
-            <button className="toggleMap" onClick={() => setMapFullscreen(!mapFullscreen)}>
+            <button className="toggleMap hideOnMobile" onClick={() => setMapFullscreen(!mapFullscreen)}>
             {!mapFullscreen ? 'Fullscreen' : 'Exit Fullscreen'}
             </button>
             )}
@@ -112,6 +117,9 @@ export default function Home() {
                 setMapFullscreen(false);
                 setLatLong(null);
                 setKm(null);
+                if(width < 600) {
+                  setMapShown(false)
+                }
                 resetMap();
               }}>
               Play Again
