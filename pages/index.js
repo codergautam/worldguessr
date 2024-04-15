@@ -40,7 +40,8 @@ export default function Home() {
    crossorigin=""/>
       </Head>
       <Script
-        src="https://maps.googleapis.com/maps/api/js?key=&callback=initialize"
+      referrerPolicy="no-referrer-when-downgrade"
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDpIxJVFjMHOYsOv14lVN9Imlsh6pYI7z0&callback=initialize"
         onLoad={() => {
           console.log('Google Maps API loaded');
           initialize();
