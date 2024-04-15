@@ -8,8 +8,8 @@ export default function App({ Component, pageProps }) {
   });
   return (
     <>
-      {/* <Analytics />
-      <GoogleAnalytics trackPageViews gaMeasurementId="G-KFK0S0RXG5" /> */}
+      <Analytics />
+      <GoogleAnalytics trackPageViews gaMeasurementId="G-KFK0S0RXG5" />
       <Component {...pageProps} />
     </>
   );
