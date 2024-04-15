@@ -71,8 +71,6 @@ h1, h2, h3 {
 #miniMap {
   cursor: crosshair;
   transition: all 250ms ease;
-  margin-bottom: 10px;
-  margin-top: 5px;
   width: 30%;
   height: 30%;
   max-height: 100%;
@@ -80,8 +78,10 @@ h1, h2, h3 {
   opacity: 95%;
   border-radius: 10px;
   background: #bfd4da;
+  position: absolute;
   box-shadow: 0 2px 20px rgba(71, 71, 71, 0.5);
 
+  bottom: 40px;
   margin-top: auto;
   margin-left: auto;
   margin-right: 100px;

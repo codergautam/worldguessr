@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import styles from '@/styles/Home.module.css';
 import Script from 'next/script';
 import dynamic from 'next/dynamic';
+import findLatLongRandom from '@/components/findLatLong';
 const inter = Inter({ subsets: ['latin'] });
 const Map = dynamic(() => import("../components/Map"), { ssr: false });
 export default function Home() {
@@ -11,6 +12,7 @@ export default function Home() {
   const [mapShown, setMapShown] = useState(true);
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [pinPoint, setPinPoint] = React.useState(null);
+  const [latLong, setLatLong] = useState(null);
 
   function initialize() {
     var fenway = { lat: 48.8484, lng: 2.2945 };
@@ -28,6 +30,13 @@ export default function Home() {
     }
   }, [mapFullscreen]);
 
+  useEffect(() => {
+    findLatLongRandom().then((data) => {
+      setLatLong(data);
+      console.log(data);
+    });
+  }, []);
+
   return (
     <>
       <Head>
@@ -38,6 +47,7 @@ export default function Home() {
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
    integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
    crossorigin=""/>
+
       </Head>
       {/* <Script
       referrerPolicy="no-referrer-when-downgrade"
@@ -66,8 +76,10 @@ export default function Home() {
           <div id="innerMainDiv" ref={mapDivRef}>
 
 
-          <iframe src='https://www.google.com/maps/embed/v1/streetview?location=-1.9732753828837546,30.03042687178718&key=AIzaSyDpIxJVFjMHOYsOv14lVN9Imlsh6pYI7z0&fov=90' style={{width: '100vw', height: '100vh', zIndex: 10}} />
-            <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`}>
+{!latLong ? <h1>Loading...</h1> : (
+          <iframe src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyDpIxJVFjMHOYsOv14lVN9Imlsh6pYI7z0&fov=90`} style={{width: '100vw', height: '100vh', zIndex: 10}} />
+)}
+           <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`}>
             <button className="toggleMap" onClick={() => setMapShown(!mapShown)}>
             {mapShown ? 'Hide Map' : 'Show Map'}
             </button>

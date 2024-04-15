@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@googlemaps/js-api-loader": "^1.16.6",
     "@vercel/analytics": "^1.2.2",
     "leaflet": "^1.9.4",
     "next": "14.2.1",
