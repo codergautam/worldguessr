@@ -42,7 +42,7 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm }) => {
     <MapContainer
       center={[0, 0]}
       zoom={2}
-      style={{ height: "90%", width: "100%" }}
+      style={{ height: "90%", width: "100%", cursor: 'crosshair' }}
       whenCreated={mapInstance => { mapRef.current = mapInstance; }}
       whenReady={() => {
         if (mapRef.current) {
