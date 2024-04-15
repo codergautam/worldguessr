@@ -45,7 +45,8 @@ export default function Home() {
       <Head>
         <title>WorldGuessr</title>
         <meta name="description" content="The #1 free and open source GeoGuessr game" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" 
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
         <link rel="icon" href="/icon.png" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
    integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
