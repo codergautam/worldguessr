@@ -65,15 +65,16 @@ h1, h2, h3 {
   flex-direction: column;
 
 
+  background-color: black;
 }
 
-#mapControls {
+/* #mapControls {
   display: flex;
   justify-content: space-between;
   width: 100%;
   padding: 10px;
   margin-bottom: 10px;
-}
+} */
 
 #miniMap {
   cursor: crosshair;

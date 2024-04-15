@@ -74,11 +74,20 @@ export default function Home() {
           <div id="innerMainDiv" ref={mapDivRef}>
 
 
-{!latLong ? <h1>Loading...</h1> : (
+{!latLong ? <img style={{position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}} src="/load.gif" /> : (
           <iframe src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyD90QHwKReAN3TohEbw6TVyIsq0vUNBmpI&fov=90`} style={{width: '100vw', height: '100vh', zIndex: 10}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'></iframe>
 )}
            <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`}>
             <div id="mapControls">
+              {km && guessed && mapShown && (
+  <>
+                <h1 style={{display: "inline-block"}}>
+                  {km} km
+                </h1>
+    &nbsp;
+    &nbsp;
+    </>
+              )}
             <button className="toggleMap" onClick={() => setMapShown(!mapShown)}>
             {mapShown ? 'Hide Map' : 'Show Map'}
             </button>
@@ -95,9 +104,7 @@ export default function Home() {
             Guess
             </button>
             )}
-            {km && guessed && (
-              <h1>{km} km</h1>
-            )}
+
             {guessed && mapShown && (
               <button className="toggleMap" onClick={() => {
                 setGuessed(false);
