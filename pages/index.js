@@ -26,6 +26,18 @@ export default function Home() {
     });
   }
 
+  function fullReset() {
+    setGuessed(false);
+    setPinPoint(null);
+    setMapFullscreen(false);
+    setLatLong(null);
+    setKm(null);
+    if(width < 600) {
+      setMapShown(false)
+    }
+    resetMap();
+  }
+
   useEffect(() => {
     // emit resize event to force map to resize
     if (mapFullscreen) {
@@ -64,7 +76,9 @@ export default function Home() {
       <main className={`${styles.main} ${inter.className}`} id="main">
         <div className={`top ${mapShown?'hideOnMobile':''}`}>
           <div className="topItem topLeft">
-            <a id="logo" alt="worldguessr logo">
+            <a id="logo" alt="worldguessr logo" onClick={() => {
+      fullReset()
+            }} style={{cursor: "pointer"}}>
               <img id="icon" src="/logo.png" alt="WorldGuessr logo" />
             </a>
           </div>
@@ -113,15 +127,7 @@ export default function Home() {
 
             {guessed && mapShown && (
               <button className="toggleMap" onClick={() => {
-                setGuessed(false);
-                setPinPoint(null);
-                setMapFullscreen(false);
-                setLatLong(null);
-                setKm(null);
-                if(width < 600) {
-                  setMapShown(false)
-                }
-                resetMap();
+                fullReset()
               }}>
               Play Again
               </button>
