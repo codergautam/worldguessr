@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@vercel/analytics": "^1.2.2",
+    "leaflet": "^1.9.4",
     "next": "14.2.1",
     "nextjs-google-analytics": "^2.3.3",
-    "react": "^18",
-    "react-dom": "^18"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-leaflet": "^4.2.1"
   },
   "devDependencies": {
     "eslint": "^8",
