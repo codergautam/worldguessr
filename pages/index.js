@@ -13,13 +13,14 @@ export default function Home() {
   const [mapFullscreen, setMapFullscreen] = useState(false);
   const [pinPoint, setPinPoint] = React.useState(null);
   const [latLong, setLatLong] = useState(null);
+  const [guessed, setGuessed] = useState(false);
+  const [km, setKm] = useState(null);
 
-  function initialize() {
-    var fenway = { lat: 48.8484, lng: 2.2945 };
-    new google.maps.StreetViewPanorama(mapDivRef.current, {
-      position: fenway,
-      disableDefaultUI: true,
-      showRoadLabels: false,
+  function resetMap() {
+    setLatLong(null);
+    findLatLongRandom().then((data) => {
+      setLatLong(data);
+      console.log(data);
     });
   }
 
@@ -31,10 +32,7 @@ export default function Home() {
   }, [mapFullscreen]);
 
   useEffect(() => {
-    findLatLongRandom().then((data) => {
-      setLatLong(data);
-      console.log(data);
-    });
+    resetMap();
   }, []);
 
   return (
@@ -80,17 +78,41 @@ export default function Home() {
           <iframe src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyD90QHwKReAN3TohEbw6TVyIsq0vUNBmpI&fov=90`} style={{width: '100vw', height: '100vh', zIndex: 10}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'></iframe>
 )}
            <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`}>
+            <div id="mapControls">
             <button className="toggleMap" onClick={() => setMapShown(!mapShown)}>
             {mapShown ? 'Hide Map' : 'Show Map'}
             </button>
-            &nbsp;
-            &nbsp;
-            { mapShown && (
+            { mapShown && !guessed && (
             <button className="toggleMap" onClick={() => setMapFullscreen(!mapFullscreen)}>
             {!mapFullscreen ? 'Fullscreen' : 'Exit Fullscreen'}
             </button>
             )}
-            {mapShown && <Map fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} />}
+            { mapShown && pinPoint && !guessed && (
+            <button className="toggleMap" onClick={() => {
+              setMapFullscreen(true);
+               setGuessed(true)
+            }}>
+            Guess
+            </button>
+            )}
+            {km && guessed && (
+              <h1>{km} km</h1>
+            )}
+            {guessed && mapShown && (
+              <button className="toggleMap" onClick={() => {
+                setGuessed(false);
+                setPinPoint(null);
+                setMapFullscreen(false);
+                setLatLong(null);
+                setKm(null);
+                resetMap();
+              }}>
+              Play Again
+              </button>
+            )}
+            </div>
+
+            {mapShown && <Map fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} location={latLong} setKm={setKm} />}
             </div>
           </div>
         </div>

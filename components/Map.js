@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import dynamic from "next/dynamic";
-import { Marker, useMapEvents } from "react-leaflet";
+import { Marker, Polyline, useMapEvents } from "react-leaflet";
 
 // Dynamic import of react-leaflet components
 const MapContainer = dynamic(
@@ -16,10 +16,12 @@ const TileLayer = dynamic(
   }
 );
 
-function MapPlugin({ pinPoint, setPinPoint }) {
+function MapPlugin({ pinPoint, setPinPoint, guessed }) {
 
   const map = useMapEvents({
     click(e) {
+      if(guessed) return;
+      console.log(e.latlng);
       setPinPoint(e.latlng);
     },
   });
@@ -27,8 +29,14 @@ function MapPlugin({ pinPoint, setPinPoint }) {
 
 }
 
-const MapComponent = ({ pinPoint, setPinPoint }) => {
+const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm }) => {
   const mapRef = React.useRef(null);
+
+  useEffect(() => {
+    if (guessed) {
+      setKm(Math.round(pinPoint.distanceTo({ lat: location.lat, lng: location.long }) / 1000));
+    }
+  }, [guessed, pinPoint, location]);
 
   return (
     <MapContainer
@@ -45,11 +53,19 @@ const MapComponent = ({ pinPoint, setPinPoint }) => {
 
 
     >
-      <MapPlugin pinPoint={pinPoint} setPinPoint={setPinPoint} />
+      <MapPlugin pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} />
       {/* place a pin */}
       {pinPoint && <Marker position={pinPoint} /> }
+      { guessed && (
+        <>
+       <Marker position={{lat: location.lat, lng: location.long}} />
+      <Polyline positions={[pinPoint, {lat: location.lat, lng: location.long}]} />
+      {/* display distance */}
+      {/* <p>{Math.round(pinPoint.distanceTo({lat: location.lat, lng: location.long}) / 1000)} km</p> */}
+      </>
+       ) }
       <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
       />
     </MapContainer>
   );
