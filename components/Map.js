@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Marker, Polyline, useMapEvents } from "react-leaflet";
-
+import L from 'leaflet';
 // Dynamic import of react-leaflet components
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -16,27 +16,34 @@ const TileLayer = dynamic(
   }
 );
 
-function MapPlugin({ pinPoint, setPinPoint, guessed }) {
-
+function MapPlugin({ pinPoint, setPinPoint, guessed, dest }) {
   const map = useMapEvents({
     click(e) {
       if(guessed) return;
-      console.log(e.latlng);
       setPinPoint(e.latlng);
     },
-    drag() {
-      console.log("Map is being dragged");
-      // log zoom level and center
-      console.log(map.getZoom());
-      console.log(map.getCenter());
-    }
   });
 
+  useEffect(() => {
+    if (guessed) {
 
+      // pan to the destination
+      map.flyTo({lat: dest.lat, lng: dest.long}, 5, {
+        duration: 5,
+        animate: true,
+
+      });
+    }
+  }, [guessed]);
 }
 
 const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm }) => {
-  const mapRef = React.useRef(null);
+  const destIcon = L.icon({
+    iconUrl: '/dest.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+  });
 
   useEffect(() => {
     if (guessed) {
@@ -44,29 +51,23 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm }) => {
     }
   }, [guessed, pinPoint, location]);
 
+
+
   return (
     <MapContainer
       center={[35, 2]}
       zoom={2}
       style={{ height: "90%", width: "100%", cursor: 'crosshair', userSelect: 'none' }}
-      whenCreated={mapInstance => { mapRef.current = mapInstance; }}
-      whenReady={() => {
-        if (mapRef.current) {
-          alert("Map is ready!");
-          console.log(mapRef.current);
-        }
-      }}
-
-
     >
-      <MapPlugin pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} />
+      <MapPlugin pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} dest={location} />
       {/* place a pin */}
       {pinPoint && <Marker position={pinPoint} /> }
-      { guessed && (
+      { guessed && location && (
         <>
-       <Marker position={{lat: location.lat, lng: location.long}} />
-      <Polyline positions={[pinPoint, {lat: location.lat, lng: location.long}]} />
-      {/* display distance */}
+       <Marker position={{lat: location.lat, lng: location.long}} icon={destIcon} />
+      {/* draw a line */}
+      {/* no polyline. use a different type of object */}
+      {/* < Polyline positions={[pinPoint, {lat: location.lat, lng: location.long}]} /> */}
       {/* <p>{Math.round(pinPoint.distanceTo({lat: location.lat, lng: location.long}) / 1000)} km</p> */}
       </>
        ) }

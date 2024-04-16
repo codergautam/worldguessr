@@ -29,10 +29,9 @@ button {
 
 
 .topItem {
-  background-color: rgba(42, 44, 71, 0.9);
   backdrop-filter: blur(10px);
+  background-color: rgba(42, 44, 71, 0.9);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 2px 20px rgba(5, 6, 10, 0.5);
   height: 75px;
   user-select: none;
 }
@@ -112,7 +111,7 @@ img {
   border-radius: 10px;
   background: #bfd4da;
   position: absolute;
-  box-shadow: 0 2px 20px rgba(71, 71, 71, 0.5);
+  box-shadow: 0 2px 20px rgba(17, 17, 17, 0.5);
 
   bottom: 40px;
   margin-top: auto;
@@ -153,6 +152,7 @@ img {
 @media screen and (min-width: 600px) {
   #miniMap.mapFullscreen {
     /* full screen center not 100% */
+    transition: none;
     height: 65%;
     width: 65%;
   }
@@ -173,6 +173,30 @@ img {
 #miniMap:hover {
   transition: all 250ms ease;
   opacity: 100%;
+}
+
+.guessBtn {
+  background-color: rgba(32, 41, 36, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 20px rgba(5, 6, 10, 0.5);
+  border-radius: 10px;
+  padding: 10px;
+  margin: 10px;
+  color: white;
+  font-size: 2em;
+  cursor: pointer;
+  user-select: none;
+}
+
+.guessBtn:hover {
+  transition: all 250ms ease;
+  background-color: rgba(32, 41, 36, 1);
+}
+
+.guessBtn:active {
+  transition: all 250ms ease;
+  background-color: rgba(32, 41, 36, 0.8);
 }
 
 .MainDiv {

@@ -20,10 +20,8 @@ const loader = new Loader({
         const out = (Object.values(data.sG)[0]);
         const latO = out.lat;
         const longO = out.lng;
-        console.log(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${latO},${longO}`);
         resolve({ lat: latO, long: longO });
       } else {
-        console.log("Invalid lat and long");
         resolve(null);
       }
     });
@@ -32,7 +30,6 @@ const loader = new Loader({
 }
 
 export default async function findLatLongRandom() {
-  console.log('Finding random location...');
   let found = false;
   let output = null;
 

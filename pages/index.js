@@ -23,7 +23,6 @@ export default function Home() {
     setLatLong(null);
     findLatLongRandom().then((data) => {
       setLatLong(data);
-      console.log(data);
     });
   }
 
@@ -42,7 +41,7 @@ export default function Home() {
 
   useEffect(() => {
     // emit resize event to force map to resize
-    if (mapFullscreen) {
+    if (mapFullscreen || mapShown) {
       window.dispatchEvent(new Event('resize'));
       const correctionTimes = 20;
       const totalTime = 260;
@@ -51,12 +50,11 @@ export default function Home() {
       const interval = setInterval(() => {
         i++;
         window.dispatchEvent(new Event('resize'));
+        console.log('Resizing map');
         if (i >= correctionTimes) {
           clearInterval(interval);
         }
       }, time);
-
-
 
     }
   }, [mapFullscreen, mapShown]);
@@ -99,22 +97,23 @@ export default function Home() {
             }} style={{cursor: "pointer"}}>
               <img id="icon" src="/logo.png" alt="WorldGuessr logo" />
             </a>
+          </div>
+          <div id="topCenter">
 
-            { mapShown && pinPoint && !guessed && (
-            <button className="toggleMap" onClick={() => {
+          </div>
+          <div className="topItem topRight" style={{opacity: (pinPoint && !guessed) ? '1' : '0', transition: 'all 250ms ease', backgroundColor:'rgba(255, 255, 255, 0.1)', backdropFilter: 'none'}}>
+          { pinPoint && !guessed && (
+            <button className="guessBtn" onClick={() => {
               setMapFullscreen(true);
+              if(width < 600  && !mapShown) {
+                setMapShown(true);
+              }
                setGuessed(true)
             }}>
             Guess
             </button>
             )}
           </div>
-          <div id="topCenter">
-
-          </div>
-          {/* <div className="topItem topRight">
-           ffgh
-          </div> */}
         </div>
 
         <div className="MainDiv">
@@ -149,11 +148,9 @@ setTimeout(() => {
     &nbsp;
     </>
               )}
-              { !mapShown || mapFullscreen ? (
-            <button className="toggleMap" onClick={() => setMapShown(!mapShown)}>
+            <button className="toggleMap" onClick={() => setMapShown(!mapShown)} style={{display: (!mapShown || mapFullscreen || (width && width < 600)) ? '' : 'none'}}>
             {mapShown ? 'Hide Map' : 'Show Map'}
             </button>
-            ) : null}
             {/* { mapShown && !guessed && (
             <button className="toggleMap hideOnMobile" onClick={() => setMapFullscreen(!mapFullscreen)}>
             {!mapFullscreen ? 'Fullscreen' : 'Exit Fullscreen'}
