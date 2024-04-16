@@ -37,13 +37,17 @@ function MapPlugin({ pinPoint, setPinPoint, guessed, dest }) {
   }, [guessed]);
 }
 
-const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm }) => {
+const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height }) => {
   const destIcon = L.icon({
     iconUrl: '/dest.png',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
   });
+
+  const corner1 = L.latLng(-90, -180)
+  const corner2 = L.latLng(90, 180)
+const bounds = L.latLngBounds(corner1, corner2)
 
   useEffect(() => {
     if (guessed) {
@@ -57,8 +61,11 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm }) => {
     <MapContainer
       center={[35, 2]}
       zoom={2}
-      style={{ height: "90%", width: "100%", cursor: 'crosshair', userSelect: 'none' }}
+      style={{ height: height, width: "100%", cursor: 'crosshair', userSelect: 'none' }}
+      maxBounds={bounds}
+      maxBoundsViscosity={0.5}
     >
+
       <MapPlugin pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} dest={location} />
       {/* place a pin */}
       {pinPoint && <Marker position={pinPoint} /> }

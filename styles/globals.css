@@ -158,6 +158,29 @@ img {
   }
 }
 
+#miniMap.gameOver {
+  /* full screen center not 100% */
+  transition: none;
+  height: 100%;
+  width: 100%;
+  margin-right: 0;
+  bottom: 0;
+}
+
+#endBanner {
+  position: absolute;
+  z-index: 100;
+  background-color: rgba(42, 44, 71, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  padding: 10px;
+  color: white;
+  font-size: 2em;
+  margin: 10px;
+  display: none;
+
+}
+
 .leaflet-control-attribution {
   display: none;
 }
@@ -187,6 +210,13 @@ img {
   font-size: 2em;
   cursor: pointer;
   user-select: none;
+
+}
+
+#mapControlsAbove {
+  position: absolute;
+  transform: translateY(-75px) translateX(-15px);
+  width: 100%;
 }
 
 .guessBtn:hover {

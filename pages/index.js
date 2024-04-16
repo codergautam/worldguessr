@@ -13,7 +13,7 @@ export default function Home() {
   // desktop: is minimap viewable
   // mobile: is minimap tab active (false means streetview)
   const [mapShown, setMapShown] = useState(true);
-  
+
   // desktop: is minimap in enlarged view
   // always true on mobile
   const [mapFullscreen, setMapFullscreen] = useState(false);
@@ -43,6 +43,14 @@ export default function Home() {
     });
   }
 
+  function guess() {
+    setMapFullscreen(true);
+    if(!mapShown) {
+      setMapShown(true);
+    }
+     setGuessed(true);
+  }
+
   function fullReset() {
     setLoading(true);
     setGuessed(false);
@@ -58,7 +66,7 @@ export default function Home() {
 
   useEffect(() => {
     // emit resize event to force map to resize
-    if (mapFullscreen || mapShown) {
+    if (mapFullscreen || mapShown || guessed) {
       window.dispatchEvent(new Event('resize'));
       const correctionTimes = 20;
       const totalTime = 260;
@@ -74,7 +82,7 @@ export default function Home() {
       }, time);
 
     }
-  }, [mapFullscreen, mapShown]);
+  }, [mapFullscreen, mapShown, guessed]);
 
   useEffect(() => {
     if(width < 600) {
@@ -125,18 +133,19 @@ export default function Home() {
 
           </div>
           <div className="topItem topRight" style={{opacity: (pinPoint && !guessed) ? '1' : '0', transition: 'all 250ms ease', backgroundColor:'rgba(255, 255, 255, 0.1)', backdropFilter: 'none'}}>
-          { pinPoint && !guessed && (
-            <button className="guessBtn" onClick={() => {
-              setMapFullscreen(true);
-              if(width < 600  && !mapShown) {
-                setMapShown(true);
-              }
-               setGuessed(true)
-            }}>
-            Guess
-            </button>
-            )}
+
           </div>
+        </div>
+
+        <div id='endBanner' style={{display: guessed ? '' : 'none'}}>
+            <h1>
+              {km} km
+            </h1>
+            <button className="toggleMap" onClick={() => {
+              fullReset()
+            }}>
+              Play Again
+            </button>
         </div>
 
         <div className="MainDiv">
@@ -146,13 +155,14 @@ export default function Home() {
 <img style={{position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", opacity: (!latLong || loading) ? '1' : '0', transition: 'all 250ms ease'}} src="/load.gif" />
 
 {latLong && (
-          <iframe className={`${!mapShown ? 'mapHidden': ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyD90QHwKReAN3TohEbw6TVyIsq0vUNBmpI&fov=90`} id="streetview" style={{width: '100vw', height: '100vh', zIndex: 10, opacity: loading?'0':''}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
+          <iframe className={`${!mapShown ? 'mapHidden': ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyD90QHwKReAN3TohEbw6TVyIsq0vUNBmpI&fov=90`} id="streetview" style={{width: '100vw', height: '100vh', zIndex: 10, opacity: (loading||guessed)?'0':''}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
 setTimeout(() => {
           setLoading(false)
 }, 200);
           }}></iframe>
 )}
-           <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{opacity: loading ? '0' : '1', transition: 'all 250ms ease'}} onMouseEnter={() => {
+
+           <div id="miniMap" onMouseEnter={() => {
             if(mapShown && !mapFullscreen) {
               setMapFullscreen(true);
             }
@@ -160,8 +170,16 @@ setTimeout(() => {
             if(mapShown && mapFullscreen && width > 600) {
               setMapFullscreen(false);
             }
-          }}>
-            <div id="mapControls">
+          }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{opacity: loading ? '0' : '1', transition: 'all 250ms ease'}}>
+
+<div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed) ? '' : 'none'}}>
+{ pinPoint && !guessed && (
+            <button className="guessBtn" onClick={() => {guess()}} >
+            Guess
+            </button>
+            )}
+            </div>
+            {/* <div id="mapControls">
               {km && guessed && mapShown && (
   <>
                 <h1 style={{display: "inline-block"}}>
@@ -174,11 +192,11 @@ setTimeout(() => {
             <button className="toggleMap" onClick={() => setMapShown(!mapShown)} style={{display: (!mapShown || mapFullscreen) ? '' : 'none'}}>
             {mapShown ? 'Hide Map' : 'Show Map'}
             </button>
-            {/* { mapShown && !guessed && (
-            <button className="toggleMap hideOnMobile" onClick={() => setMapFullscreen(!mapFullscreen)}>
-            {!mapFullscreen ? 'Fullscreen' : 'Exit Fullscreen'}
+            { pinPoint && !guessed && (
+            <button className="guessBtn" onClick={() => {guess()}} style={{display: (width>600) ? 'none' : ''}} >
+            Guess
             </button>
-            )} */}
+            )}
 
 
             {guessed && mapShown && (
@@ -188,9 +206,9 @@ setTimeout(() => {
               Play Again
               </button>
             )}
-            </div>
+            </div> */}
 
-            {mapShown && <Map fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} location={latLong} setKm={setKm} />}
+            {mapShown && <Map fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} location={latLong} setKm={setKm} height={"100%"}/>}
             </div>
           </div>
         </div>
