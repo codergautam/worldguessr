@@ -10,7 +10,7 @@ const inter = Inter({ subsets: ['latin'] });
 const Map = dynamic(() => import("../components/Map"), { ssr: false });
 export default function Home() {
   const mapDivRef = useRef(null);
-  // desktop: is minimap viewable
+  // desktop: is minimap viewable (always true when in game)
   // mobile: is minimap tab active (false means streetview)
   const [mapShown, setMapShown] = useState(true);
 
@@ -87,6 +87,10 @@ export default function Home() {
   useEffect(() => {
     if(width < 600) {
       setMapFullscreen(true);
+    } else if(width > 600) {
+      if(!mapShown) {
+        setMapShown(true);
+      }
     }
   }, [width])
 
@@ -116,14 +120,6 @@ export default function Home() {
    crossorigin=""/>
 
       </Head>
-      {/* <Script
-      referrerPolicy="no-referrer-when-downgrade"
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDpIxJVFjMHOYsOv14lVN9Imlsh6pYI7z0&callback=initialize"
-        onLoad={() => {
-          console.log('Google Maps API loaded');
-          initialize();
-        }}
-      /> */}
       <main className={`${styles.main} ${inter.className}`} id="main">
         <div className={`top ${mapShown?'hideOnMobile':''}`}>
           <div className="topItem topLeft">
@@ -183,34 +179,6 @@ setTimeout(() => {
             </button>
             )}
             </div>
-            {/* <div id="mapControls">
-              {km && guessed && mapShown && (
-  <>
-                <h1 style={{display: "inline-block"}}>
-                  {km} km
-                </h1>
-    &nbsp;
-    &nbsp;
-    </>
-              )}
-            <button className="toggleMap" onClick={() => setMapShown(!mapShown)} style={{display: (!mapShown || mapFullscreen) ? '' : 'none'}}>
-            {mapShown ? 'Hide Map' : 'Show Map'}
-            </button>
-            { pinPoint && !guessed && (
-            <button className="guessBtn" onClick={() => {guess()}} style={{display: (width>600) ? 'none' : ''}} >
-            Guess
-            </button>
-            )}
-
-
-            {guessed && mapShown && (
-              <button className="toggleMap" onClick={() => {
-                fullReset()
-              }}>
-              Play Again
-              </button>
-            )}
-            </div> */}
 
             {mapShown && <Map fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} location={latLong} setKm={setKm} height={"100%"}/>}
             </div>

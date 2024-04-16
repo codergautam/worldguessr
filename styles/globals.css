@@ -137,9 +137,8 @@ img {
   }
 }
 #miniMap.mapHidden {
-  /* enough height just to fit the button */
-  height: 35px;
-  width: 140px;
+  height: 0;
+  width: 0;
 }
 
 @media screen and (max-width: 600px) {
@@ -147,7 +146,6 @@ img {
     display: block;
   }
 }
-
 
 @media screen and (min-width: 600px) {
   #miniMap.mapFullscreen {
@@ -157,6 +155,8 @@ img {
     width: 65%;
   }
 }
+
+
 
 #miniMap.gameOver {
   /* full screen center not 100% */
