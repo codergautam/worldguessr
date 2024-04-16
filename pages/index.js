@@ -10,13 +10,30 @@ const inter = Inter({ subsets: ['latin'] });
 const Map = dynamic(() => import("../components/Map"), { ssr: false });
 export default function Home() {
   const mapDivRef = useRef(null);
+  // desktop: is minimap viewable
+  // mobile: is minimap tab active (false means streetview)
   const [mapShown, setMapShown] = useState(true);
+  
+  // desktop: is minimap in enlarged view
+  // always true on mobile
   const [mapFullscreen, setMapFullscreen] = useState(false);
+
+  // user selection point
   const [pinPoint, setPinPoint] = React.useState(null);
+
+  // coords of dest
   const [latLong, setLatLong] = useState(null);
+
+  // whether guess confirmed or not
   const [guessed, setGuessed] = useState(false);
+
+  // dist between guess & target
   const [km, setKm] = useState(null);
+
+  // waiting for iframe
   const [loading, setLoading] = useState(true);
+
+  // screen dim
   const {width, height} = useWindowDimensions();
 
   function resetMap() {
@@ -30,7 +47,7 @@ export default function Home() {
     setLoading(true);
     setGuessed(false);
     setPinPoint(null);
-    setMapFullscreen(false);
+    if(width > 600) setMapFullscreen(false);
     setLatLong(null);
     setKm(null);
     if(width < 600) {
@@ -58,6 +75,12 @@ export default function Home() {
 
     }
   }, [mapFullscreen, mapShown]);
+
+  useEffect(() => {
+    if(width < 600) {
+      setMapFullscreen(true);
+    }
+  }, [width])
 
 
 
@@ -134,7 +157,7 @@ setTimeout(() => {
               setMapFullscreen(true);
             }
           }} onMouseLeave={() => {
-            if(mapShown && mapFullscreen) {
+            if(mapShown && mapFullscreen && width > 600) {
               setMapFullscreen(false);
             }
           }}>
@@ -148,7 +171,7 @@ setTimeout(() => {
     &nbsp;
     </>
               )}
-            <button className="toggleMap" onClick={() => setMapShown(!mapShown)} style={{display: (!mapShown || mapFullscreen || (width && width < 600)) ? '' : 'none'}}>
+            <button className="toggleMap" onClick={() => setMapShown(!mapShown)} style={{display: (!mapShown || mapFullscreen) ? '' : 'none'}}>
             {mapShown ? 'Hide Map' : 'Show Map'}
             </button>
             {/* { mapShown && !guessed && (
