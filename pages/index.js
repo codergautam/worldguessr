@@ -99,6 +99,10 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    console.log('guessed', guessed);
+  }, [guessed]);
+
   return (
     <>
       <Head>

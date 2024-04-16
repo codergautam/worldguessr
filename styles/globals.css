@@ -170,15 +170,15 @@ img {
 #endBanner {
   position: absolute;
   z-index: 100;
-  background-color: rgba(42, 44, 71, 0.9);
+  background-color: rgba(106, 107, 131, 0.9);
   backdrop-filter: blur(10px);
   border-radius: 10px;
-  padding: 10px;
   color: white;
   font-size: 2em;
-  margin: 10px;
-  display: none;
-
+  width: 100vw;
+  top: 80%;
+  opacity: 80%;
+  text-align: center;
 }
 
 .leaflet-control-attribution {
