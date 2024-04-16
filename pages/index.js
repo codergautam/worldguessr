@@ -130,7 +130,7 @@ setTimeout(() => {
 }, 200);
           }}></iframe>
 )}
-           <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} onMouseEnter={() => {
+           <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{opacity: loading ? '0' : '1', transition: 'all 250ms ease'}} onMouseEnter={() => {
             if(mapShown && !mapFullscreen) {
               setMapFullscreen(true);
             }
