@@ -24,6 +24,12 @@ function MapPlugin({ pinPoint, setPinPoint, guessed }) {
       console.log(e.latlng);
       setPinPoint(e.latlng);
     },
+    drag() {
+      console.log("Map is being dragged");
+      // log zoom level and center
+      console.log(map.getZoom());
+      console.log(map.getCenter());
+    }
   });
 
 
@@ -40,9 +46,9 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm }) => {
 
   return (
     <MapContainer
-      center={[0, 0]}
+      center={[35, 2]}
       zoom={2}
-      style={{ height: "90%", width: "100%", cursor: 'crosshair' }}
+      style={{ height: "90%", width: "100%", cursor: 'crosshair', userSelect: 'none' }}
       whenCreated={mapInstance => { mapRef.current = mapInstance; }}
       whenReady={() => {
         if (mapRef.current) {
@@ -66,6 +72,8 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm }) => {
        ) }
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png"
+        noWrap={true}
+        edgeBufferTiles={2}
       />
     </MapContainer>
   );

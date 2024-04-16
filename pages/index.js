@@ -16,6 +16,7 @@ export default function Home() {
   const [latLong, setLatLong] = useState(null);
   const [guessed, setGuessed] = useState(false);
   const [km, setKm] = useState(null);
+  const [loading, setLoading] = useState(true);
   const {width, height} = useWindowDimensions();
 
   function resetMap() {
@@ -27,6 +28,7 @@ export default function Home() {
   }
 
   function fullReset() {
+    setLoading(true);
     setGuessed(false);
     setPinPoint(null);
     setMapFullscreen(false);
@@ -42,8 +44,24 @@ export default function Home() {
     // emit resize event to force map to resize
     if (mapFullscreen) {
       window.dispatchEvent(new Event('resize'));
+      const correctionTimes = 20;
+      const totalTime = 260;
+      const time = totalTime / correctionTimes;
+      let i = 0;
+      const interval = setInterval(() => {
+        i++;
+        window.dispatchEvent(new Event('resize'));
+        if (i >= correctionTimes) {
+          clearInterval(interval);
+        }
+      }, time);
+
+
+
     }
-  }, [mapFullscreen]);
+  }, [mapFullscreen, mapShown]);
+
+
 
   useEffect(() => {
     resetMap();
@@ -57,7 +75,7 @@ export default function Home() {
       <Head>
         <title>WorldGuessr</title>
         <meta name="description" content="The #1 free and open source GeoGuessr game" />
-        <meta name="viewport" 
+        <meta name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
         <link rel="icon" href="/icon.png" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
@@ -81,6 +99,15 @@ export default function Home() {
             }} style={{cursor: "pointer"}}>
               <img id="icon" src="/logo.png" alt="WorldGuessr logo" />
             </a>
+
+            { mapShown && pinPoint && !guessed && (
+            <button className="toggleMap" onClick={() => {
+              setMapFullscreen(true);
+               setGuessed(true)
+            }}>
+            Guess
+            </button>
+            )}
           </div>
           <div id="topCenter">
 
@@ -94,10 +121,24 @@ export default function Home() {
           <div id="innerMainDiv" ref={mapDivRef}>
 
 
-{!latLong ? <img style={{position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)"}} src="/load.gif" /> : (
-          <iframe className={`${!mapShown ? 'mapHidden': ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyD90QHwKReAN3TohEbw6TVyIsq0vUNBmpI&fov=90`} id="streetview" style={{width: '100vw', height: '100vh', zIndex: 10}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'></iframe>
+<img style={{position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", opacity: (!latLong || loading) ? '1' : '0', transition: 'all 250ms ease'}} src="/load.gif" />
+
+{latLong && (
+          <iframe className={`${!mapShown ? 'mapHidden': ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyD90QHwKReAN3TohEbw6TVyIsq0vUNBmpI&fov=90`} id="streetview" style={{width: '100vw', height: '100vh', zIndex: 10, opacity: loading?'0':''}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
+setTimeout(() => {
+          setLoading(false)
+}, 200);
+          }}></iframe>
 )}
-           <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`}>
+           <div id="miniMap" className={`${!mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} onMouseEnter={() => {
+            if(mapShown && !mapFullscreen) {
+              setMapFullscreen(true);
+            }
+          }} onMouseLeave={() => {
+            if(mapShown && mapFullscreen) {
+              setMapFullscreen(false);
+            }
+          }}>
             <div id="mapControls">
               {km && guessed && mapShown && (
   <>
@@ -108,22 +149,17 @@ export default function Home() {
     &nbsp;
     </>
               )}
+              { !mapShown || mapFullscreen ? (
             <button className="toggleMap" onClick={() => setMapShown(!mapShown)}>
             {mapShown ? 'Hide Map' : 'Show Map'}
             </button>
-            { mapShown && !guessed && (
+            ) : null}
+            {/* { mapShown && !guessed && (
             <button className="toggleMap hideOnMobile" onClick={() => setMapFullscreen(!mapFullscreen)}>
             {!mapFullscreen ? 'Fullscreen' : 'Exit Fullscreen'}
             </button>
-            )}
-            { mapShown && pinPoint && !guessed && (
-            <button className="toggleMap" onClick={() => {
-              setMapFullscreen(true);
-               setGuessed(true)
-            }}>
-            Guess
-            </button>
-            )}
+            )} */}
+
 
             {guessed && mapShown && (
               <button className="toggleMap" onClick={() => {

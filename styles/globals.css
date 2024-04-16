@@ -19,7 +19,14 @@ h1, h2, h3 {
   display: flex;
   justify-content: space-between;
   align-items: top;
+  user-select: none;
 }
+
+button {
+  user-select: none;
+}
+
+
 
 .topItem {
   background-color: rgba(42, 44, 71, 0.9);
@@ -27,6 +34,7 @@ h1, h2, h3 {
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 2px 20px rgba(5, 6, 10, 0.5);
   height: 75px;
+  user-select: none;
 }
 
 .topLeft {
@@ -55,6 +63,17 @@ h1, h2, h3 {
   margin-top: 6px;
   margin-left: 10px;
   width: 18em;
+  transition: all 250ms ease;
+}
+
+#icon:hover {
+  transition: all 250ms ease;
+  transform: scale(1.1);
+}
+
+#icon:active {
+  transition: all 250ms ease;
+  transform: scale(0.8);
 }
 
 #innerMainDiv {
@@ -68,13 +87,20 @@ h1, h2, h3 {
   background-color: black;
 }
 
-/* #mapControls {
-  display: flex;
+#mapControls {
+  /* display: flex;
   justify-content: space-between;
   width: 100%;
   padding: 10px;
-  margin-bottom: 10px;
-} */
+  margin-bottom: 10px; */
+  user-select: none;
+}
+
+img {
+  user-select: none;
+}
+
+
 
 #miniMap {
   transition: all 250ms ease;
@@ -82,7 +108,7 @@ h1, h2, h3 {
   height: 30%;
   max-height: 100%;
   z-index: 10;
-  opacity: 95%;
+  opacity: 85%;
   border-radius: 10px;
   background: #bfd4da;
   position: absolute;
@@ -101,7 +127,11 @@ h1, h2, h3 {
 
 }
 
-
+#streetview {
+  user-select: none;
+  border: none !important;
+  transition: all 1000ms ease;
+}
 @media screen and (max-width: 600px) {
   #streetview {
     display: none;
@@ -141,7 +171,7 @@ h1, h2, h3 {
 }
 
 #miniMap:hover {
-  transition: none;
+  transition: all 250ms ease;
   opacity: 100%;
 }
 
