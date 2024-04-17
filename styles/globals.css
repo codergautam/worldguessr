@@ -83,7 +83,8 @@ button {
   flex-direction: column;
 
 
-  background-color: black;
+  background-color: rgba(15, 16, 22, 0.9);
+
 }
 
 #mapControls {
@@ -102,8 +103,8 @@ img {
 
 
 #miniMap {
-  transition: all 250ms ease;
   width: 30%;
+  transition: all 200ms ease;
   height: 30%;
   max-height: 100%;
   z-index: 10;
@@ -150,7 +151,7 @@ img {
 @media screen and (min-width: 600px) {
   #miniMap.mapFullscreen {
     /* full screen center not 100% */
-    transition: none;
+    transition: all 250ms ease;
     height: 65%;
     width: 65%;
   }
@@ -160,7 +161,7 @@ img {
 
 #miniMap.gameOver {
   /* full screen center not 100% */
-  transition: none;
+  transition: none !important;
   height: 100%;
   width: 100%;
   margin-right: 0;
@@ -210,7 +211,13 @@ img {
   font-size: 2em;
   cursor: pointer;
   user-select: none;
+}
 
+@media screen and (max-width: 600px) {
+  .guessBtn {
+    font-size: 1.2em;
+    margin: 0px;
+  }
 }
 
 #mapControlsAbove {

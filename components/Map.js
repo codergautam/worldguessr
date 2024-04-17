@@ -25,14 +25,27 @@ function MapPlugin({ pinPoint, setPinPoint, guessed, dest }) {
   });
 
   useEffect(() => {
+    // reset map to initial state center and zoom
+    map.setView([35, 2], 2);
+    
+  }, [dest]);
+
+  useEffect(() => {
     if (guessed) {
 
       // pan to the destination
-      map.flyTo({lat: dest.lat, lng: dest.long}, 5, {
-        duration: 5,
-        animate: true,
+      // invalidates the map
 
+      // center at the destination
+
+      map.invalidateSize();
+
+      setTimeout(() => {
+      map.flyTo({lat: dest.lat, lng: dest.long}, 5, {
+        duration: 3,
       });
+    }, 300);
+
     }
   }, [guessed]);
 }
@@ -54,7 +67,6 @@ const bounds = L.latLngBounds(corner1, corner2)
       setKm(Math.round(pinPoint.distanceTo({ lat: location.lat, lng: location.long }) / 1000));
     }
   }, [guessed, pinPoint, location]);
-
 
 
   return (

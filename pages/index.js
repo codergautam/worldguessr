@@ -6,6 +6,7 @@ import Script from 'next/script';
 import dynamic from 'next/dynamic';
 import findLatLongRandom from '@/components/findLatLong';
 import useWindowDimensions from '@/components/useWindowDimensions';
+import GameControls from '@/components/Tab';
 const inter = Inter({ subsets: ['latin'] });
 const Map = dynamic(() => import("../components/Map"), { ssr: false });
 export default function Home() {
@@ -68,6 +69,7 @@ export default function Home() {
     // emit resize event to force map to resize
     if (mapFullscreen || mapShown || guessed) {
       window.dispatchEvent(new Event('resize'));
+      if(guessed ) return;
       const correctionTimes = 20;
       const totalTime = 260;
       const time = totalTime / correctionTimes;
@@ -170,11 +172,11 @@ setTimeout(() => {
             if(mapShown && mapFullscreen && width > 600) {
               setMapFullscreen(false);
             }
-          }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{opacity: loading ? '0' : '1', transition: 'all 250ms ease'}}>
+          }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{opacity: loading ? '0' : '1'}}>
 
 <div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed) ? '' : 'none'}}>
 { pinPoint && !guessed && (
-            <button className="guessBtn" onClick={() => {guess()}} >
+            <button className="guessBtn" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}}>
             Guess
             </button>
             )}
@@ -182,6 +184,20 @@ setTimeout(() => {
 
             {mapShown && <Map fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} location={latLong} setKm={setKm} height={"100%"}/>}
             </div>
+
+            <GameControls onCameraClick={() => {
+              if(mapShown) {
+                setMapShown(false);
+              }
+            }} onMapClick={() => {
+              if(!mapShown) {
+                setMapShown(true);
+              }
+            }
+            }
+            showGuessBtn={pinPoint && !guessed} onGuessClick={() => {
+              guess()
+            }} disableDiv={guessed || loading} />
           </div>
         </div>
       </main>
