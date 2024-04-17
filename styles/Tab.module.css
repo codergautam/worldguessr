@@ -16,13 +16,13 @@
   align-items: center;
   justify-content: center; /* Centers the content of the button */
   gap: 10px;
-  background-color: rgb(137,201,250);
+  background-color: #555;
   border: none;
   padding: 10px 20px;
   cursor: pointer;
   transition: background-color 0.3s;
-  border: 2px solid #ffffff;
   border-radius: 5px;
+  color: white;
 }
 
 
@@ -38,5 +38,5 @@
 }
 
 .iconButton:hover {
-  background-color: #e0e0e0;
+  background-color: #a1a1a1;
 }
