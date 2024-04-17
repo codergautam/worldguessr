@@ -1,7 +1,7 @@
 
 
 html * {
-  font-family: Barlow, Futura, sans-serif;
+  font-family: Roboto, sans-serif;
   margin: 0;
 }
 
@@ -44,6 +44,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  overflow-x: hidden;
 }
 
 .navbar > div {
@@ -192,20 +193,102 @@ img {
   margin-right: 0;
   bottom: 0;
 }
-
 #endBanner {
-  position: absolute;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 10%;
   z-index: 100;
   background-color: rgba(106, 107, 131, 0.9);
   backdrop-filter: blur(10px);
   border-radius: 10px;
   color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.bannerContent {
   font-size: 2em;
-  width: 100vw;
-  top: 80%;
-  opacity: 80%;
   text-align: center;
 }
+
+.motivation {
+  font-size: 1.2em;
+  font-weight: lighter;
+  padding: 10px 0;
+}
+
+
+.buttonContainer {
+  display: flex;
+  justify-content: space-around; /* Adjusts spacing between buttons */
+  align-items: center; /* Vertically centers buttons in the container */
+
+  button {
+    font-size: 1em;
+    padding: 10px 20px;
+    margin: 5px;
+    background-color: #444;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  button:hover {
+    background-color: #666;
+  }
+}
+
+.mainBannerTxt {
+  font-size: 1.4em;
+  font-weight: 500;
+  padding: 10px;
+}
+
+.motivation {
+  font-size: 1em;
+  padding: 10px;
+}
+
+@media screen and (max-width: 600px) {
+
+
+  .motivation {
+    font-size: 0.8em;
+  }
+  .mainBannerTxt {
+    font-size: 1em;
+
+  }
+
+
+  @media screen and (max-height: 840px) {
+    .mainBannerTxt {
+      font-size: 0.8em;
+    }
+    .motivation {
+      font-size: 0.6em;
+    }
+
+    #endBanner {
+      bottom: 15%;
+    }
+
+  }
+
+  @media screen and (max-height: 600px) {
+
+    #endBanner {
+      bottom: 20%;
+    }
+  }
+}
+
 
 .leaflet-control-attribution {
   display: none;

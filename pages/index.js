@@ -129,6 +129,12 @@ export default function Home() {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
            integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
            crossorigin=""/>
+
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet"/>
+
     <meta property="og:title" content="WorldGuessr - Play Geoguessr Free" />
     <meta property="og:description" content="Explore and play the free GeoGuessr game on WorldGuessr. Discover new places and challenge your geographical knowledge." />
     <meta property="og:image" content="/icon.png" />
@@ -155,16 +161,25 @@ export default function Home() {
 </div>
         </div>
 
-        <div id='endBanner' style={{display: guessed ? '' : 'none'}}>
-            <h1>
-              {km} km
-            </h1>
-            <button className="toggleMap" onClick={() => {
-              fullReset()
-            }}>
-              Play Again
-            </button>
-        </div>
+        <div id='endBanner' style={{ display: guessed ? '' : 'none' }}>
+  <div className="bannerContent">
+    <h1 className='mainBannerTxt'>Your guess was {km} km away!</h1>
+    <p className="motivation">
+      {km < 10 ? 'Perfect!' : km < 500 ? 'Thats pretty close! 🎉' : km < 2000 ? 'At least its the same continent?' : 'You\'ll do better next time!'}
+    </p>
+  </div>
+  <div className="buttonContainer">
+  <button className="playAgain" onClick={fullReset}>
+    Play Again
+  </button>
+  <button className="openInMaps" onClick={() => {
+    window.open(`https://www.google.com/maps/search/?api=1&query=${latLong.lat},${latLong.long}`);
+  }}>
+    Open in Google Maps
+  </button>
+</div>
+</div>
+
 
         {/* how to play */}
 
