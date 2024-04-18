@@ -48,6 +48,7 @@ export default function Home() {
 
   function resetMap() {
     setLatLong(null);
+    console.log('requesting random lat long')
     findLatLongRandom().then((data) => {
       setLatLong(data);
     });
@@ -87,7 +88,6 @@ export default function Home() {
       const interval = setInterval(() => {
         i++;
         window.dispatchEvent(new Event('resize'));
-        console.log('Resizing map');
         if (i >= correctionTimes) {
           clearInterval(interval);
         }

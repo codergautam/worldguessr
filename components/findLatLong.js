@@ -22,6 +22,7 @@ const loader = new Loader({
         const longO = out.lng;
         resolve({ lat: latO, long: longO });
       } else {
+        console.log('invalid loc, rechecking')
         resolve(null);
       }
     });
