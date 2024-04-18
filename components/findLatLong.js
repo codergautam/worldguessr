@@ -22,7 +22,7 @@ const loader = new Loader({
         const longO = out.lng;
         resolve({ lat: latO, long: longO });
       } else {
-        console.log('invalid loc, rechecking')
+        console.log('invalid loc, rechecking. current check was: ', { lat, long })
         resolve(null);
       }
     });
@@ -39,9 +39,11 @@ export default async function findLatLongRandom() {
     if(data) {
       output = data;
       found = true;
+      console.log('found lat long1')
+    } else {
     }
   }
-  console.log('successfully found random location')
+  console.log('success! found lat long2')
   return output;
 }
 
