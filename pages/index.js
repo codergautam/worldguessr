@@ -137,7 +137,7 @@ export default function Home() {
 
     <meta property="og:title" content="WorldGuessr - Play Geoguessr Free" />
     <meta property="og:description" content="Explore and play the free GeoGuessr game on WorldGuessr. Discover new places and challenge your geographical knowledge." />
-    <meta property="og:image" content="/icon.png" />
+    <meta property="og:image" content="/icon_144x144.png" />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />
 </Head>
@@ -259,7 +259,7 @@ setTimeout(() => {
             if(mapShown && mapFullscreen && width > 600) {
               setMapFullscreen(false);
             }
-          }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{opacity: loading ? '0' : '1'}}>
+          }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{visibility: loading ? 'hidden' : ''}}>
 
 <div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed) ? '' : 'none'}}>
 { pinPoint && !guessed && (

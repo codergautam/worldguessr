@@ -134,7 +134,7 @@ img {
   height: 30%;
   max-height: 100%;
   z-index: 10;
-  opacity: 85%;
+  opacity: 50%;
   border-radius: 10px;
   background: #bfd4da;
   position: absolute;
@@ -191,13 +191,14 @@ img {
   height: 100%;
   width: 100%;
   margin-right: 0;
+  opacity: 100%;
   bottom: 0;
 }
 #endBanner {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 10%;
+  bottom: 0;
   z-index: 100;
   background-color: rgba(106, 107, 131, 0.9);
   backdrop-filter: blur(10px);
@@ -275,17 +276,6 @@ img {
       font-size: 0.6em;
     }
 
-    #endBanner {
-      bottom: 15%;
-    }
-
-  }
-
-  @media screen and (max-height: 600px) {
-
-    #endBanner {
-      bottom: 20%;
-    }
   }
 }
 

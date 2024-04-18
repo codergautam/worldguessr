@@ -27,7 +27,7 @@ function MapPlugin({ pinPoint, setPinPoint, guessed, dest }) {
   useEffect(() => {
     // reset map to initial state center and zoom
     map.setView([35, 2], 2);
-    
+
   }, [dest]);
 
   useEffect(() => {
