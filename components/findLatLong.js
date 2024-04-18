@@ -16,6 +16,7 @@ const loader = new Loader({
       radius: 50000,
       sources: [google.maps.StreetViewSource.OUTDOOR]
     }, (data, status) => {
+      console.log(data, status)
       if(status === "OK" && data) {
         const out = (Object.values(data.sG)[0]);
         const latO = out.lat;
