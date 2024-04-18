@@ -18,9 +18,14 @@ const loader = new Loader({
     }, (data, status) => {
       console.log(data, status)
       if(status === "OK" && data) {
+        console.log("received valid response")
+        console.log("sG", data.sG)
         const out = (Object.values(data.sG)[0]);
         const latO = out.lat;
         const longO = out.lng;
+        console.log("latO", latO)
+        console.log("longO", longO)
+        
         resolve({ lat: latO, long: longO });
       } else {
         console.log('invalid loc, rechecking. current check was: ', { lat, long })
