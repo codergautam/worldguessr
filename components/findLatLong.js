@@ -40,6 +40,7 @@ export default async function findLatLongRandom() {
       found = true;
     }
   }
+  console.log('successfully found random location')
   return output;
 }
 
