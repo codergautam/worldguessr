@@ -19,10 +19,12 @@ const loader = new Loader({
       console.log(data, status)
       if(status === "OK" && data) {
         console.log("received valid response")
-        console.log("sG", data.sG)
-        const out = (Object.values(data.sG)[0]);
-        const latO = out.lat;
-        const longO = out.lng;
+        const latLng = data.location?.latLng;
+        if(!latLng) {
+          alert("Failed to get location, couldn't find latLng object")
+        }
+        const latO = latLng.lat();
+        const longO = latLng.lng();
         console.log("latO", latO)
         console.log("longO", longO)
         
