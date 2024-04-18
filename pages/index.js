@@ -14,6 +14,7 @@ const inter = Inter({ subsets: ['latin'] });
 const Map = dynamic(() => import("../components/Map"), { ssr: false });
 export default function Home() {
   const mapDivRef = useRef(null);
+  const guessBtnRef = useRef(null);
   // desktop: is minimap viewable (always true when in game)
   // mobile: is minimap tab active (false means streetview)
   const [mapShown, setMapShown] = useState(true);
@@ -113,6 +114,19 @@ export default function Home() {
       setMapShown(false);
     }
   }, []);
+
+  useEffect(() => {
+    function keydown(e) {
+      if(pinPoint && e.key === ' ' && !guessed) {
+        guess();
+      }
+    }
+    // on space key press, guess
+    document.addEventListener('keydown', keydown);
+    return () => {
+      document.removeEventListener('keydown', keydown);
+    }
+  }, [pinPoint, guessed]);
 
   useEffect(() => {
     console.log('guessed', guessed);
@@ -263,7 +277,7 @@ setTimeout(() => {
 
 <div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed) ? '' : 'none'}}>
 { pinPoint && !guessed && (
-            <button className="guessBtn" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}}>
+            <button re={guessBtnRef} className="guessBtn" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}}>
             Guess
             </button>
             )}
