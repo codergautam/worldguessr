@@ -276,16 +276,21 @@ setTimeout(() => {
           }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{visibility: loading ? 'hidden' : ''}}>
 
 <div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed) ? '' : 'none'}}>
-{ pinPoint && !guessed && (
-            <button re={guessBtnRef} className="guessBtn" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}}>
-            Guess
-            </button>
-            )}
+
             </div>
 
             {mapShown && <Map fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} location={latLong} setKm={setKm} height={"100%"}/>}
+
+
+
             </div>
 
+
+            { pinPoint && !guessed && (
+            <button ref={guessBtnRef} className="guessBtn desktopGB" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}}>
+            Guess
+            </button>
+            )}
             <GameControls onCameraClick={() => {
               if(mapShown) {
                 setMapShown(false);

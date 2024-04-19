@@ -298,7 +298,7 @@ img {
 }
 
 .guessBtn {
-  background-color: rgba(32, 41, 36, 0.9);
+  background-color: #212121;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 2px 20px rgba(5, 6, 10, 0.5);
@@ -309,6 +309,14 @@ img {
   font-size: 2em;
   cursor: pointer;
   user-select: none;
+}
+
+.desktopGB {
+  position: absolute;
+  right: 50px;
+  bottom: 15px;
+  z-index: 20;
+  border-radius: 0;
 }
 
 @media screen and (max-width: 600px) {
