@@ -16,12 +16,21 @@ const loader = new Loader({
       radius: 50000,
       sources: [google.maps.StreetViewSource.OUTDOOR]
     }, (data, status) => {
+      console.log(data, status)
       if(status === "OK" && data) {
-        const out = (Object.values(data.sG)[0]);
-        const latO = out.lat;
-        const longO = out.lng;
+        console.log("received valid response")
+        const latLng = data.location?.latLng;
+        if(!latLng) {
+          alert("Failed to get location, couldn't find latLng object")
+        }
+        const latO = latLng.lat();
+        const longO = latLng.lng();
+        console.log("latO", latO)
+        console.log("longO", longO)
+        
         resolve({ lat: latO, long: longO });
       } else {
+        console.log('invalid loc, rechecking. current check was: ', { lat, long })
         resolve(null);
       }
     });
@@ -38,8 +47,11 @@ export default async function findLatLongRandom() {
     if(data) {
       output = data;
       found = true;
+      console.log('found lat long1')
+    } else {
     }
   }
+  console.log('success! found lat long2')
   return output;
 }
 
