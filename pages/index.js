@@ -10,8 +10,10 @@ import GameControls from '@/components/Tab';
 import { FaDiscord, FaGithub, FaInfo } from 'react-icons/fa';
 import Modal from 'react-responsive-modal';
 import 'react-responsive-modal/styles.css';
+import findCountry from '@/components/findCountry';
 const inter = Inter({ subsets: ['latin'] });
 const Map = dynamic(() => import("../components/Map"), { ssr: false });
+
 export default function Home() {
   const mapDivRef = useRef(null);
   const guessBtnRef = useRef(null);
@@ -26,7 +28,7 @@ export default function Home() {
   // user selection point
   const [pinPoint, setPinPoint] = React.useState(null);
 
-  // coords of dest
+  // coords & country of dest
   const [latLong, setLatLong] = useState(null);
 
   // whether guess confirmed or not
@@ -41,6 +43,10 @@ export default function Home() {
     // info modal showing or not
     const [infoModal, setInfoModal] = useState(false);
 
+    const [countryStreak, setCountryStreak] = useState(0);
+
+    const [guessing, setGuessing] = useState(false);
+
   // screen dim
   const {width, height} = useWindowDimensions();
 
@@ -54,12 +60,28 @@ export default function Home() {
     });
   }
 
-  function guess() {
+  async function guess() {
+    console.log('guessing');
+    setGuessing(true);
+
     setMapFullscreen(true);
     if(!mapShown) {
       setMapShown(true);
     }
      setGuessed(true);
+
+     const pinPointCountry = await findCountry({ lat: pinPoint.lat, lon: pinPoint.lng });
+     const destCountry = latLong.country;
+     if(pinPointCountry === destCountry) {
+       console.log('correct guess');
+       setCountryStreak(countryStreak + 1);
+       window.localStorage.setItem('countryStreak', countryStreak + 1);
+     } else {
+       console.log('incorrect guess');
+       setCountryStreak(0);
+       window.localStorage.setItem('countryStreak', 0);
+     }
+      setGuessing(false);
   }
 
   function fullReset() {
@@ -113,12 +135,21 @@ export default function Home() {
     if(width < 600) {
       setMapShown(false);
     }
+    if(window) {
+      const cS = parseInt(window.localStorage.getItem('countryStreak'));
+      if(cS) {
+        console.log('setting country streak', cS);
+        setCountryStreak(cS);
+      }
+    }
   }, []);
 
   useEffect(() => {
     function keydown(e) {
-      if(pinPoint && e.key === ' ' && !guessed) {
+      if(pinPoint && e.key === ' ' && !guessed && !guessing) {
         guess();
+      } else if(guessed && e.key === ' ') {
+        fullReset();
       }
     }
     // on space key press, guess
@@ -180,6 +211,8 @@ export default function Home() {
     <h1 className='mainBannerTxt'>Your guess was {km} km away!</h1>
     <p className="motivation">
       {km < 10 ? 'Perfect!' : km < 500 ? 'Thats pretty close! 🎉' : km < 2000 ? 'At least its the same continent?' : 'You\'ll do better next time!'}
+      <br/>
+      {countryStreak > 0 ? `You're on a ${countryStreak} country streak!` : ''}
     </p>
   </div>
   <div className="buttonContainer">
@@ -287,7 +320,7 @@ setTimeout(() => {
 
 
             { pinPoint && !guessed && (
-            <button ref={guessBtnRef} className="guessBtn desktopGB" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}}>
+            <button ref={guessBtnRef} className="guessBtn desktopGB" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}} disabled={loading || guessing}>
             Guess
             </button>
             )}
@@ -302,7 +335,9 @@ setTimeout(() => {
             }
             }
             showGuessBtn={pinPoint && !guessed} onGuessClick={() => {
+              if(!guessing) {
               guess()
+              }
             }} disableDiv={guessed || loading} />
           </div>
         </div>

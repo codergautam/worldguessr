@@ -1,5 +1,6 @@
 
 import { Loader } from '@googlemaps/js-api-loader';
+import findCountry from './findCountry';
 const loader = new Loader({
   apiKey: "",
   version: "weekly",
@@ -16,21 +17,24 @@ const loader = new Loader({
       radius: 50000,
       sources: [google.maps.StreetViewSource.OUTDOOR]
     }, (data, status) => {
-      console.log(data, status)
       if(status === "OK" && data) {
-        console.log("received valid response")
         const latLng = data.location?.latLng;
         if(!latLng) {
           alert("Failed to get location, couldn't find latLng object")
         }
         const latO = latLng.lat();
         const longO = latLng.lng();
-        console.log("latO", latO)
-        console.log("longO", longO)
-        
-        resolve({ lat: latO, long: longO });
+        findCountry({ lat, lon: long }).then((country) => {
+          if(country === "Unknown") {
+            console.log("unknown country, rechecking")
+            resolve(null);
+          } else {
+
+        resolve({ lat: latO, long: longO, country });
+          }
+        });
       } else {
-        console.log('invalid loc, rechecking. current check was: ', { lat, long })
+        console.log('invalid loc, rechecking')
         resolve(null);
       }
     });
@@ -47,11 +51,9 @@ export default async function findLatLongRandom() {
     if(data) {
       output = data;
       found = true;
-      console.log('found lat long1')
     } else {
     }
   }
-  console.log('success! found lat long2')
   return output;
 }
 
