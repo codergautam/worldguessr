@@ -148,11 +148,9 @@ export default function Home() {
     function keydown(e) {
       if(pinPoint && e.key === ' ' && !guessed && !guessing) {
         guess();
+      } else if(guessed && e.key === ' ') {
+        fullReset();
       }
-
-      // else if(guessed && e.key === ' ') {
-      //   fullReset();
-      // }
     }
     // on space key press, guess
     document.addEventListener('keydown', keydown);
