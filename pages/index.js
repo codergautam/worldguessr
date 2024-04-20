@@ -10,7 +10,9 @@ import GameControls from '@/components/Tab';
 import { FaDiscord, FaGithub, FaInfo } from 'react-icons/fa';
 import Modal from 'react-responsive-modal';
 import 'react-responsive-modal/styles.css';
+
 import findCountry from '@/components/findCountry';
+import MultiplayerModal from '@/components/multiPlayerModal';
 const inter = Inter({ subsets: ['latin'] });
 const Map = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -46,6 +48,8 @@ export default function Home() {
     const [countryStreak, setCountryStreak] = useState(0);
 
     const [guessing, setGuessing] = useState(false);
+
+    const [multiplayerModal, setMultiplayerModal] = useState(false);
 
   // screen dim
   const {width, height} = useWindowDimensions();
@@ -100,22 +104,22 @@ export default function Home() {
 
   useEffect(() => {
     // emit resize event to force map to resize
-    if (mapFullscreen || mapShown || guessed) {
-      window.dispatchEvent(new Event('resize'));
-      if(guessed ) return;
-      const correctionTimes = 20;
-      const totalTime = 260;
-      const time = totalTime / correctionTimes;
-      let i = 0;
-      const interval = setInterval(() => {
-        i++;
-        window.dispatchEvent(new Event('resize'));
-        if (i >= correctionTimes) {
-          clearInterval(interval);
-        }
-      }, time);
+    // if (mapFullscreen || mapShown || guessed) {
+    //   window.dispatchEvent(new Event('resize'));
+    //   if(guessed ) return;
+    //   const correctionTimes = 20;
+    //   const totalTime = 260;
+    //   const time = totalTime / correctionTimes;
+    //   let i = 0;
+    //   const interval = setInterval(() => {
+    //     i++;
+    //     window.dispatchEvent(new Event('resize'));
+    //     if (i >= correctionTimes) {
+    //       clearInterval(interval);
+    //     }
+    //   }, time);
 
-    }
+    // }
   }, [mapFullscreen, mapShown, guessed]);
 
   useEffect(() => {
@@ -195,6 +199,7 @@ export default function Home() {
     <a id="logo" alt="worldguessr logo" onClick={fullReset} style={{cursor: "pointer"}}>
       <img id="icon" src="/logo.png" alt="WorldGuessr logo" />
     </a>
+    <button className="navButton" onClick={()=>setMultiplayerModal(true)}>Play with Friends</button>
     {/* <button className="navButton">Game Mode</button>
     <button className="navButton">Game Map</button> */}
   </div>
@@ -310,7 +315,7 @@ setTimeout(() => {
             }
           }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{visibility: loading ? 'hidden' : ''}}>
 
-<div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed) ? '' : 'none'}}>
+<div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed)? '' : 'none'}}>
 
             </div>
 
@@ -320,6 +325,7 @@ setTimeout(() => {
 
             </div>
 
+            <MultiplayerModal open={multiplayerModal} close={() => setMultiplayerModal(false)} />
 
             { pinPoint && !guessed && (
             <button ref={guessBtnRef} className="guessBtn desktopGB" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}} disabled={loading || guessing}>

@@ -1,4 +1,6 @@
 import "@/styles/globals.css";
+import "@/styles/multiPlayerModal.css";
+
 import { Analytics } from "@vercel/analytics/react"
 import { GoogleAnalytics } from "nextjs-google-analytics";
 import { useEffect } from "react";

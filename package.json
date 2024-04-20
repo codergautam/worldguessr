@@ -14,11 +14,13 @@
     "leaflet": "^1.9.4",
     "next": "14.2.1",
     "nextjs-google-analytics": "^2.3.3",
+    "ol": "^9.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-icons": "^5.1.0",
     "react-leaflet": "^4.2.1",
-    "react-responsive-modal": "^6.4.2"
+    "react-responsive-modal": "^6.4.2",
+    "redis": "^4.6.13"
   },
   "devDependencies": {
     "eslint": "^8",
