@@ -17,6 +17,8 @@ const Map = dynamic(() => import("../components/Map"), { ssr: false });
 export default function Home() {
   const mapDivRef = useRef(null);
   const guessBtnRef = useRef(null);
+  // this button exists to prevent cheating by focusing on the iframe and tabbing etc
+  const focusBtn = useRef(null);
   // desktop: is minimap viewable (always true when in game)
   // mobile: is minimap tab active (false means streetview)
   const [mapShown, setMapShown] = useState(true);
@@ -160,8 +162,26 @@ export default function Home() {
   }, [pinPoint, guessed]);
 
   useEffect(() => {
-    console.log('guessed', guessed);
-  }, [guessed]);
+    const onTabPress = (e) => {
+      console.log(e.key);
+      if(e.key === 'Tab') {
+        e.preventDefault();
+      }
+    }
+    function changeFocus() {
+      if (document.activeElement == document.getElementsByTagName("iframe")[0]) {
+        console.log('changing focus');
+        if(focusBtn.current)
+        focusBtn.current.focus();
+      }
+  }
+
+  const int = window.setInterval(changeFocus, 1000);
+    return () => {
+      document.removeEventListener('keydown', onTabPress);
+      clearInterval(int);
+    }
+  }, []);
 
   return (
     <>
@@ -200,7 +220,7 @@ export default function Home() {
     <button className="navButton" onClick={() => {
       setInfoModal(true);
     }}><FaInfo size={25}/></button>
-    <a href='https://discord.gg/ubdJHjKtrC' className="navButton" target='_blank'><FaDiscord size={25} /></a>
+    <a href='https://discord.gg/ubdJHjKtrC' className="navButton" target='_blank'><FaDiscord size={25}  /></a>
     <a href='https://github.com/codergautam/worldguessr' className="navButton" target='_blank'><FaGithub size={25} /></a>
   </div>
 </div>
@@ -324,6 +344,9 @@ setTimeout(() => {
             Guess
             </button>
             )}
+
+            <button ref={focusBtn} style={{height:0, position: "fixed"}}>wg</button>
+
             <GameControls onCameraClick={() => {
               if(mapShown) {
                 setMapShown(false);
