@@ -18,7 +18,7 @@ export default function Home() {
   const mapDivRef = useRef(null);
   const guessBtnRef = useRef(null);
   // this button exists to prevent cheating by focusing on the iframe and tabbing etc
-  const focusBtn = useRef(null);
+  // const focusBtn = useRef(null);
   // desktop: is minimap viewable (always true when in game)
   // mobile: is minimap tab active (false means streetview)
   const [mapShown, setMapShown] = useState(true);
@@ -161,27 +161,27 @@ export default function Home() {
     }
   }, [pinPoint, guessed]);
 
-  useEffect(() => {
-    const onTabPress = (e) => {
-      console.log(e.key);
-      if(e.key === 'Tab') {
-        e.preventDefault();
-      }
-    }
-    function changeFocus() {
-      if (document.activeElement == document.getElementsByTagName("iframe")[0]) {
-        console.log('changing focus');
-        if(focusBtn.current)
-        focusBtn.current.focus();
-      }
-  }
+  // useEffect(() => {
+  //   const onTabPress = (e) => {
+  //     console.log(e.key);
+  //     if(e.key === 'Tab') {
+  //       e.preventDefault();
+  //     }
+  //   }
+  //   function changeFocus() {
+  //     if (document.activeElement == document.getElementsByTagName("iframe")[0]) {
+  //       console.log('changing focus');
+  //       if(focusBtn.current)
+  //       focusBtn.current.focus();
+  //     }
+  // }
 
-  const int = window.setInterval(changeFocus, 1000);
-    return () => {
-      document.removeEventListener('keydown', onTabPress);
-      clearInterval(int);
-    }
-  }, []);
+  // const int = window.setInterval(changeFocus, 1000);
+  //   return () => {
+  //     document.removeEventListener('keydown', onTabPress);
+  //     clearInterval(int);
+  //   }
+  // }, []);
 
   return (
     <>
@@ -345,7 +345,7 @@ setTimeout(() => {
             </button>
             )}
 
-            <button ref={focusBtn} style={{height:0, position: "fixed"}}>wg</button>
+            {/* <button ref={focusBtn} style={{height:0, position: "fixed"}}>wg</button> */}
 
             <GameControls onCameraClick={() => {
               if(mapShown) {
