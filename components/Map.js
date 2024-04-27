@@ -133,7 +133,6 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
       if(playingMultiplayer) {
         // Add other players' guesses
         multiplayerGameData.players.forEach((player) => {
-          console.log(player, round)
           if(player.g.findIndex((g) => g.r === round) !== -1) {
             const playerGuess = player.g.find((g) => g.r === round);
             if(playerGuess.lat === pinPoint.lat && playerGuess.long === pinPoint.lng) return;

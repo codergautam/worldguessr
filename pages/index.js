@@ -139,7 +139,6 @@ export default function Home() {
             setMultiplayerinMatchBuffer(true);
             // setLatLong(null);
           } else if(!latLo || inMatchBuffer) {
-            console.log('not in match buffer');
             setLatLong({ lat: currentPoint[0].lat, long: currentPoint[0].long, country: currentPoint[0].country });
             setLoading(false);
             setMultiplayerinMatchBuffer(false);
@@ -194,7 +193,6 @@ export default function Home() {
     if(playingMultiplayer) {
       setLatLong(null);
     } else if(!playingMultiplayer && !multiplayerEnded) {
-      console.log('resetting multiplayer data');
       fullReset();
     }
   }, [playingMultiplayer, multiplayerEnded]);
@@ -203,7 +201,6 @@ export default function Home() {
   function resetMap() {
     if(playingMultiplayer) return;
     setLatLong(null);
-    console.log('requesting random lat long')
     findLatLongRandom().then((data) => {
       setLatLong(data);
     });
@@ -213,7 +210,6 @@ export default function Home() {
     setGuessing(true);
 
      if(playingMultiplayer) {
-      console.log(multiplayerData)
       try {
         const response = await fetch('/api/guess', {
           method: 'POST',
@@ -230,7 +226,6 @@ export default function Home() {
         });
 
         const data = await response.json();
-        console.log(data);
         setMultiplayerSentGuess(true);
 
         if (data.error) {
