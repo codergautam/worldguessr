@@ -335,7 +335,7 @@ export default function Home() {
             {/* loading globe */}
             <Loader loading={loading} latLong={latLong} loadingText={playingMultiplayer && multiplayerTimers?.timeTillRound ? Math.round(multiplayerTimers.timeTillRound/1000) : 'Loading...'} />
 {latLong && (
-          <iframe className={`${!mapShown ? 'mapHidden': ''} ${playingMultiplayer ? 'multiplayer': ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=${process.env.NEXT_PUBLIC_GOOGLE}&fov=90`} id="streetview" style={{ height: '100vh', zIndex: 10, opacity: (loading||guessed)?'0':''}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
+          <iframe className={`${!mapShown ? 'mapHidden': ''} ${playingMultiplayer ? 'multiplayer': ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" style={{ height: '100vh', zIndex: 10, opacity: (loading||guessed)?'0':''}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
 setTimeout(() => {
           setLoading(false)
 }, 200);
