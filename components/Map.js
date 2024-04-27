@@ -12,12 +12,12 @@ import LineString from 'ol/geom/LineString';
 import { Icon, Style, Stroke } from 'ol/style';
 import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
+import ol from 'ol/interaction';
 
-const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height }) => {
+const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, currentId, round }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const vectorSource = useRef(new VectorSource());
-  var maxExtent = transformExtent([-180, -85, 180, 85], 'EPSG:4326', 'EPSG:3857');
   // Initialize map on first render
   useEffect(() => {
     const initialMap = new Map({
@@ -26,22 +26,21 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height 
         // osm
         new TileLayer({
           source: new XYZ({
-            url: 'https://{a-c}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-            wrapX: false
+            // url: 'https://{a-c}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+            url: '	https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=demo',
           }),
-          extent: maxExtent
         }),
         new VectorLayer({ source: vectorSource.current })
       ],
       view: new View({
         center: fromLonLat([2, 35]),
         zoom: 2,
-        extent: maxExtent
+        zoomFactor: 1.8,
       }),
     });
 
     const mouseDown = (e) => {
-      if (!guessed) {
+      if (!guessed && !guessing) {
         e.preventDefault();
         const pixel = initialMap.getEventPixel(e);
         const clickedCoord = initialMap.getCoordinateFromPixel(pixel);
@@ -57,7 +56,7 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height 
       initialMap.setTarget(undefined);
       if(mapRef.current) mapRef.current.removeEventListener('mousedown', mouseDown);
     };
-  }, [guessed, setPinPoint]);
+  }, [guessed, setPinPoint, guessing]);
 
   // Update pin point and add line
   useEffect(() => {
@@ -92,27 +91,7 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height 
       });
     }
 
-    if (guessed && location) {
-      const destFeature = new Feature({
-        geometry: new Point(fromLonLat([location.long, location.lat])),
-      });
-      const pinLayer = new VectorLayer({
-        source: new VectorSource({
-          features: [destFeature]
-        }),
-        style: new Style({
-          image: new Icon({
-            anchor: [0.5, 1],
-            anchorXUnits: 'fraction',
-            anchorYUnits: 'fraction',
-            scale: 0.45,
-            src: '/dest.png'
-          })
-        })
-      });
-      map.addLayer(pinLayer);
-      // Add line between source and destination
-
+    if (guessed && location && pinPoint && (!playingMultiplayer || multiplayerSentGuess)) {
       const lineLayer = new VectorLayer({
         source: new VectorSource({
           features: [
@@ -133,6 +112,52 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height 
       });
 
       map.addLayer(lineLayer);
+      const destFeature = new Feature({
+        geometry: new Point(fromLonLat([location.long, location.lat])),
+      });
+      const pinLayer = new VectorLayer({
+        source: new VectorSource({
+          features: [destFeature]
+        }),
+        style: new Style({
+          image: new Icon({
+            anchor: [0.5, 1],
+            anchorXUnits: 'fraction',
+            anchorYUnits: 'fraction',
+            scale: 0.45,
+            src: '/dest.png'
+          })
+        })
+      });
+      map.addLayer(pinLayer);
+      if(playingMultiplayer) {
+        // Add other players' guesses
+        multiplayerGameData.players.forEach((player) => {
+          console.log(player, round)
+          if(player.g.findIndex((g) => g.r === round) !== -1) {
+            const playerGuess = player.g.find((g) => g.r === round);
+            if(playerGuess.lat === pinPoint.lat && playerGuess.long === pinPoint.lng) return;
+            const playerFeature = new Feature({
+              geometry: new Point(fromLonLat([playerGuess.long, playerGuess.lat])),
+            });
+            const playerLayer = new VectorLayer({
+              source: new VectorSource({
+                features: [playerFeature]
+              }),
+              style: new Style({
+                image: new Icon({
+                  anchor: [0.5, 1],
+                  anchorXUnits: 'fraction',
+                  anchorYUnits: 'fraction',
+                  scale: 0.45,
+                  src: '/src2.png'
+                })
+              })
+            });
+            map.addLayer(playerLayer);
+          }
+        });
+      }
 
 
 

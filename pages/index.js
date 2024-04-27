@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import Head from 'next/head';
 import { Inter } from 'next/font/google';
 import styles from '@/styles/Home.module.css';
-import Script from 'next/script';
 import dynamic from 'next/dynamic';
 import findLatLongRandom from '@/components/findLatLong';
 import useWindowDimensions from '@/components/useWindowDimensions';
@@ -13,9 +12,19 @@ import 'react-responsive-modal/styles.css';
 
 import findCountry from '@/components/findCountry';
 import MultiplayerModal from '@/components/multiPlayerModal';
+import calcPoints from '@/components/calcPoints';
+import InfoModal from '@/components/infoModal';
+import EndBanner from '@/components/endBanner';
+import Navbar from '@/components/navbar';
+import HeadContent from '@/components/headContent';
+import Loader from '@/components/loader';
+import Leaderboard from '@/components/leaderboard';
+import formatTime from '@/components/formatNum';
+import BottomLeft from '@/components/bottomLeft';
 const inter = Inter({ subsets: ['latin'] });
-const Map = dynamic(() => import("../components/Map"), { ssr: false });
+const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
+const multiplayerMatchBuffer = 5000; // deadline is 5000ms before next round to show the end stats
 export default function Home() {
   const mapDivRef = useRef(null);
   const guessBtnRef = useRef(null);
@@ -52,13 +61,147 @@ export default function Home() {
     const [guessing, setGuessing] = useState(false);
 
     const [multiplayerModal, setMultiplayerModal] = useState(false);
+    const [multiplayerEnded, setMultiplayerEnded] = useState(false);
+    const [multiplayerData, setMultiplayerData] = useState(null);
+    const [playingMultiplayer, setPlayingMultiplayer] = useState(false);
+    const [multiplayerTimers, setMultiplayerTimers] = useState(null);
+    const [multiplayerRoundIndex, setMultiplayerRoundIndex] = useState(0);
+    const [multiplayerinMatchBuffer, setMultiplayerinMatchBuffer] = useState(false);
+    const [multiplayerSentGuess, setMultiplayerSentGuess] = useState(false);
+    const [multiplayerLeaderboardMobile, setMultiplayerLeaderboardMobile] = useState(false);
 
   // screen dim
   const {width, height} = useWindowDimensions();
 
+  function onMultiplayerModalClose(data) {
+    setMultiplayerModal(false);
+
+    if(data) {
+    setMultiplayerData(data);
+    setPinPoint(null);
+    setPlayingMultiplayer(true);
+    setMultiplayerEnded(false);
+    }
+  }
+
+  function findCurrentPoint(gameData) {
+    if(!gameData?.points) return { currentPoint: null, currentPointIndex: null };
+    let currentPoint = null;
+        let currentPointIndex = null;
+        for(let i = 0; i < gameData.points.length; i++) {
+          if(gameData.points[i].t <= Date.now()) {
+            currentPoint = [gameData.points[i]];
+            currentPointIndex = i;
+          }
+        }
+        return { currentPoint, currentPointIndex };
+    }
+  function updateMultiplayerData(gameData, latLo, inMatchBuffer = false) {
+
+    setMultiplayerData({
+      ...multiplayerData,
+      gameData
+    });
+
+
+    const { currentPoint, currentPointIndex } = findCurrentPoint(gameData);
+
+        if(!currentPoint) {
+          // game not started
+          setMultiplayerTimers({
+            timeTillRound: gameData.points[0].t - Date.now()
+          })
+        } else {
+          // game started
+          const inBuffer =  (typeof currentPointIndex === "number" && gameData.points[currentPointIndex+1]) ? gameData.points[currentPointIndex + 1].t - (Date.now()) - multiplayerMatchBuffer : gameData.endTime - Date.now() - multiplayerMatchBuffer;
+
+          setMultiplayerTimers({
+            timeLeft: inBuffer < 0 ? multiplayerMatchBuffer - Math.abs(inBuffer) : inBuffer,
+            currentPoint: currentPoint[0],
+            currentRound: currentPointIndex+1
+          });
+          setMultiplayerRoundIndex(currentPointIndex);
+
+          if(inBuffer < -1 * multiplayerMatchBuffer) {
+            setLatLong(null);
+            setMultiplayerinMatchBuffer(false);
+            setGuessed(false);
+            setPinPoint(null);
+            setMultiplayerSentGuess(false);
+            setGuessing(false);
+            setLoading(true);
+            setMultiplayerEnded(true);
+            setMultiplayerLeaderboardMobile(true);
+          } else if(inBuffer <= 0) {
+            // round over
+            setGuessing(false);
+            setGuessed(true);
+            setMultiplayerinMatchBuffer(true);
+            // setLatLong(null);
+          } else if(!latLo || inMatchBuffer) {
+            console.log('not in match buffer');
+            setLatLong({ lat: currentPoint[0].lat, long: currentPoint[0].long, country: currentPoint[0].country });
+            setLoading(false);
+            setMultiplayerinMatchBuffer(false);
+            setGuessed(false);
+            setPinPoint(null);
+            setMultiplayerSentGuess(false);
+
+          }
+        }
+  }
+
+  useEffect(() => {
+    let int;
+    let lastReq = 0;
+    if(playingMultiplayer) {
+      if(multiplayerData) {
+        int = setInterval(() => {
+        if(Date.now() - lastReq > 500) {
+          const code = multiplayerData.code;
+          lastReq = Date.now();
+          fetch('/api/gameState', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ id: code })
+          }).then(res => res.json()).then(gameData => {
+            if(gameData.error) {
+              console.error(gameData.error);
+              return;
+            }
+
+            updateMultiplayerData(gameData, latLong, multiplayerinMatchBuffer);
+          }).catch(e => {
+            console.error(e);
+          });
+        } else {
+          updateMultiplayerData(multiplayerData.gameData, latLong, multiplayerinMatchBuffer);
+        }
+        }, 100);
+      }
+    }
+
+    return () => {
+      if(int) {
+        clearInterval(int);
+      }
+    }
+  }, [playingMultiplayer, multiplayerData, latLong, multiplayerinMatchBuffer]);
+
+  useEffect(() => {
+    if(playingMultiplayer) {
+      setLatLong(null);
+    } else if(!playingMultiplayer && !multiplayerEnded) {
+      console.log('resetting multiplayer data');
+      fullReset();
+    }
+  }, [playingMultiplayer, multiplayerEnded]);
 
 
   function resetMap() {
+    if(playingMultiplayer) return;
     setLatLong(null);
     console.log('requesting random lat long')
     findLatLongRandom().then((data) => {
@@ -67,14 +210,47 @@ export default function Home() {
   }
 
   async function guess() {
-    console.log('guessing');
     setGuessing(true);
 
-    setMapFullscreen(true);
-    if(!mapShown) {
-      setMapShown(true);
-    }
-     setGuessed(true);
+     if(playingMultiplayer) {
+      console.log(multiplayerData)
+      try {
+        const response = await fetch('/api/guess', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            lat: pinPoint.lat,
+            long: pinPoint.lng,
+            gameCode: multiplayerData.code,
+            playerSecret: multiplayerData.myData.playerSecret,
+            roundNo: multiplayerTimers.currentRound
+          })
+        });
+
+        const data = await response.json();
+        console.log(data);
+        setMultiplayerSentGuess(true);
+
+        if (data.error) {
+          console.error(data.error);
+          return;
+        }
+
+      } catch (error) {
+        console.error(error);
+      }
+      } else {
+
+        setMapFullscreen(true);
+        if(!mapShown) {
+          setMapShown(true);
+        }
+         setGuessed(true);
+
+      }
+
 
      const pinPointCountry = await findCountry({ lat: pinPoint.lat, lon: pinPoint.lng });
      const destCountry = latLong.country;
@@ -87,7 +263,9 @@ export default function Home() {
        setCountryStreak(0);
        window.localStorage.setItem('countryStreak', 0);
      }
+     if(!playingMultiplayer) {
       setGuessing(false);
+     }
   }
 
   function fullReset() {
@@ -105,26 +283,6 @@ export default function Home() {
   }
 
   useEffect(() => {
-    // emit resize event to force map to resize
-    // if (mapFullscreen || mapShown || guessed) {
-    //   window.dispatchEvent(new Event('resize'));
-    //   if(guessed ) return;
-    //   const correctionTimes = 20;
-    //   const totalTime = 260;
-    //   const time = totalTime / correctionTimes;
-    //   let i = 0;
-    //   const interval = setInterval(() => {
-    //     i++;
-    //     window.dispatchEvent(new Event('resize'));
-    //     if (i >= correctionTimes) {
-    //       clearInterval(interval);
-    //     }
-    //   }, time);
-
-    // }
-  }, [mapFullscreen, mapShown, guessed]);
-
-  useEffect(() => {
     if(width < 600) {
       setMapFullscreen(true);
     } else if(width > 600) {
@@ -134,10 +292,7 @@ export default function Home() {
     }
   }, [width])
 
-
-
   useEffect(() => {
-    resetMap();
     if(width < 600) {
       setMapShown(false);
     }
@@ -154,7 +309,7 @@ export default function Home() {
     function keydown(e) {
       if(pinPoint && e.key === ' ' && !guessed && !guessing) {
         guess();
-      } else if(guessed && e.key === ' ') {
+      } else if(guessed && e.key === ' ' &&!playingMultiplayer) {
         fullReset();
       }
     }
@@ -163,165 +318,50 @@ export default function Home() {
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, guessed]);
-
-  // useEffect(() => {
-  //   const onTabPress = (e) => {
-  //     console.log(e.key);
-  //     if(e.key === 'Tab') {
-  //       e.preventDefault();
-  //     }
-  //   }
-  //   function changeFocus() {
-  //     if (document.activeElement == document.getElementsByTagName("iframe")[0]) {
-  //       console.log('changing focus');
-  //       if(focusBtn.current)
-  //       focusBtn.current.focus();
-  //     }
-  // }
-
-  // const int = window.setInterval(changeFocus, 1000);
-  //   return () => {
-  //     document.removeEventListener('keydown', onTabPress);
-  //     clearInterval(int);
-  //   }
-  // }, []);
+  }, [pinPoint, guessed, playingMultiplayer]);
 
   return (
     <>
-      <Head>
-      <title>WorldGuessr - Play Geoguessr Free</title>
-    <meta name="description" content="Explore WorldGuessr - the #1 free and open source alternative to GeoGuessr. Engage in the fun of discovering new places with our free Geoguessr game." />
-    <meta name="keywords" content="GeoGuessr, GeoGuessr free, free geography game, map game, explore world game"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
-    <link rel="icon" href="/icon.png" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
-           integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
-           crossorigin=""/>
-
-
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet"/>
-
-    <meta property="og:title" content="WorldGuessr - Play Geoguessr Free" />
-    <meta property="og:description" content="Explore and play the free GeoGuessr game on WorldGuessr. Discover new places and challenge your geographical knowledge." />
-    <meta property="og:image" content="/icon_144x144.png" />
-    <meta property="og:url" content="https://worldguessr.com" />
-    <meta property="og:type" content="website" />
-</Head>
+      <HeadContent />
       <main className={`${styles.main} ${inter.className}`} id="main">
-        <div className={`top ${mapShown?'hideOnMobile':''}`}>
-        <div className="topItem navbar">
-  <div>
-    <a id="logo" alt="worldguessr logo" onClick={fullReset} style={{cursor: "pointer"}}>
-      <img id="icon" src="/logo.png" alt="WorldGuessr logo" />
-    </a>
-    <button className="navButton" onClick={()=>setMultiplayerModal(true)}>Play with Friends</button>
-    {/* <button className="navButton">Game Mode</button>
-    <button className="navButton">Game Map</button> */}
-  </div>
-  <div>
-    <button className="navButton" onClick={() => {
-      setInfoModal(true);
-    }}><FaInfo size={25}/></button>
-    <a href='https://discord.gg/ubdJHjKtrC' className="navButton" target='_blank'><FaDiscord size={25}  /></a>
-    <a href='https://github.com/codergautam/worldguessr' className="navButton" target='_blank'><FaGithub size={25} /></a>
-  </div>
-</div>
-        </div>
-
-        <div id='endBanner' style={{ display: guessed ? '' : 'none' }}>
-  <div className="bannerContent">
-    <h1 className='mainBannerTxt'>Your guess was {km} km away!</h1>
-    <p className="motivation">
-      {km < 10 ? 'Perfect!' : km < 500 ? 'Thats pretty close! 🎉' : km < 2000 ? 'At least its the same continent?' : 'You\'ll do better next time!'}
-      <br/>
-      {countryStreak > 0 ? `You're on a ${countryStreak} country streak!` : ''}
-    </p>
-  </div>
-  <div className="buttonContainer">
-  <button className="playAgain" onClick={fullReset}>
-    Play Again
-  </button>
-  <button className="openInMaps" onClick={() => {
-    window.open(`https://www.google.com/maps/search/?api=1&query=${latLong.lat},${latLong.long}`);
-  }}>
-    Open in Google Maps
-  </button>
-</div>
-</div>
-
+        <Navbar mapShown={mapShown} setInfoModal={setInfoModal} fullReset={fullReset} setMultiplayerModal={setMultiplayerModal} playingMultiplayer={playingMultiplayer} />
+        <BottomLeft setInfoModal={setInfoModal} />
+        <EndBanner guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} />
 
         {/* how to play */}
+        <InfoModal shown={infoModal} onClose={() => {
+          setInfoModal(false);
+        }} />
 
-
-        <Modal id="infoModal" styles={{
-    modal: {
-        zIndex: 100,
-        background: 'black',
-        color: 'white',
-        padding: '20px',
-        borderRadius: '10px',
-        fontFamily: "'Arial', sans-serif",
-        maxWidth: '500px',
-        textAlign: 'center'
-    }
-}} open={infoModal} center>
-
-    <h1 style={{
-        marginBottom: '20px',
-        fontSize: '24px',
-        fontWeight: 'bold'
-    }}>How to Play</h1>
-
-    <p style={{
-        fontSize: '16px',
-        marginBottom: '10px'
-    }}>
-        🧐 Explore your surroundings, and try to guess where in the World you are
-    </p>
-    <p style={{
-        fontSize: '16px',
-        marginBottom: '10px'
-    }}>
-        🗺️ Use the map to place your guess, and check your accuracy
-    </p>
-    <p style={{
-        fontSize: '16px',
-        marginBottom: '20px'
-    }}>
-        🎓 Learn geography through play, and have fun!
-    </p>
-
-    <button className="toggleMap" style={{
-        fontSize: '16px',
-        fontWeight: 'bold',
-        color: 'white',
-        background: 'green',
-        border: 'none',
-        borderRadius: '5px',
-        padding: '10px 20px',
-        cursor: 'pointer'
-    }} onClick={() => {
-        setInfoModal(false);
-    }}>
-        Close
-    </button>
-</Modal>
 
 
         <div className="MainDiv">
           <div id="innerMainDiv" ref={mapDivRef}>
-<img style={{position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", opacity: (!latLong || loading) ? '1' : '0', transition: 'all 250ms ease'}} src="/load.gif" />
-
+            {/* loading globe */}
+            <Loader loading={loading} latLong={latLong} loadingText={playingMultiplayer && multiplayerTimers?.timeTillRound ? Math.round(multiplayerTimers.timeTillRound/1000) : 'Loading...'} />
 {latLong && (
-          <iframe className={`${!mapShown ? 'mapHidden': ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" style={{width: '100vw', height: '100vh', zIndex: 10, opacity: (loading||guessed)?'0':''}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
+          <iframe className={`${!mapShown ? 'mapHidden': ''} ${playingMultiplayer ? 'multiplayer': ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=${process.env.NEXT_PUBLIC_GOOGLE}&fov=90`} id="streetview" style={{ height: '100vh', zIndex: 10, opacity: (loading||guessed)?'0':''}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
 setTimeout(() => {
           setLoading(false)
 }, 200);
           }}></iframe>
 )}
+          { multiplayerData && (
+            <Leaderboard gameData={multiplayerData ? multiplayerData?.gameData : null} playingMultiplayer={playingMultiplayer} mobileOpen={multiplayerLeaderboardMobile} currentRound={multiplayerTimers?.currentRound - (multiplayerinMatchBuffer ? 0 : 1)} realCurrentRoundIndex={multiplayerTimers?.currentRound} gameEnded={multiplayerEnded} finish={() => {
+              setPlayingMultiplayer(false);
+              setMultiplayerData(null);
+              setMultiplayerTimers(null);
+              setMultiplayerEnded(false);
+              setMultiplayerRoundIndex(0);
+              setMultiplayerinMatchBuffer(false);
+              setMultiplayerSentGuess(false);
+              setMultiplayerLeaderboardMobile(false);
+            }} />
+
+          )}
+             <div id="timerDiv" style={{ display: (playingMultiplayer && multiplayerTimers?.timeLeft && !multiplayerEnded) ? '' : 'none' }}>
+                { multiplayerTimers ? formatTime(Math.round(multiplayerTimers.timeLeft/1000)) : '' }
+              </div>
 
            <div id="miniMap" onMouseEnter={() => {
             if(mapShown && !mapFullscreen) {
@@ -331,33 +371,31 @@ setTimeout(() => {
             if(mapShown && mapFullscreen && width > 600) {
               setMapFullscreen(false);
             }
-          }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''}`} style={{visibility: loading ? 'hidden' : ''}}>
+          }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''} ${playingMultiplayer ? 'multiplayer' : ''}`} style={{visibility: loading||!latLong ? 'hidden' : ''}}>
+
+
 
 <div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed)? '' : 'none'}}>
 
             </div>
-
-            {mapShown && <Map fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} location={latLong} setKm={setKm} height={"100%"}/>}
-
-
-
+            {mapShown && latLong && <MapWidget fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} guessing={guessing} location={latLong} setKm={setKm} height={"100%"} multiplayerSentGuess={multiplayerSentGuess} playingMultiplayer={playingMultiplayer} multiplayerGameData={multiplayerData ? multiplayerData?.gameData : null} round={multiplayerTimers?.currentRound} currentId={multiplayerData ? multiplayerData.myData.playerSecret : null} />}
             </div>
 
-            <MultiplayerModal open={multiplayerModal} close={() => setMultiplayerModal(false)} />
+            <MultiplayerModal open={multiplayerModal} close={onMultiplayerModalClose} />
 
             { pinPoint && !guessed && (
             <button ref={guessBtnRef} className="guessBtn desktopGB" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}} disabled={loading || guessing}>
-            Guess
+            { (playingMultiplayer && guessing) ? 'Waiting...' : 'Guess'}
             </button>
             )}
 
-            {/* <button ref={focusBtn} style={{height:0, position: "fixed"}}>wg</button> */}
-
             <GameControls onCameraClick={() => {
+              setMultiplayerLeaderboardMobile(false);
               if(mapShown) {
                 setMapShown(false);
               }
             }} onMapClick={() => {
+              setMultiplayerLeaderboardMobile(false);
               if(!mapShown) {
                 setMapShown(true);
               }
@@ -367,7 +405,14 @@ setTimeout(() => {
               if(!guessing) {
               guess()
               }
-            }} disableDiv={guessed || loading} />
+            }} guessing={guessing} disableDiv={guessed || loading} playingMultiplayer={playingMultiplayer} multiplayerTimers={multiplayerTimers} multiplayerRoundIndex={multiplayerRoundIndex} multiplayerinMatchBuffer={multiplayerinMatchBuffer}
+            leaderboardClick={() => {
+              setMultiplayerLeaderboardMobile(true);
+              if(mapShown) {
+                setMapShown(false);
+              }
+            }} />
+
           </div>
         </div>
       </main>

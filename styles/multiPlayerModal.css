@@ -14,14 +14,7 @@
 }
 
 .customCloseButton {
-  cursor: pointer;
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 24px;
-  border: none;
-  background: none;
-  color: #aaa;
+  display: none !important; /* Hide the default close button */
 }
 
 .actionButton {
@@ -37,18 +30,49 @@
   transition: background-color 0.3s, transform 0.2s;
 }
 
+.secondary {
+  background: linear-gradient(145deg, #708090, #524e6b);
+}
+
+
 .actionButton:hover, .actionButton:focus {
   background: linear-gradient(145deg, #708090, #6a5acd);
   transform: scale(1.05);
 }
+.secondary:hover, .secondary:focus {
+  background: linear-gradient(145deg, #524e6b, #708090);
+}
 
 .buttonContainer {
   display: flex;
-  flex-direction: column; /* Stacked buttons for a cleaner look */
+  flex-direction: row;
   gap: 15px;
   margin-top: 20px;
 }
 
 .closeButton:hover {
   background: #444;
+}
+
+.inputContainer {
+  display: flex;
+  flex-direction:   column;
+  margin-top: 20px;
+  user-select: none;
+}
+
+input[type="text"],
+input[type="number"] {
+  background-color: #444;
+  color: #ccc;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px;
+  user-select: none;
+}
+
+
+.numberIn {
+  width: 80px;
 }
