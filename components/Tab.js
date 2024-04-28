@@ -1,9 +1,9 @@
 import React from 'react';
 import { MdCameraAlt } from 'react-icons/md'; // Importing camera icon from Material Design
-import { FaMapMarkedAlt } from 'react-icons/fa'; // Importing map icon from FontAwesome
+import { FaMapMarkedAlt, FaMedal } from 'react-icons/fa'; // Importing map icon from FontAwesome
 import styles from '../styles/Tab.module.css';
 
-const GameControls = ({ onCameraClick, onMapClick, showGuessBtn, onGuessClick, disableDiv }) => {
+const GameControls = ({ onCameraClick, onMapClick, showGuessBtn, onGuessClick, disableDiv, playingMultiplayer, leaderboardClick, guessing }) => {
   return (
     <div className={styles.gameControls}>
       <button className={styles.iconButton} onClick={onCameraClick} disabled={disableDiv}>
@@ -13,9 +13,13 @@ const GameControls = ({ onCameraClick, onMapClick, showGuessBtn, onGuessClick, d
         <FaMapMarkedAlt size={24} />
       </button>
 
+      {playingMultiplayer && (
+        <FaMedal size={24} onClick={leaderboardClick} className={styles.iconButton} />
+      )}
+
 
       <button className="guessBtn" onClick={() => {onGuessClick()}} style={{display: showGuessBtn ? '' : 'none'}}>
-            Guess
+      { (playingMultiplayer && guessing) ? 'Waiting...' : 'Guess'}
             </button>
     </div>
   );

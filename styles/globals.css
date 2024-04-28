@@ -26,6 +26,92 @@ button {
   user-select: none;
 }
 
+#timerDiv {
+  display: fixed;
+  position: absolute;
+  top: 10px;
+  right: 50%;
+  transform: translateX(50%);
+  padding: 10px;
+  z-index: 100;
+  background-color: rgba(42, 44, 71, 0.9);
+  backdrop-filter: blur(10px);
+  color: white;
+  font-size: 1.5em;
+  font-weight: 500;
+  border:  1px solid #555;
+  border-radius: 10px;
+  user-select: none;
+}
+
+ /*  on pc */
+@media screen and (min-width: 600px) {
+  #timerDiv {
+    top: 80px;
+  }
+
+}
+
+
+#leaderBoard {
+  width: 25vw;
+  height: calc(100vh - 83px);
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  background-color: rgba(42, 44, 71, 0.9);
+  backdrop-filter: blur(10px);
+  text-align: center;
+  overflow-y: auto;
+}
+
+@media screen and (max-width: 600px) {
+  #leaderBoard {
+    display: none;
+  }
+  #leaderBoard.mobileOpen {
+    display: block;
+    width: 100vw;
+    height: calc(100vh - 83px - 90px);
+    bottom: 90px;
+    z-index: 100;
+  }
+}
+
+#leaderBoard h1 {
+  font-size: 1.5em;
+  font-weight: 500;
+  padding: 10px;
+  color: white;
+}
+
+#leaderBoard h2 {
+  font-size: 1.2em;
+  font-weight: 500;
+  padding: 10px;
+  color: white;
+}
+
+#leaderBoard ul {
+  list-style-type: none;
+  padding: 0;
+  margin-top: 10px;
+}
+
+#leaderBoard li {
+  margin: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out;
+}
+
+#leaderBoard.gameEnded {
+  width: 100vw;
+}
+
 
 
 .topItem {
@@ -106,10 +192,17 @@ button {
   height: 100%;
   display: flex;
   align-items: flex-end;
-  flex-direction: column;
+  flex-direction: row-reverse;
 
 
   background-color: rgba(15, 16, 22, 0.9);
+
+}
+
+@media screen and (max-width: 600px) {
+  #innerMainDiv {
+    flex-direction: column;
+  }
 
 }
 
@@ -156,11 +249,19 @@ img {
 #streetview {
   user-select: none;
   border: none !important;
-  transition: all 1000ms ease;
+  transition: all 100ms ease;
+  width: 100vw;
+}
+#streetview.multiplayer {
+  width: 75vw;
 }
 @media screen and (max-width: 600px) {
   #streetview {
     display: none;
+    width: 100vw;
+  }
+  #miniMap {
+    opacity: 100%;
   }
 }
 #miniMap.mapHidden {
@@ -171,6 +272,7 @@ img {
 @media screen and (max-width: 600px) {
   #streetview.mapHidden {
     display: block;
+    width: 100vw;
   }
 }
 
@@ -193,6 +295,9 @@ img {
   margin-right: 0;
   opacity: 100%;
   bottom: 0;
+}
+#miniMap.gameOver.multiplayer {
+  width: 75vw;
 }
 #endBanner {
   position: fixed;
@@ -350,6 +455,16 @@ img {
   justify-content: center;
 }
 
+.bottomLeft {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  padding: 10px;
+  color: white;
+  font-size: 1.2em;
+  font-weight: 500;
+  z-index: 100;
+}
 
 @media screen and (max-width: 600px) {
   .hideOnMobile {

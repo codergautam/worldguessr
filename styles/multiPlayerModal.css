@@ -1,0 +1,78 @@
+/* styles.css */
+.customOverlay {
+  background-color: rgba(10, 10, 10, 0.85); /* Dark semi-transparent background */
+}
+
+.customModal {
+  background-color: #282c34 !important; /* Dark background */
+  color: #ccc; /* Lighter text for better readability */
+  padding: 25px;
+  border-radius: 15px;
+  max-width: 600px; /* Slightly larger modal for better layout */
+  text-align: center;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.2);
+}
+
+.customCloseButton {
+  display: none !important; /* Hide the default close button */
+}
+
+.actionButton {
+  font-size: 18px;
+  font-weight: 500;
+  color: white;
+  background: linear-gradient(145deg, #6a5acd, #708090);
+  border: none;
+  border-radius: 8px;
+  padding: 15px 30px;
+  margin: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+.secondary {
+  background: linear-gradient(145deg, #708090, #524e6b);
+}
+
+
+.actionButton:hover, .actionButton:focus {
+  background: linear-gradient(145deg, #708090, #6a5acd);
+  transform: scale(1.05);
+}
+.secondary:hover, .secondary:focus {
+  background: linear-gradient(145deg, #524e6b, #708090);
+}
+
+.buttonContainer {
+  display: flex;
+  flex-direction: row;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.closeButton:hover {
+  background: #444;
+}
+
+.inputContainer {
+  display: flex;
+  flex-direction:   column;
+  margin-top: 20px;
+  user-select: none;
+}
+
+input[type="text"],
+input[type="number"] {
+  background-color: #444;
+  color: #ccc;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 10px;
+  user-select: none;
+}
+
+
+.numberIn {
+  width: 80px;
+}
