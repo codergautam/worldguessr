@@ -69,6 +69,7 @@ export default function Home() {
     const [multiplayerinMatchBuffer, setMultiplayerinMatchBuffer] = useState(false);
     const [multiplayerSentGuess, setMultiplayerSentGuess] = useState(false);
     const [multiplayerLeaderboardMobile, setMultiplayerLeaderboardMobile] = useState(false);
+    const [lostCountryStreak, setLostCountryStreak] = useState(0);
 
   // screen dim
   const {width, height} = useWindowDimensions();
@@ -257,6 +258,7 @@ export default function Home() {
        console.log('incorrect guess');
        setCountryStreak(0);
        window.localStorage.setItem('countryStreak', 0);
+       setLostCountryStreak(countryStreak);
      }
      if(!playingMultiplayer) {
       setGuessing(false);
@@ -268,6 +270,7 @@ export default function Home() {
     setLoading(true);
     setGuessed(false);
     setPinPoint(null);
+    setLostCountryStreak(0);
     if(width > 600) setMapFullscreen(false);
     setLatLong(null);
     setKm(null);
@@ -321,7 +324,7 @@ export default function Home() {
       <main className={`${styles.main} ${inter.className}`} id="main">
         <Navbar mapShown={mapShown} setInfoModal={setInfoModal} fullReset={fullReset} setMultiplayerModal={setMultiplayerModal} playingMultiplayer={playingMultiplayer} />
         <BottomLeft setInfoModal={setInfoModal} />
-        <EndBanner guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} />
+        <EndBanner lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} />
 
         {/* how to play */}
         <InfoModal shown={infoModal} onClose={() => {
