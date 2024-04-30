@@ -4,7 +4,12 @@
  export default async function handler(req, res) {
 
    const { lat, long } = req.query;
-   const output = lookup(53.218620, 6.567365, true);
-          res.status(200).json(output);
+  if(!lat || !long) return res.status(400).json({address: {country: null}});
+   const output = lookup(parseFloat(lat), parseFloat(long), true);
+  if(output && output.length > 0)
+          res.status(200).json({address: {country: output[0]}});
+ } else {
+  res.status(200).json({address: {country: null}});
+ }
       
  }
