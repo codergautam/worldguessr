@@ -11,6 +11,7 @@
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
     "@vercel/analytics": "^1.2.2",
+    "coordinate_to_country": "^1.1.0",
     "framer-motion": "^11.1.7",
     "leaflet": "^1.9.4",
     "moment": "^2.30.1",
