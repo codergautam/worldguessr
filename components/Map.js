@@ -27,7 +27,7 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
         new TileLayer({
           source: new XYZ({
             // url: 'https://{a-c}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-            url: '	https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=demo',
+            url: 'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02',
           }),
         }),
         new VectorLayer({ source: vectorSource.current })
