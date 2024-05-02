@@ -84,6 +84,7 @@ export default function Home() {
     setPinPoint(null);
     setPlayingMultiplayer(true);
     setMultiplayerEnded(false);
+      setShowHint(false);
     }
   }
 
