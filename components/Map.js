@@ -14,7 +14,7 @@ import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
 import ol from 'ol/interaction';
 import { Circle } from 'ol/geom';
-const hintRad = 10000000;
+const hintRad = 5000000;
 
 const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
   const mapRef = useRef();
@@ -221,7 +221,7 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
   }, [map, pinPoint, guessed, location, setKm, randomOffsetS, showHint]);
 
   useState(() => {
-    let maxPivots = [41, 80].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
+    let maxPivots = [10, 25].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
 
     setRandomOffsetS([maxPivots[0], maxPivots[1]]);
   }, [location]);
