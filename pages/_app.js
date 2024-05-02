@@ -17,7 +17,7 @@ export default function App({ Component, pageProps }) {
       <GoogleAnalytics trackPageViews gaMeasurementId="G-KFK0S0RXG5" />
         <NextThemesProvider
             attribute="class"
-            defaultTheme="dark"
+            defaultTheme="light"
 
             disableTransitionOnChange
             >
