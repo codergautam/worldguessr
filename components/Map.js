@@ -14,60 +14,35 @@ import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
 import ol from 'ol/interaction';
 import { Circle } from 'ol/geom';
+const hintRad = 10000000;
 
-const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, currentId, round }) => {
+const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
+  const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
   const vectorSource = useRef(new VectorSource());
 
-  function drawHint(initialMap, location) {
-      // create a circle overlay 100km radius from location
-      // const circleRadius = 10000000;
-      // const circleX = location.long + (Math.random() - 0.5) * circleRadius;
-      // const circleY = location.lat + (Math.random() - 0.5) * circleRadius;
-      // const circleFeature = new Feature({
-      //   geometry: new Circle(fromLonLat([circleX, circleY]), circleRadius),
-      // });
-      // circleFeature.setStyle(
-      //   new Style({
-      //     renderer(coordinates, state) {
-      //       const [[x, y], [x1, y1]] = coordinates;
-      //       const ctx = state.context;
-      //       const dx = x1 - x;
-      //       const dy = y1 - y;
-      //       const radius = Math.sqrt(dx * dx + dy * dy);
+  function drawHint(initialMap, location, randomOffset) {
+      // create a circle overlay 10000km radius from location
 
-      //       const innerRadius = 0;
-      //       const outerRadius = radius * 1.4;
+      let lat = location.lat+randomOffset[0];
+      let long = location.long+randomOffset[1];
+      // move it a bit randomly so it's not exactly on the location but location is inside the circle
+      const circle = new Feature(new Circle(fromLonLat([long, lat]), hintRad));
+      vectorSource.current.addFeature(circle);
 
-      //       const gradient = ctx.createRadialGradient(
-      //         x,
-      //         y,
-      //         innerRadius,
-      //         x,
-      //         y,
-      //         outerRadius,
-      //       );
-      //       gradient.addColorStop(0, 'rgba(255,0,0,0)');
-      //       gradient.addColorStop(0.6, 'rgba(255,0,0,0.2)');
-      //       gradient.addColorStop(1, 'rgba(255,0,0,0.8)');
-      //       ctx.beginPath();
-      //       ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
-      //       ctx.fillStyle = gradient;
-      //       ctx.fill();
-
-      //       ctx.arc(x, y, radius, 0, 2 * Math.PI, true);
-      //       ctx.strokeStyle = 'rgba(255,0,0,1)';
-      //       ctx.stroke();
-      //     },
-      //   }),
-      // );
-      // const circleLayer = new VectorLayer({
-      //   source: new VectorSource({
-      //     features: [circleFeature]
-      //   }),
-      // });
-      // initialMap.addLayer(circleLayer);
+      const circleLayer = new VectorLayer({
+        source: new VectorSource({
+          features: [circle]
+        }),
+        style: new Style({
+          stroke: new Stroke({
+            color: '#f00',
+            width: 2
+          })
+        })
+      });
+      initialMap.addLayer(circleLayer);
   }
   // Initialize map on first render
   useEffect(() => {
@@ -90,7 +65,6 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
       }),
     });
 
-    if(location) drawHint(initialMap, location);
 
 
     // const mouseDown = (e) => {
@@ -129,7 +103,18 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
     if (!map) return;
 
     vectorSource.current.clear();
-    if(location) drawHint(map, location);
+
+    // remove old pin point
+    // no clue why this is needed twice but it is
+    for(let i=0; i<2; i++) {
+    map.getLayers().getArray().forEach((layer) => {
+      if (layer instanceof VectorLayer) {
+        map.removeLayer(layer);
+      }
+    });
+    }
+
+    if(location && showHint) drawHint(map, location, randomOffsetS);
     if (pinPoint) {
       const pinFeature = new Feature({
         geometry: new Point(fromLonLat([pinPoint.lng, pinPoint.lat])),
@@ -149,12 +134,6 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
         })
       });
       map.addLayer(pinLayer);
-      // clear old layers
-      map.getLayers().forEach((layer) => {
-        if (layer instanceof VectorLayer) {
-          map.removeLayer(layer);
-        }
-      });
     }
 
     if (guessed && location && pinPoint && (!playingMultiplayer || multiplayerSentGuess)) {
@@ -239,7 +218,13 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
       setKm(distanceInKm);
     }
 
-  }, [map, pinPoint, guessed, location, setKm]);
+  }, [map, pinPoint, guessed, location, setKm, randomOffsetS, showHint]);
+
+  useState(() => {
+    let maxPivots = [41, 80].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
+
+    setRandomOffsetS([maxPivots[0], maxPivots[1]]);
+  }, [location]);
 
   return (
     <div ref={mapRef} style={{ height: height, width: '100%', cursor: 'crosshair' }}></div>

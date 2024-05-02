@@ -4,7 +4,7 @@ import client from '@/components/multiplayerServer/redisClient';
 import moment from 'moment';
 const matchesBuffer = 5000;
 export default async function guess(req, res) {
-  const { lat, long, gameCode, playerSecret, roundNo } = req.body;
+  const { lat, long, gameCode, playerSecret, roundNo, usedHint } = req.body;
 
   // Validate the input
   if (typeof lat !== 'number' || typeof long !== 'number' ||
@@ -26,7 +26,7 @@ export default async function guess(req, res) {
   }
 
   // Calculate the actual distance between the player's guess and the target point
-  const points = calcPoints({ guessLat: lat, guessLon: long, lat: game.po[roundNo-1].lat, lon: game.po[roundNo-1].long });
+  const points = calcPoints({ guessLat: lat, guessLon: long, lat: game.po[roundNo-1].lat, lon: game.po[roundNo-1].long, usedHint });
   player.po += points;
   // add to player.g
   player.g.push({ lat, long, po: points, r: roundNo });

@@ -30,7 +30,6 @@ if(dbSize > 100) {
   let values = await Promise.all(keys.map(key => client.get(key)));
   values = values.filter(v => v !== null).map(v => JSON.parse(v));
   const oldestKey = values.sort((a, b) => a.s - b.s)[0];
-  console.log('Removing key:', oldestKey);
   await client.del(oldestKey.id.toString());
 
 }

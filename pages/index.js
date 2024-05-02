@@ -60,6 +60,8 @@ export default function Home() {
 
     const [guessing, setGuessing] = useState(false);
 
+    const [showHint, setShowHint] = useState(false);
+
     const [multiplayerModal, setMultiplayerModal] = useState(false);
     const [multiplayerEnded, setMultiplayerEnded] = useState(false);
     const [multiplayerData, setMultiplayerData] = useState(null);
@@ -222,6 +224,7 @@ export default function Home() {
             long: pinPoint.lng,
             gameCode: multiplayerData.code,
             playerSecret: multiplayerData.myData.playerSecret,
+            usedHint: showHint,
             roundNo: multiplayerTimers.currentRound
           })
         });
@@ -270,6 +273,7 @@ export default function Home() {
     setLoading(true);
     setGuessed(false);
     setPinPoint(null);
+    setShowHint(false);
     setLostCountryStreak(0);
     if(width > 600) setMapFullscreen(false);
     setLatLong(null);
@@ -376,7 +380,7 @@ setTimeout(() => {
 <div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed)? '' : 'none'}}>
 
             </div>
-            {mapShown && latLong && <MapWidget fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} guessing={guessing} location={latLong} setKm={setKm} height={"100%"} multiplayerSentGuess={multiplayerSentGuess} playingMultiplayer={playingMultiplayer} multiplayerGameData={multiplayerData ? multiplayerData?.gameData : null} round={multiplayerTimers?.currentRound} currentId={multiplayerData ? multiplayerData.myData.playerSecret : null} />}
+            {mapShown && latLong && <MapWidget showHint={showHint} fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} guessing={guessing} location={latLong} setKm={setKm} height={"100%"} multiplayerSentGuess={multiplayerSentGuess} playingMultiplayer={playingMultiplayer} multiplayerGameData={multiplayerData ? multiplayerData?.gameData : null} round={multiplayerTimers?.currentRound} currentId={multiplayerData ? multiplayerData.myData.playerSecret : null} />}
             </div>
 
             <MultiplayerModal open={multiplayerModal} close={onMultiplayerModalClose} />
@@ -384,6 +388,11 @@ setTimeout(() => {
             { pinPoint && !guessed && (
             <button ref={guessBtnRef} className="guessBtn desktopGB" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}} disabled={loading || guessing}>
             { (playingMultiplayer && guessing) ? 'Waiting...' : 'Guess'}
+            </button>
+            )}
+            { !guessed && latLong &&  !showHint && (
+            <button className="guessBtn desktopGB hintBtn" onClick={() => {setShowHint(true)}} style={{display: width > 600 ? '' : 'none'}}>
+            Hint
             </button>
             )}
 
@@ -403,13 +412,13 @@ setTimeout(() => {
               if(!guessing) {
               guess()
               }
-            }} guessing={guessing} disableDiv={guessed || loading} playingMultiplayer={playingMultiplayer} multiplayerTimers={multiplayerTimers} multiplayerRoundIndex={multiplayerRoundIndex} multiplayerinMatchBuffer={multiplayerinMatchBuffer}
+            }} showHint={showHint} setShowHint={setShowHint} guessing={guessing} disableDiv={guessed || loading} playingMultiplayer={playingMultiplayer} multiplayerTimers={multiplayerTimers} multiplayerRoundIndex={multiplayerRoundIndex} multiplayerinMatchBuffer={multiplayerinMatchBuffer}
             leaderboardClick={() => {
               setMultiplayerLeaderboardMobile(true);
               if(mapShown) {
                 setMapShown(false);
               }
-            }} />
+            }} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} />
 
           </div>
         </div>

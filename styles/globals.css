@@ -424,6 +424,10 @@ img {
   border-radius: 0;
 }
 
+.desktopGB.hintBtn {
+  right: 200px;
+}
+
 @media screen and (max-width: 600px) {
   .guessBtn {
     font-size: 1.2em;
