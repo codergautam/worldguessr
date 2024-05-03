@@ -477,7 +477,7 @@ setTimeout(() => {
   );
 }
 export async function getServerSideProps(context) {
-  const session = await getServerSession(context.req, context.res, authOptions);
+  const session = await getServerSession(context.req, context.res);
   // if (!session) {
   //   return {
   //     redirect: {
