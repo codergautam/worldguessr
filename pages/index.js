@@ -22,18 +22,18 @@ import Leaderboard from '@/components/leaderboard';
 import formatTime from '@/components/formatNum';
 import BottomLeft from '@/components/bottomLeft';
 import { signOut, useSession } from 'next-auth/react';
-import { getSession } from 'next-auth/react';
 import SetUsernameModal from '@/components/setUsernameModal';
 import AccountModal from '@/components/accountModal';
 const inter = Inter({ subsets: ['latin'] });
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
-// import { unstable_getServerSession as getServerSession } from "next-auth/next"
-// import { authOptions } from "@/pages/api/auth/[...nextauth]"
 
 const multiplayerMatchBuffer = 5000; // deadline is 5000ms before next round to show the end stats
-export default function Home({ session }) {
+export default function Home({ }) {
   const mapDivRef = useRef(null);
   const guessBtnRef = useRef(null);
+
+  // get nextauth session
+  const { data: session, status } = useSession();
 
   // this button exists to prevent cheating by focusing on the iframe and tabbing etc
   // const focusBtn = useRef(null);
@@ -477,17 +477,7 @@ setTimeout(() => {
     </>
   );
 }
-export async function getServerSideProps(context) {
-  // const session = await getSession(context);
-  // if (!session) {
-  //   return {
-  //     redirect: {
-  //       destination: '/login',
-  //       permanent: false,
-  //     },
-  //   };
-  // }
-
+export async function getServerSideProps({ req, res }) {
   return {
     props: {  },
   };
