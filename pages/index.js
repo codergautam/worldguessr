@@ -9,6 +9,7 @@ import GameControls from '@/components/Tab';
 import { FaDiscord, FaGithub, FaInfo } from 'react-icons/fa';
 import Modal from 'react-responsive-modal';
 import 'react-responsive-modal/styles.css';
+import { authOptions } from "@/pages/api/auth/[...nextauth]"
 
 import findCountry from '@/components/findCountry';
 import MultiplayerModal from '@/components/multiPlayerModal';
