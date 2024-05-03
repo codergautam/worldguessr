@@ -54,12 +54,12 @@ export default async function guess(req, res) {
   }
   await client.set(gameCode, JSON.stringify(game));
 
-  if(secret) {
-    try {
-      await storeGame(secret, Math.round(points/100), roundTime, [lat, long]);
-    } catch (error) {
-      return res.status(500).json({ error: 'An error occurred', message: error.message });
-    }
-  }
+  // if(secret) {
+  //   try {
+  //     await storeGame(secret, Math.round(points/100), roundTime, [lat, long]);
+  //   } catch (error) {
+  //     return res.status(500).json({ error: 'An error occurred', message: error.message });
+  //   }
+  // }
   res.status(200).json({ success: true, pointsAwarded: points });
 }
