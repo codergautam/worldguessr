@@ -9,7 +9,6 @@ import GameControls from '@/components/Tab';
 import { FaDiscord, FaGithub, FaInfo } from 'react-icons/fa';
 import Modal from 'react-responsive-modal';
 import 'react-responsive-modal/styles.css';
-import { authOptions } from "@/pages/api/auth/[...nextauth]"
 
 import findCountry from '@/components/findCountry';
 import MultiplayerModal from '@/components/multiPlayerModal';
@@ -24,7 +23,6 @@ import formatTime from '@/components/formatNum';
 import BottomLeft from '@/components/bottomLeft';
 import { signOut, useSession } from 'next-auth/react';
 import { getSession } from 'next-auth/react';
-// import { unstable_getServerSession as getServerSession } from "next-auth/next"
 import SetUsernameModal from '@/components/setUsernameModal';
 import AccountModal from '@/components/accountModal';
 const inter = Inter({ subsets: ['latin'] });
@@ -478,8 +476,7 @@ setTimeout(() => {
   );
 }
 export async function getServerSideProps(context) {
-  // const session = await getServerSession(context.req, context.res);
-  const session = {};
+  const session = await getSession(context);
   // if (!session) {
   //   return {
   //     redirect: {
