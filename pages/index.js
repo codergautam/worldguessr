@@ -21,13 +21,18 @@ import Loader from '@/components/loader';
 import Leaderboard from '@/components/leaderboard';
 import formatTime from '@/components/formatNum';
 import BottomLeft from '@/components/bottomLeft';
+import { signOut, useSession } from 'next-auth/react';
+import { getSession } from 'next-auth/react';
+import SetUsernameModal from '@/components/setUsernameModal';
+import AccountModal from '@/components/accountModal';
 const inter = Inter({ subsets: ['latin'] });
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 const multiplayerMatchBuffer = 5000; // deadline is 5000ms before next round to show the end stats
-export default function Home() {
+export default function Home({ session }) {
   const mapDivRef = useRef(null);
   const guessBtnRef = useRef(null);
+
   // this button exists to prevent cheating by focusing on the iframe and tabbing etc
   // const focusBtn = useRef(null);
   // desktop: is minimap viewable (always true when in game)
@@ -62,6 +67,10 @@ export default function Home() {
 
     const [showHint, setShowHint] = useState(false);
 
+    const [accountModalOpen, setAccountModalOpen] = useState(false);
+    const [roundStartTime, setRoundStartTime] = useState(null);
+    const [xpEarned, setXpEarned] = useState(0);
+
     const [multiplayerModal, setMultiplayerModal] = useState(false);
     const [multiplayerEnded, setMultiplayerEnded] = useState(false);
     const [multiplayerData, setMultiplayerData] = useState(null);
@@ -76,10 +85,16 @@ export default function Home() {
   // screen dim
   const {width, height} = useWindowDimensions();
 
+  useEffect(() => {
+    setRoundStartTime(Date.now());
+    console.log('round start time', Date.now());
+  }, [latLong]);
+
   function onMultiplayerModalClose(data) {
     setMultiplayerModal(false);
 
     if(data) {
+      setXpEarned(0);
     setMultiplayerData(data);
     setPinPoint(null);
     setPlayingMultiplayer(true);
@@ -225,9 +240,12 @@ export default function Home() {
             gameCode: multiplayerData.code,
             playerSecret: multiplayerData.myData.playerSecret,
             usedHint: showHint,
-            roundNo: multiplayerTimers.currentRound
+            roundNo: multiplayerTimers.currentRound,
+            secret: session?.token?.secret,
+            roundTime: Math.round((Date.now() - roundStartTime)/ 1000)
           })
         });
+        setXpEarned(Math.round(calcPoints({ guessLat: pinPoint.lat, guessLon: pinPoint.lng, lat: latLong.lat, lon: latLong.long, usedHint: showHint }) / 100));
 
         const data = await response.json();
         setMultiplayerSentGuess(true);
@@ -241,6 +259,34 @@ export default function Home() {
         console.error(error);
       }
       } else {
+
+        if(session && session.token && session.token.secret) {
+          fetch('/api/storeGame', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              secret: session.token.secret,
+              lat: pinPoint.lat,
+              long: pinPoint.lng,
+              usedHint: showHint,
+              actualLat: latLong.lat,
+              actualLong: latLong.long,
+              roundTime: Math.round((Date.now() - roundStartTime)/ 1000)
+            })
+          }).then(res => res.json()).then(data => {
+            if(data.error) {
+              console.error(data.error);
+              return;
+            }
+            console.log(data);
+          }).catch(e => {
+            console.error(e);
+          });
+          setXpEarned(Math.round(calcPoints({ guessLat: pinPoint.lat, guessLon: pinPoint.lng, lat: latLong.lat, lon: latLong.long, usedHint: showHint }) / 100));
+        }
+
 
         setMapFullscreen(true);
         if(!mapShown) {
@@ -275,6 +321,7 @@ export default function Home() {
     setPinPoint(null);
     setShowHint(false);
     setLostCountryStreak(0);
+    setXpEarned(0);
     if(width > 600) setMapFullscreen(false);
     setLatLong(null);
     setKm(null);
@@ -326,16 +373,17 @@ export default function Home() {
     <>
       <HeadContent />
       <main className={`${styles.main} ${inter.className}`} id="main">
-        <Navbar mapShown={mapShown} setInfoModal={setInfoModal} fullReset={fullReset} setMultiplayerModal={setMultiplayerModal} playingMultiplayer={playingMultiplayer} />
+        <Navbar openAccountModal={()=>setAccountModalOpen(true)} session={session} mapShown={mapShown} setInfoModal={setInfoModal} fullReset={fullReset} setMultiplayerModal={setMultiplayerModal} playingMultiplayer={playingMultiplayer} />
         <BottomLeft setInfoModal={setInfoModal} />
-        <EndBanner lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} />
+        <EndBanner xpEarned={xpEarned} usedHint={showHint} session={session} lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} />
 
         {/* how to play */}
         <InfoModal shown={infoModal} onClose={() => {
           setInfoModal(false);
         }} />
 
-
+        <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
+        <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} logOut={() => { signOut() }} />
 
         <div className="MainDiv">
           <div id="innerMainDiv" ref={mapDivRef}>
@@ -380,7 +428,7 @@ setTimeout(() => {
 <div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed)? '' : 'none'}}>
 
             </div>
-            {mapShown && latLong && <MapWidget showHint={showHint} fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} guessing={guessing} location={latLong} setKm={setKm} height={"100%"} multiplayerSentGuess={multiplayerSentGuess} playingMultiplayer={playingMultiplayer} multiplayerGameData={multiplayerData ? multiplayerData?.gameData : null} round={multiplayerTimers?.currentRound} currentId={multiplayerData ? multiplayerData.myData.playerSecret : null} />}
+            {mapShown && latLong && <MapWidget session={session} showHint={showHint} fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} guessing={guessing} location={latLong} setKm={setKm} height={"100%"} multiplayerSentGuess={multiplayerSentGuess} playingMultiplayer={playingMultiplayer} multiplayerGameData={multiplayerData ? multiplayerData?.gameData : null} round={multiplayerTimers?.currentRound} currentId={multiplayerData ? multiplayerData.myData.playerSecret : null} />}
             </div>
 
             <MultiplayerModal open={multiplayerModal} close={onMultiplayerModalClose} />
@@ -425,4 +473,19 @@ setTimeout(() => {
       </main>
     </>
   );
+}
+export async function getServerSideProps(context) {
+  const session = await getSession(context);
+  // if (!session) {
+  //   return {
+  //     redirect: {
+  //       destination: '/login',
+  //       permanent: false,
+  //     },
+  //   };
+  // }
+
+  return {
+    props: { session },
+  };
 }

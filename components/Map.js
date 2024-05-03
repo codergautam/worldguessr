@@ -16,7 +16,7 @@ import ol from 'ol/interaction';
 import { Circle } from 'ol/geom';
 const hintRad = 5000000;
 
-const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
+const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm, height, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);

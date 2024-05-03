@@ -24,14 +24,14 @@ if(clients.length > 10) {
 const dbSize = await client.dbSize();
 // if over 10mb, remove oldest key
 console.log('DB size:', dbSize, 'keys');
-if(dbSize > 100) {
-  console.log('DB size over 100, removing oldest key');
+if (dbSize > 500) {
+  console.log('DB size over 500, trimming');
   const keys = await client.keys('*');
   let values = await Promise.all(keys.map(key => client.get(key)));
   values = values.filter(v => v !== null).map(v => JSON.parse(v));
-  const oldestKey = values.sort((a, b) => a.s - b.s)[0];
-  await client.del(oldestKey.id.toString());
-
+  const oldestKeys = values.sort((a, b) => a.s - b.s).slice(0, values.length - 300);
+  console.log('Deleting', oldestKeys.length, 'keys');
+  await Promise.all(oldestKeys.map(key => client.del(key.id.toString())));
 }
 
 
