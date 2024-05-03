@@ -99,6 +99,7 @@ export default function Home({ session }) {
     setPinPoint(null);
     setPlayingMultiplayer(true);
     setMultiplayerEnded(false);
+      setShowHint(false);
     }
   }
 
