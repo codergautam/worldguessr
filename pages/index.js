@@ -476,7 +476,7 @@ setTimeout(() => {
   );
 }
 export async function getServerSideProps(context) {
-  const session = await getSession(context);
+  // const session = await getSession(context);
   // if (!session) {
   //   return {
   //     redirect: {
@@ -487,6 +487,6 @@ export async function getServerSideProps(context) {
   // }
 
   return {
-    props: { session },
+    props: {  },
   };
 }
