@@ -22,7 +22,8 @@ import Leaderboard from '@/components/leaderboard';
 import formatTime from '@/components/formatNum';
 import BottomLeft from '@/components/bottomLeft';
 import { signOut, useSession } from 'next-auth/react';
-import { getSession } from 'next-auth/react';
+// import { getSession } from 'next-auth/react';
+import { unstable_getServerSession as getServerSession } from "next-auth/next"
 import SetUsernameModal from '@/components/setUsernameModal';
 import AccountModal from '@/components/accountModal';
 const inter = Inter({ subsets: ['latin'] });
@@ -476,7 +477,7 @@ setTimeout(() => {
   );
 }
 export async function getServerSideProps(context) {
-  const session = await getSession(context);
+  const session = await getServerSession(context.req, context.res, authOptions);
   // if (!session) {
   //   return {
   //     redirect: {
