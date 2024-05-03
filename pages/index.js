@@ -27,8 +27,8 @@ import SetUsernameModal from '@/components/setUsernameModal';
 import AccountModal from '@/components/accountModal';
 const inter = Inter({ subsets: ['latin'] });
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
-import { unstable_getServerSession as getServerSession } from "next-auth/next"
-import { authOptions } from "@/pages/api/auth/[...nextauth]"
+// import { unstable_getServerSession as getServerSession } from "next-auth/next"
+// import { authOptions } from "@/pages/api/auth/[...nextauth]"
 
 const multiplayerMatchBuffer = 5000; // deadline is 5000ms before next round to show the end stats
 export default function Home({ session }) {
