@@ -19,7 +19,7 @@ export default function Navbar({mapShown, session, fullReset, setMultiplayerModa
 
 {!session || !session?.token?.secret ? (
 <div style={{display: 'flex', alignItems: 'center'}}>
-<button className="navButton" onClick={()=>signIn('google')}>Login / Signup</button>
+// <button className="navButton" onClick={()=>signIn('google')}>Login / Signup</button>
 </div>
 ) : (
 <div style={{display: 'flex', alignItems: 'center'}}>
