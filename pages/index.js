@@ -89,6 +89,8 @@ export default function Home({ }) {
 
   useEffect(() => {
     setRoundStartTime(Date.now());
+    setXpEarned(0);
+    setShowHint(false);
     console.log('round start time', Date.now());
   }, [latLong]);
 
@@ -322,7 +324,6 @@ export default function Home({ }) {
     setLoading(true);
     setGuessed(false);
     setPinPoint(null);
-    setShowHint(false);
     setLostCountryStreak(0);
     setXpEarned(0);
     if(width > 600) setMapFullscreen(false);
