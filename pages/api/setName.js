@@ -1,6 +1,7 @@
 // pages/api/setName.js
 import mongoose from 'mongoose';
 import User from '../../models/User';
+import { Webhook } from "discord-webhook-node";
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -52,6 +53,16 @@ export default async function handler(req, res) {
     // Update the user's username
     user.username = username;
     await user.save();
+
+    try {
+      if(process.env.DISCORD_WEBHOOK) {
+        const hook = new Webhook(process.env.DISCORD_WEBHOOK);
+        hook.setUsername("WorldGuessr");
+        hook.send(`🎉 **${username}** has joined WorldGuessr!`);
+      }
+    } catch (error) {
+      console.error('Discord webhook failed', error);
+    }
 
     res.status(200).json({ success: true });
   } catch (error) {
