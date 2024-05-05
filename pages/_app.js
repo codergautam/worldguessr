@@ -1,7 +1,7 @@
 import "@/styles/globals.css";
 import "@/styles/multiPlayerModal.css";
+import { SessionProvider } from "next-auth/react";
 
-import { Analytics } from "@vercel/analytics/react"
 import { GoogleAnalytics } from "nextjs-google-analytics";
 import { useEffect } from "react";
 
@@ -13,16 +13,15 @@ export default function App({ Component, pageProps }) {
   });
   return (
     <>
-      <Analytics />
       <GoogleAnalytics trackPageViews gaMeasurementId="G-KFK0S0RXG5" />
-        <NextThemesProvider
+      <SessionProvider session={pageProps.session}>
+              <NextThemesProvider
             attribute="class"
             defaultTheme="light"
-
-            disableTransitionOnChange
-            >
+            disableTransitionOnChange>
             <Component {...pageProps} />
         </NextThemesProvider>
+      </SessionProvider>
     </>
   );
 }

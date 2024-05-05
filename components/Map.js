@@ -13,11 +13,37 @@ import { Icon, Style, Stroke } from 'ol/style';
 import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
 import ol from 'ol/interaction';
+import { Circle } from 'ol/geom';
+const hintRad = 5000000;
 
-const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, currentId, round }) => {
+const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm, height, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
+  const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
   const vectorSource = useRef(new VectorSource());
+
+  function drawHint(initialMap, location, randomOffset) {
+      // create a circle overlay 10000km radius from location
+
+      let lat = location.lat+randomOffset[0];
+      let long = location.long+randomOffset[1];
+      // move it a bit randomly so it's not exactly on the location but location is inside the circle
+      const circle = new Feature(new Circle(fromLonLat([long, lat]), hintRad));
+      vectorSource.current.addFeature(circle);
+
+      const circleLayer = new VectorLayer({
+        source: new VectorSource({
+          features: [circle]
+        }),
+        style: new Style({
+          stroke: new Stroke({
+            color: '#f00',
+            width: 2
+          })
+        })
+      });
+      initialMap.addLayer(circleLayer);
+  }
   // Initialize map on first render
   useEffect(() => {
     const initialMap = new Map({
@@ -27,7 +53,7 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
         new TileLayer({
           source: new XYZ({
             // url: 'https://{a-c}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-            url: '	https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=demo',
+            url: 'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02',
           }),
         }),
         new VectorLayer({ source: vectorSource.current })
@@ -35,26 +61,40 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
       view: new View({
         center: fromLonLat([2, 35]),
         zoom: 2,
-        zoomFactor: 1.8,
+        zoomFactor: 2.5,
       }),
     });
 
-    const mouseDown = (e) => {
+
+
+    // const mouseDown = (e) => {
+    //   if (!guessed && !guessing) {
+    //     e.preventDefault();
+    //     const pixel = initialMap.getEventPixel(e);
+    //     const clickedCoord = initialMap.getCoordinateFromPixel(pixel);
+    //     const clickedLatLong = toLonLat(clickedCoord);
+    //     setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
+    //   }
+    // };
+    // mapRef.current.addEventListener('mousedown', mouseDown);
+
+    // use map click event to set pin point
+    function onMapClick(e) {
       if (!guessed && !guessing) {
-        e.preventDefault();
-        const pixel = initialMap.getEventPixel(e);
-        const clickedCoord = initialMap.getCoordinateFromPixel(pixel);
+        const clickedCoord = initialMap.getEventCoordinate(e.originalEvent);
         const clickedLatLong = toLonLat(clickedCoord);
         setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
       }
-    };
-    mapRef.current.addEventListener('mousedown', mouseDown);
+    }
+    initialMap.on('click', onMapClick);
 
     setMap(initialMap);
 
     return () => {
       initialMap.setTarget(undefined);
-      if(mapRef.current) mapRef.current.removeEventListener('mousedown', mouseDown);
+      // if(mapRef.current) mapRef.current.removeEventListener('mousedown', mouseDown);
+
+        initialMap.un('click', onMapClick);
     };
   }, [guessed, setPinPoint, guessing]);
 
@@ -64,6 +104,17 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
 
     vectorSource.current.clear();
 
+    // remove old pin point
+    // no clue why this is needed twice but it is
+    for(let i=0; i<2; i++) {
+    map.getLayers().getArray().forEach((layer) => {
+      if (layer instanceof VectorLayer) {
+        map.removeLayer(layer);
+      }
+    });
+    }
+
+    if(location && showHint) drawHint(map, location, randomOffsetS);
     if (pinPoint) {
       const pinFeature = new Feature({
         geometry: new Point(fromLonLat([pinPoint.lng, pinPoint.lat])),
@@ -83,12 +134,6 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
         })
       });
       map.addLayer(pinLayer);
-      // clear old layers
-      map.getLayers().forEach((layer) => {
-        if (layer instanceof VectorLayer) {
-          map.removeLayer(layer);
-        }
-      });
     }
 
     if (guessed && location && pinPoint && (!playingMultiplayer || multiplayerSentGuess)) {
@@ -173,7 +218,13 @@ const MapComponent = ({ pinPoint, setPinPoint, guessed, location, setKm, height,
       setKm(distanceInKm);
     }
 
-  }, [map, pinPoint, guessed, location, setKm]);
+  }, [map, pinPoint, guessed, location, setKm, randomOffsetS, showHint]);
+
+  useState(() => {
+    let maxPivots = [10, 25].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
+
+    setRandomOffsetS([maxPivots[0], maxPivots[1]]);
+  }, [location]);
 
   return (
     <div ref={mapRef} style={{ height: height, width: '100%', cursor: 'crosshair' }}></div>

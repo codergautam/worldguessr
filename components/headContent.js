@@ -11,19 +11,18 @@ export default function HeadContent() {
     <link rel="icon" type="image/png" sizes="32x32" href="/icon_32x32.png"/>
     <link rel="icon" type="image/png" sizes="144x144" href="/icon_144x144.png"/>
 
-        <meta name="keywords" content="GeoGuessr, GeoGuessr free, free geography game, map game, explore world game"/>
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
            integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
            crossorigin=""/>
-
+<script defer src="https://analytics.us.umami.is/script.js" data-website-id="97e19601-3e34-4409-a410-eb75c6e9dbe2"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
 <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap" rel="stylesheet"/>
 
     <meta property="og:title" content="WorldGuessr - Play Geoguessr for Free" />
-    <meta property="og:description" content="Explore and play the free GeoGuessr game on WorldGuessr. Discover new places and challenge your geographical knowledge." />
+    <meta property="og:description" content="Explore and play the free GeoGuessr game on WorldGuessr. Play free without an account, discover new places and challenge your geographical knowledge." />
     <meta property="og:image" content="/icon_144x144.png" />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />
