@@ -61,7 +61,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
       view: new View({
         center: fromLonLat([2, 35]),
         zoom: 2,
-        zoomFactor: 2.4,
+        zoomFactor: 2.5,
       }),
     });
 
