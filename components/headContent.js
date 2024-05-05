@@ -7,10 +7,7 @@ export default function HeadContent() {
     <meta name="description" content="The #1 free alternative to GeoGuessr, enjoy unlimited games and play to your hearts content! Engage in the fun of discovering new places with our free Geoguessr alternative." />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
 
-    <link rel="icon" type="image/png" sizes="16x16" href="/icon_16x16.png"/>
-    <link rel="icon" type="image/png" sizes="32x32" href="/icon_32x32.png"/>
-    <link rel="icon" type="image/png" sizes="144x144" href="/icon_144x144.png"/>
-
+    <link rel="icon" type="image/x-icon" href="/icon.ico" />
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
            integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
