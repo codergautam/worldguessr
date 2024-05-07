@@ -1,9 +1,9 @@
 import mongoose from 'mongoose';
 import User from '../../models/User';
+const cache = {data: null, timestamp: null};
 
 export default async function handler(req, res) {
   const myUsername = req.query.username;
-  console.log(myUsername);
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -23,20 +23,29 @@ export default async function handler(req, res) {
 
   try {
     // Fetch top 100 users by XP
-    const topUsers = await User.find().sort({ totalXp: -1 }).limit(100);
 
     // Format response data
-    const leaderboard = topUsers.map(user => {
-      if (!user.username) {
-        return null;
-      }
-      return {
-        username: user.username,
-        totalXp: user.totalXp,
-        createdAt: user.created_at,
-        gamesLen: user.games.length,
-      };
-    }).filter(user => user !== null);
+    let leaderboard;
+    if (cache.data && cache.timestamp && Date.now() - cache.timestamp < 60000) {
+      leaderboard = cache.data;
+    } else {
+    const topUsers = await User.find({banned: false}).sort({ totalXp: -1 }).limit(100);
+
+      leaderboard = topUsers.map(user => {
+        if (!user.username) {
+          return null;
+        }
+        return {
+          username: user.username,
+          totalXp: user.totalXp,
+          createdAt: user.created_at,
+          gamesLen: user.games.length,
+        };
+      }).filter(user => user !== null);
+      cache.data = leaderboard;
+      cache.timestamp = Date.now();
+    }
+
 
     // find the user's rank
     let myRank = null;

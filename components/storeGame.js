@@ -26,6 +26,9 @@ export default async function storeGame(secret, xp, timeTaken, latLong) {
   }
 
   const user = await User.findOne({ secret });
+  if(user.banned) {
+    return { success: false, message: 'User is banned' };
+  }
   if (!user) {
     return { success: false, message: 'User not found' };
   }
@@ -38,6 +41,7 @@ export default async function storeGame(secret, xp, timeTaken, latLong) {
     latLong,
     time: new Date(),
   });
+  user.totalGamesPlayed += 1;
   user.totalXp += xp;
 } catch (error) {
   return { success: false, message: 'An error occurred', error: error.message };

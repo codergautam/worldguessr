@@ -27,6 +27,14 @@ const userSchema = new mongoose.Schema({
     type: Array,
     default: [],
   },
+  totalGamesPlayed: {
+    type: Number,
+    default: 0,
+  },
+  banned: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
