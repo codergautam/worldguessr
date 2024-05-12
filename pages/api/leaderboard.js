@@ -54,7 +54,7 @@ export default async function handler(req, res) {
     const user = await User.findOne({ username: myUsername });
     myXp = user?.totalXp;
     if(myXp) {
-    const myRankQuery = await User.find({ totalXp: { $gt: myXp } }).countDocuments();
+    const myRankQuery = await User.find({ totalXp: { $gt: myXp }, banned: false }).countDocuments();
     myRank = myRankQuery + 1;
     }
     }
