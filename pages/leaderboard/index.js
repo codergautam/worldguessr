@@ -4,13 +4,27 @@ import { useSession } from 'next-auth/react';
 
 const Leaderboard = ({ }) => {
   const [leaderboardData, setLeaderboardData] = useState([]);
+  const [pastDay, setPastDay] = useState(false);
   const { data: session, status } = useSession();
 
   useEffect(() => {
-    fetch('/api/leaderboard'+(session ? '?username='+encodeURIComponent(session.token.username) : ''))
-      .then(res => res.json())
-      .then(data => setLeaderboardData(data));
-  }, [session]);
+    const fetchData = async () => {
+      try {
+      const params = {
+        username: session ? session.token.username : undefined,
+        pastDay: pastDay ? true : undefined
+      };
+      const queryParams = new URLSearchParams(params).toString();
+      const response = await fetch(`/api/leaderboard${queryParams ? `?${queryParams}` : ''}`);
+      const data = await response.json();
+      setLeaderboardData(data);
+      } catch (error) {
+      console.error('Error fetching leaderboard data:', error);
+      }
+    };
+
+    fetchData();
+  }, [session, pastDay]);
 
   return (
     <div>
@@ -69,6 +83,13 @@ const Leaderboard = ({ }) => {
         .share i {
             color: #fff;
             font-size: 2rem;
+        }
+
+        .gold {
+            background-color: #ffd700;
+        }
+        .gray {
+            background-color: #a5a6ad;
         }
 
         h1 {
@@ -260,8 +281,15 @@ const Leaderboard = ({ }) => {
           <h1>Leaderboard</h1>
 
 
+
+          <button className={`share ${!pastDay ? 'gold' : 'gray'}`} onClick={() => setPastDay(false)}>
+            All-time
+          </button>
+          <button className={`share ${pastDay ? 'gold' : 'gray'}`} onClick={() => setPastDay(true)}>
+            Past Day
+          </button>
           <button className="share" onClick={() => window.location.replace('/')}>
-            Back
+            <b>Back</b>
           </button>
         </div>
         <div className="leaderboard" id="leaderboard">
@@ -271,7 +299,7 @@ const Leaderboard = ({ }) => {
               {session && leaderboardData.myRank && (
                 <tr>
                   <td className="number">#{leaderboardData.myRank}</td>
-                  <td className="name">{session.token.username}</td>
+                  <td className="name" style={{transform: `translateX(${((leaderboardData.myRank).toString().length - 2) * 1.25}rem)`}}>{session.token.username}</td>
                   <td className="points">{leaderboardData.myXp.toFixed(0)} XP</td>
                 </tr>
               )}
@@ -279,7 +307,7 @@ const Leaderboard = ({ }) => {
               {leaderboardData && leaderboardData.leaderboard && leaderboardData.leaderboard.map((user, index) => (
                 <tr key={index} className={index === 0 ? 'first' : ''}>
                   <td className="number">#{index + 1}</td>
-                  <td className="name">{user.username}</td>
+                  <td className="name" style={{transform: `translateX(${((index+1).toString().length - 2) * 1.25}rem)`}}>{user.username}</td>
                   <td className="points">
                     {user.totalXp.toFixed(0)} XP
                     {index === 0 && (
