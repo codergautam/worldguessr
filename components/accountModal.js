@@ -1,8 +1,9 @@
 import Modal from "react-responsive-modal";
 import { useEffect, useState } from "react";
 import AccountView from "./accountView";
+import { signOut } from "next-auth/react";
 
-export default function AccountModal({ session, shown, logOut, setAccountModalOpen }) {
+export default function AccountModal({ session, shown, setAccountModalOpen }) {
 
     const [accountData, setAccountData] = useState({});
     useEffect(() => {
@@ -36,13 +37,13 @@ export default function AccountModal({ session, shown, logOut, setAccountModalOp
                 borderRadius: '10px',
                 fontFamily: "'Arial', sans-serif",
                 maxWidth: '500px',
-                textAlign: 'center'
+                textAlign: 'center',
             }
         }} open={shown} center onClose={()=>{setAccountModalOpen(false)}}>
 
           <AccountView accountData={accountData} />
 
-            <button onClick={()=>logOut()} style={{
+            <button onClick={()=>signOut()} style={{
                 background: 'red',
                 color: 'white',
                 padding: '10px 20px',
