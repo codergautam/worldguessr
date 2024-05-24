@@ -1,12 +1,112 @@
 
 
 html * {
-  font-family: Roboto, sans-serif;
   margin: 0;
+  font-family: "Jockey One", sans-serif;
 }
 
+.home {
+  background-color: black;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+}
+.cesium-container {
+  height: 100vh;
+  width: 70vw;
+  transform: translateX(-12vw);
+  z-index: 100;
+  position: fixed;
+}
+.home__content {
+  position: fixed;
+  z-index: 100;
+  left: 66%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  padding: 0 20px;
+  transform: translate(-50%);
+
+
+}
+
+
+.home__btns {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+
+  gap: 10px;
+}
+.home__ui {
+  /* vertically centered inside home__content */
+
+}
+
+.home__title {
+  font-size: clamp(2em, 6vw, 13em);
+  font-weight: 500;
+  color: white;
+  text-align: center;
+  margin-bottom: 20px;
+  -webkit-text-stroke: 1px black;
+  text-shadow: 2px 2px black;
+
+}
+
+.home__squarebtns {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+
+}
+.home__squarebtnicon {
+  transform: translateY(15%);
+}
+/* media query if height larger than width */
+@media (max-aspect-ratio: 1/1) {
+  .cesium-container {
+    width: 100vw;
+    transform: translateX(0);
+  }
+  .home__content {
+    left: 50%;
+  }
+}
+
+.gameBtn {
+  background-color: #327A60;
+  color: white;
+  font-size: clamp(1.5em, 3vw, 5em);
+  text-shadow: 2px 2px black;
+  -webkit-text-stroke: 1px black;
+  cursor: pointer;
+  width: 100%;
+}
+.accountBtn {
+  position: fixed;
+  right: 10px;
+  top: 10px;
+  width: auto;
+  z-index: 101;
+
+}
 h1, h2, h3 {
   font-weight: 500;
+  color: white;
+}
+
+/* hide cesium elements */
+.cesium-viewer-animationContainer, .cesium-viewer-timelineContainer, .cesium-viewer-bottom, .cesium-viewer-fullscreenContainer, .cesium-viewer-toolbar {
+  display: none !important;
 }
 
 .top {
