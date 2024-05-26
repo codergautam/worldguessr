@@ -1,0 +1,652 @@
+
+
+html * {
+  margin: 0;
+  font-family: "Jockey One", sans-serif;
+}
+
+.home {
+  background-color: black;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+}
+.cesium-container {
+  height: 100vh;
+  width: 70vw;
+  transform: translateX(-12vw);
+  z-index: 100;
+  position: fixed;
+  opacity: 0;
+  animation: fade 1s ease-in-out forwards;
+  transition: transform 0.5s;
+}
+.home__content {
+  position: fixed;
+  z-index: 100;
+  left: 66%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  padding: 0 20px;
+  transform: translate(-50%);
+  // slowly move to right while fading out when is hidden
+  transition: left 0.5s, opacity 0.5s;
+}
+.home__content.hidden {
+  left: 100%;
+  opacity: 0;
+  animation: hide 0.5s ease-in-out forwards;
+}
+
+.home__btns {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+
+  button {
+    animation: fade 0.4s ease-in-out forwards;
+    opacity: 0;
+  }
+
+  gap: 10px;
+}
+.home__ui {
+  /* vertically centered inside home__content */
+
+}
+
+.home__title {
+  font-size: clamp(2em, 6vw, 13em);
+  font-weight: 500;
+  color: white;
+  text-align: center;
+  margin-bottom: 20px;
+  -webkit-text-stroke: 1px black;
+  text-shadow: 2px 2px black;
+  animation: fade 0.4s ease-in-out forwards;
+}
+
+.accountBtnContainer {
+  transition: all 0.5s;
+}
+
+@keyframes fade {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes hide {
+  0% {
+  }
+  100% {
+    display: none;
+  }
+}
+
+.home__squarebtns {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+
+}
+
+
+.home__squarebtnicon {
+  transform: translateY(15%);
+}
+.home__squarebtn {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+@for $i from 1 through 6 {
+  .home__btns button:nth-child(#{$i}n) {
+      animation-delay: #{$i * 0.1}s;
+  }
+}
+
+/* media query if height larger than width */
+@media (max-aspect-ratio: 1/1) {
+  .cesium-container {
+    width: 100vw;
+    transform: translateX(0);
+  }
+  .home__content {
+    left: 50%;
+  }
+}
+.cesium-container.cesium_singleplayer {
+  width: 100vw;
+  transform: translateX(0);
+}
+
+.gameBtn {
+  background-color: #327A60;
+  color: white;
+  font-size: clamp(1.5em, 3vw, 5em);
+  text-shadow: 2px 2px black;
+  -webkit-text-stroke: 1px black;
+  cursor: pointer;
+  width: 100%;
+  transition: background-color 0.3s;
+  box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
+}
+.gameBtn:hover {
+  background-color: #225541;
+}
+.accountBtn {
+  position: fixed;
+  right: 10px;
+  top: 10px;
+  width: auto;
+  z-index: 101;
+  font-size: clamp(1.5em, 2vw, 3em);
+}
+
+.backBtn {
+  background-color: #AE4141;
+  width: 100px;
+  font-size: 1.5em;
+  margin-left: 10px;
+}
+.backBtn:hover {
+  background-color: darkred;
+}
+h1, h2, h3 {
+  font-weight: 500;
+  color: white;
+}
+
+/* hide cesium elements */
+.cesium-viewer-animationContainer, .cesium-viewer-timelineContainer, .cesium-viewer-bottom, .cesium-viewer-fullscreenContainer, .cesium-viewer-toolbar {
+  display: none !important;
+}
+
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 83px;
+  display: flex;
+  align-items: center;
+  background-color: #0F251D;
+  backdrop-filter: blur(10px);
+  z-index: 100;
+  padding: 0 20px;
+
+  // enter from top
+
+  opacity: 1;
+  transition: all 0.5s;
+}
+.navbar.hidden {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+
+.navbar__title {
+  font-size: 2.5em;
+  font-weight: 500;
+  color: white;
+}
+
+
+// .top {
+//   width: 100%;
+//   height: 83px;
+//   position: absolute;
+//   z-index: 14;
+//   top: 0px;
+//   left: 0;
+//   display: flex;
+//   justify-content: space-between;
+//   align-items: top;
+//   user-select: none;
+// }
+
+// button {
+//   user-select: none;
+// }
+
+// #timerDiv {
+//   display: fixed;
+//   position: absolute;
+//   top: 10px;
+//   right: 50%;
+//   transform: translateX(50%);
+//   padding: 10px;
+//   z-index: 100;
+//   background-color: rgba(42, 44, 71, 0.9);
+//   backdrop-filter: blur(10px);
+//   color: white;
+//   font-size: 1.5em;
+//   font-weight: 500;
+//   border:  1px solid #555;
+//   border-radius: 10px;
+//   user-select: none;
+// }
+
+//  /*  on pc */
+// @media screen and (min-width: 600px) {
+//   #timerDiv {
+//     top: 80px;
+//   }
+
+// }
+
+
+// #leaderBoard {
+//   width: 25vw;
+//   height: calc(100vh - 83px);
+//   position: fixed;
+//   left: 0;
+//   bottom: 0;
+//   background-color: rgba(42, 44, 71, 0.9);
+//   backdrop-filter: blur(10px);
+//   text-align: center;
+//   overflow-y: auto;
+// }
+
+// @media screen and (max-width: 600px) {
+//   #leaderBoard {
+//     display: none;
+//   }
+//   #leaderBoard.mobileOpen {
+//     display: block;
+//     width: 100vw;
+//     height: calc(100vh - 83px - 90px);
+//     bottom: 90px;
+//     z-index: 100;
+//   }
+// }
+
+// #leaderBoard h1 {
+//   font-size: 1.5em;
+//   font-weight: 500;
+//   padding: 10px;
+//   color: white;
+// }
+
+// #leaderBoard h2 {
+//   font-size: 1.2em;
+//   font-weight: 500;
+//   padding: 10px;
+//   color: white;
+// }
+
+// #leaderBoard ul {
+//   list-style-type: none;
+//   padding: 0;
+//   margin-top: 10px;
+// }
+
+// #leaderBoard li {
+//   margin: 10px;
+//   padding: 10px;
+//   border: 1px solid rgba(255, 255, 255, 0.5);
+//   background-color: rgba(255, 255, 255, 0.1);
+//   color: white;
+//   cursor: pointer;
+//   transition: transform 0.2s ease-in-out;
+// }
+
+// #leaderBoard.gameEnded {
+//   width: 100vw;
+// }
+
+
+
+// .topItem {
+//   backdrop-filter: blur(10px);
+//   background-color: rgba(42, 44, 71, 0.9);
+//   -webkit-backdrop-filter: blur(10px);
+//   height: 75px;
+//   user-select: none;
+// }
+
+// #logo img {
+//   height: 40px;
+//   width: auto;
+// }
+
+// .navButton, .iconButton {
+//   background-color: #555;
+//   color: white;
+//   border: none;
+//   padding: 10px 20px;
+//   margin-left: 10px;
+//   border-radius: 5px;
+//   cursor: pointer;
+//   transition: background-color 0.3s;
+// }
+
+// .navButton:hover, .iconButton:hover {
+//   background-color: #777;
+// }
+
+// .iconButton {
+//   display: flex;
+//   align-items: center;
+//   justify-content: center;
+//   font-size: 20px;
+// }
+
+// #icon {
+//   margin-top: 6px;
+//   margin-left: 10px;
+//   width: 18em;
+//   transition: all 250ms ease;
+// }
+
+// #icon:hover {
+//   transition: all 250ms ease;
+//   transform: scale(1.1);
+// }
+
+// #icon:active {
+//   transition: all 250ms ease;
+//   transform: scale(0.8);
+// }
+
+// #innerMainDiv {
+//   width: 100%;
+//   height: 100%;
+//   display: flex;
+//   align-items: flex-end;
+//   flex-direction: row-reverse;
+
+
+//   background-color: rgba(15, 16, 22, 0.9);
+
+// }
+
+// @media screen and (max-width: 600px) {
+//   #innerMainDiv {
+//     flex-direction: column;
+//   }
+
+// }
+
+// #mapControls {
+//   /* display: flex;
+//   justify-content: space-between;
+//   width: 100%;
+//   padding: 10px;
+//   margin-bottom: 10px; */
+//   user-select: none;
+// }
+
+// img {
+//   user-select: none;
+// }
+
+
+
+// #miniMap {
+//   width: 30%;
+//   transition: all 200ms ease;
+//   height: 30%;
+//   max-height: 100%;
+//   z-index: 10;
+//   opacity: 50%;
+//   border-radius: 10px;
+//   background: #bfd4da;
+//   position: absolute;
+//   box-shadow: 0 2px 20px rgba(17, 17, 17, 0.5);
+
+//   bottom: 40px;
+//   margin-top: auto;
+//   margin-left: auto;
+//   margin-right: 100px;
+//   @media screen and (max-width: 600px) {
+//     position: relative;
+//     bottom: 0;
+//     height:100%;
+//     width: 100%;
+//   }
+
+// }
+
+// #streetview {
+//   user-select: none;
+//   border: none !important;
+//   transition: all 100ms ease;
+//   width: 100vw;
+// }
+// #streetview.multiplayer {
+//   width: 75vw;
+// }
+// @media screen and (max-width: 600px) {
+//   #streetview {
+//     display: none;
+//     width: 100vw;
+//   }
+//   #miniMap {
+//     opacity: 100%;
+//   }
+// }
+// #miniMap.mapHidden {
+//   height: 0;
+//   width: 0;
+// }
+
+// @media screen and (max-width: 600px) {
+//   #streetview.mapHidden {
+//     display: block;
+//     width: 100vw;
+//   }
+// }
+
+// @media screen and (min-width: 600px) {
+//   #miniMap.mapFullscreen {
+//     /* full screen center not 100% */
+//     transition: all 250ms ease;
+//     height: 65%;
+//     width: 65%;
+//   }
+// }
+
+
+
+// #miniMap.gameOver {
+//   /* full screen center not 100% */
+//   transition: none !important;
+//   height: 100%;
+//   width: 100%;
+//   margin-right: 0;
+//   opacity: 100%;
+//   bottom: 0;
+// }
+// #miniMap.gameOver.multiplayer {
+//   width: 75vw;
+// }
+// #endBanner {
+//   position: fixed;
+//   left: 0;
+//   right: 0;
+//   bottom: 0;
+//   z-index: 100;
+//   background-color: rgba(106, 107, 131, 0.9);
+//   backdrop-filter: blur(10px);
+//   border-radius: 10px;
+//   color: white;
+//   display: flex;
+//   flex-direction: column;
+//   justify-content: center;
+//   align-items: center;
+//   padding: 20px;
+// }
+
+// .bannerContent {
+//   font-size: 2em;
+//   text-align: center;
+// }
+
+// .motivation {
+//   font-size: 1.2em;
+//   font-weight: lighter;
+//   padding: 10px 0;
+// }
+
+
+// .buttonContainer {
+//   display: flex;
+//   justify-content: space-around; /* Adjusts spacing between buttons */
+//   align-items: center; /* Vertically centers buttons in the container */
+
+//   button {
+//     font-size: 1em;
+//     padding: 10px 20px;
+//     margin: 5px;
+//     background-color: #444;
+//     color: white;
+//     border: none;
+//     border-radius: 5px;
+//     cursor: pointer;
+//     transition: background-color 0.3s;
+//   }
+
+//   button:hover {
+//     background-color: #666;
+//   }
+// }
+
+// .mainBannerTxt {
+//   font-size: 1.4em;
+//   font-weight: 500;
+//   padding: 10px;
+// }
+
+// .motivation {
+//   font-size: 1em;
+//   padding: 10px;
+// }
+
+// @media screen and (max-width: 600px) {
+
+
+//   .motivation {
+//     font-size: 0.8em;
+//   }
+//   .mainBannerTxt {
+//     font-size: 1em;
+
+//   }
+
+
+//   @media screen and (max-height: 840px) {
+//     .mainBannerTxt {
+//       font-size: 0.8em;
+//     }
+//     .motivation {
+//       font-size: 0.6em;
+//     }
+
+//   }
+// }
+
+
+// .leaflet-control-attribution {
+//   display: none;
+// }
+// .toggleMap {
+//   position: relative;
+//   color: white;
+//   background-color: rgba(42, 44, 71, 0.9);
+//   backdrop-filter: blur(10px);
+//   border-radius: 10px;
+//   font-size: 1.5em;
+// }
+
+// #miniMap:hover {
+//   transition: all 250ms ease;
+//   opacity: 100%;
+// }
+
+// .guessBtn {
+//   background-color: #212121;
+//   backdrop-filter: blur(10px);
+//   -webkit-backdrop-filter: blur(10px);
+//   box-shadow: 0 2px 20px rgba(5, 6, 10, 0.5);
+//   border-radius: 10px;
+//   padding: 10px;
+//   margin: 10px;
+//   color: white;
+//   font-size: 2em;
+//   cursor: pointer;
+//   user-select: none;
+// }
+
+// .desktopGB {
+//   position: absolute;
+//   right: 50px;
+//   bottom: 15px;
+//   z-index: 20;
+//   border-radius: 0;
+// }
+
+// .desktopGB.hintBtn {
+//   right: 200px;
+// }
+
+// @media screen and (max-width: 600px) {
+//   .guessBtn {
+//     font-size: 1.2em;
+//     margin: 0px;
+//   }
+// }
+
+// #mapControlsAbove {
+//   position: absolute;
+//   transform: translateY(-75px) translateX(-15px);
+//   width: 100%;
+// }
+
+// .guessBtn:hover {
+//   transition: all 250ms ease;
+//   background-color: rgba(32, 41, 36, 1);
+// }
+
+// .guessBtn:active {
+//   transition: all 250ms ease;
+//   background-color: rgba(32, 41, 36, 0.8);
+// }
+
+// .MainDiv {
+//   height: 100dvh;
+//   display: flex;
+//   flex-direction: column;
+//   align-items: flex-end;
+//   justify-content: center;
+// }
+
+// .bottomLeft {
+//   position: absolute;
+//   bottom: 0;
+//   left: 0;
+//   padding: 10px;
+//   color: white;
+//   font-size: 1.2em;
+//   font-weight: 500;
+//   z-index: 100;
+// }
+
+// @media screen and (max-width: 600px) {
+//   .hideOnMobile {
+//     display: none;
+//   }
+// }

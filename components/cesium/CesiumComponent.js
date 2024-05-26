@@ -4,7 +4,7 @@ import React from "react"
 //NOTE: This is required to get the stylings for default Cesium UI and controls
 import "cesium/Build/Cesium/Widgets/widgets.css"
 
-export const CesiumComponent = ({ CesiumJs }) => {
+export const CesiumComponent = ({ CesiumJs, className }) => {
   const cesiumViewer = React.useRef(null)
   const cesiumContainerRef = React.useRef(null)
   const addedScenePrimitives = React.useRef([])
@@ -82,7 +82,7 @@ export const CesiumComponent = ({ CesiumJs }) => {
       ref={cesiumContainerRef}
       id="cesium-container"
       // style={{ height: "100vh", width: "70vw", transform: "translateX(-15vw)"}}
-      className="cesium-container"
+      className={`cesium-container ${className}`}
     />
   )
 }

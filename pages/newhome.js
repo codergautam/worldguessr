@@ -9,12 +9,18 @@ import AccountBtn from "@/components/ui/accountBtn";
 import 'react-responsive-modal/styles.css';
 import AccountModal from "@/components/accountModal";
 import { useState } from "react";
+import Navbar from "@/components/ui/navbar";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 
 export default function Home() {
   const { data: session, status } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [screen, setScreen] = useState("home");
+
+  function backBtnPressed() {
+    setScreen("home");
+  }
 
   return (
     <>
@@ -22,15 +28,15 @@ export default function Home() {
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
 
       <main className={`home ${jockey.className}`} id="main" >
-        <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
-
-        <CesiumWrapper positions={[{ lat: 0, lng: 0 }]} />
-        <div className="home__content">
+        <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} shown={screen === "home"} />
+        <CesiumWrapper className={`cesium_${screen}`} />
+        <Navbar shown={screen !== "home"} backBtnPressed={backBtnPressed} />
+        <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
             <div className="home__btns">
-              <GameBtn text="Singleplayer" />
+              <GameBtn text="Singleplayer" onClick={() => setScreen("singleplayer")} />
               <GameBtn text="Multiplayer" />
               <GameBtn text="How to Play" />
 

@@ -48,6 +48,9 @@ const nextConfig = {
 
         return config
     },
+    sassOptions: {
+        includePaths: [path.join(__dirname, 'styles')],
+    },
     output: 'standalone'
 };
 
