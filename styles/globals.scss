@@ -23,8 +23,8 @@ html * {
   transition: transform 1s;
 }
 .cesium-container.cesium_singleplayer {
-  width: 100vw;
-  transform: translateX(0);
+  width: 70vw;
+  transform: translateX(13vw);
   animation: none;
   opacity: 1;
 }
@@ -150,7 +150,9 @@ html * {
   }
 }
 
-
+.home__singleplayer {
+  z-index: 101;
+}
 .gameBtn {
   background-color: #327A60;
   color: white;
@@ -203,7 +205,7 @@ h1, h2, h3 {
   align-items: center;
   background-color: #0F251D;
   backdrop-filter: blur(10px);
-  z-index: 100;
+  z-index: 102;
   padding: 0 20px;
 
   // enter from top
@@ -415,30 +417,38 @@ h1, h2, h3 {
 
 
 
-// #miniMap {
-//   width: 30%;
-//   transition: all 200ms ease;
-//   height: 30%;
-//   max-height: 100%;
-//   z-index: 10;
-//   opacity: 50%;
-//   border-radius: 10px;
-//   background: #bfd4da;
-//   position: absolute;
-//   box-shadow: 0 2px 20px rgba(17, 17, 17, 0.5);
+#miniMap {
+  width: 30%;
+  transition: all 200ms ease;
+  height: 30%;
+  max-height: 100%;
+  z-index: 10;
+  border-radius: 10px;
+  position: absolute;
+  box-shadow: 0 2px 20px rgba(17, 17, 17, 0.5);
+  right:  0px;
 
-//   bottom: 40px;
-//   margin-top: auto;
-//   margin-left: auto;
-//   margin-right: 100px;
-//   @media screen and (max-width: 600px) {
-//     position: relative;
-//     bottom: 0;
-//     height:100%;
-//     width: 100%;
-//   }
+  bottom: 40px;
+  margin-top: auto;
+  margin-left: auto;
+  margin-right: 100px;
+  @media screen and (max-width: 600px) {
+    position: relative;
+    bottom: 0;
+    height:100%;
+    width: 100%;
+  }
+  transform: translateY(105%);
+  opacity: 0;
+  border: 5px solid #0F251D;
 
-// }
+}
+#miniMap.shown {
+  opacity: 50%;
+  transform: translateY(0%);
+  transition: all 0.5s;
+
+}
 
 #streetview {
   user-select: none;
@@ -459,29 +469,29 @@ h1, h2, h3 {
 }
 
 
-// @media screen and (min-width: 600px) {
-//   #miniMap.mapFullscreen {
-//     /* full screen center not 100% */
-//     transition: all 250ms ease;
-//     height: 65%;
-//     width: 65%;
-//   }
-// }
+@media screen and (min-width: 600px) {
+  #miniMap.mapFullscreen {
+    /* full screen center not 100% */
+    transition: all 250ms ease;
+    height: 50%;
+    width: 45%;
+  }
+}
 
 
 
-// #miniMap.gameOver {
-//   /* full screen center not 100% */
-//   transition: none !important;
-//   height: 100%;
-//   width: 100%;
-//   margin-right: 0;
-//   opacity: 100%;
-//   bottom: 0;
-// }
-// #miniMap.gameOver.multiplayer {
-//   width: 75vw;
-// }
+#miniMap.gameOver {
+  /* full screen center not 100% */
+  transition: none !important;
+  height: 100%;
+  width: 100%;
+  margin-right: 0;
+  opacity: 100%;
+  bottom: 0;
+}
+#miniMap.gameOver.multiplayer {
+  width: 75vw;
+}
 // #endBanner {
 //   position: fixed;
 //   left: 0;
@@ -580,10 +590,10 @@ h1, h2, h3 {
 //   font-size: 1.5em;
 // }
 
-// #miniMap:hover {
-//   transition: all 250ms ease;
-//   opacity: 100%;
-// }
+#miniMap:hover {
+  transition: all 250ms ease;
+  opacity: 100%;
+}
 
 // .guessBtn {
 //   background-color: #212121;

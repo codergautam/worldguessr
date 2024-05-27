@@ -83,6 +83,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
       if (!guessed && !guessing) {
         const clickedCoord = initialMap.getEventCoordinate(e.originalEvent);
         const clickedLatLong = toLonLat(clickedCoord);
+        console.log(clickedLatLong);
         setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
       }
     }

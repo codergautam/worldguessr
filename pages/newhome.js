@@ -12,6 +12,7 @@ import { useState } from "react";
 import Navbar from "@/components/ui/navbar";
 import SetUsernameModal from "@/components/setUsernameModal";
 import GameUI from "@/components/gameUI";
+import Loader from "@/components/loader";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 
@@ -33,6 +34,8 @@ export default function Home() {
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
 
       <main className={`home ${jockey.className}`} id="main" >
+      <Loader loadingText="Loading..." shown={loading} />
+
         <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} shown={screen === "home"} />
         <CesiumWrapper className={`cesium_${screen} ${screen !== "home" && !loading ? "cesium_hidden": ""}`} />
         <Navbar shown={screen !== "home"} backBtnPressed={backBtnPressed} />
@@ -55,7 +58,7 @@ export default function Home() {
         </div>
 
         { screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI loading={loading} setLoading={setLoading} />
+          <GameUI loading={loading} setLoading={setLoading} session={session} />
         </div>}
       </main>
     </>
