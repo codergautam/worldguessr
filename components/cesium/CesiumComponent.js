@@ -67,8 +67,6 @@ export const CesiumComponent = ({ CesiumJs, className }) => {
       cesiumViewer.current.scene.screenSpaceCameraController.enableLook = false
 
 
-
-
       //NOTE: Example of configuring a Cesium viewer
       cesiumViewer.current.clock.clockStep =
         CesiumJs.ClockStep.SYSTEM_CLOCK_MULTIPLIER

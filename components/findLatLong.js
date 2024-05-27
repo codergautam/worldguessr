@@ -8,13 +8,15 @@ const loader = new Loader({
 });
  function generateLatLong() {
   return new Promise((resolve, reject) => {
-  const lat = Math.random() * 180 - 90;
-  const long = Math.random() * 360 - 180;
   loader.importLibrary("streetView").then(() => {
+  fetch("/api/randomLoc").then((res) => res.json()).then((data) => {
     const panorama = new google.maps.StreetViewService();
+    const lat = data[0];
+    const long = data[1];
+
     panorama.getPanorama({ location: { lat, lng: long },
       preference: google.maps.StreetViewPreference.BEST,
-      radius: 50000,
+      radius: 1000,
       sources: [google.maps.StreetViewSource.OUTDOOR]
     }, (data, status) => {
       if(status === "OK" && data) {
@@ -39,6 +41,7 @@ const loader = new Loader({
       }
     });
   });
+});
 });
 }
 

@@ -10,6 +10,8 @@ import 'react-responsive-modal/styles.css';
 import AccountModal from "@/components/accountModal";
 import { useState } from "react";
 import Navbar from "@/components/ui/navbar";
+import SetUsernameModal from "@/components/setUsernameModal";
+import GameUI from "@/components/gameUI";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 
@@ -17,6 +19,7 @@ export default function Home() {
   const { data: session, status } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
+  const [loading, setLoading] = useState(false);
 
   function backBtnPressed() {
     setScreen("home");
@@ -25,11 +28,13 @@ export default function Home() {
   return (
     <>
       <HeadContent />
+
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
+      <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
 
       <main className={`home ${jockey.className}`} id="main" >
         <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} shown={screen === "home"} />
-        <CesiumWrapper className={`cesium_${screen}`} />
+        <CesiumWrapper className={`cesium_${screen} ${screen !== "home" && !loading ? "cesium_hidden": ""}`} />
         <Navbar shown={screen !== "home"} backBtnPressed={backBtnPressed} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
@@ -48,6 +53,10 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        { screen === "singleplayer" && <div className="home__singleplayer">
+          <GameUI loading={loading} setLoading={setLoading} />
+        </div>}
       </main>
     </>
   )

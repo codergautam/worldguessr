@@ -3,6 +3,7 @@
 html * {
   margin: 0;
   font-family: "Jockey One", sans-serif;
+  overflow: hidden;
 }
 
 .home {
@@ -18,9 +19,20 @@ html * {
   z-index: 100;
   position: fixed;
   opacity: 0;
-  animation: fade 1s ease-in-out forwards;
-  transition: transform 0.5s;
+  animation: fadeIn 1s ease-in-out forwards;
+  transition: transform 1s;
 }
+.cesium-container.cesium_singleplayer {
+  width: 100vw;
+  transform: translateX(0);
+  animation: none;
+  opacity: 1;
+}
+.cesium-container.cesium_hidden {
+  opacity: 0;
+  animation: fadeOut 0.5s ease-in-out forwards;
+}
+
 .home__content {
   position: fixed;
   z-index: 100;
@@ -50,7 +62,7 @@ html * {
   margin-top: 20px;
 
   button {
-    animation: fade 0.4s ease-in-out forwards;
+    animation: fadeIn 0.4s ease-in-out forwards;
     opacity: 0;
   }
 
@@ -69,20 +81,30 @@ html * {
   margin-bottom: 20px;
   -webkit-text-stroke: 1px black;
   text-shadow: 2px 2px black;
-  animation: fade 0.4s ease-in-out forwards;
+  animation: fadeIn 0.4s ease-in-out forwards;
 }
 
 .accountBtnContainer {
   transition: all 0.5s;
 }
 
-@keyframes fade {
+@keyframes fadeIn {
   0% {
     opacity: 0;
   }
   100% {
     opacity: 1;
   }
+}
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    display: none;
+  }
+
 }
 
 @keyframes hide {
@@ -127,10 +149,7 @@ html * {
     left: 50%;
   }
 }
-.cesium-container.cesium_singleplayer {
-  width: 100vw;
-  transform: translateX(0);
-}
+
 
 .gameBtn {
   background-color: #327A60;
@@ -421,35 +440,24 @@ h1, h2, h3 {
 
 // }
 
-// #streetview {
-//   user-select: none;
-//   border: none !important;
-//   transition: all 100ms ease;
-//   width: 100vw;
-// }
-// #streetview.multiplayer {
-//   width: 75vw;
-// }
-// @media screen and (max-width: 600px) {
-//   #streetview {
-//     display: none;
-//     width: 100vw;
-//   }
-//   #miniMap {
-//     opacity: 100%;
-//   }
-// }
-// #miniMap.mapHidden {
-//   height: 0;
-//   width: 0;
-// }
+#streetview {
+  user-select: none;
+  border: none !important;
+  transition: all 100ms ease;
+  width: 100vw;
+  height: calc(100vh - 5px);
+  border: 3px;
+    box-sizing: border-box;
+    opacity: 1;
+    transition: all 0.5s;
+    animation: fadeIn 1s ease-in-out forwards;
+}
+#streetview.hidden {
+  transform: translateY(105%);
+  opacity: 0;
+  transition: all 0.5s;
+}
 
-// @media screen and (max-width: 600px) {
-//   #streetview.mapHidden {
-//     display: block;
-//     width: 100vw;
-//   }
-// }
 
 // @media screen and (min-width: 600px) {
 //   #miniMap.mapFullscreen {
