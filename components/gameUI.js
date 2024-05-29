@@ -84,9 +84,9 @@ export default function GameUI({ loading, setLoading, session }) {
           </>
         )}
 
-        <button className="gameBtn" onClick={() => {
+        <button className={`gameBtn ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
           setMiniMapShown(!miniMapShown)
-        }}><FaMap size={50} /></button>
+        }}><FaMap size={miniMapShown ? 30 : 50} /></button>
       </div>
     </div>
   )
