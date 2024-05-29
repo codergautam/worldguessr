@@ -12,37 +12,38 @@ import LineString from 'ol/geom/LineString';
 import { Icon, Style, Stroke } from 'ol/style';
 import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
-import ol from 'ol/interaction';
+import ol, { DoubleClickZoom, KeyboardZoom, MouseWheelZoom } from 'ol/interaction';
+import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
 const hintRad = 5000000;
 
-const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm, height, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
+const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
   const vectorSource = useRef(new VectorSource());
 
   function drawHint(initialMap, location, randomOffset) {
-      // create a circle overlay 10000km radius from location
+    // create a circle overlay 10000km radius from location
 
-      let lat = location.lat+randomOffset[0];
-      let long = location.long+randomOffset[1];
-      // move it a bit randomly so it's not exactly on the location but location is inside the circle
-      const circle = new Feature(new Circle(fromLonLat([long, lat]), hintRad));
-      vectorSource.current.addFeature(circle);
+    let lat = location.lat + randomOffset[0];
+    let long = location.long + randomOffset[1];
+    // move it a bit randomly so it's not exactly on the location but location is inside the circle
+    const circle = new Feature(new Circle(fromLonLat([long, lat]), hintRad));
+    vectorSource.current.addFeature(circle);
 
-      const circleLayer = new VectorLayer({
-        source: new VectorSource({
-          features: [circle]
-        }),
-        style: new Style({
-          stroke: new Stroke({
-            color: '#f00',
-            width: 2
-          })
+    const circleLayer = new VectorLayer({
+      source: new VectorSource({
+        features: [circle]
+      }),
+      style: new Style({
+        stroke: new Stroke({
+          color: '#f00',
+          width: 2
         })
-      });
-      initialMap.addLayer(circleLayer);
+      })
+    });
+    initialMap.addLayer(circleLayer);
   }
   // Initialize map on first render
   useEffect(() => {
@@ -60,11 +61,24 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
       ],
       view: new View({
         center: fromLonLat([2, 35]),
-        zoom: 2,
+        zoom: 1,
         zoomFactor: 2.5,
       }),
     });
 
+    var duration = 400;
+    initialMap.addControl(new Zoom({
+      duration: duration
+    }));
+    initialMap.addInteraction(new MouseWheelZoom({
+      duration: duration
+    }));
+    initialMap.addInteraction(new DoubleClickZoom({
+      duration: duration
+    }));
+    initialMap.addInteraction(new KeyboardZoom({
+      duration: duration
+    }));
 
 
     // const mouseDown = (e) => {
@@ -95,7 +109,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
       initialMap.setTarget(undefined);
       // if(mapRef.current) mapRef.current.removeEventListener('mousedown', mouseDown);
 
-        initialMap.un('click', onMapClick);
+      initialMap.un('click', onMapClick);
     };
   }, [guessed, setPinPoint, guessing]);
 
@@ -107,15 +121,15 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
 
     // remove old pin point
     // no clue why this is needed twice but it is
-    for(let i=0; i<2; i++) {
-    map.getLayers().getArray().forEach((layer) => {
-      if (layer instanceof VectorLayer) {
-        map.removeLayer(layer);
-      }
-    });
+    for (let i = 0; i < 2; i++) {
+      map.getLayers().getArray().forEach((layer) => {
+        if (layer instanceof VectorLayer) {
+          map.removeLayer(layer);
+        }
+      });
     }
 
-    if(location && showHint) drawHint(map, location, randomOffsetS);
+    if (location && showHint) drawHint(map, location, randomOffsetS);
     if (pinPoint) {
       const pinFeature = new Feature({
         geometry: new Point(fromLonLat([pinPoint.lng, pinPoint.lat])),
@@ -176,12 +190,12 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
         })
       });
       map.addLayer(pinLayer);
-      if(playingMultiplayer) {
+      if (playingMultiplayer) {
         // Add other players' guesses
         multiplayerGameData.players.forEach((player) => {
-          if(player.g.findIndex((g) => g.r === round) !== -1) {
+          if (player.g.findIndex((g) => g.r === round) !== -1) {
             const playerGuess = player.g.find((g) => g.r === round);
-            if(playerGuess.lat === pinPoint.lat && playerGuess.long === pinPoint.lng) return;
+            if (playerGuess.lat === pinPoint.lat && playerGuess.long === pinPoint.lng) return;
             const playerFeature = new Feature({
               geometry: new Point(fromLonLat([playerGuess.long, playerGuess.lat])),
             });
@@ -207,14 +221,14 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
 
 
       setTimeout(() => {
-      map.getView().animate({ center: fromLonLat([location.long, location.lat]), zoom: 5, duration: 3000 });
+        map.getView().animate({ center: fromLonLat([location.long, location.lat]), zoom: 5, duration: 3000 });
       }, 100);
 
       // Calculate distance
 
       let distanceInKm = getDistance([pinPoint.lng, pinPoint.lat], [location.long, location.lat]) / 1000;
-      if(distanceInKm > 100) distanceInKm = Math.round(distanceInKm);
-      else if(distanceInKm > 10) distanceInKm = parseFloat(distanceInKm.toFixed(1));
+      if (distanceInKm > 100) distanceInKm = Math.round(distanceInKm);
+      else if (distanceInKm > 10) distanceInKm = parseFloat(distanceInKm.toFixed(1));
       else distanceInKm = parseFloat(distanceInKm.toFixed(2));
       setKm(distanceInKm);
     }
@@ -228,7 +242,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
   }, [location]);
 
   return (
-    <div ref={mapRef} style={{ height: height, width: '100%', cursor: 'crosshair' }}></div>
+    <div ref={mapRef} id='miniMapContent'></div>
   );
 };
 

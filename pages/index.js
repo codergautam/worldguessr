@@ -431,6 +431,7 @@ setTimeout(() => {
 
 <div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed)? '' : 'none'}}>
 
+Hi
             </div>
             {mapShown && latLong && <MapWidget session={session} showHint={showHint} fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} guessing={guessing} location={latLong} setKm={setKm} height={"100%"} multiplayerSentGuess={multiplayerSentGuess} playingMultiplayer={playingMultiplayer} multiplayerGameData={multiplayerData ? multiplayerData?.gameData : null} round={multiplayerTimers?.currentRound} currentId={multiplayerData ? multiplayerData.myData.playerSecret : null} />}
             </div>

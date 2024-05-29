@@ -5,6 +5,9 @@ html * {
   font-family: "Jockey One", sans-serif;
   overflow: hidden;
 }
+button {
+  box-shadow: 0 0.275rem 1.125rem rgba(0,0,0,.25), inset 0 0.0625rem 0 hsla(0,0%,100%,.2), inset 0 -0.125rem 0 rgba(0,0,0,.3);
+}
 
 .home {
   background-color: black;
@@ -163,6 +166,7 @@ html * {
   width: 100%;
   transition: background-color 0.3s;
   box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
+  border-radius: 15px;
 }
 .gameBtn:hover {
   background-color: #225541;
@@ -417,7 +421,7 @@ h1, h2, h3 {
 
 
 
-#miniMap {
+#miniMapArea {
   width: 30%;
   transition: all 200ms ease;
   height: 30%;
@@ -425,30 +429,121 @@ h1, h2, h3 {
   z-index: 10;
   border-radius: 10px;
   position: absolute;
-  box-shadow: 0 2px 20px rgba(17, 17, 17, 0.5);
   right:  0px;
+  display: flex;
+  flex-flow: column;
+
 
   bottom: 40px;
   margin-top: auto;
   margin-left: auto;
   margin-right: 100px;
-  @media screen and (max-width: 600px) {
-    position: relative;
-    bottom: 0;
-    height:100%;
-    width: 100%;
-  }
+
   transform: translateY(105%);
   opacity: 0;
-  border: 5px solid #0F251D;
-
 }
-#miniMap.shown {
+
+
+
+#miniMapArea.shown {
   opacity: 50%;
   transform: translateY(0%);
   transition: all 0.5s;
+}
+
+#miniMapContent {
+  cursor: crosshair;
+  border: 5px solid #0F251D;
+  height: 100%;
+  border-radius: 10px;
+}
+
+@media screen and (max-width: 600px) {
+  #miniMapArea {
+    transform: translateY(100%);
+  }
+  #miniMapArea.miniMap.shown {
+    bottom: 0;
+    right: 0;
+    opacity: 100%;
+    transform: translateY(0%);
+    margin-right: 0;
+    height:70%;
+    width: 100%;
+  }
+  #miniMapContent {
+    border: none;
+  }
+}
+
+.miniMap__btns {
+  height: 10%;
+  min-height: 40px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
 
 }
+
+.miniMap__btn {
+  height: 100%;
+  width: 100%;
+  background-color: #0F251D;
+  color: white;
+  font-size: 1.5em;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border-radius: 15px;
+  // box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
+  // background-image: radial-gradient(150% 160% at 50% 15%,hsla(0,0%,100%,.6) 0,transparent 30%);
+}
+
+.mobile_minimap__btns {
+  display: none;
+}
+@media screen and (max-width: 600px) {
+  .miniMap__btns {
+    display: none;
+  }
+  .mobile_minimap__btns {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    position: absolute;
+    border-radius: 10px;
+    right: 65px;
+    bottom: 30px;
+    animation: fadeIn 1s ease-in-out forwards;
+  }
+  .mobile_minimap__btns.miniMapShown {
+    bottom: calc(70% + 5px);
+    width: 100%;
+    right: 0;
+  }
+}
+
+.guessBtn {
+  width: 80%;
+  background-color: #112966;
+}
+.hintBtn {
+  width: 20%;
+  background-color: #0d4c1e;
+}
+
+.ol-viewport {
+  border-radius: 10px;
+}
+
+.miniMap__btn.unavailable {
+  background-color: #373737;
+  cursor: not-allowed;
+}
+
 
 #streetview {
   user-select: none;
@@ -463,14 +558,14 @@ h1, h2, h3 {
     animation: fadeIn 1s ease-in-out forwards;
 }
 #streetview.hidden {
-  transform: translateY(105%);
+  transform: translateY(-105%);
   opacity: 0;
   transition: all 0.5s;
 }
 
 
 @media screen and (min-width: 600px) {
-  #miniMap.mapFullscreen {
+  #miniMapArea.mapFullscreen {
     /* full screen center not 100% */
     transition: all 250ms ease;
     height: 50%;
@@ -480,7 +575,7 @@ h1, h2, h3 {
 
 
 
-#miniMap.gameOver {
+#miniMapArea.gameOver {
   /* full screen center not 100% */
   transition: none !important;
   height: 100%;
@@ -489,7 +584,7 @@ h1, h2, h3 {
   opacity: 100%;
   bottom: 0;
 }
-#miniMap.gameOver.multiplayer {
+#miniMapArea.gameOver.multiplayer {
   width: 75vw;
 }
 // #endBanner {
@@ -590,7 +685,7 @@ h1, h2, h3 {
 //   font-size: 1.5em;
 // }
 
-#miniMap:hover {
+#miniMapArea:hover {
   transition: all 250ms ease;
   opacity: 100%;
 }
@@ -628,11 +723,11 @@ h1, h2, h3 {
 //   }
 // }
 
-// #mapControlsAbove {
-//   position: absolute;
-//   transform: translateY(-75px) translateX(-15px);
-//   width: 100%;
-// }
+#mapControlsAbove {
+  position: absolute;
+  transform: translateY(-75px) translateX(-15px);
+  width: 100%;
+}
 
 // .guessBtn:hover {
 //   transition: all 250ms ease;
