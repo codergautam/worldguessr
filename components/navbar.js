@@ -32,6 +32,7 @@ export default function Navbar({mapShown, session, fullReset, setMultiplayerModa
         )}
 
       </div>
+      
     </div>
   );
 }

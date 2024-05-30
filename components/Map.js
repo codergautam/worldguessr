@@ -21,6 +21,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
+  const plopSound = useRef();
   const vectorSource = useRef(new VectorSource());
 
   function drawHint(initialMap, location, randomOffset) {
@@ -99,6 +100,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
         const clickedLatLong = toLonLat(clickedCoord);
         console.log(clickedLatLong);
         setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
+        if(plopSound.current) plopSound.current.play();
       }
     }
     initialMap.on('click', onMapClick);
@@ -242,7 +244,10 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
   }, [location]);
 
   return (
+    <>
     <div ref={mapRef} id='miniMapContent'></div>
+    <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
+    </>
   );
 };
 

@@ -179,11 +179,13 @@ button {
   z-index: 101;
   font-size: clamp(1.5em, 2vw, 3em);
 }
-
-.backBtn {
-  background-color: #AE4141;
+.navBtn {
   width: 100px;
   font-size: 1.5em;
+}
+.backBtn {
+  background-color: #AE4141;
+
   margin-left: 10px;
 }
 .backBtn:hover {
@@ -227,6 +229,30 @@ h1, h2, h3 {
   font-size: 2.5em;
   font-weight: 500;
   color: white;
+}
+
+.navbar__right {
+  margin-left: auto;
+  display: flex;
+  gap: 10px;
+  margin-right: 25px;
+}
+
+.timer {
+  z-index: 102;
+  position: fixed;
+  top: max(100px, 10%);
+  right: 50%;
+  transform: translateX(50%);
+  font-size: max(2em, 2vw);
+  background-color: #204B2C;
+  padding-left: 10px;
+  padding-right: 10px;
+  border: 1px solid #555;
+  border-radius: 10px;
+  color: white;
+  user-select: none;
+  pointer-events: none;
 }
 
 
@@ -530,12 +556,15 @@ h1, h2, h3 {
 }
 
 .guessBtn {
-  width: 80%;
   background-color: #112966;
 }
 .hintBtn {
   width: 20%;
   background-color: #0d4c1e;
+  transition: all 250ms ease;
+}
+.hintBtn.hintShown {
+  animation: fadeOut 0.5s ease-in-out forwards;
 }
 
 .ol-viewport {

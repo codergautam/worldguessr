@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import GameBtn from "./ui/gameBtn";
 import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
+import EndBanner from "./endBanner";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 export default function GameUI({ loading, setLoading, session }) {
@@ -45,6 +46,14 @@ export default function GameUI({ loading, setLoading, session }) {
       setMiniMapShown(false)
     }
   }, [loading, latLong, width])
+
+  function showHint() {
+    setHintShown(true)
+  }
+
+  function guess() {
+  }
+
   return (
     <div className="gameUI">
       <iframe className={`streetview ${!streetViewShown ? 'hidden' : ''} ${false ? 'multiplayer' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
@@ -60,13 +69,8 @@ export default function GameUI({ loading, setLoading, session }) {
         {latLong && <MapWidget session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} />}
 
         <div className="miniMap__btns">
-
-          <button className={`miniMap__btn ${!pinPoint ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint} onClick={() => {
-            alert('test')
-          }}>Guess</button>
-          <button className={`miniMap__btn hintBtn`} onClick={() => {
-            alert('test')
-          }}>Hint</button>
+          <button className={`miniMap__btn ${!pinPoint ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint} onClick={guess}>Guess</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>Hint</button>
         </div>
       </div>
 
@@ -75,19 +79,18 @@ export default function GameUI({ loading, setLoading, session }) {
           <>
             {/* guess and hint  */}
 
-            <button className="miniMap__btn guessBtn" disabled={!pinPoint} onClick={() => {
-              alert('test')
-            }}>Guess</button>
-            <button className="miniMap__btn hintBtn" onClick={() => {
-              alert('test')
-            }}>Hint</button>
+            <button className={`miniMap__btn ${!pinPoint ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint} onClick={guess}>Guess</button>
+            <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>Hint</button>
           </>
         )}
+
 
         <button className={`gameBtn ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
           setMiniMapShown(!miniMapShown)
         }}><FaMap size={miniMapShown ? 30 : 50} /></button>
       </div>
+      <span className="timer">4:20</span>
+
     </div>
   )
 }
