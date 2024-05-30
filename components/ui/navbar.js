@@ -1,4 +1,4 @@
-export default function Navbar({ shown, backBtnPressed }) {
+export default function Navbar({ shown, backBtnPressed, setGameOptionsModalShown }) {
   return (
     <>
     { true && (
@@ -7,7 +7,7 @@ export default function Navbar({ shown, backBtnPressed }) {
       <button className="gameBtn navBtn backBtn" onClick={backBtnPressed}>Back</button>
 
       <div className="navbar__right">
-        <button className="gameBtn navBtn">default</button>
+        <button className="gameBtn navBtn" onClick={()=>setGameOptionsModalShown(true)}>default</button>
         </div>
     </div>
 )}

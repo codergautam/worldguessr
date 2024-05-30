@@ -5,9 +5,10 @@ import GameBtn from "./ui/gameBtn";
 import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
 import EndBanner from "./endBanner";
+import GameOptions from "./gameOptionsModal";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ loading, setLoading, session }) {
+export default function GameUI({ loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown }) {
   const { width, height } = useWindowDimensions();
 
   const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
@@ -17,6 +18,9 @@ export default function GameUI({ loading, setLoading, session }) {
   const [hintShown, setHintShown] = useState(false)
   const [pinPoint, setPinPoint] = useState(null)
   // dist between guess & target
+
+  const [gameOptions, setGameOptions] = useState({ type: 'singleplayer', country: 'all' });
+
   const [km, setKm] = useState(null);
 
   useEffect(() => {
@@ -89,7 +93,11 @@ export default function GameUI({ loading, setLoading, session }) {
           setMiniMapShown(!miniMapShown)
         }}><FaMap size={miniMapShown ? 30 : 50} /></button>
       </div>
-      <span className="timer">4:20</span>
+      <span className={`timer ${loading ? '' : 'shown'}`}>0:00</span>
+
+      <GameOptions shown={gameOptionsModalShown} onClose={() => {
+        setGameOptionsModalShown(false)
+      }} />
 
     </div>
   )

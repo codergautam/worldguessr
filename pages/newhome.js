@@ -22,6 +22,8 @@ export default function Home() {
   const [screen, setScreen] = useState("home");
   const [loading, setLoading] = useState(false);
 
+  const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
+
   function backBtnPressed() {
     setScreen("home");
   }
@@ -38,7 +40,7 @@ export default function Home() {
 
         <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} shown={screen === "home"} />
         <CesiumWrapper className={`cesium_${screen} ${screen !== "home" && !loading ? "cesium_hidden": ""}`} />
-        <Navbar shown={screen !== "home"} backBtnPressed={backBtnPressed} />
+        <Navbar shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
           <div className="home__ui">
@@ -58,7 +60,7 @@ export default function Home() {
         </div>
 
         { screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI loading={loading} setLoading={setLoading} session={session} />
+          <GameUI loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} />
         </div>}
       </main>
     </>

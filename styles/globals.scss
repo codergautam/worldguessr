@@ -253,6 +253,14 @@ h1, h2, h3 {
   color: white;
   user-select: none;
   pointer-events: none;
+  opacity: 0;
+  transform: translateY(-100%);
+}
+.timer.shown {
+  opacity: 100%;
+  transform: translateY(0%);
+  transition: all 0.5s;
+  animation: fadeIn 0.5s ease-in-out forwards;
 }
 
 
