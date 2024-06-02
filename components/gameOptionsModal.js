@@ -1,6 +1,17 @@
+import { useEffect, useState } from "react";
 import Modal from "react-responsive-modal";
+import nameFromCode from "./utils/nameFromCode";
 
-export default function GameOptions({ shown, onClose }) {
+export default function GameOptions({ shown, onClose, gameOptions, setGameOptions }) {
+
+    const [countries, setCountries] = useState({});
+
+    useEffect(() => {
+        fetch('/api/getCountries').then(res => res.json()).then(data => {
+            setCountries(data)
+        });
+    }, [shown])
+
   return (
     <Modal id="infoModal" styles={{
       modal: {
@@ -11,34 +22,37 @@ export default function GameOptions({ shown, onClose }) {
           borderRadius: '10px',
           fontFamily: "'Arial', sans-serif",
           maxWidth: '500px',
-          textAlign: 'center'
+          textAlign: 'center',
       }
   }} open={shown} center onClose={onClose}>
 
-      <h1 style={{
-          marginBottom: '20px',
-          fontSize: '24px',
-          fontWeight: 'bold'
-      }}>How to Play</h1>
+<div className="countriesContainer">
+    <div className="countryCard countryCardHeader" onClick={() => {
+        setGameOptions({
+            ...gameOptions,
+            location: "all"
+        })
+        onClose();
+    }}>
+        <h3 className="countryName">All Countries</h3>
+    </div>
+{Object.keys(countries).sort((b,a)=>countries[a]-countries[b]).map(country => {
+    return (
+        <div key={country} className="countryCard" style={{backgroundImage: `url(https://flagcdn.com/192x144/${country.toLowerCase()}.png)`, backgroundSize: 'cover'}}
+        onClick={() => {
+            setGameOptions({
+                ...gameOptions,
+                location: country
+            })
+            onClose();
+        }}
+        >
+            <h3 className="countryName">{nameFromCode(country)}</h3>
+        </div>
+    )
+})}
+</div>
 
-      <p style={{
-          fontSize: '16px',
-          marginBottom: '10px'
-      }}>
-          🧐 Explore your surroundings, and try to guess where in the World you are
-      </p>
-      <p style={{
-          fontSize: '16px',
-          marginBottom: '10px'
-      }}>
-          🗺️ Use the map to place your guess, and check your accuracy
-      </p>
-      <p style={{
-          fontSize: '16px',
-          marginBottom: '20px'
-      }}>
-          🎓 Learn geography through play, and have fun!
-      </p>
 
       <button className="toggleMap" style={{
           fontSize: '16px',

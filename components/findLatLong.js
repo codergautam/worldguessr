@@ -6,10 +6,10 @@ const loader = new Loader({
   version: "weekly",
   libraries: ["places"]
 });
- function generateLatLong() {
+ function generateLatLong(location) {
   return new Promise((resolve, reject) => {
   loader.importLibrary("streetView").then(() => {
-  fetch("/api/randomLoc").then((res) => res.json()).then((data) => {
+  fetch(`/api/randomLoc${(location&&location!=="all")?`?country=${location}`:''}`).then((res) => res.json()).then((data) => {
     const panorama = new google.maps.StreetViewService();
     const lat = data[0];
     const long = data[1];
@@ -45,12 +45,12 @@ const loader = new Loader({
 });
 }
 
-export default async function findLatLongRandom() {
+export default async function findLatLongRandom(gameOptions) {
   let found = false;
   let output = null;
 
   while (!found) {
-    const data = await generateLatLong();
+    const data = await generateLatLong(gameOptions.location);
     if(data) {
       output = data;
       found = true;

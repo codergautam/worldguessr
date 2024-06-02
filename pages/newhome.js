@@ -8,11 +8,12 @@ import { useSession } from "next-auth/react";
 import AccountBtn from "@/components/ui/accountBtn";
 import 'react-responsive-modal/styles.css';
 import AccountModal from "@/components/accountModal";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Navbar from "@/components/ui/navbar";
 import SetUsernameModal from "@/components/setUsernameModal";
 import GameUI from "@/components/gameUI";
 import Loader from "@/components/loader";
+import findLatLongRandom from "@/components/findLatLong";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 
@@ -22,10 +23,45 @@ export default function Home() {
   const [screen, setScreen] = useState("home");
   const [loading, setLoading] = useState(false);
 
+  // game state
+  const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
+  const [streetViewShown, setStreetViewShown] = useState(false)
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
+  const [gameOptions, setGameOptions] = useState({location: "all"});
 
   function backBtnPressed() {
+    if(loading) setLoading(false)
     setScreen("home");
+    clearLocation();
+  }
+
+  function clearLocation() {
+    setLatLong({ lat: 0, long: 0 })
+    setStreetViewShown(false)
+  }
+
+  function loadLocation() {
+    setLoading(true)
+    findLatLongRandom(gameOptions).then((latLong) => {
+      setLatLong(latLong)
+      setTimeout(() => {
+        setStreetViewShown(true)
+        setTimeout(() => {
+          setLoading(false)
+        }, 100);
+      }, 500);
+    });
+  }
+
+  useEffect(() => {
+    loadLocation()
+  }, [gameOptions])
+
+
+  function onNavbarLogoPress() {
+    if (screen !== "home" && !loading) {
+      loadLocation()
+    }
   }
 
   return (
@@ -40,7 +76,7 @@ export default function Home() {
 
         <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} shown={screen === "home"} />
         <CesiumWrapper className={`cesium_${screen} ${screen !== "home" && !loading ? "cesium_hidden": ""}`} />
-        <Navbar shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} />
+        <Navbar shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
           <div className="home__ui">
@@ -60,7 +96,7 @@ export default function Home() {
         </div>
 
         { screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} />
+          <GameUI loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} setLatLong={setLatLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
       </main>
     </>
