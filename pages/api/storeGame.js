@@ -6,11 +6,12 @@ import moment from 'moment';
 const matchesBuffer = 5000;
 // multiplayer after guess
 export default async function guess(req, res) {
-  const { lat, long, actualLat, actualLong, usedHint, secret, roundTime } = req.body;
+  const { lat, long, actualLat, actualLong, usedHint, secret, roundTime, maxDist } = req.body;
 
   if(secret) {
     try {
-      await storeGame(secret, Math.round(calcPoints({ guessLat: lat, guessLon: long, lat: actualLat, lon: actualLong, usedHint }) / 100), roundTime, [lat, long]);
+      const calcXp = Math.round(calcPoints({ guessLat: lat, guessLon: long, lat: actualLat, lon: actualLong, usedHint, maxDist }) / 50);
+      await storeGame(secret, calcXp, roundTime, [lat, long]);
     } catch (error) {
       return res.status(500).json({ error: 'An error occurred', message: error.message });
     }

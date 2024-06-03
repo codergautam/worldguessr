@@ -22,7 +22,7 @@ export default function EndBanner({ xpEarned, lostCountryStreak, session, guesse
   </div>
   { !playingMultiplayer && (
 
-  <div className="buttonContainer">
+  <div className="endButtonContainer">
   <button className="playAgain" onClick={fullReset}>
     Play Again
   </button>

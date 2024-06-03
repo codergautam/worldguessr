@@ -27,7 +27,11 @@ export default function Home() {
   const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
   const [streetViewShown, setStreetViewShown] = useState(false)
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
-  const [gameOptions, setGameOptions] = useState({location: "all"});
+  const [gameOptions, setGameOptions] = useState({location: "all", maxDist: 20000});
+  const [showAnswer, setShowAnswer] = useState(false)
+  const [pinPoint, setPinPoint] = useState(null)
+  const [hintShown, setHintShown] = useState(false)
+  const [xpEarned, setXpEarned] = useState(0)
 
   function backBtnPressed() {
     if(loading) setLoading(false)
@@ -38,10 +42,16 @@ export default function Home() {
   function clearLocation() {
     setLatLong({ lat: 0, long: 0 })
     setStreetViewShown(false)
+    setShowAnswer(false)
+    setPinPoint(null)
+    setHintShown(false)
   }
 
   function loadLocation() {
     setLoading(true)
+    setShowAnswer(false)
+    setPinPoint(null)
+    setHintShown(false)
     findLatLongRandom(gameOptions).then((latLong) => {
       setLatLong(latLong)
       setTimeout(() => {
@@ -96,7 +106,7 @@ export default function Home() {
         </div>
 
         { screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} setLatLong={setLatLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} setLatLong={setLatLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
       </main>
     </>

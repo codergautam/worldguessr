@@ -521,12 +521,14 @@ h1, h2, h3 {
   transition: all 0.5s;
 }
 
+
 #miniMapContent {
   cursor: crosshair;
   border: 5px solid #0F251D;
   height: 100%;
   border-radius: 10px;
 }
+
 
 @media screen and (max-width: 600px) {
   #miniMapArea {
@@ -540,6 +542,9 @@ h1, h2, h3 {
     margin-right: 0;
     height:70%;
     width: 100%;
+  }
+  #miniMapArea.answerShown {
+    transform: none;
   }
   #miniMapContent {
     border: none;
@@ -599,6 +604,10 @@ h1, h2, h3 {
   }
 }
 
+.answerShownBtns {
+  display: none;
+}
+
 .guessBtn {
   background-color: #112966;
 }
@@ -647,6 +656,17 @@ h1, h2, h3 {
     height: 50%;
     width: 45%;
   }
+}
+
+
+#miniMapArea.answerShown {
+  width: 100%;
+  height: calc(80vh - 118px);
+  opacity: 100%;
+  right: 0;
+  top: 83px;
+  margin-right: 0;
+  margin-top: 0;
 }
 
 
@@ -710,90 +730,91 @@ h1, h2, h3 {
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-// #endBanner {
-//   position: fixed;
-//   left: 0;
-//   right: 0;
-//   bottom: 0;
-//   z-index: 100;
-//   background-color: rgba(106, 107, 131, 0.9);
-//   backdrop-filter: blur(10px);
-//   border-radius: 10px;
-//   color: white;
-//   display: flex;
-//   flex-direction: column;
-//   justify-content: center;
-//   align-items: center;
-//   padding: 20px;
-// }
+#endBanner {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  height: 20vh;
+  background-color: rgba(106, 107, 131, 0.9);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
 
-// .bannerContent {
-//   font-size: 2em;
-//   text-align: center;
-// }
+.bannerContent {
+  font-size: 2em;
+  text-align: center;
+}
 
-// .motivation {
-//   font-size: 1.2em;
-//   font-weight: lighter;
-//   padding: 10px 0;
-// }
-
-
-// .buttonContainer {
-//   display: flex;
-//   justify-content: space-around; /* Adjusts spacing between buttons */
-//   align-items: center; /* Vertically centers buttons in the container */
-
-//   button {
-//     font-size: 1em;
-//     padding: 10px 20px;
-//     margin: 5px;
-//     background-color: #444;
-//     color: white;
-//     border: none;
-//     border-radius: 5px;
-//     cursor: pointer;
-//     transition: background-color 0.3s;
-//   }
-
-//   button:hover {
-//     background-color: #666;
-//   }
-// }
-
-// .mainBannerTxt {
-//   font-size: 1.4em;
-//   font-weight: 500;
-//   padding: 10px;
-// }
-
-// .motivation {
-//   font-size: 1em;
-//   padding: 10px;
-// }
-
-// @media screen and (max-width: 600px) {
+.motivation {
+  font-size: 1.2em;
+  font-weight: lighter;
+  padding: 10px 0;
+}
 
 
-//   .motivation {
-//     font-size: 0.8em;
-//   }
-//   .mainBannerTxt {
-//     font-size: 1em;
+.endButtonContainer {
+  display: flex;
+  justify-content: space-around; /* Adjusts spacing between buttons */
+  align-items: center; /* Vertically centers buttons in the container */
 
-//   }
+  button {
+    font-size: 1em;
+    padding: 10px 20px;
+    margin: 5px;
+    background-color: #444;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  button:hover {
+    background-color: #666;
+  }
+}
+
+.mainBannerTxt {
+  font-size: 1.4em;
+  font-weight: 500;
+  padding: 10px;
+}
+
+.motivation {
+  font-size: 1em;
+  padding: 10px;
+}
+
+@media screen and (max-width: 600px) {
 
 
-//   @media screen and (max-height: 840px) {
-//     .mainBannerTxt {
-//       font-size: 0.8em;
-//     }
-//     .motivation {
-//       font-size: 0.6em;
-//     }
+  .motivation {
+    font-size: 0.8em;
+  }
+  .mainBannerTxt {
+    font-size: 1em;
 
-//   }
-// }
+  }
+
+
+  @media screen and (max-height: 840px) {
+    .mainBannerTxt {
+      font-size: 0.8em;
+    }
+    .motivation {
+      font-size: 0.6em;
+    }
+
+  }
+}
 
 
 // .leaflet-control-attribution {

@@ -30,7 +30,8 @@ export default function GameOptions({ shown, onClose, gameOptions, setGameOption
     <div className="countryCard countryCardHeader" onClick={() => {
         setGameOptions({
             ...gameOptions,
-            location: "all"
+            location: "all",
+            maxDist: 20000
         })
         onClose();
     }}>
@@ -42,7 +43,8 @@ export default function GameOptions({ shown, onClose, gameOptions, setGameOption
         onClick={() => {
             setGameOptions({
                 ...gameOptions,
-                location: country
+                location: country,
+                maxDist: countries[country]
             })
             onClose();
         }}

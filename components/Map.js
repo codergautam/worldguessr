@@ -17,7 +17,7 @@ import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
 const hintRad = 5000000;
 
-const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
+const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
@@ -95,7 +95,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
 
     // use map click event to set pin point
     function onMapClick(e) {
-      if (!guessed && !guessing) {
+      if (!answerShown && !guessing) {
         const clickedCoord = initialMap.getEventCoordinate(e.originalEvent);
         const clickedLatLong = toLonLat(clickedCoord);
         console.log(clickedLatLong);
@@ -113,7 +113,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
 
       initialMap.un('click', onMapClick);
     };
-  }, [guessed, setPinPoint, guessing]);
+  }, [answerShown, setPinPoint, guessing]);
 
   // Update pin point and add line
   useEffect(() => {
@@ -153,7 +153,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
       map.addLayer(pinLayer);
     }
 
-    if (guessed && location && pinPoint && (!playingMultiplayer || multiplayerSentGuess)) {
+    if (answerShown && location && pinPoint && (!playingMultiplayer || multiplayerSentGuess)) {
       const lineLayer = new VectorLayer({
         source: new VectorSource({
           features: [
@@ -235,7 +235,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, guessed, location, setKm
       setKm(distanceInKm);
     }
 
-  }, [map, pinPoint, guessed, location, setKm, randomOffsetS, showHint]);
+  }, [map, pinPoint, answerShown, location, setKm, randomOffsetS, showHint]);
 
   useState(() => {
     let maxPivots = [10, 25].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
