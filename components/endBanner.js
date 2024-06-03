@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import calcPoints from "./calcPoints";
+import { signIn } from "next-auth/react";
 
 export default function EndBanner({ xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, playingMultiplayer, usedHint }) {
   return (
@@ -12,6 +13,11 @@ export default function EndBanner({ xpEarned, lostCountryStreak, session, guesse
       )}
       { latLong && pinPoint && !playingMultiplayer && (
         km <  300 ? 'Wow! You were really close!' : km < 1000 ? 'Great guess!' : km < 3000 ? 'Not bad' : 'Better luck next time!'
+        )}
+         {!session?.token?.secret && (
+          <p>
+            <a onClick={()=>signIn('google')} style={{textDecoration: 'underline', color: 'cyan', cursor: 'pointer'}}>Login with Google</a> to earn XP and track your stats!
+          </p>
         )}
       <br/>
       {xpEarned > 0 && session?.token?.secret ? `You earned ${xpEarned} XP!` : ''}
