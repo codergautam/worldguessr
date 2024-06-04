@@ -15,9 +15,9 @@ import { getDistance } from 'ol/sphere';
 import ol, { DoubleClickZoom, KeyboardZoom, MouseWheelZoom } from 'ol/interaction';
 import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
-const hintRad = 5000000;
+const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
-const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round }) => {
+const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round, gameOptions }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
@@ -27,10 +27,12 @@ const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, s
   function drawHint(initialMap, location, randomOffset) {
     // create a circle overlay 10000km radius from location
 
-    let lat = location.lat + randomOffset[0];
-    let long = location.long + randomOffset[1];
+    let lat = location.lat;
+    let long = location.long
+    let center = fromLonLat([long, lat]);
+    center = [center[0] + randomOffset[0], center[1] + randomOffset[1]];
     // move it a bit randomly so it's not exactly on the location but location is inside the circle
-    const circle = new Feature(new Circle(fromLonLat([long, lat]), hintRad));
+    const circle = new Feature(new Circle(center, hintMul * gameOptions.maxDist));
     vectorSource.current.addFeature(circle);
 
     const circleLayer = new VectorLayer({
@@ -131,7 +133,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, s
       });
     }
 
-    if (location && showHint) drawHint(map, location, randomOffsetS);
+    if (location && showHint) drawHint(map, location, randomOffsetS, gameOptions.maxDist);
     if (pinPoint) {
       const pinFeature = new Feature({
         geometry: new Point(fromLonLat([pinPoint.lng, pinPoint.lat])),
@@ -238,10 +240,19 @@ const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, s
   }, [map, pinPoint, answerShown, location, setKm, randomOffsetS, showHint]);
 
   useState(() => {
-    let maxPivots = [10, 25].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
+    // let maxPivots = [10, 25].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
+    let maxPivots = [0, 0];
+    const radiusProj = hintMul * gameOptions.maxDist;
 
+    // move it a bit randomly so it's not exactly on the location but location is inside the circle (0 -> radiusProj)
+    const randomAngle = Math.random() * 2 * Math.PI;
+    const randomRadius = Math.random() * radiusProj;
+    maxPivots[0] += Math.cos(randomAngle) * randomRadius;
+    maxPivots[1] += Math.sin(randomAngle) * randomRadius;
+
+    console.log('maxPivots', maxPivots);
     setRandomOffsetS([maxPivots[0], maxPivots[1]]);
-  }, [location]);
+  }, [location, gameOptions]);
 
   return (
     <>
