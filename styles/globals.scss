@@ -203,11 +203,12 @@ body::-webkit-scrollbar-button {
   font-size: clamp(1.5em, 2vw, 3em);
 }
 .navBtn {
-  width: 100px;
   font-size: 1.5em;
+  width: auto;
 }
 .backBtn {
   background-color: #AE4141;
+  width: 100px;
 
   margin-left: 10px;
 }
@@ -273,6 +274,7 @@ h1, h2, h3 {
   display: flex;
   gap: 10px;
   margin-right: 25px;
+  height: 80%;
 }
 
 .timer {
@@ -527,6 +529,7 @@ h1, h2, h3 {
   border: 5px solid #0F251D;
   height: 100%;
   border-radius: 10px;
+  background-color: #B9D3DC;
 }
 
 
@@ -737,6 +740,7 @@ h1, h2, h3 {
   bottom: 0;
   z-index: 100;
   height: 20vh;
+  min-height: 150px;
   background-color: rgba(106, 107, 131, 0.9);
   backdrop-filter: blur(10px);
   border-radius: 10px;
@@ -753,11 +757,6 @@ h1, h2, h3 {
   text-align: center;
 }
 
-.motivation {
-  font-size: 1.2em;
-  font-weight: lighter;
-  padding: 10px 0;
-}
 
 
 .endButtonContainer {
@@ -783,34 +782,34 @@ h1, h2, h3 {
 }
 
 .mainBannerTxt {
-  font-size: 1.4em;
+  font-size: 1.2em;
   font-weight: 500;
-  padding: 10px;
+  padding: 0px;
 }
 
 .motivation {
-  font-size: 1em;
-  padding: 10px;
+  font-size: 0.8em;
+  padding: 0px;
 }
 
 @media screen and (max-width: 600px) {
 
 
   .motivation {
-    font-size: 0.8em;
+    font-size: 0.6em;
   }
   .mainBannerTxt {
-    font-size: 1em;
+    font-size: 0.8em;
 
   }
 
 
   @media screen and (max-height: 840px) {
     .mainBannerTxt {
-      font-size: 0.8em;
+      font-size: 0.7em;
     }
     .motivation {
-      font-size: 0.6em;
+      font-size: 0.5em;
     }
 
   }

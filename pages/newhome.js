@@ -14,6 +14,7 @@ import SetUsernameModal from "@/components/setUsernameModal";
 import GameUI from "@/components/gameUI";
 import Loader from "@/components/loader";
 import findLatLongRandom from "@/components/findLatLong";
+import Link from "next/link";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 
@@ -32,6 +33,14 @@ export default function Home() {
   const [pinPoint, setPinPoint] = useState(null)
   const [hintShown, setHintShown] = useState(false)
   const [xpEarned, setXpEarned] = useState(0)
+  const [countryStreak, setCountryStreak] = useState(0)
+
+  useEffect(() => {
+    const streak = localStorage.getItem("countryStreak");
+    if(streak) {
+      setCountryStreak(parseInt(streak))
+    }
+  }, [])
 
   function backBtnPressed() {
     if(loading) setLoading(false)
@@ -83,30 +92,33 @@ export default function Home() {
 
       <main className={`home ${jockey.className}`} id="main" >
       <Loader loadingText="Loading..." shown={loading} />
-
-        <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} shown={screen === "home"} />
+      <div style={{ display: 'flex', alignItems: 'center', opacity: (screen === "home") ? 1 : 0}} className="accountBtnContainer">
+        <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
+        </div>
         <CesiumWrapper className={`cesium_${screen} ${screen !== "home" && !loading ? "cesium_hidden": ""}`} />
-        <Navbar shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} />
+        <Navbar openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
             <div className="home__btns">
-              <GameBtn text="Singleplayer" onClick={() => setScreen("singleplayer")} />
+              <GameBtn text="Singleplayer" onClick={() => {
+                if(!loading) setScreen("singleplayer")
+                }} />
               <GameBtn text="Multiplayer" />
               <GameBtn text="How to Play" />
 
               <div className="home__squarebtns">
-                <button className="home__squarebtn gameBtn"><FaGithub className="home__squarebtnicon" /></button>
-                <button className="home__squarebtn gameBtn"><FaDiscord className="home__squarebtnicon" /></button>
-                <button className="home__squarebtn gameBtn"><FaRankingStar className="home__squarebtnicon" /></button>
+                <Link href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn"><FaGithub className="home__squarebtnicon" /></button></Link>
+                <Link href={"https://discord.gg/"}><button className="home__squarebtn gameBtn"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn"><FaRankingStar className="home__squarebtnicon" /></button></Link>
               </div>
             </div>
           </div>
         </div>
 
         { screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} setLatLong={setLatLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} setLatLong={setLatLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
       </main>
     </>

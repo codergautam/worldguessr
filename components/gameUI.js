@@ -5,14 +5,16 @@ import useWindowDimensions from "./useWindowDimensions";
 import GameOptions from "./gameOptionsModal";
 import EndBanner from "./endBanner";
 import calcPoints from "./calcPoints";
+import findCountry from "./findCountry";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, setLatLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
+export default function GameUI({ countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, setLatLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
   const { width, height } = useWindowDimensions();
 
   const [miniMapShown, setMiniMapShown] = useState(false)
   const [miniMapExpanded, setMiniMapExpanded] = useState(false)
   const [roundStartTime, setRoundStartTime] = useState(null);
+  const [lostCountryStreak, setLostCountryStreak] = useState(0);
 
   // dist between guess & target
   const [km, setKm] = useState(null);
@@ -30,6 +32,11 @@ export default function GameUI({ loading, setLoading, session, gameOptionsModalS
       setXpEarned(0);
     }
   }, [latLong])
+
+  useEffect(() => {
+    console.log('saving country streak to', countryStreak)
+    window.localStorage.setItem("countryStreak", countryStreak);
+  }, [countryStreak])
 
 
   useEffect(() => {
@@ -89,6 +96,19 @@ export default function GameUI({ loading, setLoading, session, gameOptionsModalS
         console.error(e);
       });
     }
+
+    if(gameOptions.location === 'all') {
+    findCountry({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
+
+      console.log('country', country, latLong.country)
+      if(country === latLong.country) {
+        setCountryStreak(countryStreak + 1);
+      } else {
+        setCountryStreak(0);
+        setLostCountryStreak(countryStreak);
+      }
+    });
+    }
   }
 
   useEffect(() => {
@@ -138,7 +158,7 @@ export default function GameUI({ loading, setLoading, session, gameOptionsModalS
       }} gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
 {/* <EndBanner xpEarned={xpEarned} usedHint={showHint} session={session} lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} /> */}
-<EndBanner xpEarned={xpEarned} usedHint={hintShown} session={session} lostCountryStreak={0} guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} countryStreak={0} fullReset={loadLocation} km={km} playingMultiplayer={false} />
+<EndBanner countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={loadLocation} km={km} playingMultiplayer={false} />
 
     </div>
   )
