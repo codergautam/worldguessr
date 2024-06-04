@@ -90,7 +90,13 @@ export default function Home() {
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
 
-      <main className={`home ${jockey.className}`} id="main" >
+      <style>{`
+       html * {
+        overflow: hidden;
+       }
+       `}</style>
+
+      <main className={`home ${jockey.className}`} id="main">
       <Loader loadingText="Loading..." shown={loading} />
       <div style={{ display: 'flex', alignItems: 'center', opacity: (screen === "home") ? 1 : 0}} className="accountBtnContainer">
         <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
