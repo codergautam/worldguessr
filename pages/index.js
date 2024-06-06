@@ -1,485 +1,192 @@
-import React, { useEffect, useRef, useState } from 'react';
-import Head from 'next/head';
-import { Inter } from 'next/font/google';
-import styles from '@/styles/Home.module.css';
-import dynamic from 'next/dynamic';
-import findLatLongRandom from '@/components/findLatLong';
-import useWindowDimensions from '@/components/useWindowDimensions';
-import GameControls from '@/components/Tab';
-import { FaDiscord, FaGithub, FaInfo } from 'react-icons/fa';
-import Modal from 'react-responsive-modal';
+import HeadContent from "@/components/headContent";
+import CesiumWrapper from "../components/cesium/CesiumWrapper";
+import { Jockey_One } from 'next/font/google';
+import GameBtn from "@/components/ui/gameBtn";
+import { FaDiscord, FaGithub, FaGoogle } from "react-icons/fa";
+import { FaRankingStar } from "react-icons/fa6";
+import { signIn, useSession } from "next-auth/react";
+import AccountBtn from "@/components/ui/accountBtn";
 import 'react-responsive-modal/styles.css';
+import AccountModal from "@/components/accountModal";
+import { useEffect, useState } from "react";
+import Navbar from "@/components/ui/navbar";
+import SetUsernameModal from "@/components/setUsernameModal";
+import GameUI from "@/components/gameUI";
+import Loader from "@/components/loader";
+import findLatLongRandom from "@/components/findLatLong";
+import Link from "next/link";
+import MultiplayerHome from "@/components/multiplayerHome";
 
-import findCountry from '@/components/findCountry';
-import MultiplayerModal from '@/components/multiPlayerModal';
-import calcPoints from '@/components/calcPoints';
-import InfoModal from '@/components/infoModal';
-import EndBanner from '@/components/endBanner';
-import HeadContent from '@/components/headContent';
-import Loader from '@/components/loader';
-import Leaderboard from '@/components/leaderboard';
-import formatTime from '@/components/formatNum';
-import BottomLeft from '@/components/bottomLeft';
-import { signOut, useSession } from 'next-auth/react';
-import SetUsernameModal from '@/components/setUsernameModal';
-import AccountModal from '@/components/accountModal';
-const inter = Inter({ subsets: ['latin'] });
-const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
+const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 
-const multiplayerMatchBuffer = 5000; // deadline is 5000ms before next round to show the end stats
-export default function Home({ }) {
-//   const mapDivRef = useRef(null);
-//   const guessBtnRef = useRef(null);
+export default function Home() {
+  const { data: session, status } = useSession();
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [screen, setScreen] = useState("home");
+  const [loading, setLoading] = useState(false);
 
-//   // get nextauth session
-//   const { data: session, status } = useSession();
+  // game state
+  const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
+  const [streetViewShown, setStreetViewShown] = useState(false)
+  const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
+  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000 });
+  const [showAnswer, setShowAnswer] = useState(false)
+  const [pinPoint, setPinPoint] = useState(null)
+  const [hintShown, setHintShown] = useState(false)
+  const [xpEarned, setXpEarned] = useState(0)
+  const [countryStreak, setCountryStreak] = useState(0)
 
-//   // this button exists to prevent cheating by focusing on the iframe and tabbing etc
-//   // const focusBtn = useRef(null);
-//   // desktop: is minimap viewable (always true when in game)
-//   // mobile: is minimap tab active (false means streetview)
-//   const [mapShown, setMapShown] = useState(true);
+  // multiplayer stuff
+  const [ws, setWs] = useState(null);
+  const [multiplayerState, setMultiplayerState] = useState(
+    {
+      connected: false,
+      connecting: false,
+      shouldConnect: false
+    }
+  );
 
-//   // desktop: is minimap in enlarged view
-//   // always true on mobile
-//   const [mapFullscreen, setMapFullscreen] = useState(false);
+  useEffect(() => {
+    if (!ws && !multiplayerState.connecting && !multiplayerState.connected && multiplayerState.shouldConnect) {
+      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/multiplayer`
+      setMultiplayerState({
+        ...multiplayerState,
+        connecting: true,
+        shouldConnect: false
+      })
+      const ws = new WebSocket(wsPath);
+      ws.onopen = () => {
+        setWs(ws)
+        // setMultiplayerState({ connected: true, connecting: false })
 
-//   // user selection point
-//   const [pinPoint, setPinPoint] = React.useState(null);
+        fetch("/api/getJWT").then((res) => res.json()).then((data) => {
+          const JWT = data.jwt;
+          ws.send(JSON.stringify({ type: "verify", jwt: JWT }))
+        });
+      }
+      ws.onmessage = (msg) => {
+        const data = JSON.parse(msg.data);
+        switch (data.type) {
+          case "cnt":
+            setMultiplayerState({
+              ...multiplayerState,
+              playerCount: data.c
+            })
+            break;
+          case "verify":
+            setMultiplayerState({ connected: true, connecting: false })
 
-//   // coords & country of dest
-//   const [latLong, setLatLong] = useState(null);
+        }
+      }
+    }
 
-//   // whether guess confirmed or not
-//   const [guessed, setGuessed] = useState(false);
-
-//   // dist between guess & target
-//   const [km, setKm] = useState(null);
-
-//   // waiting for iframe
-//   const [loading, setLoading] = useState(true);
-
-//     // info modal showing or not
-//     const [infoModal, setInfoModal] = useState(false);
-
-//     const [countryStreak, setCountryStreak] = useState(0);
-
-//     const [guessing, setGuessing] = useState(false);
-
-//     const [showHint, setShowHint] = useState(false);
-
-//     const [accountModalOpen, setAccountModalOpen] = useState(false);
-//     const [roundStartTime, setRoundStartTime] = useState(null);
-//     const [xpEarned, setXpEarned] = useState(0);
-
-//     const [multiplayerModal, setMultiplayerModal] = useState(false);
-//     const [multiplayerEnded, setMultiplayerEnded] = useState(false);
-//     const [multiplayerData, setMultiplayerData] = useState(null);
-//     const [playingMultiplayer, setPlayingMultiplayer] = useState(false);
-//     const [multiplayerTimers, setMultiplayerTimers] = useState(null);
-//     const [multiplayerRoundIndex, setMultiplayerRoundIndex] = useState(0);
-//     const [multiplayerinMatchBuffer, setMultiplayerinMatchBuffer] = useState(false);
-//     const [multiplayerSentGuess, setMultiplayerSentGuess] = useState(false);
-//     const [multiplayerLeaderboardMobile, setMultiplayerLeaderboardMobile] = useState(false);
-//     const [lostCountryStreak, setLostCountryStreak] = useState(0);
-
-//   // screen dim
-//   const {width, height} = useWindowDimensions();
-
-//   useEffect(() => {
-//     setRoundStartTime(Date.now());
-//     setXpEarned(0);
-//     setShowHint(false);
-//     console.log('round start time', Date.now());
-//   }, [latLong]);
-
-//   function onMultiplayerModalClose(data) {
-//     setMultiplayerModal(false);
-
-//     if(data) {
-//       setXpEarned(0);
-//     setMultiplayerData(data);
-//     setPinPoint(null);
-//     setPlayingMultiplayer(true);
-//     setMultiplayerEnded(false);
-//       setShowHint(false);
-//     }
-//   }
-
-//   function findCurrentPoint(gameData) {
-//     if(!gameData?.points) return { currentPoint: null, currentPointIndex: null };
-//     let currentPoint = null;
-//         let currentPointIndex = null;
-//         for(let i = 0; i < gameData.points.length; i++) {
-//           if(gameData.points[i].t <= Date.now()) {
-//             currentPoint = [gameData.points[i]];
-//             currentPointIndex = i;
-//           }
-//         }
-//         return { currentPoint, currentPointIndex };
-//     }
-//   function updateMultiplayerData(gameData, latLo, inMatchBuffer = false) {
-
-//     setMultiplayerData({
-//       ...multiplayerData,
-//       gameData
-//     });
+    if (ws && screen === "home") {
+      ws.close();
+      setWs(null);
+      setMultiplayerState({
+        connected: false,
+        connecting: false,
+        shouldConnect: false
+      })
+    }
+  }, [multiplayerState, ws, screen])
 
 
-//     const { currentPoint, currentPointIndex } = findCurrentPoint(gameData);
+  useEffect(() => {
+    const streak = localStorage.getItem("countryStreak");
+    if (streak) {
+      setCountryStreak(parseInt(streak))
+    }
+  }, [])
 
-//         if(!currentPoint) {
-//           // game not started
-//           setMultiplayerTimers({
-//             timeTillRound: gameData.points[0].t - Date.now()
-//           })
-//         } else {
-//           // game started
-//           const inBuffer =  (typeof currentPointIndex === "number" && gameData.points[currentPointIndex+1]) ? gameData.points[currentPointIndex + 1].t - (Date.now()) - multiplayerMatchBuffer : gameData.endTime - Date.now() - multiplayerMatchBuffer;
+  function backBtnPressed() {
+    if (loading) setLoading(false)
+    setScreen("home");
+    clearLocation();
+  }
 
-//           setMultiplayerTimers({
-//             timeLeft: inBuffer < 0 ? multiplayerMatchBuffer - Math.abs(inBuffer) : inBuffer,
-//             currentPoint: currentPoint[0],
-//             currentRound: currentPointIndex+1
-//           });
-//           setMultiplayerRoundIndex(currentPointIndex);
+  function clearLocation() {
+    setLatLong({ lat: 0, long: 0 })
+    setStreetViewShown(false)
+    setShowAnswer(false)
+    setPinPoint(null)
+    setHintShown(false)
+  }
 
-//           if(inBuffer < -1 * multiplayerMatchBuffer) {
-//             setLatLong(null);
-//             setMultiplayerinMatchBuffer(false);
-//             setGuessed(false);
-//             setPinPoint(null);
-//             setMultiplayerSentGuess(false);
-//             setGuessing(false);
-//             setLoading(true);
-//             setMultiplayerEnded(true);
-//             setMultiplayerLeaderboardMobile(true);
-//           } else if(inBuffer <= 0) {
-//             // round over
-//             setGuessing(false);
-//             setGuessed(true);
-//             setMultiplayerinMatchBuffer(true);
-//             // setLatLong(null);
-//           } else if(!latLo || inMatchBuffer) {
-//             setLatLong({ lat: currentPoint[0].lat, long: currentPoint[0].long, country: currentPoint[0].country });
-//             setLoading(false);
-//             setMultiplayerinMatchBuffer(false);
-//             setGuessed(false);
-//             setPinPoint(null);
-//             setMultiplayerSentGuess(false);
+  function loadLocation() {
+    setLoading(true)
+    setShowAnswer(false)
+    setPinPoint(null)
+    setHintShown(false)
+    findLatLongRandom(gameOptions).then((latLong) => {
+      setLatLong(latLong)
+      setTimeout(() => {
+        setStreetViewShown(true)
+        setTimeout(() => {
+          setLoading(false)
+        }, 100);
+      }, 500);
+    });
+  }
 
-//           }
-//         }
-//   }
+  function onNavbarLogoPress() {
+    if (screen !== "home" && !loading) {
+      loadLocation()
+    }
+  }
 
-//   useEffect(() => {
-//     let int;
-//     let lastReq = 0;
-//     if(playingMultiplayer) {
-//       if(multiplayerData) {
-//         int = setInterval(() => {
-//         if(Date.now() - lastReq > 500) {
-//           const code = multiplayerData.code;
-//           lastReq = Date.now();
-//           fetch('/api/gameState', {
-//             method: 'POST',
-//             headers: {
-//               'Content-Type': 'application/json'
-//             },
-//             body: JSON.stringify({ id: code })
-//           }).then(res => res.json()).then(gameData => {
-//             if(gameData.error) {
-//               console.error(gameData.error);
-//               return;
-//             }
+  return (
+    <>
+      <HeadContent />
 
-//             updateMultiplayerData(gameData, latLong, multiplayerinMatchBuffer);
-//           }).catch(e => {
-//             console.error(e);
-//           });
-//         } else {
-//           updateMultiplayerData(multiplayerData.gameData, latLong, multiplayerinMatchBuffer);
-//         }
-//         }, 100);
-//       }
-//     }
+      <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
+      <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
 
-//     return () => {
-//       if(int) {
-//         clearInterval(int);
-//       }
-//     }
-//   }, [playingMultiplayer, multiplayerData, latLong, multiplayerinMatchBuffer]);
+      <style>{`
+       html * {
+        overflow: hidden;
+       }
+       `}</style>
 
-//   useEffect(() => {
-//     if(playingMultiplayer) {
-//       setLatLong(null);
-//     } else if(!playingMultiplayer && !multiplayerEnded) {
-//       fullReset();
-//     }
-//   }, [playingMultiplayer, multiplayerEnded]);
+      <main className={`home ${jockey.className}`} id="main">
+        <Loader loadingText="Loading..." shown={loading} />
+        <Loader loadingText="Connecting..." shown={multiplayerState.connecting} />
+        <div style={{ display: 'flex', alignItems: 'center', opacity: (screen !== "singleplayer") ? 1 : 0 }} className="accountBtnContainer">
+          <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
+        </div>
+        <CesiumWrapper className={`cesium_${screen} ${screen !== "home" && !loading ? "cesium_hidden" : ""}`} />
+        <Navbar openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+        <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
+          <div className="home__ui">
+            <h1 className="home__title">WorldGuessr</h1>
+            <div className="home__btns">
+              <GameBtn text="Singleplayer" onClick={() => {
+                if (!loading) setScreen("singleplayer")
+              }} />
+              <GameBtn text="Multiplayer" onClick={() => {
+                if (!session?.token?.secret) signIn("google");
+                setScreen("multiplayer-home")
+              }} />
+              <GameBtn text="How to Play" />
 
-//   function resetMap() {
-//     if(playingMultiplayer) return;
-//     setLatLong(null);
-//     findLatLongRandom().then((data) => {
-//       setLatLong(data);
-//     });
-//   }
+              <div className="home__squarebtns">
+                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn"><FaGithub className="home__squarebtnicon" /></button></Link>
+                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+              </div>
+            </div>
+          </div>
+        </div>
 
-//   async function guess() {
-//     setGuessing(true);
+        {screen === "singleplayer" && <div className="home__singleplayer">
+          <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} setLatLong={setLatLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+        </div>}
 
-//      if(playingMultiplayer) {
-//       try {
-//         const response = await fetch('/api/guess', {
-//           method: 'POST',
-//           headers: {
-//             'Content-Type': 'application/json'
-//           },
-//           body: JSON.stringify({
-//             lat: pinPoint.lat,
-//             long: pinPoint.lng,
-//             gameCode: multiplayerData.code,
-//             playerSecret: multiplayerData.myData.playerSecret,
-//             usedHint: showHint,
-//             roundNo: multiplayerTimers.currentRound,
-//             secret: session?.token?.secret,
-//             roundTime: Math.round((Date.now() - roundStartTime)/ 1000)
-//           })
-//         });
-//         setXpEarned(Math.round(calcPoints({ guessLat: pinPoint.lat, guessLon: pinPoint.lng, lat: latLong.lat, lon: latLong.long, usedHint: showHint }) / 100));
-
-//         const data = await response.json();
-//         setMultiplayerSentGuess(true);
-
-//         if (data.error) {
-//           console.error(data.error);
-//           return;
-//         }
-
-//       } catch (error) {
-//         console.error(error);
-//       }
-//       } else {
-
-//         if(session && session.token && session.token.secret) {
-//           fetch('/api/storeGame', {
-//             method: 'POST',
-//             headers: {
-//               'Content-Type': 'application/json'
-//             },
-//             body: JSON.stringify({
-//               secret: session.token.secret,
-//               lat: pinPoint.lat,
-//               long: pinPoint.lng,
-//               usedHint: showHint,
-//               actualLat: latLong.lat,
-//               actualLong: latLong.long,
-//               roundTime: Math.round((Date.now() - roundStartTime)/ 1000)
-//             })
-//           }).then(res => res.json()).then(data => {
-//             if(data.error) {
-//               console.error(data.error);
-//               return;
-//             }
-//             console.log(data);
-//           }).catch(e => {
-//             console.error(e);
-//           });
-//           setXpEarned(Math.round(calcPoints({ guessLat: pinPoint.lat, guessLon: pinPoint.lng, lat: latLong.lat, lon: latLong.long, usedHint: showHint }) / 100));
-//         }
-
-
-//         setMapFullscreen(true);
-//         if(!mapShown) {
-//           setMapShown(true);
-//         }
-//          setGuessed(true);
-
-//       }
-
-
-//      const pinPointCountry = await findCountry({ lat: pinPoint.lat, lon: pinPoint.lng });
-//      const destCountry = latLong.country;
-//      if(pinPointCountry === destCountry) {
-//        console.log('correct guess');
-//        setCountryStreak(countryStreak + 1);
-//        window.localStorage.setItem('countryStreak', countryStreak + 1);
-//      } else {
-//        console.log('incorrect guess');
-//        setCountryStreak(0);
-//        window.localStorage.setItem('countryStreak', 0);
-//        setLostCountryStreak(countryStreak);
-//      }
-//      if(!playingMultiplayer) {
-//       setGuessing(false);
-//      }
-//   }
-
-//   function fullReset() {
-//     setMapFullscreen(false);
-//     setLoading(true);
-//     setGuessed(false);
-//     setPinPoint(null);
-//     setLostCountryStreak(0);
-//     setXpEarned(0);
-//     if(width > 600) setMapFullscreen(false);
-//     setLatLong(null);
-//     setKm(null);
-//     if(width < 600) {
-//       setMapShown(false)
-//     }
-//     resetMap();
-//   }
-
-//   useEffect(() => {
-//     if(width < 600) {
-//       setMapFullscreen(true);
-//     } else if(width > 600) {
-//       if(!mapShown) {
-//         setMapShown(true);
-//       }
-//     }
-//   }, [width])
-
-//   useEffect(() => {
-//     if(width < 600) {
-//       setMapShown(false);
-//     }
-//     if(window) {
-//       const cS = parseInt(window.localStorage.getItem('countryStreak'));
-//       if(cS) {
-//         console.log('setting country streak', cS);
-//         setCountryStreak(cS);
-//       }
-//     }
-//   }, []);
-
-//   useEffect(() => {
-//     function keydown(e) {
-//       if(pinPoint && e.key === ' ' && !guessed && !guessing) {
-//         guess();
-//       } else if(guessed && e.key === ' ' &&!playingMultiplayer) {
-//         fullReset();
-//       }
-//     }
-//     // on space key press, guess
-//     document.addEventListener('keydown', keydown);
-//     return () => {
-//       document.removeEventListener('keydown', keydown);
-//     }
-//   }, [pinPoint, guessed, playingMultiplayer]);
-
-//   return (
-//     <>
-//       <HeadContent />
-//       <main className={`${styles.main} ${inter.className}`} id="main">
-//         <Navbar openAccountModal={()=>setAccountModalOpen(true)} session={session} mapShown={mapShown} setInfoModal={setInfoModal} fullReset={fullReset} setMultiplayerModal={setMultiplayerModal} playingMultiplayer={playingMultiplayer} />
-//         <BottomLeft setInfoModal={setInfoModal} />
-//         <EndBanner xpEarned={xpEarned} usedHint={showHint} session={session} lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} />
-
-//         {/* how to play */}
-//         <InfoModal shown={infoModal} onClose={() => {
-//           setInfoModal(false);
-//         }} />
-
-//         <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
-//         <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} logOut={() => { signOut() }} />
-
-//         <div className="MainDiv">
-//           <div id="innerMainDiv" ref={mapDivRef}>
-//             {/* loading globe */}
-//             <Loader loading={loading} latLong={latLong} loadingText={playingMultiplayer && multiplayerTimers?.timeTillRound ? Math.round(multiplayerTimers.timeTillRound/1000) : 'Loading...'} />
-// {latLong && (
-//           <iframe className={`${!mapShown ? 'mapHidden': ''} ${playingMultiplayer ? 'multiplayer': ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" style={{ height: '100vh', zIndex: 10, opacity: (loading||guessed)?'0':''}} referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
-// setTimeout(() => {
-//           setLoading(false)
-// }, 200);
-//           }}></iframe>
-// )}
-//           { multiplayerData && (
-//             <Leaderboard gameData={multiplayerData ? multiplayerData?.gameData : null} playingMultiplayer={playingMultiplayer} mobileOpen={multiplayerLeaderboardMobile} currentRound={multiplayerTimers?.currentRound - (multiplayerinMatchBuffer ? 0 : 1)} realCurrentRoundIndex={multiplayerTimers?.currentRound} gameEnded={multiplayerEnded} finish={() => {
-//               setPlayingMultiplayer(false);
-//               setMultiplayerData(null);
-//               setMultiplayerTimers(null);
-//               setMultiplayerEnded(false);
-//               setMultiplayerRoundIndex(0);
-//               setMultiplayerinMatchBuffer(false);
-//               setMultiplayerSentGuess(false);
-//               setMultiplayerLeaderboardMobile(false);
-//             }} />
-
-//           )}
-//              <div id="timerDiv" style={{ display: (playingMultiplayer && multiplayerTimers?.timeLeft && !multiplayerEnded) ? '' : 'none' }}>
-//                 { multiplayerTimers ? formatTime(Math.round(multiplayerTimers.timeLeft/1000)) : '' }
-//               </div>
-
-//            <div id="miniMap" onMouseEnter={() => {
-//             if(mapShown && !mapFullscreen) {
-//               setMapFullscreen(true);
-//             }
-//           }} onMouseLeave={() => {
-//             if(mapShown && mapFullscreen && width > 600) {
-//               setMapFullscreen(false);
-//             }
-//           }} className={`${guessed ? 'gameOver' : !mapShown ? 'mapHidden' : mapFullscreen ? 'mapFullscreen' : ''} ${playingMultiplayer ? 'multiplayer' : ''}`} style={{visibility: loading||!latLong ? 'hidden' : ''}}>
-
-
-
-// <div id="mapControlsAbove" style={{display: (!width || width>600)&&(!guessed)? '' : 'none'}}>
-
-// Hi
-//             </div>
-//             {mapShown && latLong && <MapWidget session={session} showHint={showHint} fullscreen={mapFullscreen} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={guessed} guessing={guessing} location={latLong} setKm={setKm} height={"100%"} multiplayerSentGuess={multiplayerSentGuess} playingMultiplayer={playingMultiplayer} multiplayerGameData={multiplayerData ? multiplayerData?.gameData : null} round={multiplayerTimers?.currentRound} currentId={multiplayerData ? multiplayerData.myData.playerSecret : null} />}
-//             </div>
-
-//             <MultiplayerModal open={multiplayerModal} close={onMultiplayerModalClose} />
-
-//             { pinPoint && !guessed && (
-//             <button ref={guessBtnRef} className="guessBtn desktopGB" onClick={() => {guess()}} style={{display: width > 600 ? '' : 'none'}} disabled={loading || guessing}>
-//             { (playingMultiplayer && guessing) ? 'Waiting...' : 'Guess'}
-//             </button>
-//             )}
-//             { !guessed && latLong &&  !showHint && (
-//             <button className="guessBtn desktopGB hintBtn" onClick={() => {setShowHint(true)}} style={{display: width > 600 ? '' : 'none'}}>
-//             Hint
-//             </button>
-//             )}
-
-//             <GameControls onCameraClick={() => {
-//               setMultiplayerLeaderboardMobile(false);
-//               if(mapShown) {
-//                 setMapShown(false);
-//               }
-//             }} onMapClick={() => {
-//               setMultiplayerLeaderboardMobile(false);
-//               if(!mapShown) {
-//                 setMapShown(true);
-//               }
-//             }
-//             }
-//             showGuessBtn={pinPoint && !guessed} onGuessClick={() => {
-//               if(!guessing) {
-//               guess()
-//               }
-//             }} showHint={showHint} setShowHint={setShowHint} guessing={guessing} disableDiv={guessed || loading} playingMultiplayer={playingMultiplayer} multiplayerTimers={multiplayerTimers} multiplayerRoundIndex={multiplayerRoundIndex} multiplayerinMatchBuffer={multiplayerinMatchBuffer}
-//             leaderboardClick={() => {
-//               setMultiplayerLeaderboardMobile(true);
-//               if(mapShown) {
-//                 setMapShown(false);
-//               }
-//             }} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} />
-
-//           </div>
-//         </div>
-//       </main>
-//     </>
-//   );
-}
-export async function getServerSideProps({ req, res }) {
-  return {
-    props: {  },
-  };
+        {screen === "multiplayer-home" && <div className="home__multiplayer">
+          <MultiplayerHome session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
+        </div>}
+      </main>
+    </>
+  )
 }
