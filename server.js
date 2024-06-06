@@ -101,7 +101,7 @@ class Game {
     this.timePerRound = 10000;
     this.waitBetweenRounds = 5000;
     this.startTime = null;
-    this.nextRoundTime = null;
+    this.nextEvtTime = null;
     this.locations = [];
     this.location = "all"
     this.rounds = 5;
@@ -134,7 +134,7 @@ class Game {
       timePerRound: this.timePerRound,
       waitBetweenRounds: this.waitBetweenRounds,
       startTime: this.startTime,
-      nextRoundTime: this.nextRoundTime,
+      nextEvtTime: this.nextEvtTime,
       locations: this.locations,
       rounds: this.rounds,
       curRound: this.curRound,
@@ -149,7 +149,7 @@ class Game {
       state: this.state,
       curRound: this.curRound,
       maxPlayers: this.maxPlayers,
-      nextRoundTime: this.nextRoundTime,
+      nextEvtTime: this.nextEvtTime,
       players: Object.values(this.players)
     })
   }
@@ -181,7 +181,8 @@ class Game {
     }
     this.state = 'getready';
     this.startTime = Date.now();
-    this.nextRoundTime = this.startTime + this.timePerRound;
+    this.nextEvtTime = this.startTime + this.timePerRound;
+    this.curRound = 1;
     this.sendStateUpdate();
   }
   async generateLocations() {
@@ -358,6 +359,25 @@ setInterval(() => {
     // start games that have at least 2 players
     if (game.state === 'waiting' && playerCnt > 1) {
       game.start();
+      console.log('game started', game.id);
+    } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
+      console.log('getready -> guess');
+      game.state = 'guess';
+      game.sendStateUpdate();
+      game.nextEvtTime = Date.now() + game.timePerRound;
+    } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
+      if(game.curRound < game.rounds) {
+        console.log('guess -> getready');
+        game.curRound++;
+        game.state = 'getready';
+        game.sendStateUpdate();
+        game.nextEvtTime = Date.now() + game.timePerRound;
+      } else {
+        console.log('guess -> waiting');
+        // game over
+        game.state = 'waiting';
+        game.sendStateUpdate();
+      }
     }
 
 
@@ -411,4 +431,4 @@ setInterval(() => {
       playersCanJoin--;
     }
   }
-}, 1000);
+}, 500);

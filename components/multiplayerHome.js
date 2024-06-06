@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
-import Loader from "./loader"
+import BannerText from "./bannerText"
 
 export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultiplayerState, session, handleAction }) {
 
+  
   useEffect(() => {
     if (!multiplayerState.connected && !ws && !multiplayerState.connecting && !multiplayerState.shouldConnect) {
       console.log("connecting to websocket")
@@ -28,9 +29,9 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
         <button className="gameBtn multiplayerOptionBtn">Join a Game</button>
       </div>
       )}
-        <Loader loadingText={"Finding a game..."} shown={multiplayerState.gameQueued} />
-        <Loader loadingText={multiplayerState.error} shown={multiplayerState.error} />
-        <Loader loadingText={"Waiting..."} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting"} />
+        <BannerText text={"Finding a game..."} shown={multiplayerState.gameQueued} />
+        <BannerText text={multiplayerState.error} shown={multiplayerState.error} />
+        <BannerText text={"Waiting..."} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting"} />
     </div>
   )
 }

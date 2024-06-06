@@ -10,13 +10,12 @@ import 'react-responsive-modal/styles.css';
 import { useEffect, useState } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
-import Loader from "@/components/loader";
+import BannerText from "@/components/bannerText";
 import findLatLongRandom from "@/components/findLatLong";
 import Link from "next/link";
 import MultiplayerHome from "@/components/multiplayerHome";
 import AccountModal from "@/components/accountModal";
 import SetUsernameModal from "@/components/setUsernameModal";
-import { Loader as GoogleMapsLoader } from '@googlemaps/js-api-loader';
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 
@@ -50,6 +49,7 @@ export default function Home() {
   const [multiplayerState, setMultiplayerState] = useState(
     initialMultiplayerState
   );
+  const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
 
   function handleMultiplayerAction(action) {
     if(!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.inGame) return;
@@ -159,6 +159,19 @@ console.log('connecting to websocket', wsPath)
     }
   }, [ws, multiplayerState]);
 
+  useEffect(() => {
+
+    const interval = setInterval(() => {
+    if(multiplayerState.inGame && multiplayerState?.gameData?.nextEvtTime) {
+      setTimeToNextMultiplayerEvt(Math.max(0,Math.floor((multiplayerState.gameData.nextEvtTime - Date.now()) / 100)/10))
+    }
+    }, 100)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [multiplayerState])
+
 
   useEffect(() => {
     const streak = localStorage.getItem("countryStreak");
@@ -217,13 +230,13 @@ console.log('connecting to websocket', wsPath)
        `}</style>
 
       <main className={`home ${jockey.className}`} id="main">
-        <Loader loadingText="Loading..." shown={loading} />
-        <Loader loadingText="Connecting..." shown={multiplayerState.connecting} />
+        <BannerText text="Loading..." shown={loading} />
+        <BannerText text="Connecting..." shown={multiplayerState.connecting} />
 
         <div style={{ display: 'flex', alignItems: 'center', opacity: (screen !== "singleplayer") ? 1 : 0 }} className="accountBtnContainer">
           <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
         </div>
-        <CesiumWrapper className={`cesium_${screen} ${screen === "singleplayer"||(multiplayerState?.gameData?.state&&multiplayerState?.gameData?.state !== 'waiting') && !loading ? "cesium_hidden" : ""}`} />
+        <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer"||(multiplayerState?.gameData?.state&&multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         <Navbar openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
@@ -255,6 +268,14 @@ console.log('connecting to websocket', wsPath)
         {screen === "multiplayer" && <div className="home__multiplayer">
           <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
         </div>}
+
+        { multiplayerState.inGame && multiplayerState.gameData?.state === "getready" && (
+          <BannerText text={`Game starting in ${timeToNextMultiplayerEvt} seconds`} shown={true} />
+        )}
+
+        { multiplayerState.inGame && ["guess", "getready"].includes(multiplayerState.gameData?.state) && (
+            <GameUI multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} timeToNextMultiplayerEvt={timeToNextMultiplayerEvt} />
+        )}
       </main>
     </>
   )
