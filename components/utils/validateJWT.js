@@ -20,7 +20,7 @@ export default async function validateJWT(jwt, User, decrypt) {
     email,
   });
   if (user) {
-    return true
+    return user
   } else {
     return null
   }

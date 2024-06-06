@@ -6,6 +6,7 @@ import GameOptions from "./gameOptionsModal";
 import EndBanner from "./endBanner";
 import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
+import ChatBox from "./chatBox";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 export default function GameUI({ countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, setLatLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
@@ -138,6 +139,9 @@ export default function GameUI({ countryStreak, setCountryStreak, loading, setLo
         </div>
       </div>
 
+      <ChatBox />
+
+
       <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${showAnswer ? 'answerShownBtns' : ''}`}>
         {miniMapShown && (
           <>
@@ -147,8 +151,6 @@ export default function GameUI({ countryStreak, setCountryStreak, loading, setLo
             <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>Hint</button>
           </>
         )}
-
-
         <button className={`gameBtn ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
           setMiniMapShown(!miniMapShown)
         }}><FaMap size={miniMapShown ? 30 : 50} /></button>

@@ -16,8 +16,17 @@ import Link from "next/link";
 import MultiplayerHome from "@/components/multiplayerHome";
 import AccountModal from "@/components/accountModal";
 import SetUsernameModal from "@/components/setUsernameModal";
+import { Loader as GoogleMapsLoader } from '@googlemaps/js-api-loader';
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
+
+const initialMultiplayerState = {
+    connected: false,
+    connecting: false,
+    shouldConnect: false,
+    gameQueued: false,
+    inGame: false,
+}
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -39,57 +48,88 @@ export default function Home() {
   // multiplayer stuff
   const [ws, setWs] = useState(null);
   const [multiplayerState, setMultiplayerState] = useState(
-    {
-      connected: false,
-      connecting: false,
-      shouldConnect: false
-    }
+    initialMultiplayerState
   );
+
+  function handleMultiplayerAction(action) {
+    if(!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.inGame) return;
+
+    if(action === "publicDuel") {
+    setMultiplayerState((prev) => ({
+      ...prev,
+      gameQueued: "publicDuel"
+    }))
+        ws.send(JSON.stringify({ type: "publicDuel" }))
+    }
+
+  }
 
   useEffect(() => {
     if (!ws && !multiplayerState.connecting && !multiplayerState.connected && multiplayerState.shouldConnect) {
       const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/multiplayer`
-      setMultiplayerState({
-        ...multiplayerState,
+console.log('connecting to websocket', wsPath)
+      setMultiplayerState((prev) => ({
+        ...prev,
         connecting: true,
         shouldConnect: false
-      })
+      }))
       const ws = new WebSocket(wsPath);
       ws.onopen = () => {
+        console.log("Websocket connected, fetching JWT")
         setWs(ws)
 
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
+          console.log("Got JWT", data.jwt)
           const JWT = data.jwt;
           ws.send(JSON.stringify({ type: "verify", jwt: JWT }))
         });
       }
-      ws.onmessage = (msg) => {
-        const data = JSON.parse(msg.data);
-        switch (data.type) {
-          case "cnt":
-            setMultiplayerState({
-              ...multiplayerState,
-              playerCount: data.c
-            })
-            break;
-          case "verify":
-            console.log("Verified")
-            setMultiplayerState({ connected: true, connecting: false })
 
-        }
-      }
     }
 
     if (ws && screen === "home") {
+      console.log("Closing websocket, home screen")
       ws.close();
       setWs(null);
-      setMultiplayerState({
-        connected: false,
-        connecting: false,
-        shouldConnect: false
-      })
+      setMultiplayerState(initialMultiplayerState)
     }
   }, [multiplayerState, ws, screen])
+
+  useEffect(() => {
+    console.log("Multiplayer state changed", multiplayerState)
+    if(!ws) return;
+    ws.onmessage = (msg) => {
+      const data = JSON.parse(msg.data);
+
+      console.log("Received message", data)
+      if(data.type === "cnt") {
+        setMultiplayerState((prev) => ({
+          ...prev,
+          playerCount: data.c
+        }))
+      } else if(data.type === "verify") {
+        setMultiplayerState((prev) => ({
+          ...prev,
+          connected: true,
+          connecting: false
+        }))
+      } else if(data.type === "error") {
+        setMultiplayerState((prev) => ({
+          ...prev,
+          connecting: false,
+          connected: false,
+          shouldConnect: false,
+          error: data.message
+        }))
+        // disconnect
+        ws.close();
+      }
+    }
+
+    return () => {
+      ws.onmessage = null;
+    }
+  }, [ws, multiplayerState]);
 
 
   useEffect(() => {
@@ -140,7 +180,7 @@ export default function Home() {
       <HeadContent />
 
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
-      {/* <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} /> */}
+      <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
 
       <style>{`
        html * {
@@ -151,10 +191,11 @@ export default function Home() {
       <main className={`home ${jockey.className}`} id="main">
         <Loader loadingText="Loading..." shown={loading} />
         <Loader loadingText="Connecting..." shown={multiplayerState.connecting} />
+
         <div style={{ display: 'flex', alignItems: 'center', opacity: (screen !== "singleplayer") ? 1 : 0 }} className="accountBtnContainer">
           <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
         </div>
-        <CesiumWrapper className={`cesium_${screen} ${screen !== "home" && !loading ? "cesium_hidden" : ""}`} />
+        <CesiumWrapper className={`cesium_${screen} ${screen === "singleplayer" && !loading ? "cesium_hidden" : ""}`} />
         <Navbar openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
@@ -184,7 +225,7 @@ export default function Home() {
         </div>}
 
         {screen === "multiplayer-home" && <div className="home__multiplayer">
-          <MultiplayerHome session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
+          <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
         </div>}
       </main>
     </>

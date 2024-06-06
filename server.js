@@ -10,27 +10,27 @@ A game by Gautam
 https://github.com/codergautam/worldguessr
 */
 
-// const { createServer } = require('http')
-// const { parse } = require('url')
-// const next = require('next')
-// const makeId = require('uuid').v4;
+
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { v4 as makeId } from 'uuid';
 import { config } from 'dotenv';
 import colors from 'colors';
+import lookup from "coordinate_to_country"
+
 
 config();
 
 // ws server
-// const WebSocket = require('ws');
 import { WebSocketServer } from 'ws';
 
-import { encrypt, decrypt } from './components/utils/encryptDecrypt.js';
+import { decrypt } from './components/utils/encryptDecrypt.js';
 import mongoose from 'mongoose';
 import User from './models/User.js';
 import validateJWT from './components/utils/validateJWT.js';
+import findLatLongRandom from './components/findLatLongServer.js';
+import { getRandomPointInCountry } from './pages/api/randomLoc.js';
 
 let multiplayerEnabled = true;
 
@@ -77,10 +77,51 @@ registerHandler('/hi', 'GET', (req, res, query) => {
 });
 
 class Game {
-  constructor(id) {
+  constructor(id, publicLobby) {
     this.id = id;
-    this.players = [];
+    this.players = {};
     this.state = 'waiting';
+    this.public = publicLobby;
+    this.timePerRound = 10000;
+    this.waitBetweenRounds = 5000;
+    this.startTime = null;
+    this.locations = [];
+    this.location = "all"
+    this.rounds = 5;
+    this.curRound = 0; // 1 = 1st round
+    this.maxPlayers = 10;
+
+    this.generateLocations();
+  }
+
+  addPlayer(player) {
+      this.players[player.id] = {
+        username: player.username,
+        accountId: player.accountId,
+        score: 0
+      };
+      player.gameId = this.id;
+      player.inQueue = false;
+
+      player.send({
+        type: 'game',
+        state: this.state,
+        timePerRound: this.timePerRound,
+        waitBetweenRounds: this.waitBetweenRounds,
+        startTime: this.startTime,
+        locations: this.locations,
+        rounds: this.rounds,
+        curRound: this.curRound,
+        maxPlayers: this.maxPlayers
+      });
+  }
+
+  async generateLocations() {
+    for(let i = 0; i < this.rounds; i++) {
+      const loc = await findLatLongRandom({location: this.location}, getRandomPointInCountry, lookup);
+      this.locations.push(loc);
+      console.log(loc, i);
+    }
   }
 }
 
@@ -89,8 +130,10 @@ class Player {
     this.id = id;
     this.ws = ws;
     this.state = 'idle';
-    this.account = null;
+    this.username = null;
+    this.accountId = null;
     this.gameId = null;
+    this.inQueue = false;
   }
   send(json) {
     this.ws.send(JSON.stringify(json));
@@ -98,6 +141,8 @@ class Player {
 }
 
 const players = new Map();
+const games = new Map();
+const playersInQueue = new Set();
 
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
@@ -156,7 +201,21 @@ app.prepare().then(() => {
         // account verification
         const valid = await validateJWT(json.jwt, User, decrypt);
         if(valid) {
+          // make sure the user is not already logged in
+          for(const p of players.values()) {
+            console.log(p.accountId, valid._id);
+            if(p.accountId === valid._id.toString()) {
+              player.send({
+                type: 'error',
+                message: 'User already connected'
+              });
+              player.ws.close();
+              return;
+            }
+          }
           player.verified = true;
+          player.username = valid.username;
+          player.accountId = valid._id.toString();
           player.send({
             type: 'verify'
           });
@@ -173,6 +232,11 @@ app.prepare().then(() => {
         }
       }
 
+      if(json.type === 'publicDuel' && !player.gameId) {
+        player.inQueue = true;
+        playersInQueue.add(player.id);
+      }
+
     });
 
     // Set up a close listener on the client
@@ -183,11 +247,69 @@ app.prepare().then(() => {
   });
 });
 
+// update player count
 setInterval(() => {
   for (const player of players.values()) {
+    if(player.verified) {
     player.send({
       type: 'cnt',
       c: players.size
     });
   }
+  }
 }, 5000);
+
+// queue handler
+setInterval(() => {
+  if(playersInQueue.size < 1) {
+    return;
+  }
+  // find games that can be joined
+  const minRoundsRemaining = 3;
+  for(const game of games.values()) {
+    if(game.rounds - game.curRound < minRoundsRemaining) {
+      continue;
+    }
+    if(game.players.size >= game.maxPlayers) {
+      continue;
+    }
+
+    const playersCanJoin = game.maxPlayers - game.players.size;
+    for(const playerId of playersInQueue) {
+      const player = players.get(playerId);
+      if(player.gameId) {
+        continue;
+      }
+      if(playersCanJoin < 1) {
+        break;
+      }
+      game.addPlayer(player);
+      playersInQueue.delete(playerId);
+      playersCanJoin--;
+    }
+
+  }
+
+  if(playersInQueue.size > 0) {
+    // create a new public game
+    const gameId = makeId();
+    const game = new Game(gameId, true);
+    games.set(gameId, game);
+
+    let playersCanJoin = game.maxPlayers;
+    for(const playerId of playersInQueue) {
+      const player = players.get(playerId);
+      if(player.gameId) {
+        continue;
+      }
+      if(playersCanJoin < 1) {
+        break;
+      }
+      game.addPlayer(player);
+      playersInQueue.delete(playerId);
+      playersCanJoin--;
+    }
+
+  }
+
+}, 10000);

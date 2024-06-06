@@ -1,20 +1,35 @@
 import { useEffect, useState } from "react"
+import Loader from "./loader"
 
-export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultiplayerState, session }) {
+export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultiplayerState, session, handleAction }) {
 
   useEffect(() => {
-    if(!multiplayerState.connected && !ws && !multiplayerState.connecting && !multiplayerState.shouldConnect) {
+    if (!multiplayerState.connected && !ws && !multiplayerState.connecting && !multiplayerState.shouldConnect) {
       console.log("connecting to websocket")
       // setting shouldConnect to true will force home to initiate a connection
-      setMultiplayerState({
-        ...multiplayerState,
+      setMultiplayerState((prev) => ({
+        ...prev,
         shouldConnect: true
-      })
+      }))
     }
+
+    console.log("multiplayerState", multiplayerState)
   }, [multiplayerState, ws])
   return (
     <div className="multiplayerHome">
-
+      { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && (
+      <div>
+        <h1>Play Online</h1>
+        <button className="gameBtn multiplayerOptionBtn publicGame" onClick={() => handleAction("publicDuel")}>Find a Duel</button>
+        <br />
+        <br />
+        <h1>Play with Friends</h1>
+        <button className="gameBtn multiplayerOptionBtn" style={{ marginBottom: "10px" }}>Create a Game</button>
+        <button className="gameBtn multiplayerOptionBtn">Join a Game</button>
+      </div>
+      )}
+        <Loader loadingText={"Finding a game..."} shown={multiplayerState.gameQueued} />
+        <Loader loadingText={multiplayerState.error} shown={multiplayerState.error} />
     </div>
   )
 }

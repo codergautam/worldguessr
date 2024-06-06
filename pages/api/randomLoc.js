@@ -1,8 +1,8 @@
 // inspiration from https://github.com/tzhf/map-generator
 
-import borders from '../../public/genBorders.json';
+import borders from '../../public/genBorders.json' with { type: "json" };
 
-function getRandomPointInCountry(countryCode=true) {
+export function getRandomPointInCountry(countryCode=true) {
   const features = borders.features.filter(feature => countryCode === true ? true : feature.properties.code == countryCode);
   if(features.length === 0) return null;
   const allPolygons = [];
