@@ -123,6 +123,34 @@ console.log('connecting to websocket', wsPath)
         }))
         // disconnect
         ws.close();
+      } else if(data.type === "game") {
+        setMultiplayerState((prev) => ({
+          ...prev,
+          gameQueued: false,
+          inGame: true,
+          gameData: {
+            ...data,
+            type: undefined
+          }
+        }))
+      } else if(data.type === "player") {
+        if(data.action === "remove") {
+          setMultiplayerState((prev) => ({
+            ...prev,
+            gameData: {
+              ...prev.gameData,
+              players: prev.gameData.players.filter((p) => p.id !== data.id)
+            }
+          }))
+        } else if(data.action === "add") {
+          setMultiplayerState((prev) => ({
+            ...prev,
+            gameData: {
+              ...prev.gameData,
+              players: [...prev.gameData.players, data.player]
+            }
+          }))
+        }
       }
     }
 
@@ -195,7 +223,7 @@ console.log('connecting to websocket', wsPath)
         <div style={{ display: 'flex', alignItems: 'center', opacity: (screen !== "singleplayer") ? 1 : 0 }} className="accountBtnContainer">
           <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
         </div>
-        <CesiumWrapper className={`cesium_${screen} ${screen === "singleplayer" && !loading ? "cesium_hidden" : ""}`} />
+        <CesiumWrapper className={`cesium_${screen} ${screen === "singleplayer"||(multiplayerState?.gameData?.state&&multiplayerState?.gameData?.state !== 'waiting') && !loading ? "cesium_hidden" : ""}`} />
         <Navbar openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
@@ -207,7 +235,7 @@ console.log('connecting to websocket', wsPath)
               }} />
               <GameBtn text="Multiplayer" onClick={() => {
                 if (!session?.token?.secret) signIn("google");
-                else setScreen("multiplayer-home")
+                else setScreen("multiplayer")
               }} />
               <GameBtn text="How to Play" />
 
@@ -224,7 +252,7 @@ console.log('connecting to websocket', wsPath)
           <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} setLatLong={setLatLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
-        {screen === "multiplayer-home" && <div className="home__multiplayer">
+        {screen === "multiplayer" && <div className="home__multiplayer">
           <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
         </div>}
       </main>

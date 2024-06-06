@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node welcome.js && nodemon server.js --watch server.js",
+    "dev": "node welcome.js && nodemon server.js --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js"
   },

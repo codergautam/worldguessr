@@ -25,7 +25,7 @@ button {
   transition: transform 1s;
 }
 .cesium-container.cesium_singleplayer,
-.cesium-container.cesium_multiplayer-home {
+.cesium-container.cesium_multiplayer {
   width: 100vw;
   transform: translateX(0vw) translateY(calc(83px/2));
   animation: none;
@@ -35,7 +35,7 @@ button {
   opacity: 0;
   animation: fadeOut 0.5s ease-in-out forwards;
 }
-.cesium-container.cesium_multiplayer-home {
+.cesium-container.cesium_multiplayer {
   opacity: 0.5;
 }
 

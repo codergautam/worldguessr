@@ -35,27 +35,43 @@ import { getRandomPointInCountry } from './pages/api/randomLoc.js';
 let multiplayerEnabled = true;
 
 if (!process.env.MONGODB) {
-  console.log("[WARN] MONGODB env variable not set, multi-player will not work".yellow);
+  console.log("[MISSING-ENV WARN] MONGODB env variable not set, multi-player will not work".yellow);
   multiplayerEnabled = false;
 } else {
   // Connect to MongoDB
   if (mongoose.connection.readyState !== 1) {
     try {
       await mongoose.connect(process.env.MONGODB);
-      console.log('Database connected');
+      console.log('[INFO] Database Connected');
     } catch (error) {
-      console.error('Database connection failed', error.message);
+      console.error('[ERROR] Database connection failed! Multiplayer disabled!'.red, error.message);
+      multiplayerEnabled = false;
     }
   }
 }
 
-if(!process.env.NEXTAUTH_SECRET) {
-  console.log("[WARN] NEXTAUTH_SECRET env variable not set, please set it to a random string otherwise multi-player will not work".yellow);
+if (!process.env.NEXTAUTH_SECRET) {
+  console.log("[MISSING-ENV WARN] NEXTAUTH_SECRET env variable not set, please set it to a random string otherwise multi-player will not work".yellow);
   multiplayerEnabled = false;
 }
-if(!process.env.NEXTAUTH_URL) {
-  console.log("[WARN] NEXTAUTH_URL env variable not set, please set it!".yellow);
+if (!process.env.NEXTAUTH_URL) {
+  console.log("[MISSING-ENV WARN] NEXTAUTH_URL env variable not set, please set it!".yellow);
 }
+if(process.env.DISCORD_WEBHOOK) {
+  console.log("[INFO] Discord Webhook Enabled");
+}
+if(!process.env.GOOGLE_CLIENT_ID) {
+  console.log("[MISSING-ENV WARN] GOOGLE_CLIENT_ID env variable not set, please set it for multiplayer/auth!".yellow);
+  multiplayerEnabled = false;
+}
+if(!process.env.GOOGLE_CLIENT_SECRET) {
+  console.log("[MISSING-ENV WARN] GOOGLE_CLIENT_SECRET env variable not set, please set it for multiplayer/auth!".yellow);
+  multiplayerEnabled = false;
+}
+if(!process.env.NEXT_PUBLIC_CESIUM_TOKEN) {
+  console.log("[MISSING-ENV WARN] NEXT_PUBLIC_CESIUM_TOKEN env variable not set, please set it to have the homepage globe work!".yellow);
+}
+
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = 'localhost'
@@ -80,11 +96,12 @@ class Game {
   constructor(id, publicLobby) {
     this.id = id;
     this.players = {};
-    this.state = 'waiting';
+    this.state = 'waiting'; // [waiting, getready, guess]
     this.public = publicLobby;
     this.timePerRound = 10000;
     this.waitBetweenRounds = 5000;
     this.startTime = null;
+    this.nextRoundTime = null;
     this.locations = [];
     this.location = "all"
     this.rounds = 5;
@@ -95,32 +112,89 @@ class Game {
   }
 
   addPlayer(player) {
-      this.players[player.id] = {
-        username: player.username,
-        accountId: player.accountId,
-        score: 0
-      };
-      player.gameId = this.id;
-      player.inQueue = false;
+    const playerObj = {
+      username: player.username,
+      // accountId: player.accountId,
+      id: player.id,
+      score: 0
+    };
+    this.sendAllPlayers({
+      type: 'player',
+      action: 'add',
+      player: playerObj
+    });
 
-      player.send({
-        type: 'game',
-        state: this.state,
-        timePerRound: this.timePerRound,
-        waitBetweenRounds: this.waitBetweenRounds,
-        startTime: this.startTime,
-        locations: this.locations,
-        rounds: this.rounds,
-        curRound: this.curRound,
-        maxPlayers: this.maxPlayers
-      });
+    this.players[player.id] = playerObj;
+    player.gameId = this.id;
+    player.inQueue = false;
+
+    player.send({
+      type: 'game',
+      state: this.state,
+      timePerRound: this.timePerRound,
+      waitBetweenRounds: this.waitBetweenRounds,
+      startTime: this.startTime,
+      nextRoundTime: this.nextRoundTime,
+      locations: this.locations,
+      rounds: this.rounds,
+      curRound: this.curRound,
+      maxPlayers: this.maxPlayers,
+      players: Object.values(this.players)
+    });
   }
 
+  sendStateUpdate() {
+    this.sendAllPlayers({
+      type: 'game',
+      state: this.state,
+      curRound: this.curRound,
+      maxPlayers: this.maxPlayers,
+      nextRoundTime: this.nextRoundTime,
+      players: Object.values(this.players)
+    })
+  }
+
+  removePlayer(player) {
+    if (!this.players[player.id]) {
+      return;
+    }
+    delete this.players[player.id];
+    player.gameId = null;
+    player.inQueue = false;
+
+    this.sendAllPlayers({
+      type: 'player',
+      id: player.id,
+      action: 'remove'
+    });
+
+    // self destruct if no players
+    if (Object.keys(this.players).length < 1) {
+      console.log('Game self destructing', this.id);
+      games.delete(this.id);
+    }
+  }
+
+  start() {
+    if (this.state !== 'waiting' || this.players.size < 2 || this.rounds !== this.locations.length) {
+      return;
+    }
+    this.state = 'getready';
+    this.startTime = Date.now();
+    this.nextRoundTime = this.startTime + this.timePerRound;
+    this.sendStateUpdate();
+  }
   async generateLocations() {
-    for(let i = 0; i < this.rounds; i++) {
-      const loc = await findLatLongRandom({location: this.location}, getRandomPointInCountry, lookup);
+    for (let i = 0; i < this.rounds; i++) {
+      const loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
       this.locations.push(loc);
       console.log(loc, i);
+    }
+  }
+  sendAllPlayers(json) {
+    for (const playerId of Object.keys(this.players)) {
+      const p = players.get(playerId);
+      p.send(json);
     }
   }
 }
@@ -177,7 +251,7 @@ app.prepare().then(() => {
   server.on('upgrade', (request, socket, head) => {
     const { pathname } = parse(request.url, true);
     console.log(pathname);
-    if (pathname === '/multiplayer'  && multiplayerEnabled) {
+    if (pathname === '/multiplayer' && multiplayerEnabled) {
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
       });
@@ -194,23 +268,25 @@ app.prepare().then(() => {
     // Set up a message listener on the client
     ws.on('message', async (message) => {
       const json = JSON.parse(message);
-      if(!player.verified && json.type !== 'verify') {
+      if (!player.verified && json.type !== 'verify') {
         return;
       }
-      if(json.type === 'verify' && !player.verified) {
+      if (json.type === 'verify' && !player.verified) {
         // account verification
         const valid = await validateJWT(json.jwt, User, decrypt);
-        if(valid) {
-          // make sure the user is not already logged in
-          for(const p of players.values()) {
-            console.log(p.accountId, valid._id);
-            if(p.accountId === valid._id.toString()) {
-              player.send({
-                type: 'error',
-                message: 'User already connected'
-              });
-              player.ws.close();
-              return;
+        if (valid) {
+          // make sure the user is not already logged in (only on prod)
+          if (!dev) {
+            for (const p of players.values()) {
+              console.log(p.accountId, valid._id);
+              if (p.accountId === valid._id.toString()) {
+                player.send({
+                  type: 'error',
+                  message: 'User already connected'
+                });
+                player.ws.close();
+                return;
+              }
             }
           }
           player.verified = true;
@@ -232,7 +308,7 @@ app.prepare().then(() => {
         }
       }
 
-      if(json.type === 'publicDuel' && !player.gameId) {
+      if (json.type === 'publicDuel' && !player.gameId) {
         player.inQueue = true;
         playersInQueue.add(player.id);
       }
@@ -242,6 +318,18 @@ app.prepare().then(() => {
     // Set up a close listener on the client
     ws.on('close', () => {
       console.log('Client disconnected', id);
+
+      if (player.gameId) {
+        const game = games.get(player.gameId);
+        if (game) {
+          game.removePlayer(player);
+        }
+      }
+
+      if (player.inQueue) {
+        playersInQueue.delete(id);
+      }
+
       players.delete(id);
     });
   });
@@ -250,37 +338,50 @@ app.prepare().then(() => {
 // update player count
 setInterval(() => {
   for (const player of players.values()) {
-    if(player.verified) {
-    player.send({
-      type: 'cnt',
-      c: players.size
-    });
+    if (player.verified) {
+      player.send({
+        type: 'cnt',
+        c: players.size
+      });
+    }
   }
-  }
-}, 5000);
+}, 10000);
 
 // queue handler
 setInterval(() => {
-  if(playersInQueue.size < 1) {
-    return;
-  }
-  // find games that can be joined
+
+
   const minRoundsRemaining = 3;
-  for(const game of games.values()) {
-    if(game.rounds - game.curRound < minRoundsRemaining) {
+  for (const game of games.values()) {
+
+    const playerCnt = Object.keys(game.players).length;
+    // start games that have at least 2 players
+    if (game.state === 'waiting' && playerCnt > 1) {
+      game.start();
+    }
+
+
+    // find games that can be joined
+    if (playersInQueue.size < 1) {
       continue;
     }
-    if(game.players.size >= game.maxPlayers) {
+    if (!game.public) {
+      continue;
+    }
+    if (game.rounds - game.curRound < minRoundsRemaining) {
+      continue;
+    }
+    if (playerCnt >= game.maxPlayers) {
       continue;
     }
 
-    const playersCanJoin = game.maxPlayers - game.players.size;
-    for(const playerId of playersInQueue) {
+    let playersCanJoin = game.maxPlayers - playerCnt;
+    for (const playerId of playersInQueue) {
       const player = players.get(playerId);
-      if(player.gameId) {
+      if (player.gameId) {
         continue;
       }
-      if(playersCanJoin < 1) {
+      if (playersCanJoin < 1) {
         break;
       }
       game.addPlayer(player);
@@ -290,26 +391,24 @@ setInterval(() => {
 
   }
 
-  if(playersInQueue.size > 0) {
+  if (playersInQueue.size > 1) {
     // create a new public game
     const gameId = makeId();
     const game = new Game(gameId, true);
     games.set(gameId, game);
 
     let playersCanJoin = game.maxPlayers;
-    for(const playerId of playersInQueue) {
+    for (const playerId of playersInQueue) {
       const player = players.get(playerId);
-      if(player.gameId) {
+      if (player.gameId) {
         continue;
       }
-      if(playersCanJoin < 1) {
+      if (playersCanJoin < 1) {
         break;
       }
       game.addPlayer(player);
       playersInQueue.delete(playerId);
       playersCanJoin--;
     }
-
   }
-
-}, 10000);
+}, 1000);

@@ -15,7 +15,7 @@ export default function Navbar({ openAccountModal, shown, backBtnPressed, setGam
       <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed} style={{width: "50px"}}><FaXmark /></button>
 
 
-      {screen === 'multiplayer-home' && multiplayerState?.playerCount && (
+      {screen === 'multiplayer' && multiplayerState?.playerCount && (
         <h1 className="desktop">
           🟢 {multiplayerState.playerCount} online
         </h1>

@@ -30,6 +30,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
       )}
         <Loader loadingText={"Finding a game..."} shown={multiplayerState.gameQueued} />
         <Loader loadingText={multiplayerState.error} shown={multiplayerState.error} />
+        <Loader loadingText={"Waiting..."} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting"} />
     </div>
   )
 }
