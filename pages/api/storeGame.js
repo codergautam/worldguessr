@@ -1,9 +1,5 @@
 import calcPoints from '@/components/calcPoints';
-import { createUUID } from '@/components/createUUID';
-import client from '@/components/multiplayerServer/redisClient';
 import storeGame from '@/components/storeGame';
-import moment from 'moment';
-const matchesBuffer = 5000;
 // multiplayer after guess
 export default async function guess(req, res) {
   const { lat, long, actualLat, actualLong, usedHint, secret, roundTime, maxDist } = req.body;

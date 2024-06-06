@@ -905,3 +905,15 @@ h1, h2, h3 {
 //     display: none;
 //   }
 // }
+
+.multiplayerHome {
+  height: calc(100vh - 83px);
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  position: fixed;
+  bottom: 0;
+}

@@ -66,7 +66,9 @@ export default function GameUI({ countryStreak, setCountryStreak, loading, setLo
   function showHint() {
     setHintShown(true)
   }
-
+  useEffect(() => {
+    loadLocation()
+  }, [gameOptions])
   function guess() {
     setShowAnswer(true)
 
