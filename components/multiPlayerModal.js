@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import Modal from 'react-responsive-modal';
+import {Modal} from 'react-responsive-modal';
 import findLatLongRandom from './findLatLong';
 import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 

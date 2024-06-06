@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import Modal from "react-responsive-modal";
+import {Modal} from "react-responsive-modal";
 import nameFromCode from "./utils/nameFromCode";
 
 export default function GameOptions({ shown, onClose, gameOptions, setGameOptions }) {

@@ -1,4 +1,4 @@
-import Modal from "react-responsive-modal";
+import {Modal} from "react-responsive-modal";
 
 export default function InfoModal({ shown, onClose }) {
   return (

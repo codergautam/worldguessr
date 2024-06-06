@@ -2,17 +2,20 @@
   "name": "my-app",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "nodemon server.js --watch server.js",
+    "dev": "node welcome.js && nodemon server.js --watch server.js",
     "build": "next build",
     "start": "NODE_ENV=production node server.js"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
     "cesium": "^1.117.0",
+    "colors": "^1.4.0",
     "coordinate_to_country": "^1.1.0",
     "countries-code": "^1.1.1",
     "discord-webhook-node": "^1.1.8",
+    "dotenv": "^16.4.5",
     "framer-motion": "^11.1.7",
     "geolib": "^3.3.4",
     "moment": "^2.30.1",

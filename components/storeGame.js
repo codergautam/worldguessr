@@ -7,10 +7,7 @@ export default async function storeGame(secret, xp, timeTaken, latLong) {
   // Connect to MongoDB
   if (mongoose.connection.readyState !== 1) {
     try {
-      await mongoose.connect(process.env.MONGODB, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      });
+      await mongoose.connect(process.env.MONGODB);
     } catch (error) {
       return { success: false, message: 'Database connection failed' };
     }

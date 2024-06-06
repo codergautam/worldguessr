@@ -10,18 +10,52 @@ A game by Gautam
 https://github.com/codergautam/worldguessr
 */
 
-const { createServer } = require('http')
-const { parse } = require('url')
-const next = require('next')
-const makeId = require('uuid').v4;
-// import { createServer } from 'http';
-// import { parse } from 'url';
-// import next from 'next';
-// import { v4 as makeId } from 'uuid';
+// const { createServer } = require('http')
+// const { parse } = require('url')
+// const next = require('next')
+// const makeId = require('uuid').v4;
+import { createServer } from 'http';
+import { parse } from 'url';
+import next from 'next';
+import { v4 as makeId } from 'uuid';
+import { config } from 'dotenv';
+import colors from 'colors';
+
+config();
 
 // ws server
-const WebSocket = require('ws');
-// import { WebSocketServer } from 'ws';
+// const WebSocket = require('ws');
+import { WebSocketServer } from 'ws';
+
+import { encrypt, decrypt } from './components/utils/encryptDecrypt.js';
+import mongoose from 'mongoose';
+import User from './models/User.js';
+import validateJWT from './components/utils/validateJWT.js';
+
+let multiplayerEnabled = true;
+
+if (!process.env.MONGODB) {
+  console.log("[WARN] MONGODB env variable not set, multi-player will not work".yellow);
+  multiplayerEnabled = false;
+} else {
+  // Connect to MongoDB
+  if (mongoose.connection.readyState !== 1) {
+    try {
+      await mongoose.connect(process.env.MONGODB);
+      console.log('Database connected');
+    } catch (error) {
+      console.error('Database connection failed', error.message);
+    }
+  }
+}
+
+if(!process.env.NEXTAUTH_SECRET) {
+  console.log("[WARN] NEXTAUTH_SECRET env variable not set, please set it to a random string otherwise multi-player will not work".yellow);
+  multiplayerEnabled = false;
+}
+if(!process.env.NEXTAUTH_URL) {
+  console.log("[WARN] NEXTAUTH_URL env variable not set, please set it!".yellow);
+}
 
 const dev = process.env.NODE_ENV !== 'production'
 const hostname = 'localhost'
@@ -91,13 +125,14 @@ app.prepare().then(() => {
     })
 
   // Create a WebSocket server
-  const wss = new WebSocket.Server({ noServer: true });
+  // const wss = new WebSocket.Server({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true });
 
   // Handle WebSocket connections
   server.on('upgrade', (request, socket, head) => {
     const { pathname } = parse(request.url, true);
     console.log(pathname);
-    if (pathname === '/multiplayer') {
+    if (pathname === '/multiplayer'  && multiplayerEnabled) {
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
       });
@@ -111,26 +146,38 @@ app.prepare().then(() => {
     const player = new Player(ws, id);
     players.set(id, player);
 
-    player.send({
-      type: 'cnt',
-      c: players.size
-    })
-
     // Set up a message listener on the client
-    ws.on('message', (message) => {
+    ws.on('message', async (message) => {
       const json = JSON.parse(message);
       if(!player.verified && json.type !== 'verify') {
         return;
       }
       if(json.type === 'verify' && !player.verified) {
         // account verification
-        console.log('verify', json);
+        const valid = await validateJWT(json.jwt, User, decrypt);
+        if(valid) {
+          player.verified = true;
+          player.send({
+            type: 'verify'
+          });
+          player.send({
+            type: 'cnt',
+            c: players.size
+          })
+        } else {
+          player.send({
+            type: 'error',
+            message: 'Failed to login'
+          });
+          player.ws.close();
+        }
       }
 
     });
 
     // Set up a close listener on the client
     ws.on('close', () => {
+      console.log('Client disconnected', id);
       players.delete(id);
     });
   });

@@ -1,4 +1,4 @@
-import Modal from "react-responsive-modal";
+import {Modal} from "react-responsive-modal";
 import { useState } from "react";
 
 export default function SetUsernameModal({ shown, onClose, session }) {

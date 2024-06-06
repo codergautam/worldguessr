@@ -4,7 +4,6 @@ import { encrypt } from "@/components/utils/encryptDecrypt";
 
 export default async function handler(req, res) {
   const session = await getServerSession(req, res, authOptions)
-  console.log(process.env.NEXTAUTH_SECRET)
   if (session) {
     // Signed in
     const email = session.user.email;

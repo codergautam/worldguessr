@@ -10,10 +10,7 @@ export default async function handler(req, res) {
   // Connect to MongoDB
   if (mongoose.connection.readyState !== 1) {
     try {
-      await mongoose.connect(process.env.MONGODB, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-      });
+      await mongoose.connect(process.env.MONGODB);
     } catch (error) {
       return res.status(500).json({ message: 'Database connection failed', error: error.message });
     }

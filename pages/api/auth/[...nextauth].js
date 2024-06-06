@@ -1,17 +1,15 @@
+
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import mongoose from "mongoose";
 import User from "../../../models/User";
 import { createUUID } from "@/components/createUUID";
 
-mongoose.connect(process.env.MONGODB, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose.connect(process.env.MONGODB);
 
-export default NextAuth({
+export default NextAuth.default({
   providers: [
-    GoogleProvider({
+    GoogleProvider.default({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     }),

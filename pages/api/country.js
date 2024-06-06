@@ -1,6 +1,6 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 // xml 2 json npm
- import * as lookup from "coordinate_to_country"
+ import lookup from "coordinate_to_country"
  export default async function handler(req, res) {
 
    const { lat, lon } = req.query;
@@ -11,5 +11,5 @@
  } else {
   res.status(200).json({address: {country: null}});
  }
-      
+
  }

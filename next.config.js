@@ -1,7 +1,13 @@
-const path = require('path');
-const process = require('process');
-const CopyWebpackPlugin = require('copy-webpack-plugin');
+// const path = require('path');
+// const process = require('process');
+// const CopyWebpackPlugin = require('copy-webpack-plugin');
+
+import path from 'path';
+import CopyWebpackPlugin from 'copy-webpack-plugin';
+import process from 'process';
 const pathBuilder = (subpath) => path.join(process.cwd(), subpath);
+
+const __dirname = path.resolve();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -54,4 +60,5 @@ const nextConfig = {
     output: 'standalone'
 };
 
-module.exports = nextConfig;
+// module.exports = nextConfig;
+export default nextConfig;

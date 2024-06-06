@@ -1,4 +1,4 @@
-import Modal from "react-responsive-modal";
+import { Modal } from "react-responsive-modal";
 import { useEffect, useState } from "react";
 import AccountView from "./accountView";
 import { signOut } from "next-auth/react";

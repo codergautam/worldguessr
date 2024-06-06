@@ -7,15 +7,15 @@ import { FaRankingStar } from "react-icons/fa6";
 import { signIn, useSession } from "next-auth/react";
 import AccountBtn from "@/components/ui/accountBtn";
 import 'react-responsive-modal/styles.css';
-import AccountModal from "@/components/accountModal";
 import { useEffect, useState } from "react";
 import Navbar from "@/components/ui/navbar";
-import SetUsernameModal from "@/components/setUsernameModal";
 import GameUI from "@/components/gameUI";
 import Loader from "@/components/loader";
 import findLatLongRandom from "@/components/findLatLong";
 import Link from "next/link";
 import MultiplayerHome from "@/components/multiplayerHome";
+import AccountModal from "@/components/accountModal";
+import SetUsernameModal from "@/components/setUsernameModal";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 
@@ -57,7 +57,6 @@ export default function Home() {
       const ws = new WebSocket(wsPath);
       ws.onopen = () => {
         setWs(ws)
-        // setMultiplayerState({ connected: true, connecting: false })
 
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
           const JWT = data.jwt;
@@ -74,6 +73,7 @@ export default function Home() {
             })
             break;
           case "verify":
+            console.log("Verified")
             setMultiplayerState({ connected: true, connecting: false })
 
         }
@@ -140,7 +140,7 @@ export default function Home() {
       <HeadContent />
 
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
-      <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
+      {/* <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} /> */}
 
       <style>{`
        html * {
@@ -166,7 +166,7 @@ export default function Home() {
               }} />
               <GameBtn text="Multiplayer" onClick={() => {
                 if (!session?.token?.secret) signIn("google");
-                setScreen("multiplayer-home")
+                else setScreen("multiplayer-home")
               }} />
               <GameBtn text="How to Play" />
 
