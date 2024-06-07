@@ -973,6 +973,51 @@ h1, h2, h3 {
   color: blue;
 }
 
+.multiplayerLeaderboard {
+  background-color: #062413;
+  border-radius: 10px;
+  position: fixed;
+  padding: 20px;
+  width: 100vw;
+  opacity: 0.5;
+  height: calc(100vh - 83px);
+  top: 83px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.multiplayerLeaderboard__player {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  background-color: #fff;
+  width: 20%;
+  box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+}
+
+.multiplayerLeaderboard__player.me {
+  background-color: #d4edda;
+}
+
+.multiplayerLeaderboard__player__username {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.multiplayerLeaderboard__player__score {
+  font-size: 14px;
+  color: #6c757d;
+}
+
 @media screen and (max-width: 600px) {
   .desktop {
     display: none;

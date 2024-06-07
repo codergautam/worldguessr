@@ -267,8 +267,8 @@ class Game {
         }
       }
 
-      if (allFinal) {
-        this.nextEvtTime = Date.now() + 1000;
+      if (allFinal && (Date.now() - this.nextEvtTime) > 5000) {
+        this.nextEvtTime = Date.now() + 5000;
         this.sendStateUpdate();
       }
     }

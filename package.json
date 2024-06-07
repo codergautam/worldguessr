@@ -16,8 +16,6 @@
     "countries-code": "^1.1.1",
     "discord-webhook-node": "^1.1.8",
     "dotenv": "^16.4.5",
-    "framer-motion": "^11.1.7",
-    "geolib": "^3.3.4",
     "moment": "^2.30.1",
     "mongoose": "^8.3.3",
     "next": "14.2.1",

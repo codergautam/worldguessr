@@ -7,6 +7,7 @@ import EndBanner from "./endBanner";
 import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
 import ChatBox from "./chatBox";
+import Leaderboard from "./leaderboard";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 export default function GameUI({ multiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
@@ -194,6 +195,10 @@ export default function GameUI({ multiplayerState, countryStreak, setCountryStre
 Round #{multiplayerState?.gameData?.curRound} - {timeToNextMultiplayerEvt}s
 
         </span>
+
+        {multiplayerState && multiplayerState.inGame && (
+          <Leaderboard ws={session.ws} open={multiplayerState.inGame} onToggle={() => {}} enabled={multiplayerState.inGame} multiplayerState={multiplayerState} />
+        )}
 
       <GameOptions shown={gameOptionsModalShown} onClose={() => {
         setGameOptionsModalShown(false)
