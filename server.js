@@ -313,6 +313,7 @@ class Player {
     this.accountId = null;
     this.gameId = null;
     this.inQueue = false;
+    this.lastMessage = 0;
   }
   send(json) {
     this.ws.send(JSON.stringify(json));
@@ -434,6 +435,21 @@ app.prepare().then(() => {
 
         game.setGuess(player.id, latLong, final);
 
+      }
+
+      if(json.type === 'chat' && player.gameId && games.has(player.gameId)) {
+        const message = json.message;
+        const lastMessage = player.lastMessage || 0;
+        if (typeof message !== 'string' || message.length < 1 || message.length > 200 || Date.now() - lastMessage < 500) {
+          return;
+        }
+        const game = games.get(player.gameId);
+        player.lastMessage = Date.now();
+        game.sendAllPlayers({
+          type: 'chat',
+          id: player.id,
+          message
+        });
       }
 
     });

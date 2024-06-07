@@ -297,7 +297,7 @@ export default function Home() {
         overflow: hidden;
        }
        `}</style>
-      <ChatBox open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} ws={ws} multiplayerState={multiplayerState} enabled={multiplayerChatEnabled} />
+      <ChatBox ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} multiplayerState={multiplayerState} enabled={multiplayerChatEnabled} />
 
       <main className={`home ${jockey.className}`} id="main">
 

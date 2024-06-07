@@ -1,7 +1,7 @@
 import {Chatbot, createCustomMessage} from 'react-chatbot-kit'
 import 'react-chatbot-kit/build/main.css'
 import { createChatBotMessage } from 'react-chatbot-kit';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FaXmark } from 'react-icons/fa6';
 const config = {
   initialMessages: [],
@@ -16,28 +16,52 @@ const CustomMessage = ({state, message}) => {
     <div className="react-chatbot-kit-chat-bot-message-container fgh">
       <div className="react-chatbot-kit-chat-bot-avatar">
         <div className="react-chatbot-kit-chat-bot-avatar-container">
-          <p className="react-chatbot-kit-chat-bot-avatar-letter">{JSON.parse(message.message).username}</p>
+          <p className="react-chatbot-kit-chat-bot-avatar-letter">{JSON.parse(message.message).username.charAt(0)}</p>
         </div>
       </div>
       <div className="react-chatbot-kit-chat-bot-message">
+        <span className='authorName'>{JSON.parse(message.message).username}</span>
+        <br/>
         <span>{JSON.parse(message.message).message}</span>
         <div className="react-chatbot-kit-chat-bot-message-arrow"></div>
       </div>
     </div>
   );
 };
+let lastSend = 0;
 
-const ActionProvider = ({ createChatBotMessage, setState, children }) => {
+const ActionProvider = ({ createChatBotMessage, setState, children, ws, multiplayerState }) => {
+  useEffect(() => {
+    if(!ws) return;
+    const ondata = (msg) => {
+      const data = JSON.parse(msg.data);
+      if(data.type === 'chat' && data.id !== multiplayerState?.gameData?.myId) {
+        const senderUsername = multiplayerState?.gameData?.players.find(p => p.id === data.id)?.username;
+        console.log(data)
+        setState((state) => {
+          return { ...state, messages: [...state.messages, createCustomMessage(JSON.stringify({
+            message: data.message,
+            username: senderUsername
+          }), 'custom', {payload: data.message})] };
+        });
+      }
+    };
+
+    ws.addEventListener('message', ondata);
+    return () => {
+      ws.removeEventListener('message', ondata);
+    };
+  }, [ws]);
+
+  function sendMsg(msg) {
+
+    // return if not in game
+    if(!multiplayerState?.inGame && !ws) return;
+    ws.send(JSON.stringify({type: 'chat', message: msg}));
+  }
+
   const handleMsg = (message) => {
-    const botMessage = createCustomMessage(JSON.stringify({
-      message: 'Hello, I am a custom message, '+message,
-      username: 'cir4r3'
-    }), 'custom', {payload: Math.random()});
-
-    setState((prev) => ({
-      ...prev,
-      messages: [...prev.messages, botMessage],
-    }));
+    sendMsg(message);
   };
   return (
     <div>
@@ -69,8 +93,7 @@ const MessageParser = ({ children, actions }) => {
   );
 };
 
-export default function ChatBox({ open, onToggle, enabled, onMsgSend }) {
-
+export default function ChatBox({ ws, open, onToggle, enabled, multiplayerState }) {
   return (
     <div className={`chatboxParent ${enabled ? 'enabled' : ''}`}>
       <button style={{fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer'}} onClick={onToggle}>
@@ -79,8 +102,16 @@ export default function ChatBox({ open, onToggle, enabled, onMsgSend }) {
       <div className={`chatbox ${open ? 'open' : ''}`}>
       <Chatbot
         config={config}
-        messageParser={MessageParser}
-        actionProvider={ActionProvider}
+        messageParser={(props) => <MessageParser {...props}  />}
+        actionProvider={(props) => <ActionProvider {...props} ws={ws} multiplayerState={multiplayerState} />}
+
+        validator={(input) => {
+          if(input.length < 1) return false;
+          if(input.length > 200) return false;
+          if(Date.now() - lastSend < 1000) return false;
+          lastSend = Date.now();
+          return true;
+        }}
       />
     </div>
     </div>

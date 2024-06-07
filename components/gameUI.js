@@ -28,7 +28,7 @@ export default function GameUI({ multiplayerState, countryStreak, setCountryStre
   useEffect(() => {
 
     const interval = setInterval(() => {
-    if(multiplayerState.inGame && multiplayerState?.gameData?.nextEvtTime) {
+    if(multiplayerState?.inGame && multiplayerState?.gameData?.nextEvtTime) {
       setTimeToNextMultiplayerEvt(Math.max(0,Math.floor((multiplayerState.gameData.nextEvtTime - Date.now()) / 100)/10))
     }
     }, 100)
@@ -121,6 +121,7 @@ export default function GameUI({ multiplayerState, countryStreak, setCountryStre
     findCountry({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
 
       console.log('country', country, latLong.country)
+      setLostCountryStreak(0);
       if(country === latLong.country) {
         setCountryStreak(countryStreak + 1);
       } else {

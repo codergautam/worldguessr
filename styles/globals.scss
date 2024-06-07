@@ -958,6 +958,20 @@ h1, h2, h3 {
 .react-chatbot-kit-chat-input-container {
   border-radius: 10px;
 }
+.react-chatbot-kit-user-chat-message,
+.react-chatbot-kit-chat-bot-message {
+  // make it look like a chat bubble overflow on new linw wrap
+  display: inline-block;
+  word-wrap: break-word;
+  max-width: 60%;
+  padding: 10px;
+}
+.react-chatbot-kit-chat-bot-message {
+  margin-left: 0 !important;
+}
+.authorName {
+  color: blue;
+}
 
 @media screen and (max-width: 600px) {
   .desktop {
