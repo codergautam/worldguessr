@@ -31,6 +31,7 @@ import User from './models/User.js';
 import validateJWT from './components/utils/validateJWT.js';
 import findLatLongRandom from './components/findLatLongServer.js';
 import { getRandomPointInCountry } from './pages/api/randomLoc.js';
+import calcPoints from './components/calcPoints.js';
 
 let multiplayerEnabled = true;
 
@@ -96,11 +97,12 @@ class Game {
   constructor(id, publicLobby) {
     this.id = id;
     this.players = {};
-    this.state = 'waiting'; // [waiting, getready, guess]
+    this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
-    this.timePerRound = 10000;
+    this.timePerRound = 120000;
     this.waitBetweenRounds = 5000;
     this.startTime = null;
+    this.endTime = null;
     this.nextEvtTime = null;
     this.locations = [];
     this.location = "all"
@@ -139,8 +141,47 @@ class Game {
       rounds: this.rounds,
       curRound: this.curRound,
       maxPlayers: this.maxPlayers,
+      myId: player.id,
       players: Object.values(this.players)
     });
+  }
+
+  givePoints() {
+    for (const playerId of Object.keys(this.players)) {
+      const player = this.players[playerId];
+      if(!player.guess) {
+        continue;
+      }
+
+      const loc = this.locations[this.curRound - 1];
+      console.log('loc', loc, 'guess', player.guess);
+      console.log({
+        lat: loc.lat,
+        lon: loc.long,
+        guessLat: player.guess[0],
+        guessLon: player.guess[1],
+        usedHint: false,
+        maxDist: 20000
+      })
+      player.score += calcPoints({
+        lat: loc.lat,
+        lon: loc.long,
+        guessLat: player.guess[0],
+        guessLon: player.guess[1],
+        usedHint: false,
+        maxDist: 20000
+      })
+
+      console.log('score', player.score);
+    }
+  }
+
+  clearGuesses() {
+    for (const playerId of Object.keys(this.players)) {
+      const player = this.players[playerId];
+      player.guess = null;
+      player.final = false;
+    }
   }
 
   sendStateUpdate(includeLocations=false) {
@@ -185,9 +226,53 @@ class Game {
     }
     this.state = 'getready';
     this.startTime = Date.now();
-    this.nextEvtTime = this.startTime + this.timePerRound;
+    this.nextEvtTime = this.startTime + this.waitBetweenRounds;
     this.curRound = 1;
     this.sendStateUpdate(true);
+  }
+  setGuess(playerId, latLong, final) {
+    console.log('setGuess', playerId, latLong, final);
+    if(this.state !== 'guess') {
+      return;
+    }
+
+    if (!this.players[playerId]) {
+      return;
+    }
+
+    const player = this.players[playerId];
+    if (player.final) {
+      return;
+    }
+
+    player.final = final;
+    player.guess = latLong;
+
+    console.log(playerId, latLong, final);
+    if(final) {
+      this.sendAllPlayers({
+        type: 'place',
+        id: playerId,
+        final: true,
+        latLong
+      });
+
+
+      // check if all players have placed
+      let allFinal = true;
+      for (const p of Object.values(this.players)) {
+        if (!p.final) {
+          allFinal = false;
+          break;
+        }
+      }
+
+      if (allFinal) {
+        this.nextEvtTime = Date.now() + 1000;
+        this.sendStateUpdate();
+      }
+    }
+
   }
   async generateLocations() {
     for (let i = 0; i < this.rounds; i++) {
@@ -203,23 +288,27 @@ class Game {
     }
   }
   end() {
-    for (const playerId of Object.keys(this.players)) {
+    this.state = 'end';
+    this.endTime = Date.now();
+    this.nextEvtTime = this.endTime + 60000;
+    this.sendStateUpdate();
+}
+  shutdown() {
+    for(const playerId of Object.keys(this.players)) {
       const p = players.get(playerId);
       p.send({
-        type: 'gameOver',
-        finalPlayers: Object.values(this.players)
+        type: 'gameShutdown'
       });
-
       this.removePlayer(p);
+    }
   }
-}
+
 }
 
 class Player {
   constructor(ws, id) {
     this.id = id;
     this.ws = ws;
-    this.state = 'idle';
     this.username = null;
     this.accountId = null;
     this.gameId = null;
@@ -266,7 +355,6 @@ app.prepare().then(() => {
   // Handle WebSocket connections
   server.on('upgrade', (request, socket, head) => {
     const { pathname } = parse(request.url, true);
-    console.log(pathname);
     if (pathname === '/multiplayer' && multiplayerEnabled) {
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
@@ -329,6 +417,25 @@ app.prepare().then(() => {
         playersInQueue.add(player.id);
       }
 
+      if(json.type === 'place' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        const latLong = json.latLong;
+        const final = json.final;
+
+        // make sure latLong is an array of floats with 2 elements
+        if (!Array.isArray(latLong) || latLong.length !== 2) {
+          return;
+        }
+
+        // make sure final is a boolean
+        if (typeof final !== 'boolean') {
+          return;
+        }
+
+        game.setGuess(player.id, latLong, final);
+
+      }
+
     });
 
     // Set up a close listener on the client
@@ -378,14 +485,17 @@ setInterval(() => {
     } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
       game.state = 'guess';
       game.nextEvtTime = Date.now() + game.timePerRound;
+      game.clearGuesses();
+
       game.sendStateUpdate();
       console.log('getready -> guess', game.nextEvtTime);
 
     } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
+      game.givePoints();
       if(game.curRound < game.rounds) {
         game.curRound++;
         game.state = 'getready';
-        game.nextEvtTime = Date.now() + game.timePerRound;
+        game.nextEvtTime = Date.now() + game.waitBetweenRounds;
         game.sendStateUpdate();
 
         console.log('guess -> getready', game.nextEvtTime);
@@ -395,6 +505,11 @@ setInterval(() => {
         // game over
         game.end()
       }
+    }
+
+    if(game.state === 'end' && Date.now() > game.nextEvtTime) {
+      // remove game
+      game.shutdown()
     }
 
 

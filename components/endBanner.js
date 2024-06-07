@@ -2,16 +2,22 @@ import { useEffect } from "react";
 import calcPoints from "./calcPoints";
 import { signIn } from "next-auth/react";
 
-export default function EndBanner({ xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, playingMultiplayer, usedHint }) {
+export default function EndBanner({ xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint }) {
   return (
     <div id='endBanner' style={{ display: guessed ? '' : 'none' }}>
   <div className="bannerContent">
+    { pinPoint && km ? (
     <h1 className='mainBannerTxt'>Your guess was {km} km away!</h1>
+    ) : (
+      <h1 className='mainBannerTxt'>You didn't guess!</h1>
+    )}
     <p className="motivation">
-      { latLong && pinPoint && playingMultiplayer && (
-       `You got ${calcPoints({lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint})} points!`
-      )}
-      { latLong && pinPoint && !playingMultiplayer && (
+      { latLong && pinPoint && multiplayerState?.inGame &&
+       `You got ${calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: false, maxDist: 20000 })} points!`
+      }
+
+
+      { latLong && pinPoint && !multiplayerState?.inGame && (
         km <  300 ? 'Wow! You were really close!' : km < 1000 ? 'Great guess!' : km < 3000 ? 'Not bad' : 'Better luck next time!'
         )}
          {!session?.token?.secret && (
@@ -26,7 +32,7 @@ export default function EndBanner({ xpEarned, lostCountryStreak, session, guesse
       {lostCountryStreak > 0 ? `You lost your ${lostCountryStreak} country streak!` : ''}
     </p>
   </div>
-  { !playingMultiplayer && (
+  { !multiplayerState && (
 
   <div className="endButtonContainer">
   <button className="playAgain" onClick={fullReset}>

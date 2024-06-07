@@ -917,17 +917,28 @@ h1, h2, h3 {
   background-color: #542626;
 }
 
-
 // chatbox
 .chatboxParent {
   position: fixed;
   bottom: 20px;
   left: 10px;
-  opacity: 0.8;
+  opacity: 0;
   transition: all 0.5s;
   border-radius: 10px;
+  transform: translateY(100%);
+  z-index: 1000;
 }
-.chatboxParent:hover {
+.chatbox {
+  display: none;
+}
+.chatbox.open {
+  display: block;
+}
+.chatboxParent.enabled {
+  opacity: 0.8;
+  transform: translateY(0%);
+}
+.chatboxParent.enabled:hover {
   opacity: 1;
 }
 .react-chatbot-kit-chat-header {

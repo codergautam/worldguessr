@@ -9,13 +9,14 @@ import findCountry from "./findCountry";
 import ChatBox from "./chatBox";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ timeToNextMultiplayerEvt, multiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
+export default function GameUI({ multiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
   const { width, height } = useWindowDimensions();
 
   const [miniMapShown, setMiniMapShown] = useState(false)
   const [miniMapExpanded, setMiniMapExpanded] = useState(false)
   const [roundStartTime, setRoundStartTime] = useState(null);
   const [lostCountryStreak, setLostCountryStreak] = useState(0);
+  const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
 
   // dist between guess & target
   const [km, setKm] = useState(null);
@@ -23,6 +24,19 @@ export default function GameUI({ timeToNextMultiplayerEvt, multiplayerState, cou
   useEffect(() => {
     loadLocation()
   }, []);
+
+  useEffect(() => {
+
+    const interval = setInterval(() => {
+    if(multiplayerState.inGame && multiplayerState?.gameData?.nextEvtTime) {
+      setTimeToNextMultiplayerEvt(Math.max(0,Math.floor((multiplayerState.gameData.nextEvtTime - Date.now()) / 100)/10))
+    }
+    }, 100)
+
+    return () => {
+      clearInterval(interval)
+    }
+  }, [multiplayerState])
 
   useEffect(() => {
     if(multiplayerState?.inGame) return;
@@ -74,6 +88,8 @@ export default function GameUI({ timeToNextMultiplayerEvt, multiplayerState, cou
   function guess() {
     setShowAnswer(true)
 
+    if(multiplayerState?.inGame) return;
+
     if(xpEarned > 0 && session?.token?.secret) {
       fetch('/api/storeGame', {
         method: 'POST',
@@ -116,7 +132,7 @@ export default function GameUI({ timeToNextMultiplayerEvt, multiplayerState, cou
   }
 
   useEffect(() => {
-    if(!latLong || !pinPoint) return;
+    if(!latLong || !pinPoint || multiplayerState?.inGame) return;
     setXpEarned(Math.round(calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist }) / 50))
   }, [km, latLong, pinPoint])
 
@@ -129,7 +145,7 @@ export default function GameUI({ timeToNextMultiplayerEvt, multiplayerState, cou
       )}
 
 
-      {(!multiplayerState || (multiplayerState.inGame && multiplayerState.gameData.state === 'guess')) && (
+      {(!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (
         <>
       <div id="miniMapArea" onMouseEnter={() => {
         setMiniMapExpanded(true)
@@ -138,10 +154,12 @@ export default function GameUI({ timeToNextMultiplayerEvt, multiplayerState, cou
       }} className={`miniMap ${miniMapExpanded ? 'mapFullscreen' : ''} ${miniMapShown ? 'shown' : ''} ${showAnswer ? 'answerShown' : ''}`}>
 
 
-        {latLong && !loading && <MapWidget gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} />}
+        {latLong && !loading && <MapWidget gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} />}
 
         <div className={`miniMap__btns ${showAnswer ? 'answerShownBtns' : ''}`}>
-          <button className={`miniMap__btn ${!pinPoint ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint} onClick={guess}>Guess</button>
+          <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>
+           {multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final ? 'Waiting for others...' : 'Guess'}
+            </button>
 
           { !multiplayerState?.inGame && (
           <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>Hint</button>
@@ -154,7 +172,9 @@ export default function GameUI({ timeToNextMultiplayerEvt, multiplayerState, cou
           <>
             {/* guess and hint  */}
 
-            <button className={`miniMap__btn ${!pinPoint ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint} onClick={guess}>Guess</button>
+            <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>
+           {multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final ? 'Waiting for others...' : 'Guess'}
+            </button>
 
             {!multiplayerState?.inGame && (
             <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>Hint</button>
@@ -168,10 +188,6 @@ export default function GameUI({ timeToNextMultiplayerEvt, multiplayerState, cou
       </>
       )}
 
-      { multiplayerState && (
-      <ChatBox />
-      )}
-
       <span className={`timer ${(loading||showAnswer||!multiplayerState) ? '' : 'shown'}`}>
 
 Round #{multiplayerState?.gameData?.curRound} - {timeToNextMultiplayerEvt}s
@@ -183,7 +199,7 @@ Round #{multiplayerState?.gameData?.curRound} - {timeToNextMultiplayerEvt}s
       }} gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
 {/* <EndBanner xpEarned={xpEarned} usedHint={showHint} session={session} lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} /> */}
-<EndBanner countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={loadLocation} km={km} playingMultiplayer={false} />
+<EndBanner countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={loadLocation} km={km} multiplayerState={multiplayerState} />
 
     </div>
   )

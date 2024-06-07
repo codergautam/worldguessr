@@ -10,7 +10,8 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
       // setting shouldConnect to true will force home to initiate a connection
       setMultiplayerState((prev) => ({
         ...prev,
-        shouldConnect: true
+        shouldConnect: true,
+        error: null
       }))
     }
 

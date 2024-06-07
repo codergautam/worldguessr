@@ -1,5 +1,5 @@
 import { getServerSession } from "next-auth"
-import { authOptions } from "./auth/[...nextauth]"
+import authOptions from "./auth/[...nextauth]"
 import { encrypt } from "@/components/utils/encryptDecrypt";
 
 export default async function handler(req, res) {

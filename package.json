@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node welcome.js && nodemon server.js --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js",
     "build": "next build",
-    "start": "NODE_ENV=production node server.js"
+    "start": "cross-env NODE_ENV=production node server.js"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
@@ -34,6 +34,7 @@
   },
   "devDependencies": {
     "copy-webpack-plugin": "^12.0.2",
+    "cross-env": "^7.0.3",
     "eslint": "^8",
     "eslint-config-next": "14.2.1",
     "nodemon": "^3.1.3",

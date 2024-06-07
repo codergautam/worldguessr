@@ -16,15 +16,15 @@ import Link from "next/link";
 import MultiplayerHome from "@/components/multiplayerHome";
 import AccountModal from "@/components/accountModal";
 import SetUsernameModal from "@/components/setUsernameModal";
+import ChatBox from "@/components/chatBox";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
-
 const initialMultiplayerState = {
-    connected: false,
-    connecting: false,
-    shouldConnect: false,
-    gameQueued: false,
-    inGame: false,
+  connected: false,
+  connecting: false,
+  shouldConnect: false,
+  gameQueued: false,
+  inGame: false,
 }
 
 export default function Home() {
@@ -32,7 +32,6 @@ export default function Home() {
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
   const [loading, setLoading] = useState(false);
-
   // game state
   const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
   const [streetViewShown, setStreetViewShown] = useState(false)
@@ -49,17 +48,18 @@ export default function Home() {
   const [multiplayerState, setMultiplayerState] = useState(
     initialMultiplayerState
   );
-  const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
+  const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
+  const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
 
   function handleMultiplayerAction(action) {
-    if(!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.inGame) return;
+    if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.inGame) return;
 
-    if(action === "publicDuel") {
-    setMultiplayerState((prev) => ({
-      ...prev,
-      gameQueued: "publicDuel"
-    }))
-        ws.send(JSON.stringify({ type: "publicDuel" }))
+    if (action === "publicDuel") {
+      setMultiplayerState((prev) => ({
+        ...prev,
+        gameQueued: "publicDuel"
+      }))
+      ws.send(JSON.stringify({ type: "publicDuel" }))
     }
 
   }
@@ -67,7 +67,7 @@ export default function Home() {
   useEffect(() => {
     if (!ws && !multiplayerState.connecting && !multiplayerState.connected && multiplayerState.shouldConnect) {
       const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/multiplayer`
-console.log('connecting to websocket', wsPath)
+      console.log('connecting to websocket', wsPath)
       setMultiplayerState((prev) => ({
         ...prev,
         connecting: true,
@@ -87,33 +87,41 @@ console.log('connecting to websocket', wsPath)
 
     }
 
-    if (ws && screen === "home") {
+    if (screen === "home") {
       console.log("Closing websocket, home screen")
-      ws.close();
-      setWs(null);
+      if (ws) {
+        ws.close();
+        setWs(null);
+      }
       setMultiplayerState(initialMultiplayerState)
     }
   }, [multiplayerState, ws, screen])
 
   useEffect(() => {
     console.log("Multiplayer state changed", multiplayerState)
-    if(!ws) return;
+    if(!multiplayerState?.inGame) {
+      setMultiplayerChatEnabled(false)
+      setMultiplayerChatOpen(false)
+    }
+    if (!ws) return;
+
+
     ws.onmessage = (msg) => {
       const data = JSON.parse(msg.data);
 
       console.log("Received message", data)
-      if(data.type === "cnt") {
+      if (data.type === "cnt") {
         setMultiplayerState((prev) => ({
           ...prev,
           playerCount: data.c
         }))
-      } else if(data.type === "verify") {
+      } else if (data.type === "verify") {
         setMultiplayerState((prev) => ({
           ...prev,
           connected: true,
           connecting: false
         }))
-      } else if(data.type === "error") {
+      } else if (data.type === "error") {
         setMultiplayerState((prev) => ({
           ...prev,
           connecting: false,
@@ -123,25 +131,49 @@ console.log('connecting to websocket', wsPath)
         }))
         // disconnect
         ws.close();
-      } else if(data.type === "game") {
-        setMultiplayerState((prev) => ({
-          ...prev,
-          gameQueued: false,
-          inGame: true,
-          gameData: {
-            ...prev.gameData,
-            ...data,
-            type: undefined
-          }
-        }))
+      } else if (data.type === "game") {
+        setMultiplayerState((prev) => {
 
-        if(data.state === "getready") {
+          if (data.state === "getready") {
+            setMultiplayerChatEnabled(true)
+          } else if (data.state === "guess") {
+            const didIguess = (data.players ?? prev.gameData?.players)?.find((p) => p.id === prev.gameData?.myId)?.final;
+            if (didIguess) {
+              setMultiplayerChatEnabled(true)
+            } else {
+              setMultiplayerChatEnabled(false)
+            }
+          }
+
+          if ((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") {
+            setPinPoint(null)
+            if (!prev?.gameData?.locations && data.locations) {
+              setLatLong(data.locations[data.curRound - 1])
+
+            } else {
+              setLatLong(prev?.gameData?.locations[data.curRound - 1])
+            }
+          }
+
+          return {
+            ...prev,
+            gameQueued: false,
+            inGame: true,
+            gameData: {
+              ...prev.gameData,
+              ...data,
+              type: undefined
+            }
+          }
+        })
+
+        if (data.state === "getready") {
           setStreetViewShown(false)
-        } else if(data.state === "guess") {
+        } else if (data.state === "guess") {
           setStreetViewShown(true)
         }
-      } else if(data.type === "player") {
-        if(data.action === "remove") {
+      } else if (data.type === "player") {
+        if (data.action === "remove") {
           setMultiplayerState((prev) => ({
             ...prev,
             gameData: {
@@ -149,7 +181,7 @@ console.log('connecting to websocket', wsPath)
               players: prev.gameData.players.filter((p) => p.id !== data.id)
             }
           }))
-        } else if(data.action === "add") {
+        } else if (data.action === "add") {
           setMultiplayerState((prev) => ({
             ...prev,
             gameData: {
@@ -158,27 +190,57 @@ console.log('connecting to websocket', wsPath)
             }
           }))
         }
+      } else if (data.type === "place") {
+        const id = data.id;
+        if (id === multiplayerState.gameData.myId) {
+          setMultiplayerChatEnabled(true)
+        }
+
+        const player = multiplayerState.gameData.players.find((p) => p.id === id);
+        if (player) {
+          player.final = data.final;
+          player.latLong = data.latLong;
+        }
+      } else if (data.type === "gameOver") {
+        setLatLong(null)
+
       }
     }
+
+    // ws on disconnect
+    ws.onclose = () => {
+      console.log("Websocket closed")
+      setWs(null)
+      setMultiplayerState({
+        ...initialMultiplayerState,
+        error: "Disconnected from server"
+      })
+    }
+
 
     return () => {
       ws.onmessage = null;
     }
   }, [ws, multiplayerState]);
 
+
   useEffect(() => {
-
-    const interval = setInterval(() => {
-    if(multiplayerState.inGame && multiplayerState?.gameData?.nextEvtTime) {
-      setTimeToNextMultiplayerEvt(Math.max(0,Math.floor((multiplayerState.gameData.nextEvtTime - Date.now()) / 100)/10))
+    if (multiplayerState.inGame && multiplayerState.gameData?.state === "guess" && pinPoint) {
+      // send guess
+      console.log("pinpoint1", pinPoint)
+      const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
+      ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }))
     }
-    }, 100)
+  }, [multiplayerState, pinPoint])
 
-    return () => {
-      clearInterval(interval)
-    }
-  }, [multiplayerState])
+  function guessMultiplayer(send) {
+    if (!send) return;
+    if (!multiplayerState.inGame || multiplayerState.gameData?.state !== "guess" || !pinPoint) return;
+    const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
+    console.log("pinpoint2", pinPoint, pinpointLatLong)
 
+    ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true }))
+  }
 
   useEffect(() => {
     const streak = localStorage.getItem("countryStreak");
@@ -235,15 +297,17 @@ console.log('connecting to websocket', wsPath)
         overflow: hidden;
        }
        `}</style>
+      <ChatBox open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} ws={ws} multiplayerState={multiplayerState} enabled={multiplayerChatEnabled} />
 
       <main className={`home ${jockey.className}`} id="main">
-        <BannerText text="Loading..." shown={loading} />
-        <BannerText text="Connecting..." shown={multiplayerState.connecting} />
+
+        <BannerText text="Loading..." shown={loading && !(multiplayerState.error || multiplayerState.connecting)} />
+        <BannerText text="Connecting..." shown={multiplayerState.connecting && !multiplayerState.error} />
 
         <div style={{ display: 'flex', alignItems: 'center', opacity: (screen !== "singleplayer") ? 1 : 0 }} className="accountBtnContainer">
           <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
         </div>
-        <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer"||(multiplayerState?.gameData?.state&&multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
+        <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         <Navbar openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
 
@@ -276,8 +340,8 @@ console.log('connecting to websocket', wsPath)
           <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
         </div>}
 
-        { multiplayerState.inGame && ["guess", "getready"].includes(multiplayerState.gameData?.state) && (
-            <GameUI multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} timeToNextMultiplayerEvt={timeToNextMultiplayerEvt} latLong={multiplayerState?.gameData?.locations ? multiplayerState.gameData.locations[multiplayerState.gameData.curRound-1] : null} loadLocation={() =>{}} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => {}} />
+        {multiplayerState.inGame && ["guess", "getready"].includes(multiplayerState.gameData?.state) && (
+          <GameUI multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
       </main>
     </>

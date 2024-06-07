@@ -17,7 +17,7 @@ import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
-const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, playingMultiplayer, multiplayerGameData, showHint, currentId, round, gameOptions }) => {
+const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
@@ -97,7 +97,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, s
 
     // use map click event to set pin point
     function onMapClick(e) {
-      if (!answerShown && !guessing) {
+      if (!answerShown && !guessing  &&  (!multiplayerState?.inGame || (multiplayerState?.inGame && !multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final))) {
         const clickedCoord = initialMap.getEventCoordinate(e.originalEvent);
         const clickedLatLong = toLonLat(clickedCoord);
         console.log(clickedLatLong);
@@ -155,7 +155,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, s
       map.addLayer(pinLayer);
     }
 
-    if (answerShown && location && pinPoint && (!playingMultiplayer || multiplayerSentGuess)) {
+    if (answerShown && location && pinPoint) {
       const lineLayer = new VectorLayer({
         source: new VectorSource({
           features: [
@@ -194,33 +194,33 @@ const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, s
         })
       });
       map.addLayer(pinLayer);
-      if (playingMultiplayer) {
-        // Add other players' guesses
-        multiplayerGameData.players.forEach((player) => {
-          if (player.g.findIndex((g) => g.r === round) !== -1) {
-            const playerGuess = player.g.find((g) => g.r === round);
-            if (playerGuess.lat === pinPoint.lat && playerGuess.long === pinPoint.lng) return;
-            const playerFeature = new Feature({
-              geometry: new Point(fromLonLat([playerGuess.long, playerGuess.lat])),
-            });
-            const playerLayer = new VectorLayer({
-              source: new VectorSource({
-                features: [playerFeature]
-              }),
-              style: new Style({
-                image: new Icon({
-                  anchor: [0.5, 1],
-                  anchorXUnits: 'fraction',
-                  anchorYUnits: 'fraction',
-                  scale: 0.45,
-                  src: '/src2.png'
-                })
-              })
-            });
-            map.addLayer(playerLayer);
-          }
-        });
-      }
+      // if (playingMultiplayer) {
+      //   // Add other players' guesses
+      //   multiplayerGameData.players.forEach((player) => {
+      //     if (player.g.findIndex((g) => g.r === round) !== -1) {
+      //       const playerGuess = player.g.find((g) => g.r === round);
+      //       if (playerGuess.lat === pinPoint.lat && playerGuess.long === pinPoint.lng) return;
+      //       const playerFeature = new Feature({
+      //         geometry: new Point(fromLonLat([playerGuess.long, playerGuess.lat])),
+      //       });
+      //       const playerLayer = new VectorLayer({
+      //         source: new VectorSource({
+      //           features: [playerFeature]
+      //         }),
+      //         style: new Style({
+      //           image: new Icon({
+      //             anchor: [0.5, 1],
+      //             anchorXUnits: 'fraction',
+      //             anchorYUnits: 'fraction',
+      //             scale: 0.45,
+      //             src: '/src2.png'
+      //           })
+      //         })
+      //       });
+      //       map.addLayer(playerLayer);
+      //     }
+      //   });
+      // }
 
 
 
