@@ -143,15 +143,19 @@ class Game {
     });
   }
 
-  sendStateUpdate() {
-    this.sendAllPlayers({
+  sendStateUpdate(includeLocations=false) {
+    const state = {
       type: 'game',
       state: this.state,
       curRound: this.curRound,
       maxPlayers: this.maxPlayers,
       nextEvtTime: this.nextEvtTime,
       players: Object.values(this.players)
-    })
+    };
+    if (includeLocations) {
+      state.locations = this.locations;
+    }
+    this.sendAllPlayers(state);
   }
 
   removePlayer(player) {
@@ -183,7 +187,7 @@ class Game {
     this.startTime = Date.now();
     this.nextEvtTime = this.startTime + this.timePerRound;
     this.curRound = 1;
-    this.sendStateUpdate();
+    this.sendStateUpdate(true);
   }
   async generateLocations() {
     for (let i = 0; i < this.rounds; i++) {
@@ -198,6 +202,17 @@ class Game {
       p.send(json);
     }
   }
+  end() {
+    for (const playerId of Object.keys(this.players)) {
+      const p = players.get(playerId);
+      p.send({
+        type: 'gameOver',
+        finalPlayers: Object.values(this.players)
+      });
+
+      this.removePlayer(p);
+  }
+}
 }
 
 class Player {
@@ -361,22 +376,24 @@ setInterval(() => {
       game.start();
       console.log('game started', game.id);
     } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
-      console.log('getready -> guess');
       game.state = 'guess';
-      game.sendStateUpdate();
       game.nextEvtTime = Date.now() + game.timePerRound;
+      game.sendStateUpdate();
+      console.log('getready -> guess', game.nextEvtTime);
+
     } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
       if(game.curRound < game.rounds) {
-        console.log('guess -> getready');
         game.curRound++;
         game.state = 'getready';
-        game.sendStateUpdate();
         game.nextEvtTime = Date.now() + game.timePerRound;
-      } else {
-        console.log('guess -> waiting');
-        // game over
-        game.state = 'waiting';
         game.sendStateUpdate();
+
+        console.log('guess -> getready', game.nextEvtTime);
+
+      } else {
+        console.log('guess -> end');
+        // game over
+        game.end()
       }
     }
 

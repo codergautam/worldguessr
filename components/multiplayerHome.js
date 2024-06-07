@@ -3,7 +3,7 @@ import BannerText from "./bannerText"
 
 export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultiplayerState, session, handleAction }) {
 
-  
+
   useEffect(() => {
     if (!multiplayerState.connected && !ws && !multiplayerState.connecting && !multiplayerState.shouldConnect) {
       console.log("connecting to websocket")
@@ -19,7 +19,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
   return (
     <div className="multiplayerHome">
       { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && (
-      <div>
+      <div style={{ pointerEvents: 'all' }}>
         <h1>Play Online</h1>
         <button className="gameBtn multiplayerOptionBtn publicGame" onClick={() => handleAction("publicDuel")}>Find a Duel</button>
         <br />

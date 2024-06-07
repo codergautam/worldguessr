@@ -15,7 +15,7 @@ export default function Navbar({ openAccountModal, shown, backBtnPressed, setGam
       <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed} style={{width: "50px"}}><FaXmark /></button>
 
 
-      {screen === 'multiplayer' && multiplayerState?.playerCount && (
+      {screen === 'multiplayer' && multiplayerState?.playerCount && !multiplayerState?.inGame && (
         <h1 className="desktop">
           🟢 {multiplayerState.playerCount} online
         </h1>
@@ -24,6 +24,11 @@ export default function Navbar({ openAccountModal, shown, backBtnPressed, setGam
       {/* <h1>
          &nbsp; <FaUser /> 4
         </h1> */}
+        { screen === 'multiplayer' && multiplayerState?.inGame && multiplayerState?.gameData?.players.length > 0 && (
+          <h1>
+          &nbsp; <FaUser /> {multiplayerState.gameData.players.length}
+         </h1>
+        )}
       <div className="navbar__right">
         { screen === 'singleplayer' && (
         <button className="gameBtn navBtn" onClick={()=>setGameOptionsModalShown(true)}>{((gameOptions.location === "all")|| !gameOptions.location)? "All Countries" : nameFromCode(gameOptions.location)}</button>

@@ -9,7 +9,7 @@ import findCountry from "./findCountry";
 import ChatBox from "./chatBox";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, setLatLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
+export default function GameUI({ timeToNextMultiplayerEvt, multiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
   const { width, height } = useWindowDimensions();
 
   const [miniMapShown, setMiniMapShown] = useState(false)
@@ -25,6 +25,7 @@ export default function GameUI({ countryStreak, setCountryStreak, loading, setLo
   }, []);
 
   useEffect(() => {
+    if(multiplayerState?.inGame) return;
     if (!latLong) {
       setLoading(true)
       setStreetViewShown(false)
@@ -32,7 +33,7 @@ export default function GameUI({ countryStreak, setCountryStreak, loading, setLo
       setRoundStartTime(Date.now());
       setXpEarned(0);
     }
-  }, [latLong])
+  }, [latLong, multiplayerState])
 
   useEffect(() => {
     console.log('saving country streak to', countryStreak)
@@ -121,9 +122,15 @@ export default function GameUI({ countryStreak, setCountryStreak, loading, setLo
 
   return (
     <div className="gameUI">
+      { latLong && (
       <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
 
       }}></iframe>
+      )}
+
+
+      {(!multiplayerState || (multiplayerState.inGame && multiplayerState.gameData.state === 'guess')) && (
+        <>
       <div id="miniMapArea" onMouseEnter={() => {
         setMiniMapExpanded(true)
       }} onMouseLeave={() => {
@@ -135,12 +142,12 @@ export default function GameUI({ countryStreak, setCountryStreak, loading, setLo
 
         <div className={`miniMap__btns ${showAnswer ? 'answerShownBtns' : ''}`}>
           <button className={`miniMap__btn ${!pinPoint ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint} onClick={guess}>Guess</button>
+
+          { !multiplayerState?.inGame && (
           <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>Hint</button>
+          )}
         </div>
       </div>
-
-      <ChatBox />
-
 
       <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${showAnswer ? 'answerShownBtns' : ''}`}>
         {miniMapShown && (
@@ -148,14 +155,28 @@ export default function GameUI({ countryStreak, setCountryStreak, loading, setLo
             {/* guess and hint  */}
 
             <button className={`miniMap__btn ${!pinPoint ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint} onClick={guess}>Guess</button>
+
+            {!multiplayerState?.inGame && (
             <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>Hint</button>
+            )}
           </>
         )}
         <button className={`gameBtn ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
           setMiniMapShown(!miniMapShown)
         }}><FaMap size={miniMapShown ? 30 : 50} /></button>
       </div>
-      {/* <span className={`timer ${(loading||showAnswer) ? '' : 'shown'}`}>0:00</span> */}
+      </>
+      )}
+
+      { multiplayerState && (
+      <ChatBox />
+      )}
+
+      <span className={`timer ${(loading||showAnswer||!multiplayerState) ? '' : 'shown'}`}>
+
+Round #{multiplayerState?.gameData?.curRound} - {timeToNextMultiplayerEvt}s
+
+        </span>
 
       <GameOptions shown={gameOptionsModalShown} onClose={() => {
         setGameOptionsModalShown(false)

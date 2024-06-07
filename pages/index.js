@@ -129,10 +129,17 @@ console.log('connecting to websocket', wsPath)
           gameQueued: false,
           inGame: true,
           gameData: {
+            ...prev.gameData,
             ...data,
             type: undefined
           }
         }))
+
+        if(data.state === "getready") {
+          setStreetViewShown(false)
+        } else if(data.state === "guess") {
+          setStreetViewShown(true)
+        }
       } else if(data.type === "player") {
         if(data.action === "remove") {
           setMultiplayerState((prev) => ({
@@ -262,19 +269,15 @@ console.log('connecting to websocket', wsPath)
         </div>
 
         {screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} setLatLong={setLatLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
         {screen === "multiplayer" && <div className="home__multiplayer">
           <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
         </div>}
 
-        { multiplayerState.inGame && multiplayerState.gameData?.state === "getready" && (
-          <BannerText text={`Game starting in ${timeToNextMultiplayerEvt} seconds`} shown={true} />
-        )}
-
         { multiplayerState.inGame && ["guess", "getready"].includes(multiplayerState.gameData?.state) && (
-            <GameUI multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} timeToNextMultiplayerEvt={timeToNextMultiplayerEvt} />
+            <GameUI multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} timeToNextMultiplayerEvt={timeToNextMultiplayerEvt} latLong={multiplayerState?.gameData?.locations ? multiplayerState.gameData.locations[multiplayerState.gameData.curRound-1] : null} loadLocation={() =>{}} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => {}} />
         )}
       </main>
     </>

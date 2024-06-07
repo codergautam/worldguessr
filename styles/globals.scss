@@ -900,6 +900,7 @@ h1, h2, h3 {
   position: fixed;
   bottom: 0;
   z-index: 101;
+  pointer-events: none;
 
   animation: fadeIn 1s ease-in-out forwards;
 }
