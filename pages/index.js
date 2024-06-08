@@ -224,14 +224,14 @@ export default function Home() {
   }, [ws, multiplayerState]);
 
 
-  useEffect(() => {
-    if (multiplayerState.inGame && multiplayerState.gameData?.state === "guess" && pinPoint) {
-      // send guess
-      console.log("pinpoint1", pinPoint)
-      const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
-      ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }))
-    }
-  }, [multiplayerState, pinPoint])
+  // useEffect(() => {
+  //   if (multiplayerState.inGame && multiplayerState.gameData?.state === "guess" && pinPoint) {
+  //     // send guess
+  //     console.log("pinpoint1", pinPoint)
+  //     const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
+  //     ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }))
+  //   }
+  // }, [multiplayerState, pinPoint])
 
   function guessMultiplayer(send) {
     if (!send) return;
@@ -341,7 +341,7 @@ export default function Home() {
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready"].includes(multiplayerState.gameData?.state) && (
-          <GameUI multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          <GameUI ws={ws} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
       </main>
     </>

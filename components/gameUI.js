@@ -10,7 +10,7 @@ import ChatBox from "./chatBox";
 import Leaderboard from "./leaderboard";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ multiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
+export default function GameUI({ ws, multiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
   const { width, height } = useWindowDimensions();
 
   const [miniMapShown, setMiniMapShown] = useState(false)
@@ -156,7 +156,7 @@ export default function GameUI({ multiplayerState, countryStreak, setCountryStre
       }} className={`miniMap ${miniMapExpanded ? 'mapFullscreen' : ''} ${miniMapShown ? 'shown' : ''} ${showAnswer ? 'answerShown' : ''}`}>
 
 
-        {latLong && !loading && <MapWidget gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} />}
+        {latLong && !loading && <MapWidget ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} />}
 
         <div className={`miniMap__btns ${showAnswer ? 'answerShownBtns' : ''}`}>
           <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>

@@ -17,7 +17,7 @@ import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
-const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions }) => {
+const MapComponent = ({ ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
@@ -102,6 +102,14 @@ const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, s
         const clickedLatLong = toLonLat(clickedCoord);
         console.log(clickedLatLong);
         setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
+
+        if(multiplayerState?.inGame && multiplayerState.gameData?.state === "guess" && ws) {
+              console.log("pinpoint1", pinPoint)
+              var pinpointLatLong = [clickedLatLong[1], clickedLatLong[0]]
+              ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }))
+
+        }
+
         if(plopSound.current) plopSound.current.play();
       }
     }
@@ -115,7 +123,7 @@ const MapComponent = ({ session, pinPoint, setPinPoint, answerShown, location, s
 
       initialMap.un('click', onMapClick);
     };
-  }, [answerShown, setPinPoint, guessing]);
+  }, [answerShown, setPinPoint, guessing, multiplayerState, ws]);
 
   // Update pin point and add line
   useEffect(() => {
