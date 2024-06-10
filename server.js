@@ -99,8 +99,8 @@ class Game {
     this.players = {};
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
-    this.timePerRound = 120000;
-    this.waitBetweenRounds = 5000;
+    this.timePerRound = 5000;
+    this.waitBetweenRounds = 8000;
     this.startTime = null;
     this.endTime = null;
     this.nextEvtTime = null;
@@ -226,7 +226,7 @@ class Game {
     }
     this.state = 'getready';
     this.startTime = Date.now();
-    this.nextEvtTime = this.startTime + this.waitBetweenRounds;
+    this.nextEvtTime = this.startTime + 5000;
     this.curRound = 1;
     this.sendStateUpdate(true);
   }
@@ -268,7 +268,7 @@ class Game {
       }
 
       if (allFinal && (this.nextEvtTime - Date.now()) > 5000) {
-        this.nextEvtTime = Date.now() + 5000;
+        this.nextEvtTime = Date.now() + 1000;
         this.sendStateUpdate();
       }
     }
@@ -499,19 +499,26 @@ setInterval(() => {
       game.start();
       console.log('game started', game.id);
     } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
+      if(game.curRound > game.rounds) {
+        game.end();
+        // game over
+        console.log('getready -> end');
+
+      } else {
       game.state = 'guess';
       game.nextEvtTime = Date.now() + game.timePerRound;
       game.clearGuesses();
 
       game.sendStateUpdate();
       console.log('getready -> guess', game.nextEvtTime);
+      }
 
     } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
       game.givePoints();
-      if(game.curRound < game.rounds) {
+      if(game.curRound <= game.rounds) {
         game.curRound++;
         game.state = 'getready';
-        game.nextEvtTime = Date.now() + game.waitBetweenRounds;
+        game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 0: 0);
         game.sendStateUpdate();
 
         console.log('guess -> getready', game.nextEvtTime);

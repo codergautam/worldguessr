@@ -8,6 +8,7 @@ import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
 import ChatBox from "./chatBox";
 import Leaderboard from "./leaderboard";
+import BannerText from "./bannerText";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 export default function GameUI({ ws, multiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
@@ -140,7 +141,7 @@ export default function GameUI({ ws, multiplayerState, countryStreak, setCountry
 
   return (
     <div className="gameUI">
-      { latLong && (
+      { latLong && multiplayerState?.gameData?.state !== 'end' && (
       <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
 
       }}></iframe>
@@ -190,14 +191,19 @@ export default function GameUI({ ws, multiplayerState, countryStreak, setCountry
       </>
       )}
 
-      <span className={`timer ${(loading||showAnswer||!multiplayerState) ? '' : 'shown'}`}>
+      <span className={`timer ${(loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end') ? '' : 'shown'}`}>
 
 Round #{multiplayerState?.gameData?.curRound} - {timeToNextMultiplayerEvt}s
 
         </span>
 
-        {multiplayerState && multiplayerState.inGame && (
-          <Leaderboard ws={session.ws} open={multiplayerState.inGame} onToggle={() => {}} enabled={multiplayerState.inGame} multiplayerState={multiplayerState} />
+        {multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
+          <BannerText text={"Game starting in " + timeToNextMultiplayerEvt + "s"} shown={true} />
+        )}
+
+
+        {multiplayerState && multiplayerState.inGame && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1)||(multiplayerState?.gameData?.state === "end")) && (
+          <Leaderboard multiplayerState={multiplayerState} gameOver={multiplayerState?.gameData?.state === "end"} />
         )}
 
       <GameOptions shown={gameOptionsModalShown} onClose={() => {

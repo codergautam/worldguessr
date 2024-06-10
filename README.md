@@ -30,6 +30,7 @@ A free and open-source version of the popular geography game inspired by GeoGues
 Before you start, ensure you have the following installed:
 - [Node.js](https://nodejs.org/en/) (v12.x or later)
 - [npm](https://www.npmjs.com/) (v6.x or later)
+- [pnpm](https://pnpm.io/) (v8.x or later)
 
 ### Installation
 
@@ -41,12 +42,12 @@ Before you start, ensure you have the following installed:
 
 2. Install dependencies:
    ```bash
-   npm install
+   pnpm install
    ```
 
 3. Run the development server:
    ```bash
-   npm run dev
+   pnpm run dev
    ```
 
    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
