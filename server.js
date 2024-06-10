@@ -99,7 +99,7 @@ class Game {
     this.players = {};
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
-    this.timePerRound = 5000;
+    this.timePerRound = 120000;
     this.waitBetweenRounds = 8000;
     this.startTime = null;
     this.endTime = null;
