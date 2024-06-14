@@ -5,7 +5,7 @@ export default function AccountBtn({ session, openAccountModal, navbarMode }) {
   return (
     <>
     {!session || !session?.token?.secret ? (
-        <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn'}`} onClick={() => signIn('google')}>
+        <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn'}`} onClick={() => session === null && signIn('google')}>
         Login <FaGoogle className="home__squarebtnicon" />
         </button>
     ) : (

@@ -230,6 +230,36 @@ const MapComponent = ({ ws, session, pinPoint, setPinPoint, answerShown, locatio
       //   });
       // }
 
+      if(multiplayerState?.inGame) {
+        // Add other players' guesses
+
+        multiplayerState?.gameData?.players.forEach((player) => {
+          console.log("player", player)
+          if (player.id === multiplayerState?.gameData?.myId) return;
+          if (player.final && player.guess) {
+            console.log("player.latLong", player.guess)
+            const playerFeature = new Feature({
+              geometry: new Point(fromLonLat([player.guess[1], player.guess[0]])),
+            });
+            const playerLayer = new VectorLayer({
+              source: new VectorSource({
+                features: [playerFeature]
+              }),
+              style: new Style({
+                image: new Icon({
+                  anchor: [0.5, 1],
+                  anchorXUnits: 'fraction',
+                  anchorYUnits: 'fraction',
+                  scale: 0.45,
+                  src: '/src2.png'
+                })
+              })
+            });
+            map.addLayer(playerLayer);
+          }
+      });
+    }
+
 
 
       setTimeout(() => {

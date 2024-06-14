@@ -1,4 +1,4 @@
-export default function Leaderboard({ ws, open, onToggle, enabled, multiplayerState,gameOver }) {
+export default function Leaderboard({ ws, open, onToggle, enabled, multiplayerState,gameOver, playAgain, backBtn }) {
   const N = 5; // Number of top players to show
 
   const players = multiplayerState?.gameData?.players.sort((a, b) => b.score - a.score);
@@ -27,6 +27,19 @@ export default function Leaderboard({ ws, open, onToggle, enabled, multiplayerSt
         </div>
         </>
       )}
+
+      {
+        gameOver && (
+
+          <div className="multiplayerFinalBtns">
+
+            <button className="gameBtn" onClick={playAgain}>Play Again</button>
+            <button className="gameBtn" onClick={backBtn}>Back</button>
+
+            </div>
+
+        )
+      }
     </div>
   );
 }

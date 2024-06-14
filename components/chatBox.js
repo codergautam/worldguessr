@@ -16,7 +16,7 @@ const CustomMessage = ({state, message}) => {
     <div className="react-chatbot-kit-chat-bot-message-container fgh">
       <div className="react-chatbot-kit-chat-bot-avatar">
         <div className="react-chatbot-kit-chat-bot-avatar-container">
-          <p className="react-chatbot-kit-chat-bot-avatar-letter">{JSON.parse(message.message).username.charAt(0)}</p>
+          <p className="react-chatbot-kit-chat-bot-avatar-letter">{JSON.parse(message.message).username?.charAt(0)}</p>
         </div>
       </div>
       <div className="react-chatbot-kit-chat-bot-message">
@@ -30,14 +30,15 @@ const CustomMessage = ({state, message}) => {
 };
 let lastSend = 0;
 
-const ActionProvider = ({ createChatBotMessage, setState, children, ws, multiplayerState }) => {
+const ActionProvider = ({ createChatBotMessage, setState, children, ws, myId, playerNames }) => {
   useEffect(() => {
     if(!ws) return;
     const ondata = (msg) => {
       const data = JSON.parse(msg.data);
-      if(data.type === 'chat' && data.id !== multiplayerState?.gameData?.myId) {
-        const senderUsername = multiplayerState?.gameData?.players.find(p => p.id === data.id)?.username;
-        console.log(data)
+      if(data.type === 'chat' && data.id !== myId) {
+        // const senderUsername = multiplayerState?.gameData?.players.find(p => p.id === data.id)?.username;
+        const senderUsername = playerNames.find(p => p.id == data.id)?.username;
+        console.log(data.id, senderUsername)
         setState((state) => {
           return { ...state, messages: [...state.messages, createCustomMessage(JSON.stringify({
             message: data.message,
@@ -56,7 +57,7 @@ const ActionProvider = ({ createChatBotMessage, setState, children, ws, multipla
   function sendMsg(msg) {
 
     // return if not in game
-    if(!multiplayerState?.inGame && !ws) return;
+    if(!ws) return;
     ws.send(JSON.stringify({type: 'chat', message: msg}));
   }
 
@@ -93,7 +94,7 @@ const MessageParser = ({ children, actions }) => {
   );
 };
 
-export default function ChatBox({ ws, open, onToggle, enabled, multiplayerState }) {
+export default function ChatBox({ ws, open, onToggle, enabled, myId, playerNames }) {
   return (
     <div className={`chatboxParent ${enabled ? 'enabled' : ''}`}>
       <button style={{fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer'}} onClick={onToggle}>
@@ -103,7 +104,7 @@ export default function ChatBox({ ws, open, onToggle, enabled, multiplayerState 
       <Chatbot
         config={config}
         messageParser={(props) => <MessageParser {...props}  />}
-        actionProvider={(props) => <ActionProvider {...props} ws={ws} multiplayerState={multiplayerState} />}
+        actionProvider={(props) => <ActionProvider {...props} ws={ws} myId={myId} playerNames={playerNames} />}
 
         validator={(input) => {
           if(input.length < 1) return false;

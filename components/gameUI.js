@@ -11,7 +11,7 @@ import Leaderboard from "./leaderboard";
 import BannerText from "./bannerText";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ ws, multiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
+export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
   const { width, height } = useWindowDimensions();
 
   const [miniMapShown, setMiniMapShown] = useState(false)
@@ -202,8 +202,17 @@ Round #{multiplayerState?.gameData?.curRound} - {timeToNextMultiplayerEvt}s
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1)||(multiplayerState?.gameData?.state === "end")) && (
-          <Leaderboard multiplayerState={multiplayerState} gameOver={multiplayerState?.gameData?.state === "end"} />
+        {multiplayerState && multiplayerState.inGame && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
+          <Leaderboard multiplayerState={multiplayerState} gameOver={multiplayerState?.gameData?.state === "end"} playAgain={() => {
+
+
+            console.log('play again')
+            backBtnPressed(true)
+
+          }} backBtn={() => {
+
+            backBtnPressed()
+          }} />
         )}
 
       <GameOptions shown={gameOptionsModalShown} onClose={() => {

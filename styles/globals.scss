@@ -273,6 +273,7 @@ h1, h2, h3 {
   color: white;
   user-select: none;
   pointer-events: none;
+  width: max-content;
   opacity: 0;
   transform: translateY(-100%);
 }
@@ -905,6 +906,10 @@ h1, h2, h3 {
   animation: fadeIn 1s ease-in-out forwards;
 }
 
+.multiplayerFinalBtns {
+  pointer-events: all;
+}
+
 .multiplayerOptionBtn {
   padding-left: 20px;
   padding-right: 20px;
@@ -926,7 +931,7 @@ h1, h2, h3 {
   transition: all 0.5s;
   border-radius: 10px;
   transform: translateY(100%);
-  z-index: 1000;
+  z-index: 2000;
 }
 .chatbox {
   display: none;
@@ -1049,4 +1054,11 @@ h1, h2, h3 {
   .mobile {
     display: none;
   }
+}
+
+.gameCodeInput {
+  background-color: white;
+  font-size: clamp(1em, 2vw, 3em);
+}
+.goBtn {
 }

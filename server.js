@@ -203,6 +203,9 @@ class Game {
     if (!this.players[player.id]) {
       return;
     }
+    player.send({
+      type: 'gameShutdown'
+    });
     delete this.players[player.id];
     player.gameId = null;
     player.inQueue = false;
@@ -316,6 +319,7 @@ class Player {
     this.lastMessage = 0;
   }
   send(json) {
+    if(!this.ws) return;
     this.ws.send(JSON.stringify(json));
   }
 }
@@ -452,6 +456,11 @@ app.prepare().then(() => {
         });
       }
 
+      if(json.type=== 'leaveGame' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        game.removePlayer(player);
+      }
+
     });
 
     // Set up a close listener on the client
@@ -477,7 +486,7 @@ app.prepare().then(() => {
 // update player count
 setInterval(() => {
   for (const player of players.values()) {
-    if (player.verified) {
+    if (player.verified && !player.gameId) {
       player.send({
         type: 'cnt',
         c: players.size
@@ -518,7 +527,7 @@ setInterval(() => {
       if(game.curRound <= game.rounds) {
         game.curRound++;
         game.state = 'getready';
-        game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 0: 0);
+        game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 5000: 0);
         game.sendStateUpdate();
 
         console.log('guess -> getready', game.nextEvtTime);

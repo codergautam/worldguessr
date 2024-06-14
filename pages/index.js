@@ -17,6 +17,7 @@ import MultiplayerHome from "@/components/multiplayerHome";
 import AccountModal from "@/components/accountModal";
 import SetUsernameModal from "@/components/setUsernameModal";
 import ChatBox from "@/components/chatBox";
+import React from "react";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -25,6 +26,9 @@ const initialMultiplayerState = {
   shouldConnect: false,
   gameQueued: false,
   inGame: false,
+  nextGameQueued: false,
+  creatingGame: false,
+  enteringGameCode: false,
 }
 
 export default function Home() {
@@ -52,14 +56,34 @@ export default function Home() {
   const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
 
   function handleMultiplayerAction(action) {
-    if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.inGame) return;
+    console.log('hma', multiplayerState, action)
+    if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.inGame || multiplayerState.connecting) return;
+    console.log('hma2', multiplayerState, action)
 
     if (action === "publicDuel") {
       setMultiplayerState((prev) => ({
         ...prev,
-        gameQueued: "publicDuel"
+        gameQueued: "publicDuel",
+        nextGameQueued: false
       }))
+      console.log("Queueing public duel")
       ws.send(JSON.stringify({ type: "publicDuel" }))
+    }
+
+    if(action === "joinPrivateGame") {
+      setMultiplayerState({
+        ...initialMultiplayerState,
+        connected: true,
+        enteringGameCode: true,
+      })
+    }
+
+    if(action === "createPrivateGame") {
+      setMultiplayerState({
+        ...initialMultiplayerState,
+        connected: true,
+        creatingGame: true
+      })
     }
 
   }
@@ -204,6 +228,14 @@ export default function Home() {
       } else if (data.type === "gameOver") {
         setLatLong(null)
 
+      } else if(data.type === "gameShutdown") {
+        setMultiplayerState((prev) => {
+          return {
+            ...initialMultiplayerState,
+            connected: true,
+            nextGameQueued: prev.nextGameQueued
+          }
+        });
       }
     }
 
@@ -222,6 +254,12 @@ export default function Home() {
       ws.onmessage = null;
     }
   }, [ws, multiplayerState]);
+
+  useEffect(() => {
+    if(multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
+      handleMultiplayerAction("publicDuel");
+    }
+  }, [multiplayerState])
 
 
   // useEffect(() => {
@@ -249,10 +287,30 @@ export default function Home() {
     }
   }, [])
 
-  function backBtnPressed() {
+  function backBtnPressed(queueNextGame = false) {
     if (loading) setLoading(false)
+      if(multiplayerState?.inGame) {
+        ws.send(JSON.stringify({
+          type: 'leaveGame'
+        }))
+
+        setMultiplayerState((prev) =>{
+          return {
+            ...prev,
+            nextGameQueued: queueNextGame === true
+          }
+        })
+
+      } else if((multiplayerState?.creatingGame || multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
+
+        setMultiplayerState({
+          ...initialMultiplayerState,
+          connected: true
+        })
+      } else {
     setScreen("home");
     clearLocation();
+      }
   }
 
   function clearLocation() {
@@ -281,9 +339,21 @@ export default function Home() {
 
   function onNavbarLogoPress() {
     if (screen !== "home" && !loading) {
-      loadLocation()
+      if(!multiplayerState?.inGame) loadLocation()
+        else if(multiplayerState?.gameData?.state === "guess") {
+          setLatLong(null)
+          setLoading(true)
+          setTimeout(() => {
+            setLatLong(latLong)
+            setLoading(false)
+          }, 100);
+        }
     }
   }
+
+  const ChatboxMemo = React.useMemo(() => <ChatBox ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={multiplayerChatEnabled} playerNames={multiplayerState?.gameData?.players.map(p => {
+    return { id: p.id, username: p.username }
+  })} myId={multiplayerState?.gameData?.myId} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.players.map(p => p.id).join(""), multiplayerState?.gameData?.myId])
 
   return (
     <>
@@ -292,12 +362,7 @@ export default function Home() {
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
 
-      <style>{`
-       html * {
-        overflow: hidden;
-       }
-       `}</style>
-      <ChatBox ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} multiplayerState={multiplayerState} enabled={multiplayerChatEnabled} />
+  {ChatboxMemo}
 
       <main className={`home ${jockey.className}`} id="main">
 
@@ -306,6 +371,11 @@ export default function Home() {
 
         <div style={{ display: 'flex', alignItems: 'center', opacity: (screen !== "singleplayer") ? 1 : 0 }} className="accountBtnContainer">
           <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
+        {/* <p style={{color: "white", zIndex: 10000}}>
+          {
+            JSON.stringify(session)
+          }
+          </p> */}
         </div>
         <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         <Navbar openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
@@ -318,7 +388,8 @@ export default function Home() {
                 if (!loading) setScreen("singleplayer")
               }} />
               <GameBtn text="Multiplayer" onClick={() => {
-                if (!session?.token?.secret) signIn("google");
+                if (!session?.token?.secret && session === null) signIn("google");
+                else if(!session?.token?.secret) return;
                 else setScreen("multiplayer")
               }} />
               <GameBtn text="How to Play" />
@@ -341,7 +412,7 @@ export default function Home() {
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
-          <GameUI ws={ws} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          <GameUI ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
       </main>
     </>
