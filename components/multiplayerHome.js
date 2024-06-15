@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import BannerText from "./bannerText"
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa"
+import enforceMinMax from "./utils/enforceMinMax"
 
 export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultiplayerState, session, handleAction }) {
 
@@ -36,8 +37,8 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
         <h1>Join a Game</h1>
 
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-        <input type="text" placeholder="Game Code" value={multiplayerState.gameCode} onChange={(e) => setMultiplayerState((prev) => ({ ...prev, gameCode: e.target.value }))} className="gameCodeInput" />
-        <button className="gameBtn goBtn" style={{width: "auto"}} onClick={() => handleAction("joinPrivateGame")}>Go</button>
+        <input type="text" placeholder="Game Code" value={multiplayerState.joinOptions.gameCode} maxLength={6} onChange={(e) => setMultiplayerState((prev) => ({ ...prev, joinOptions: {...prev.joinOptions, gameCode: e.target.value.replace(/\D/g, "") }}))} className="gameCodeInput" />
+        <button className="gameBtn goBtn" disabled={multiplayerState?.joinOptions?.gameCode?.length !== 6} style={{width: "auto"}} onClick={() => handleAction("joinPrivateGame", multiplayerState?.joinOptions?.gameCode)}>Go</button>
         </div>
       </div>
       )}
@@ -51,19 +52,20 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
 
 <label>Number of rounds:</label>
 <div className="numberInput rounds">
-<FaArrowLeft/>
-<input type="number" className='numberIn' placeholder="Number of rounds"  max={20}/>
-<FaArrowRight  />
+<FaArrowLeft onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, rounds: Math.max(1, multiplayerState.createOptions.rounds - 1) }}))} />
+<input type="number" className='numberIn' placeholder="Number of rounds"  max={20} onChange={(e) => enforceMinMax(e.target, ()=>setMultiplayerState(prev=>({...prev, createOptions: {...prev.createOptions, rounds: e.target.value}})))} disabled={multiplayerState?.loading} value={multiplayerState.createOptions.rounds} />
+<FaArrowRight onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, rounds: Math.max(1, multiplayerState.createOptions.rounds + 1) }}))} />
 </div>
 
 <label>Time per round (seconds):</label>
 <div className="timePerRound numberInput">
-<FaArrowLeft  />
-<input type="number" className='numberIn' placeholder="Time per round (seconds)"  max={300} />
-<FaArrowRight  />
+<FaArrowLeft onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(1, multiplayerState.createOptions.timePerRound - 10) }}))} />
+<input type="number" className='numberIn' placeholder="Time per round (seconds)"  max={300} onChange={(e) => enforceMinMax(e.target, ()=>setMultiplayerState(prev=>({...prev, createOptions: {...prev.createOptions, timePerRound: e.target.value}})))} disabled={multiplayerState?.loading} value={multiplayerState.createOptions.timePerRound} />
+<FaArrowRight onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(1, multiplayerState.createOptions.timePerRound + 10) }}))} />
 </div>
+
 </div>
-        <button className="gameBtn goBtn" style={{width: "auto"}} onClick={() => handleAction("joinPrivateGame")}>Go</button>
+        <button className="gameBtn goBtn" style={{width: "auto"}} onClick={() => handleAction("createPrivateGame", multiplayerState.createOptions)}>Go</button>
         </div>
       </div>
       )}

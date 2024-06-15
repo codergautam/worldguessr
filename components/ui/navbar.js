@@ -1,4 +1,4 @@
-import { FaUser } from "react-icons/fa";
+import { FaArrowLeft, FaUser } from "react-icons/fa";
 import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
 import { FaXmark } from "react-icons/fa6";
@@ -12,7 +12,7 @@ export default function Navbar({ openAccountModal, shown, backBtnPressed, setGam
       <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
 
       <button className="gameBtn navBtn backBtn desktop" onClick={backBtnPressed}>Back</button>
-      <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed} style={{width: "50px"}}><FaXmark /></button>
+      <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed} style={{width: "50px"}}><FaArrowLeft /></button>
 
 
       {screen === 'multiplayer' && multiplayerState?.playerCount && !multiplayerState?.inGame && (

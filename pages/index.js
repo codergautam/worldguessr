@@ -29,6 +29,15 @@ const initialMultiplayerState = {
   nextGameQueued: false,
   creatingGame: false,
   enteringGameCode: false,
+  createOptions: {
+    rounds: 5,
+    timePerRound: 30,
+    progress: false
+  },
+  joinOptions: {
+    gameCode: null,
+    progress: false
+  }
 }
 
 export default function Home() {
@@ -55,7 +64,7 @@ export default function Home() {
   const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
   const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
 
-  function handleMultiplayerAction(action) {
+  function handleMultiplayerAction(action, ...args) {
     console.log('hma', multiplayerState, action)
     if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.inGame || multiplayerState.connecting) return;
     console.log('hma2', multiplayerState, action)
@@ -71,19 +80,40 @@ export default function Home() {
     }
 
     if(action === "joinPrivateGame") {
-      setMultiplayerState({
-        ...initialMultiplayerState,
-        connected: true,
-        enteringGameCode: true,
-      })
+
+
+    if(args[0]) {
+      alert("Joining game with code " + args[0])
+    } else {
+      setMultiplayerState((prev) => {
+        return {
+         ...initialMultiplayerState,
+         connected: true,
+         enteringGameCode: true,
+         playerCount: prev.playerCount
+       }
+
+     })
+    }
     }
 
     if(action === "createPrivateGame") {
-      setMultiplayerState({
+      if(!args[0]) {
+      setMultiplayerState((prev) => {
+       return {
         ...initialMultiplayerState,
         connected: true,
-        creatingGame: true
-      })
+        creatingGame: true,
+        playerCount: prev.playerCount,
+        joinOptions: {
+          ...prev.joinOptions,
+        gameCode: prev.joinOptions?.gameCode
+        }
+      }
+    })
+  } else {
+    alert("Creating game with options"+ args[0])
+  }
     }
 
   }
@@ -303,10 +333,14 @@ export default function Home() {
 
       } else if((multiplayerState?.creatingGame || multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
 
-        setMultiplayerState({
+        setMultiplayerState((prev) => {
+          return {
           ...initialMultiplayerState,
-          connected: true
-        })
+          connected: true,
+        playerCount: prev.playerCount
+
+        }
+      })
       } else {
     setScreen("home");
     clearLocation();
@@ -339,6 +373,9 @@ export default function Home() {
 
   function onNavbarLogoPress() {
     if (screen !== "home" && !loading) {
+      if(multiplayerState?.connected && !multiplayerState?.inGame) {
+        return;
+      }
       if(!multiplayerState?.inGame) loadLocation()
         else if(multiplayerState?.gameData?.state === "guess") {
           setLatLong(null)
