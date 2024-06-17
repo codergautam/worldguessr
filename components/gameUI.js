@@ -7,8 +7,8 @@ import EndBanner from "./endBanner";
 import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
 import ChatBox from "./chatBox";
-import Leaderboard from "./leaderboard";
 import BannerText from "./bannerText";
+import PlayerList from "./playerList";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
@@ -193,7 +193,7 @@ export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultip
 
       <span className={`timer ${(loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end') ? '' : 'shown'}`}>
 
-Round #{multiplayerState?.gameData?.curRound} - {timeToNextMultiplayerEvt}s
+Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s
 
         </span>
 
@@ -203,7 +203,7 @@ Round #{multiplayerState?.gameData?.curRound} - {timeToNextMultiplayerEvt}s
 
 
         {multiplayerState && multiplayerState.inGame && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
-          <Leaderboard multiplayerState={multiplayerState} gameOver={multiplayerState?.gameData?.state === "end"} playAgain={() => {
+          <PlayerList multiplayerState={multiplayerState} playAgain={() => {
 
 
             console.log('play again')

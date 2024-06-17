@@ -13,7 +13,7 @@ export default function EndBanner({ xpEarned, lostCountryStreak, session, guesse
     )}
     <p className="motivation">
       { latLong && pinPoint && multiplayerState?.inGame &&
-       `You got ${calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: false, maxDist: 20000 })} points!`
+       `You got ${calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: false, maxDist: multiplayerState?.gameData?.maxDist ?? 20000 })} points!`
       }
 
 

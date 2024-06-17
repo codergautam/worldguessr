@@ -93,14 +93,20 @@ registerHandler('/hi', 'GET', (req, res, query) => {
   res.end('Hello World');
 });
 
+function make6DigitCode() {
+  return Math.floor(100000 + Math.random() * 900000);
+}
+
 class Game {
   constructor(id, publicLobby) {
     this.id = id;
+    this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
     this.timePerRound = 120000;
     this.waitBetweenRounds = 8000;
+    this.maxDist = 20000;
     this.startTime = null;
     this.endTime = null;
     this.nextEvtTime = null;
@@ -110,15 +116,19 @@ class Game {
     this.curRound = 0; // 1 = 1st round
     this.maxPlayers = 10;
 
-    this.generateLocations();
+    if(this.public) this.generateLocations();
   }
 
-  addPlayer(player) {
+  addPlayer(player, host=false) {
+    if(Object.keys(this.players).length >= this.maxPlayers) {
+      return;
+    }
     const playerObj = {
       username: player.username,
       // accountId: player.accountId,
       id: player.id,
-      score: 0
+      score: 0,
+      host: host && !this.public
     };
     this.sendAllPlayers({
       type: 'player',
@@ -142,7 +152,11 @@ class Game {
       curRound: this.curRound,
       maxPlayers: this.maxPlayers,
       myId: player.id,
-      players: Object.values(this.players)
+      public: this.public,
+      players: Object.values(this.players),
+      host: playerObj.host,
+      maxDist: this.maxDist,
+      code: this.code
     });
   }
 
@@ -161,7 +175,7 @@ class Game {
         guessLat: player.guess[0],
         guessLon: player.guess[1],
         usedHint: false,
-        maxDist: 20000
+        maxDist: this.maxDist
       })
       player.score += calcPoints({
         lat: loc.lat,
@@ -169,7 +183,7 @@ class Game {
         guessLat: player.guess[0],
         guessLon: player.guess[1],
         usedHint: false,
-        maxDist: 20000
+        maxDist: this.maxDist
       })
 
       console.log('score', player.score);
@@ -206,6 +220,8 @@ class Game {
     player.send({
       type: 'gameShutdown'
     });
+    const isPlayerHost = this.players[player.id].host;
+    console.log('removing player', this.players[player.id]);
     delete this.players[player.id];
     player.gameId = null;
     player.inQueue = false;
@@ -216,9 +232,10 @@ class Game {
       action: 'remove'
     });
 
-    // self destruct if no players
-    if (Object.keys(this.players).length < 1) {
+    // self destruct if no players or it is a private game and host left
+    if (Object.keys(this.players).length < 1 || (!this.public && isPlayerHost)) {
       console.log('Game self destructing', this.id);
+      this.shutdown();
       games.delete(this.id);
     }
   }
@@ -350,12 +367,19 @@ app.prepare().then(() => {
       process.exit(1)
     })
     .listen(port, () => {
+      setTimeout(() => {
       console.log(`> Ready on http://${hostname}:${port}`)
+      }, 100);
     })
 
   // Create a WebSocket server
   // const wss = new WebSocket.Server({ noServer: true });
   const wss = new WebSocketServer({ noServer: true });
+
+    server.on('listening', () => {
+      console.log('[INFO] WebSocket server listening');
+    });
+
 
   // Handle WebSocket connections
   server.on('upgrade', (request, socket, head) => {
@@ -380,6 +404,7 @@ app.prepare().then(() => {
       if (!player.verified && json.type !== 'verify') {
         return;
       }
+      console.log('received: %s', message);
       if (json.type === 'verify' && !player.verified) {
         // account verification
         const valid = await validateJWT(json.jwt, User, decrypt);
@@ -438,7 +463,6 @@ app.prepare().then(() => {
         }
 
         game.setGuess(player.id, latLong, final);
-
       }
 
       if(json.type === 'chat' && player.gameId && games.has(player.gameId)) {
@@ -459,6 +483,94 @@ app.prepare().then(() => {
       if(json.type=== 'leaveGame' && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
         game.removePlayer(player);
+      }
+
+      if(json.type === 'createPrivateGame' && !player.gameId) {
+        const gameId = makeId();
+        // options
+        const {rounds, timePerRound, locations, maxDist} = json;
+        console.log('createPrivateGame', rounds, timePerRound, locations);
+        if(!rounds || !timePerRound || !locations || !maxDist) {
+          return;
+        }
+        if(rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300 || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) {
+          return;
+        }
+        if(locations.length !== rounds) {
+          return;
+        }
+        if(typeof maxDist !== 'number' || maxDist > 20000 || maxDist < 10) {
+          return;
+        }
+        
+        // validate round format
+        for(const loc of locations) {
+          // ex: {lat: number, long: number, country: 2 letter code}
+          // make sure proper object
+          if(typeof loc !== 'object') {
+            return;
+          }
+          if(Object.keys(loc).length !== 3) {
+            return;
+          }
+
+          if(!loc.lat || !loc.long || !loc.country) {
+            return;
+          }
+
+          if(typeof loc.lat !== 'number' || typeof loc.long !== 'number' || typeof loc.country !== 'string') {
+            return;
+          }
+
+          if(loc.country.length !== 2) {
+            return;
+          }
+        }
+
+        const game = new Game(gameId, false);
+        game.rounds = rounds;
+        game.timePerRound = timePerRound * 1000;
+        game.locations = locations;
+        game.maxDist = maxDist;
+        console.log('game created', gameId, game.code);
+
+        games.set(gameId, game);
+
+        game.addPlayer(player, true);
+      }
+
+      if(json.type === 'joinPrivateGame' && !player.gameId) {
+        let code = json.gameCode;
+
+        // find game by code
+        for(const game of games.values()) {
+          if(game.code == code && !game.public) {
+            if(Object.keys(game.players).length >= game.maxPlayers) {
+              player.send({
+                type: 'gameJoinError',
+                error: 'Game is full'
+              });
+              return;
+            }
+
+            game.addPlayer(player);
+            return;
+          }
+        }
+
+        player.send({
+          type: 'gameJoinError',
+          error: 'Invalid game code'
+        });
+      }
+
+      if(json.type === 'startGameHost' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        if(game.players[player.id].host) {
+        console.log('startGameHost yes');
+
+          game.start();
+        }
       }
 
     });
@@ -504,7 +616,7 @@ setInterval(() => {
 
     const playerCnt = Object.keys(game.players).length;
     // start games that have at least 2 players
-    if (game.state === 'waiting' && playerCnt > 1) {
+    if (game.state === 'waiting' && playerCnt > 1 && game.public) {
       game.start();
       console.log('game started', game.id);
     } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {

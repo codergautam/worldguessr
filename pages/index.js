@@ -18,7 +18,7 @@ import AccountModal from "@/components/accountModal";
 import SetUsernameModal from "@/components/setUsernameModal";
 import ChatBox from "@/components/chatBox";
 import React from "react";
-
+import countryMaxDists from '../public/countryMaxDists.json';
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
   connected: false,
@@ -32,11 +32,13 @@ const initialMultiplayerState = {
   createOptions: {
     rounds: 5,
     timePerRound: 30,
+    location: "all",
     progress: false
   },
   joinOptions: {
     gameCode: null,
-    progress: false
+    progress: false,
+    error: false
   }
 }
 
@@ -66,7 +68,7 @@ export default function Home() {
 
   function handleMultiplayerAction(action, ...args) {
     console.log('hma', multiplayerState, action)
-    if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.inGame || multiplayerState.connecting) return;
+    if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
     console.log('hma2', multiplayerState, action)
 
     if (action === "publicDuel") {
@@ -83,14 +85,24 @@ export default function Home() {
 
 
     if(args[0]) {
-      alert("Joining game with code " + args[0])
+
+      setMultiplayerState((prev)=>({
+        ...prev,
+        joinOptions: {
+          ...prev.joinOptions,
+          error: false,
+          progress: true
+        }
+      }));
+      // join private game
+      ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0] }))
     } else {
       setMultiplayerState((prev) => {
         return {
          ...initialMultiplayerState,
          connected: true,
          enteringGameCode: true,
-         playerCount: prev.playerCount
+         playerCount: prev.playerCount,
        }
 
      })
@@ -105,23 +117,61 @@ export default function Home() {
         connected: true,
         creatingGame: true,
         playerCount: prev.playerCount,
-        joinOptions: {
-          ...prev.joinOptions,
-        gameCode: prev.joinOptions?.gameCode
-        }
       }
     })
   } else {
-    alert("Creating game with options"+ args[0])
+    setMultiplayerState((prev)=>({
+      ...prev,
+      createOptions: {
+        ...prev.createOptions,
+        progress: 0
+      }
+    }));
+    const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
+    console.log("maxDist", maxDist);
+
+    (async () => {
+      const locations = [];
+      for(let i = 0; i < args[0].rounds; i++) {
+
+        const loc = await findLatLongRandom({ location: multiplayerState.createOptions.location });
+        locations.push(loc)
+        setMultiplayerState((prev) => ({
+          ...prev,
+          createOptions: {
+            ...prev.createOptions,
+            progress: i + 1
+          }
+        }))
+      }
+
+      setMultiplayerState((prev) => ({
+        ...prev,
+        createOptions: {
+          ...prev.createOptions,
+          progress: true
+        }
+      }));
+
+      // send ws
+      ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
+    })()
   }
     }
+
+    console.log("action", multiplayerState?.inGame, multiplayerState?.gameData?.state, multiplayerState?.gameData?.host, multiplayerState?.gameData?.state === "waiting")
+    if(action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
+      console.log("Starting game as host")
+      ws.send(JSON.stringify({ type: "startGameHost" }))
+    }
+
 
   }
 
   useEffect(() => {
-    if (!ws && !multiplayerState.connecting && !multiplayerState.connected && multiplayerState.shouldConnect) {
+    if (!ws && !multiplayerState.connecting && !multiplayerState.connected && multiplayerState.shouldConnect && !multiplayerState.error) {
       const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/multiplayer`
-      console.log('connecting to websocket', wsPath)
+      console.log('connecting to websocket', wsPath, multiplayerState)
       setMultiplayerState((prev) => ({
         ...prev,
         connecting: true,
@@ -150,6 +200,20 @@ export default function Home() {
       setMultiplayerState(initialMultiplayerState)
     }
   }, [multiplayerState, ws, screen])
+
+  useEffect(() => {
+    if(multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
+      // save the final players
+      console.log('saving final player state')
+      setMultiplayerState((prev) => ({
+        ...prev,
+        gameData: {
+          ...prev.gameData,
+          finalPlayers: prev.gameData.players
+        }
+      }))
+    }
+  }, [multiplayerState?.gameData?.state])
 
   useEffect(() => {
     console.log("Multiplayer state changed", multiplayerState)
@@ -217,7 +281,11 @@ export default function Home() {
               ...prev.gameData,
               ...data,
               type: undefined
-            }
+            },
+            enteringGameCode: false,
+            creatingGame: false,
+            joinOptions: initialMultiplayerState.joinOptions,
+            createOptions: initialMultiplayerState.createOptions
           }
         })
 
@@ -266,6 +334,17 @@ export default function Home() {
             nextGameQueued: prev.nextGameQueued
           }
         });
+      } else if(data.type === "gameJoinError" && multiplayerState.enteringGameCode) {
+        setMultiplayerState((prev) => {
+          return {
+            ...prev,
+            joinOptions: {
+              ...prev.joinOptions,
+              error: data.error,
+              progress: false
+            }
+          }
+        })
       }
     }
 
@@ -273,10 +352,10 @@ export default function Home() {
     ws.onclose = () => {
       console.log("Websocket closed")
       setWs(null)
-      setMultiplayerState({
+      setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
-        error: "Disconnected from server"
-      })
+        error: prev.error ?? "Connection lost"
+      }));
     }
 
 
