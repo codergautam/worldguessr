@@ -2,7 +2,7 @@ import HeadContent from "@/components/headContent";
 import CesiumWrapper from "../components/cesium/CesiumWrapper";
 import { Jockey_One } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
-import { FaDiscord, FaGithub, FaGoogle } from "react-icons/fa";
+import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
 import { FaRankingStar } from "react-icons/fa6";
 import { signIn, useSession } from "next-auth/react";
 import AccountBtn from "@/components/ui/accountBtn";
@@ -19,6 +19,7 @@ import SetUsernameModal from "@/components/setUsernameModal";
 import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
+import InfoModal from "@/components/infoModal";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
   connected: false,
@@ -57,6 +58,7 @@ export default function Home() {
   const [hintShown, setHintShown] = useState(false)
   const [xpEarned, setXpEarned] = useState(0)
   const [countryStreak, setCountryStreak] = useState(0)
+  const [infoModal, setInfoModal] = useState(false)
 
   // multiplayer stuff
   const [ws, setWs] = useState(null);
@@ -508,16 +510,18 @@ export default function Home() {
                 else if(!session?.token?.secret) return;
                 else setScreen("multiplayer")
               }} />
-              <GameBtn text="How to Play" />
 
               <div className="home__squarebtns">
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                <button className="home__squarebtn gameBtn" onClick={()=>setInfoModal(true)}><FaInfo className="home__squarebtnicon" /></button>
               </div>
             </div>
           </div>
         </div>
+
+        <InfoModal shown={infoModal} onClose={()=>setInfoModal(false)} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
