@@ -69,8 +69,8 @@ if(!process.env.GOOGLE_CLIENT_SECRET) {
   console.log("[MISSING-ENV WARN] GOOGLE_CLIENT_SECRET env variable not set, please set it for multiplayer/auth!".yellow);
   multiplayerEnabled = false;
 }
-if(!process.env.NEXT_PUBLIC_CESIUM_TOKEN) {
-  console.log("[MISSING-ENV WARN] NEXT_PUBLIC_CESIUM_TOKEN env variable not set, please set it to have the homepage globe work!".yellow);
+if(process.env.NEXT_PUBLIC_CESIUM_TOKEN) {
+  console.log("[INFO] NEXT_PUBLIC_CESIUM_TOKEN env variable set, showing home animation".yellow);
 }
 
 
@@ -502,7 +502,7 @@ app.prepare().then(() => {
         if(typeof maxDist !== 'number' || maxDist > 20000 || maxDist < 10) {
           return;
         }
-        
+
         // validate round format
         for(const loc of locations) {
           // ex: {lat: number, long: number, country: 2 letter code}

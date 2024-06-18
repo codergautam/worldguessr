@@ -20,6 +20,8 @@ import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
 import InfoModal from "@/components/infoModal";
+import WelcomeModal from "@/components/welcomeModal";
+// import Image from "next/image";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
   connected: false,
@@ -59,6 +61,16 @@ export default function Home() {
   const [xpEarned, setXpEarned] = useState(0)
   const [countryStreak, setCountryStreak] = useState(0)
   const [infoModal, setInfoModal] = useState(false)
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+
+  useEffect(() => {
+    // show welcome modal if not shown (localstorage)
+    const welcomeModalShown = localStorage.getItem("welcomeModalShown");
+    if (!welcomeModalShown) {
+      setShowWelcomeModal(true)
+      localStorage.setItem("welcomeModalShown", "true")
+    }
+  }, [])
 
   // multiplayer stuff
   const [ws, setWs] = useState(null);
@@ -482,6 +494,17 @@ export default function Home() {
 
   {ChatboxMemo}
 
+  <img src={'/background.jpg'} style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    objectFit: 'cover',
+    opacity: 0.4,
+  }} />
+
+
       <main className={`home ${jockey.className}`} id="main">
 
         <BannerText text="Loading..." shown={loading && !(multiplayerState.error || multiplayerState.connecting)} />
@@ -495,9 +518,11 @@ export default function Home() {
           }
           </p> */}
         </div>
+        { process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
         <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
-        <Navbar openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
-        <div className={`home__content ${screen !== "home" ? "hidden" : ""}`}>
+        }
+        <Navbar inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+        <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
 
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
@@ -522,6 +547,7 @@ export default function Home() {
         </div>
 
         <InfoModal shown={infoModal} onClose={()=>setInfoModal(false)} />
+        <WelcomeModal shown={showWelcomeModal} onClose={()=>setShowWelcomeModal(false)} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />

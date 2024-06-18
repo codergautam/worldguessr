@@ -13,6 +13,11 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
   const { width, height } = useWindowDimensions();
+  // how to determine if touch screen?
+  let isTouchScreen = false;
+  if(window.matchMedia("(pointer: coarse)").matches) {
+    isTouchScreen = true;
+  }
 
   const [miniMapShown, setMiniMapShown] = useState(false)
   const [miniMapExpanded, setMiniMapExpanded] = useState(false)
@@ -73,7 +78,7 @@ export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultip
   }, [pinPoint, showAnswer]);
 
   useEffect(() => {
-    if (!loading && latLong && width > 600) {
+    if (!loading && latLong && width > 600 && !isTouchScreen) {
       console.log('setting mini map')
       setMiniMapShown(true)
     } else {

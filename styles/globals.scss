@@ -42,7 +42,7 @@ button {
 .home__content {
   position: fixed;
   z-index: 100;
-  left: 66%;
+  left: 50%;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -53,6 +53,9 @@ button {
   transform: translate(-50%);
   // slowly move to right while fading out when is hidden
   transition: left 0.5s, opacity 0.5s;
+}
+.home__content.cesium_shown {
+  left: 66%;
 }
 .home__content.hidden {
   left: 100%;
@@ -218,16 +221,16 @@ h1, h2, h3 {
   height: 83px;
   display: flex;
   align-items: center;
-  background-color: #0F251D;
+  background-color: #0d0d32;
   backdrop-filter: blur(10px);
   z-index: 102;
   padding: 0 20px;
 
   // enter from top
 
-  opacity: 1;
   transition: all 0.5s;
 }
+
 .navbar.hidden {
   transform: translateY(-100%);
   opacity: 0;
@@ -521,7 +524,8 @@ h1, h2, h3 {
 }
 
 
-@media screen and (max-width: 600px) {
+@media screen and (max-width: 600px),
+screen and (pointer:coarse) {
   #miniMapArea {
     transform: translateY(100%);
   }
@@ -569,7 +573,8 @@ h1, h2, h3 {
 .mobile_minimap__btns {
   display: none;
 }
-@media screen and (max-width: 600px) {
+@media screen and (max-width: 600px),
+screen and (pointer:coarse) {
   .miniMap__btns {
     display: none;
   }
@@ -803,56 +808,11 @@ h1, h2, h3 {
   }
 }
 
-
-// .leaflet-control-attribution {
-//   display: none;
-// }
-// .toggleMap {
-//   position: relative;
-//   color: white;
-//   background-color: rgba(42, 44, 71, 0.9);
-//   backdrop-filter: blur(10px);
-//   border-radius: 10px;
-//   font-size: 1.5em;
-// }
-
 #miniMapArea:hover {
   transition: all 250ms ease;
   opacity: 100%;
 }
 
-// .guessBtn {
-//   background-color: #212121;
-//   backdrop-filter: blur(10px);
-//   -webkit-backdrop-filter: blur(10px);
-//   box-shadow: 0 2px 20px rgba(5, 6, 10, 0.5);
-//   border-radius: 10px;
-//   padding: 10px;
-//   margin: 10px;
-//   color: white;
-//   font-size: 2em;
-//   cursor: pointer;
-//   user-select: none;
-// }
-
-// .desktopGB {
-//   position: absolute;
-//   right: 50px;
-//   bottom: 15px;
-//   z-index: 20;
-//   border-radius: 0;
-// }
-
-// .desktopGB.hintBtn {
-//   right: 200px;
-// }
-
-// @media screen and (max-width: 600px) {
-//   .guessBtn {
-//     font-size: 1.2em;
-//     margin: 0px;
-//   }
-// }
 
 #mapControlsAbove {
   position: absolute;
@@ -860,40 +820,6 @@ h1, h2, h3 {
   width: 100%;
 }
 
-// .guessBtn:hover {
-//   transition: all 250ms ease;
-//   background-color: rgba(32, 41, 36, 1);
-// }
-
-// .guessBtn:active {
-//   transition: all 250ms ease;
-//   background-color: rgba(32, 41, 36, 0.8);
-// }
-
-// .MainDiv {
-//   height: 100dvh;
-//   display: flex;
-//   flex-direction: column;
-//   align-items: flex-end;
-//   justify-content: center;
-// }
-
-// .bottomLeft {
-//   position: absolute;
-//   bottom: 0;
-//   left: 0;
-//   padding: 10px;
-//   color: white;
-//   font-size: 1.2em;
-//   font-weight: 500;
-//   z-index: 100;
-// }
-
-// @media screen and (max-width: 600px) {
-//   .hideOnMobile {
-//     display: none;
-//   }
-// }
 
 .multiplayerHome {
   height: calc(100vh - 83px);

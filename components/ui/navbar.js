@@ -3,11 +3,11 @@ import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
 import { FaXmark } from "react-icons/fa6";
 
-export default function Navbar({ openAccountModal, shown, backBtnPressed, setGameOptionsModalShown, onNavbarPress, gameOptions, session, screen, multiplayerState }) {
+export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed, setGameOptionsModalShown, onNavbarPress, gameOptions, session, screen, multiplayerState }) {
   return (
     <>
     { true && (
-    <div className={`navbar ${shown ? "" : "hidden"}`}>
+    <div className={`navbar ${shown ? "" : "hidden"} ${inGame ? 'inGame' : ''}`}>
       <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
       <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
 
