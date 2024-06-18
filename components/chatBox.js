@@ -30,14 +30,14 @@ const CustomMessage = ({state, message}) => {
 };
 let lastSend = 0;
 
-const ActionProvider = ({ createChatBotMessage, setState, children, ws, myId, playerNames, inGame }) => {
+const ActionProvider = ({ createChatBotMessage, setState, children, ws, myId, inGame }) => {
   useEffect(() => {
     if(!ws) return;
     const ondata = (msg) => {
       const data = JSON.parse(msg.data);
       if(data.type === 'chat' && data.id !== myId) {
         // const senderUsername = multiplayerState?.gameData?.players.find(p => p.id === data.id)?.username;
-        const senderUsername = playerNames.find(p => p.id == data.id)?.username;
+        const senderUsername = data.name;
         setState((state) => {
           return { ...state, messages: [...state.messages, createCustomMessage(JSON.stringify({
             message: data.message,
@@ -99,7 +99,7 @@ const MessageParser = ({ children, actions }) => {
   );
 };
 
-export default function ChatBox({ ws, open, onToggle, enabled, myId, playerNames, inGame }) {
+export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame }) {
 
   return (
     <div className={`chatboxParent ${enabled ? 'enabled' : ''}`}>
@@ -110,7 +110,7 @@ export default function ChatBox({ ws, open, onToggle, enabled, myId, playerNames
       <Chatbot
         config={config}
         messageParser={(props) => <MessageParser {...props}  />}
-        actionProvider={(props) => <ActionProvider {...props} ws={ws} myId={myId} playerNames={playerNames} inGame={inGame} />}
+        actionProvider={(props) => <ActionProvider {...props} ws={ws} myId={myId} inGame={inGame} />}
 
         validator={(input) => {
           if(input.length < 1) return false;

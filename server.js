@@ -104,7 +104,7 @@ class Game {
     this.players = {};
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
-    this.timePerRound = 120000;
+    this.timePerRound = 60000;
     this.waitBetweenRounds = 8000;
     this.maxDist = 20000;
     this.startTime = null;
@@ -381,6 +381,10 @@ app.prepare().then(() => {
     // Send a message to the client
     const id = makeId();
     const player = new Player(ws, id);
+    player.send({
+      type: 't',
+      t: Date.now()
+    })
     players.set(id, player);
     console.log('Client joined', id);
 
@@ -461,6 +465,7 @@ app.prepare().then(() => {
         game.sendAllPlayers({
           type: 'chat',
           id: player.id,
+          name: player.username,
           message
         });
       }
@@ -585,6 +590,10 @@ setInterval(() => {
         type: 'cnt',
         c: players.size
       });
+      player.send({
+        type: 't',
+        t: Date.now()
+      });
     }
   }
 }, 10000);
@@ -600,13 +609,16 @@ setInterval(() => {
     // start games that have at least 2 players
     if (game.state === 'waiting' && playerCnt > 1 && game.public) {
       game.start();
+      console.log('Game started', game.id);
     } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
       if(game.curRound > game.rounds) {
         game.end();
+        console.log('Game ended', game.id);
         // game over
 
       } else {
       game.state = 'guess';
+      console.log('State changed to guess', game.id);
       game.nextEvtTime = Date.now() + game.timePerRound;
       game.clearGuesses();
 
@@ -614,6 +626,7 @@ setInterval(() => {
       }
 
     } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
+      console.log('Round', game.curRound, 'ended for game', game.id);
       game.givePoints();
       if(game.curRound <= game.rounds) {
         game.curRound++;

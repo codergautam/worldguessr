@@ -62,6 +62,7 @@ export default function Home() {
   const [countryStreak, setCountryStreak] = useState(0)
   const [infoModal, setInfoModal] = useState(false)
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  const [timeOffset, setTimeOffset] = useState(0)
 
   useEffect(() => {
     // show welcome modal if not shown (localstorage)
@@ -229,6 +230,15 @@ export default function Home() {
     ws.onmessage = (msg) => {
       const data = JSON.parse(msg.data);
 
+      if(data.type === "t") {
+        const offset = data.t - Date.now();
+
+        if(Math.abs(offset) > 1000 && Math.abs(offset) < Math.abs(timeOffset)) {
+          setTimeOffset(offset)
+          alert(offset)
+        }
+      }
+
       if (data.type === "cnt") {
         setMultiplayerState((prev) => ({
           ...prev,
@@ -362,7 +372,7 @@ export default function Home() {
     return () => {
       ws.onmessage = null;
     }
-  }, [ws, multiplayerState]);
+  }, [ws, multiplayerState, timeOffset]);
 
   useEffect(() => {
     if(multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
@@ -469,9 +479,7 @@ export default function Home() {
     }
   }
 
-  const ChatboxMemo = React.useMemo(() => <ChatBox ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={multiplayerChatEnabled} playerNames={multiplayerState?.gameData?.players.map(p => {
-    return { id: p.id, username: p.username }
-  })} myId={multiplayerState?.gameData?.myId}  inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.players.map(p => p.id).join(""), multiplayerState?.gameData?.myId, multiplayerState?.inGame])
+  const ChatboxMemo = React.useMemo(() => <ChatBox ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={multiplayerChatEnabled} myId={multiplayerState?.gameData?.myId}  inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame])
 
   return (
     <>
@@ -519,6 +527,10 @@ export default function Home() {
                 if (!loading) setScreen("singleplayer")
               }} />
               <GameBtn text="Multiplayer" onClick={() => {
+
+                alert("Multiplayer is currently disabled for maintenance. Please check back later.");
+                return;
+
                 if (!session?.token?.secret && session === null) signIn("google");
                 else if(!session?.token?.secret) return;
                 else setScreen("multiplayer")
@@ -546,7 +558,7 @@ export default function Home() {
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
-          <GameUI ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          <GameUI timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
       </main>
     </>

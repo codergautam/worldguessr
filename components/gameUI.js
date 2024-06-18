@@ -11,7 +11,7 @@ import BannerText from "./bannerText";
 import PlayerList from "./playerList";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
+export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
   const { width, height } = useWindowDimensions();
   // how to determine if touch screen?
   let isTouchScreen = false;
@@ -33,7 +33,7 @@ export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultip
 
     const interval = setInterval(() => {
     if(multiplayerState?.inGame && multiplayerState?.gameData?.nextEvtTime) {
-      setTimeToNextMultiplayerEvt(Math.max(0,Math.floor((multiplayerState.gameData.nextEvtTime - Date.now()) / 100)/10))
+      setTimeToNextMultiplayerEvt(Math.max(0,Math.floor((multiplayerState.gameData.nextEvtTime - Date.now()) / 100)/10) + timeOffset)
     }
     }, 100)
 
