@@ -25,11 +25,9 @@ export default function EndBanner({ xpEarned, lostCountryStreak, session, guesse
             <a onClick={()=>signIn('google')} style={{textDecoration: 'underline', color: 'cyan', cursor: 'pointer'}}>Login with Google</a> to earn XP and track your stats!
           </p>
         )}
-      <br/>
-      {xpEarned > 0 && session?.token?.secret ? `You earned ${xpEarned} XP!` : ''}
-      <br/>
-      {countryStreak > 0 ? `You're on a ${countryStreak} country streak!` : ''}
-      {lostCountryStreak > 0 ? `You lost your ${lostCountryStreak} country streak!` : ''}
+      {xpEarned > 0 && session?.token?.secret ? <p>You earned {xpEarned} XP!</p> : ''}
+          {countryStreak > 0 ? <p>You're on a {countryStreak} country streak!</p> : ''}
+          {lostCountryStreak > 0 ? <p>You lost your {lostCountryStreak} country streak!</p> : ''}
     </p>
   </div>
   { !multiplayerState && (
