@@ -57,7 +57,6 @@ export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultip
   }, [latLong, multiplayerState])
 
   useEffect(() => {
-    console.log('saving country streak to', countryStreak)
     window.localStorage.setItem("countryStreak", countryStreak);
   }, [countryStreak])
 
@@ -79,7 +78,6 @@ export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultip
 
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
-      console.log('setting mini map')
       setMiniMapShown(true)
     } else {
       setMiniMapShown(false)
@@ -118,7 +116,6 @@ export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultip
           console.error(data.error);
           return;
         }
-        console.log(data);
       }).catch(e => {
         console.error(e);
       });
@@ -127,7 +124,6 @@ export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultip
     if(gameOptions.location === 'all') {
     findCountry({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
 
-      console.log('country', country, latLong.country)
       setLostCountryStreak(0);
       if(country === latLong.country) {
         setCountryStreak(countryStreak + 1);
@@ -211,7 +207,6 @@ Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rou
           <PlayerList multiplayerState={multiplayerState} playAgain={() => {
 
 
-            console.log('play again')
             backBtnPressed(true)
 
           }} backBtn={() => {

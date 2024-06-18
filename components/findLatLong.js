@@ -28,7 +28,6 @@ const loader = new Loader({
         const longO = latLng.lng();
         findCountry({ lat, lon: long }).then((country) => {
           if(country === "Unknown") {
-            console.log("unknown country, rechecking")
             resolve(null);
           } else {
 
@@ -36,7 +35,6 @@ const loader = new Loader({
           }
         });
       } else {
-        console.log('invalid loc, rechecking')
         resolve(null);
       }
     });

@@ -38,7 +38,6 @@ const ActionProvider = ({ createChatBotMessage, setState, children, ws, myId, pl
       if(data.type === 'chat' && data.id !== myId) {
         // const senderUsername = multiplayerState?.gameData?.players.find(p => p.id === data.id)?.username;
         const senderUsername = playerNames.find(p => p.id == data.id)?.username;
-        console.log(data.id, senderUsername)
         setState((state) => {
           return { ...state, messages: [...state.messages, createCustomMessage(JSON.stringify({
             message: data.message,

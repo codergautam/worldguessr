@@ -168,15 +168,6 @@ class Game {
       }
 
       const loc = this.locations[this.curRound - 1];
-      console.log('loc', loc, 'guess', player.guess);
-      console.log({
-        lat: loc.lat,
-        lon: loc.long,
-        guessLat: player.guess[0],
-        guessLon: player.guess[1],
-        usedHint: false,
-        maxDist: this.maxDist
-      })
       player.score += calcPoints({
         lat: loc.lat,
         lon: loc.long,
@@ -186,7 +177,6 @@ class Game {
         maxDist: this.maxDist
       })
 
-      console.log('score', player.score);
     }
   }
 
@@ -221,7 +211,6 @@ class Game {
       type: 'gameShutdown'
     });
     const isPlayerHost = this.players[player.id].host;
-    console.log('removing player', this.players[player.id]);
     delete this.players[player.id];
     player.gameId = null;
     player.inQueue = false;
@@ -234,7 +223,6 @@ class Game {
 
     // self destruct if no players or it is a private game and host left
     if (Object.keys(this.players).length < 1 || (!this.public && isPlayerHost)) {
-      console.log('Game self destructing', this.id);
       this.shutdown();
       games.delete(this.id);
     }
@@ -251,7 +239,6 @@ class Game {
     this.sendStateUpdate(true);
   }
   setGuess(playerId, latLong, final) {
-    console.log('setGuess', playerId, latLong, final);
     if(this.state !== 'guess') {
       return;
     }
@@ -268,7 +255,6 @@ class Game {
     player.final = final;
     player.guess = latLong;
 
-    console.log(playerId, latLong, final);
     if(final) {
       this.sendAllPlayers({
         type: 'place',
@@ -298,7 +284,6 @@ class Game {
     for (let i = 0; i < this.rounds; i++) {
       const loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
       this.locations.push(loc);
-      console.log(loc, i);
     }
   }
   sendAllPlayers(json) {
@@ -397,6 +382,8 @@ app.prepare().then(() => {
     const id = makeId();
     const player = new Player(ws, id);
     players.set(id, player);
+    console.log('Client joined', id);
+
 
     // Set up a message listener on the client
     ws.on('message', async (message) => {
@@ -404,7 +391,6 @@ app.prepare().then(() => {
       if (!player.verified && json.type !== 'verify') {
         return;
       }
-      console.log('received: %s', message);
       if (json.type === 'verify' && !player.verified) {
         // account verification
         const valid = await validateJWT(json.jwt, User, decrypt);
@@ -412,7 +398,6 @@ app.prepare().then(() => {
           // make sure the user is not already logged in (only on prod)
           if (!dev) {
             for (const p of players.values()) {
-              console.log(p.accountId, valid._id);
               if (p.accountId === valid._id.toString()) {
                 player.send({
                   type: 'error',
@@ -489,7 +474,6 @@ app.prepare().then(() => {
         const gameId = makeId();
         // options
         const {rounds, timePerRound, locations, maxDist} = json;
-        console.log('createPrivateGame', rounds, timePerRound, locations);
         if(!rounds || !timePerRound || !locations || !maxDist) {
           return;
         }
@@ -532,7 +516,6 @@ app.prepare().then(() => {
         game.timePerRound = timePerRound * 1000;
         game.locations = locations;
         game.maxDist = maxDist;
-        console.log('game created', gameId, game.code);
 
         games.set(gameId, game);
 
@@ -567,7 +550,6 @@ app.prepare().then(() => {
       if(json.type === 'startGameHost' && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
         if(game.players[player.id].host) {
-        console.log('startGameHost yes');
 
           game.start();
         }
@@ -618,12 +600,10 @@ setInterval(() => {
     // start games that have at least 2 players
     if (game.state === 'waiting' && playerCnt > 1 && game.public) {
       game.start();
-      console.log('game started', game.id);
     } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
       if(game.curRound > game.rounds) {
         game.end();
         // game over
-        console.log('getready -> end');
 
       } else {
       game.state = 'guess';
@@ -631,7 +611,6 @@ setInterval(() => {
       game.clearGuesses();
 
       game.sendStateUpdate();
-      console.log('getready -> guess', game.nextEvtTime);
       }
 
     } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
@@ -642,10 +621,8 @@ setInterval(() => {
         game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 5000: 0);
         game.sendStateUpdate();
 
-        console.log('guess -> getready', game.nextEvtTime);
 
       } else {
-        console.log('guess -> end');
         // game over
         game.end()
       }

@@ -3,7 +3,6 @@ import User from '../models/User';
 
 export default async function storeGame(secret, xp, timeTaken, latLong) {
 
-  console.log('storeGame', xp, timeTaken, latLong);
   // Connect to MongoDB
   if (mongoose.connection.readyState !== 1) {
     try {

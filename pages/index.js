@@ -81,9 +81,7 @@ export default function Home() {
   const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
 
   function handleMultiplayerAction(action, ...args) {
-    console.log('hma', multiplayerState, action)
     if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
-    console.log('hma2', multiplayerState, action)
 
     if (action === "publicDuel") {
       setMultiplayerState((prev) => ({
@@ -91,7 +89,6 @@ export default function Home() {
         gameQueued: "publicDuel",
         nextGameQueued: false
       }))
-      console.log("Queueing public duel")
       ws.send(JSON.stringify({ type: "publicDuel" }))
     }
 
@@ -142,7 +139,6 @@ export default function Home() {
       }
     }));
     const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
-    console.log("maxDist", maxDist);
 
     (async () => {
       const locations = [];
@@ -173,9 +169,7 @@ export default function Home() {
   }
     }
 
-    console.log("action", multiplayerState?.inGame, multiplayerState?.gameData?.state, multiplayerState?.gameData?.host, multiplayerState?.gameData?.state === "waiting")
     if(action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
-      console.log("Starting game as host")
       ws.send(JSON.stringify({ type: "startGameHost" }))
     }
 
@@ -185,7 +179,6 @@ export default function Home() {
   useEffect(() => {
     if (!ws && !multiplayerState.connecting && !multiplayerState.connected && multiplayerState.shouldConnect && !multiplayerState.error) {
       const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/multiplayer`
-      console.log('connecting to websocket', wsPath, multiplayerState)
       setMultiplayerState((prev) => ({
         ...prev,
         connecting: true,
@@ -193,11 +186,9 @@ export default function Home() {
       }))
       const ws = new WebSocket(wsPath);
       ws.onopen = () => {
-        console.log("Websocket connected, fetching JWT")
         setWs(ws)
 
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
-          console.log("Got JWT", data.jwt)
           const JWT = data.jwt;
           ws.send(JSON.stringify({ type: "verify", jwt: JWT }))
         });
@@ -206,7 +197,6 @@ export default function Home() {
     }
 
     if (screen === "home") {
-      console.log("Closing websocket, home screen")
       if (ws) {
         ws.close();
         setWs(null);
@@ -218,7 +208,6 @@ export default function Home() {
   useEffect(() => {
     if(multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
       // save the final players
-      console.log('saving final player state')
       setMultiplayerState((prev) => ({
         ...prev,
         gameData: {
@@ -230,7 +219,6 @@ export default function Home() {
   }, [multiplayerState?.gameData?.state])
 
   useEffect(() => {
-    console.log("Multiplayer state changed", multiplayerState)
     if(!multiplayerState?.inGame) {
       setMultiplayerChatEnabled(false)
       setMultiplayerChatOpen(false)
@@ -241,7 +229,6 @@ export default function Home() {
     ws.onmessage = (msg) => {
       const data = JSON.parse(msg.data);
 
-      console.log("Received message", data)
       if (data.type === "cnt") {
         setMultiplayerState((prev) => ({
           ...prev,
@@ -364,7 +351,6 @@ export default function Home() {
 
     // ws on disconnect
     ws.onclose = () => {
-      console.log("Websocket closed")
       setWs(null)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
@@ -398,7 +384,6 @@ export default function Home() {
     if (!send) return;
     if (!multiplayerState.inGame || multiplayerState.gameData?.state !== "guess" || !pinPoint) return;
     const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
-    console.log("pinpoint2", pinPoint, pinpointLatLong)
 
     ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true }))
   }

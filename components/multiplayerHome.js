@@ -31,7 +31,6 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
       }))
     }
 
-    console.log("multiplayerState", multiplayerState)
   }, [multiplayerState, ws])
   return (
     <div className="multiplayerHome">
