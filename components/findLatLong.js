@@ -1,6 +1,7 @@
 
 import { Loader } from '@googlemaps/js-api-loader';
 import findCountry from './findCountry';
+import { getRandomPointInCountry } from '@/pages/api/randomLoc';
 const loader = new Loader({
   apiKey: "",
   version: "weekly",
@@ -9,7 +10,9 @@ const loader = new Loader({
  function generateLatLong(location) {
   return new Promise((resolve, reject) => {
   loader.importLibrary("streetView").then(() => {
-  fetch(`/api/randomLoc${(location&&location!=="all")?`?country=${location}`:''}`).then((res) => res.json()).then((data) => {
+  // fetch(`/api/randomLoc${(location&&location!=="all")?`?country=${location}`:''}`).then((res) => res.json()).then((data) => {
+    const data = getRandomPointInCountry((location&&location!=="all")?location:true);
+    console.log(data);
     const panorama = new google.maps.StreetViewService();
     const lat = data[0];
     const long = data[1];
@@ -38,7 +41,7 @@ const loader = new Loader({
         resolve(null);
       }
     });
-  });
+  // });
 });
 });
 }
