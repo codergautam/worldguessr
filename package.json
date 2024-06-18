@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node welcome.js && nodemon server.js --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js",
     "build": "next build",
-    "start": "cross-env NODE_ENV=production node server.js"
+    "start": "npx cross-env NODE_ENV=production node server.js"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
