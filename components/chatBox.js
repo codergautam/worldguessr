@@ -30,7 +30,7 @@ const CustomMessage = ({state, message}) => {
 };
 let lastSend = 0;
 
-const ActionProvider = ({ createChatBotMessage, setState, children, ws, myId, playerNames }) => {
+const ActionProvider = ({ createChatBotMessage, setState, children, ws, myId, playerNames, inGame }) => {
   useEffect(() => {
     if(!ws) return;
     const ondata = (msg) => {
@@ -52,6 +52,12 @@ const ActionProvider = ({ createChatBotMessage, setState, children, ws, myId, pl
       ws.removeEventListener('message', ondata);
     };
   }, [ws]);
+
+  useEffect(() => {
+    if(!inGame) setState((state) => {
+      return { ...state, messages: [] };
+    });
+  }, [inGame])
 
   function sendMsg(msg) {
 
@@ -93,7 +99,8 @@ const MessageParser = ({ children, actions }) => {
   );
 };
 
-export default function ChatBox({ ws, open, onToggle, enabled, myId, playerNames }) {
+export default function ChatBox({ ws, open, onToggle, enabled, myId, playerNames, inGame }) {
+
   return (
     <div className={`chatboxParent ${enabled ? 'enabled' : ''}`}>
       <button style={{fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer'}} onClick={onToggle}>
@@ -103,7 +110,7 @@ export default function ChatBox({ ws, open, onToggle, enabled, myId, playerNames
       <Chatbot
         config={config}
         messageParser={(props) => <MessageParser {...props}  />}
-        actionProvider={(props) => <ActionProvider {...props} ws={ws} myId={myId} playerNames={playerNames} />}
+        actionProvider={(props) => <ActionProvider {...props} ws={ws} myId={myId} playerNames={playerNames} inGame={inGame} />}
 
         validator={(input) => {
           if(input.length < 1) return false;

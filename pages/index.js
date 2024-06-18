@@ -471,7 +471,7 @@ export default function Home() {
 
   const ChatboxMemo = React.useMemo(() => <ChatBox ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={multiplayerChatEnabled} playerNames={multiplayerState?.gameData?.players.map(p => {
     return { id: p.id, username: p.username }
-  })} myId={multiplayerState?.gameData?.myId} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.players.map(p => p.id).join(""), multiplayerState?.gameData?.myId])
+  })} myId={multiplayerState?.gameData?.myId}  inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.players.map(p => p.id).join(""), multiplayerState?.gameData?.myId, multiplayerState?.inGame])
 
   return (
     <>
