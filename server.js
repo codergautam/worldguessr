@@ -112,7 +112,7 @@ class Game {
     this.nextEvtTime = null;
     this.locations = [];
     this.location = "all"
-    this.rounds = 5;
+    this.rounds = 10;
     this.curRound = 0; // 1 = 1st round
     this.maxPlayers = 10;
 
