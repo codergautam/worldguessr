@@ -28,9 +28,6 @@ export default function GameUI({ ws, multiplayerState, backBtnPressed, setMultip
   // dist between guess & target
   const [km, setKm] = useState(null);
 
-  useEffect(() => {
-    loadLocation()
-  }, []);
 
   useEffect(() => {
 

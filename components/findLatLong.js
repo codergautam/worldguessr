@@ -12,7 +12,6 @@ const loader = new Loader({
   loader.importLibrary("streetView").then(() => {
   // fetch(`/api/randomLoc${(location&&location!=="all")?`?country=${location}`:''}`).then((res) => res.json()).then((data) => {
     const data = getRandomPointInCountry((location&&location!=="all")?location:true);
-    console.log(data);
     const panorama = new google.maps.StreetViewService();
     const lat = data[0];
     const long = data[1];

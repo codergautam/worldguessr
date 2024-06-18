@@ -396,7 +396,7 @@ export default function Home() {
   }, [])
 
   function backBtnPressed(queueNextGame = false) {
-    if (loading) setLoading(false)
+    if (loading) setLoading(false);
       if(multiplayerState?.inGame) {
         ws.send(JSON.stringify({
           type: 'leaveGame'
@@ -434,9 +434,12 @@ export default function Home() {
   }
 
   function loadLocation() {
+    if(loading) return;
+    console.log("loading location")
     setLoading(true)
     setShowAnswer(false)
     setPinPoint(null)
+    setLatLong(null)
     setHintShown(false)
     findLatLongRandom(gameOptions).then((latLong) => {
       setLatLong(latLong)
@@ -445,7 +448,7 @@ export default function Home() {
         setTimeout(() => {
           setLoading(false)
         }, 100);
-      }, 500);
+      }, 100);
     });
   }
 

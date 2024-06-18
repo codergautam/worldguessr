@@ -288,7 +288,6 @@ const MapComponent = ({ ws, session, pinPoint, setPinPoint, answerShown, locatio
     maxPivots[0] += Math.cos(randomAngle) * randomRadius;
     maxPivots[1] += Math.sin(randomAngle) * randomRadius;
 
-    console.log('maxPivots', maxPivots);
     setRandomOffsetS([maxPivots[0], maxPivots[1]]);
   }, [location, gameOptions]);
 
