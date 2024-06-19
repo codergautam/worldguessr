@@ -609,7 +609,7 @@ setInterval(() => {
 
     const playerCnt = Object.keys(game.players).length;
     // start games that have at least 2 players
-    if (game.state === 'waiting' && playerCnt > 1 && game.public) {
+    if (game.state === 'waiting' && playerCnt > 1 && game.public && game.rounds === game.locations.length) {
       game.start();
       console.log('public Game started', game.id);
     } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
