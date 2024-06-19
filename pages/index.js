@@ -235,7 +235,7 @@ export default function Home() {
 
         if(Math.abs(offset) > 1000 && Math.abs(offset) < Math.abs(timeOffset)) {
           setTimeOffset(offset)
-          alert(offset)
+        //  alert(offset)
         }
       }
 
