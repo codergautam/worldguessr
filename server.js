@@ -104,7 +104,7 @@ class Game {
     this.players = {};
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
-    this.timePerRound = 60000;
+    this.timePerRound = 120000;
     this.waitBetweenRounds = 10000;
     this.maxDist = 20000;
     this.startTime = null;
@@ -112,7 +112,7 @@ class Game {
     this.nextEvtTime = null;
     this.locations = [];
     this.location = "all"
-    this.rounds = 10;
+    this.rounds = 5;
     this.curRound = 0; // 1 = 1st round
     this.maxPlayers = 10;
 
