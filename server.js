@@ -105,7 +105,7 @@ class Game {
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
     this.timePerRound = 60000;
-    this.waitBetweenRounds = 8000;
+    this.waitBetweenRounds = 10000;
     this.maxDist = 20000;
     this.startTime = null;
     this.endTime = null;
@@ -584,6 +584,8 @@ app.prepare().then(() => {
 
 // update player count
 setInterval(() => {
+console.log("Number of games", games.size,"\nNumber of players in queue", playersInQueue.size, "\nNumber of players", players.size, "\n\n");
+
   for (const player of players.values()) {
     if (player.verified && !player.gameId) {
       player.send({
@@ -603,7 +605,6 @@ setInterval(() => {
 
 
   const minRoundsRemaining = 2;
-console.log("Number of games", games.size)
   for (const game of games.values()) {
 
     const playerCnt = Object.keys(game.players).length;

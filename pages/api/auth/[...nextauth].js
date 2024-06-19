@@ -12,6 +12,10 @@ export default NextAuth.default({
     GoogleProvider.default({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      authorization: {
+        params: {},
+      },
+      checks: ['none'],
     }),
   ],
   callbacks: {
