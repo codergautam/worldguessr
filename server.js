@@ -603,13 +603,14 @@ setInterval(() => {
 
 
   const minRoundsRemaining = 2;
+console.log("Number of games", games.size())
   for (const game of games.values()) {
 
     const playerCnt = Object.keys(game.players).length;
     // start games that have at least 2 players
     if (game.state === 'waiting' && playerCnt > 1 && game.public) {
       game.start();
-      console.log('Game started', game.id);
+      console.log('public Game started', game.id);
     } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
       if(game.curRound > game.rounds) {
         game.end();
