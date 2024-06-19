@@ -603,7 +603,7 @@ setInterval(() => {
 
 
   const minRoundsRemaining = 2;
-console.log("Number of games", games.size())
+console.log("Number of games", games.size)
   for (const game of games.values()) {
 
     const playerCnt = Object.keys(game.players).length;
