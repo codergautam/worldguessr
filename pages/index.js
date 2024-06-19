@@ -528,8 +528,8 @@ export default function Home() {
               }} />
               <GameBtn text="Multiplayer" onClick={() => {
 
-                alert("Multiplayer is currently disabled for maintenance. Please check back later.");
-                return;
+               // alert("Multiplayer is currently disabled for maintenance. Please check back later.");
+               // return;
 
                 if (!session?.token?.secret && session === null) signIn("google");
                 else if(!session?.token?.secret) return;
