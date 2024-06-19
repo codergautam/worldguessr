@@ -128,7 +128,8 @@ class Game {
       // accountId: player.accountId,
       id: player.id,
       score: 0,
-      host: host && !this.public
+      host: host && !this.public,
+      lastPong: Date.now() // Track the last pong received time
     };
     this.sendAllPlayers({
       type: 'player',
@@ -319,6 +320,7 @@ class Player {
     this.gameId = null;
     this.inQueue = false;
     this.lastMessage = 0;
+    this.lastPong = Date.now(); // Track the last pong received time
   }
   send(json) {
     if(!this.ws) return;
@@ -394,6 +396,9 @@ app.prepare().then(() => {
       const json = JSON.parse(message);
       if (!player.verified && json.type !== 'verify') {
         return;
+      }
+      if (json.type === "pong") {
+        player.lastPong = Date.now();
       }
       if (json.type === 'verify' && !player.verified) {
         // account verification
@@ -700,3 +705,14 @@ setInterval(() => {
     }
   }
 }, 500);
+
+// Check for pong messages and disconnect inactive clients
+setInterval(() => {
+  const currentTime = Date.now();
+  players.forEach((player) => {
+    if (currentTime - player.lastPong > 60000) { // 60 seconds timeout
+      console.log(`Disconnecting inactive player ${player.id}`);
+      player.ws.close(); // Disconnect the player
+    }
+  });
+}, 60000); // Check every 60 seconds

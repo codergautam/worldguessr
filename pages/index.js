@@ -481,6 +481,17 @@ export default function Home() {
 
   const ChatboxMemo = React.useMemo(() => <ChatBox ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={multiplayerChatEnabled} myId={multiplayerState?.gameData?.myId}  inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame])
 
+  // Send pong every 10 seconds if websocket is connected
+  useEffect(() => {
+    const pongInterval = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'pong' }));
+      }
+    }, 10000); // Send pong every 10 seconds
+
+    return () => clearInterval(pongInterval);
+  }, [ws]);
+
   return (
     <>
       <HeadContent />
