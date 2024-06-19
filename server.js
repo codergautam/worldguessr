@@ -715,4 +715,4 @@ setInterval(() => {
       player.ws.close(); // Disconnect the player
     }
   });
-}, 60000); // Check every 60 seconds
+}, 10000); // Check every 10 seconds
