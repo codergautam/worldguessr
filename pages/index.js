@@ -63,6 +63,7 @@ export default function Home() {
   const [infoModal, setInfoModal] = useState(false)
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   const [timeOffset, setTimeOffset] = useState(0)
+  const [loginQueued, setLoginQueued] = useState(false);
 
   useEffect(() => {
     // show welcome modal if not shown (localstorage)
@@ -232,10 +233,8 @@ export default function Home() {
 
       if(data.type === "t") {
         const offset = data.t - Date.now();
-
-        if(Math.abs(offset) > 1000 && Math.abs(offset) < Math.abs(timeOffset)) {
+        if(Math.abs(offset) > 1000 && ((Math.abs(offset) < Math.abs(timeOffset)) || !timeOffset)) {
           setTimeOffset(offset)
-        //  alert(offset)
         }
       }
 
@@ -378,7 +377,7 @@ export default function Home() {
     if(multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
       handleMultiplayerAction("publicDuel");
     }
-  }, [multiplayerState])
+  }, [multiplayerState, timeOffset])
 
 
   // useEffect(() => {
@@ -528,7 +527,7 @@ export default function Home() {
         { process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
         <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         }
-        <Navbar inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+        <Navbar loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
 
           <div className="home__ui">
@@ -537,12 +536,19 @@ export default function Home() {
               <GameBtn text="Singleplayer" onClick={() => {
                 if (!loading) setScreen("singleplayer")
               }} />
-              <GameBtn text="Multiplayer" onClick={() => {
+              <GameBtn text="Multiplayer" style={{
+                backgroundColor: loginQueued==='multiplayer' ? "gray" : "",
+                cursor: loginQueued==='multiplayer' ? "not-allowed" : ""
+              }} onClick={() => {
 
                // alert("Multiplayer is currently disabled for maintenance. Please check back later.");
                // return;
 
-                if (!session?.token?.secret && session === null) signIn("google");
+               if(loginQueued) return;
+                if (!session?.token?.secret && session === null) {
+                  signIn("google");
+                  setLoginQueued('multiplayer')
+                }
                 else if(!session?.token?.secret) return;
                 else setScreen("multiplayer")
               }} />

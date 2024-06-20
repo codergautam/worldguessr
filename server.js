@@ -597,13 +597,13 @@ console.log("Number of games", games.size,"\nNumber of players in queue", player
         type: 'cnt',
         c: players.size
       });
-      player.send({
-        type: 't',
-        t: Date.now()
-      });
     }
+    player.send({
+      type: 't',
+      t: Date.now()
+    });
   }
-}, 10000);
+}, 5000);
 
 // queue handler
 setInterval(() => {

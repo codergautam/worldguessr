@@ -33,14 +33,14 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
 
     const interval = setInterval(() => {
     if(multiplayerState?.inGame && multiplayerState?.gameData?.nextEvtTime) {
-      setTimeToNextMultiplayerEvt(Math.max(0,Math.floor((multiplayerState.gameData.nextEvtTime - Date.now()) / 100)/10) + timeOffset)
+      setTimeToNextMultiplayerEvt(Math.max(0,Math.floor(((multiplayerState.gameData.nextEvtTime - Date.now()) - timeOffset) / 100)/10))
     }
     }, 100)
 
     return () => {
       clearInterval(interval)
     }
-  }, [multiplayerState])
+  }, [multiplayerState, timeOffset])
 
   useEffect(() => {
     if(multiplayerState?.inGame) return;
@@ -192,6 +192,8 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
       <span className={`timer ${(loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end') ? '' : 'shown'}`}>
 
 Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s
+
+timeOffset: {timeOffset/1000}s
 
         </span>
 
