@@ -22,6 +22,7 @@ const loader = new Loader({
       sources: [google.maps.StreetViewSource.OUTDOOR]
     }, (data, status) => {
       if(status === "OK" && data) {
+        console.log(data);
         const latLng = data.location?.latLng;
         if(!latLng) {
           alert("Failed to get location, couldn't find latLng object")
@@ -32,6 +33,16 @@ const loader = new Loader({
           if(country === "Unknown") {
             resolve(null);
           } else {
+
+            // prevent trekkers v1
+            // usually trekkers dont have location.description
+            // however mongolia or south korea official coverage also doesn't have description
+            // check if mongolia (MN) or south korea (KR), if not we can reject based on no description
+
+            if(!["MN", "KR"].includes(country) && !data.location.description) {
+              console.log("No description, rejecting");
+              resolve(null);
+            }
 
         resolve({ lat: latO, long: longO, country });
           }

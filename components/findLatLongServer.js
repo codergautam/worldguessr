@@ -13,8 +13,23 @@ async function hasStreetViewImage(lat, long, radius) {
     }
   });
 
-  const text = await response.text();
+  let text = await response.text();
+
+  // trim everything before [[0],[[1],[2,
+  text = text.substring(text.indexOf("( [["));
+  // trim first 2 characters and last 2 characters
+  text = text.substring(2, text.length-2);
   if(text.includes("Search returned no images")) return false;
+  try {
+    const parsed = JSON.parse(text);
+    const description = parsed[1][3][2][1][0];
+    if(!description) {
+      return false;
+    }
+  } catch(e) {
+    console.log("Failed to parse", e);
+    return false;
+  }
   // extract everything comma separated and keep only numbers (decimal points  and negative signs allowed)
   let parts = text.split(",").map((x) => x.match(/-?\d+(\.\d+)?/g)).filter((x) => x).flat().map((x) => parseFloat(x));
   // only keep those within 1 difference to either lat or long
