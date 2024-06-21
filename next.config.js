@@ -17,27 +17,6 @@ const nextConfig = {
         defaultLocale: 'en',
         locales: ['en','ru','fr','de'],
       },
-    async redirects() {
-        return [
-          {
-            source: '/',
-            has: [
-              {
-                type: 'header',
-                key: 'accept-language',
-                value: '(ru)',
-              },
-            ],
-            destination: '/ru',
-            permanent: false,
-          },
-          {
-            source: '/ru',
-            destination: '/',
-            permanent: false,
-          },
-        ];
-      },
     webpack: (config, { webpack }) => {
         config.plugins.push(
             new CopyWebpackPlugin({
