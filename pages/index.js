@@ -116,6 +116,7 @@ export default function Home() {
          connected: true,
          enteringGameCode: true,
          playerCount: prev.playerCount,
+         guestName: prev.guestName
        }
 
      })
@@ -130,6 +131,7 @@ export default function Home() {
         connected: true,
         creatingGame: true,
         playerCount: prev.playerCount,
+        guestName: prev.guestName
       }
     })
   } else {
@@ -244,10 +246,12 @@ export default function Home() {
           playerCount: data.c
         }))
       } else if (data.type === "verify") {
+        console.log("verified")
         setMultiplayerState((prev) => ({
           ...prev,
           connected: true,
-          connecting: false
+          connecting: false,
+          guestName: data.guestName
         }))
       } else if (data.type === "error") {
         setMultiplayerState((prev) => ({
@@ -295,7 +299,7 @@ export default function Home() {
             enteringGameCode: false,
             creatingGame: false,
             joinOptions: initialMultiplayerState.joinOptions,
-            createOptions: initialMultiplayerState.createOptions
+            createOptions: initialMultiplayerState.createOptions,
           }
         })
 
@@ -341,7 +345,9 @@ export default function Home() {
           return {
             ...initialMultiplayerState,
             connected: true,
-            nextGameQueued: prev.nextGameQueued
+            nextGameQueued: prev.nextGameQueued,
+            playerCount: prev.playerCount,
+        guestName: prev.guestName
           }
         });
       } else if(data.type === "gameJoinError" && multiplayerState.enteringGameCode) {
@@ -424,7 +430,8 @@ export default function Home() {
           return {
           ...initialMultiplayerState,
           connected: true,
-        playerCount: prev.playerCount
+        playerCount: prev.playerCount,
+        guestName: prev.guestName
 
         }
       })
@@ -546,8 +553,7 @@ export default function Home() {
 
                if(loginQueued) return;
                 if (!session?.token?.secret && session === null) {
-                  signIn("google");
-                  setLoginQueued('multiplayer')
+                  setScreen("multiplayer")
                 }
                 else if(!session?.token?.secret) return;
                 else setScreen("multiplayer")

@@ -13,7 +13,7 @@ export default async function handler(req, res) {
 
   } else {
     // Not Signed in
-    res.status(401)
+    res.status(200).json({ jwt: 'not_logged_in' })
   }
   res.end()
 }

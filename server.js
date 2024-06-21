@@ -322,6 +322,7 @@ class Player {
     this.inQueue = false;
     this.lastMessage = 0;
     this.lastPong = Date.now(); // Track the last pong received time
+    this.verified = false;
   }
   send(json) {
     if(!this.ws) return;
@@ -403,6 +404,23 @@ app.prepare().then(() => {
       }
       if (json.type === 'verify' && !player.verified) {
         // account verification
+        if(!json.jwt || json.jwt === 'not_logged_in') {
+
+          // guest mode
+          player.username = 'Guest #' + make6DigitCode().toString().substring(0, 4);
+          player.verified = true;
+
+          player.send({
+            type: 'verify',
+            guestName: player.username
+          });
+          player.send({
+            type: 'cnt',
+            c: players.size
+          })
+          console.log('Guest joined', id, player.username);
+
+        } else {
         const valid = await validateJWT(json.jwt, User, decrypt);
         if (valid) {
           // make sure the user is not already logged in (only on prod)
@@ -438,6 +456,7 @@ app.prepare().then(() => {
           console.log('Failed to verify user', id);
           player.ws.close();
         }
+      }
       }
 
       if (json.type === 'publicDuel' && !player.gameId) {

@@ -36,6 +36,14 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
     <div className="multiplayerHome">
       { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && !multiplayerState.enteringGameCode && !multiplayerState.creatingGame && (
       <div style={{ pointerEvents: 'all' }}>
+        {
+          multiplayerState?.guestName && (
+            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+              <h1>Playing as {multiplayerState.guestName}</h1>
+            </div>
+          )
+        }
+
         <h1>Play Online</h1>
         <button className="gameBtn multiplayerOptionBtn publicGame" onClick={() => handleAction("publicDuel")}>Find a Duel</button>
         <br />

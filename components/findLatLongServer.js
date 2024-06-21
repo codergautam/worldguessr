@@ -27,7 +27,6 @@ async function hasStreetViewImage(lat, long, radius) {
       return false;
     }
   } catch(e) {
-    console.log("Failed to parse", e);
     return false;
   }
   // extract everything comma separated and keep only numbers (decimal points  and negative signs allowed)
