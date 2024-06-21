@@ -285,6 +285,7 @@ class Game {
     for (let i = 0; i < this.rounds; i++) {
       const loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
       this.locations.push(loc);
+      console.log('Generated', this.locations.length,'/',this.rounds, 'for game',this.id);
     }
   }
   sendAllPlayers(json) {
@@ -413,6 +414,7 @@ app.prepare().then(() => {
                   message: 'User already connected'
                 });
                 player.ws.close();
+                console.log('User already connected', id, valid.username);
                 return;
               }
             }
@@ -427,16 +429,19 @@ app.prepare().then(() => {
             type: 'cnt',
             c: players.size
           })
+          console.log('User verified', id, valid.username);
         } else {
           player.send({
             type: 'error',
             message: 'Failed to login'
           });
+          console.log('Failed to verify user', id);
           player.ws.close();
         }
       }
 
       if (json.type === 'publicDuel' && !player.gameId) {
+        console.log('Public duel requested', id, player.username);
         player.inQueue = true;
         playersInQueue.add(player.id);
       }
@@ -476,11 +481,13 @@ app.prepare().then(() => {
       }
 
       if(json.type=== 'leaveGame' && player.gameId && games.has(player.gameId)) {
+        console.log('Player left game', player.id, player.gameId, player.username);
         const game = games.get(player.gameId);
         game.removePlayer(player);
       }
 
       if(json.type === 'createPrivateGame' && !player.gameId) {
+        console.log('Private game requested', id, player.username);
         const gameId = makeId();
         // options
         const {rounds, timePerRound, locations, maxDist} = json;
@@ -530,9 +537,11 @@ app.prepare().then(() => {
         games.set(gameId, game);
 
         game.addPlayer(player, true);
+        console.log('Private game created', gameId, player.username);
       }
 
       if(json.type === 'joinPrivateGame' && !player.gameId) {
+        console.log('Join private game requested', id, player.username);
         let code = json.gameCode;
 
         // find game by code
@@ -543,10 +552,12 @@ app.prepare().then(() => {
                 type: 'gameJoinError',
                 error: 'Game is full'
               });
+              console.log('Game is full', game.id);
               return;
             }
 
             game.addPlayer(player);
+            console.log('Player added to private game', game.id, player.username);
             return;
           }
         }
@@ -555,11 +566,14 @@ app.prepare().then(() => {
           type: 'gameJoinError',
           error: 'Invalid game code'
         });
+        console.log('Invalid game code', code);
       }
 
       if(json.type === 'startGameHost' && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
         if(game.players[player.id].host) {
+
+          console.log('Host started game', game.id);
 
           game.start();
         }
@@ -643,12 +657,14 @@ setInterval(() => {
 
 
       } else {
+        console.log('Game ended', game.id);
         // game over
         game.end()
       }
     }
 
     if(game.state === 'end' && Date.now() > game.nextEvtTime) {
+      console.log('Game shutdown', game.id);
       // remove game
       game.shutdown()
     }
@@ -668,7 +684,9 @@ setInterval(() => {
       continue;
     }
 
+
     let playersCanJoin = game.maxPlayers - playerCnt;
+    console.log('Players can join', playersCanJoin, 'for game', game.id);
     for (const playerId of playersInQueue) {
       const player = players.get(playerId);
       if (player.gameId) {
@@ -677,6 +695,7 @@ setInterval(() => {
       if (playersCanJoin < 1) {
         break;
       }
+      console.log('Player added to game', player.id, 'gameid', game.id);
       game.addPlayer(player);
       playersInQueue.delete(playerId);
       playersCanJoin--;
@@ -686,6 +705,7 @@ setInterval(() => {
 
   if (playersInQueue.size > 1) {
     // create a new public game
+    console.log('Creating new public game');
     const gameId = makeId();
     const game = new Game(gameId, true);
     games.set(gameId, game);
@@ -700,6 +720,7 @@ setInterval(() => {
         break;
       }
       game.addPlayer(player);
+      console.log('Player added to new public game', player.id);
       playersInQueue.delete(playerId);
       playersCanJoin--;
     }
