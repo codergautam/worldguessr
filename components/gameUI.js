@@ -9,6 +9,7 @@ import findCountry from "./findCountry";
 import ChatBox from "./chatBox";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
+import { FaExpand, FaMinimize, FaThumbtack } from "react-icons/fa6";
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
@@ -21,10 +22,11 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
 
   const [miniMapShown, setMiniMapShown] = useState(false)
   const [miniMapExpanded, setMiniMapExpanded] = useState(false)
+  const [miniMapFullscreen, setMiniMapFullscreen] = useState(false)
   const [roundStartTime, setRoundStartTime] = useState(null);
   const [lostCountryStreak, setLostCountryStreak] = useState(0);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
-
+  const [mapPinned, setMapPinned] = useState(false);
   // dist between guess & target
   const [km, setKm] = useState(null);
 
@@ -148,14 +150,34 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
 
       {(!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (
         <>
+
+
       <div id="miniMapArea" onMouseEnter={() => {
         setMiniMapExpanded(true)
       }} onMouseLeave={() => {
+        if(mapPinned) return;
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded ? 'mapFullscreen' : ''} ${miniMapShown ? 'shown' : ''} ${showAnswer ? 'answerShown' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${miniMapShown ? 'shown' : ''} ${showAnswer ? 'answerShown' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 
-
+<div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
+          <button className="cornerBtn" onClick={() => {
+            setMiniMapFullscreen(!miniMapFullscreen)
+            if(!miniMapFullscreen) {
+              setMiniMapExpanded(true)
+            }
+          }}>{miniMapFullscreen  ? (
+            <FaMinimize />
+          ) : (
+            <FaExpand />
+          )}</button>
+          <button className="cornerBtn" onClick={() => {
+            setMapPinned(!mapPinned)
+          }}>
+            <FaThumbtack style={{ transform: mapPinned ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+          </button>
+        </div>
         {latLong && !loading && <MapWidget ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} />}
+
 
         <div className={`miniMap__btns ${showAnswer ? 'answerShownBtns' : ''}`}>
           <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>

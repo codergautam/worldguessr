@@ -483,11 +483,10 @@ h1, h2, h3 {
 // }
 
 
-
 #miniMapArea {
-  width: 30%;
+  width: 25%;
   transition: all 200ms ease;
-  height: 30%;
+  height: 35%;
   max-height: 100%;
   z-index: 10;
   border-radius: 10px;
@@ -521,6 +520,10 @@ h1, h2, h3 {
   height: 100%;
   border-radius: 10px;
   background-color: #B9D3DC;
+}
+
+.mapCornerBtns {
+  position: relative;
 }
 
 
@@ -607,6 +610,12 @@ screen and (pointer:coarse) {
 .guessBtn {
   background-color: #112966;
 }
+.cornerBtn {
+  font-size: 1.5em;
+  background-color: #1ea0ac;
+  color: white;
+  border-radius: 10px;
+}
 .hintBtn {
   width: 20%;
   background-color: #0d4c1e;
@@ -646,11 +655,17 @@ screen and (pointer:coarse) {
 
 
 @media screen and (min-width: 600px) {
-  #miniMapArea.mapFullscreen {
+  #miniMapArea.mapExpanded {
     /* full screen center not 100% */
     transition: all 250ms ease;
     height: 50%;
-    width: 45%;
+    width: 40%;
+  }
+
+  #miniMapArea.fullscreen {
+    transition: all 250ms ease;
+    height: 80%;
+    width: 65%;
   }
 }
 
@@ -686,9 +701,13 @@ screen and (pointer:coarse) {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-around;
-  padding: 20px;
+  // padding: 20px;
   overflow-y: scroll;
   max-height: 50vh;
+
+  // green scrollbar
+  scrollbar-color: #96c6a3 #414c48;
+  scrollbar-width: thin;
 }
 
 .countryCard {
@@ -969,16 +988,6 @@ screen and (pointer:coarse) {
   margin: 10px 0;
 }
 
-@media screen and (max-width: 600px) {
-  .desktop {
-    display: none;
-  }
-  .mobile {
-    display: block;
-  }
-}
-
-
 @media screen and (min-width: 600px) {
   .desktop {
     display: block;
@@ -987,6 +996,17 @@ screen and (pointer:coarse) {
     display: none;
   }
 }
+
+@media screen and (max-width: 600px),
+screen and (pointer:coarse)  {
+  .desktop {
+    display: none;
+  }
+  .mobile {
+    display: block;
+  }
+}
+
 
 .gameCodeInput {
   background-color: white;
