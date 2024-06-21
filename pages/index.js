@@ -410,6 +410,15 @@ export default function Home() {
     }
   }, [])
 
+  function reloadBtnPressed() {
+    setLatLong(null)
+          setLoading(true)
+          setTimeout(() => {
+            setLatLong(latLong)
+            setLoading(false)
+            setStreetViewShown(true)
+          }, 100);
+  }
   function backBtnPressed(queueNextGame = false) {
     if (loading) setLoading(false);
       if(multiplayerState?.inGame) {
@@ -475,12 +484,7 @@ export default function Home() {
       }
       if(!multiplayerState?.inGame) loadLocation()
         else if(multiplayerState?.gameData?.state === "guess") {
-          setLatLong(null)
-          setLoading(true)
-          setTimeout(() => {
-            setLatLong(latLong)
-            setLoading(false)
-          }, 100);
+
         }
     }
   }
@@ -534,7 +538,7 @@ export default function Home() {
         { process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
         <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         }
-        <Navbar loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+        <Navbar loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
 
           <div className="home__ui">

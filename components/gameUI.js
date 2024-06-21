@@ -159,6 +159,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
         setMiniMapExpanded(false)
       }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${miniMapShown ? 'shown' : ''} ${showAnswer ? 'answerShown' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 
+{!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
           <button className="cornerBtn" onClick={() => {
             setMiniMapFullscreen(!miniMapFullscreen)
@@ -176,6 +177,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
             <FaThumbtack style={{ transform: mapPinned ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
           </button>
         </div>
+)}
         {latLong && !loading && <MapWidget ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} />}
 
 

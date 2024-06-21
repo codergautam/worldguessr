@@ -1,9 +1,9 @@
 import { FaArrowLeft, FaUser } from "react-icons/fa";
 import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
-import { FaXmark } from "react-icons/fa6";
+import { FaArrowRotateRight } from "react-icons/fa6";
 
-export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed, setGameOptionsModalShown, onNavbarPress, gameOptions, session, screen, multiplayerState }) {
+export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, gameOptions, session, screen, multiplayerState }) {
   return (
     <>
     { true && (
@@ -13,6 +13,10 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
 
       <button className="gameBtn navBtn backBtn desktop" onClick={backBtnPressed}>Back</button>
       <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed} style={{width: "50px"}}><FaArrowLeft /></button>
+
+      {multiplayerState?.inGame || screen === 'singleplayer' && (
+      <button className="gameBtn navBtn backBtn" style={{backgroundColor: '#000099'}} onClick={reloadBtnPressed}><FaArrowRotateRight /></button>
+      )}
 
 
       {screen === 'multiplayer' && multiplayerState?.playerCount && !multiplayerState?.inGame && (
