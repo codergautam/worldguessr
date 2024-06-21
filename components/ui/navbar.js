@@ -17,7 +17,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
       <button className="gameBtn navBtn backBtn desktop" onClick={backBtnPressed}>{text("back")}</button>
       <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed} style={{width: "50px"}}><FaArrowLeft /></button>
 
-      {multiplayerState?.inGame || screen === 'singleplayer' && (
+      {((multiplayerState?.inGame) || (screen === 'singleplayer')) && (
       <button className="gameBtn navBtn backBtn" style={{backgroundColor: '#000099'}} onClick={reloadBtnPressed}><FaArrowRotateRight /></button>
       )}
 
