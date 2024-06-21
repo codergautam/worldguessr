@@ -2,8 +2,11 @@ import { FaArrowLeft, FaUser } from "react-icons/fa";
 import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
 import { FaArrowRotateRight } from "react-icons/fa6";
+import { useTranslation } from 'next-i18next'
 
 export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, gameOptions, session, screen, multiplayerState }) {
+  const { t: text } = useTranslation("common");
+
   return (
     <>
     { true && (
@@ -11,7 +14,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
       <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
       <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
 
-      <button className="gameBtn navBtn backBtn desktop" onClick={backBtnPressed}>Back</button>
+      <button className="gameBtn navBtn backBtn desktop" onClick={backBtnPressed}>{text("back")}</button>
       <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed} style={{width: "50px"}}><FaArrowLeft /></button>
 
       {multiplayerState?.inGame || screen === 'singleplayer' && (
@@ -21,7 +24,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
 
       {screen === 'multiplayer' && multiplayerState?.playerCount && !multiplayerState?.inGame && (
         <h1 className="desktop">
-          🟢 {multiplayerState.playerCount} online
+          {text("online", {cnt:multiplayerState.playerCount})}
         </h1>
       )}
 
@@ -35,7 +38,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
         )}
       <div className="navbar__right">
         { screen === 'singleplayer' && (
-        <button className="gameBtn navBtn" onClick={()=>setGameOptionsModalShown(true)}>{((gameOptions.location === "all")|| !gameOptions.location)? "All Countries" : nameFromCode(gameOptions.location)}</button>
+        <button className="gameBtn navBtn" onClick={()=>setGameOptionsModalShown(true)}>{((gameOptions.location === "all")|| !gameOptions.location)? text("allCountries") : nameFromCode(gameOptions.location)}</button>
         )}
         <AccountBtn session={session} navbarMode={true} openAccountModal={openAccountModal} />
         </div>

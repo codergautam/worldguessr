@@ -1,4 +1,8 @@
+import { useTranslation } from 'next-i18next'
+
 export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost }) {
+  const { t: text } = useTranslation("common");
+
   const N = 5; // Number of top players to show
 
   const players = (multiplayerState?.gameData?.finalPlayers ?? multiplayerState?.gameData?.players).sort((a, b) => b.score - a.score);
@@ -12,14 +16,14 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
   return (
     <div className="multiplayerLeaderboard">
       <h1>
-        {gameOver?"Game Over":waitingForStart?host?"Your Private Game":"Private Game":"Leaderboard"}
-        {waitingForStart && <span style={{color: "white"}}> ({multiplayerState.gameData?.rounds} Rounds)</span>}
+        {gameOver?text("gameOver"):waitingForStart?host?text("yourPrivateGame"):text("privateGame"):text("leaderboard")}
+        {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})})</span>}
       </h1>
 
       { waitingForStart && (
 
         <>
-        <h2 style={{color: "orange"}}>Game Code: {multiplayerState.gameData?.code}</h2>
+        <h2 style={{color: "orange", pointerEvents: "all"}}>{text("gameCode")}: {multiplayerState.gameData?.code}</h2>
         </>
       )}
 
@@ -31,7 +35,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
               <div className="multiplayerLeaderboard__player__username">
 
                 {player.username}
-                {player.host && <span style={{color: "red"}}> (Host)</span>}
+                {player.host && <span style={{color: "red"}}> ({text("host")})</span>}
 
               </div>
 
@@ -62,9 +66,9 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
           <div className="multiplayerFinalBtns">
 
           { multiplayerState.gameData?.public && (
-            <button className="gameBtn" onClick={playAgain}>Play Again</button>
+            <button className="gameBtn" onClick={playAgain}>{text("playAgain")}</button>
           )}
-            <button className="gameBtn" onClick={backBtn}>Back</button>
+            <button className="gameBtn" onClick={backBtn}>{text("back")}</button>
             </div>
 
         )
@@ -73,15 +77,14 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
       { waitingForStart && host && (
         <div className="multiplayerFinalBtns">
           { players.length < 2 ?
-          <p style={{color: "red"}}>1 more player needed to start</p>
-        : <button className="gameBtn" onClick={() => startGameHost()}>Start Game</button> }
+          <p style={{color: "red"}}>{text("singlePlayerNeeded")}</p>
+        : <button className="gameBtn" onClick={() => startGameHost()}>{text("startGame")}</button> }
 
         </div>
       )}
 
 { waitingForStart && !host && (
-          <p style={{color: "red"}}>Waiting for host to start the game...</p>
-
+          <p style={{color: "red"}}>{text("waitingForHostToStart")}...</p>
       )}
     </div>
   );

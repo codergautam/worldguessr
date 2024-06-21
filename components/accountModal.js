@@ -2,8 +2,10 @@ import { Modal } from "react-responsive-modal";
 import { useEffect, useState } from "react";
 import AccountView from "./accountView";
 import { signOut } from "next-auth/react";
+import { useTranslation } from 'next-i18next'
 
 export default function AccountModal({ session, shown, setAccountModalOpen }) {
+  const { t: text } = useTranslation("common");
 
     const [accountData, setAccountData] = useState({});
     useEffect(() => {
@@ -53,7 +55,9 @@ export default function AccountModal({ session, shown, setAccountModalOpen }) {
                 fontSize: '16px',
                 fontWeight: 'bold',
                 marginTop: '20px'
-            }}>Log out</button>
+            }}>
+              {text("logOut")}
+            </button>
 
         </Modal>
     )

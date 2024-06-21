@@ -3,6 +3,8 @@ import 'react-chatbot-kit/build/main.css'
 import { createChatBotMessage } from 'react-chatbot-kit';
 import React, { useEffect } from 'react';
 import { FaXmark } from 'react-icons/fa6';
+import { useTranslation } from 'next-i18next'
+
 const config = {
   initialMessages: [],
   customMessages: {
@@ -100,11 +102,12 @@ const MessageParser = ({ children, actions }) => {
 };
 
 export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame }) {
+  const { t: text } = useTranslation("common");
 
   return (
     <div className={`chatboxParent ${enabled ? 'enabled' : ''}`}>
       <button style={{fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer'}} onClick={onToggle}>
-        { open ? <FaXmark onClick={onToggle} /> : 'Chat' }
+        { open ? <FaXmark onClick={onToggle} /> : text("chat") }
       </button>
       <div className={`chatbox ${open ? 'open' : ''}`}>
       <Chatbot

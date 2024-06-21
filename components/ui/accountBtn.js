@@ -1,7 +1,10 @@
 import { signIn } from "next-auth/react";
 import { FaGoogle } from "react-icons/fa";
+import { useTranslation } from 'next-i18next'
 
 export default function AccountBtn({ session, openAccountModal, navbarMode }) {
+  const { t: text } = useTranslation("common");
+
   return (
     <>
     {!session || !session?.token?.secret ? (
@@ -10,7 +13,7 @@ export default function AccountBtn({ session, openAccountModal, navbarMode }) {
         { !session?.token?.secret && session !== null ? '...' :
         (
           <>
-          Login
+          {text("login")}
         <FaGoogle className="home__squarebtnicon" />
           </>
         )}

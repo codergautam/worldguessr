@@ -1,8 +1,10 @@
 import {Modal} from "react-responsive-modal";
 import { useState } from "react";
+import { useTranslation } from 'next-i18next'
 
 export default function SetUsernameModal({ shown, onClose, session }) {
     const [username, setUsername] = useState("");
+    const { t: text } = useTranslation("common");
 
     const handleSave = async () => {
         const secret = session.token.secret;
@@ -46,15 +48,15 @@ export default function SetUsernameModal({ shown, onClose, session }) {
                 marginBottom: '20px',
                 fontSize: '24px',
                 fontWeight: 'bold'
-            }}>Welcome to WorldGuessr!</h1>
+            }}>{text("welcomeToWorldguessr")}</h1>
             <h3 style={{
                 marginBottom: '20px',
                 fontSize: '18px'
-            }}>Please enter a username to continue</h3>
+            }}>{text("enterUsername")}</h3>
 
             <input
                 type="text"
-                placeholder="Enter username"
+                placeholder={text("enterUsernameBox")}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 style={{
@@ -76,7 +78,7 @@ export default function SetUsernameModal({ shown, onClose, session }) {
                 padding: '10px 20px',
                 cursor: 'pointer'
             }} onClick={handleSave}>
-                Save
+                {text("save")}
             </button>
         </Modal>
     )

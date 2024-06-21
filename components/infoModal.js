@@ -1,7 +1,10 @@
 import {Modal} from "react-responsive-modal";
+import { useTranslation } from 'next-i18next'
 
 export default function InfoModal({ shown, onClose }) {
-  return (
+    const { t: text } = useTranslation("common");
+
+    return (
     <Modal id="infoModal" styles={{
       modal: {
           zIndex: 100,
@@ -19,25 +22,25 @@ export default function InfoModal({ shown, onClose }) {
           marginBottom: '20px',
           fontSize: '24px',
           fontWeight: 'bold'
-      }}>How to Play</h1>
+      }}>{text("howToPlay")}</h1>
 
       <p style={{
           fontSize: '16px',
           marginBottom: '10px'
       }}>
-          🧐 Explore your surroundings, and try to guess where in the World you are
+          🧐 {text("info1")}
       </p>
       <p style={{
           fontSize: '16px',
           marginBottom: '10px'
       }}>
-          🗺️ Use the map to place your guess, and check your accuracy
+          🗺️ {text("info2")}
       </p>
       <p style={{
           fontSize: '16px',
           marginBottom: '20px'
       }}>
-          🎓 Learn geography through play, and have fun!
+          🎓 {text("info3")}
       </p>
 
       <button className="toggleMap" style={{
@@ -52,7 +55,7 @@ export default function InfoModal({ shown, onClose }) {
       }} onClick={() => {
           onClose();
       }}>
-          Close
+          {text("close")}
       </button>
   </Modal>
   )

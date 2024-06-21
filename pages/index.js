@@ -21,6 +21,9 @@ import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
 import InfoModal from "@/components/infoModal";
 import WelcomeModal from "@/components/welcomeModal";
+// import text from "@/languages/lang";
+import { useTranslation } from 'next-i18next'
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 // import Image from "next/image";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -45,7 +48,7 @@ const initialMultiplayerState = {
   }
 }
 
-export default function Home() {
+export default function Home({ locale }) {
   const { data: session, status } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
@@ -81,6 +84,8 @@ export default function Home() {
   );
   const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
   const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
+
+  const { t: text } = useTranslation("common");
 
   function handleMultiplayerAction(action, ...args) {
     if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
@@ -524,8 +529,8 @@ export default function Home() {
 
       <main className={`home ${jockey.className}`} id="main">
 
-        <BannerText text="Loading..." shown={loading && !(multiplayerState.error || multiplayerState.connecting)} />
-        <BannerText text="Connecting..." shown={multiplayerState.connecting && !multiplayerState.error} />
+        <BannerText text={`${text("loading")}...`} shown={loading && !(multiplayerState.error || multiplayerState.connecting)} />
+        <BannerText text={`${text("connecting")}...`} shown={multiplayerState.connecting && !multiplayerState.error} />
 
         <div style={{ display: 'flex', alignItems: 'center', opacity: (screen !== "singleplayer") ? 1 : 0 }} className="accountBtnContainer">
           <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
@@ -544,10 +549,10 @@ export default function Home() {
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
             <div className="home__btns">
-              <GameBtn text="Singleplayer" onClick={() => {
+              <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
               }} />
-              <GameBtn text="Multiplayer" style={{
+              <GameBtn text={text("multiplayer")} style={{
                 backgroundColor: loginQueued==='multiplayer' ? "gray" : "",
                 cursor: loginQueued==='multiplayer' ? "not-allowed" : ""
               }} onClick={() => {
@@ -590,4 +595,15 @@ export default function Home() {
       </main>
     </>
   )
+}
+
+export async function getStaticProps({ locale }) {
+  return {
+    props: {
+      ...(await serverSideTranslations(locale, [
+        'common',
+      ])),
+      // Will be passed to the page component as props
+    },
+  }
 }

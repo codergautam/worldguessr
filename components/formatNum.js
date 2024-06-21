@@ -1,3 +1,5 @@
+// import text from "@/languages/lang";
+
 export default function formatTime(seconds) {
   // seconds -> 1 minutes 30 seconds
   // if seconds is 90, return 1 minute 30 seconds
@@ -8,5 +10,6 @@ export default function formatTime(seconds) {
 
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
+  // return `${minutes > 0 ? `${minutes} ${minutes > 1 ? text("minutePlural") : text("minuteSingular")}` : ''} ${remainingSeconds > 0 ? `${remainingSeconds} ${remainingSeconds > 1 ? text("secondPlural") : text("secondSingular")}` : ''}`;
   return `${minutes > 0 ? `${minutes} minute${minutes > 1 ? 's' : ''}` : ''} ${remainingSeconds > 0 ? `${remainingSeconds} second${remainingSeconds > 1 ? 's' : ''}` : ''}`;
 }

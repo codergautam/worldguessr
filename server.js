@@ -51,6 +51,9 @@ if (!process.env.MONGODB) {
   }
 }
 
+if(!process.env.I18NEXT_DEFAULT_CONFIG_PATH) {
+  throw new Error("I18NEXT_DEFAULT_CONFIG_PATH env variable not set, please set it to the path of the i18next config file");
+}
 if (!process.env.NEXTAUTH_SECRET) {
   console.log("[MISSING-ENV WARN] NEXTAUTH_SECRET env variable not set, please set it to a random string otherwise multi-player will not work".yellow);
   multiplayerEnabled = false;
