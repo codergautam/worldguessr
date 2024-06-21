@@ -9,7 +9,7 @@ export default function EndBanner({ xpEarned, lostCountryStreak, session, guesse
   return (
     <div id='endBanner' style={{ display: guessed ? '' : 'none' }}>
   <div className="bannerContent">
-    { pinPoint && km ? (
+    { pinPoint && (km >= 0) ? (
     <h1 className='mainBannerTxt'>
       {/* Your guess was {km} km away! */}
 

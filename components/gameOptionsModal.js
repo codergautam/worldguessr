@@ -3,7 +3,7 @@ import {Modal} from "react-responsive-modal";
 import nameFromCode from "./utils/nameFromCode";
 import { useTranslation } from 'next-i18next'
 
-export default function GameOptions({ shown, onClose, gameOptions, setGameOptions }) {
+export default function GameOptions({ shown, onClose, gameOptions, setGameOptions, singleplayer }) {
     const { t: text } = useTranslation("common");
 
     const [countries, setCountries] = useState({});
@@ -28,7 +28,21 @@ export default function GameOptions({ shown, onClose, gameOptions, setGameOption
       }
   }} open={shown} center onClose={onClose}>
 
+
 <div className="countriesContainer">
+{singleplayer && (
+        <div>
+            <span>{text('nmpz')} (NMPZ)</span>
+            <input type="checkbox" checked={gameOptions.npnz} onChange={(e) => {
+                setGameOptions({
+                    ...gameOptions,
+                    nmpz: e.target.checked
+                })
+            }
+            } />
+        </div>
+    )}
+
     <div className="countryCard countryCardHeader" onClick={() => {
         setGameOptions({
             ...gameOptions,

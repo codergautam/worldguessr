@@ -76,5 +76,6 @@
   "waitingForPlayers": "Warten auf {{p}} Spieler",
   "allTime": "Gesamtzeit",
   "pastDay": "Letzter Tag",
-  "exit": "Beenden"
+  "exit": "Beenden",
+  "nmpz": "Kein Bewegen, Schwenken oder Zoomen"
 }

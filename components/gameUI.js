@@ -92,7 +92,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
   }
   useEffect(() => {
     loadLocation()
-  }, [gameOptions])
+  }, [gameOptions?.location])
   function guess() {
     setShowAnswer(true)
 
@@ -146,7 +146,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
   return (
     <div className="gameUI">
       { latLong && multiplayerState?.gameData?.state !== 'end' && (
-      <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
+      <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' onLoad={() => {
 
       }}></iframe>
       )}
@@ -242,7 +242,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
           }} />
         )}
 
-      <GameOptions shown={gameOptionsModalShown} onClose={() => {
+      <GameOptions singleplayer={!multiplayerState?.inGame} shown={gameOptionsModalShown} onClose={() => {
         setGameOptionsModalShown(false)
       }} gameOptions={gameOptions} setGameOptions={setGameOptions} />
 

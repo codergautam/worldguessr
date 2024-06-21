@@ -76,5 +76,6 @@
   "waitingForPlayers": "Waiting for {{p}} players",
   "allTime": "All-time",
   "pastDay": "Past day",
-  "exit": "Exit"
+  "exit": "Exit",
+  "nmpz": "No moving,panning or zooming"
 }

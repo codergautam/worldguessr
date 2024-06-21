@@ -76,5 +76,6 @@
   "waitingForPlayers": "En attente de {{p}} joueurs",
   "allTime": "Tout le temps",
   "pastDay": "Dernier jour",
-  "exit": "Quitter"
+  "exit": "Quitter",
+  "nmpz": "Pas de déplacement, de panoramique ou de zoom"
 }

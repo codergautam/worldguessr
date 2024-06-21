@@ -725,6 +725,10 @@ screen and (pointer:coarse) {
   cursor: pointer;
 }
 
+.nmpz {
+  pointer-events: none;
+}
+
 .countryCardHeader {
   width: 100%;
   flex: 1 0 75%;
