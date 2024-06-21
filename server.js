@@ -719,8 +719,14 @@ setInterval(() => {
 
     let playersCanJoin = game.maxPlayers - playerCnt;
     console.log('Players can join', playersCanJoin, 'for game', game.id);
+    console.log(playersInQueue, playersInQueue.size);
     for (const playerId of playersInQueue) {
       const player = players.get(playerId);
+      if(!player) {
+        console.log('Player not found', playerId, 'in queue');
+        playersInQueue.delete(playerId);
+        continue;
+      }
       if (player.gameId) {
         continue;
       }
