@@ -1,6 +1,9 @@
 import msToTime from "./msToTime";
+import { useTranslation } from 'next-i18next'
 
 export default function AccountView({ accountData }) {
+  const { t: text } = useTranslation("common");
+
   const containerStyle = {
     display: 'flex',
     flexDirection: 'column',
@@ -39,7 +42,8 @@ export default function AccountView({ accountData }) {
       </h1>
       <p style={textStyle}>
         <i className="fas fa-clock" style={iconStyle}></i>
-        Joined {msToTime(Date.now() - new Date(accountData.createdAt).getTime())} ago
+        {/* Joined {msToTime(Date.now() - new Date(accountData.createdAt).getTime())} ago */}
+        {text("joined", {t: msToTime(Date.now() - new Date(accountData.createdAt).getTime())})}
       </p>
       <p style={textStyle}>
         <i className="fas fa-star" style={iconStyle}></i>
@@ -47,7 +51,8 @@ export default function AccountView({ accountData }) {
       </p>
       <p style={textStyle}>
         <i className="fas fa-gamepad" style={iconStyle}></i>
-        Games played: {accountData.gamesLen}
+        {/* Games played: {accountData.gamesLen} */}
+        {text("gamesPlayed", {games:accountData.gamesLen})}
       </p>
     </div>
   );

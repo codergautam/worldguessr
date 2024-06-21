@@ -6,11 +6,17 @@ import path from 'path';
 import CopyWebpackPlugin from 'copy-webpack-plugin';
 import process from 'process';
 const pathBuilder = (subpath) => path.join(process.cwd(), subpath);
+// const { i18n } = require('./next-i18next.config')
+// import i18n from './next-i18next.config.js';
 
 const __dirname = path.resolve();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    i18n: {
+        defaultLocale: 'en',
+        locales: ['en','ru','fr','de'],
+      },
     webpack: (config, { webpack }) => {
         config.plugins.push(
             new CopyWebpackPlugin({

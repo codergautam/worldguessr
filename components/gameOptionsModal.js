@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import {Modal} from "react-responsive-modal";
 import nameFromCode from "./utils/nameFromCode";
+import { useTranslation } from 'next-i18next'
 
 export default function GameOptions({ shown, onClose, gameOptions, setGameOptions }) {
+    const { t: text } = useTranslation("common");
 
     const [countries, setCountries] = useState({});
 
@@ -35,7 +37,7 @@ export default function GameOptions({ shown, onClose, gameOptions, setGameOption
         })
         onClose();
     }}>
-        <h3 className="countryName">All Countries</h3>
+        <h3 className="countryName">{text("allCountries")}</h3>
     </div>
 {Object.keys(countries).sort((b,a)=>countries[a]-countries[b]).map(country => {
     return (

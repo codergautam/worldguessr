@@ -4,7 +4,9 @@ import { SessionProvider } from "next-auth/react";
 
 import { GoogleAnalytics } from "nextjs-google-analytics";
 import { useEffect } from "react";
-export default function App({ Component, pageProps }) {
+import { appWithTranslation } from 'next-i18next'
+
+function App({ Component, pageProps }) {
   useEffect(() => {
     console.log("App mounted - build 2");
   });
@@ -17,3 +19,5 @@ export default function App({ Component, pageProps }) {
     </>
   );
 }
+
+export default appWithTranslation(App);

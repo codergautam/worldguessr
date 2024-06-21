@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useSession } from 'next-auth/react';
+import { useTranslation } from 'next-i18next'
 
 const Leaderboard = ({ }) => {
+  const { t: text } = useTranslation("common");
+
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [pastDay, setPastDay] = useState(false);
   const { data: session, status } = useSession();
@@ -29,7 +32,7 @@ const Leaderboard = ({ }) => {
   return (
     <div>
       <Head>
-        <title>Leaderboard</title>
+        <title>{text("leaderboard")}</title>
         <style>
           {`
           * {
@@ -278,18 +281,20 @@ const Leaderboard = ({ }) => {
       </Head>
       <main className="main">
         <div className="header" id="header">
-          <h1>Leaderboard</h1>
+          <h1>{text("leaderboard")}</h1>
 
 
 
           <button className={`share ${!pastDay ? 'gold' : 'gray'}`} onClick={() => setPastDay(false)}>
-            All-time
+            {text("allTime")}
           </button>
           <button className={`share ${pastDay ? 'gold' : 'gray'}`} onClick={() => setPastDay(true)}>
-            Past Day
+          {text("pastDay")}
+
           </button>
           <button className="share" onClick={() => window.location.replace('/')}>
-            <b>Back</b>
+            <b>{text("back")}
+            </b>
           </button>
         </div>
         <div className="leaderboard" id="leaderboard">
@@ -324,7 +329,7 @@ const Leaderboard = ({ }) => {
           </table>
           <div id="buttons">
             <button className="exit" onClick={() => window.location.replace('/')}>
-              Exit
+            {text("exit")}
             </button>
           </div>
         </div>
@@ -334,3 +339,16 @@ const Leaderboard = ({ }) => {
 };
 
 export default Leaderboard;
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+
+
+export async function getStaticProps({ locale }) {
+  return {
+    props: {
+      ...(await serverSideTranslations(locale, [
+        'common',
+      ])),
+      // Will be passed to the page component as props
+    },
+  }
+}
