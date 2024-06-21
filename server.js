@@ -270,15 +270,25 @@ class Game {
 
       // check if all players have placed
       let allFinal = true;
+      let remainingCount = 0;
       for (const p of Object.values(this.players)) {
         if (!p.final) {
           allFinal = false;
-          break;
+          remainingCount++;
+          if(remainingCount > 1) {
+            break;
+          }
         }
       }
 
+
       if (allFinal && (this.nextEvtTime - Date.now()) > 5000) {
         this.nextEvtTime = Date.now() + 1000;
+        this.sendStateUpdate();
+      }
+
+      if(remainingCount === 1 && (this.nextEvtTime - Date.now()) > 20000) {
+        this.nextEvtTime = Date.now() + 20000;
         this.sendStateUpdate();
       }
     }
