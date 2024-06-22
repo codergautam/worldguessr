@@ -579,7 +579,7 @@ export default function Home({ locale }) {
         </div>
 
         <InfoModal shown={infoModal} onClose={()=>setInfoModal(false)} />
-        <WelcomeModal shown={showWelcomeModal} onClose={()=>setShowWelcomeModal(false)} />
+        <WelcomeModal shown={showWelcomeModal} onClose={()=>setShowWelcomeModal(false)} openGame={() => setScreen("singleplayer")} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />

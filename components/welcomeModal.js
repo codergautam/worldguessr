@@ -1,7 +1,7 @@
 import {Modal} from "react-responsive-modal";
 import { useTranslation } from 'next-i18next'
 
-export default function WelcomeModal({ shown, onClose }) {
+export default function WelcomeModal({ shown, onClose, openGame }) {
     const { t: text } = useTranslation("common");
 
     return (
@@ -54,6 +54,7 @@ export default function WelcomeModal({ shown, onClose }) {
           cursor: 'pointer'
       }} onClick={() => {
           onClose();
+        openGame();
       }}>
           {text("letsGo")}
       </button>
