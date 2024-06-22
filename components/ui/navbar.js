@@ -4,7 +4,7 @@ import AccountBtn from "./accountBtn";
 import { FaArrowRotateRight } from "react-icons/fa6";
 import { useTranslation } from 'next-i18next'
 
-export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, gameOptions, session, screen, multiplayerState }) {
+export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, gameOptions, session, screen, multiplayerState, loading }) {
   const { t: text } = useTranslation("common");
 
   return (
@@ -38,7 +38,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
         )}
       <div className="navbar__right">
         { screen === 'singleplayer' && (
-        <button className="gameBtn navBtn" onClick={()=>setGameOptionsModalShown(true)}>
+        <button className="gameBtn navBtn" disabled={loading} onClick={()=>setGameOptionsModalShown(true)}>
           {((gameOptions.location === "all")|| !gameOptions.location)? text("allCountries") : nameFromCode(gameOptions.location)}
           {gameOptions.nmpz?', NMPZ':''}
           </button>
