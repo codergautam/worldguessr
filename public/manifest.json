@@ -1,0 +1,26 @@
+{
+  "background_color": "#092f5f",
+  "description": "The #1 free alternative to GeoGuessr, enjoy unlimited games and play to your hearts content! Engage in the fun of discovering new places with our free Geoguessr alternative.",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "WorldGuessr",
+  "orientation": "portrait",
+  "scope": "/",
+  "short_name": "WorldGuessr",
+  "start_url": "/",
+  "theme_color": "#164785",
+  "icons": [
+    {
+      "src": "/icon.ico",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/icon_144x144.png"
+    }
+  ],
+  "id": "worldguessr",
+  "display_override": [
+    "fullscreen",
+    "window-controls-overlay"
+  ]
+}

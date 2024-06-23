@@ -1,6 +1,6 @@
 import HeadContent from "@/components/headContent";
 import CesiumWrapper from "../components/cesium/CesiumWrapper";
-import { Jockey_One } from 'next/font/google';
+import { Jockey_One, Roboto } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
 import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
 import { FaRankingStar } from "react-icons/fa6";
@@ -26,6 +26,7 @@ import { useTranslation } from 'next-i18next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 // import Image from "next/image";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
+const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
   connected: false,
   connecting: false,
@@ -527,7 +528,7 @@ export default function Home({ locale }) {
   }} />
 
 
-      <main className={`home ${jockey.className}`} id="main">
+      <main className={`home ${jockey.className} ${roboto.className}`} id="main">
 
         <BannerText text={`${text("loading")}...`} shown={loading && !(multiplayerState.error || multiplayerState.connecting)} />
         <BannerText text={`${text("connecting")}...`} shown={multiplayerState.connecting && !multiplayerState.error} />
