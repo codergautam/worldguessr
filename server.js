@@ -18,7 +18,8 @@ import { v4 as makeId } from 'uuid';
 import { config } from 'dotenv';
 import colors from 'colors';
 import lookup from "coordinate_to_country"
-
+// const { writeHeapSnapshot } = require('node:v8');
+import { writeHeapSnapshot } from 'v8';
 
 config();
 
@@ -26,12 +27,15 @@ config();
 import { WebSocketServer } from 'ws';
 
 import { decrypt } from './components/utils/encryptDecrypt.js';
-import mongoose from 'mongoose';
+import mongoose, { mongo } from 'mongoose';
 import User from './models/User.js';
+import Memsave from './models/Memsave.js';
 import validateJWT from './components/utils/validateJWT.js';
 import findLatLongRandom from './components/findLatLongServer.js';
 import { getRandomPointInCountry } from './pages/api/randomLoc.js';
 import calcPoints from './components/calcPoints.js';
+import { promisify } from 'util';
+import { readFile, unlinkSync } from 'fs';
 
 let multiplayerEnabled = true;
 
@@ -78,6 +82,7 @@ if(process.env.NEXT_PUBLIC_CESIUM_TOKEN) {
 
 
 const dev = process.env.NODE_ENV !== 'production'
+
 const hostname = 'localhost'
 const port = process.env.PORT || 3000;
 
@@ -91,9 +96,30 @@ function registerHandler(path, method, handler) {
     handler
   }
 }
+const readFileAsync = promisify(readFile);
 
-registerHandler('/hi', 'GET', (req, res, query) => {
-  res.end('Hello World');
+registerHandler('/memdump', 'GET', (req, res, query) => {
+  const filename = writeHeapSnapshot();
+
+console.log('a memdump requested')
+  // Ensure cleanup in case of request abortion
+  // res.onAborted(() => {
+  //   fs.unlinkSync(filename); // Clean up the file if the client aborts the connection
+  // });
+
+  try {
+    // Read the file into memory - be cautious with large files
+    readFileAsync(filename).then((data) => {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename=memdump.heapsnapshot');
+      res.end(data);
+
+      // Clean up the file after sending
+      unlinkSync(filename);
+    });
+  } catch (error) {
+    unlinkSync(filename);
+  }
 });
 
 function make6DigitCode() {
@@ -764,6 +790,23 @@ setInterval(() => {
     }
   }
 }, 500);
+if(!dev && multiplayerEnabled) {
+  setInterval(() => {
+    const memUsage = process.memoryUsage().heapUsed;
+    const gameCnt = games.size;
+    const playerCnt = players.size;
+
+    // store in mongodb
+    // memsave
+    const mem = new Memsave({
+      players: playerCnt,
+      memusage: memUsage,
+      games: gameCnt
+    });
+    mem.save().then(() => [
+    ])
+  }, 10000);
+}
 
 // Check for pong messages and disconnect inactive clients
 setInterval(() => {
