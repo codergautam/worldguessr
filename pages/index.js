@@ -414,6 +414,13 @@ export default function Home({ locale }) {
     if (streak) {
       setCountryStreak(parseInt(streak))
     }
+
+    // preload/cache src.png and dest.png
+    const img = new Image();
+    img.src = "/src.png";
+    const img2 = new Image();
+    img2.src = "/dest.png";
+    
   }, [])
 
   function reloadBtnPressed() {
@@ -524,7 +531,9 @@ export default function Home({ locale }) {
     width: '100vw',
     height: '100vh',
     objectFit: 'cover',
-    opacity: 0.4,
+    transition: 'opacity 0.5s',
+    opacity: 0.4
+
   }} />
 
 
