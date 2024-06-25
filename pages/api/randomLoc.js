@@ -21,10 +21,10 @@ export function getRandomPointInCountry(countryCode=true) {
   // Extract all polygons from the features and calculate their areas
   features.forEach(feature => {
     if (feature.geometry.type === 'Polygon') {
-      allPolygons.push({ polygon: feature.geometry.coordinates, area: getArea(feature.geometry.coordinates) });
+      allPolygons.push({ polygon: feature.geometry.coordinates, area: getArea(feature.geometry.coordinates), countryCode: feature.properties.code });
     } else if (feature.geometry.type === 'MultiPolygon') {
       feature.geometry.coordinates.forEach(polygon => {
-        allPolygons.push({ polygon, area: getArea(polygon) });
+        allPolygons.push({ polygon, area: getArea(polygon), countryCode: feature.properties.code });
       });
     }
   });
@@ -60,12 +60,31 @@ export function getRandomPointInCountry(countryCode=true) {
 
   // Function to select a random polygon with larger polygons having a higher chance of being selected
   function getRandomWeightedPolygon(polygons) {
-    const totalArea = polygons.reduce((total, { area }) => total + area, 0);
+
+    const westernEuropeCountries = [
+      "AT", // Austria
+      "BE", // Belgium
+      "FR", // France
+      "DE", // Germany
+      "IE", // Ireland
+      "NL", // Netherlands
+      "CH", // Switzerland
+      "GB"  // United Kingdom
+    ];
+
+    // western europe countries get 2x weight since they are a bit underrepresented for their significance
+    // like with this default area based system it picks US/Russia so many times which is boring
+
+    const totalArea = polygons.reduce((total, { area, countryCode }) => {
+      const weight = westernEuropeCountries.includes(countryCode) ? 2 : 1;
+      return total + (area * weight);
+    }, 0);
     let random = Math.random() * totalArea;
 
-    for (const { polygon, area } of polygons) {
-      if (random < area) return polygon;
-      random -= area;
+    for (const { polygon, area, countryCode } of polygons) {
+      const weight = westernEuropeCountries.includes(countryCode) ? 2 : 1;
+      if (random < area * weight) return polygon;
+      random -= area * weight;
     }
 
     return polygons[polygons.length - 1].polygon;
@@ -74,7 +93,8 @@ export function getRandomPointInCountry(countryCode=true) {
   // Try to find a random point within the country's polygons
   while (true) {
     // Select a random polygon and its bounding box
-    const randomPolygon = countryCode===true ? getRandomUnWeightedPolygon(allPolygons) : getRandomWeightedPolygon(allPolygons);
+    // const randomPolygon = countryCode===true ? getRandomUnWeightedPolygon(allPolygons) : getRandomWeightedPolygon(allPolygons);
+    const randomPolygon = getRandomWeightedPolygon(allPolygons);
     const bbox = getBoundingBox(randomPolygon);
 
     // Generate a random point within the bounding box
