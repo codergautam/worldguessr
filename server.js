@@ -37,7 +37,6 @@ import calcPoints from './components/calcPoints.js';
 import { promisify } from 'util';
 import { readFile, unlinkSync } from 'fs';
 
-
 let multiplayerEnabled = true;
 
 if (!process.env.MONGODB) {
