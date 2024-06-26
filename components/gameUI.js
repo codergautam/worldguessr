@@ -150,6 +150,8 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
     // });
     if(!latLong) return;
     console.log('showroadname', gameOptions)
+
+
     const panorama = new google.maps.StreetViewPanorama(
       document.getElementById("googlemaps"),
       {
@@ -162,6 +164,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
         showRoadLabels: gameOptions?.showRoadName===true?true:false
       },
     );
+
 
     console.log(panorama, "panorama")
 
@@ -196,8 +199,17 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
 
       }
     }
+
+    function fixPitch() {
+      // point towards road
+
+      panorama.setPov(panorama.getPhotographerPov());
+    }
+
     panorama.addListener("pano_changed", () => {
       fixBranding();
+
+      fixPitch();
     });
 
 
