@@ -160,6 +160,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
           heading: 0,
           pitch: 0,
         },
+        motionTracking: false,
         linksControl: gameOptions?.nmpz ? false:true,
         showRoadLabels: gameOptions?.showRoadName===true?true:false
       },
