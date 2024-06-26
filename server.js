@@ -36,6 +36,7 @@ import { getRandomPointInCountry } from './pages/api/randomLoc.js';
 import calcPoints from './components/calcPoints.js';
 import { promisify } from 'util';
 import { readFile, unlinkSync } from 'fs';
+import path from 'path';
 
 let multiplayerEnabled = true;
 
@@ -54,6 +55,7 @@ if (!process.env.MONGODB) {
     }
   }
 }
+
 
 if(!process.env.I18NEXT_DEFAULT_CONFIG_PATH) {
   throw new Error("I18NEXT_DEFAULT_CONFIG_PATH env variable not set, please set it to the path of the i18next config file");
@@ -98,6 +100,28 @@ function registerHandler(path, method, handler) {
 }
 const readFileAsync = promisify(readFile);
 
+
+const publicFilesToServe = ["ads.txt","manifest.json"];
+const __dirname = import.meta.dirname;
+
+for(const file of publicFilesToServe) {
+  registerHandler(`/${file}`, 'GET', (req,res,query)=>{
+    try{
+      const filePath = path.join(__dirname, 'public', file);
+      readFileAsync(filePath).then((data) => {
+        res.setHeader('Content-Type', 'text/plain');
+        res.end(data);
+      }).catch((error) => {
+        console.log(error)
+        res.end('Error reading file');
+      });
+    }catch(e){
+      console.log(e)
+      res.end('Error');
+    }
+  });
+}
+
 registerHandler('/memdump', 'GET', (req, res, query) => {
   const filename = writeHeapSnapshot();
 
@@ -119,6 +143,7 @@ console.log('a memdump requested')
     });
   } catch (error) {
     unlinkSync(filename);
+    res.end("e")
   }
 });
 
