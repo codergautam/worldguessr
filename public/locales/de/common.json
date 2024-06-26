@@ -77,5 +77,6 @@
   "allTime": "Gesamtzeit",
   "pastDay": "Letzter Tag",
   "exit": "Beenden",
-  "nmpz": "Kein Bewegen, Schwenken oder Zoomen"
+  "nmpz": "Kein Bewegen, Schwenken oder Zoomen",
+  "showRoadName": "Straßenbeschriftungen anzeigen"
 }

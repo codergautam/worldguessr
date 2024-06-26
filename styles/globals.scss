@@ -635,7 +635,7 @@ screen and (pointer:coarse) {
   cursor: not-allowed;
 }
 
-
+.streetview,
 #streetview {
   user-select: none;
   border: none !important;
@@ -647,6 +647,7 @@ screen and (pointer:coarse) {
     opacity: 1;
     transition: all 0.5s;
     animation: fadeIn 1s ease-in-out forwards;
+    position: fixed !important;
 }
 #streetview.hidden {
   transform: translateY(-105%);
@@ -1018,4 +1019,10 @@ screen and (pointer:coarse)  {
   font-size: clamp(1em, 2vw, 3em);
 }
 .goBtn {
+}
+.inverted{
+  -webkit-filter: invert(100%);
+  -moz-filter: invert(100%);
+  -o-filter: invert(100%);
+  -ms-filter: invert(100%);
 }

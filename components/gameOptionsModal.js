@@ -31,15 +31,27 @@ export default function GameOptions({ shown, onClose, gameOptions, setGameOption
 
 <div className="countriesContainer">
 {singleplayer && (
+    <div style={{display: "flex", flexDirection: 'column'}}>
         <div>
             <span>{text('nmpz')} (NMPZ)</span>
-            <input type="checkbox" checked={gameOptions.npnz} onChange={(e) => {
+            <input type="checkbox" checked={gameOptions.nmpz} onChange={(e) => {
                 setGameOptions({
                     ...gameOptions,
                     nmpz: e.target.checked
                 })
             }
             } />
+        </div>
+        <div>
+            <span>{text('showRoadName')}</span>
+            <input type="checkbox" checked={gameOptions.showRoadName} onChange={(e) => {
+                setGameOptions({
+                    ...gameOptions,
+                    showRoadName: e.target.checked
+                })
+            }
+            } />
+        </div>
         </div>
     )}
 

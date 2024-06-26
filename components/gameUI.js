@@ -143,13 +143,86 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
     setXpEarned(Math.round(calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist }) / 50))
   }, [km, latLong, pinPoint])
 
+  useEffect(() => {
+    // const map =  new google.maps.Map(document.getElementById("map"), {
+    //   center: fenway,
+    //   zoom: 14,
+    // });
+    if(!latLong) return;
+    console.log('showroadname', gameOptions)
+    const panorama = new google.maps.StreetViewPanorama(
+      document.getElementById("googlemaps"),
+      {
+        position: { lat: latLong.lat, lng: latLong.long },
+        pov: {
+          heading: 0,
+          pitch: 0,
+        },
+        linksControl: gameOptions?.nmpz ? false:true,
+        showRoadLabels: gameOptions?.showRoadName
+      },
+    );
+
+    console.log(panorama, "panorama")
+
+    window.inverted = false;
+
+    // pano onload
+    function fixBranding() {
+      console.log("fixing branding")
+      document.querySelectorAll('*').forEach(el => {
+        if(el.innerHTML === "For development purposes only") {
+          console.log(el.innerHTML)
+          el.remove()
+          window.inverted = true;
+
+        }
+        if(el.src === "https://maps.gstatic.com/mapfiles/api-3/images/google_gray.svg" ) {
+          try {
+          (el.parentElement.parentElement).remove()
+          }catch(e){
+
+          }
+        }
+      });
+
+      console.log(window.inverted)
+      if(window.inverted) {
+
+        document.querySelectorAll("[aria-label=\"Map\"]").forEach((d) => {
+          d.classList.add("inverted")
+
+        })
+
+      }
+    }
+    panorama.addListener("pano_changed", () => {
+      fixBranding();
+    });
+
+
+    return () => {
+    }
+
+
+  }, [latLong, gameOptions?.nmpz, gameOptions?.showRoadName])
+
   return (
     <div className="gameUI">
       { latLong && multiplayerState?.gameData?.state !== 'end' && (
-      <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
+      // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
-      }}></iframe>
+      // }}></iframe>
+      <div id="googlemaps" className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`}></div>
+
       )}
+{/*
+
+
+',
+
+*/}
+
 
 
       {(!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (

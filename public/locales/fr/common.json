@@ -77,5 +77,6 @@
   "allTime": "Tout le temps",
   "pastDay": "Dernier jour",
   "exit": "Quitter",
-  "nmpz": "Pas de déplacement, de panoramique ou de zoom"
+  "nmpz": "Pas de déplacement, de panoramique ou de zoom",
+  "showRoadName": "Afficher les étiquettes des routes"
 }
