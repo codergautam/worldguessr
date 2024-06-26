@@ -159,7 +159,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
           pitch: 0,
         },
         linksControl: gameOptions?.nmpz ? false:true,
-        showRoadLabels: gameOptions?.showRoadName
+        showRoadLabels: gameOptions?.showRoadName===true?true:false
       },
     );
 
