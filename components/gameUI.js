@@ -190,7 +190,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
       if(window.inverted) {
 
         document.querySelectorAll("[aria-label=\"Map\"]").forEach((d) => {
-          d.classList.add("inverted")
+          // d.classList.add("inverted")
 
         })
 
@@ -213,7 +213,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
       // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
       // }}></iframe>
-      <div id="googlemaps" className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`}></div>
+      <div id="googlemaps" className={`streetview inverted ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`}></div>
 
       )}
 {/*
