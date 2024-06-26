@@ -168,7 +168,7 @@ class Game {
     this.location = "all"
     this.rounds = 5;
     this.curRound = 0; // 1 = 1st round
-    this.maxPlayers = 10;
+    this.maxPlayers = 100;
 
     if(this.public) this.generateLocations();
   }
@@ -768,7 +768,8 @@ setInterval(() => {
     }
 
 
-    let playersCanJoin = game.maxPlayers - playerCnt;
+    const multiplayerMax = Math.min(10, game.maxPlayers)
+    let playersCanJoin = multiplayerMax - playerCnt;
     console.log('Players can join', playersCanJoin, 'for game', game.id);
     console.log(playersInQueue, playersInQueue.size);
     for (const playerId of playersInQueue) {
