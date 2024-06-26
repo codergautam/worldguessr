@@ -77,6 +77,7 @@
   "allTime": "All-time",
   "pastDay": "Past day",
   "exit": "Exit",
-  "nmpz": "No moving,panning or zooming",
+  "nm": "No moving",
+  "npz": "No panning or zooming",
   "showRoadName": "Show Road Labels"
 }

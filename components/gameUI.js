@@ -161,7 +161,12 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
           pitch: 0,
         },
         motionTracking: false,
-        linksControl: gameOptions?.nmpz ? false:true,
+        linksControl: gameOptions?.nm ? false:true,
+        clickToGo: gameOptions?.nm ? false:true,
+        scrollwheel: gameOptions?.nm ? false:true,
+
+        panControl: gameOptions?.npz ? false:true,
+        zoomControl: gameOptions?.npz ? false:true,
         showRoadLabels: gameOptions?.showRoadName===true?true:false
       },
     );
@@ -207,7 +212,11 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
       panorama.setPov(panorama.getPhotographerPov());
     }
 
+    let loaded = false;
+
     panorama.addListener("pano_changed", () => {
+      if(loaded) return;
+      loaded = true;
       fixBranding();
 
       fixPitch();
@@ -218,7 +227,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
     }
 
 
-  }, [latLong, gameOptions?.nmpz, gameOptions?.showRoadName])
+  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
 
   return (
     <div className="gameUI">
@@ -226,7 +235,7 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
       // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
       // }}></iframe>
-      <div id="googlemaps" className={`streetview inverted ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`}></div>
+      <div id="googlemaps" className={`streetview inverted ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
 
       )}
 {/*

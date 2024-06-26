@@ -40,7 +40,11 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
         { screen === 'singleplayer' && (
         <button className="gameBtn navBtn" disabled={loading} onClick={()=>setGameOptionsModalShown(true)}>
           {((gameOptions.location === "all")|| !gameOptions.location)? text("allCountries") : nameFromCode(gameOptions.location)}
-          {gameOptions.nmpz?', NMPZ':''}
+          {gameOptions.nm && gameOptions.npz?
+          ', NMPZ':
+          gameOptions.nm? ', NM' :
+          gameOptions.npz? ', NPZ' :
+          ''}
           </button>
         )}
         <AccountBtn session={session} navbarMode={true} openAccountModal={openAccountModal} />

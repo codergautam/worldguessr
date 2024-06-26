@@ -33,11 +33,21 @@ export default function GameOptions({ shown, onClose, gameOptions, setGameOption
 {singleplayer && (
     <div style={{display: "flex", flexDirection: 'column'}}>
         <div>
-            <span>{text('nmpz')} (NMPZ)</span>
-            <input type="checkbox" checked={gameOptions.nmpz} onChange={(e) => {
+            <span>{text('nm')}</span>
+            <input type="checkbox" checked={gameOptions.nm} onChange={(e) => {
                 setGameOptions({
                     ...gameOptions,
-                    nmpz: e.target.checked
+                    nm: e.target.checked
+                })
+            }
+            } />
+        </div>
+        <div>
+            <span>{text('npz')}</span>
+            <input type="checkbox" checked={gameOptions.npz} onChange={(e) => {
+                setGameOptions({
+                    ...gameOptions,
+                    npz: e.target.checked
                 })
             }
             } />
