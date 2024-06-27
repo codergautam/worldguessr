@@ -163,7 +163,6 @@ export default function GameUI({ timeOffset, ws, multiplayerState, backBtnPresse
         motionTracking: false,
         linksControl: gameOptions?.nm ? false:true,
         clickToGo: gameOptions?.nm ? false:true,
-        scrollwheel: gameOptions?.nm ? false:true,
 
         panControl: gameOptions?.npz ? false:true,
         zoomControl: gameOptions?.npz ? false:true,
