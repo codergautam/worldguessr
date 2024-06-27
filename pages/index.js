@@ -24,6 +24,13 @@ import WelcomeModal from "@/components/welcomeModal";
 // import text from "@/languages/lang";
 import { useTranslation } from 'next-i18next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import useWindowDimensions from "@/components/useWindowDimensions";
+import dynamic from "next/dynamic";
+import Ad from "@/components/bannerAd";
+import Script from "next/script";
+
+// const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
+
 // import Image from "next/image";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -50,6 +57,8 @@ const initialMultiplayerState = {
 }
 
 export default function Home({ locale }) {
+  const { width, height } = useWindowDimensions();
+
   const { data: session, status } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
@@ -100,86 +109,86 @@ export default function Home({ locale }) {
       ws.send(JSON.stringify({ type: "publicDuel" }))
     }
 
-    if(action === "joinPrivateGame") {
+    if (action === "joinPrivateGame") {
 
 
-    if(args[0]) {
+      if (args[0]) {
 
-      setMultiplayerState((prev)=>({
-        ...prev,
-        joinOptions: {
-          ...prev.joinOptions,
-          error: false,
-          progress: true
-        }
-      }));
-      // join private game
-      ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0] }))
-    } else {
-      setMultiplayerState((prev) => {
-        return {
-         ...initialMultiplayerState,
-         connected: true,
-         enteringGameCode: true,
-         playerCount: prev.playerCount,
-         guestName: prev.guestName
-       }
+        setMultiplayerState((prev) => ({
+          ...prev,
+          joinOptions: {
+            ...prev.joinOptions,
+            error: false,
+            progress: true
+          }
+        }));
+        // join private game
+        ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0] }))
+      } else {
+        setMultiplayerState((prev) => {
+          return {
+            ...initialMultiplayerState,
+            connected: true,
+            enteringGameCode: true,
+            playerCount: prev.playerCount,
+            guestName: prev.guestName
+          }
 
-     })
-    }
-    }
-
-    if(action === "createPrivateGame") {
-      if(!args[0]) {
-      setMultiplayerState((prev) => {
-       return {
-        ...initialMultiplayerState,
-        connected: true,
-        creatingGame: true,
-        playerCount: prev.playerCount,
-        guestName: prev.guestName
+        })
       }
-    })
-  } else {
-    setMultiplayerState((prev)=>({
-      ...prev,
-      createOptions: {
-        ...prev.createOptions,
-        progress: 0
-      }
-    }));
-    const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
+    }
 
-    (async () => {
-      const locations = [];
-      for(let i = 0; i < args[0].rounds; i++) {
-
-        const loc = await findLatLongRandom({ location: multiplayerState.createOptions.location });
-        locations.push(loc)
+    if (action === "createPrivateGame") {
+      if (!args[0]) {
+        setMultiplayerState((prev) => {
+          return {
+            ...initialMultiplayerState,
+            connected: true,
+            creatingGame: true,
+            playerCount: prev.playerCount,
+            guestName: prev.guestName
+          }
+        })
+      } else {
         setMultiplayerState((prev) => ({
           ...prev,
           createOptions: {
             ...prev.createOptions,
-            progress: i + 1
+            progress: 0
           }
-        }))
+        }));
+        const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
+
+        (async () => {
+          const locations = [];
+          for (let i = 0; i < args[0].rounds; i++) {
+
+            const loc = await findLatLongRandom({ location: multiplayerState.createOptions.location });
+            locations.push(loc)
+            setMultiplayerState((prev) => ({
+              ...prev,
+              createOptions: {
+                ...prev.createOptions,
+                progress: i + 1
+              }
+            }))
+          }
+
+          setMultiplayerState((prev) => ({
+            ...prev,
+            createOptions: {
+              ...prev.createOptions,
+              progress: true
+            }
+          }));
+
+          // send ws
+          ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
+        })()
       }
-
-      setMultiplayerState((prev) => ({
-        ...prev,
-        createOptions: {
-          ...prev.createOptions,
-          progress: true
-        }
-      }));
-
-      // send ws
-      ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
-    })()
-  }
     }
 
-    if(action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
+    if (action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
       ws.send(JSON.stringify({ type: "startGameHost" }))
     }
 
@@ -216,7 +225,7 @@ export default function Home({ locale }) {
   }, [multiplayerState, ws, screen])
 
   useEffect(() => {
-    if(multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
+    if (multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
       // save the final players
       setMultiplayerState((prev) => ({
         ...prev,
@@ -229,7 +238,7 @@ export default function Home({ locale }) {
   }, [multiplayerState?.gameData?.state])
 
   useEffect(() => {
-    if(!multiplayerState?.inGame) {
+    if (!multiplayerState?.inGame) {
       setMultiplayerChatEnabled(false)
       setMultiplayerChatOpen(false)
     }
@@ -239,9 +248,9 @@ export default function Home({ locale }) {
     ws.onmessage = (msg) => {
       const data = JSON.parse(msg.data);
 
-      if(data.type === "t") {
+      if (data.type === "t") {
         const offset = data.t - Date.now();
-        if(Math.abs(offset) > 1000 && ((Math.abs(offset) < Math.abs(timeOffset)) || !timeOffset)) {
+        if (Math.abs(offset) > 1000 && ((Math.abs(offset) < Math.abs(timeOffset)) || !timeOffset)) {
           setTimeOffset(offset)
         }
       }
@@ -346,17 +355,17 @@ export default function Home({ locale }) {
       } else if (data.type === "gameOver") {
         setLatLong(null)
 
-      } else if(data.type === "gameShutdown") {
+      } else if (data.type === "gameShutdown") {
         setMultiplayerState((prev) => {
           return {
             ...initialMultiplayerState,
             connected: true,
             nextGameQueued: prev.nextGameQueued,
             playerCount: prev.playerCount,
-        guestName: prev.guestName
+            guestName: prev.guestName
           }
         });
-      } else if(data.type === "gameJoinError" && multiplayerState.enteringGameCode) {
+      } else if (data.type === "gameJoinError" && multiplayerState.enteringGameCode) {
         setMultiplayerState((prev) => {
           return {
             ...prev,
@@ -386,7 +395,7 @@ export default function Home({ locale }) {
   }, [ws, multiplayerState, timeOffset]);
 
   useEffect(() => {
-    if(multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
+    if (multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
       handleMultiplayerAction("publicDuel");
     }
   }, [multiplayerState, timeOffset])
@@ -420,47 +429,47 @@ export default function Home({ locale }) {
     img.src = "/src.png";
     const img2 = new Image();
     img2.src = "/dest.png";
-    
+
   }, [])
 
   function reloadBtnPressed() {
     setLatLong(null)
-          setLoading(true)
-          setTimeout(() => {
-            setLatLong(latLong)
-            setLoading(false)
-            setStreetViewShown(true)
-          }, 100);
+    setLoading(true)
+    setTimeout(() => {
+      setLatLong(latLong)
+      setLoading(false)
+      setStreetViewShown(true)
+    }, 100);
   }
   function backBtnPressed(queueNextGame = false) {
     if (loading) setLoading(false);
-      if(multiplayerState?.inGame) {
-        ws.send(JSON.stringify({
-          type: 'leaveGame'
-        }))
+    if (multiplayerState?.inGame) {
+      ws.send(JSON.stringify({
+        type: 'leaveGame'
+      }))
 
-        setMultiplayerState((prev) =>{
-          return {
-            ...prev,
-            nextGameQueued: queueNextGame === true
-          }
-        })
+      setMultiplayerState((prev) => {
+        return {
+          ...prev,
+          nextGameQueued: queueNextGame === true
+        }
+      })
 
-      } else if((multiplayerState?.creatingGame || multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
+    } else if ((multiplayerState?.creatingGame || multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
 
-        setMultiplayerState((prev) => {
-          return {
+      setMultiplayerState((prev) => {
+        return {
           ...initialMultiplayerState,
           connected: true,
-        playerCount: prev.playerCount,
-        guestName: prev.guestName
+          playerCount: prev.playerCount,
+          guestName: prev.guestName
 
         }
       })
-      } else {
-    setScreen("home");
-    clearLocation();
-      }
+    } else {
+      setScreen("home");
+      clearLocation();
+    }
   }
 
   function clearLocation() {
@@ -472,7 +481,7 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
-    if(loading) return;
+    if (loading) return;
     console.log("loading location")
     setLoading(true)
     setShowAnswer(false)
@@ -492,17 +501,17 @@ export default function Home({ locale }) {
 
   function onNavbarLogoPress() {
     if (screen !== "home" && !loading) {
-      if(multiplayerState?.connected && !multiplayerState?.inGame) {
+      if (multiplayerState?.connected && !multiplayerState?.inGame) {
         return;
       }
-      if(!multiplayerState?.inGame) loadLocation()
-        else if(multiplayerState?.gameData?.state === "guess") {
+      if (!multiplayerState?.inGame) loadLocation()
+      else if (multiplayerState?.gameData?.state === "guess") {
 
-        }
+      }
     }
   }
 
-  const ChatboxMemo = React.useMemo(() => <ChatBox ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={multiplayerChatEnabled} myId={multiplayerState?.gameData?.myId}  inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame])
+  const ChatboxMemo = React.useMemo(() => <ChatBox ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={multiplayerChatEnabled} myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame])
 
   // Send pong every 10 seconds if websocket is connected
   useEffect(() => {
@@ -522,19 +531,19 @@ export default function Home({ locale }) {
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
 
-  {ChatboxMemo}
+      {ChatboxMemo}
 
-  <img src={'/background.jpg'} style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100vw',
-    height: '100vh',
-    objectFit: 'cover',
-    transition: 'opacity 0.5s',
-    opacity: 0.4
+      <img src={'/background.jpg'} style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        objectFit: 'cover',
+        transition: 'opacity 0.5s',
+        opacity: 0.4
 
-  }} />
+      }} />
 
 
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">
@@ -544,14 +553,14 @@ export default function Home({ locale }) {
 
         <div style={{ display: 'flex', alignItems: 'center', opacity: (screen !== "singleplayer") ? 1 : 0 }} className="accountBtnContainer">
           <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
-        {/* <p style={{color: "white", zIndex: 10000}}>
+          {/* <p style={{color: "white", zIndex: 10000}}>
           {
             JSON.stringify(session)
           }
           </p> */}
         </div>
-        { process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
-        <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
+        {process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
+          <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         }
         <Navbar loading={loading} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
@@ -563,18 +572,18 @@ export default function Home({ locale }) {
                 if (!loading) setScreen("singleplayer")
               }} />
               <GameBtn text={text("multiplayer")} style={{
-                backgroundColor: loginQueued==='multiplayer' ? "gray" : "",
-                cursor: loginQueued==='multiplayer' ? "not-allowed" : ""
+                backgroundColor: loginQueued === 'multiplayer' ? "gray" : "",
+                cursor: loginQueued === 'multiplayer' ? "not-allowed" : ""
               }} onClick={() => {
 
-               // alert("Multiplayer is currently disabled for maintenance. Please check back later.");
-               // return;
+                // alert("Multiplayer is currently disabled for maintenance. Please check back later.");
+                // return;
 
-               if(loginQueued) return;
+                if (loginQueued) return;
                 if (!session?.token?.secret && session === null) {
                   setScreen("multiplayer")
                 }
-                else if(!session?.token?.secret) return;
+                else if (!session?.token?.secret) return;
                 else setScreen("multiplayer")
               }} />
 
@@ -582,14 +591,16 @@ export default function Home({ locale }) {
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                <button className="home__squarebtn gameBtn" onClick={()=>setInfoModal(true)}><FaInfo className="home__squarebtnicon" /></button>
+                <button className="home__squarebtn gameBtn" onClick={() => setInfoModal(true)}><FaInfo className="home__squarebtnicon" /></button>
               </div>
             </div>
           </div>
+          <br />
+          <Ad screenH={height} screenW={width} types={[[320, 50], [728, 90], [970, 90]]} centerOnOverflow={600} />
         </div>
 
-        <InfoModal shown={infoModal} onClose={()=>setInfoModal(false)} />
-        <WelcomeModal shown={showWelcomeModal} onClose={()=>setShowWelcomeModal(false)} openGame={() => setScreen("singleplayer")} />
+        <InfoModal shown={infoModal} onClose={() => setInfoModal(false)} />
+        <WelcomeModal shown={showWelcomeModal} onClose={() => setShowWelcomeModal(false)} openGame={() => setScreen("singleplayer")} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
@@ -602,6 +613,24 @@ export default function Home({ locale }) {
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
           <GameUI timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
+
+        <Script>
+          {`
+  console.log("Ads by adinplay!")
+  	window.aiptag = window.aiptag || {cmd: []};
+	aiptag.cmd.display = aiptag.cmd.display || [];
+	aiptag.cmd.player = aiptag.cmd.player || [];
+
+	//CMP tool settings
+	aiptag.cmp = {
+		show: true,
+		position: "centered",  //centered, bottom
+		button: true,
+		buttonText: "Privacy settings",
+		buttonPosition: "bottom-left" //bottom-left, bottom-right, bottom-center, top-left, top-right
+	}
+  `}
+        </Script>
       </main>
     </>
   )

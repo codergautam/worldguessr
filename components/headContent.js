@@ -1,4 +1,5 @@
 import Head from "next/head";
+import Script from "next/script";
 
 export default function HeadContent() {
   return (
@@ -23,12 +24,12 @@ export default function HeadContent() {
       src="https://maps.googleapis.com/maps/api/js?callback=initialize&v=weekly"
       defer
     ></script>
-    
     <meta property="og:title" content="WorldGuessr - Play Geoguessr for Free" />
     <meta property="og:description" content="Explore and play the free GeoGuessr game on WorldGuessr. Play free without an account, discover new places and challenge your geographical knowledge." />
     <meta property="og:image" content="/icon_144x144.png" />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />
+	  <script async src="//api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js"></script>
 </Head>
   )
 }
