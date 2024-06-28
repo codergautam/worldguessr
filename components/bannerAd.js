@@ -56,12 +56,13 @@ export default function Ad({
         alert("error clearing ad")
       }
       if (type === -1) return
+      setTimeout(() => {
+
       if (
         windowAny.aiptag &&
         windowAny.aiptag.cmd &&
         windowAny.aiptag.cmd.display
       ) {
-        setTimeout(() => {
 
         console.log(
           `requesting worldguessr-com_${types[type][0]}x${types[type][1]}`
@@ -72,9 +73,10 @@ export default function Ad({
             `worldguessr-com_${types[type][0]}x${types[type][1]}`
           )
         })
-      }, 100)
       } else {
       }
+    }, 100)
+
     }
 
     let timerId = setInterval(() => {
