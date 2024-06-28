@@ -596,7 +596,7 @@ export default function Home({ locale }) {
             </div>
           </div>
           <br />
-          <Ad screenH={height} screenW={width} types={[[320, 50], [728, 90], [970, 90]]} centerOnOverflow={600} />
+          <Ad screenH={height} screenW={width} types={[[320, 50], [728, 90]]} centerOnOverflow={600} />
         </div>
 
         <InfoModal shown={infoModal} onClose={() => setInfoModal(false)} />
