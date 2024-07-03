@@ -1,0 +1,45 @@
+
+**1. Introduction**
+
+Welcome to WorldGuessr! We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our free online game, WorldGuessr.
+
+**2. Information We Collect**
+
+- **Game Playing Data:** We collect data on your gameplay to improve our service. This data is collected through Google Analytics.
+- **Google Email:** If you choose to sign in with Google OAuth, we will collect your Google email to allow you to save your progress. This is the only personal information we collect, and it is stored securely in our database.
+
+**3. Use of Collected Information**
+
+- **Analytics:** Game playing data collected through Google Analytics is used solely for analytics purposes to enhance your gaming experience.
+- **User Accounts:** If linked, your Google email is used to create and maintain your user account, enabling you to save and retrieve your game progress.
+
+**4. Advertising**
+
+We partner with Adinplay to serve ads in a privacy-friendly manner. Adinplay may collect and use certain information about your visits to our website to provide advertisements of interest to you.
+
+**5. Data Sharing and Disclosure**
+
+We do not share, sell, rent, or trade your personal information with third parties, except as described in this Privacy Policy or with your consent.
+
+**6. Data Security**
+
+We implement appropriate security measures to protect your information from unauthorized access, alteration, disclosure, or destruction.
+
+**7. Your Rights**
+
+You have the right to:
+- Access the personal information we hold about you.
+- Request correction of any inaccuracies in your information.
+- Request deletion of your personal information.
+
+**8. Changes to This Privacy Policy**
+
+We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the effective date.
+
+**9. Contact Us**
+
+If you have any questions or concerns about this Privacy Policy, please contact us at gautam@worldguessr.com.
+
+**10. Consent**
+
+By using WorldGuessr, you consent to the collection and use of your information as described in this Privacy Policy.
