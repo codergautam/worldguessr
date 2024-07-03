@@ -649,6 +649,7 @@ screen and (pointer:coarse) {
     animation: fadeIn 1s ease-in-out forwards;
     position: fixed !important;
 }
+#googlemaps.hidden,
 #streetview.hidden {
   transform: translateY(-105%);
   opacity: 0;
