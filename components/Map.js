@@ -125,7 +125,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
       initialMap.un('click', onMapClick);
     };
-  }, [answerShown, setPinPoint, guessing, multiplayerState.gameData?.state, multiplayerState.inGame, ws]);
+  }, [answerShown, setPinPoint, guessing, multiplayerState?.gameData?.state, multiplayerState?.inGame, ws]);
 
   // Update pin point and add line
   useEffect(() => {
