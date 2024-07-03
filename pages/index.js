@@ -3,7 +3,7 @@ import CesiumWrapper from "../components/cesium/CesiumWrapper";
 import { Jockey_One, Roboto } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
 import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
-import { FaRankingStar } from "react-icons/fa6";
+import { FaGear, FaRankingStar } from "react-icons/fa6";
 import { signIn, useSession } from "next-auth/react";
 import AccountBtn from "@/components/ui/accountBtn";
 import 'react-responsive-modal/styles.css';
@@ -19,7 +19,6 @@ import SetUsernameModal from "@/components/setUsernameModal";
 import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
-import InfoModal from "@/components/infoModal";
 import WelcomeModal from "@/components/welcomeModal";
 // import text from "@/languages/lang";
 import { useTranslation } from 'next-i18next'
@@ -28,6 +27,7 @@ import useWindowDimensions from "@/components/useWindowDimensions";
 import dynamic from "next/dynamic";
 import Ad from "@/components/bannerAd";
 import Script from "next/script";
+import SettingsModal from "@/components/settingsModal";
 
 // const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
 
@@ -73,10 +73,49 @@ export default function Home({ locale }) {
   const [hintShown, setHintShown] = useState(false)
   const [xpEarned, setXpEarned] = useState(0)
   const [countryStreak, setCountryStreak] = useState(0)
-  const [infoModal, setInfoModal] = useState(false)
+  const [settingsModal, setSettingsModal] = useState(false)
   const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   const [timeOffset, setTimeOffset] = useState(0)
   const [loginQueued, setLoginQueued] = useState(false);
+  const [options, setOptions] = useState({
+  });
+
+  const loadOptions =async () => {
+
+    // try to fetch options from localstorage
+    const options = localStorage.getItem("options");
+    if (options) {
+      setOptions(JSON.parse(options))
+    } else {
+      let json;
+
+      try {
+      const res = await fetch("https://ipapi.co/json/");
+       json = await res.json();
+      }catch(e){}
+
+      const countryCode = json?.country_code;
+      let system = "metric";
+      if(countryCode && ["US", "LR", "MM", "UK"].includes(countryCode)) system = "imperial";
+
+      console.log("system", system)
+
+      setOptions({
+        units: system,
+        mapType: "m" //m for normal
+      })
+    }
+
+  }
+  useEffect(()=>{loadOptions()}, [])
+
+  useEffect(() => {
+    console.log("options", options)
+    if(options && options.units && options.mapType){
+      console.log("options", options)
+      localStorage.setItem("options", JSON.stringify(options))
+    }
+  }, [options])
 
   useEffect(() => {
     // show welcome modal if not shown (localstorage)
@@ -591,7 +630,7 @@ export default function Home({ locale }) {
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                <button className="home__squarebtn gameBtn" onClick={() => setInfoModal(true)}><FaInfo className="home__squarebtnicon" /></button>
+                <button className="home__squarebtn gameBtn" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
             </div>
           </div>
@@ -599,11 +638,11 @@ export default function Home({ locale }) {
           <Ad screenH={height} screenW={width} types={[[320, 50], [728, 90]]} centerOnOverflow={600} />
         </div>
 
-        <InfoModal shown={infoModal} onClose={() => setInfoModal(false)} />
+        <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
         <WelcomeModal shown={showWelcomeModal} onClose={() => setShowWelcomeModal(false)} openGame={() => setScreen("singleplayer")} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
         {screen === "multiplayer" && <div className="home__multiplayer">
@@ -611,7 +650,7 @@ export default function Home({ locale }) {
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
-          <GameUI timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          <GameUI options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
 
         <Script>

@@ -79,5 +79,15 @@
   "exit": "Beenden",
   "nm": "Kein Bewegen",
   "npz": "Kein Schwenken oder Zoomen",
-  "showRoadName": "Straßenbeschriftungen anzeigen"
+  "showRoadName": "Straßenbeschriftungen anzeigen",
+  "settings": "Einstellungen",
+  "units": "Einheiten",
+  "metric": "Metrisch",
+  "imperial": "Imperial",
+  "mapType": "Kartentyp",
+  "normal": "Normal",
+  "satellite": "Satellit",
+  "hybrid": "Hybrid",
+  "terrain": "Gelände",
+  "legacyMap": "Legacy (mehrsprachig)"
 }

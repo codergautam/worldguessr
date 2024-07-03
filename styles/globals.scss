@@ -660,14 +660,14 @@ screen and (pointer:coarse) {
   #miniMapArea.mapExpanded {
     /* full screen center not 100% */
     transition: all 250ms ease;
-    height: 50%;
-    width: 40%;
+    height: 65%;
+    width: 55%;
   }
 
   #miniMapArea.fullscreen {
     transition: all 250ms ease;
     height: 80%;
-    width: 65%;
+    width: 75%;
   }
 }
 

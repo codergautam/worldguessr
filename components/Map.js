@@ -17,7 +17,7 @@ import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
-const MapComponent = ({ ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions }) => {
+const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
@@ -57,7 +57,9 @@ const MapComponent = ({ ws, session, pinPoint, setPinPoint, answerShown, locatio
         new TileLayer({
           source: new XYZ({
             // url: 'https://{a-c}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-            url: 'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02',
+            // url: 'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02',
+            // use google maps https://mt2.google.com/vt/lyrs=m&x=&y==&z=&hl=en
+            url: options?.mapType==="legacy"?'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02':`https://mt2.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=en`,
           }),
         }),
         new VectorLayer({ source: vectorSource.current })

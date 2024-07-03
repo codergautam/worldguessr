@@ -79,5 +79,15 @@
   "exit": "Quitter",
   "nm": "Pas de déplacement",
   "npz": "Pas de panoramique ou de zoom",
-  "showRoadName": "Afficher les étiquettes des routes"
+  "showRoadName": "Afficher les étiquettes des routes",
+  "settings": "Paramètres",
+  "units": "Unités",
+  "metric": "Métrique",
+  "imperial": "Impérial",
+  "mapType": "Type de carte",
+  "normal": "Normal",
+  "satellite": "Satellite",
+  "hybrid": "Hybride",
+  "terrain": "Terrain",
+  "legacyMap": "Héritage (multilingue)"
 }

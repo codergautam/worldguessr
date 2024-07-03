@@ -3,7 +3,7 @@ import calcPoints from "./calcPoints";
 import { signIn } from "next-auth/react";
 import { useTranslation } from 'next-i18next'
 
-export default function EndBanner({ xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint }) {
+export default function EndBanner({ options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint }) {
   const { t: text } = useTranslation("common");
 
   return (
@@ -13,7 +13,9 @@ export default function EndBanner({ xpEarned, lostCountryStreak, session, guesse
     <h1 className='mainBannerTxt'>
       {/* Your guess was {km} km away! */}
 
-      {text("guessDistanceKm", {d: km})}
+
+
+      {text(`guessDistance${options.units==="imperial"?"Mi":"Km"}`, {d: options.units==="imperial" ? (km*0.621371).toFixed(1) : km})}
       </h1>
     ) : (
       <h1 className='mainBannerTxt'>{text("didntGuess")}!</h1>

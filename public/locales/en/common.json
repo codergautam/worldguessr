@@ -79,5 +79,15 @@
   "exit": "Exit",
   "nm": "No moving",
   "npz": "No panning or zooming",
-  "showRoadName": "Show Road Labels"
+  "showRoadName": "Show Road Labels",
+  "settings": "Settings",
+  "units": "Units",
+  "metric": "Metric (km)",
+  "imperial": "Imperial (miles)",
+  "mapType": "Map Type",
+  "normal": "Normal",
+  "satellite": "Satellite",
+  "hybrid": "Hybrid",
+  "terrain": "Terrain",
+  "legacyMap": "Legacy (multilingual)"
 }
