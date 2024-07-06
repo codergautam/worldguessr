@@ -291,7 +291,7 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
           </button>
         </div>
 )}
-        {latLong && !loading && <MapWidget options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} />}
+        {latLong && !loading && <MapWidget focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} />}
 
 
         <div className={`miniMap__btns ${showAnswer ? 'answerShownBtns' : ''}`}>
