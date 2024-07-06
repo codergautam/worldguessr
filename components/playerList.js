@@ -78,12 +78,18 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
         <div className="multiplayerFinalBtns">
           { players.length < 2 ?
           <p style={{color: "red"}}>{text("singlePlayerNeeded")}</p>
-        : <button className="gameBtn" onClick={() => startGameHost()}>{text("startGame")}</button> }
+        : multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated) ?
+        null
+        :
+        <button className="gameBtn" onClick={() => startGameHost()}>{text("startGame")}</button> }
 
         </div>
       )}
 
-{ waitingForStart && !host && (
+      {(multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) &&
+        <p style={{color: "yellow"}}>{text("generating")} ( {multiplayerState?.gameData?.generated||0} / {multiplayerState?.gameData?.rounds} )</p>}
+
+{ waitingForStart && !host && (multiplayerState?.gameData?.rounds== multiplayerState?.gameData?.generated) && (
           <p style={{color: "red"}}>{text("waitingForHostToStart")}...</p>
       )}
     </div>

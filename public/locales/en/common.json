@@ -95,5 +95,6 @@
   "tabTitle": "WorldGuessr - Free Geoguessr",
   "fullTitle": "WorldGuessr - Play GeoGuessr for free",
   "shortDescMeta": "Enjoy unlimited rounds in this free & open-source GeoGuessr game. Discover new places and learn geography in WorldGuessr, our free Geoguessr alternative",
-  "fullDescMeta": "Enjoy unlimited rounds in this free & open-source Geoguessr game. Now with multiplayer, progress tracking and private lobbies! Discover new places and learn geography in WorldGuessr, our free Geoguessr alternative."
+  "fullDescMeta": "Enjoy unlimited rounds in this free & open-source Geoguessr game. Now with multiplayer, progress tracking and private lobbies! Discover new places and learn geography in WorldGuessr, our free Geoguessr alternative.",
+  "generating": "Generating Locations"
 }

@@ -95,5 +95,6 @@
   "tabTitle": "WorldGuessr - Geoguessr Gratis",
   "fullTitle": "WorldGuessr - Juega GeoGuessr gratis",
   "shortDescMeta": "Disfruta de rondas ilimitadas en este juego de GeoGuessr gratuito y de código abierto. Descubre nuevos lugares y aprende geografía en WorldGuessr, nuestra alternativa gratuita a GeoGuessr",
-  "fullDescMeta": "Disfruta de rondas ilimitadas en este juego de GeoGuessr gratuito y de código abierto. ¡Ahora con multijugador, seguimiento de progreso y lobbies privados! Descubre nuevos lugares y aprende geografía en WorldGuessr, nuestra alternativa gratuita a GeoGuessr."
+  "fullDescMeta": "Disfruta de rondas ilimitadas en este juego de GeoGuessr gratuito y de código abierto. ¡Ahora con multijugador, seguimiento de progreso y lobbies privados! Descubre nuevos lugares y aprende geografía en WorldGuessr, nuestra alternativa gratuita a GeoGuessr.",
+  "generating": "Generando ubicaciones"
 }

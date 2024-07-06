@@ -37,7 +37,7 @@ import calcPoints from './components/calcPoints.js';
 import { promisify } from 'util';
 import { readFile, unlinkSync } from 'fs';
 import path from 'path';
-
+import countries from './public/countries.json' assert { type: "json" };
 let multiplayerEnabled = true;
 
 if (!process.env.MONGODB) {
@@ -152,7 +152,7 @@ function make6DigitCode() {
 }
 
 class Game {
-  constructor(id, publicLobby) {
+  constructor(id, publicLobby, location="all") {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
@@ -165,12 +165,12 @@ class Game {
     this.endTime = null;
     this.nextEvtTime = null;
     this.locations = [];
-    this.location = "all"
+    this.location = location;
     this.rounds = 5;
     this.curRound = 0; // 1 = 1st round
     this.maxPlayers = 100;
 
-    if(this.public) this.generateLocations();
+    this.generateLocations();
   }
 
   addPlayer(player, host=false) {
@@ -211,7 +211,8 @@ class Game {
       players: Object.values(this.players),
       host: playerObj.host,
       maxDist: this.maxDist,
-      code: this.code
+      code: this.code,
+      generated: this.locations.length
     });
   }
 
@@ -250,7 +251,8 @@ class Game {
       curRound: this.curRound,
       maxPlayers: this.maxPlayers,
       nextEvtTime: this.nextEvtTime,
-      players: Object.values(this.players)
+      players: Object.values(this.players),
+      generated: this.locations.length
     };
     if (includeLocations) {
       state.locations = this.locations;
@@ -275,7 +277,7 @@ class Game {
       id: player.id,
       action: 'remove'
     });
-    
+
     this.checkRemaining();
 
     // self destruct if no players or it is a private game and host left
@@ -286,7 +288,8 @@ class Game {
   }
 
   start() {
-    if (this.state !== 'waiting' || this.players.size < 2 || this.rounds !== this.locations.length) {
+    console.log('state', this.state, 'players', Object.keys(this.players).length, 'rounds', this.rounds, 'locations', this.locations.length)
+    if (this.state !== 'waiting' || Object.keys(this.players).length < 2 || this.rounds !== this.locations.length) {
       return;
     }
     this.state = 'getready';
@@ -351,10 +354,18 @@ class Game {
           }
   }
   async generateLocations() {
+    this.sendAllPlayers({
+      type: 'generating',
+      generated: this.locations.length,
+    })
     for (let i = 0; i < this.rounds; i++) {
       const loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
       this.locations.push(loc);
-      console.log('Generated', this.locations.length,'/',this.rounds, 'for game',this.id);
+      console.log('Generated', this.locations.length,'/',this.rounds, 'for game',this.id, this.location);
+      this.sendAllPlayers({
+        type: 'generating',
+        generated: this.locations.length,
+      })
     }
   }
   sendAllPlayers(json) {
@@ -578,48 +589,59 @@ app.prepare().then(() => {
         console.log('Private game requested', id, player.username);
         const gameId = makeId();
         // options
-        const {rounds, timePerRound, locations, maxDist} = json;
-        if(!rounds || !timePerRound || !locations || !maxDist) {
+        let {rounds, timePerRound, locations, maxDist, location} = json;
+        rounds = Number(rounds);
+        // console.log(location);
+        if(!location) return;
+        if(!rounds || !timePerRound || !maxDist) {
           return;
         }
-        if(rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300 || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) {
+        // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
+        if(rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
           return;
         }
-        if(locations.length !== rounds) {
-          return;
-        }
+        // if(locations.length !== rounds) {
+        //   return;
+        // }
         if(typeof maxDist !== 'number' || maxDist > 20000 || maxDist < 10) {
           return;
         }
 
-        // validate round format
-        for(const loc of locations) {
-          // ex: {lat: number, long: number, country: 2 letter code}
-          // make sure proper object
-          if(typeof loc !== 'object') {
-            return;
-          }
-          if(Object.keys(loc).length !== 3) {
-            return;
-          }
-
-          if(!loc.lat || !loc.long || !loc.country) {
-            return;
-          }
-
-          if(typeof loc.lat !== 'number' || typeof loc.long !== 'number' || typeof loc.country !== 'string') {
-            return;
-          }
-
-          if(loc.country.length !== 2) {
-            return;
-          }
+        // validate location (can be all or a 2 letter country code)
+        if(!((location === 'all') || (countries.findIndex((c) => c === location) > -1))) {
+          return;
         }
 
-        const game = new Game(gameId, false);
+
+        // validate round format
+        // for(const loc of locations) {
+        //   // ex: {lat: number, long: number, country: 2 letter code}
+        //   // make sure proper object
+        //   if(typeof loc !== 'object') {
+        //     return;
+        //   }
+        //   if(Object.keys(loc).length !== 3) {
+        //     return;
+        //   }
+
+        //   if(!loc.lat || !loc.long || !loc.country) {
+        //     return;
+        //   }
+
+        //   if(typeof loc.lat !== 'number' || typeof loc.long !== 'number' || typeof loc.country !== 'string') {
+        //     return;
+        //   }
+
+        //   if(loc.country.length !== 2) {
+        //     return;
+        //   }
+        // }
+
+        const game = new Game(gameId, false, location);
         game.rounds = rounds;
         game.timePerRound = timePerRound * 1000;
-        game.locations = locations;
+        // game.locations = locations;
+        // game.location = location;
         game.maxDist = maxDist;
 
         games.set(gameId, game);
