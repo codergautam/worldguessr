@@ -50,6 +50,7 @@ async function hasStreetViewImage(lat, long, radius) {
 
  async function generateLatLong(location, getRandomPointInCountry, findCountry) {
   const point = getRandomPointInCountry(location&&location!=="all"?location:true);
+  // console.log('point in ', location,' is ', point);
   const lat = point[0];
   const long = point[1];
   let outLat = null;

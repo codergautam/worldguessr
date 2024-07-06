@@ -1,11 +1,23 @@
 import Head from "next/head";
 import Script from "next/script";
+// import { useTranslation } from "react-i18next";
 
-export default function HeadContent() {
+export default function HeadContent({text}) {
+
   return (
           <Head>
-      <title>WorldGuessr - Free Geoguessr</title>
-    <meta name="description" content="The #1 free alternative to GeoGuessr, enjoy unlimited games and play to your hearts content! Engage in the fun of discovering new places with our free Geoguessr alternative." />
+      <title>
+        {text("tabTitle")}
+        </title>
+    <meta property="og:title" content={text("fullTitle")}/>
+
+    <meta name="description"
+    content={text("shortDescMeta")}
+    />
+    <meta property="og:description"
+    content={text("longDescMeta")}
+    />
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
 
     <link rel="icon" type="image/x-icon" href="/icon.ico" />
@@ -24,8 +36,6 @@ export default function HeadContent() {
       src="https://maps.googleapis.com/maps/api/js?callback=initialize&v=weekly"
       defer
     ></script>
-    <meta property="og:title" content="WorldGuessr - Play Geoguessr for Free" />
-    <meta property="og:description" content="Explore and play the free GeoGuessr game on WorldGuessr. Play free without an account, discover new places and challenge your geographical knowledge." />
     <meta property="og:image" content="/icon_144x144.png" />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />

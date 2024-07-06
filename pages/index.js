@@ -127,7 +127,10 @@ export default function Home({ locale }) {
       // set cpc to true so locaiton not overriden
       window.cpc = true;
       // instantly start game to minimize bounce rate
+
       setScreen("singleplayer")
+      localStorage.setItem("welcomeModalShown", "true")
+
     }
 
 
@@ -203,29 +206,29 @@ export default function Home({ locale }) {
           }
         })
       } else {
-        setMultiplayerState((prev) => ({
-          ...prev,
-          createOptions: {
-            ...prev.createOptions,
-            progress: 0
-          }
-        }));
+
         const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
+        // setMultiplayerState((prev) => ({
+        //   ...prev,
+        //   createOptions: {
+        //     ...prev.createOptions,
+        //     progress: 0
+        //   }
+        // }));
+        // (async () => {
+          // const locations = [];
+          // for (let i = 0; i < args[0].rounds; i++) {
 
-        (async () => {
-          const locations = [];
-          for (let i = 0; i < args[0].rounds; i++) {
-
-            const loc = await findLatLongRandom({ location: multiplayerState.createOptions.location });
-            locations.push(loc)
-            setMultiplayerState((prev) => ({
-              ...prev,
-              createOptions: {
-                ...prev.createOptions,
-                progress: i + 1
-              }
-            }))
-          }
+          //   const loc = await findLatLongRandom({ location: multiplayerState.createOptions.location });
+          //   locations.push(loc)
+          //   setMultiplayerState((prev) => ({
+          //     ...prev,
+          //     createOptions: {
+          //       ...prev.createOptions,
+          //       progress: i + 1
+          //     }
+          //   }))
+          // }
 
           setMultiplayerState((prev) => ({
             ...prev,
@@ -236,8 +239,10 @@ export default function Home({ locale }) {
           }));
 
           // send ws
-          ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
-        })()
+          // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
+          ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist }))
+
+        // })()
       }
     }
 
@@ -429,6 +434,17 @@ export default function Home({ locale }) {
             }
           }
         })
+      } else if(data.type === 'generating') {
+        // location generation before round
+        setMultiplayerState((prev) => {
+          return {
+            ...prev,
+            gameData: {
+              ...prev.gameData,
+              generated: data.generated
+            }
+          }
+        })
       }
     }
 
@@ -594,7 +610,7 @@ export default function Home({ locale }) {
 
   return (
     <>
-      <HeadContent />
+      <HeadContent text={text}/>
 
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
@@ -664,7 +680,7 @@ export default function Home({ locale }) {
             </div>
           </div>
           <br />
-          <Ad screenH={height} screenW={width} types={[[320, 50], [728, 90]]} centerOnOverflow={600} />
+          <Ad screenH={height} screenW={width} types={[[320, 50]]} centerOnOverflow={600} />
         </div>
 
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />

@@ -18,7 +18,7 @@ import { Circle } from 'ol/geom';
 import { useTranslation } from 'react-i18next';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
-const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions }) => {
+const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions, focused }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
@@ -357,7 +357,46 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
       setKm(distanceInKm);
     }
 
-  }, [map, pinPoint, answerShown, location, setKm, randomOffsetS, showHint]);
+
+    function onKeyPress(e) {
+      console.log(focused, e.key)
+      if(!focused) return;
+      // arrow keys = move / pan
+      // + - = zoom
+
+      let f = 1.5
+      if (e.key === 'ArrowUp') {
+        const zoom = map.getView().getZoom();
+        const distance = 1000000 / Math.pow(f, zoom);
+        map.getView().animate({ center: [map.getView().getCenter()[0], map.getView().getCenter()[1] + distance], duration: 50 });
+      } else if (e.key === 'ArrowDown') {
+        const zoom = map.getView().getZoom();
+        const distance = 1000000 / Math.pow(f, zoom);
+        map.getView().animate({ center: [map.getView().getCenter()[0], map.getView().getCenter()[1] - distance], duration: 50 });
+      } else if (e.key === 'ArrowLeft') {
+        const zoom = map.getView().getZoom();
+        const distance = 1000000 / Math.pow(f, zoom);
+        map.getView().animate({ center: [map.getView().getCenter()[0] - distance, map.getView().getCenter()[1]], duration: 50 });
+      } else if (e.key === 'ArrowRight') {
+        const zoom = map.getView().getZoom();
+        const distance = 1000000 / Math.pow(f, zoom);
+        map.getView().animate({ center: [map.getView().getCenter()[0] + distance, map.getView().getCenter()[1]], duration: 50 });
+      }
+
+      if (e.key === '+' || e.key === '=') {
+        map.getView().animate({ zoom: map.getView().getZoom() + 1, duration: 200 });
+      } else if (e.key === '-' || e.key === '_') {
+        map.getView().animate({ zoom: map.getView().getZoom() - 1, duration: 200 });
+      }
+    }
+
+    window.addEventListener('keydown', onKeyPress);
+
+    return () => {
+      window.removeEventListener('keydown', onKeyPress);
+    }
+
+  }, [map, pinPoint, answerShown, location, setKm, randomOffsetS, showHint, focused]);
 
   useState(() => {
     // let maxPivots = [10, 25].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
