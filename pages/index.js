@@ -594,7 +594,7 @@ export default function Home({ locale }) {
 
   return (
     <>
-      <HeadContent />
+      <HeadContent text={text}/>
 
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
