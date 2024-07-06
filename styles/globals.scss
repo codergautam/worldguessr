@@ -27,7 +27,7 @@ button {
 .cesium-container.cesium_singleplayer,
 .cesium-container.cesium_multiplayer {
   width: 100vw;
-  transform: translateX(0vw) translateY(calc(83px/2));
+  transform: translateX(0vw);
   animation: none;
   opacity: 1;
 }
@@ -166,12 +166,12 @@ button {
   background-color: #327A60;
   color: white;
   font-size: clamp(1.5em, 3vw, 5em);
-  text-shadow: 2px 2px black;
-  -webkit-text-stroke: 1px black;
   cursor: pointer;
   width: 100%;
   transition: background-color 0.3s;
   box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
+  -webkit-text-stroke: 1px black;
+  text-shadow: 2px 2px black;
   border-radius: 15px;
 }
 .gameBtn:hover {
@@ -232,6 +232,11 @@ h1, h2, h3 {
   transition: all 0.5s;
 }
 
+.navbar.inGame {
+  background-color: rgba(0, 0, 0, 0);
+  backdrop-filter: none;
+  height: 50px;
+}
 .navbar.hidden {
   transform: translateY(-100%);
   opacity: 0;
@@ -245,6 +250,12 @@ h1, h2, h3 {
   user-select: none;
   cursor: pointer;
   transition: all 250ms ease;
+}
+
+.navbar.inGame .navbar__title {
+  font-size: 1.8em;
+  // text border
+  -webkit-text-stroke: 1px black;
 }
 
 .navbar__title:hover {
@@ -271,10 +282,10 @@ h1, h2, h3 {
 .timer {
   z-index: 102;
   position: fixed;
-  top: max(100px, 10%);
-  right: 50%;
+  top: 50px;
+  right: 0;
   font-size: max(2em, 2vw);
-  background-color: #204B2C;
+  background-color: rgba(42, 44, 71, 0.5);
   padding-left: 10px;
   padding-right: 10px;
   border: 1px solid #555;
@@ -285,10 +296,14 @@ h1, h2, h3 {
   width: max-content;
   opacity: 0;
   transform: translateY(-100%);
+  box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
+  -webkit-text-stroke: 1px black;
+  text-shadow: 2px 2px black;
+  margin-right: 5px;
 }
 .timer.shown {
   opacity: 100%;
-  transform: translateY(0%) translateX(50%);
+  transform: translateY(0%);
   transition: all 0.5s;
   animation: fadeIn 0.5s ease-in-out forwards;
 }
@@ -517,16 +532,21 @@ h1, h2, h3 {
 
 #miniMapContent {
   cursor: crosshair;
-  border: 5px solid #0F251D;
   height: 100%;
-  border-radius: 10px;
   background-color: #B9D3DC;
+}
+
+#miniMapArea.answerNotShown #miniMapContent {
+  border: 5px solid #0F251D;
+  border-radius: 10px;
+}
+#miniMapArea.answerShown .ol-zoom {
+  display: none;
 }
 
 .mapCornerBtns {
   position: relative;
 }
-
 
 @media screen and (max-width: 600px),
 screen and (pointer:coarse) {
@@ -675,10 +695,10 @@ screen and (pointer:coarse) {
 
 #miniMapArea.answerShown {
   width: 100%;
-  height: calc(80vh - 118px);
+  height: 100vh;
   opacity: 100%;
   right: 0;
-  top: 83px;
+  top: 0px;
   margin-right: 0;
   margin-top: 0;
 }
@@ -754,13 +774,10 @@ screen and (pointer:coarse) {
 
 #endBanner {
   position: fixed;
-  left: 0;
-  right: 0;
   bottom: 0;
   z-index: 100;
-  height: 20vh;
   min-height: 150px;
-  background-color: rgba(106, 107, 131, 0.9);
+  background-color: rgba(106, 107, 131, 0.5);
   backdrop-filter: blur(10px);
   border-radius: 10px;
   color: white;
@@ -768,7 +785,10 @@ screen and (pointer:coarse) {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  left: 50%;
+  transform: translate(-50%, 0);
   padding: 20px;
+  margin-bottom: 10px;
 }
 
 .bannerContent {
@@ -947,8 +967,8 @@ screen and (pointer:coarse) {
   border-radius: 10px;
   position: fixed;
   width: 100vw;
-  height: calc(100vh - 83px);
-  top: 83px;
+  height: 100vh;
+  top: 50px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1026,4 +1046,9 @@ screen and (pointer:coarse)  {
   -moz-filter: invert(100%);
   -o-filter: invert(100%);
   -ms-filter: invert(100%);
+}
+#playerCnt{
+}
+img[alt="Google"] {
+  display: none;
 }

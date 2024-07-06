@@ -34,11 +34,11 @@ export default function EndBanner({ options, xpEarned, lostCountryStreak, sessio
          text("motivation5")
         )}
 
-         {!session?.token?.secret && (
+         {/* {!session?.token?.secret && (
           <p>
             <a onClick={()=>signIn('google')} style={{textDecoration: 'underline', color: 'cyan', cursor: 'pointer'}}>{text("loginWithGoogle1")}</a> {text("loginWithGoogle2")}!
           </p>
-        )}
+        )} */}
       {xpEarned > 0 && session?.token?.secret ? <p>{text("earnedXP",{xp:xpEarned})}!</p> : ''}
           {countryStreak > 0 ? <p>{text("onCountryStreak",{streak:countryStreak})}!</p> : ''}
           {lostCountryStreak > 0 ? <p>{text("lostCountryStreak",{streak:lostCountryStreak})}!</p> : ''}

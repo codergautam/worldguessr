@@ -10,7 +10,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
   return (
     <>
     { true && (
-    <div className={`navbar ${shown ? "" : "hidden"} ${inGame ? 'inGame' : ''}`}>
+    <div className={`navbar ${shown ? "" : "hidden"} ${inGame&&(multiplayerState?.inGame || screen==="singleplayer") ? 'inGame' : ''}`}>
       <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
       <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
 
@@ -32,7 +32,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
          &nbsp; <FaUser /> 4
         </h1> */}
         { screen === 'multiplayer' && multiplayerState?.inGame && multiplayerState?.gameData?.players.length > 0 && (
-          <h1>
+          <h1 id="playerCnt">
           &nbsp; <FaUser /> {multiplayerState.gameData.players.length}
          </h1>
         )}

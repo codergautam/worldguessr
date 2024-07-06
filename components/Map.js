@@ -9,12 +9,13 @@ import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
-import { Icon, Style, Stroke } from 'ol/style';
+import { Icon, Style, Stroke, Fill, Text } from 'ol/style';
 import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
 import ol, { DoubleClickZoom, KeyboardZoom, MouseWheelZoom } from 'ol/interaction';
 import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
+import { useTranslation } from 'react-i18next';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
 const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions }) => {
@@ -23,6 +24,8 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
   const plopSound = useRef();
   const vectorSource = useRef(new VectorSource());
+  const { t: text } = useTranslation("common");
+
 
   function drawHint(initialMap, location, randomOffset) {
     // create a circle overlay 10000km radius from location
@@ -163,6 +166,31 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
         })
       });
       map.addLayer(pinLayer);
+
+      if(answerShown) {
+        const textLayer = new VectorLayer({
+          source: new VectorSource({
+            features: [
+              new Feature({
+                geometry: new Point(fromLonLat([pinPoint.lng, pinPoint.lat])),
+                text: text('yourGuess')
+              })
+            ]
+          }),
+          style: new Style({
+            text: new Text({
+              font: 'bold 20px sans-serif',
+              text: text('yourGuess'),
+              offsetY: -65,
+              fill: new Fill({
+                color: '#000',
+              }),
+            }),
+          }),
+        });
+        map.addLayer(textLayer);
+
+      }
     }
 
     if (answerShown && location && pinPoint) {
@@ -189,6 +217,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
       const destFeature = new Feature({
         geometry: new Point(fromLonLat([location.long, location.lat])),
       });
+
       const pinLayer = new VectorLayer({
         source: new VectorSource({
           features: [destFeature]
@@ -203,7 +232,35 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
           })
         })
       });
+
+
       map.addLayer(pinLayer);
+
+      // add text above pin
+      const textLayer = new VectorLayer({
+        source: new VectorSource({
+          features: [
+            new Feature({
+              geometry: new Point(fromLonLat([location.long, location.lat])),
+              text: text('theLocation')
+            })
+          ]
+        }),
+        style: new Style({
+          text: new Text({
+            font: 'bold 20px sans-serif',
+            text: text('theLocation'),
+            offsetY: -65,
+            fill: new Fill({
+              color: '#000',
+            }),
+          }),
+        }),
+      });
+      map.addLayer(textLayer);
+
+
+
       // if (playingMultiplayer) {
       //   // Add other players' guesses
       //   multiplayerGameData.players.forEach((player) => {
@@ -258,6 +315,29 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
               })
             });
             map.addLayer(playerLayer);
+
+            // add text of playes name
+            const textLayer = new VectorLayer({
+              source: new VectorSource({
+                features: [
+                  new Feature({
+                    geometry: new Point(fromLonLat([player.guess[1], player.guess[0]])),
+                    text: player.username
+                  })
+                ]
+              }),
+              style: new Style({
+                text: new Text({
+                  font: 'bold 20px sans-serif',
+                  text: player.username,
+                  offsetY: -65,
+                  fill: new Fill({
+                    color: '#000',
+                  }),
+                }),
+              }),
+            });
+            map.addLayer(textLayer);
           }
       });
     }

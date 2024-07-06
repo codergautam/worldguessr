@@ -89,5 +89,7 @@
   "satellite": "Satellite",
   "hybrid": "Hybride",
   "terrain": "Terrain",
-  "legacyMap": "Héritage (multilingue)"
+  "legacyMap": "Héritage (multilingue)",
+  "theLocation": "L'emplacement",
+  "yourGuess": "Votre devinette"
 }

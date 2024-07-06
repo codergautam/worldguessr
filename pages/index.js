@@ -590,7 +590,7 @@ export default function Home({ locale }) {
         <BannerText text={`${text("loading")}...`} shown={loading && !(multiplayerState.error || multiplayerState.connecting)} />
         <BannerText text={`${text("connecting")}...`} shown={multiplayerState.connecting && !multiplayerState.error} />
 
-        <div style={{ display: 'flex', alignItems: 'center', opacity: (screen !== "singleplayer") ? 1 : 0 }} className="accountBtnContainer">
+        <div style={{ display: 'flex', alignItems: 'center', opacity: ((screen !== "singleplayer") && !multiplayerState?.inGame) ? 1 : 0 }} className="accountBtnContainer">
           <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
           {/* <p style={{color: "white", zIndex: 10000}}>
           {

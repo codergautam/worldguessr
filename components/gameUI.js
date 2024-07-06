@@ -209,7 +209,8 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
 
         panControl: gameOptions?.npz ? false:true,
         zoomControl: gameOptions?.npz ? false:true,
-        showRoadLabels: gameOptions?.showRoadName===true?true:false
+        showRoadLabels: gameOptions?.showRoadName===true?true:false,
+        disableDefaultUI: true,
       },
     );
 
@@ -269,7 +270,7 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
       }} onMouseLeave={() => {
         if(mapPinned) return;
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${miniMapShown ? 'shown' : ''} ${showAnswer ? 'answerShown' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${miniMapShown ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 
 {!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
