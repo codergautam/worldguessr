@@ -15,7 +15,7 @@ const __dirname = path.resolve();
 const nextConfig = {
     i18n: {
         defaultLocale: 'en',
-        locales: ['en','ru','fr','de'],
+        locales: ['en','ru','fr','de','es'],
       },
     webpack: (config, { webpack }) => {
         config.plugins.push(
