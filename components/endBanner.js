@@ -2,9 +2,12 @@ import { useEffect } from "react";
 import calcPoints from "./calcPoints";
 import { signIn } from "next-auth/react";
 import { useTranslation } from 'next-i18next'
+import Ad from "./bannerAd";
+import useWindowDimensions from "./useWindowDimensions";
 
 export default function EndBanner({ options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint }) {
   const { t: text } = useTranslation("common");
+  const { height, width } = useWindowDimensions();
 
   return (
     <div id='endBanner' style={{ display: guessed ? '' : 'none' }}>
@@ -57,6 +60,7 @@ export default function EndBanner({ options, xpEarned, lostCountryStreak, sessio
   </button>
 </div>
   )}
+<Ad screenH={height} screenW={width} types={[[320, 50]]} centerOnOverflow={600} />
 </div>
   )
 }
