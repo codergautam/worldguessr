@@ -275,6 +275,8 @@ class Game {
       id: player.id,
       action: 'remove'
     });
+    
+    this.checkRemaining();
 
     // self destruct if no players or it is a private game and host left
     if (Object.keys(this.players).length < 1 || (!this.public && isPlayerHost)) {
@@ -318,32 +320,35 @@ class Game {
         latLong
       });
 
+      this.checkRemaining();
 
-      // check if all players have placed
-      let allFinal = true;
-      let remainingCount = 0;
-      for (const p of Object.values(this.players)) {
-        if (!p.final) {
-          allFinal = false;
-          remainingCount++;
-          if(remainingCount > 1) {
-            break;
-          }
-        }
-      }
-
-
-      if (allFinal && (this.nextEvtTime - Date.now()) > 5000) {
-        this.nextEvtTime = Date.now() + 1000;
-        this.sendStateUpdate();
-      }
-
-      if(remainingCount === 1 && (this.nextEvtTime - Date.now()) > 20000) {
-        this.nextEvtTime = Date.now() + 20000;
-        this.sendStateUpdate();
-      }
     }
 
+  }
+  checkRemaining() {
+          // check if all players have placed
+          let allFinal = true;
+          let remainingCount = 0;
+          for (const p of Object.values(this.players)) {
+            if (!p.final) {
+              allFinal = false;
+              remainingCount++;
+              if(remainingCount > 1) {
+                break;
+              }
+            }
+          }
+
+
+          if (allFinal && (this.nextEvtTime - Date.now()) > 5000) {
+            this.nextEvtTime = Date.now() + 1000;
+            this.sendStateUpdate();
+          }
+
+          if(remainingCount === 1 && (this.nextEvtTime - Date.now()) > 20000) {
+            this.nextEvtTime = Date.now() + 20000;
+            this.sendStateUpdate();
+          }
   }
   async generateLocations() {
     for (let i = 0; i < this.rounds; i++) {

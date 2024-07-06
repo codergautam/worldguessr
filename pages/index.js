@@ -118,6 +118,20 @@ export default function Home({ locale }) {
   }, [options])
 
   useEffect(() => {
+
+    // check if paid traffic
+    const urlParams = new URLSearchParams(window.location.search);
+
+    const cpc = urlParams.get("cpc");
+    if (cpc) {
+      // set cpc to true so locaiton not overriden
+      window.cpc = true;
+      // instantly start game to minimize bounce rate
+      setScreen("singleplayer")
+    }
+
+
+
     // show welcome modal if not shown (localstorage)
     const welcomeModalShown = localStorage.getItem("welcomeModalShown");
     if (!welcomeModalShown) {
@@ -520,6 +534,21 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
+    if(window.cpc) {
+      const popularLocations = [
+    { lat: 40.7598687, long: -73.9764681 },
+    { lat: 27.1719752, long: 78.0422793 },
+
+      ]
+      setLatLong(popularLocations[Math.floor(Math.random() * popularLocations.length)])
+      setTimeout(() => {
+        setStreetViewShown(true)
+        setTimeout(() => {
+          setLoading(false)
+        }, 100);
+      }, 100);
+      return window.cpc = false;
+    }
     if (loading) return;
     console.log("loading location")
     setLoading(true)
