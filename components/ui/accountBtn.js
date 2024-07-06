@@ -14,7 +14,7 @@ export default function AccountBtn({ session, openAccountModal, navbarMode }) {
         (
           <div style={{marginRight: '10px',marginLeft: '10px'}}>
             
-            {text("Login",{lng: "en"})}
+            {text("login")}
             <FaGoogle className="home__squarebtnicon" />
           </div> 
         )}
