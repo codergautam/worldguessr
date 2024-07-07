@@ -96,5 +96,6 @@
   "fullTitle": "WorldGuessr - Jouez à GeoGuessr gratuitement",
   "shortDescMeta": "Profitez de manches illimitées dans ce jeu GeoGuessr gratuit et open-source. Découvrez de nouveaux endroits et apprenez la géographie dans WorldGuessr, notre alternative gratuite à Geoguessr",
   "fullDescMeta": "Profitez de manches illimitées dans ce jeu GeoGuessr gratuit et open-source. Maintenant avec le multijoueur, le suivi des progrès et les salons privés! Découvrez de nouveaux endroits et apprenez la géographie dans WorldGuessr, notre alternative gratuite à Geoguessr.",
-  "generating": "Génération des lieux"
+  "generating": "Génération des lieux",
+  "lang": "fr"
 }
