@@ -65,8 +65,8 @@ export default function Ad({
       if (
         windowAny.aiptag &&
         windowAny.aiptag.cmd &&
-        windowAny.aiptag.cmd.display &&
-        isAdDivVisible
+        windowAny.aiptag.cmd.display
+        // isAdDivVisible
       ) {
 
         sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`)
