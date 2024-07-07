@@ -122,6 +122,14 @@ for(const file of publicFilesToServe) {
   });
 }
 
+// redirect /wiki to /wiki/index.html
+registerHandler('/wiki', 'GET', (req,res,query)=>{
+  res.writeHead(301, {
+    Location: '/wiki/index.html'
+  });
+  res.end();
+});
+
 registerHandler('/memdump', 'GET', (req, res, query) => {
   const filename = writeHeapSnapshot();
 

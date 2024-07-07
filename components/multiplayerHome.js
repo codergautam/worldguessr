@@ -42,25 +42,25 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
         {
           multiplayerState?.guestName && (
             <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-              <h1>
+              <span className="bigSpan">
               {text("guestMultiplayer", {name:multiplayerState.guestName})}
-              </h1>
+              </span>
             </div>
           )
         }
 
-        <h1>{text("playOnline")}</h1>
+        <span className="bigSpan">{text("playOnline")}</span>
         <button className="gameBtn multiplayerOptionBtn publicGame" onClick={() => handleAction("publicDuel")}>{text("findDuel")}</button>
         <br />
         <br />
-        <h1>{text("playFriends")}</h1>
+        <span className="bigSpan">{text("playFriends")}</span>
         <button className="gameBtn multiplayerOptionBtn" onClick={() => handleAction("createPrivateGame")} style={{ marginBottom: "10px" }}>{text("createGame")}</button>
         <button className="gameBtn multiplayerOptionBtn" onClick={() => handleAction("joinPrivateGame")}>{text("joinGame")}</button>
       </div>
       )}
        { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && multiplayerState.enteringGameCode && !multiplayerState.creatingGame && (
       <div style={{ pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center' }}>
-        <h1>{text("joinGame")}</h1>
+        <span className="bigSpan">{text("joinGame")}</span>
 
         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
         <input type="text" placeholder={text("gameCode")} value={multiplayerState.joinOptions.gameCode} maxLength={6} onChange={(e) => setMultiplayerState((prev) => ({ ...prev, joinOptions: {...prev.joinOptions, gameCode: e.target.value.replace(/\D/g, "") }}))} className="gameCodeInput" />
@@ -75,7 +75,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
 
 { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && !multiplayerState.enteringGameCode && multiplayerState.creatingGame && (
       <div style={{ pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center' }}>
-        <h1>{text("createGame")}</h1>
+        <span className="bigSpan">{text("createGame")}</span>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div className="inputContainer">

@@ -32,11 +32,11 @@ export default function SettingsModal({ shown, onClose, options, setOptions }) {
                 backgroundColor: 'white'
             }
         }} open={shown} center onClose={onClose}>
-            <h1 style={{
+            <span style={{
                 marginBottom: '20px',
                 fontSize: '24px',
                 fontWeight: 'bold'
-            }}>{text("settings")}</h1>
+            }}>{text("settings")}</span>
 
             <div style={{ marginBottom: '10px' }}>
                 <label htmlFor="units">{text("units")}: </label>

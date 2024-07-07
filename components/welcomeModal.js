@@ -18,11 +18,11 @@ export default function WelcomeModal({ shown, onClose, openGame }) {
       }
   }} open={shown} center onClose={onClose}>
 
-      <h1 style={{
+      <span style={{
           marginBottom: '20px',
           fontSize: '24px',
           fontWeight: 'bold'
-      }}>{text("welcomeToWorldguessr")}</h1>
+      }}>{text("welcomeToWorldguessr")}</span>
 
       <p style={{
           fontSize: '16px',

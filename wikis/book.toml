@@ -1,0 +1,16 @@
+[book]
+authors = [""]
+language = "en"
+multilingual = false
+src = "src"
+title = "WorldGuessr Wiki"
+
+[build]
+build-dir = "../public/wiki"
+use-default-preprocessors = false
+
+[output.html]
+site-url = "/wiki/"
+
+[output.html.search]
+limit-results = 15

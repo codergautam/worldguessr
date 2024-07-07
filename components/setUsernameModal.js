@@ -44,11 +44,11 @@ export default function SetUsernameModal({ shown, onClose, session }) {
             }
         }} open={shown} center onClose={()=>{}}>
 
-            <h1 style={{
+            <span style={{
                 marginBottom: '20px',
                 fontSize: '24px',
                 fontWeight: 'bold'
-            }}>{text("welcomeToWorldguessr")}</h1>
+            }}>{text("welcomeToWorldguessr")}</span>
             <h3 style={{
                 marginBottom: '20px',
                 fontSize: '18px'

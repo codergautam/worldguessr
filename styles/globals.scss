@@ -203,7 +203,7 @@ button {
 .backBtn:hover {
   background-color: darkred;
 }
-h1, h2, h3 {
+h1, h2, h3, span {
   font-weight: 500;
   color: white;
 }
@@ -225,7 +225,7 @@ h1, h2, h3 {
   backdrop-filter: blur(10px);
   z-index: 102;
   padding: 0 20px;
-  overflow-x: scroll;
+  overflow-x: hidden;
 
   // enter from top
 
@@ -1051,4 +1051,12 @@ screen and (pointer:coarse)  {
 }
 img[alt="Google"] {
   display: none;
+}
+.bigSpan {
+  font-size:2em;
+}
+.wiki {
+  left: 0;
+  top: 0;
+  color:white;
 }
