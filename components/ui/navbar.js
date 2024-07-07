@@ -47,7 +47,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
           ''}
           </button>
         )}
-        <AccountBtn session={session} navbarMode={true} openAccountModal={openAccountModal} />
+        {!inGame && (<AccountBtn session={session} navbarMode={true} openAccountModal={openAccountModal} />)}
         </div>
     </div>
 )}
