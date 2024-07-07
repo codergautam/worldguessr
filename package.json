@@ -8,7 +8,7 @@
     "build": "npm run buildwiki && cross-env I18NEXT_DEFAULT_CONFIG_PATH=./next-i18next.config.cjs next build",
     "start": "cross-env I18NEXT_DEFAULT_CONFIG_PATH=./next-i18next.config.cjs NODE_ENV=production node server.js",
     "buildwiki": "cd wikis && mdbook build",
-    "heroku-postbuild": "echo 'heroku-postbuild' && curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.40/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz | tar -xz && cd wikis && ./mdbook build && cross-env I18NEXT_DEFAULT_CONFIG_PATH=./next-i18next.config.cjs next build"
+    "heroku-postbuild": "echo 'heroku-postbuild' && curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.40/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz | tar -xz && cd wikis && ls && ./mdbook build && cross-env I18NEXT_DEFAULT_CONFIG_PATH=./next-i18next.config.cjs next build"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
