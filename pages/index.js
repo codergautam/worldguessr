@@ -625,7 +625,8 @@ export default function Home({ locale }) {
         height: '100vh',
         objectFit: 'cover',
         transition: 'opacity 0.5s',
-        opacity: 0.4
+        opacity: 0.4,
+        userSelect: 'none',
 
       }} />
 
