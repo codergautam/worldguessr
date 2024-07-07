@@ -5,6 +5,7 @@ import enforceMinMax from "./utils/enforceMinMax"
 import GameOptions from "./gameOptionsModal";
 import PlayerList from "./playerList";
 import { useTranslation } from 'next-i18next'
+import sendEvent from "./utils/sendEvent";
 
 
 export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultiplayerState, session, handleAction }) {
@@ -24,7 +25,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
 
   useEffect(() => {
     if (!multiplayerState.connected && !ws && !multiplayerState.connecting && !multiplayerState.shouldConnect && !multiplayerState.error) {
-      console.log("connecting to websocket")
+      sendEvent("multiplayer_connect")
       // setting shouldConnect to true will force home to initiate a connection
       setMultiplayerState((prev) => ({
         ...prev,

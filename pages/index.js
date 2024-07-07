@@ -28,6 +28,7 @@ import dynamic from "next/dynamic";
 import Ad from "@/components/bannerAd";
 import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
+import sendEvent from "@/components/utils/sendEvent";
 
 // const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
 
@@ -79,6 +80,11 @@ export default function Home({ locale }) {
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
   });
+
+  useEffect(() => {
+    if(!session?.token?.username) return;
+    sendEvent("username",session?.token?.username)
+  }, [session?.token?.username])
 
   const loadOptions =async () => {
 
@@ -162,6 +168,7 @@ export default function Home({ locale }) {
         gameQueued: "publicDuel",
         nextGameQueued: false
       }))
+      sendEvent("multiplayer_request_duel")
       ws.send(JSON.stringify({ type: "publicDuel" }))
     }
 
@@ -180,6 +187,8 @@ export default function Home({ locale }) {
         }));
         // join private game
         ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0] }))
+      sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
+
       } else {
         setMultiplayerState((prev) => {
           return {
@@ -241,13 +250,14 @@ export default function Home({ locale }) {
           // send ws
           // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
           ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist }))
-
+          sendEvent("multiplayer_create_private_game", { rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist })
         // })()
       }
     }
 
     if (action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
       ws.send(JSON.stringify({ type: "startGameHost" }))
+      sendEvent("multiplayer_start_game_host")
     }
 
 
@@ -264,10 +274,14 @@ export default function Home({ locale }) {
       const ws = new WebSocket(wsPath);
       ws.onopen = () => {
         setWs(ws)
+      sendEvent("multiplayer_connected")
+
 
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
           const JWT = data.jwt;
           ws.send(JSON.stringify({ type: "verify", jwt: JWT }))
+      sendEvent("multiplayer_account_verified")
+
         });
       }
 
@@ -451,6 +465,8 @@ export default function Home({ locale }) {
     // ws on disconnect
     ws.onclose = () => {
       setWs(null)
+      sendEvent("multiplayer_disconnect")
+
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
         error: prev.error ?? "Connection lost"
@@ -502,6 +518,7 @@ export default function Home({ locale }) {
   }, [])
 
   function reloadBtnPressed() {
+    sendEvent("reload_pressed")
     setLatLong(null)
     setLoading(true)
     setTimeout(() => {
@@ -511,6 +528,8 @@ export default function Home({ locale }) {
     }, 100);
   }
   function backBtnPressed(queueNextGame = false) {
+    sendEvent("back_pressed")
+
     if (loading) setLoading(false);
     if (multiplayerState?.inGame) {
       ws.send(JSON.stringify({
@@ -566,7 +585,8 @@ export default function Home({ locale }) {
       return window.cpc = false;
     }
     if (loading) return;
-    console.log("loading location")
+    // console.log("loading location")
+    sendEvent("location_load")
     setLoading(true)
     setShowAnswer(false)
     setPinPoint(null)
@@ -577,6 +597,8 @@ export default function Home({ locale }) {
       setTimeout(() => {
         setStreetViewShown(true)
         setTimeout(() => {
+    sendEvent("location_loaded")
+
           setLoading(false)
         }, 100);
       }, 100);
@@ -584,6 +606,7 @@ export default function Home({ locale }) {
   }
 
   function onNavbarLogoPress() {
+    sendEvent("navbar_logo_press")
     if (screen !== "home" && !loading) {
       if (multiplayerState?.connected && !multiplayerState?.inGame) {
         return;
@@ -607,6 +630,10 @@ export default function Home({ locale }) {
 
     return () => clearInterval(pongInterval);
   }, [ws]);
+
+  useEffect(() => {
+    sendEvent("screen_change_" + screen)
+  }, [screen])
 
   return (
     <>
