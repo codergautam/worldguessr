@@ -651,9 +651,8 @@ export default function Home({ locale }) {
         width: '100vw',
         height: '100vh',
         transition: 'opacity 0.5s',
-        // dont stretch
-
         opacity: 0.4,
+        userSelect: 'none',
       }}>
       <NextImage.default src='/background.jpg'
       fill   alt="Background World map" style={{objectFit: "cover"}}
