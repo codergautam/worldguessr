@@ -32,7 +32,7 @@ import sendEvent from "@/components/utils/sendEvent";
 
 // const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
 
-// import Image from "next/image";
+import NextImage from "next/image";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -644,17 +644,22 @@ export default function Home({ locale }) {
 
       {ChatboxMemo}
 
-      <img src={'/background.jpg'} style={{
-        position: 'fixed',
+<div style={{
         top: 0,
         left: 0,
+        position: 'fixed',
         width: '100vw',
         height: '100vh',
-        objectFit: 'cover',
         transition: 'opacity 0.5s',
-        opacity: 0.4
+        // dont stretch
 
-      }} />
+        opacity: 0.4,
+      }}>
+      <NextImage.default src='/background.jpg'
+      fill   alt="Background World map" style={{objectFit: "cover"}}
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+      />
+      </div>
 
 
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">

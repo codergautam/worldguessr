@@ -98,8 +98,8 @@ export default function Ad({
     <div
       style={{
         backgroundColor: (isClient==="debug") ? "gray" : undefined,
-        height: (isClient==="debug") ? types[type][1] : undefined,
-        width: (isClient==="debug") ? types[type][0] : undefined,
+        height: types[type][1],
+        width: types[type][0],
         // transform:
         //   centerOnOverflow && centerOnOverflow < types[type][0]
         //     ? `translateX(calc(-1 * (${types[type][0]}px - ${centerOnOverflow}px) / 2))`

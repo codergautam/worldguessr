@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import {Modal} from "react-responsive-modal";
 import nameFromCode from "./utils/nameFromCode";
 import { useTranslation } from 'next-i18next'
-import sendEvent from "./utils/sendEvent";
-
 export default function GameOptions({ shown, onClose, gameOptions, setGameOptions, singleplayer }) {
     const { t: text } = useTranslation("common");
 
@@ -14,10 +12,6 @@ export default function GameOptions({ shown, onClose, gameOptions, setGameOption
             setCountries(data)
         });
     }, [shown])
-
-    useEffect(() => {
-        sendEvent("game_options_change", gameOptions)
-    }, [gameOptions])
 
   return (
     <Modal id="infoModal" styles={{

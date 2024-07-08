@@ -106,7 +106,6 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
       if (!answerShown && !guessing  &&  (!multiplayerState?.inGame || (multiplayerState?.inGame && !multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final))) {
         const clickedCoord = initialMap.getEventCoordinate(e.originalEvent);
         const clickedLatLong = toLonLat(clickedCoord);
-        sendEvent("map_click", { lat: clickedLatLong[1], long: clickedLatLong[0] })
         setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
 
         if(multiplayerState?.inGame && multiplayerState.gameData?.state === "guess" && ws) {
