@@ -13,15 +13,15 @@ export default function EndBanner({ options, xpEarned, lostCountryStreak, sessio
     <div id='endBanner' style={{ display: guessed ? '' : 'none' }}>
   <div className="bannerContent">
     { pinPoint && (km >= 0) ? (
-    <h1 className='mainBannerTxt'>
+    <span className='mainBannerTxt'>
       {/* Your guess was {km} km away! */}
 
 
 
       {text(`guessDistance${options.units==="imperial"?"Mi":"Km"}`, {d: options.units==="imperial" ? (km*0.621371).toFixed(1) : km})}
-      </h1>
+      </span>
     ) : (
-      <h1 className='mainBannerTxt'>{text("didntGuess")}!</h1>
+      <span className='mainBannerTxt'>{text("didntGuess")}!</span>
     )}
     <p className="motivation">
       { latLong && pinPoint && multiplayerState?.inGame &&

@@ -23,18 +23,15 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
 
 
       {screen === 'multiplayer' && multiplayerState?.playerCount && !multiplayerState?.inGame && (
-        <h1 className="desktop">
+        <span className="desktop bigSpan">
           {text("online", {cnt:multiplayerState.playerCount})}
-        </h1>
+        </span>
       )}
 
-      {/* <h1>
-         &nbsp; <FaUser /> 4
-        </h1> */}
         { screen === 'multiplayer' && multiplayerState?.inGame && multiplayerState?.gameData?.players.length > 0 && (
-          <h1 id="playerCnt">
+          <span id="playerCnt" className="bigSpan">
           &nbsp; <FaUser /> {multiplayerState.gameData.players.length}
-         </h1>
+         </span>
         )}
       <div className="navbar__right">
         { screen === 'singleplayer' && (

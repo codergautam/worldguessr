@@ -11,6 +11,7 @@ import BannerText from "./bannerText";
 import PlayerList from "./playerList";
 import { FaExpand, FaMinimize, FaThumbtack } from "react-icons/fa6";
 import { useTranslation } from 'next-i18next'
+import sendEvent from "./utils/sendEvent";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -88,6 +89,7 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
   }, [loading, latLong, width])
 
   function showHint() {
+    sendEvent("show_hint")
     setHintShown(true)
   }
   useEffect(() => {
@@ -95,6 +97,7 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
   }, [gameOptions?.location])
   function guess() {
     setShowAnswer(true)
+    sendEvent("guess", { lat: latLong.lat, long: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
 
     if(multiplayerState?.inGame) return;
 
@@ -144,7 +147,7 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
   }, [km, latLong, pinPoint])
 
   function fixBranding() {
-    console.log("fixing branding")
+    // console.log("fixing branding")
     // document.querySelectorAll('*').forEach(el => {
     //   if(el.innerHTML === "For development purposes only") {
     //     console.log(el)

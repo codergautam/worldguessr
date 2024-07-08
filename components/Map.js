@@ -16,6 +16,7 @@ import ol, { DoubleClickZoom, KeyboardZoom, MouseWheelZoom } from 'ol/interactio
 import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
 import { useTranslation } from 'react-i18next';
+import sendEvent from './utils/sendEvent';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
 const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions, focused }) => {
@@ -62,7 +63,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
             // url: 'https://{a-c}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
             // url: 'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02',
             // use google maps https://mt2.google.com/vt/lyrs=m&x=&y==&z=&hl=en
-            url: options?.mapType==="legacy"?'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02':`https://mt2.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=en`,
+            url: options?.mapType==="legacy"?'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02':`https://mt2.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}`,
           }),
         }),
         new VectorLayer({ source: vectorSource.current })
@@ -105,7 +106,6 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
       if (!answerShown && !guessing  &&  (!multiplayerState?.inGame || (multiplayerState?.inGame && !multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final))) {
         const clickedCoord = initialMap.getEventCoordinate(e.originalEvent);
         const clickedLatLong = toLonLat(clickedCoord);
-        console.log(clickedLatLong);
         setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
 
         if(multiplayerState?.inGame && multiplayerState.gameData?.state === "guess" && ws) {

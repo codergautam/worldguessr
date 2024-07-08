@@ -15,10 +15,10 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
 
   return (
     <div className="multiplayerLeaderboard">
-      <h1>
+      <span className="bigSpan">
         {gameOver?text("gameOver"):waitingForStart?host?text("yourPrivateGame"):text("privateGame"):text("leaderboard")}
         {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})})</span>}
-      </h1>
+      </span>
 
       { waitingForStart && (
 

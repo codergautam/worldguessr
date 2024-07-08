@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {Modal} from "react-responsive-modal";
 import nameFromCode from "./utils/nameFromCode";
 import { useTranslation } from 'next-i18next'
-
 export default function GameOptions({ shown, onClose, gameOptions, setGameOptions, singleplayer }) {
     const { t: text } = useTranslation("common");
 

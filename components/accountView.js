@@ -36,10 +36,10 @@ export default function AccountView({ accountData }) {
 
   return (
     <div style={containerStyle}>
-      <h1 style={titleStyle}>
+      <span style={titleStyle}>
         <i className="fas fa-user" style={iconStyle}></i>
         {accountData.username}
-      </h1>
+      </span>
       <p style={textStyle}>
         <i className="fas fa-clock" style={iconStyle}></i>
         {/* Joined {msToTime(Date.now() - new Date(accountData.createdAt).getTime())} ago */}

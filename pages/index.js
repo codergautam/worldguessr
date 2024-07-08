@@ -3,7 +3,7 @@ import CesiumWrapper from "../components/cesium/CesiumWrapper";
 import { Jockey_One, Roboto } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
 import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
-import { FaGear, FaRankingStar } from "react-icons/fa6";
+import { FaBook, FaGear, FaMap, FaRankingStar } from "react-icons/fa6";
 import { signIn, useSession } from "next-auth/react";
 import AccountBtn from "@/components/ui/accountBtn";
 import 'react-responsive-modal/styles.css';
@@ -28,10 +28,11 @@ import dynamic from "next/dynamic";
 import Ad from "@/components/bannerAd";
 import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
+import sendEvent from "@/components/utils/sendEvent";
 
 // const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
 
-// import Image from "next/image";
+import NextImage from "next/image";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -79,6 +80,11 @@ export default function Home({ locale }) {
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
   });
+
+  useEffect(() => {
+    if(!session?.token?.username) return;
+    sendEvent("username",session?.token?.username)
+  }, [session?.token?.username])
 
   const loadOptions =async () => {
 
@@ -162,6 +168,7 @@ export default function Home({ locale }) {
         gameQueued: "publicDuel",
         nextGameQueued: false
       }))
+      sendEvent("multiplayer_request_duel")
       ws.send(JSON.stringify({ type: "publicDuel" }))
     }
 
@@ -180,6 +187,8 @@ export default function Home({ locale }) {
         }));
         // join private game
         ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0] }))
+      sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
+
       } else {
         setMultiplayerState((prev) => {
           return {
@@ -241,13 +250,14 @@ export default function Home({ locale }) {
           // send ws
           // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
           ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist }))
-
+          sendEvent("multiplayer_create_private_game", { rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist })
         // })()
       }
     }
 
     if (action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
       ws.send(JSON.stringify({ type: "startGameHost" }))
+      sendEvent("multiplayer_start_game_host")
     }
 
 
@@ -264,10 +274,14 @@ export default function Home({ locale }) {
       const ws = new WebSocket(wsPath);
       ws.onopen = () => {
         setWs(ws)
+      sendEvent("multiplayer_connected")
+
 
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
           const JWT = data.jwt;
           ws.send(JSON.stringify({ type: "verify", jwt: JWT }))
+      sendEvent("multiplayer_account_verified")
+
         });
       }
 
@@ -451,6 +465,8 @@ export default function Home({ locale }) {
     // ws on disconnect
     ws.onclose = () => {
       setWs(null)
+      sendEvent("multiplayer_disconnect")
+
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
         error: prev.error ?? "Connection lost"
@@ -502,6 +518,7 @@ export default function Home({ locale }) {
   }, [])
 
   function reloadBtnPressed() {
+    sendEvent("reload_pressed")
     setLatLong(null)
     setLoading(true)
     setTimeout(() => {
@@ -511,6 +528,8 @@ export default function Home({ locale }) {
     }, 100);
   }
   function backBtnPressed(queueNextGame = false) {
+    sendEvent("back_pressed")
+
     if (loading) setLoading(false);
     if (multiplayerState?.inGame) {
       ws.send(JSON.stringify({
@@ -566,7 +585,8 @@ export default function Home({ locale }) {
       return window.cpc = false;
     }
     if (loading) return;
-    console.log("loading location")
+    // console.log("loading location")
+    sendEvent("location_load")
     setLoading(true)
     setShowAnswer(false)
     setPinPoint(null)
@@ -577,6 +597,8 @@ export default function Home({ locale }) {
       setTimeout(() => {
         setStreetViewShown(true)
         setTimeout(() => {
+    sendEvent("location_loaded")
+
           setLoading(false)
         }, 100);
       }, 100);
@@ -584,6 +606,7 @@ export default function Home({ locale }) {
   }
 
   function onNavbarLogoPress() {
+    sendEvent("navbar_logo_press")
     if (screen !== "home" && !loading) {
       if (multiplayerState?.connected && !multiplayerState?.inGame) {
         return;
@@ -608,6 +631,10 @@ export default function Home({ locale }) {
     return () => clearInterval(pongInterval);
   }, [ws]);
 
+  useEffect(() => {
+    sendEvent("screen_change_" + screen)
+  }, [screen])
+
   return (
     <>
       <HeadContent text={text}/>
@@ -617,18 +644,21 @@ export default function Home({ locale }) {
 
       {ChatboxMemo}
 
-      <img src={'/background.jpg'} style={{
-        position: 'fixed',
+<div style={{
         top: 0,
         left: 0,
+        position: 'fixed',
         width: '100vw',
         height: '100vh',
-        objectFit: 'cover',
         transition: 'opacity 0.5s',
         opacity: 0.4,
         userSelect: 'none',
-
-      }} />
+      }}>
+      <NextImage.default src='/background.jpg'
+      fill   alt="Background World map" style={{objectFit: "cover"}}
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+      />
+      </div>
 
 
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">
@@ -648,11 +678,12 @@ export default function Home({ locale }) {
           <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         }
         <Navbar loading={loading} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
 
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
-            <div className="home__btns">
+            <div className="home__btns">=
               <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
               }} />
@@ -676,12 +707,14 @@ export default function Home({ locale }) {
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                <Link href={"/wiki"}><button className="home__squarebtn gameBtn"><FaBook className="home__squarebtnicon" /></button></Link>
+
                 <button className="home__squarebtn gameBtn" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
             </div>
           </div>
           <br />
-          <Ad screenH={height} screenW={width} types={[[320, 50]]} centerOnOverflow={600} />
+          <Ad screenH={height} screenW={width} types={[[320, 50], [728, 90]]} centerOnOverflow={600} />
         </div>
 
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />

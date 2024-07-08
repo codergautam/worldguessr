@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import useWindowDimensions from "./useWindowDimensions";
+import sendEvent from "./utils/sendEvent";
 
 const AD_REFRESH_MS = 30000 // refresh ad every 30 seconds
 
@@ -29,6 +30,7 @@ export default function Ad({
     findAdType(screenW, screenH, types, vertThresh)
   )
   const [isClient, setIsClient] = useState(false)
+  const adDivRef = useRef(null)
 
   useEffect(() => {
     console.log(window.location.hostname)
@@ -58,21 +60,23 @@ export default function Ad({
       if (type === -1) return
       setTimeout(() => {
 
+        const isAdDivVisible = adDivRef.current.getBoundingClientRect().top < window.innerHeight && adDivRef.current.getBoundingClientRect().bottom > 0;
+
       if (
         windowAny.aiptag &&
         windowAny.aiptag.cmd &&
         windowAny.aiptag.cmd.display
+        // isAdDivVisible
       ) {
 
-        console.log(
-          `requesting worldguessr-com_${types[type][0]}x${types[type][1]}`
-        )
+        sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`)
 
         windowAny.aiptag.cmd.display.push(function() {
           windowAny.aipDisplayTag.display(
             `worldguessr-com_${types[type][0]}x${types[type][1]}`
           )
         })
+
       } else {
       }
     }, 100)
@@ -94,14 +98,15 @@ export default function Ad({
     <div
       style={{
         backgroundColor: (isClient==="debug") ? "gray" : undefined,
-        height: (isClient==="debug") ? types[type][1] : undefined,
-        width: (isClient==="debug") ? types[type][0] : undefined,
+        height: types[type][1],
+        width: types[type][0],
         // transform:
         //   centerOnOverflow && centerOnOverflow < types[type][0]
         //     ? `translateX(calc(-1 * (${types[type][0]}px - ${centerOnOverflow}px) / 2))`
         //     : undefined
       }}
       id={`worldguessr-com_${types[type][0]}x${types[type][1]}`}
+      ref={adDivRef}
     >
       {isClient==="debug" && (
         <>
