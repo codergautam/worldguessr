@@ -74,6 +74,9 @@ dependencies:
   react-responsive-modal:
     specifier: ^6.4.2
     version: 6.4.2(react-dom@18.3.1)(react@18.3.1)
+  react-simple-typewriter:
+    specifier: ^5.0.1
+    version: 5.0.1(react-dom@18.3.1)(react@18.3.1)
   sass:
     specifier: ^1.77.2
     version: 1.77.4
@@ -3206,6 +3209,17 @@ packages:
       '@bedrock-layout/use-forwarded-ref': 1.6.1(react@18.3.1)
       body-scroll-lock: 3.1.5
       classnames: 2.5.1
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+    dev: false
+
+  /react-simple-typewriter@5.0.1(react-dom@18.3.1)(react@18.3.1):
+    resolution: {integrity: sha512-vA5HkABwJKL/DJ4RshSlY/igdr+FiVY4MLsSQYJX6FZG/f1/VwN4y1i3mPXRyfaswrvI8xii1kOVe1dYtO2Row==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
+    dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
     dev: false

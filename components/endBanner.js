@@ -5,7 +5,7 @@ import { useTranslation } from 'next-i18next'
 import Ad from "./bannerAd";
 import useWindowDimensions from "./useWindowDimensions";
 
-export default function EndBanner({ options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint }) {
+export default function EndBanner({ onboarding, countryGuesser, countryGuesserCorrect, options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint }) {
   const { t: text } = useTranslation("common");
   const { height, width } = useWindowDimensions();
 
@@ -21,7 +21,11 @@ export default function EndBanner({ options, xpEarned, lostCountryStreak, sessio
       {text(`guessDistance${options.units==="imperial"?"Mi":"Km"}`, {d: options.units==="imperial" ? (km*0.621371).toFixed(1) : km})}
       </span>
     ) : (
-      <span className='mainBannerTxt'>{text("didntGuess")}!</span>
+      <span className='mainBannerTxt'>{
+        countryGuesser?(
+          countryGuesserCorrect?text("correctCountry"):text("incorrectCountry")
+        ):text("didntGuess")
+      }!</span>
     )}
     <p className="motivation">
       { latLong && pinPoint && multiplayerState?.inGame &&
@@ -51,13 +55,15 @@ export default function EndBanner({ options, xpEarned, lostCountryStreak, sessio
 
   <div className="endButtonContainer">
   <button className="playAgain" onClick={fullReset}>
-    {text("playAgain")}
+    {text("nextRound")}
   </button>
+  { !onboarding && (
   <button className="openInMaps" onClick={() => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${latLong.lat},${latLong.long}`);
   }}>
     {text("openInMaps")}
   </button>
+  )}
 </div>
   )}
 <Ad screenH={height} screenW={width} types={[[320, 50]]} centerOnOverflow={600} />

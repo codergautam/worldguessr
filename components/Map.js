@@ -134,6 +134,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
   useEffect(() => {
     if (!map) return;
 
+
     vectorSource.current.clear();
 
     // remove old pin point
@@ -193,27 +194,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
       }
     }
 
-    if (answerShown && location && pinPoint) {
-      const lineLayer = new VectorLayer({
-        source: new VectorSource({
-          features: [
-            new Feature({
-              geometry: new LineString([
-                fromLonLat([pinPoint.lng, pinPoint.lat]),
-                fromLonLat([location.long, location.lat]),
-              ]),
-            })
-          ]
-        }),
-        style: new Style({
-          stroke: new Stroke({
-            color: '#f00',
-            width: 2
-          })
-        })
-      });
-
-      map.addLayer(lineLayer);
+    if(answerShown && location) {
       const destFeature = new Feature({
         geometry: new Point(fromLonLat([location.long, location.lat])),
       });
@@ -258,6 +239,30 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
         }),
       });
       map.addLayer(textLayer);
+
+    }
+    if (answerShown && location && pinPoint) {
+      const lineLayer = new VectorLayer({
+        source: new VectorSource({
+          features: [
+            new Feature({
+              geometry: new LineString([
+                fromLonLat([pinPoint.lng, pinPoint.lat]),
+                fromLonLat([location.long, location.lat]),
+              ]),
+            })
+          ]
+        }),
+        style: new Style({
+          stroke: new Stroke({
+            color: '#f00',
+            width: 2
+          })
+        })
+      });
+
+      map.addLayer(lineLayer);
+
 
 
 
@@ -344,9 +349,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
 
 
-      setTimeout(() => {
-        map.getView().animate({ center: fromLonLat([location.long, location.lat]), zoom: 5, duration: 3000 });
-      }, 100);
+
 
       // Calculate distance
 
@@ -398,7 +401,20 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
   }, [map, pinPoint, answerShown, location, setKm, randomOffsetS, showHint, focused]);
 
-  useState(() => {
+  useEffect(() => {
+    if(!answerShown || !location || !map) return;
+    console.log(answerShown, location, map)
+    try {
+    setTimeout(() => {
+      map.getView().animate({ center: fromLonLat([location.long, location.lat]), zoom: 5, duration: 3000 });
+    }, 100);
+  }catch(e) {
+
+  }
+
+  }, [answerShown, location, map])
+
+  useEffect(() => {
     // let maxPivots = [10, 25].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
     let maxPivots = [0, 0];
     const radiusProj = hintMul * gameOptions.maxDist;

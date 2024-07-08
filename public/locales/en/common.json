@@ -29,6 +29,7 @@
   "gameCode": "Game Code",
   "host": "Host",
   "playAgain": "Play Again",
+  "nextRound": "Next Round",
   "singlePlayerNeeded": "1 more player needed to start",
   "startGame": "Start Game",
   "waitingForHostToStart": "Waiting for host to start the game",
@@ -43,6 +44,7 @@
   "close": "Close",
   "howToPlay": "How to Play",
   "roundTimer": "Round #{{r}} / {{mr}} - {{t}} seconds",
+  "round": "Round #{{r}} / {{mr}}",
   "gameStartingIn": "Game starting in {{t}}s",
   "guessDistanceKm": "Your guess was {{d}}km away",
   "guessDistanceM": "Your guess was {{d}}m away",
@@ -97,5 +99,9 @@
   "shortDescMeta": "Enjoy unlimited rounds in this free & open-source GeoGuessr game. Discover new places and learn geography in WorldGuessr, our free Geoguessr alternative",
   "fullDescMeta": "Enjoy unlimited rounds in this free & open-source Geoguessr game. Now with multiplayer, progress tracking and private lobbies! Discover new places and learn geography in WorldGuessr, our free Geoguessr alternative.",
   "generating": "Generating Locations",
-  "lang": "en"
+  "lang": "en",
+  "playNow": "Play Now",
+  "subtitle": "Imagine being dropped in a random location on Earth. Can you guess where you are?",
+  "correctCountry": "Correct country",
+  "incorrectCountry": "Incorrect country"
 }

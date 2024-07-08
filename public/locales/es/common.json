@@ -29,6 +29,7 @@
   "gameCode": "Código del juego",
   "host": "Anfitrión",
   "playAgain": "Jugar de nuevo",
+  "nextRound": "Siguiente ronda",
   "singlePlayerNeeded": "Se necesita 1 jugador más para comenzar",
   "startGame": "Iniciar juego",
   "waitingForHostToStart": "Esperando que el anfitrión inicie el juego",
@@ -97,5 +98,7 @@
   "shortDescMeta": "Disfruta de rondas ilimitadas en este juego de GeoGuessr gratuito y de código abierto. Descubre nuevos lugares y aprende geografía en WorldGuessr, nuestra alternativa gratuita a GeoGuessr",
   "fullDescMeta": "Disfruta de rondas ilimitadas en este juego de GeoGuessr gratuito y de código abierto. ¡Ahora con multijugador, seguimiento de progreso y lobbies privados! Descubre nuevos lugares y aprende geografía en WorldGuessr, nuestra alternativa gratuita a GeoGuessr.",
   "generating": "Generando ubicaciones",
-  "lang": "es"
+  "lang": "es",
+  "playNow": "Jugar ahora",
+  "subtitle": "Imagina que te dejan caer en una ubicación aleatoria en la Tierra. ¿Puedes adivinar dónde estás?"
 }

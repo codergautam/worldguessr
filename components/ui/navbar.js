@@ -10,11 +10,13 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
   return (
     <>
     { true && (
-    <div className={`navbar ${shown ? "" : "hidden"} ${inGame&&(multiplayerState?.inGame || screen==="singleplayer") ? 'inGame' : ''}`}>
+    <div className={`navbar ${shown ? "" : "hidden"}`}>
       <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
       <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
 
+{  screen !== "onboarding" && (
       <button className="gameBtn navBtn backBtn desktop" onClick={backBtnPressed}>{text("back")}</button>
+)}
       <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed} style={{width: "50px"}}><FaArrowLeft /></button>
 
       {(((multiplayerState?.inGame) || (screen === 'singleplayer'))) && (!loading) && (

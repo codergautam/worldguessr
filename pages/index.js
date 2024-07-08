@@ -19,7 +19,6 @@ import SetUsernameModal from "@/components/setUsernameModal";
 import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
-import WelcomeModal from "@/components/welcomeModal";
 // import text from "@/languages/lang";
 import { useTranslation } from 'next-i18next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
@@ -75,16 +74,26 @@ export default function Home({ locale }) {
   const [xpEarned, setXpEarned] = useState(0)
   const [countryStreak, setCountryStreak] = useState(0)
   const [settingsModal, setSettingsModal] = useState(false)
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
   const [timeOffset, setTimeOffset] = useState(0)
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
   });
 
+  const [onboarding, setOnboarding] = useState(null);
+  const [otherOptions, setOtherOptions] = useState([]); // for country guesser
+  const [showCountryButtons, setShowCountryButtons] = useState(true);
+  const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
+
   useEffect(() => {
     if(!session?.token?.username) return;
     sendEvent("username",session?.token?.username)
   }, [session?.token?.username])
+
+  useEffect(() => {
+    if(onboarding?.round >1) {
+      loadLocation()
+    }
+  }, [onboarding?.round])
 
   const loadOptions =async () => {
 
@@ -135,17 +144,7 @@ export default function Home({ locale }) {
       // instantly start game to minimize bounce rate
 
       setScreen("singleplayer")
-      localStorage.setItem("welcomeModalShown", "true")
 
-    }
-
-
-
-    // show welcome modal if not shown (localstorage)
-    const welcomeModalShown = localStorage.getItem("welcomeModalShown");
-    if (!welcomeModalShown) {
-      setShowWelcomeModal(true)
-      localStorage.setItem("welcomeModalShown", "true")
     }
   }, [])
 
@@ -569,6 +568,7 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
+    
     if(window.cpc) {
       const popularLocations = [
     { lat: 40.7598687, long: -73.9764681 },
@@ -584,16 +584,10 @@ export default function Home({ locale }) {
       }, 100);
       return window.cpc = false;
     }
+
     if (loading) return;
-    // console.log("loading location")
-    sendEvent("location_load")
-    setLoading(true)
-    setShowAnswer(false)
-    setPinPoint(null)
-    setLatLong(null)
-    setHintShown(false)
-    findLatLongRandom(gameOptions).then((latLong) => {
-      setLatLong(latLong)
+
+    function afterSet() {
       setTimeout(() => {
         setStreetViewShown(true)
         setTimeout(() => {
@@ -602,11 +596,37 @@ export default function Home({ locale }) {
           setLoading(false)
         }, 100);
       }, 100);
+    }
+
+
+
+    // console.log("loading location")
+    sendEvent("location_load")
+    setLoading(true)
+    setShowAnswer(false)
+    setPinPoint(null)
+    setLatLong(null)
+    setHintShown(false)
+    if(screen === "onboarding") {
+      setLatLong(onboarding.locations[onboarding.round - 1]);
+      let options = JSON.parse(JSON.stringify(onboarding.locations[onboarding.round - 1].otherOptions));
+      options.push(onboarding.locations[onboarding.round - 1].country)
+      // shuffle
+      options = options.sort(() => Math.random() - 0.5)
+      setOtherOptions(options)
+      afterSet();
+    } else {
+    findLatLongRandom(gameOptions).then((latLong) => {
+      setLatLong(latLong)
+      afterSet()
     });
+  }
   }
 
   function onNavbarLogoPress() {
     sendEvent("navbar_logo_press")
+    if(screen === "onboarding") return;
+
     if (screen !== "home" && !loading) {
       if (multiplayerState?.connected && !multiplayerState?.inGame) {
         return;
@@ -654,8 +674,8 @@ export default function Home({ locale }) {
         opacity: 0.4,
         userSelect: 'none',
       }}>
-      <NextImage.default src='/background.jpg'
-      fill   alt="Background World map" style={{objectFit: "cover"}}
+      <NextImage.default src={'/street1.jpg'}
+      fill   alt="Game Background" style={{objectFit: "cover",userSelect:'none'}}
       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       />
       </div>
@@ -666,7 +686,7 @@ export default function Home({ locale }) {
         <BannerText text={`${text("loading")}...`} shown={loading && !(multiplayerState.error || multiplayerState.connecting)} />
         <BannerText text={`${text("connecting")}...`} shown={multiplayerState.connecting && !multiplayerState.error} />
 
-        <div style={{ display: 'flex', alignItems: 'center', opacity: ((screen !== "singleplayer") && !multiplayerState?.inGame) ? 1 : 0 }} className="accountBtnContainer">
+        <div style={{ display: 'flex', alignItems: 'center', opacity: (screen === "home") ? 1 : 0 }} className="accountBtnContainer">
           <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
           {/* <p style={{color: "white", zIndex: 10000}}>
           {
@@ -683,11 +703,42 @@ export default function Home({ locale }) {
 
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
-            <div className="home__btns">=
-              <GameBtn text={text("singleplayer")} onClick={() => {
-                if (!loading) setScreen("singleplayer")
-              }} />
-              <GameBtn text={text("multiplayer")} style={{
+            <h2 className="home__subtitle">{text("subtitle")}</h2>
+            <div className="home__btns">
+              <button className="gameBtn play" onClick={() => {
+                if (!loading) {
+                  setScreen("onboarding")
+
+                  let onboardingLocations = [
+                    { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
+                  { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
+                  { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
+                    { lat: -1.2758794, long: 36.8231793, country: "KE", otherOptions: ["IN", "US"] },
+                    { lat: 35.7010698, long: 139.7061219, country: "JP", otherOptions: ["KR", "RU"] },
+                    { lat: 37.5383413, long: 127.1002877, country: "KR", otherOptions: ["JP", "CA"] },
+                    { lat: 19.3228523, long: -99.0982377, country: "MX", otherOptions: ["BR", "US"] },
+                    { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
+                  ]
+
+                  // pick 5 random locations no repeats
+                  const locations = [];
+                  while (locations.length < 5) {
+                    const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
+                    if (!locations.find((l) => l.country === loc.country)) {
+                      locations.push(loc)
+                    }
+                  }
+
+
+                  setOnboarding({
+                    pointsEarned: 0,
+                    round: 1,
+                    locations: locations,
+                  })
+                  setShowCountryButtons(false)
+                }
+              }} >{text("playNow")}</button>
+              {/* <GameBtn text={text("multiplayer")} style={{
                 backgroundColor: loginQueued === 'multiplayer' ? "gray" : "",
                 cursor: loginQueued === 'multiplayer' ? "not-allowed" : ""
               }} onClick={() => {
@@ -710,19 +761,21 @@ export default function Home({ locale }) {
                 <Link href={"/wiki"}><button className="home__squarebtn gameBtn"><FaBook className="home__squarebtnicon" /></button></Link>
 
                 <button className="home__squarebtn gameBtn" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
-              </div>
+              </div> */}
             </div>
           </div>
           <br />
-          <Ad screenH={height} screenW={width} types={[[320, 50], [728, 90]]} centerOnOverflow={600} />
         </div>
 
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
-        <WelcomeModal shown={showWelcomeModal} onClose={() => setShowWelcomeModal(false)} openGame={() => setScreen("singleplayer")} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
+
+        {screen === "onboarding" && <div className="home__onboarding">
+          <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding.round < 3} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          </div>}
 
         {screen === "multiplayer" && <div className="home__multiplayer">
           <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
