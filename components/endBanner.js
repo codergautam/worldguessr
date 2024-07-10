@@ -28,8 +28,12 @@ export default function EndBanner({ onboarding, countryGuesser, countryGuesserCo
       }!</span>
     )}
     <p className="motivation">
-      { latLong && pinPoint && multiplayerState?.inGame &&
-       `${text('gotPoints', {p:calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: false, maxDist: multiplayerState?.gameData?.maxDist ?? 20000 })})}!`
+      { latLong && pinPoint && (onboarding||multiplayerState?.inGame) &&
+       `${text('gotPoints', {p:calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: false, maxDist: multiplayerState?.gameData?.maxDist ?? 20000 })})}! `
+      }
+      {
+        countryGuesser&&onboarding&&latLong&&
+        `${text('gotPoints', {p:2500})}!`
       }
 
 
@@ -55,7 +59,7 @@ export default function EndBanner({ onboarding, countryGuesser, countryGuesserCo
 
   <div className="endButtonContainer">
   <button className="playAgain" onClick={fullReset}>
-    {text("nextRound")}
+    {onboarding&&onboarding.round === 5 ? text("viewResults") : text("nextRound")}
   </button>
   { !onboarding && (
   <button className="openInMaps" onClick={() => {

@@ -32,6 +32,9 @@ import sendEvent from "@/components/utils/sendEvent";
 // const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
 
 import NextImage from "next/image";
+import OnboardingText from "@/components/onboardingText";
+import RoundOverScreen from "@/components/roundOverScreen";
+import msToTime from "@/components/msToTime";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -80,6 +83,7 @@ export default function Home({ locale }) {
   });
 
   const [onboarding, setOnboarding] = useState(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(null);
   const [otherOptions, setOtherOptions] = useState([]); // for country guesser
   const [showCountryButtons, setShowCountryButtons] = useState(true);
   const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
@@ -94,6 +98,17 @@ export default function Home({ locale }) {
       loadLocation()
     }
   }, [onboarding?.round])
+
+  useEffect(() => {
+    if(onboarding?.completed) {
+      setOnboardingCompleted(true)
+    }
+  }, [onboarding?.completed])
+  useEffect(() => {
+    const onboarding = window.localStorage.getItem("onboarding");
+    if(onboarding && onboarding === "done") setOnboardingCompleted(true)
+      else setOnboardingCompleted(false)
+  }, [])
 
   const loadOptions =async () => {
 
@@ -568,7 +583,7 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
-    
+
     if(window.cpc) {
       const popularLocations = [
     { lat: 40.7598687, long: -73.9764681 },
@@ -701,11 +716,21 @@ export default function Home({ locale }) {
 
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
 
+        { onboardingCompleted===null ? (
+          <>
+
+          </>
+        ) : (
+          <>
+
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
-            <h2 className="home__subtitle">{text("subtitle")}</h2>
+            { !onboardingCompleted &&
+            <h2 className="home__subtitle">{text("subtitle")}</h2> }
             <div className="home__btns">
+              { !onboardingCompleted &&
               <button className="gameBtn play" onClick={() => {
+                if(onboardingCompleted===null)return;
                 if (!loading) {
                   setScreen("onboarding")
 
@@ -731,14 +756,20 @@ export default function Home({ locale }) {
 
 
                   setOnboarding({
-                    pointsEarned: 0,
                     round: 1,
                     locations: locations,
+                    startTime: Date.now(),
                   })
                   setShowCountryButtons(false)
                 }
-              }} >{text("playNow")}</button>
-              {/* <GameBtn text={text("multiplayer")} style={{
+              }} >{text("playNow")}</button> }
+              { onboardingCompleted && (
+
+              <>
+               <GameBtn text={text("singleplayer")} onClick={() => {
+                if (!loading) setScreen("singleplayer")
+              }} />
+              <GameBtn text={text("multiplayer")} style={{
                 backgroundColor: loginQueued === 'multiplayer' ? "gray" : "",
                 cursor: loginQueued === 'multiplayer' ? "not-allowed" : ""
               }} onClick={() => {
@@ -761,9 +792,13 @@ export default function Home({ locale }) {
                 <Link href={"/wiki"}><button className="home__squarebtn gameBtn"><FaBook className="home__squarebtnicon" /></button></Link>
 
                 <button className="home__squarebtn gameBtn" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
-              </div> */}
+              </div>
+              </>
+            )}
             </div>
           </div>
+          </>
+        )}
           <br />
         </div>
 
@@ -773,9 +808,30 @@ export default function Home({ locale }) {
           <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
-        {screen === "onboarding" && <div className="home__onboarding">
+        {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
           <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding.round < 3} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
           </div>}
+
+          {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
+            <div className="home__onboarding__completed">
+              <OnboardingText words={[
+                "You're a natural!"
+              ]} pageDone={() => {
+                window.localStorage.setItem("onboarding", 'done')
+                setOnboarding((prev)=>{
+                  return {
+                    ...prev,
+                    finalOnboardingShown: true
+                  }
+                })
+              }} shown={!onboarding?.finalOnboardingShown} />
+              <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={20000} onHomePress={() =>{
+                setOnboarding(null)
+                setScreen("home")
+              }}/>
+              </div>
+              </div>
+}
 
         {screen === "multiplayer" && <div className="home__multiplayer">
           <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />

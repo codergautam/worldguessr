@@ -36,7 +36,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
     let center = fromLonLat([long, lat]);
     center = [center[0] + randomOffset[0], center[1] + randomOffset[1]];
     // move it a bit randomly so it's not exactly on the location but location is inside the circle
-    const circle = new Feature(new Circle(center, hintMul * gameOptions.maxDist));
+    const circle = new Feature(new Circle(center, hintMul * (gameOptions?.maxDist ?? 0)));
     vectorSource.current.addFeature(circle);
 
     const circleLayer = new VectorLayer({
@@ -415,6 +415,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
   }, [answerShown, location, map])
 
   useEffect(() => {
+    if(!gameOptions || !location) return;
     // let maxPivots = [10, 25].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
     let maxPivots = [0, 0];
     const radiusProj = hintMul * gameOptions.maxDist;

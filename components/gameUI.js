@@ -22,10 +22,20 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
   function loadLocationFunc() {
     if(onboarding) {
+      if(onboarding.round === 5) {
+        setOnboarding((prev)=>{
+          return {
+          completed: true,
+          points: prev.points,
+          timeTaken: Date.now() - prev.startTime
+          }
+        })
+      } else
       setOnboarding((prev) => {
         return {
           ...prev,
-          round: prev.round + 1
+          round: prev.round + 1,
+          nextRoundTime: 0
         }
       })
     } else
@@ -176,17 +186,21 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   }, [gameOptions?.location])
   function guess() {
     setShowAnswer(true)
-    setShowCountryButtons(false);
+    if(showCountryButtons || setShowCountryButtons)setShowCountryButtons(false);
     if(latLong && pinPoint) {
     sendEvent("guess", { lat: latLong.lat, long: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
     }
     if(onboarding) {
       setOnboarding((prev) => {
+      console.log(onboarding)
+
         return {
           ...prev,
-          nextRoundTime:0
+          nextRoundTime:0,
+          points: (prev.points??0) + (countryGuesser?2500:calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: 20000}))
         }
       })
+      setTimeToNextRound(0)
     }
     if(multiplayerState?.inGame) return;
 
@@ -422,7 +436,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       )}
 
       { countryGuesser && otherOptions && (
-        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons}
+        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer}
 
          onCountryPress={(country) => {
           const isCorrect = country === latLong.country;
