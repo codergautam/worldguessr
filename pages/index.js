@@ -35,6 +35,7 @@ import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
 import RoundOverScreen from "@/components/roundOverScreen";
 import msToTime from "@/components/msToTime";
+import SuggestAccountModal from "@/components/suggestAccountModal";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -87,6 +88,7 @@ export default function Home({ locale }) {
   const [otherOptions, setOtherOptions] = useState([]); // for country guesser
   const [showCountryButtons, setShowCountryButtons] = useState(true);
   const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
+  const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
 
   useEffect(() => {
     if(!session?.token?.username) return;
@@ -109,6 +111,13 @@ export default function Home({ locale }) {
     if(onboarding && onboarding === "done") setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
   }, [])
+
+  useEffect(() => {
+    if(session && session.token && session.token.username) {
+      setOnboardingCompleted(true)
+      window.localStorage.setItem("onboarding", "done")
+    }
+  }, [session])
 
   const loadOptions =async () => {
 
@@ -676,7 +685,7 @@ export default function Home({ locale }) {
 
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
-
+      <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
       {ChatboxMemo}
 
 <div style={{
@@ -827,6 +836,7 @@ export default function Home({ locale }) {
               }} shown={!onboarding?.finalOnboardingShown} />
               <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={20000} onHomePress={() =>{
                 setOnboarding(null)
+      setShowSuggestLoginModal(true)
                 setScreen("home")
               }}/>
               </div>

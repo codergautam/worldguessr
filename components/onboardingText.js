@@ -7,9 +7,9 @@ export default function OnboardingText({ words, onboarding, pageDone, shown }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDone, setIsDone] = useState(false);
 
-  const typeSpeed = 10; //20
-  const deleteSpeed = 5; // 10
-  const delaySpeed = 100; // 500
+  const typeSpeed = 25; //20
+  const deleteSpeed = 10; // 10
+  const delaySpeed = 1000; // 500
 
   useEffect(() => {
     if (isDone) return;

@@ -104,5 +104,8 @@
   "subtitle": "Imagine being dropped in a random location on Earth. Can you guess where you are?",
   "correctCountry": "Correct country",
   "incorrectCountry": "Incorrect country",
-  "viewResults": "View Results"
+  "viewResults": "View Results",
+  "trackYourProgress": "Track your progress",
+  "trackYourProgress1": "Link with Google to earn XP and track your progress",
+  "playAsGuest": "Play as Guest"
 }
