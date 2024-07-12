@@ -107,5 +107,6 @@
   "viewResults": "View Results",
   "trackYourProgress": "Track your progress",
   "trackYourProgress1": "Link with Google to earn XP and track your progress",
-  "playAsGuest": "Play as Guest"
+  "playAsGuest": "Play as Guest",
+  "connectionLost": "Connection Lost"
 }

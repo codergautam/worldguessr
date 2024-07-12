@@ -277,7 +277,26 @@ h1, h2, h3, span {
   transform: scale(0.8);
 }
 
+.nonHome {
+  display: none;
+  opacity: 0;
+}
+.nonHome.shown {
+  display: flex;
+  animation: fadeInNonHome 0.5s ease-in-out forwards;
+}
 
+@keyframes fadeInNonHome {
+  0% {
+       opacity: 0;
+       transform: scale(0)
+  }
+
+  100% {
+       opacity: 1;
+       transform: scale(1)
+  }
+}
 
 
 .navbar__right {
@@ -1063,7 +1082,21 @@ img[alt="Google"] {
 }
 .bigSpan {
   font-size:2em;
+  transition: all 250ms ease;
 }
+.onlineText {
+  position: fixed;
+  transition: all 0.5s;
+  opacity: 1;
+}
+.onlineText.notHome {
+  transform: translateX(210px);
+}
+.onlineText.hide {
+  transform: translateX(0px);
+  opacity: 0;
+}
+
 .wiki {
   left: 0;
   top: 0;
@@ -1233,4 +1266,13 @@ screen and (pointer:coarse) {
   to {
     opacity: 1;
   }
+}
+
+.wsIcon {
+  position: fixed;
+  z-index: 1000;
+  top: 40px;
+  left: 20px;
+  width: 50px;
+  height: 50px;
 }

@@ -25,18 +25,21 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
 
   useEffect(() => {
     if (!multiplayerState.connected && !ws && !multiplayerState.connecting && !multiplayerState.shouldConnect && !multiplayerState.error) {
-      sendEvent("multiplayer_connect")
+      // sendEvent("multiplayer_connect")
       // setting shouldConnect to true will force home to initiate a connection
-      setMultiplayerState((prev) => ({
-        ...prev,
-        shouldConnect: true,
-        error: null
-      }))
+      // setMultiplayerState((prev) => ({
+      //   ...prev,
+      //   shouldConnect: true,
+      //   error: null
+      // }))
     }
 
   }, [multiplayerState, ws])
   return (
     <div className="multiplayerHome">
+        <BannerText text={multiplayerState.error} shown={multiplayerState.error} />
+        <BannerText text={text("connecting")} shown={multiplayerState.connecting && !multiplayerState?.error} />
+
       { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && !multiplayerState.enteringGameCode && !multiplayerState.creatingGame && (
       <div style={{ pointerEvents: 'all' }}>
         {
@@ -116,7 +119,6 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
       </div>
       )}
         <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued} />
-        <BannerText text={multiplayerState.error} shown={multiplayerState.error} />
         <BannerText text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />
 
         { multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && !multiplayerState.gameData?.public && (

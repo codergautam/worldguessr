@@ -5,7 +5,6 @@ import GameBtn from "@/components/ui/gameBtn";
 import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
 import { FaBook, FaGear, FaMap, FaRankingStar } from "react-icons/fa6";
 import { signIn, useSession } from "next-auth/react";
-import AccountBtn from "@/components/ui/accountBtn";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState } from "react";
 import Navbar from "@/components/ui/navbar";
@@ -28,7 +27,7 @@ import Ad from "@/components/bannerAd";
 import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
 import sendEvent from "@/components/utils/sendEvent";
-
+import initWebsocket from "@/components/utils/initWebsocket";
 // const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
 
 import NextImage from "next/image";
@@ -36,6 +35,7 @@ import OnboardingText from "@/components/onboardingText";
 import RoundOverScreen from "@/components/roundOverScreen";
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
+import WsIcon from "@/components/wsIcon";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -287,17 +287,24 @@ export default function Home({ locale }) {
   }
 
   useEffect(() => {
-    if (!ws && !multiplayerState.connecting && !multiplayerState.connected && multiplayerState.shouldConnect && !multiplayerState.error) {
-      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/multiplayer`
+    (async() => {
+
+
+    if (!ws && !multiplayerState.connecting && !multiplayerState.connected) {
+      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/wg`
       setMultiplayerState((prev) => ({
         ...prev,
         connecting: true,
         shouldConnect: false
       }))
-      const ws = new WebSocket(wsPath);
-      ws.onopen = () => {
-        setWs(ws)
+      const ws = await initWebsocket(wsPath, null, 5000, 20)
+      if(ws && ws.readyState === 1) {
+      setWs(ws)
       sendEvent("multiplayer_connected")
+      setMultiplayerState((prev)=>({
+        ...prev,
+        error: false
+      }))
 
 
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
@@ -306,17 +313,12 @@ export default function Home({ locale }) {
       sendEvent("multiplayer_account_verified")
 
         });
+      } else {
+        alert("could not connect to server")
       }
 
     }
-
-    if (screen === "home") {
-      if (ws) {
-        ws.close();
-        setWs(null);
-      }
-      setMultiplayerState(initialMultiplayerState)
-    }
+  })();
   }, [multiplayerState, ws, screen])
 
   useEffect(() => {
@@ -492,7 +494,7 @@ export default function Home({ locale }) {
 
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
-        error: prev.error ?? "Connection lost"
+        error: prev.error ?? text("connectionLost")
       }));
     }
 
@@ -577,6 +579,17 @@ export default function Home({ locale }) {
 
         }
       })
+    } else if(multiplayerState?.gameQueued) {
+      console.log("gameQueued")
+      ws.send(JSON.stringify({ type: "leaveQueue" }))
+
+      setMultiplayerState((prev) => {
+        return {
+          ...prev,
+          gameQueued: false
+        }
+      });
+
     } else {
       setScreen("home");
       clearLocation();
@@ -648,11 +661,10 @@ export default function Home({ locale }) {
   }
 
   function onNavbarLogoPress() {
-    sendEvent("navbar_logo_press")
     if(screen === "onboarding") return;
 
     if (screen !== "home" && !loading) {
-      if (multiplayerState?.connected && !multiplayerState?.inGame) {
+      if (screen==="multiplayer" && multiplayerState?.connected && !multiplayerState?.inGame) {
         return;
       }
       if (!multiplayerState?.inGame) loadLocation()
@@ -707,21 +719,13 @@ export default function Home({ locale }) {
 
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">
 
-        <BannerText text={`${text("loading")}...`} shown={loading && !(multiplayerState.error || multiplayerState.connecting)} />
-        <BannerText text={`${text("connecting")}...`} shown={multiplayerState.connecting && !multiplayerState.error} />
+        <BannerText text={`${text("loading")}...`} shown={loading} />
 
-        <div style={{ display: 'flex', alignItems: 'center', opacity: (screen === "home") ? 1 : 0 }} className="accountBtnContainer">
-          <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
-          {/* <p style={{color: "white", zIndex: 10000}}>
-          {
-            JSON.stringify(session)
-          }
-          </p> */}
-        </div>
         {process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
           <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         }
-        <Navbar loading={loading} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+        <Navbar loading={loading} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+
 
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
 
@@ -734,6 +738,11 @@ export default function Home({ locale }) {
 
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
+            {/* { multiplayerState?.connecting ? (
+              <h2 className="home__subtitle">{text("connecting")}...</h2>
+            ) : (
+              <> */}
+
             { !onboardingCompleted &&
             <h2 className="home__subtitle">{text("subtitle")}</h2> }
             <div className="home__btns">
@@ -805,6 +814,8 @@ export default function Home({ locale }) {
               </>
             )}
             </div>
+            {/* </> */}
+            {/* )} */}
           </div>
           </>
         )}

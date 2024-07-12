@@ -41,7 +41,7 @@ import countries from './public/countries.json' assert { type: "json" };
 let multiplayerEnabled = true;
 
 if (!process.env.MONGODB) {
-  console.log("[MISSING-ENV WARN] MONGODB env variable not set, multi-player will not work".yellow);
+  console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
   multiplayerEnabled = false;
 } else {
   // Connect to MongoDB
@@ -50,7 +50,7 @@ if (!process.env.MONGODB) {
       await mongoose.connect(process.env.MONGODB);
       console.log('[INFO] Database Connected');
     } catch (error) {
-      console.error('[ERROR] Database connection failed! Multiplayer disabled!'.red, error.message);
+      console.error('[ERROR] Database connection failed!'.red, error.message);
       multiplayerEnabled = false;
     }
   }
@@ -461,7 +461,7 @@ app.prepare().then(() => {
   // Handle WebSocket connections
   server.on('upgrade', (request, socket, head) => {
     const { pathname } = parse(request.url, true);
-    if (pathname === '/multiplayer' && multiplayerEnabled) {
+    if(pathname === '/wg') {
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
       });
@@ -479,7 +479,6 @@ app.prepare().then(() => {
     })
     players.set(id, player);
     console.log('Client joined', id);
-
 
     // Set up a message listener on the client
     ws.on('message', async (message) => {
@@ -551,6 +550,11 @@ app.prepare().then(() => {
         console.log('Public duel requested', id, player.username);
         player.inQueue = true;
         playersInQueue.add(player.id);
+      }
+
+      if(json.type === 'leaveQueue' && player.inQueue) {
+        player.inQueue = false;
+        playersInQueue.delete(player.id);
       }
 
       if(json.type === 'place' && player.gameId && games.has(player.gameId)) {
