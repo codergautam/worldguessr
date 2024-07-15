@@ -431,7 +431,11 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
   return (
     <>
-    <div ref={mapRef} id='miniMapContent'></div>
+    <div ref={mapRef} id='miniMapContent'>
+      <div className='mapAttr'>
+        <img width="60" src='https://lh3.googleusercontent.com/d_S5gxu_S1P6NR1gXeMthZeBzkrQMHdI5uvXrpn3nfJuXpCjlqhLQKH_hbOxTHxFhp5WugVOEcl4WDrv9rmKBDOMExhKU5KmmLFQVg'/>
+      </div>
+    </div>
     <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
     </>
   );

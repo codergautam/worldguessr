@@ -36,6 +36,7 @@ import RoundOverScreen from "@/components/roundOverScreen";
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
 import WsIcon from "@/components/wsIcon";
+import FriendsModal from "@/components/friendModal";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -78,6 +79,7 @@ export default function Home({ locale }) {
   const [xpEarned, setXpEarned] = useState(0)
   const [countryStreak, setCountryStreak] = useState(0)
   const [settingsModal, setSettingsModal] = useState(false)
+  const [friendsModal, setFriendsModal] = useState(false)
   const [timeOffset, setTimeOffset] = useState(0)
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
@@ -724,7 +726,7 @@ export default function Home({ locale }) {
         {process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
           <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         }
-        <Navbar loading={loading} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+        <Navbar loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
 
 
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
@@ -823,7 +825,7 @@ export default function Home({ locale }) {
         </div>
 
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
-
+        <FriendsModal shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} />
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}

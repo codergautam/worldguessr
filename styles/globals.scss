@@ -6,6 +6,7 @@ html * {
 }
 button {
   box-shadow: 0 0.275rem 1.125rem rgba(0,0,0,.25), inset 0 0.0625rem 0 hsla(0,0%,100%,.2), inset 0 -0.125rem 0 rgba(0,0,0,.3);
+  border: none;
 }
 
 .home {
@@ -146,10 +147,14 @@ button {
 
 
 .home__squarebtnicon {
-  transform: translateY(15%);
-  padding-left: 10px;
+  // transform: translateY(15%);
+  // padding-left: 10px;
 }
 .home__squarebtn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
   padding-left: 20px;
   padding-right: 20px;
 }
@@ -562,6 +567,7 @@ h1, h2, h3, span {
   cursor: crosshair;
   height: 100%;
   background-color: #B9D3DC;
+  position: relative;
 }
 
 #miniMapArea.answerNotShown #miniMapContent {
@@ -1275,4 +1281,134 @@ screen and (pointer:coarse) {
   left: 20px;
   width: 50px;
   height: 50px;
+}
+.friendBtn {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.input-group {
+  display: flex;
+  margin-bottom: 20px;
+  height: fit-content;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.friend-input {
+  flex-grow: 1;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #555;
+  background: #444;
+  color: white;
+  margin: 0 !important;
+  margin-right: 10px !important;
+}
+
+.send-request-button {
+  border: none;
+  border-radius: 5px;
+  background-color: #4CAF50;
+  color: white;
+  // height: fit-content;
+  cursor: pointer;
+}
+
+.friends-list {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+
+}
+.friends-list-parent {
+  height: 100%;
+  width: 100%;
+}
+
+.friend-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #444;
+  padding: 10px;
+  border-radius: 5px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.view-requests-button {
+  padding: 10px 20px;
+  margin-right: 10px;
+
+  border: none;
+  border-radius: 5px;
+  background-color: #008CBA;
+  color: white;
+  cursor: pointer;
+}
+.view-requests-button.selected {
+  background-color: #005f7f;
+
+}
+
+.request-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #444;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.accept-button {
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-right: 5px;
+}
+
+.decline-button {
+  background-color: #F44336;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.cancel-button {
+  background-color: #F44336;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.friendsContent {
+  display: flex;
+  width: 100%;
+  gap: 20px;
+  height: calc(100% - 33px);
+}
+.friendsTabs {
+  display: flex;
+  flex-direction: column;
+}
+@media screen and (max-width: 680px) {
+  .friendsModal {
+    width: 100% !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
 }

@@ -1,11 +1,11 @@
-import { FaArrowLeft, FaUser } from "react-icons/fa";
+import { FaArrowLeft, FaUser, FaUserFriends } from "react-icons/fa";
 import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
 import { FaArrowRotateRight } from "react-icons/fa6";
 import { useTranslation } from 'next-i18next'
 import WsIcon from "../wsIcon";
 
-export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, gameOptions, session, screen, multiplayerState, loading }) {
+export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading }) {
   const { t: text } = useTranslation("common");
 
   const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer'))) && (!loading);
@@ -37,12 +37,18 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
         <WsIcon connected={false} shown={true} />
       )}
 
+
         { screen === 'multiplayer' && multiplayerState?.inGame && multiplayerState?.gameData?.players.length > 0 && (
           <span id="playerCnt" className="bigSpan">
           &nbsp; <FaUser /> {multiplayerState.gameData.players.length}
          </span>
         )}
       <div className="navbar__right">
+      { screen === 'home' && session?.token?.secret && (
+         <button className="gameBtn friendBtn" onClick={onFriendsPress}>
+         <FaUserFriends size={40}/>
+          </button>
+        )}
         { screen === 'singleplayer' && (
         <button className="gameBtn navBtn" disabled={loading} onClick={()=>setGameOptionsModalShown(true)}>
           {((gameOptions.location === "all")|| !gameOptions.location)? text("allCountries") : nameFromCode(gameOptions.location)}

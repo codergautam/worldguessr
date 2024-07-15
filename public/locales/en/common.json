@@ -108,5 +108,15 @@
   "trackYourProgress": "Track your progress",
   "trackYourProgress1": "Link with Google to earn XP and track your progress",
   "playAsGuest": "Play as Guest",
-  "connectionLost": "Connection Lost"
+  "connectionLost": "Connection Lost",
+  "friends": "Friends ({{cnt}})",
+  "friendsText": "Friends",
+  "addFriendPlaceholder": "Friend's username",
+  "sendRequest": "Send Request",
+  "viewSentRequests": "Sent ({{cnt}})",
+  "viewReceivedRequests": "Requests ({{cnt}})",
+  "back": "Back",
+  "sentRequests": "Sent Requests",
+  "addFriend": "Add Friend",
+  "receivedRequests": "Received Requests"
 }
