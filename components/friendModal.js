@@ -4,7 +4,8 @@ import { useTranslation } from 'next-i18next';
 
 export default function FriendsModal({ shown, onClose, session }) {
     const [friends, setFriends] = useState([
-        { id: 1, name: 'John Doe', status: 'friend' }
+        { id: 1, name: 'John Doe', status: 'friend' },
+        { id: 2, name: 'John DFuoe', status: 'friend' },
     ]);
     const [sentRequests, setSentRequests] = useState([
         { id: 2, name: 'Jane Smith', status: 'pending' }
@@ -15,13 +16,6 @@ export default function FriendsModal({ shown, onClose, session }) {
     const [newFriend, setNewFriend] = useState('');
     const [viewShown, setViewShown] = useState('list');
     const { t: text } = useTranslation("common");
-
-    const tabs = [
-      { key: "list", label: "friends", count: friends.length },
-      { key: "sent", label: "viewSentRequests", count: sentRequests.length },
-      { key: "received", label: "viewReceivedRequests", count: receivedRequests.length },
-      { key: "add", label: "addFriend" },
-    ];
 
     const handleSendRequest = () => {
         setSentRequests(prev => [...prev, { id: Date.now(), name: newFriend, status: 'pending' }]);
@@ -42,9 +36,7 @@ export default function FriendsModal({ shown, onClose, session }) {
     };
 
     return (
-        <Modal classNames={{
-          modal: 'friendsModal'
-        }} styles={{
+        <Modal id="friendsModal" styles={{
             modal: {
                 zIndex: 100,
                 background: '#333',
@@ -52,37 +44,44 @@ export default function FriendsModal({ shown, onClose, session }) {
                 padding: '20px',
                 borderRadius: '10px',
                 fontFamily: "'Arial', sans-serif",
+                maxWidth: '500px',
                 textAlign: 'center',
-                width: '90%',
-                maxWidth: '600px',
-                maxHeight: '600px',
-                height: '50%',
-                position: 'relative',
-                transform: 'translate(-50%, -50%)',
-                          }
-        }} open={shown} center onClose={onClose}>
+                width: '50vw',
+                height: '70vh',
+            }
+        }} classNames={
+          {
+            modal:'friendsModal'
+          }
+        } open={shown} center onClose={onClose}>
 
-            {/* <h2>{text("friendsText")}</h2> */}
 
             <div className="friendsContent">
 
-            <div className="friendsTabs">
-    {tabs.map((tab) => (
-      <button
-        key={tab.key}
-        className={`view-requests-button ${viewShown === tab.key ? "selected" : ""}`}
-        onClick={() => setViewShown(tab.key)}
-      >
-        {text(tab.label, { cnt: tab.count })}
-      </button>
-    ))}
-  </div>
+              <div className="friendsTabs">
+              <button className={`view-requests-button ${viewShown==='list'?'selected':''}`} onClick={()=>setViewShown("list")}>{text("friends", {cnt: friends.length})}</button>
+              <button className={`view-requests-button ${viewShown === "sent" ? "selected" : ""}`} onClick={() => setViewShown("sent")}>
+  {text("viewSentRequests", { cnt: sentRequests.length })}
+</button>
+<button className={`view-requests-button ${viewShown === "received" ? "selected" : ""}`} onClick={() => setViewShown("received")}>
+  {text("viewReceivedRequests", { cnt: receivedRequests.length })}
+</button>
+<button className={`view-requests-button ${viewShown === "add" ? "selected" : ""}`} onClick={() => setViewShown("add")}>
+  {text("addFriend")}
+</button>
 
-              <div className="friendsContent">
+              </div>
+
+              <div className="friendsSection">
                   { viewShown === "add" && (
-                    <div className="friends-list-parent">
-                      <h3>{text("addFriend")}</h3>
+<div style={{width: '100%'}}>
+<h3>{text("addFriend")}</h3>
+  <p>
+    {text("addFriendDescription")}
+  </p>
+  <br/>
 <div className="input-group">
+
 <input
     type="text"
     value={newFriend}
@@ -101,31 +100,42 @@ export default function FriendsModal({ shown, onClose, session }) {
 
                   { viewShown !== "add" && (
                     <div className="friends-list-parent">
+                      <h3>
+                        { viewShown === 'list' && text("friends", {cnt: friends.length})}
+                        { viewShown === 'sent' && text("sentRequests", {cnt: sentRequests.length})}
+                        { viewShown === 'received' && text("receivedRequests", {cnt: receivedRequests.length})}
+                      </h3>
 
-                    <h3>
-                      { viewShown === 'list' && text("friends", {cnt: friends.length})}
-                      { viewShown === 'sent' && text("sentRequests", {cnt: sentRequests.length})}
-                      { viewShown === 'received' && text("receivedRequests", {cnt: receivedRequests.length})}
-                    </h3>
+                      { viewShown === 'list' && friends.length === 0 && (
+                        <div>{text("noFriends")}</div>
+                      )}
+                      { viewShown === 'sent' && sentRequests.length === 0 && (
+                        <div>{text("noSentRequests")}</div>
+                      )}
+                      { viewShown === 'received' && receivedRequests.length === 0 && (
+                        <div>{text("noReceivedRequests")}</div>
+                      )}
 
-<div className="friends-list">
-                {(viewShown === 'list' ? friends : (viewShown === 'sent' ? sentRequests : receivedRequests)).map(friend => (
-                    <div key={friend.id} className="friend-card">
-                        <span>{friend.name}</span>
-                        { viewShown === 'sent' && (
-                        <button onClick={() => handleCancel(friend.id)} className="cancel-button">✖</button>
-                        )}
-                        { viewShown === 'received' && (
-                        <>
-                        <button onClick={() => handleAccept(friend.id)} className="accept-button">✔</button>
-                        <button onClick={() => handleDecline(friend.id)} className="decline-button">✖</button>
-                        </>
-                        )}
-                    </div>
-                ))}
-            </div>
-                    </div>
+                      <div className="friends-list">
+                      {
+                        (viewShown === 'list' ? friends : viewShown === 'sent' ? sentRequests : receivedRequests).map(friend => (
+                          <div key={friend.id} className="friend-card">
+                            <span>{friend?.name}</span>
+                            { viewShown === 'sent' && (
+                              <button onClick={() => handleCancel(friend.id)} className={"cancel-button"}>✖</button>
+                            )}
+                            { viewShown === 'received' && (
+                              <div style={{ float: 'right' }}>
+                                <button onClick={() => handleAccept(friend.id)} className={"accept-button"}>✔</button>
+                                <button onClick={() => handleDecline(friend.id)} className={"decline-button"}>✖</button>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      }
+                      </div>
 
+                      </div>
                   )}
               </div>
             </div>

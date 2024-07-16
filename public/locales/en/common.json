@@ -118,5 +118,6 @@
   "back": "Back",
   "sentRequests": "Sent Requests",
   "addFriend": "Add Friend",
-  "receivedRequests": "Received Requests"
+  "receivedRequests": "Received Requests",
+  "addFriendDesc": "Add a friend to play together"
 }

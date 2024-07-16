@@ -167,7 +167,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, showAnswer, onboarding]);
+  }, [pinPoint, showAnswer, onboarding, xpEarned]);
 
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
@@ -192,7 +192,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     }
     if(onboarding) {
       setOnboarding((prev) => {
-      console.log(onboarding)
 
         return {
           ...prev,
@@ -204,6 +203,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     }
     if(multiplayerState?.inGame) return;
 
+    console.log(xpEarned)
     if(xpEarned > 0 && session?.token?.secret) {
       fetch('/api/storeGame', {
         method: 'POST',
@@ -301,7 +301,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     //   zoom: 14,
     // });
     if(!latLong) return;
-    console.log('showroadname', gameOptions)
 
 
     const panorama = new google.maps.StreetViewPanorama(
@@ -322,9 +321,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
         disableDefaultUI: true,
       },
     );
-
-
-    console.log(panorama, "panorama")
 
 
     // pano onload

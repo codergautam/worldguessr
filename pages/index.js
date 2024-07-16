@@ -285,6 +285,10 @@ export default function Home({ locale }) {
       sendEvent("multiplayer_start_game_host")
     }
 
+    if(action === 'screen') {
+        ws.send(JSON.stringify({ type: "screen", screen: args[0] }))
+    }
+
 
   }
 
@@ -511,6 +515,12 @@ export default function Home({ locale }) {
       handleMultiplayerAction("publicDuel");
     }
   }, [multiplayerState, timeOffset])
+
+  useEffect(() => {
+    if (multiplayerState?.connected) {
+      handleMultiplayerAction("screen", screen);
+    }
+  }, [screen]);
 
 
   // useEffect(() => {

@@ -35,6 +35,13 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  sentReq: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  receivedReq: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  allowFriendReq: {
+    type: Boolean,
+    default: true,
+  },
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

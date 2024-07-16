@@ -1295,7 +1295,6 @@ screen and (pointer:coarse) {
   justify-content: center;
   align-items: center;
   width: 100%;
-  height: 100%;
 }
 
 .friend-input {
@@ -1329,6 +1328,7 @@ screen and (pointer:coarse) {
 .friends-list-parent {
   height: 100%;
   width: 100%;
+  overflow-y: auto;
 }
 
 .friend-card {
@@ -1338,8 +1338,8 @@ screen and (pointer:coarse) {
   background: #444;
   padding: 10px;
   border-radius: 5px;
-  width: 100%;
   max-width: 300px;
+  width: 100%;
 }
 
 .view-requests-button {
@@ -1396,12 +1396,18 @@ screen and (pointer:coarse) {
 .friendsContent {
   display: flex;
   width: 100%;
-  gap: 20px;
-  height: calc(100% - 33px);
+  height: 100%;
 }
 .friendsTabs {
   display: flex;
   flex-direction: column;
+  width: 30%;
+}
+.friendsSection {
+  display: flex;
+  gap: 20px;
+  width: 70%;
+
 }
 @media screen and (max-width: 680px) {
   .friendsModal {
@@ -1411,4 +1417,14 @@ screen and (pointer:coarse) {
     padding: 0 !important;
   }
 
+}
+.mapAttr {
+  position: absolute;
+  z-index: 100;
+  bottom: -10px;
+  left: 5px;
+  pointer-events: none;
+}
+.react-responsive-modal-closeButton {
+  background-color: white !important;
 }

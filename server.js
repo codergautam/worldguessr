@@ -411,16 +411,38 @@ class Player {
     this.lastMessage = 0;
     this.lastPong = Date.now(); // Track the last pong received time
     this.verified = false;
+    this.screen = "home";
   }
   send(json) {
     if(!this.ws) return;
     this.ws.send(JSON.stringify(json));
   }
+  setScreen(screen) {
+    const validScreens = ["home", "singleplayer", "multiplayer"];
+    if(validScreens.includes(screen)) {
+      this.screen = screen;
+    }
+  }
+
 }
 
 const players = new Map();
 const games = new Map();
 const playersInQueue = new Set();
+
+// registerHandler('/players', 'GET',(req, res, query) => {
+//   // return all the player names 1 by 1, along with their screen, gameId (if exists)
+//   const playerData = [];
+//   for(const player of players.values()) {
+//     playerData.push({
+//       id: player.id,
+//       username: player.username,
+//       screen: player.screen,
+//       gameId: player.gameId
+//     });
+//   }
+//   res.end(JSON.stringify(playerData));
+// })
 
 app.prepare().then(() => {
   const server = createServer(async (req, res) => {
@@ -544,6 +566,10 @@ app.prepare().then(() => {
           player.ws.close();
         }
       }
+      }
+
+      if(json.type === 'screen' && json.screen && typeof json.screen === 'string') {
+        player.setScreen(json.screen);
       }
 
       if (json.type === 'publicDuel' && !player.gameId) {

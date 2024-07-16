@@ -109,7 +109,6 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
         setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
 
         if(multiplayerState?.inGame && multiplayerState.gameData?.state === "guess" && ws) {
-              console.log("pinpoint1", pinPoint)
               var pinpointLatLong = [clickedLatLong[1], clickedLatLong[0]]
               ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }))
 
@@ -298,10 +297,8 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
         // Add other players' guesses
 
         multiplayerState?.gameData?.players.forEach((player) => {
-          console.log("player", player)
           if (player.id === multiplayerState?.gameData?.myId) return;
           if (player.final && player.guess) {
-            console.log("player.latLong", player.guess)
             const playerFeature = new Feature({
               geometry: new Point(fromLonLat([player.guess[1], player.guess[0]])),
             });
@@ -362,7 +359,6 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
 
     function onKeyPress(e) {
-      console.log(focused, e.key)
       if(!focused) return;
       // arrow keys = move / pan
       // + - = zoom
@@ -403,7 +399,6 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
   useEffect(() => {
     if(!answerShown || !location || !map) return;
-    console.log(answerShown, location, map)
     try {
     setTimeout(() => {
       map.getView().animate({ center: fromLonLat([location.long, location.lat]), zoom: 5, duration: 3000 });

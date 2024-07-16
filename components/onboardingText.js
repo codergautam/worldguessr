@@ -47,7 +47,6 @@ export default function OnboardingText({ words, onboarding, pageDone, shown }) {
   }, [text, charIndex, isDeleting, wordIndex, isDone, words]);
 
   useEffect(() => {
-    console.log(words)
     setText("");
     setWordIndex(0);
     setCharIndex(0);
