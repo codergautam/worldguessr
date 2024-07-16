@@ -63,7 +63,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
             // url: 'https://{a-c}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
             // url: 'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02',
             // use google maps https://mt2.google.com/vt/lyrs=m&x=&y==&z=&hl=en
-            url: options?.mapType==="legacy"?'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02':`https://mt2.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}`,
+            url: `https://mt2.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}`,
           }),
         }),
         new VectorLayer({ source: vectorSource.current })
