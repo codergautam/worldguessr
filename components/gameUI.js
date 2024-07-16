@@ -78,7 +78,7 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, showAnswer]);
+  }, [pinPoint, showAnswer, xpEarned]);
 
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
