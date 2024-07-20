@@ -1,39 +1,89 @@
 import { Modal } from "react-responsive-modal";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from 'next-i18next';
 
-export default function FriendsModal({ shown, onClose, session }) {
+export default function FriendsModal({ shown, onClose, session, ws }) {
     const [friends, setFriends] = useState([
-        { id: 1, name: 'John Doe', status: 'friend' },
-        { id: 2, name: 'John DFuoe', status: 'friend' },
     ]);
     const [sentRequests, setSentRequests] = useState([
-        { id: 2, name: 'Jane Smith', status: 'pending' }
     ]);
     const [receivedRequests, setReceivedRequests] = useState([
-        { id: 3, name: 'Alice Johnson', status: 'request' }
     ]);
+    const [friendReqSendingState, setFriendReqSendingState] = useState(0);
+
+    const [friendReqProgress, setFriendReqProgress] = useState(false);
+
     const [newFriend, setNewFriend] = useState('');
     const [viewShown, setViewShown] = useState('list');
     const { t: text } = useTranslation("common");
 
+    useEffect(() => {
+      if(!ws) return;
+      function onMessage(event) {
+        const data = JSON.parse(event.data);
+        if (data.type === 'friends') {
+          setFriends(data.friends);
+          setSentRequests(data.sentRequests);
+          setReceivedRequests(data.receivedRequests);
+        }
+        if(data.type === 'friendReqState') {
+          setFriendReqSendingState(data.state);
+          setFriendReqProgress(false);
+          setNewFriend('');
+        }
+      }
+
+      ws.addEventListener('message', onMessage);
+
+      return () => {
+        ws.removeEventListener('message', onMessage);
+      }
+
+    }, [ws]);
+
+    useEffect(() => {
+      if (friendReqSendingState > 0) {
+        setTimeout(() => {
+          setFriendReqSendingState(0);
+        }, 2000);
+      }
+    }, [friendReqSendingState]);
+
+    useEffect(() => {
+      let int;
+      if(!ws) return;
+      if(shown) {
+        ws.send(JSON.stringify({ type: 'getFriends' }));
+        int = setInterval(() => {
+          ws.send(JSON.stringify({ type: 'getFriends' }));
+        }, 5000);
+      }
+
+      return () => {
+        clearInterval(int);
+      }
+    }, [shown, ws])
+
     const handleSendRequest = () => {
-        setSentRequests(prev => [...prev, { id: Date.now(), name: newFriend, status: 'pending' }]);
-        setNewFriend('');
+      setFriendReqProgress(true);
+      ws.send(JSON.stringify({ type: 'sendFriendRequest', name: newFriend }));
     };
 
     const handleAccept = (id) => {
-        setFriends(prev => [...prev, receivedRequests.find(req => req.id === id)]);
-        setReceivedRequests(prev => prev.filter(req => req.id !== id));
+        ws.send(JSON.stringify({ type: 'acceptFriend', id }));
     };
 
     const handleDecline = (id) => {
-        setReceivedRequests(prev => prev.filter(req => req.id !== id));
+        ws.send(JSON.stringify({ type: 'declineFriend', id }));
     };
 
     const handleCancel = (id) => {
-        setSentRequests(prev => prev.filter(req => req.id !== id));
+        ws.send(JSON.stringify({ type: 'cancelRequest', id }));
     };
+
+    const handleRemove = (id) => {
+        ws.send(JSON.stringify({ type: 'removeFriend', id }));
+    }
 
     return (
         <Modal id="friendsModal" styles={{
@@ -55,6 +105,9 @@ export default function FriendsModal({ shown, onClose, session }) {
           }
         } open={shown} center onClose={onClose}>
 
+        { ws && ws.readyState !== 1 && (
+          <div>{text("disconnected")}</div>
+        )}
 
             <div className="friendsContent">
 
@@ -89,10 +142,23 @@ export default function FriendsModal({ shown, onClose, session }) {
     placeholder={text("addFriendPlaceholder")}
     className="friend-input"
 />
-<button onClick={handleSendRequest} className="send-request-button">
-    {text("sendRequest")}
+<button onClick={handleSendRequest} className="send-request-button" disabled={friendReqProgress}>
+    {friendReqProgress?text("loading"):text("sendRequest")}
 </button>
+
+
+
 </div>
+<span className="friend-request-sent">
+    {friendReqSendingState === 1 && text("friendReqSent")}
+    {friendReqSendingState === 2 && text("friendReqNotAccepting")}
+    {friendReqSendingState === 3 && text("friendReqNotFound")}
+    {friendReqSendingState === 4 && text("friendReqAlreadySent")}
+    {friendReqSendingState === 5 && text("friendReqAlreadyReceived")}
+    {friendReqSendingState === 6 && text("alreadyFriends")}
+
+    {friendReqSendingState > 6 && text("friendReqError")}
+    </span>
 </div>
 
                   )}
@@ -124,6 +190,14 @@ export default function FriendsModal({ shown, onClose, session }) {
                             { viewShown === 'sent' && (
                               <button onClick={() => handleCancel(friend.id)} className={"cancel-button"}>✖</button>
                             )}
+
+                            { viewShown === 'list' && (
+                              <div style={{ float: 'right' }}>
+                                {/* remove friend */}
+                                <button onClick={() => handleRemove(friend.id)} className={"remove-button"}>✖</button>
+                              </div>
+                            )}
+
                             { viewShown === 'received' && (
                               <div style={{ float: 'right' }}>
                                 <button onClick={() => handleAccept(friend.id)} className={"accept-button"}>✔</button>

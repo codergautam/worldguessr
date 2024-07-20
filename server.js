@@ -412,6 +412,11 @@ class Player {
     this.lastPong = Date.now(); // Track the last pong received time
     this.verified = false;
     this.screen = "home";
+
+    this.friends = [];
+    this.sentReq = [];
+    this.receivedReq = [];
+    this.allowFriendReq = true;
   }
   send(json) {
     if(!this.ws) return;
@@ -423,6 +428,18 @@ class Player {
       this.screen = screen;
     }
   }
+  sendFriendData() {
+  if(!this.accountId) {
+    return;
+  }
+  const data = {
+    type: 'friends',
+    friends: this.friends,
+    sentRequests: this.sentReq,
+    receivedRequests: this.receivedReq
+  };
+  this.send(data);
+}
 
 }
 
@@ -533,7 +550,6 @@ app.prepare().then(() => {
         const valid = await validateJWT(json.jwt, User, decrypt);
         if (valid) {
           // make sure the user is not already logged in (only on prod)
-          if (!dev) {
             for (const p of players.values()) {
               if (p.accountId === valid._id.toString()) {
                 player.send({
@@ -545,7 +561,6 @@ app.prepare().then(() => {
                 return;
               }
             }
-          }
           player.verified = true;
           player.username = valid.username;
           player.accountId = valid._id.toString();
@@ -556,7 +571,47 @@ app.prepare().then(() => {
             type: 'cnt',
             c: players.size
           })
-          console.log('User verified', id, valid.username);
+
+          player.friends = valid.friends.map((id)=>({id}));
+          player.sentReq = valid.sentReq.map((id)=>({id}));
+          player.receivedReq = valid.receivedReq.map((id)=>({id}));
+
+          console.time("friendsNames")
+          const friendsWithNames = [];
+          // player.friends = valid.friends;
+          for(let id of valid.friends) {
+            id = id.toString();
+            const user = await User.findById(id);
+            if(user && user.username) {
+              friendsWithNames.push({name: user.username, id});
+            }
+          }
+          player.friends = friendsWithNames;
+
+          const sentReqWithNames = [];
+          for(let id of valid.sentReq) {
+            id = id.toString();
+            const user = await User.findById(id);
+            if(user && user.username) {
+              sentReqWithNames.push({name: user.username, id});
+            }
+          }
+          player.sentReq = sentReqWithNames;
+
+          const receivedReqWithNames = [];
+          for(let id of valid.receivedReq) {
+            id = id.toString();
+            const user = await User.findById(id);
+            if(user && user.username) {
+              receivedReqWithNames.push({name: user.username, id});
+            }
+          }
+          player.receivedReq = receivedReqWithNames;
+          console.timeEnd("friendsNames")
+
+          player.allowFriendReq = valid.allowFriendReq;
+
+          console.log('User verified', id, valid.username, player.sentReq);
         } else {
           player.send({
             type: 'error',
@@ -726,6 +781,197 @@ app.prepare().then(() => {
           game.start();
         }
       }
+
+      /* Friend system */
+    // const handleSendRequest = () => {
+    //   ws.send(JSON.stringify({ type: 'sendFriendRequest', name: newFriend }));
+    //     setNewFriend('');
+    // };
+
+    // const handleAccept = (id) => {
+    //     ws.send(JSON.stringify({ type: 'acceptFriend', id }));
+    // };
+
+    // const handleDecline = (id) => {
+    //     ws.send(JSON.stringify({ type: 'declineFriend', id }));
+    // };
+
+    // const handleCancel = (id) => {
+    //     ws.send(JSON.stringify({ type: 'cancelRequest', id }));
+    // };
+
+    if(json.type === 'getFriends') {
+      player.sendFriendData();
+    }
+
+    if(json.type === 'sendFriendRequest') {
+      if(!player.accountId) {
+        return;
+      }
+      if(!json.name) {
+        player.send({type:'friendReqState',state: 0})
+        return;
+      }
+      // cannot have more than 100 friends
+      if(player.friends.length > 100) {
+        player.send({type:'friendReqState',state: 7})
+        return;
+      }
+      // cannot have more than 100 sent reqs
+      if(player.sentReq.length > 100) {
+        player.send({type:'friendReqState',state: 7})
+        return;
+      }
+      const friend = await User.findOne({username: { $regex: new RegExp('^'+ json.name + '$', "i") }});
+      if(!friend) {
+        player.send({type:'friendReqState',state: 3})
+        return;
+      }
+      if(!friend.allowFriendReq) {
+        player.send({type:'friendReqState',state: 2})
+        return;
+      }
+      // cannot have more than 100 received requests
+      if(friend.receivedReq.length > 100) {
+        player.send({type:'friendReqState',state: 7})
+        return;
+      }
+      if(friend._id.toString() === player.accountId) {
+        player.send({type:'friendReqState',state: 7})
+        return;
+      }
+      if(player.friends.findIndex((f) => f.id === friend._id.toString()) > -1) {
+        player.send({type:'friendReqState',state: 6})
+        return;
+      }
+      if(player.sentReq.findIndex((f) => f.id === friend._id.toString()) > -1) {
+        player.send({type:'friendReqState',state: 4})
+        return;
+      }
+      // cannot have a friedn request received from this user
+      if(player.receivedReq.findIndex((f) => f.id === friend._id.toString()) > -1) {
+        player.send({type:'friendReqState',state: 5})
+        return;
+      }
+
+      // update mongodb
+      await User.updateOne({_id: player.accountId}, {$push: {sentReq: friend._id.toString()}});
+      await User.updateOne({_id: friend._id}, {$push: {receivedReq: player.accountId}});
+
+      // update player
+      player.sentReq.push({id: friend._id.toString(), name: friend.username});
+      player.sendFriendData();
+      player.send({type:'friendReqState',state: 1})
+
+      // is user online
+      const friendPlayer = Array.from(players.values()).find((p) => p.accountId === friend._id.toString());
+      if(friendPlayer) {
+        friendPlayer.send({type:'friendReq',id: player.accountId, name: player.username});
+
+        friendPlayer.receivedReq.push({id: player.accountId, name: player.username});
+        friendPlayer.sendFriendData();
+      }
+
+
+    }
+
+    if(json.type === 'cancelRequest' && player.accountId && json.id) {
+      // check if the request exists (player side)
+      const exists = player.sentReq.findIndex((f) => f.id === json.id);
+      if(exists === -1) {
+        return;
+      }
+      // remove from player
+      player.sentReq.splice(exists, 1);
+
+            const friendPlayer = Array.from(players.values()).find((p) => p.accountId === json.id);
+      if(friendPlayer) {
+        const exists = friendPlayer.receivedReq.findIndex((f) => f.id === player.accountId);
+        if(exists > -1) {
+          friendPlayer.receivedReq.splice(exists, 1);
+          friendPlayer.sendFriendData();
+        }
+      }
+      // remove from mongodb
+      await User.updateOne({_id: player.accountId}, {$pull: {sentReq: json.id}});
+      await User.updateOne({_id: json.id}, {$pull: {receivedReq: player.accountId}});
+
+      player.sendFriendData();
+    }
+
+    if(json.type === 'acceptFriend' && player.accountId && json.id) {
+      // check if the request exists (player side)
+      const exists = player.receivedReq.findIndex((f) => f.id === json.id);
+      if(exists === -1) {
+        return;
+      }
+      // remove from player
+      const friend = player.receivedReq.splice(exists, 1)[0];
+      player.friends.push(friend);
+
+      const friendPlayer = Array.from(players.values()).find((p) => p.accountId === json.id);
+      if(friendPlayer) {
+        const exists = friendPlayer.sentReq.findIndex((f) => f.id === player.accountId);
+        if(exists > -1) {
+          friendPlayer.sentReq.splice(exists, 1);
+          friendPlayer.friends.push({id: player.accountId, name: player.username});
+          friendPlayer.sendFriendData();
+        }
+      }
+      // remove from mongodb
+      await User.updateOne({_id: player.accountId}, {$pull: {receivedReq: json.id}, $push: {friends: json.id}});
+      await User.updateOne({_id: json.id}, {$pull: {sentReq: player.accountId}, $push: {friends: player.accountId}});
+
+      player.sendFriendData();
+    }
+
+    if(json.type === 'declineFriend' && player.accountId && json.id) {
+      // check if the request exists (player side)
+      const exists = player.receivedReq.findIndex((f) => f.id === json.id);
+      if(exists === -1) {
+        return;
+      }
+      // remove from player
+      player.receivedReq.splice(exists, 1);
+
+      const friendPlayer = Array.from(players.values()).find((p) => p.accountId === json.id);
+      if(friendPlayer) {
+        const exists = friendPlayer.sentReq.findIndex((f) => f.id === player.accountId);
+        if(exists > -1) {
+          friendPlayer.sentReq.splice(exists, 1);
+          friendPlayer.sendFriendData();
+        }
+      }
+      // remove from mongodb
+      await User.updateOne({_id: player.accountId}, {$pull: {receivedReq: json.id}});
+      await User.updateOne({_id: json.id}, {$pull: {sentReq: player.accountId}});
+
+      player.sendFriendData();
+    }
+
+    if(json.type === 'removeFriend' && player.accountId && json.id) {
+      // check if the request exists (player side)
+      const exists = player.friends.findIndex((f) => f.id === json.id);
+      if(exists === -1) {
+        return;
+      }
+      // remove from player
+      player.friends.splice(exists, 1);
+
+      const friendPlayer = Array.from(players.values()).find((p) => p.accountId === json.id);
+      if(friendPlayer) {
+        const exists = friendPlayer.friends.findIndex((f) => f.id === player.accountId);
+        if(exists > -1) {
+          friendPlayer.friends.splice(exists, 1);
+          friendPlayer.sendFriendData();
+        }
+      }
+      // remove from mongodb
+      await User.updateOne({_id: player.accountId}, {$pull: {friends: json.id}});
+      await User.updateOne({_id: json.id}, {$pull: {friends: player.accountId}});
+
+      player.sendFriendData();
+    }
 
     });
 

@@ -114,9 +114,20 @@
   "sendRequest": "Send Request",
   "viewSentRequests": "Sent ({{cnt}})",
   "viewReceivedRequests": "Requests ({{cnt}})",
-  "back": "Back",
   "sentRequests": "Sent Requests",
   "addFriend": "Add Friend",
   "receivedRequests": "Received Requests",
-  "addFriendDesc": "Add a friend to play together"
+  "addFriendDesc": "Add a friend to play together",
+  "noFriends": "No friends yet",
+  "noSentRequests": "No sent requests",
+  "noReceivedRequests": "No received requests",
+  "addFriendDescription": "Add a friend to play together",
+  "friendReqSent": "Friend request sent",
+  "friendReqNotAccepting": "This user is not accepting friend requests",
+  "friendReqNotFound": "User not found",
+  "friendReqError": "Error sending friend request",
+  "friendReqAlreadySent": "Friend request already sent",
+  "friendReqAlreadyReceived": "Friend request already received",
+  "alreadyFriends": "You are already friends with this user",
+  "disconnected": "Disconnected"
 }
