@@ -54,6 +54,7 @@ button {
   transform: translate(-50%);
   // slowly move to right while fading out when is hidden
   transition: left 0.5s, opacity 0.5s;
+  overflow-y: auto;
 }
 .home__content.cesium_shown {
   left: 66%;
@@ -176,13 +177,21 @@ button {
   }
 }
 
+// if width 2x height
+@media (min-aspect-ratio: 2/1) {
+  .home__content {
+    justify-content: flex-start !important;
+  }
+}
+
+
 .home__singleplayer {
   z-index: 101;
 }
 .gameBtn {
   background-color: #327A60;
   color: white;
-  font-size: clamp(1.5em, 3vw, 5em);
+  font-size: clamp(1.3em, 3vw, 5em);
   cursor: pointer;
   width: 100%;
   transition: background-color 0.3s;
@@ -1393,6 +1402,14 @@ screen and (pointer:coarse) {
   border-radius: 5px;
   cursor: pointer;
 }
+.invite-button {
+  background-color: #322ccd;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
 .friendsContent {
   display: flex;
   width: 100%;
@@ -1427,4 +1444,18 @@ screen and (pointer:coarse) {
 }
 .react-responsive-modal-closeButton {
   background-color: white !important;
+}
+
+.friend-details {
+  display: flex;
+  flex-direction: column;
+}
+.friend-state {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.9em;
+}
+.friend-name {
+  font-size: 1.2em;
 }

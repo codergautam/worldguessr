@@ -30,7 +30,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
 
       {multiplayerState?.playerCount &&  (
         <span className={`desktop bigSpan onlineText ${screen !== 'home' ? 'notHome':''} ${(screen==='singleplayer'||screen==='onboarding'||multiplayerState?.inGame||!multiplayerState?.connected)?'hide':''}`}>
-          {text("online", {cnt:multiplayerState.playerCount})}
+          {text("onlineCnt", {cnt:multiplayerState.playerCount})}
         </span>
       )}
       {!multiplayerState?.connected && (
@@ -44,7 +44,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
          </span>
         )}
       <div className="navbar__right">
-      { ((screen === 'home')||(screen==='multiplayer'&&!multiplayerState?.inGame)) && session?.token?.secret && (
+      {session?.token?.secret && (
          <button className="gameBtn friendBtn" onClick={onFriendsPress}>
          <FaUserFriends size={40}/>
           </button>

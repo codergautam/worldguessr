@@ -39,7 +39,6 @@ import SuggestAccountModal from "@/components/suggestAccountModal";
 import WsIcon from "@/components/wsIcon";
 import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
-import LoginModal from "@/components/loginModal";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -224,6 +223,7 @@ export default function Home({ locale }) {
       sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
 
       } else {
+        setScreen("multiplayer")
         setMultiplayerState((prev) => {
           return {
             ...initialMultiplayerState,
@@ -398,6 +398,7 @@ export default function Home({ locale }) {
         toast(data.message==='uac'?text('userAlreadyConnected'):data.message, { type: 'error' });
 
       } else if (data.type === "game") {
+        setScreen("multiplayer")
         setMultiplayerState((prev) => {
 
           if (data.state === "getready") {
@@ -475,6 +476,7 @@ export default function Home({ locale }) {
         setLatLong(null)
 
       } else if (data.type === "gameShutdown") {
+        setScreen("home")
         setMultiplayerState((prev) => {
           return {
             ...initialMultiplayerState,
@@ -506,6 +508,58 @@ export default function Home({ locale }) {
             }
           }
         })
+      } else if(data.type === "friendReq") {
+        const from = data.name;
+        const id = data.id;
+        const toAccept = (closeToast) => {
+          ws.send(JSON.stringify({ type: 'acceptFriend', id }))
+          closeToast()
+        }
+        const toDecline = (closeToast) => {
+          ws.send(JSON.stringify({ type: 'declineFriend', id }))
+          closeToast()
+        }
+        const toastComponent = function({closeToast}){
+          return (
+          <div>
+            <span>{text("youGotFriendReq", { from })}</span>
+
+            <button onClick={() => toAccept(closeToast)} className={"accept-button"}>✔</button>
+            &nbsp;
+            <button onClick={() => toDecline(closeToast)} className={"decline-button"}>✖</button>
+          </div>
+          )
+        }
+
+        toast(toastComponent, { type: 'info', theme: "dark" })
+
+
+      } else if(data.type === 'toast') {
+        toast(text(data.key, data), { type: data.toastType ?? 'info', theme: "dark" });
+      } else if(data.type === 'invite') {
+        // code, invitedByName, invitedById
+        const { code, invitedByName, invitedById } = data;
+
+        const toAccept = (closeToast) => {
+          ws.send(JSON.stringify({ type: 'acceptInvite', code, invitedById }))
+          closeToast()
+        }
+        const toDecline = (closeToast) => {
+          closeToast()
+        }
+        const toastComponent = function({closeToast}){
+          return (
+          <div>
+            <span>{text("youGotInvite", { from: invitedByName })}</span>
+
+            <button onClick={() => toAccept(closeToast)} className={"accept-button"}>{text("join")}</button>
+            &nbsp;
+            <button onClick={() => toDecline(closeToast)} className={"decline-button"}>{text("decline")}</button>
+          </div>
+          )
+        }
+
+        toast(toastComponent, { type: 'info', theme: "dark", autoClose: 10000 })
       }
     }
 
@@ -554,6 +608,11 @@ export default function Home({ locale }) {
     const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
 
     ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true }))
+  }
+
+  function sendInvite(id) {
+    if(!ws || !multiplayerState?.connected) return;
+    ws.send(JSON.stringify({ type: 'inviteFriend', friendId: id }))
   }
 
   useEffect(() => {
@@ -867,7 +926,10 @@ export default function Home({ locale }) {
         </div>
 
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
-        <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} />
+        <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
+          // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game
+          multiplayerState?.inGame && !multiplayerState?.gameData?.public
+        } sendInvite={sendInvite} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />

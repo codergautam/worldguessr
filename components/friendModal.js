@@ -2,7 +2,7 @@ import { Modal } from "react-responsive-modal";
 import { useState, useEffect } from "react";
 import { useTranslation } from 'next-i18next';
 
-export default function FriendsModal({ shown, onClose, session, ws }) {
+export default function FriendsModal({ shown, onClose, session, ws, canSendInvite, sendInvite }) {
     const [friends, setFriends] = useState([
     ]);
     const [sentRequests, setSentRequests] = useState([
@@ -202,7 +202,9 @@ export default function FriendsModal({ shown, onClose, session, ws }) {
 
                             { viewShown === 'list' && (
                               <div style={{ float: 'right' }}>
-                                {/* remove friend */}
+                                { canSendInvite && friend.online && friend.socketId && (
+                                  <button onClick={() => sendInvite(friend.socketId)} className={"invite-button"}>{text("invite")}</button>
+                                )}
                                 <button onClick={() => handleRemove(friend.id)} className={"cancel-button"}>✖</button>
                               </div>
                             )}
