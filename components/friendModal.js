@@ -12,6 +12,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
     const [friendReqSendingState, setFriendReqSendingState] = useState(0);
 
     const [friendReqProgress, setFriendReqProgress] = useState(false);
+    const [allowFriendReq, setAllowFriendReq] = useState(false);
 
     const [newFriend, setNewFriend] = useState('');
     const [viewShown, setViewShown] = useState('list');
@@ -25,6 +26,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
           setFriends(data.friends);
           setSentRequests(data.sentRequests);
           setReceivedRequests(data.receivedRequests);
+          setAllowFriendReq(data.allowFriendReq);
         }
         if(data.type === 'friendReqState') {
           setFriendReqSendingState(data.state);
@@ -171,6 +173,15 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                         { viewShown === 'sent' && text("sentRequests", {cnt: sentRequests.length})}
                         { viewShown === 'received' && text("receivedRequests", {cnt: receivedRequests.length})}
                       </h3>
+
+                      {viewShown === 'received' && (
+                        <span>
+                          {text("allowFriendRequests")}&nbsp;
+                          {/* check box */}
+                          <input type="checkbox" checked={allowFriendReq} onChange={(e) => ws?.send(JSON.stringify({ type: 'setAllowFriendReq', allow: e.target.checked }))} />
+
+                        </span>
+                      )}
 
                       { viewShown === 'list' && friends.length === 0 && (
                         <div>{text("noFriends")}</div>

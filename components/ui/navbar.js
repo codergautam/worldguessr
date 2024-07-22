@@ -45,7 +45,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
         )}
       <div className="navbar__right">
       {session?.token?.secret && (
-         <button className="gameBtn friendBtn" onClick={onFriendsPress}>
+         <button className="gameBtn friendBtn" onClick={onFriendsPress} disabled={ !multiplayerState?.connected }>
          <FaUserFriends size={40}/>
           </button>
         )}

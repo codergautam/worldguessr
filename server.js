@@ -450,7 +450,8 @@ class Player {
     type: 'friends',
     friends,
     sentRequests: this.sentReq,
-    receivedRequests: this.receivedReq
+    receivedRequests: this.receivedReq,
+    allowFriendReq: this.allowFriendReq
   };
   this.send(data);
 }
@@ -810,12 +811,24 @@ app.prepare().then(() => {
       }
 
       if(json.type === "setAllowFriendReq" && typeof json.allow === 'boolean' && player.accountId) {
+
+        if(Date.now() - player.lastAllowFriendReqChange < 5000) {
+          player.send({
+            type: 'toast',
+            key: 'pleaseWaitSeconds',
+            seconds: Math.round(5 - (Date.now() - player.lastAllowFriendReqChange)/1000),
+            toastType: 'error'
+          });
+          return;
+        }
+        player.lastAllowFriendReqChange = Date.now();
         player.allowFriendReq = json.allow;
         await User.updateOne({_id: player.accountId}, {allowFriendReq: json.allow});
         player.send({
           type: 'toast',
           key: 'preferenceUpdated'
         });
+        player.sendFriendData();
       }
 
 

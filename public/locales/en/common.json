@@ -165,5 +165,7 @@
   "inviteAcceptedBy": "{{name}} accepted your invite",
   "preferenceUpdated": "Preference updated",
   "invite": "Invite",
-  "alreadyInYourGame": "User is already in your game"
+  "alreadyInYourGame": "User is already in your game",
+  "allowFriendRequests": "Allow friend requests",
+  "pleaseWaitSeconds": "Please wait {{seconds}} seconds to perform this action"
 }
