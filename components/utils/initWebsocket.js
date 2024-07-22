@@ -1,3 +1,5 @@
+import { toast } from "react-toastify";
+
 /**
  * inits a websocket by a given url, returned promise resolves with initialized websocket, rejects after failure/timeout.
  *
@@ -24,6 +26,7 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
               existingWebsocket.close();
           }
           var websocket = new WebSocket(url);
+          console.info('opening websocket: ' + url);
           websocket.onopen = function () {
               if(hasReturned) {
                   websocket.close();
@@ -33,10 +36,12 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
               }
           };
           websocket.onclose = function () {
+            toast('Connection to server lost.', { type: 'error' });
               console.info('websocket closed! url: ' + url);
               rejectInternal();
           };
           websocket.onerror = function () {
+
               console.info('websocket error! url: ' + url);
               rejectInternal();
           };
@@ -47,9 +52,10 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
       function rejectInternal() {
           if(numberOfRetries <= 0) {
               reject();
-          } else if(!hasReturned) {
+          } else if(!hasReturned && !window.dontReconnect) {
               hasReturned = true;
               console.info('retrying connection to websocket! url: ' + url + ', remaining retries: ' + (numberOfRetries-1));
+                toast('Reconnecting...', { type: 'info' });
               setTimeout(() => {
               initWebsocket(url, null, timeoutMs, numberOfRetries-1).then(resolve, reject);
               }, 5000);

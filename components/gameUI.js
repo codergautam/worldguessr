@@ -91,7 +91,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
             }
           });
           setOnboardingWords([
-            "You forgot to guess within the time. Pay attention!"
+            text("onboardingTimeEnd")
           ])
           setOnboardingTextShown(true);
         }
@@ -123,31 +123,31 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       setOnboardingTextShown(true);
       if( onboarding.round === 1) {
         setOnboardingWords([
-        "Welcome to WorldGuessr!",
-        "You are in a random location. Can you figure out what country this is?",
-        "Move, look around and zoom for clues.",
-        "Good luck!"
+        text("welcomeToWorldguessr")+"!",
+        text("onboarding2"),
+        text("onboarding3"),
+        text("onboarding4"),
       ])
     } else if(onboarding.round === 2) {
       setOnboardingWords([
-        "Great job!",
-        "Now, lets add a timer to make things more interesting.",
+        text("greatJob"),
+        text("onboarding5"),
       ])
     } else if(onboarding.round === 3) {
       setOnboardingWords([
-        "Astounding!",
-        "Now, instead of the country, lets be more specific and add a world map.",
-        "Place a pin on the map where you think you are. The closer you are, the more points you get.",
-        "Use the hint to get a general idea of where you are.",
-        "Try your best and good luck!"
+        text("astounding"),
+        text("onboarding6"),
+        text("onboarding7"),
+        text("onboarding8"),
+        text("onboarding9"),
       ])
     } else if(onboarding.round === 4) {
       setOnboardingWords([
-        "The more you play, the more you learn!",
+        text("onboarding10")
       ])
     } else if(onboarding.round === 5) {
       setOnboardingWords([
-        "Final round!",
+        text("finalRound"),
       ])
     }
   }

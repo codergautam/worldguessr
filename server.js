@@ -432,9 +432,22 @@ class Player {
   if(!this.accountId) {
     return;
   }
+
+  let friends = this.friends;
+
+  // check if online
+  for(const f of friends) {
+    const player = Array.from(players.values()).find((p) => p.accountId === f.id);
+    if(player) {
+      f.online = true;
+    } else {
+      f.online = false;
+    }
+  }
+
   const data = {
     type: 'friends',
-    friends: this.friends,
+    friends,
     sentRequests: this.sentReq,
     receivedRequests: this.receivedReq
   };
@@ -554,7 +567,7 @@ app.prepare().then(() => {
               if (p.accountId === valid._id.toString()) {
                 player.send({
                   type: 'error',
-                  message: 'User already connected'
+                  message: 'uac'
                 });
                 player.ws.close();
                 console.log('User already connected', id, valid.username);

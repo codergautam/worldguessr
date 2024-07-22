@@ -28,6 +28,7 @@ import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
 import sendEvent from "@/components/utils/sendEvent";
 import initWebsocket from "@/components/utils/initWebsocket";
+import 'react-toastify/dist/ReactToastify.css';
 // const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
 
 import NextImage from "next/image";
@@ -37,6 +38,8 @@ import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
 import WsIcon from "@/components/wsIcon";
 import FriendsModal from "@/components/friendModal";
+import { toast, ToastContainer } from "react-toastify";
+import LoginModal from "@/components/loginModal";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -91,11 +94,6 @@ export default function Home({ locale }) {
   const [showCountryButtons, setShowCountryButtons] = useState(true);
   const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
   const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
-
-  useEffect(() => {
-    if(!session?.token?.username) return;
-    sendEvent("username",session?.token?.username)
-  }, [session?.token?.username])
 
   useEffect(() => {
     if(onboarding?.round >1) {
@@ -184,10 +182,21 @@ export default function Home({ locale }) {
 
   const { t: text } = useTranslation("common");
 
+  useEffect(( ) => {
+
+    if(multiplayerState?.joinOptions?.error) {
+      setTimeout(() => {
+        setMultiplayerState((prev) => ({ ...prev, joinOptions: { ...prev.joinOptions, error: null } }))
+      }, 1000)
+    }
+
+  }, [multiplayerState?.joinOptions?.error]);
+
   function handleMultiplayerAction(action, ...args) {
     if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
 
     if (action === "publicDuel") {
+      setScreen("multiplayer")
       setMultiplayerState((prev) => ({
         ...prev,
         gameQueued: "publicDuel",
@@ -199,8 +208,8 @@ export default function Home({ locale }) {
 
     if (action === "joinPrivateGame") {
 
-
       if (args[0]) {
+        setScreen("multiplayer")
 
         setMultiplayerState((prev) => ({
           ...prev,
@@ -230,6 +239,8 @@ export default function Home({ locale }) {
 
     if (action === "createPrivateGame") {
       if (!args[0]) {
+      setScreen("multiplayer")
+
         setMultiplayerState((prev) => {
           return {
             ...initialMultiplayerState,
@@ -296,7 +307,7 @@ export default function Home({ locale }) {
     (async() => {
 
 
-    if (!ws && !multiplayerState.connecting && !multiplayerState.connected) {
+    if (!ws && !multiplayerState.connecting && !multiplayerState.connected && !window?.dontReconnect) {
       const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/wg`
       setMultiplayerState((prev) => ({
         ...prev,
@@ -306,7 +317,6 @@ export default function Home({ locale }) {
       const ws = await initWebsocket(wsPath, null, 5000, 20)
       if(ws && ws.readyState === 1) {
       setWs(ws)
-      sendEvent("multiplayer_connected")
       setMultiplayerState((prev)=>({
         ...prev,
         error: false
@@ -316,7 +326,6 @@ export default function Home({ locale }) {
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
           const JWT = data.jwt;
           ws.send(JSON.stringify({ type: "verify", jwt: JWT }))
-      sendEvent("multiplayer_account_verified")
 
         });
       } else {
@@ -380,7 +389,14 @@ export default function Home({ locale }) {
           error: data.message
         }))
         // disconnect
-        ws.close();
+        if(data.message === "uac")
+          {
+            window.dontReconnect = true;
+          }
+         ws.close();
+
+        toast(data.message==='uac'?text('userAlreadyConnected'):data.message, { type: 'error' });
+
       } else if (data.type === "game") {
         setMultiplayerState((prev) => {
 
@@ -579,6 +595,7 @@ export default function Home({ locale }) {
           nextGameQueued: queueNextGame === true
         }
       })
+      setScreen("home")
 
     } else if ((multiplayerState?.creatingGame || multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
 
@@ -591,6 +608,8 @@ export default function Home({ locale }) {
 
         }
       })
+      setScreen("home")
+
     } else if(multiplayerState?.gameQueued) {
       console.log("gameQueued")
       ws.send(JSON.stringify({ type: "leaveQueue" }))
@@ -601,6 +620,7 @@ export default function Home({ locale }) {
           gameQueued: false
         }
       });
+      setScreen("home")
 
     } else {
       setScreen("home");
@@ -710,8 +730,9 @@ export default function Home({ locale }) {
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
-      {ChatboxMemo}
 
+      {ChatboxMemo}
+    <ToastContainer/>
 <div style={{
         top: 0,
         left: 0,
@@ -731,7 +752,7 @@ export default function Home({ locale }) {
 
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">
 
-        <BannerText text={`${text("loading")}...`} shown={loading} />
+        <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
         {process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
           <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
@@ -799,7 +820,7 @@ export default function Home({ locale }) {
                <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
               }} />
-              <GameBtn text={text("multiplayer")} style={{
+              {/* <GameBtn text={text("multiplayer")} style={{
                 backgroundColor: loginQueued === 'multiplayer' ? "gray" : "",
                 cursor: loginQueued === 'multiplayer' ? "not-allowed" : ""
               }} onClick={() => {
@@ -813,15 +834,26 @@ export default function Home({ locale }) {
                 }
                 else if (!session?.token?.secret) return;
                 else setScreen("multiplayer")
-              }} />
+              }} /> */}
+
+      <div style={{ pointerEvents: 'all' }}>
+        <span className="bigSpan">{text("playOnline")}</span>
+        <button className="gameBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
+          disabled={!multiplayerState.connected}>{text("findDuel")}</button>
+        <br />
+        <br />
+        <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span>
+        <button className="gameBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("createPrivateGame")} style={{ marginBottom: "10px" }}>{text("createGame")}</button>
+        <button className="gameBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
+      </div>
 
               <div className="home__squarebtns">
-                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn"><FaGithub className="home__squarebtnicon" /></button></Link>
-                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn"><FaDiscord className="home__squarebtnicon" /></button></Link>
-                <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                <Link href={"/wiki"}><button className="home__squarebtn gameBtn"><FaBook className="home__squarebtnicon" /></button></Link>
+                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                <Link href={"/wiki"}><button className="home__squarebtn gameBtn" aria-label="Wiki"><FaBook className="home__squarebtnicon" /></button></Link>
 
-                <button className="home__squarebtn gameBtn" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
+                <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
               </>
             )}
@@ -836,6 +868,7 @@ export default function Home({ locale }) {
 
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} />
+
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
@@ -847,7 +880,7 @@ export default function Home({ locale }) {
           {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
             <div className="home__onboarding__completed">
               <OnboardingText words={[
-                "You're a natural!"
+                text("onboarding1")
               ]} pageDone={() => {
                 window.localStorage.setItem("onboarding", 'done')
                 setOnboarding((prev)=>{

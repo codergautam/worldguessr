@@ -1,3 +1,5 @@
+import { t } from 'i18next';
+const text= t;
 import React, { useState, useEffect } from 'react';
 import { FaTrophy, FaClock, FaStar } from 'react-icons/fa';
 
@@ -41,7 +43,7 @@ export default function RoundOverScreen({ points, time, maxPoints, onHomePress }
   return (
     <div className="round-over-screen">
       <div className="round-over-content">
-        <h1 className="round-over-title">Round Over!</h1>
+        <span className="round-over-title bigSpan">{text("roundOver")}!</span>
         <div className="star-container">
           {[...Array(stars)].map((_, index) => (
             <FaStar key={index} className="star" style={{ animationDelay: `${index * 0.5}s` }} />
@@ -53,14 +55,14 @@ export default function RoundOverScreen({ points, time, maxPoints, onHomePress }
         <div className="round-over-details">
           <div className="detail-item">
             <FaTrophy className="detail-icon" />
-            <span className="detail-text">Points: {animatedPoints.toFixed(0)} / {maxPoints}</span>
+            <span className="detail-text">{text("pointsEarnedTemplate", {p:  `${animatedPoints.toFixed(0)} / ${maxPoints}`})}</span>
           </div>
           <div className="detail-item">
             <FaClock className="detail-icon" />
-            <span className="detail-text">Time: {time}</span>
+            <span className="detail-text">{text("timeTakenTemplate", {t: time})}</span>
           </div>
         </div>
-        <button className="play-again-btn" onClick={() => onHomePress()}>Home</button>
+        <button className="play-again-btn" onClick={() => onHomePress()}>{text("home")}</button>
       </div>
     </div>
   );

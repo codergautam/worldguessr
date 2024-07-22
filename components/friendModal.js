@@ -184,9 +184,18 @@ export default function FriendsModal({ shown, onClose, session, ws }) {
 
                       <div className="friends-list">
                       {
-                        (viewShown === 'list' ? friends : viewShown === 'sent' ? sentRequests : receivedRequests).map(friend => (
+                        (viewShown === 'list' ? friends : viewShown === 'sent' ? sentRequests : receivedRequests).sort((a, b) => b.online - a.online).map(friend => (
                           <div key={friend.id} className="friend-card">
-                            <span>{friend?.name}</span>
+                            <div className="friend-details">
+                            <span className="friend-name">
+                              {friend?.name}</span>
+
+                              {viewShown==='list'&&(
+                                <span className="friend-state">{friend?.online?text("online"):text("offline")}</span>
+                              )}
+
+                            </div>
+
                             { viewShown === 'sent' && (
                               <button onClick={() => handleCancel(friend.id)} className={"cancel-button"}>✖</button>
                             )}
@@ -194,7 +203,7 @@ export default function FriendsModal({ shown, onClose, session, ws }) {
                             { viewShown === 'list' && (
                               <div style={{ float: 'right' }}>
                                 {/* remove friend */}
-                                <button onClick={() => handleRemove(friend.id)} className={"remove-button"}>✖</button>
+                                <button onClick={() => handleRemove(friend.id)} className={"cancel-button"}>✖</button>
                               </div>
                             )}
 

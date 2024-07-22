@@ -159,11 +159,11 @@ button {
   padding-right: 20px;
 }
 
-@for $i from 1 through 6 {
-  .home__btns button:nth-child(#{$i}n) {
-      animation-delay: #{$i * 0.1}s;
-  }
-}
+// @for $i from 1 through 6 {
+//   .home__btns button:nth-child(#{$i}n) {
+//       animation-delay: #{$i * 0.1}s;
+//   }
+// }
 
 /* media query if height larger than width */
 @media (max-aspect-ratio: 1/1) {

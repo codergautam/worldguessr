@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node welcome.js && cross-env I18NEXT_DEFAULT_CONFIG_PATH=./next-i18next.config.cjs nodemon server.js --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js",
-    "build": "npm run buildwiki && cross-env I18NEXT_DEFAULT_CONFIG_PATH=./next-i18next.config.cjs next build",
+    "build": "cross-env I18NEXT_DEFAULT_CONFIG_PATH=./next-i18next.config.cjs next build",
     "start": "cross-env I18NEXT_DEFAULT_CONFIG_PATH=./next-i18next.config.cjs NODE_ENV=production node server.js",
     "buildwiki": "cd wikis && mdbook build",
     "heroku-postbuild": "echo 'heroku-postbuild' && cd wikis && mkdir bin && curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.40/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz | tar -xz --directory=bin && bin/mdbook build && cd .. && cross-env I18NEXT_DEFAULT_CONFIG_PATH=./next-i18next.config.cjs next build"
@@ -35,6 +35,7 @@
     "react-icons": "^5.1.0",
     "react-responsive-modal": "^6.4.2",
     "react-simple-typewriter": "^5.0.1",
+    "react-toastify": "^10.0.5",
     "sass": "^1.77.2",
     "uuid": "^9.0.1",
     "ws": "^8.17.0"
