@@ -1,11 +1,12 @@
-import { t } from 'i18next';
-const text= t;
+
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaTrophy, FaClock, FaStar } from 'react-icons/fa';
 
 export default function RoundOverScreen({ points, time, maxPoints, onHomePress }) {
   const [animatedPoints, setAnimatedPoints] = useState(0);
   const [stars, setStars] = useState(0);
+  const { t: text } = useTranslation("common");
 
   useEffect(() => {
     let start = 0;
