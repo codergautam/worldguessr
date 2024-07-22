@@ -19,15 +19,14 @@ export default function AccountBtn({ session, openAccountModal, navbarMode }) {
         { !session?.token?.secret && session !== null ? '...' :
         (
           <div style={{marginRight: '10px',marginLeft: '10px'}}>
-            
+
             {text("login")}
             <FaGoogle className="home__squarebtnicon" />
-          </div> 
+          </div>
         )}
         </button>
     ) : (
         <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn'}`} onClick={() => {
-        sendEvent("open_account_modal")
         openAccountModal()
         }}>
           {session?.token?.username ? <p style={{ color: 'white', marginRight: '10px',marginLeft: '10px' }}>{session?.token?.username}</p> : null}

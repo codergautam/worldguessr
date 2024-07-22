@@ -178,7 +178,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   }, [loading, latLong, width])
 
   function showHint() {
-    sendEvent("show_hint")
     setHintShown(true)
   }
   useEffect(() => {
@@ -187,9 +186,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   function guess() {
     setShowAnswer(true)
     if(showCountryButtons || setShowCountryButtons)setShowCountryButtons(false);
-    if(latLong && pinPoint) {
-    sendEvent("guess", { lat: latLong.lat, long: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
-    }
     if(onboarding) {
       setOnboarding((prev) => {
 

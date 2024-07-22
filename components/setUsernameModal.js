@@ -1,6 +1,7 @@
 import {Modal} from "react-responsive-modal";
 import { useState } from "react";
 import { useTranslation } from 'next-i18next'
+import sendEvent from "./utils/sendEvent";
 
 export default function SetUsernameModal({ shown, onClose, session }) {
     const [username, setUsername] = useState("");
@@ -18,6 +19,7 @@ export default function SetUsernameModal({ shown, onClose, session }) {
         });
 
         if (response.ok) {
+            sendEvent("sign_up");
           window.location.reload();
         } else {
             try {

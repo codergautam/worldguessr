@@ -630,7 +630,6 @@ export default function Home({ locale }) {
   }, [])
 
   function reloadBtnPressed() {
-    sendEvent("reload_pressed")
     setLatLong(null)
     setLoading(true)
     setTimeout(() => {
@@ -640,8 +639,6 @@ export default function Home({ locale }) {
     }, 100);
   }
   function backBtnPressed(queueNextGame = false) {
-    sendEvent("back_pressed")
-
     if (loading) setLoading(false);
     if (multiplayerState?.inGame) {
       ws.send(JSON.stringify({
@@ -719,7 +716,6 @@ export default function Home({ locale }) {
       setTimeout(() => {
         setStreetViewShown(true)
         setTimeout(() => {
-    sendEvent("location_loaded")
 
           setLoading(false)
         }, 100);
@@ -729,7 +725,6 @@ export default function Home({ locale }) {
 
 
     // console.log("loading location")
-    sendEvent("location_load")
     setLoading(true)
     setShowAnswer(false)
     setPinPoint(null)
@@ -777,10 +772,6 @@ export default function Home({ locale }) {
 
     return () => clearInterval(pongInterval);
   }, [ws]);
-
-  useEffect(() => {
-    sendEvent("screen_change_" + screen)
-  }, [screen])
 
   return (
     <>
@@ -870,6 +861,7 @@ export default function Home({ locale }) {
                     locations: locations,
                     startTime: Date.now(),
                   })
+                  sendEvent("tutorial_begin")
                   setShowCountryButtons(false)
                 }
               }} >{text("playNow")}</button> }
@@ -953,6 +945,8 @@ export default function Home({ locale }) {
                 })
               }} shown={!onboarding?.finalOnboardingShown} />
               <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={20000} onHomePress={() =>{
+                if(onboarding) sendEvent("tutorial_end");
+
                 setOnboarding(null)
       setShowSuggestLoginModal(true)
                 setScreen("home")
