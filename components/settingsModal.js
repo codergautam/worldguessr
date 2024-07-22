@@ -5,12 +5,10 @@ export default function SettingsModal({ shown, onClose, options, setOptions }) {
     const { t: text } = useTranslation("common");
 
     const handleUnitsChange = (event) => {
-        console.log(event.target.value);
         setOptions((prevOptions) => ({ ...prevOptions, units: event.target.value }));
     };
 
     const handleMapTypeChange = (event) => {
-        console.log(event.target.value);
         setOptions((prevOptions) => ({ ...prevOptions, mapType: event.target.value }));
     };
 
@@ -53,7 +51,6 @@ export default function SettingsModal({ shown, onClose, options, setOptions }) {
                     <option value="s">{text("satellite")}</option>
                     <option value="p">{text("terrain")}</option>
                     <option value="y">{text("hybrid")}</option>
-                    <option value="legacy">{text("legacyMap")}</option>
                 </select>
             </div>
         </Modal>

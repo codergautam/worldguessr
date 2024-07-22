@@ -13,51 +13,11 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
 
   const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
 
-  useEffect(( ) => {
-
-    if(multiplayerState?.joinOptions?.error) {
-      setTimeout(() => {
-        setMultiplayerState((prev) => ({ ...prev, joinOptions: { ...prev.joinOptions, error: null } }))
-      }, 1000)
-    }
-
-  }, [multiplayerState?.joinOptions?.error]);
-
-  useEffect(() => {
-    if (!multiplayerState.connected && !ws && !multiplayerState.connecting && !multiplayerState.shouldConnect && !multiplayerState.error) {
-      sendEvent("multiplayer_connect")
-      // setting shouldConnect to true will force home to initiate a connection
-      setMultiplayerState((prev) => ({
-        ...prev,
-        shouldConnect: true,
-        error: null
-      }))
-    }
-
-  }, [multiplayerState, ws])
   return (
     <div className="multiplayerHome">
-      { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && !multiplayerState.enteringGameCode && !multiplayerState.creatingGame && (
-      <div style={{ pointerEvents: 'all' }}>
-        {
-          multiplayerState?.guestName && (
-            <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-              <span className="bigSpan">
-              {text("guestMultiplayer", {name:multiplayerState.guestName})}
-              </span>
-            </div>
-          )
-        }
+        <BannerText text={multiplayerState.error} shown={multiplayerState.error} />
+        <BannerText text={text("connecting")} shown={multiplayerState.connecting && !multiplayerState?.error} />
 
-        <span className="bigSpan">{text("playOnline")}</span>
-        <button className="gameBtn multiplayerOptionBtn publicGame" onClick={() => handleAction("publicDuel")}>{text("findDuel")}</button>
-        <br />
-        <br />
-        <span className="bigSpan">{text("playFriends")}</span>
-        <button className="gameBtn multiplayerOptionBtn" onClick={() => handleAction("createPrivateGame")} style={{ marginBottom: "10px" }}>{text("createGame")}</button>
-        <button className="gameBtn multiplayerOptionBtn" onClick={() => handleAction("joinPrivateGame")}>{text("joinGame")}</button>
-      </div>
-      )}
        { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && multiplayerState.enteringGameCode && !multiplayerState.creatingGame && (
       <div style={{ pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center' }}>
         <span className="bigSpan">{text("joinGame")}</span>
@@ -116,7 +76,6 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
       </div>
       )}
         <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued} />
-        <BannerText text={multiplayerState.error} shown={multiplayerState.error} />
         <BannerText text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />
 
         { multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && !multiplayerState.gameData?.public && (

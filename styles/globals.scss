@@ -6,6 +6,7 @@ html * {
 }
 button {
   box-shadow: 0 0.275rem 1.125rem rgba(0,0,0,.25), inset 0 0.0625rem 0 hsla(0,0%,100%,.2), inset 0 -0.125rem 0 rgba(0,0,0,.3);
+  border: none;
 }
 
 .home {
@@ -53,6 +54,7 @@ button {
   transform: translate(-50%);
   // slowly move to right while fading out when is hidden
   transition: left 0.5s, opacity 0.5s;
+  overflow-y: auto;
 }
 .home__content.cesium_shown {
   left: 66%;
@@ -87,10 +89,21 @@ button {
   font-weight: 500;
   color: white;
   text-align: center;
+  -webkit-text-stroke: 1px black;
+  text-shadow: 2px 2px black;
+  margin-bottom: 0;
+  animation: fadeIn 0.4s ease-in-out forwards;
+}
+.home__subtitle {
+  font-size: clamp(1.2em, 2vw, 5em);
+  font-weight: 500;
+  color: white;
+  text-align: center;
   margin-bottom: 20px;
   -webkit-text-stroke: 1px black;
   text-shadow: 2px 2px black;
   animation: fadeIn 0.4s ease-in-out forwards;
+
 }
 
 .accountBtnContainer {
@@ -135,19 +148,23 @@ button {
 
 
 .home__squarebtnicon {
-  transform: translateY(15%);
-  padding-left: 10px;
+  // transform: translateY(15%);
+  // padding-left: 10px;
 }
 .home__squarebtn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px;
   padding-left: 20px;
   padding-right: 20px;
 }
 
-@for $i from 1 through 6 {
-  .home__btns button:nth-child(#{$i}n) {
-      animation-delay: #{$i * 0.1}s;
-  }
-}
+// @for $i from 1 through 6 {
+//   .home__btns button:nth-child(#{$i}n) {
+//       animation-delay: #{$i * 0.1}s;
+//   }
+// }
 
 /* media query if height larger than width */
 @media (max-aspect-ratio: 1/1) {
@@ -160,13 +177,21 @@ button {
   }
 }
 
+// if width 2x height
+@media (min-aspect-ratio: 2/1) {
+  .home__content {
+    justify-content: flex-start !important;
+  }
+}
+
+
 .home__singleplayer {
   z-index: 101;
 }
 .gameBtn {
   background-color: #327A60;
   color: white;
-  font-size: clamp(1.5em, 3vw, 5em);
+  font-size: clamp(1.3em, 3vw, 5em);
   cursor: pointer;
   width: 100%;
   transition: background-color 0.3s;
@@ -219,11 +244,11 @@ h1, h2, h3, span {
   top: 0;
   left: 0;
   width: 100%;
-  height: 83px;
+  // height: 83px;
   display: flex;
   align-items: center;
-  background-color: #0d0d32;
-  backdrop-filter: blur(10px);
+  // background-color: #0d0d32;
+  // backdrop-filter: blur(10px);
   z-index: 102;
   padding: 0 20px;
   overflow-x: hidden;
@@ -231,13 +256,12 @@ h1, h2, h3, span {
   // enter from top
 
   transition: all 0.5s;
-}
 
-.navbar.inGame {
   background-color: rgba(0, 0, 0, 0);
   backdrop-filter: none;
   height: 50px;
 }
+
 .navbar.hidden {
   transform: translateY(-100%);
   opacity: 0;
@@ -245,19 +269,17 @@ h1, h2, h3, span {
 
 
 .navbar__title {
-  font-size: 2.5em;
+  // font-size: 2.5em;
   font-weight: 500;
   color: white;
   user-select: none;
   cursor: pointer;
   transition: all 250ms ease;
-}
-
-.navbar.inGame .navbar__title {
   font-size: 1.8em;
   // text border
   -webkit-text-stroke: 1px black;
 }
+
 
 .navbar__title:hover {
   transition: all 250ms ease;
@@ -269,7 +291,26 @@ h1, h2, h3, span {
   transform: scale(0.8);
 }
 
+.nonHome {
+  display: none;
+  opacity: 0;
+}
+.nonHome.shown {
+  display: flex;
+  animation: fadeInNonHome 0.5s ease-in-out forwards;
+}
 
+@keyframes fadeInNonHome {
+  0% {
+       opacity: 0;
+       transform: scale(0)
+  }
+
+  100% {
+       opacity: 1;
+       transform: scale(1)
+  }
+}
 
 
 .navbar__right {
@@ -535,6 +576,7 @@ h1, h2, h3, span {
   cursor: crosshair;
   height: 100%;
   background-color: #B9D3DC;
+  position: relative;
 }
 
 #miniMapArea.answerNotShown #miniMapContent {
@@ -1055,9 +1097,365 @@ img[alt="Google"] {
 }
 .bigSpan {
   font-size:2em;
+  transition: all 250ms ease;
 }
+.onlineText {
+  position: fixed;
+  transition: all 0.5s;
+  opacity: 1;
+}
+.onlineText.notHome {
+  transform: translateX(210px);
+}
+.onlineText.hide {
+  transform: translateX(0px);
+  opacity: 0;
+}
+
 .wiki {
   left: 0;
   top: 0;
   color:white;
+}
+.play {
+  width: fit-content;
+  padding-left: 10px;
+  padding-right: 10px;
+  // italic
+
+}
+.countryGuessrOptions {
+  position: fixed;
+  z-index: 1000;
+  display: none;
+  flex-direction: row;
+  bottom: 50px;
+  left: 50%;
+  width: 60%;
+  opacity: 0;
+  transform: translateX(-50%) translateY(-100%);
+}
+.countryGuessrOptions.shown {
+  display: flex;
+  animation: fadeIn 1s ease-in-out forwards;
+  transform: translateY(0%) translateX(-50%);
+  opacity: 1;
+}
+.countryGuessrCard {
+  background-color: #0F251D;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 3px solid #0a0c0b;
+  border-radius: 10px;
+}
+.onboardingDiv {
+  position: fixed;
+  z-index: 1000;
+  left: 50%;
+  transform: translateX(-50%) translateY(-100%);
+  top: 50px;
+  background-color: rgb(16, 27, 17);
+  color: white;
+  padding-left: 50px;
+  padding-top: 25px;
+  padding-bottom: 25px;
+  padding-right: 50px;
+  font-size: 1.5em;
+  border-radius: 10px;
+  width: 40%;
+  height: auto;
+  min-height: 40px;
+
+  // hidden
+  opacity: 0;
+}
+
+.onboardingDiv.shown {
+  animation: fadeIn 1s ease-in-out forwards;
+  transform: translateY(0%) translateX(-50%);
+  opacity: 1;
+}
+
+@media screen and (max-width: 600px),
+screen and (pointer:coarse) {
+  .countryGuessrOptions {
+    bottom: 0;
+    width: 100%;
+  }
+  .countryGuessrCard {
+    width: 100%;
+    height: 100px;
+  }
+  .onboardingDiv {
+    width: 80%;
+    top: 50px;
+  }
+}
+.round-over-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 1000;
+}
+
+.round-over-content {
+  background: #fff;
+  padding: 40px;
+  border-radius: 10px;
+  text-align: center;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.round-over-title {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.round-over-details {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 30px;
+  align-items: center;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail-icon {
+  color: #FFD700; /* Gold color */
+  font-size: 1.5rem;
+}
+
+.detail-text {
+  font-size: 1.2rem;
+  color: #333;
+}
+
+.play-again-btn {
+  padding: 10px 20px;
+  font-size: 1.2rem;
+  color: #fff;
+  background: #007BFF;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.play-again-btn:hover {
+  background: #0056b3;
+}
+
+
+.star-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.star {
+  font-size: 2rem;
+  color: gold;
+}
+.star.empty {
+  color: #b6b2b2;
+  animation: none;
+  opacity: 1;
+}
+
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+.wsIcon {
+  position: fixed;
+  z-index: 1000;
+  top: 40px;
+  left: 20px;
+  width: 50px;
+  height: 50px;
+}
+.friendBtn {
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.input-group {
+  display: flex;
+  margin-bottom: 20px;
+  height: fit-content;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
+.friend-input {
+  flex-grow: 1;
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #555;
+  background: #444;
+  color: white;
+  margin: 0 !important;
+  margin-right: 10px !important;
+}
+
+.send-request-button {
+  border: none;
+  border-radius: 5px;
+  background-color: #4CAF50;
+  color: white;
+  // height: fit-content;
+  cursor: pointer;
+}
+
+.friends-list {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+
+}
+.friends-list-parent {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+}
+
+.friend-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #444;
+  padding: 10px;
+  border-radius: 5px;
+  max-width: 300px;
+  width: 100%;
+}
+
+.view-requests-button {
+  padding: 10px 20px;
+  margin-right: 10px;
+
+  border: none;
+  border-radius: 5px;
+  background-color: #008CBA;
+  color: white;
+  cursor: pointer;
+}
+.view-requests-button.selected {
+  background-color: #005f7f;
+
+}
+
+.request-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #444;
+  padding: 10px;
+  border-radius: 5px;
+}
+
+.accept-button {
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-right: 5px;
+}
+
+.decline-button {
+  background-color: #F44336;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.cancel-button {
+  background-color: #F44336;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.invite-button {
+  background-color: #322ccd;
+  border: none;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.friendsContent {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+.friendsTabs {
+  display: flex;
+  flex-direction: column;
+  width: 30%;
+}
+.friendsSection {
+  display: flex;
+  gap: 20px;
+  width: 70%;
+
+}
+@media screen and (max-width: 680px) {
+  .friendsModal {
+    width: 100% !important;
+    left: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+}
+.mapAttr {
+  position: absolute;
+  z-index: 100;
+  bottom: -10px;
+  left: 5px;
+  pointer-events: none;
+}
+.react-responsive-modal-closeButton {
+  background-color: white !important;
+}
+
+.friend-details {
+  display: flex;
+  flex-direction: column;
+}
+.friend-state {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.9em;
+}
+.friend-name {
+  font-size: 1.2em;
 }

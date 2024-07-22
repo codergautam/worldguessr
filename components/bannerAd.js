@@ -33,7 +33,6 @@ export default function Ad({
   const adDivRef = useRef(null)
 
   useEffect(() => {
-    console.log(window.location.hostname)
     if(window.location.hostname === "localhost") setIsClient("debug")
     else setIsClient(true)
   }, [])

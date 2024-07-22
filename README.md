@@ -16,7 +16,6 @@ A free and open-source version of the popular geography game inspired by GeoGues
 
 ## Acknowledgements
 
-- [Lima Labs Maps](https://maps.lima-labs.com/) (special thanks to them for sponsoring free tiles! ❤️)
 - [OpenStreetMap](https://www.openstreetmap.org/)
 - [OpenLayers](https://openlayers.org/)
 - [Google Maps API](https://developers.google.com/maps)

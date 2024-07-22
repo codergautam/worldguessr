@@ -36,7 +36,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
     let center = fromLonLat([long, lat]);
     center = [center[0] + randomOffset[0], center[1] + randomOffset[1]];
     // move it a bit randomly so it's not exactly on the location but location is inside the circle
-    const circle = new Feature(new Circle(center, hintMul * gameOptions.maxDist));
+    const circle = new Feature(new Circle(center, hintMul * (gameOptions?.maxDist ?? 0)));
     vectorSource.current.addFeature(circle);
 
     const circleLayer = new VectorLayer({
@@ -63,7 +63,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
             // url: 'https://{a-c}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
             // url: 'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02',
             // use google maps https://mt2.google.com/vt/lyrs=m&x=&y==&z=&hl=en
-            url: options?.mapType==="legacy"?'https://cdn.lima-labs.com/{z}/{x}/{y}.png?api=0430HugnWftuqjsktunChwMvi2HsvythMMwighNwoJtJascQA02':`https://mt2.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}`,
+            url: `https://mt2.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}`,
           }),
         }),
         new VectorLayer({ source: vectorSource.current })
@@ -109,7 +109,6 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
         setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
 
         if(multiplayerState?.inGame && multiplayerState.gameData?.state === "guess" && ws) {
-              console.log("pinpoint1", pinPoint)
               var pinpointLatLong = [clickedLatLong[1], clickedLatLong[0]]
               ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }))
 
@@ -133,6 +132,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
   // Update pin point and add line
   useEffect(() => {
     if (!map) return;
+
 
     vectorSource.current.clear();
 
@@ -193,27 +193,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
       }
     }
 
-    if (answerShown && location && pinPoint) {
-      const lineLayer = new VectorLayer({
-        source: new VectorSource({
-          features: [
-            new Feature({
-              geometry: new LineString([
-                fromLonLat([pinPoint.lng, pinPoint.lat]),
-                fromLonLat([location.long, location.lat]),
-              ]),
-            })
-          ]
-        }),
-        style: new Style({
-          stroke: new Stroke({
-            color: '#f00',
-            width: 2
-          })
-        })
-      });
-
-      map.addLayer(lineLayer);
+    if(answerShown && location) {
       const destFeature = new Feature({
         geometry: new Point(fromLonLat([location.long, location.lat])),
       });
@@ -259,6 +239,30 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
       });
       map.addLayer(textLayer);
 
+    }
+    if (answerShown && location && pinPoint) {
+      const lineLayer = new VectorLayer({
+        source: new VectorSource({
+          features: [
+            new Feature({
+              geometry: new LineString([
+                fromLonLat([pinPoint.lng, pinPoint.lat]),
+                fromLonLat([location.long, location.lat]),
+              ]),
+            })
+          ]
+        }),
+        style: new Style({
+          stroke: new Stroke({
+            color: '#f00',
+            width: 2
+          })
+        })
+      });
+
+      map.addLayer(lineLayer);
+
+
 
 
       // if (playingMultiplayer) {
@@ -293,10 +297,8 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
         // Add other players' guesses
 
         multiplayerState?.gameData?.players.forEach((player) => {
-          console.log("player", player)
           if (player.id === multiplayerState?.gameData?.myId) return;
           if (player.final && player.guess) {
-            console.log("player.latLong", player.guess)
             const playerFeature = new Feature({
               geometry: new Point(fromLonLat([player.guess[1], player.guess[0]])),
             });
@@ -344,9 +346,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
 
 
-      setTimeout(() => {
-        map.getView().animate({ center: fromLonLat([location.long, location.lat]), zoom: 5, duration: 3000 });
-      }, 100);
+
 
       // Calculate distance
 
@@ -359,7 +359,6 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
 
     function onKeyPress(e) {
-      console.log(focused, e.key)
       if(!focused) return;
       // arrow keys = move / pan
       // + - = zoom
@@ -398,7 +397,20 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
   }, [map, pinPoint, answerShown, location, setKm, randomOffsetS, showHint, focused]);
 
-  useState(() => {
+  useEffect(() => {
+    if(!answerShown || !location || !map) return;
+    try {
+    setTimeout(() => {
+      map.getView().animate({ center: fromLonLat([location.long, location.lat]), zoom: 5, duration: 3000 });
+    }, 100);
+  }catch(e) {
+
+  }
+
+  }, [answerShown, location, map])
+
+  useEffect(() => {
+    if(!gameOptions || !location) return;
     // let maxPivots = [10, 25].map((v, i) => v * 0.8).map((v, i) => v * (Math.random() - 0.5) * 2);
     let maxPivots = [0, 0];
     const radiusProj = hintMul * gameOptions.maxDist;
@@ -414,7 +426,11 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
   return (
     <>
-    <div ref={mapRef} id='miniMapContent'></div>
+    <div ref={mapRef} id='miniMapContent'>
+      <div className='mapAttr'>
+        <img width="60" src='https://lh3.googleusercontent.com/d_S5gxu_S1P6NR1gXeMthZeBzkrQMHdI5uvXrpn3nfJuXpCjlqhLQKH_hbOxTHxFhp5WugVOEcl4WDrv9rmKBDOMExhKU5KmmLFQVg'/>
+      </div>
+    </div>
     <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
     </>
   );

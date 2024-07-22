@@ -5,7 +5,6 @@ import GameBtn from "@/components/ui/gameBtn";
 import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
 import { FaBook, FaGear, FaMap, FaRankingStar } from "react-icons/fa6";
 import { signIn, useSession } from "next-auth/react";
-import AccountBtn from "@/components/ui/accountBtn";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState } from "react";
 import Navbar from "@/components/ui/navbar";
@@ -19,7 +18,6 @@ import SetUsernameModal from "@/components/setUsernameModal";
 import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
-import WelcomeModal from "@/components/welcomeModal";
 // import text from "@/languages/lang";
 import { useTranslation } from 'next-i18next'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
@@ -29,10 +27,18 @@ import Ad from "@/components/bannerAd";
 import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
 import sendEvent from "@/components/utils/sendEvent";
-
+import initWebsocket from "@/components/utils/initWebsocket";
+import 'react-toastify/dist/ReactToastify.css';
 // const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
 
 import NextImage from "next/image";
+import OnboardingText from "@/components/onboardingText";
+import RoundOverScreen from "@/components/roundOverScreen";
+import msToTime from "@/components/msToTime";
+import SuggestAccountModal from "@/components/suggestAccountModal";
+import WsIcon from "@/components/wsIcon";
+import FriendsModal from "@/components/friendModal";
+import { toast, ToastContainer } from "react-toastify";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -75,16 +81,42 @@ export default function Home({ locale }) {
   const [xpEarned, setXpEarned] = useState(0)
   const [countryStreak, setCountryStreak] = useState(0)
   const [settingsModal, setSettingsModal] = useState(false)
-  const [showWelcomeModal, setShowWelcomeModal] = useState(false)
+  const [friendsModal, setFriendsModal] = useState(false)
   const [timeOffset, setTimeOffset] = useState(0)
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
   });
 
+  const [onboarding, setOnboarding] = useState(null);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(null);
+  const [otherOptions, setOtherOptions] = useState([]); // for country guesser
+  const [showCountryButtons, setShowCountryButtons] = useState(true);
+  const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
+  const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
+
   useEffect(() => {
-    if(!session?.token?.username) return;
-    sendEvent("username",session?.token?.username)
-  }, [session?.token?.username])
+    if(onboarding?.round >1) {
+      loadLocation()
+    }
+  }, [onboarding?.round])
+
+  useEffect(() => {
+    if(onboarding?.completed) {
+      setOnboardingCompleted(true)
+    }
+  }, [onboarding?.completed])
+  useEffect(() => {
+    const onboarding = window.localStorage.getItem("onboarding");
+    if(onboarding && onboarding === "done") setOnboardingCompleted(true)
+      else setOnboardingCompleted(false)
+  }, [])
+
+  useEffect(() => {
+    if(session && session.token && session.token.username) {
+      setOnboardingCompleted(true)
+      window.localStorage.setItem("onboarding", "done")
+    }
+  }, [session])
 
   const loadOptions =async () => {
 
@@ -135,17 +167,7 @@ export default function Home({ locale }) {
       // instantly start game to minimize bounce rate
 
       setScreen("singleplayer")
-      localStorage.setItem("welcomeModalShown", "true")
 
-    }
-
-
-
-    // show welcome modal if not shown (localstorage)
-    const welcomeModalShown = localStorage.getItem("welcomeModalShown");
-    if (!welcomeModalShown) {
-      setShowWelcomeModal(true)
-      localStorage.setItem("welcomeModalShown", "true")
     }
   }, [])
 
@@ -159,10 +181,21 @@ export default function Home({ locale }) {
 
   const { t: text } = useTranslation("common");
 
+  useEffect(( ) => {
+
+    if(multiplayerState?.joinOptions?.error) {
+      setTimeout(() => {
+        setMultiplayerState((prev) => ({ ...prev, joinOptions: { ...prev.joinOptions, error: null } }))
+      }, 1000)
+    }
+
+  }, [multiplayerState?.joinOptions?.error]);
+
   function handleMultiplayerAction(action, ...args) {
     if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
 
     if (action === "publicDuel") {
+      setScreen("multiplayer")
       setMultiplayerState((prev) => ({
         ...prev,
         gameQueued: "publicDuel",
@@ -174,8 +207,8 @@ export default function Home({ locale }) {
 
     if (action === "joinPrivateGame") {
 
-
       if (args[0]) {
+        setScreen("multiplayer")
 
         setMultiplayerState((prev) => ({
           ...prev,
@@ -190,6 +223,7 @@ export default function Home({ locale }) {
       sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
 
       } else {
+        setScreen("multiplayer")
         setMultiplayerState((prev) => {
           return {
             ...initialMultiplayerState,
@@ -205,6 +239,8 @@ export default function Home({ locale }) {
 
     if (action === "createPrivateGame") {
       if (!args[0]) {
+      setScreen("multiplayer")
+
         setMultiplayerState((prev) => {
           return {
             ...initialMultiplayerState,
@@ -260,40 +296,44 @@ export default function Home({ locale }) {
       sendEvent("multiplayer_start_game_host")
     }
 
+    if(action === 'screen') {
+        ws.send(JSON.stringify({ type: "screen", screen: args[0] }))
+    }
+
 
   }
 
   useEffect(() => {
-    if (!ws && !multiplayerState.connecting && !multiplayerState.connected && multiplayerState.shouldConnect && !multiplayerState.error) {
-      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/multiplayer`
+    (async() => {
+
+
+    if (!ws && !multiplayerState.connecting && !multiplayerState.connected && !window?.dontReconnect) {
+      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/wg`
       setMultiplayerState((prev) => ({
         ...prev,
         connecting: true,
         shouldConnect: false
       }))
-      const ws = new WebSocket(wsPath);
-      ws.onopen = () => {
-        setWs(ws)
-      sendEvent("multiplayer_connected")
+      const ws = await initWebsocket(wsPath, null, 5000, 20)
+      if(ws && ws.readyState === 1) {
+      setWs(ws)
+      setMultiplayerState((prev)=>({
+        ...prev,
+        error: false
+      }))
 
 
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
           const JWT = data.jwt;
           ws.send(JSON.stringify({ type: "verify", jwt: JWT }))
-      sendEvent("multiplayer_account_verified")
 
         });
+      } else {
+        alert("could not connect to server")
       }
 
     }
-
-    if (screen === "home") {
-      if (ws) {
-        ws.close();
-        setWs(null);
-      }
-      setMultiplayerState(initialMultiplayerState)
-    }
+  })();
   }, [multiplayerState, ws, screen])
 
   useEffect(() => {
@@ -349,8 +389,16 @@ export default function Home({ locale }) {
           error: data.message
         }))
         // disconnect
-        ws.close();
+        if(data.message === "uac")
+          {
+            window.dontReconnect = true;
+          }
+         ws.close();
+
+        toast(data.message==='uac'?text('userAlreadyConnected'):data.message, { type: 'error' });
+
       } else if (data.type === "game") {
+        setScreen("multiplayer")
         setMultiplayerState((prev) => {
 
           if (data.state === "getready") {
@@ -428,6 +476,7 @@ export default function Home({ locale }) {
         setLatLong(null)
 
       } else if (data.type === "gameShutdown") {
+        setScreen("home")
         setMultiplayerState((prev) => {
           return {
             ...initialMultiplayerState,
@@ -459,6 +508,58 @@ export default function Home({ locale }) {
             }
           }
         })
+      } else if(data.type === "friendReq") {
+        const from = data.name;
+        const id = data.id;
+        const toAccept = (closeToast) => {
+          ws.send(JSON.stringify({ type: 'acceptFriend', id }))
+          closeToast()
+        }
+        const toDecline = (closeToast) => {
+          ws.send(JSON.stringify({ type: 'declineFriend', id }))
+          closeToast()
+        }
+        const toastComponent = function({closeToast}){
+          return (
+          <div>
+            <span>{text("youGotFriendReq", { from })}</span>
+
+            <button onClick={() => toAccept(closeToast)} className={"accept-button"}>✔</button>
+            &nbsp;
+            <button onClick={() => toDecline(closeToast)} className={"decline-button"}>✖</button>
+          </div>
+          )
+        }
+
+        toast(toastComponent, { type: 'info', theme: "dark" })
+
+
+      } else if(data.type === 'toast') {
+        toast(text(data.key, data), { type: data.toastType ?? 'info', theme: "dark" });
+      } else if(data.type === 'invite') {
+        // code, invitedByName, invitedById
+        const { code, invitedByName, invitedById } = data;
+
+        const toAccept = (closeToast) => {
+          ws.send(JSON.stringify({ type: 'acceptInvite', code, invitedById }))
+          closeToast()
+        }
+        const toDecline = (closeToast) => {
+          closeToast()
+        }
+        const toastComponent = function({closeToast}){
+          return (
+          <div>
+            <span>{text("youGotInvite", { from: invitedByName })}</span>
+
+            <button onClick={() => toAccept(closeToast)} className={"accept-button"}>{text("join")}</button>
+            &nbsp;
+            <button onClick={() => toDecline(closeToast)} className={"decline-button"}>{text("decline")}</button>
+          </div>
+          )
+        }
+
+        toast(toastComponent, { type: 'info', theme: "dark", autoClose: 10000 })
       }
     }
 
@@ -469,7 +570,7 @@ export default function Home({ locale }) {
 
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
-        error: prev.error ?? "Connection lost"
+        error: prev.error ?? text("connectionLost")
       }));
     }
 
@@ -484,6 +585,12 @@ export default function Home({ locale }) {
       handleMultiplayerAction("publicDuel");
     }
   }, [multiplayerState, timeOffset])
+
+  useEffect(() => {
+    if (multiplayerState?.connected) {
+      handleMultiplayerAction("screen", screen);
+    }
+  }, [screen]);
 
 
   // useEffect(() => {
@@ -503,6 +610,11 @@ export default function Home({ locale }) {
     ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true }))
   }
 
+  function sendInvite(id) {
+    if(!ws || !multiplayerState?.connected) return;
+    ws.send(JSON.stringify({ type: 'inviteFriend', friendId: id }))
+  }
+
   useEffect(() => {
     const streak = localStorage.getItem("countryStreak");
     if (streak) {
@@ -518,7 +630,6 @@ export default function Home({ locale }) {
   }, [])
 
   function reloadBtnPressed() {
-    sendEvent("reload_pressed")
     setLatLong(null)
     setLoading(true)
     setTimeout(() => {
@@ -528,8 +639,6 @@ export default function Home({ locale }) {
     }, 100);
   }
   function backBtnPressed(queueNextGame = false) {
-    sendEvent("back_pressed")
-
     if (loading) setLoading(false);
     if (multiplayerState?.inGame) {
       ws.send(JSON.stringify({
@@ -542,6 +651,7 @@ export default function Home({ locale }) {
           nextGameQueued: queueNextGame === true
         }
       })
+      setScreen("home")
 
     } else if ((multiplayerState?.creatingGame || multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
 
@@ -554,6 +664,20 @@ export default function Home({ locale }) {
 
         }
       })
+      setScreen("home")
+
+    } else if(multiplayerState?.gameQueued) {
+      console.log("gameQueued")
+      ws.send(JSON.stringify({ type: "leaveQueue" }))
+
+      setMultiplayerState((prev) => {
+        return {
+          ...prev,
+          gameQueued: false
+        }
+      });
+      setScreen("home")
+
     } else {
       setScreen("home");
       clearLocation();
@@ -569,6 +693,7 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
+
     if(window.cpc) {
       const popularLocations = [
     { lat: 40.7598687, long: -73.9764681 },
@@ -584,31 +709,48 @@ export default function Home({ locale }) {
       }, 100);
       return window.cpc = false;
     }
+
     if (loading) return;
+
+    function afterSet() {
+      setTimeout(() => {
+        setStreetViewShown(true)
+        setTimeout(() => {
+
+          setLoading(false)
+        }, 100);
+      }, 100);
+    }
+
+
+
     // console.log("loading location")
-    sendEvent("location_load")
     setLoading(true)
     setShowAnswer(false)
     setPinPoint(null)
     setLatLong(null)
     setHintShown(false)
+    if(screen === "onboarding") {
+      setLatLong(onboarding.locations[onboarding.round - 1]);
+      let options = JSON.parse(JSON.stringify(onboarding.locations[onboarding.round - 1].otherOptions));
+      options.push(onboarding.locations[onboarding.round - 1].country)
+      // shuffle
+      options = options.sort(() => Math.random() - 0.5)
+      setOtherOptions(options)
+      afterSet();
+    } else {
     findLatLongRandom(gameOptions).then((latLong) => {
       setLatLong(latLong)
-      setTimeout(() => {
-        setStreetViewShown(true)
-        setTimeout(() => {
-    sendEvent("location_loaded")
-
-          setLoading(false)
-        }, 100);
-      }, 100);
+      afterSet()
     });
+  }
   }
 
   function onNavbarLogoPress() {
-    sendEvent("navbar_logo_press")
+    if(screen === "onboarding") return;
+
     if (screen !== "home" && !loading) {
-      if (multiplayerState?.connected && !multiplayerState?.inGame) {
+      if (screen==="multiplayer" && multiplayerState?.connected && !multiplayerState?.inGame) {
         return;
       }
       if (!multiplayerState?.inGame) loadLocation()
@@ -631,19 +773,16 @@ export default function Home({ locale }) {
     return () => clearInterval(pongInterval);
   }, [ws]);
 
-  useEffect(() => {
-    sendEvent("screen_change_" + screen)
-  }, [screen])
-
   return (
     <>
       <HeadContent text={text}/>
 
       <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
+      <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
 
       {ChatboxMemo}
-
+    <ToastContainer/>
 <div style={{
         top: 0,
         left: 0,
@@ -654,8 +793,8 @@ export default function Home({ locale }) {
         opacity: 0.4,
         userSelect: 'none',
       }}>
-      <NextImage.default src='/background.jpg'
-      fill   alt="Background World map" style={{objectFit: "cover"}}
+      <NextImage.default src={'/street1.jpg'}
+      fill   alt="Game Background" style={{objectFit: "cover",userSelect:'none'}}
       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       />
       </div>
@@ -663,31 +802,76 @@ export default function Home({ locale }) {
 
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">
 
-        <BannerText text={`${text("loading")}...`} shown={loading && !(multiplayerState.error || multiplayerState.connecting)} />
-        <BannerText text={`${text("connecting")}...`} shown={multiplayerState.connecting && !multiplayerState.error} />
+        <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
-        <div style={{ display: 'flex', alignItems: 'center', opacity: ((screen !== "singleplayer") && !multiplayerState?.inGame) ? 1 : 0 }} className="accountBtnContainer">
-          <AccountBtn session={session} openAccountModal={() => setAccountModalOpen(true)} />
-          {/* <p style={{color: "white", zIndex: 10000}}>
-          {
-            JSON.stringify(session)
-          }
-          </p> */}
-        </div>
         {process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
           <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         }
-        <Navbar loading={loading} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={screen !== "home"} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+        <Navbar loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+
 
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
 
+        { onboardingCompleted===null ? (
+          <>
+
+          </>
+        ) : (
+          <>
+
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
-            <div className="home__btns">=
-              <GameBtn text={text("singleplayer")} onClick={() => {
+            {/* { multiplayerState?.connecting ? (
+              <h2 className="home__subtitle">{text("connecting")}...</h2>
+            ) : (
+              <> */}
+
+            { !onboardingCompleted &&
+            <h2 className="home__subtitle">{text("subtitle")}</h2> }
+            <div className="home__btns">
+              { !onboardingCompleted &&
+              <button className="gameBtn play" onClick={() => {
+                if(onboardingCompleted===null)return;
+                if (!loading) {
+                  setScreen("onboarding")
+
+                  let onboardingLocations = [
+                    { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
+                  { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
+                  { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
+                    { lat: -1.2758794, long: 36.8231793, country: "KE", otherOptions: ["IN", "US"] },
+                    { lat: 35.7010698, long: 139.7061219, country: "JP", otherOptions: ["KR", "RU"] },
+                    { lat: 37.5383413, long: 127.1002877, country: "KR", otherOptions: ["JP", "CA"] },
+                    { lat: 19.3228523, long: -99.0982377, country: "MX", otherOptions: ["BR", "US"] },
+                    { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
+                  ]
+
+                  // pick 5 random locations no repeats
+                  const locations = [];
+                  while (locations.length < 5) {
+                    const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
+                    if (!locations.find((l) => l.country === loc.country)) {
+                      locations.push(loc)
+                    }
+                  }
+
+
+                  setOnboarding({
+                    round: 1,
+                    locations: locations,
+                    startTime: Date.now(),
+                  })
+                  sendEvent("tutorial_begin")
+                  setShowCountryButtons(false)
+                }
+              }} >{text("playNow")}</button> }
+              { onboardingCompleted && (
+
+              <>
+               <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
               }} />
-              <GameBtn text={text("multiplayer")} style={{
+              {/* <GameBtn text={text("multiplayer")} style={{
                 backgroundColor: loginQueued === 'multiplayer' ? "gray" : "",
                 cursor: loginQueued === 'multiplayer' ? "not-allowed" : ""
               }} onClick={() => {
@@ -701,28 +885,75 @@ export default function Home({ locale }) {
                 }
                 else if (!session?.token?.secret) return;
                 else setScreen("multiplayer")
-              }} />
+              }} /> */}
+
+      <div style={{ pointerEvents: 'all' }}>
+        <span className="bigSpan">{text("playOnline")}</span>
+        <button className="gameBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
+          disabled={!multiplayerState.connected}>{text("findDuel")}</button>
+        <br />
+        <br />
+        <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span>
+        <button className="gameBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("createPrivateGame")} style={{ marginBottom: "10px" }}>{text("createGame")}</button>
+        <button className="gameBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
+      </div>
 
               <div className="home__squarebtns">
-                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn"><FaGithub className="home__squarebtnicon" /></button></Link>
-                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn"><FaDiscord className="home__squarebtnicon" /></button></Link>
-                <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                <Link href={"/wiki"}><button className="home__squarebtn gameBtn"><FaBook className="home__squarebtnicon" /></button></Link>
+                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                <Link href={"/wiki"}><button className="home__squarebtn gameBtn" aria-label="Wiki"><FaBook className="home__squarebtnicon" /></button></Link>
 
-                <button className="home__squarebtn gameBtn" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
+                <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
+              </>
+            )}
             </div>
+            {/* </> */}
+            {/* )} */}
           </div>
+          </>
+        )}
           <br />
-          <Ad screenH={height} screenW={width} types={[[320, 50], [728, 90]]} centerOnOverflow={600} />
         </div>
 
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
-        <WelcomeModal shown={showWelcomeModal} onClose={() => setShowWelcomeModal(false)} openGame={() => setScreen("singleplayer")} />
+        <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
+          // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game
+          multiplayerState?.inGame && !multiplayerState?.gameData?.public
+        } sendInvite={sendInvite} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
+
+        {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
+          <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding.round < 3} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          </div>}
+
+          {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
+            <div className="home__onboarding__completed">
+              <OnboardingText words={[
+                text("onboarding1")
+              ]} pageDone={() => {
+                window.localStorage.setItem("onboarding", 'done')
+                setOnboarding((prev)=>{
+                  return {
+                    ...prev,
+                    finalOnboardingShown: true
+                  }
+                })
+              }} shown={!onboarding?.finalOnboardingShown} />
+              <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={20000} onHomePress={() =>{
+                if(onboarding) sendEvent("tutorial_end");
+
+                setOnboarding(null)
+      setShowSuggestLoginModal(true)
+                setScreen("home")
+              }}/>
+              </div>
+              </div>
+}
 
         {screen === "multiplayer" && <div className="home__multiplayer">
           <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />

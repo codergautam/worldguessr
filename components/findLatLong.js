@@ -22,7 +22,6 @@ const loader = new Loader({
       sources: [google.maps.StreetViewSource.OUTDOOR]
     }, (data, status) => {
       if(status === "OK" && data) {
-        console.log(data);
         const latLng = data.location?.latLng;
         if(!latLng) {
           alert("Failed to get location, couldn't find latLng object")

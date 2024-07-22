@@ -12,11 +12,35 @@ import PlayerList from "./playerList";
 import { FaExpand, FaMinimize, FaThumbtack } from "react-icons/fa6";
 import { useTranslation } from 'next-i18next'
 import sendEvent from "./utils/sendEvent";
+import CountryBtns from "./countryButtons";
+import OnboardingText from "./onboardingText";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned }) {
+export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
+
+  function loadLocationFunc() {
+    if(onboarding) {
+      if(onboarding.round === 5) {
+        setOnboarding((prev)=>{
+          return {
+          completed: true,
+          points: prev.points,
+          timeTaken: Date.now() - prev.startTime
+          }
+        })
+      } else
+      setOnboarding((prev) => {
+        return {
+          ...prev,
+          round: prev.round + 1,
+          nextRoundTime: 0
+        }
+      })
+    } else
+      loadLocation()
+  }
 
   const { width, height } = useWindowDimensions();
   // how to determine if touch screen?
@@ -31,9 +55,12 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
   const [roundStartTime, setRoundStartTime] = useState(null);
   const [lostCountryStreak, setLostCountryStreak] = useState(0);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
+  const [timeToNextRound, setTimeToNextRound] = useState(0); //only for onboarding
   const [mapPinned, setMapPinned] = useState(false);
   // dist between guess & target
   const [km, setKm] = useState(null);
+  const [onboardingTextShown, setOnboardingTextShown] = useState(false);
+  const [onboardingWords, setOnboardingWords] = useState([]);
 
 
   useEffect(() => {
@@ -50,6 +77,33 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
   }, [multiplayerState, timeOffset])
 
   useEffect(() => {
+    if(onboarding?.nextRoundTime) {
+      const interval = setInterval(() => {
+      console.log("setting timetonextroun")
+      const val = Math.max(0,Math.floor(((onboarding.nextRoundTime - Date.now())) / 100)/10)
+        setTimeToNextRound(val)
+
+        if(val === 0) {
+          setOnboarding((prev) => {
+            return {
+              ...prev,
+              nextRoundTime: Date.now() + 20000
+            }
+          });
+          setOnboardingWords([
+            text("onboardingTimeEnd")
+          ])
+          setOnboardingTextShown(true);
+        }
+      }, 100)
+
+      return () => {
+        clearInterval(interval)
+      }
+    }
+  }, [onboarding?.nextRoundTime])
+
+  useEffect(() => {
     if(multiplayerState?.inGame) return;
     if (!latLong) {
       setLoading(true)
@@ -64,13 +118,48 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
     window.localStorage.setItem("countryStreak", countryStreak);
   }, [countryStreak])
 
+  useEffect(() => {
+    if(onboarding) {
+      setOnboardingTextShown(true);
+      if( onboarding.round === 1) {
+        setOnboardingWords([
+        text("welcomeToWorldguessr")+"!",
+        text("onboarding2"),
+        text("onboarding3"),
+        text("onboarding4"),
+      ])
+    } else if(onboarding.round === 2) {
+      setOnboardingWords([
+        text("greatJob"),
+        text("onboarding5"),
+      ])
+    } else if(onboarding.round === 3) {
+      setOnboardingWords([
+        text("astounding"),
+        text("onboarding6"),
+        text("onboarding7"),
+        text("onboarding8"),
+        text("onboarding9"),
+      ])
+    } else if(onboarding.round === 4) {
+      setOnboardingWords([
+        text("onboarding10")
+      ])
+    } else if(onboarding.round === 5) {
+      setOnboardingWords([
+        text("finalRound"),
+      ])
+    }
+  }
+  }, [onboarding?.round])
+
 
   useEffect(() => {
     function keydown(e) {
       if(pinPoint && e.key === ' ' && !showAnswer) {
         guess();
       } else if(showAnswer && e.key === ' ') {
-        loadLocation();
+        loadLocationFunc()
       }
     }
     // on space key press, guess
@@ -78,8 +167,8 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, showAnswer, xpEarned]);
-
+  }, [pinPoint, showAnswer, onboarding, xpEarned]);
+  
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
       setMiniMapShown(true)
@@ -89,7 +178,6 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
   }, [loading, latLong, width])
 
   function showHint() {
-    sendEvent("show_hint")
     setHintShown(true)
   }
   useEffect(() => {
@@ -97,10 +185,21 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
   }, [gameOptions?.location])
   function guess() {
     setShowAnswer(true)
-    sendEvent("guess", { lat: latLong.lat, long: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
+    if(showCountryButtons || setShowCountryButtons)setShowCountryButtons(false);
+    if(onboarding) {
+      setOnboarding((prev) => {
 
+        return {
+          ...prev,
+          nextRoundTime:0,
+          points: (prev.points??0) + (countryGuesser?2500:calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: 20000}))
+        }
+      })
+      setTimeToNextRound(0)
+    }
     if(multiplayerState?.inGame) return;
 
+    console.log(xpEarned)
     if(xpEarned > 0 && session?.token?.secret) {
       fetch('/api/storeGame', {
         method: 'POST',
@@ -127,7 +226,7 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
       });
     }
 
-    if(gameOptions.location === 'all') {
+    if(gameOptions.location === 'all' && pinPoint) {
     findCountry({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
 
       setLostCountryStreak(0);
@@ -163,6 +262,9 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
     //     }
     //   }
     // });
+    try{
+    document.querySelector("a[rel=noopener]")?.remove()
+    }catch(e){}
     const devDivs = document.querySelectorAll('[style*="position: absolute;"][style*="pointer-events: none;"][style*="transform: translate(-50%, -50%);"][style*="z-index: 1000;"][style*="top: 50%;"][style*="color: white;"][style*="font-size: 20px;"][style*="left: 50%;"][style*="background-color: rgba(0, 0, 0, 0.3);"][style*="padding: 5px;"][style*="border-radius: 3px;"][style*="text-align: center;"]');
       devDivs.forEach(element => {
       element.remove()
@@ -195,7 +297,6 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
     //   zoom: 14,
     // });
     if(!latLong) return;
-    console.log('showroadname', gameOptions)
 
 
     const panorama = new google.maps.StreetViewPanorama(
@@ -216,9 +317,6 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
         disableDefaultUI: true,
       },
     );
-
-
-    console.log(panorama, "panorama")
 
 
     // pano onload
@@ -264,7 +362,7 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
 
 
 
-      {(!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (
+      {(!countryGuesser || (countryGuesser && showAnswer)) && (!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (
         <>
 
 
@@ -329,10 +427,52 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
       </>
       )}
 
+      { countryGuesser && otherOptions && (
+        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer}
+
+         onCountryPress={(country) => {
+          const isCorrect = country === latLong.country;
+          if(!isCorrect && onboarding) {
+            setOnboardingWords([
+              "Not quite. Try again!",
+            ])
+            setOnboardingTextShown(true);
+            setCountryGuesserCorrect(false);
+          } else {
+            setCountryGuesserCorrect(true);
+            guess()
+          }
+         }}/>
+      )}
+
+      {onboarding && (
+        <OnboardingText onboarding={onboarding} shown={!loading && onboardingTextShown}
+        words={onboardingWords} pageDone={()=>{
+          setShowCountryButtons(true)
+          setOnboardingTextShown(false)
+          if(onboarding?.round >= 2) {
+          setOnboarding((prev) => {
+            return {
+              ...prev,
+              nextRoundTime: Date.now() + 20000
+            }
+          })
+        }
+        }} />
+      )}
       <span className={`timer ${(loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end') ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
+        </span>
+
+        <span className={`timer ${(loading||showAnswer||!onboarding) ? '' : 'shown'}`}>
+
+{/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
+      {timeToNextRound ?
+      text("roundTimer", {r:onboarding?.round, mr: 5, t: timeToNextRound})
+      : text("round", {r:onboarding?.round, mr: 5})}
+
         </span>
 
         {multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
@@ -359,7 +499,9 @@ export default function GameUI({ options, timeOffset, ws, multiplayerState, back
       }} gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
 {/* <EndBanner xpEarned={xpEarned} usedHint={showHint} session={session} lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} /> */}
-<EndBanner options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={loadLocation} km={km} multiplayerState={multiplayerState} />
+<EndBanner onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
+loadLocationFunc()
+  }} km={km} multiplayerState={multiplayerState} />
 
     </div>
   )
