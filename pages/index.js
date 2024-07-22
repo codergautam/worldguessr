@@ -948,7 +948,9 @@ export default function Home({ locale }) {
                 if(onboarding) sendEvent("tutorial_end");
 
                 setOnboarding(null)
+                if(!window.location.search.includes("app=true")) {
       setShowSuggestLoginModal(true)
+    }
                 setScreen("home")
               }}/>
               </div>

@@ -4,11 +4,20 @@ import AccountBtn from "./accountBtn";
 import { FaArrowRotateRight } from "react-icons/fa6";
 import { useTranslation } from 'next-i18next'
 import WsIcon from "../wsIcon";
+import { useState, useEffect } from "react";
 
 export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading }) {
   const { t: text } = useTranslation("common");
 
   const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer'))) && (!loading);
+
+  const [showAccBtn, setShowAccBtn] = useState(true);
+  useEffect(() => {
+    if(window.location.search.includes("app=true")) {
+      setShowAccBtn(false);
+    }
+  }, []);
+
 
   return (
     <>
@@ -59,7 +68,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
           ''}
           </button>
         )}
-        {!inGame && (<AccountBtn session={session} navbarMode={true} openAccountModal={openAccountModal} />)}
+        {!inGame && showAccBtn && (<AccountBtn session={session} navbarMode={true} openAccountModal={openAccountModal} />)}
         </div>
     </div>
 )}
