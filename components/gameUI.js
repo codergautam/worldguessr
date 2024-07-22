@@ -168,7 +168,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       document.removeEventListener('keydown', keydown);
     }
   }, [pinPoint, showAnswer, onboarding, xpEarned]);
-
+  
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
       setMiniMapShown(true)
