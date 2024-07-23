@@ -3,7 +3,7 @@ import CesiumWrapper from "../components/cesium/CesiumWrapper";
 import { Jockey_One, Roboto } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
 import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
-import { FaBook, FaGear, FaMap, FaRankingStar } from "react-icons/fa6";
+import { FaBook, FaGear, FaMap, FaNewspaper, FaRankingStar } from "react-icons/fa6";
 import { signIn, signOut, useSession } from "next-auth/react";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState } from "react";
@@ -39,6 +39,7 @@ import SuggestAccountModal from "@/components/suggestAccountModal";
 import WsIcon from "@/components/wsIcon";
 import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
+import InfoModal from "@/components/infoModal";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -917,7 +918,7 @@ export default function Home({ locale }) {
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                <Link href={"/wiki"}><button className="home__squarebtn gameBtn" aria-label="Wiki"><FaBook className="home__squarebtnicon" /></button></Link>
+                <Link target="_blank" href={"https://iogames.forum/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Forum"><FaNewspaper className="home__squarebtnicon" /></button></Link>
                 </>
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
@@ -932,7 +933,7 @@ export default function Home({ locale }) {
         )}
           <br />
         </div>
-
+        <InfoModal shown={false} />
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
           // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game

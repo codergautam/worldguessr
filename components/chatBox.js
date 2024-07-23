@@ -7,6 +7,9 @@ import { useTranslation } from 'next-i18next';
 
 const config = {
   initialMessages: [],
+  customComponents: {
+    header: () => <div className="react-chatbot-kit-chat-header">Chat</div>
+  },
   customMessages: {
     custom: (props) => {
       return <CustomMessage {...props} message={props.state.messages.find(msg => (msg.payload === props.payload))} />;
