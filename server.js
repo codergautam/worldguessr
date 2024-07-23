@@ -659,7 +659,8 @@ app.prepare().then(() => {
         } else {
           player.send({
             type: 'error',
-            message: 'Failed to login'
+            message: 'Failed to login',
+            failedToLogin: true
           });
           console.log('Failed to verify user', id);
           player.ws.close();

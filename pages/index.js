@@ -4,7 +4,7 @@ import { Jockey_One, Roboto } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
 import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
 import { FaBook, FaGear, FaMap, FaRankingStar } from "react-icons/fa6";
-import { signIn, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState } from "react";
 import Navbar from "@/components/ui/navbar";
@@ -392,6 +392,12 @@ export default function Home({ locale }) {
         if(data.message === "uac")
           {
             window.dontReconnect = true;
+          }
+          if(data.failedToLogin) {
+            window.dontReconnect = true;
+            // logout
+            signOut()
+            
           }
          ws.close();
 

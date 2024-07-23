@@ -8,8 +8,9 @@ export default function SetUsernameModal({ shown, onClose, session }) {
     const { t: text } = useTranslation("common");
 
     const handleSave = async () => {
+        if(window.settingName) return;
         const secret = session.token.secret;
-
+        window.settingName = true;
         const response = await fetch('/api/setName', {
             method: 'POST',
             headers: {
@@ -20,8 +21,11 @@ export default function SetUsernameModal({ shown, onClose, session }) {
 
         if (response.ok) {
             sendEvent("sign_up");
-          window.location.reload();
+            setTimeout(() => {
+                window.location.reload();
+            },200);
         } else {
+            window.settingName = false;
             try {
               const data = await response.json();
               alert(data.message || 'An error occurred');
