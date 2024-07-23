@@ -86,6 +86,13 @@ export default function Home({ locale }) {
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
   });
+  const [isApp, setIsApp] = useState(false);
+
+  useEffect(() => {
+    if(window.location.search.includes("app=true")) {
+      setIsApp(true);
+    }
+  }, []);
 
   const [onboarding, setOnboarding] = useState(null);
   const [onboardingCompleted, setOnboardingCompleted] = useState(null);
@@ -397,7 +404,7 @@ export default function Home({ locale }) {
             window.dontReconnect = true;
             // logout
             signOut()
-            
+
           }
          ws.close();
 
@@ -905,11 +912,14 @@ export default function Home({ locale }) {
       </div>
 
               <div className="home__squarebtns">
+                { !isApp && (
+                  <>
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
                 <Link href={"/wiki"}><button className="home__squarebtn gameBtn" aria-label="Wiki"><FaBook className="home__squarebtnicon" /></button></Link>
-
+                </>
+                )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
               </>
