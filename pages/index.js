@@ -535,7 +535,7 @@ export default function Home({ locale }) {
 
 
       } else if(data.type === 'toast') {
-        toast(text(data.key, data), { type: data.toastType ?? 'info', theme: "dark" });
+        toast(text(data.key, data), { type: data.toastType ?? 'info', theme: "dark", closeOnClick: data.closeOnClick ?? false, autoClose: data.autoClose ?? 5000 })
       } else if(data.type === 'invite') {
         // code, invitedByName, invitedById
         const { code, invitedByName, invitedById } = data;

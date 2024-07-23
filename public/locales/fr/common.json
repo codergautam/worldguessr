@@ -167,5 +167,6 @@
   "invite": "Inviter",
   "alreadyInYourGame": "L'utilisateur est déjà dans votre jeu",
   "allowFriendRequests": "Autoriser les demandes d'ami",
-  "pleaseWaitSeconds": "Veuillez attendre {{seconds}} secondes pour effectuer cette action"
+  "pleaseWaitSeconds": "Veuillez attendre {{seconds}} secondes pour effectuer cette action",
+  "lastGuesser": "Vous êtes le dernier à deviner. Le chronomètre est réduit à {{s}} secondes"
 }

@@ -167,5 +167,6 @@
   "invite": "Einladen",
   "alreadyInYourGame": "Benutzer ist bereits in deinem Spiel",
   "allowFriendRequests": "Freundschaftsanfragen erlauben",
-  "pleaseWaitSeconds": "Bitte warte {{seconds}} Sekunden, um diese Aktion auszuführen"
+  "pleaseWaitSeconds": "Bitte warte {{seconds}} Sekunden, um diese Aktion auszuführen",
+  "lastGuesser": "Sie sind der letzte Rater. Timer auf {{s}} Sekunden reduziert"
 }

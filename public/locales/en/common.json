@@ -167,5 +167,6 @@
   "invite": "Invite",
   "alreadyInYourGame": "User is already in your game",
   "allowFriendRequests": "Allow friend requests",
-  "pleaseWaitSeconds": "Please wait {{seconds}} seconds to perform this action"
+  "pleaseWaitSeconds": "Please wait {{seconds}} seconds to perform this action",
+  "lastGuesser": "You are the last guesser. Timer reduced to {{s}} seconds"
 }

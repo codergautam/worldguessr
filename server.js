@@ -340,10 +340,12 @@ class Game {
           // check if all players have placed
           let allFinal = true;
           let remainingCount = 0;
+          let finalPlayer = null;
           for (const p of Object.values(this.players)) {
             if (!p.final) {
               allFinal = false;
               remainingCount++;
+              finalPlayer = p;
               if(remainingCount > 1) {
                 break;
               }
@@ -359,6 +361,18 @@ class Game {
           if(remainingCount === 1 && (this.nextEvtTime - Date.now()) > 20000) {
             this.nextEvtTime = Date.now() + 20000;
             this.sendStateUpdate();
+
+            // send last player a toast
+            const pObj = players.get(finalPlayer.id);
+            console.log('Sending toast to last player', pObj.username);
+            pObj.send({
+              type: 'toast',
+              key: 'lastGuesser',
+              s: 20,
+              closeOnClick: true,
+              autoClose: 3000,
+              toastType: 'info'
+            });
           }
   }
   async generateLocations() {
