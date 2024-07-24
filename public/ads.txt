@@ -8,6 +8,7 @@ adinplay.com, SWT, DIRECT
 
 #Google
 google.com, pub-3282547114800347, RESELLER, f08c47fec0942fa0
+google.com, pub-3340825671684972, DIRECT, f08c47fec0942fa0
 
 #Appnexus
 appnexus.com, 8631, RESELLER, f5ab79cb980f11d1
