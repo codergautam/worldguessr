@@ -154,6 +154,11 @@ export default function Home({ locale }) {
 
   }
   useEffect(()=>{loadOptions()}, [])
+  useEffect(() => {
+    if (window && window.adBreak) {
+      window.adBreak({preloadAdBreaks: 'on'})
+    }
+  }, [])
 
   useEffect(() => {
     console.log("options", options)
@@ -162,22 +167,6 @@ export default function Home({ locale }) {
       localStorage.setItem("options", JSON.stringify(options))
     }
   }, [options])
-
-  useEffect(() => {
-
-    // check if paid traffic
-    const urlParams = new URLSearchParams(window.location.search);
-
-    const cpc = urlParams.get("cpc");
-    if (cpc) {
-      // set cpc to true so locaiton not overriden
-      window.cpc = true;
-      // instantly start game to minimize bounce rate
-
-      setScreen("singleplayer")
-
-    }
-  }, [])
 
   // multiplayer stuff
   const [ws, setWs] = useState(null);
@@ -707,23 +696,6 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
-
-    if(window.cpc) {
-      const popularLocations = [
-    { lat: 40.7598687, long: -73.9764681 },
-    { lat: 27.1719752, long: 78.0422793 },
-
-      ]
-      setLatLong(popularLocations[Math.floor(Math.random() * popularLocations.length)])
-      setTimeout(() => {
-        setStreetViewShown(true)
-        setTimeout(() => {
-          setLoading(false)
-        }, 100);
-      }, 100);
-      return window.cpc = false;
-    }
-
     if (loading) return;
 
     function afterSet() {
@@ -835,10 +807,6 @@ export default function Home({ locale }) {
 
           <div className="home__ui">
             <h1 className="home__title">WorldGuessr</h1>
-            {/* { multiplayerState?.connecting ? (
-              <h2 className="home__subtitle">{text("connecting")}...</h2>
-            ) : (
-              <> */}
 
             { !onboardingCompleted &&
             <h2 className="home__subtitle">{text("subtitle")}</h2> }
@@ -847,6 +815,7 @@ export default function Home({ locale }) {
               <button className="gameBtn play" onClick={() => {
                 if(onboardingCompleted===null)return;
                 if (!loading) {
+                  function start() {
                   setScreen("onboarding")
 
                   let onboardingLocations = [
@@ -878,38 +847,35 @@ export default function Home({ locale }) {
                   sendEvent("tutorial_begin")
                   setShowCountryButtons(false)
                 }
+
+                const isPPC = window.location.search.includes("cpc=true");
+                if(window.adBreak && isPPC) {
+                  window.adBreak({
+                    type: 'start',
+                    adBreakDone: start
+                  });
+                } else start()
+                }
               }} >{text("playNow")}</button> }
               { onboardingCompleted && (
 
               <>
-               <GameBtn text={text("singleplayer")} onClick={() => {
+      <div className="mainHomeBtns">
+
+               {/* <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
-              }} />
-              {/* <GameBtn text={text("multiplayer")} style={{
-                backgroundColor: loginQueued === 'multiplayer' ? "gray" : "",
-                cursor: loginQueued === 'multiplayer' ? "not-allowed" : ""
-              }} onClick={() => {
-
-                // alert("Multiplayer is currently disabled for maintenance. Please check back later.");
-                // return;
-
-                if (loginQueued) return;
-                if (!session?.token?.secret && session === null) {
-                  setScreen("multiplayer")
-                }
-                else if (!session?.token?.secret) return;
-                else setScreen("multiplayer")
               }} /> */}
-
-      <div style={{ pointerEvents: 'all' }}>
-        <span className="bigSpan">{text("playOnline")}</span>
-        <button className="gameBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
+              <button className="homeBtn" onClick={() => {
+                if (!loading) setScreen("singleplayer")
+              }} >{text("singleplayer")}</button>
+        {/* <span className="bigSpan">{text("playOnline")}</span> */}
+        <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
           disabled={!multiplayerState.connected}>{text("findDuel")}</button>
-        <br />
-        <br />
-        <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span>
-        <button className="gameBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("createPrivateGame")} style={{ marginBottom: "10px" }}>{text("createGame")}</button>
-        <button className="gameBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
+        {/* <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span> */}
+        <div className="multiplayerPrivBtns">
+        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
+        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
+        </div>
       </div>
 
               <div className="home__squarebtns">
@@ -923,11 +889,11 @@ export default function Home({ locale }) {
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
+<Ad screenH={height} screenW={width} types={[[320, 50],[728,90]]} centerOnOverflow={600} />
+
               </>
             )}
             </div>
-            {/* </> */}
-            {/* )} */}
           </div>
           </>
         )}
@@ -997,6 +963,8 @@ export default function Home({ locale }) {
 		buttonText: "Privacy settings",
 		buttonPosition: "bottom-left" //bottom-left, bottom-right, bottom-center, top-left, top-right
 	}
+   window.adsbygoogle = window.adsbygoogle || [];
+  window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
   `}
         </Script>
       </main>

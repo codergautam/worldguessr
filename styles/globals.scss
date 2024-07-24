@@ -3,6 +3,7 @@
 html * {
   margin: 0;
   font-family: "Jockey One", "Roboto", sans-serif;
+    box-sizing: border-box
 }
 button {
   box-shadow: 0 0.275rem 1.125rem rgba(0,0,0,.25), inset 0 0.0625rem 0 hsla(0,0%,100%,.2), inset 0 -0.125rem 0 rgba(0,0,0,.3);
@@ -71,6 +72,8 @@ button {
   justify-content: center;
   align-items: center;
   margin-top: 20px;
+  width: 90vw;
+  max-width: 1000px;
 
   button {
     animation: fadeIn 0.4s ease-in-out forwards;
@@ -207,6 +210,28 @@ button {
 .gameBtn[disabled] {
   background-color: #373737;
   cursor: not-allowed;
+}
+.homeBtn {
+  padding: 10px;
+  border-radius: 5px;
+  background-color: #444;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  font-size: 1.5em;
+  background-color: #327A60;
+  display: block;
+  width: 100%;
+  white-space: nowrap;
+  height: 100%;
+}
+// disabled homebtn
+.homeBtn[disabled] {
+  background-color: #373737;
+  cursor: not-allowed;
+}
+.homeBtn:hover {
+  background-color: #225541;
 }
 .accountBtn {
   position: fixed;
@@ -1110,6 +1135,7 @@ img[alt="Google"] {
 .onlineText.hide {
   transform: translateX(0px);
   opacity: 0;
+  animation: fadeOut 0.5s forwards;
 }
 
 .wiki {
@@ -1458,4 +1484,36 @@ screen and (pointer:coarse) {
 }
 .friend-name {
   font-size: 1.2em;
+}
+.mainHomeBtns {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100px;
+  margin-bottom: 20px;
+}
+.multiplayerPrivBtns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100px;
+}
+
+@media screen and (max-width: 600px) {
+  .mainHomeBtns {
+    flex-direction: column;
+    gap: 10px;
+    height: 200px;
+  }
+  .multiplayerPrivBtns {
+    flex-direction: column;
+    gap: 10px;
+    height: 200px;
+  }
+
 }

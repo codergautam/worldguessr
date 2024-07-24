@@ -132,11 +132,11 @@ kargo.com,8824,RESELLER
 start.io,123111883,RESELLER
 
 
-# 33Across 
+# 33Across
 rubiconproject.com, 16414, RESELLER, 0bfd66d529a55807 #33Across #hb #tag
 rubiconproject.com, 21642, RESELLER, 0bfd66d529a55807 #33Across #hb #tag #viewable
 rubiconproject.com, 21434, RESELLER, 0bfd66d529a55807 #33Across #tag #ebda
-rubiconproject.com, 21720, RESELLER, 0bfd66d529a55807 #33Across EU #hb #tag 
+rubiconproject.com, 21720, RESELLER, 0bfd66d529a55807 #33Across EU #hb #tag
 pubmatic.com, 156423, RESELLER, 5d62403b186f2ace #33Across #hb #tag
 pubmatic.com, 158136, RESELLER, 5d62403b186f2ace #33Across EU #hb #tag
 pubmatic.com, 158569, RESELLER, 5d62403b186f2ace #33Across #tag #ebda
@@ -181,7 +181,7 @@ appnexus.com, 9624, RESELLER, f5ab79cb980f11d1
 adtech.com, 11506, RESELLER
 yahoo.com, 56896, RESELLER
 pubmatic.com, 156078, RESELLER, 5d62403b186f2ace
-advertising.com, 25218, RESELLER #video, US 
+advertising.com, 25218, RESELLER #video, US
 beachfront.com, 9065, RESELLER
 contextweb.com, 559969, RESELLER, 89ff185a4c4e857c
 indexexchange.com, 189455, RESELLER, 50b1c356f2c5c8fc
@@ -390,12 +390,12 @@ rubiconproject.com, 19116, RESELLER, 0bfd66d529a55807                         # 
 pubmatic.com, 159110, RESELLER, 5d62403b186f2ace                              # Adagio_0_6
 improvedigital.com, 1790, RESELLER                                            # Adagio_0_6
 indexexchange.com, 194558, RESELLER                                           # Adagio_0_6
-richaudience.com, 1BTOoaD22a, DIRECT                                          # Adagio_0_6  
-33across.com, 0015a00002oUk4aAAC, DIRECT, bbea06d9c4d2853c                    # Adagio_0_6 
-appnexus.com, 10239, RESELLER, f5ab79cb980f11d1                               # Adagio_0_6 
-rubiconproject.com, 16414, RESELLER, 0bfd66d529a55807                         # Adagio_0_6 
-lijit.com, 367236, RESELLER, fafdf38b16bf6b2b                                 # Adagio_0_6 
-e-planning.net, 83c06e81531537f4, RESELLER, c1ba615865ed87b2                  # Adagio_0_6 
+richaudience.com, 1BTOoaD22a, DIRECT                                          # Adagio_0_6
+33across.com, 0015a00002oUk4aAAC, DIRECT, bbea06d9c4d2853c                    # Adagio_0_6
+appnexus.com, 10239, RESELLER, f5ab79cb980f11d1                               # Adagio_0_6
+rubiconproject.com, 16414, RESELLER, 0bfd66d529a55807                         # Adagio_0_6
+lijit.com, 367236, RESELLER, fafdf38b16bf6b2b                                 # Adagio_0_6
+e-planning.net, 83c06e81531537f4, RESELLER, c1ba615865ed87b2                  # Adagio_0_6
 amxrtb.com, 105199358, DIRECT                                                 # AdaptMX_1_6&7
 indexexchange.com, 191503, RESELLER                                           # AdaptMX_1_6&7
 appnexus.com, 11786, RESELLER                                                 # AdaptMX_1_6&7
@@ -460,12 +460,12 @@ indexexchange.com, 194127, DIRECT, 50b1c356f2c5c8fc                           # 
 indexexchange.com, 205972, RESELLER, 50b1c356f2c5c8fc                         # Index Exchange_Oz
 indexexchange.com, 206870, RESELLER, 50b1c356f2c5c8fc                         # Index_EasyConnect
 iion.io, 10133, DIRECT                                                        # iion
-kargo.com, 8688, DIRECT                                                       # Kargo_0_6                                
+kargo.com, 8688, DIRECT                                                       # Kargo_0_6
 rubiconproject.com, 17902, RESELLER, 0bfd66d529a55807                         # Magnite_1_6&7
 rubiconproject.com,  13762, RESELLER, 0bfd66d529a55807                        # Magnite_0&2_6&7
 telaria.com,hpwve,RESELLER,1a4e959a1b50034a                                   # Magnite_Streaming
 tremorhub.com,hpwve,RESELLER,1a4e959a1b50034a                                 # Magnite_Streaming
-media.net, 8CU8ARTF8, DIRECT                                                  # Media.net 
+media.net, 8CU8ARTF8, DIRECT                                                  # Media.net
 Media.net, 8CU5786QK, DIRECT                                                  # Media.net
 themediagrid.com, LTW57M, DIRECT, 35d5010d7789b49d                            # MediaGrid_2_6&7
 minutemedia.com, 01gerz6y43ck, RESELLER                                       # MinuteMedia_0_6
