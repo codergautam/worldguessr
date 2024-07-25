@@ -165,6 +165,7 @@ export default function Home({ locale }) {
           window.adBreak({
             type: "preroll",
             adBreakDone: function(e) {
+              if(window.onboardPrerollEnd) return;
               setLoading(false)
               window.onboardPrerollEnd = true;
               sendEvent("interstitial", { type: "preroll", ...e })
@@ -174,11 +175,12 @@ export default function Home({ locale }) {
 
           setTimeout(() => {
             if(!window.onboardPrerollEnd) {
+              window.onboardPrerollEnd = true;
               console.log("preroll timeout")
               setLoading(false)
               start()
             }
-          }, 2000)
+          }, 3000)
         } else {
         start()
         }
