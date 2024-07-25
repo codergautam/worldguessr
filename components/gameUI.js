@@ -6,12 +6,10 @@ import GameOptions from "./gameOptionsModal";
 import EndBanner from "./endBanner";
 import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
-import ChatBox from "./chatBox";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
 import { FaExpand, FaMinimize, FaThumbtack } from "react-icons/fa6";
 import { useTranslation } from 'next-i18next'
-import sendEvent from "./utils/sendEvent";
 import CountryBtns from "./countryButtons";
 import OnboardingText from "./onboardingText";
 
@@ -246,40 +244,9 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   }, [km, latLong, pinPoint])
 
   function fixBranding() {
-    // console.log("fixing branding")
-    // document.querySelectorAll('*').forEach(el => {
-    //   if(el.innerHTML === "For development purposes only") {
-    //     console.log(el)
-    //     // el.remove()
-    //     window.inverted = true;
-
-    //   }
-    //   if(el.src === "https://maps.gstatic.com/mapfiles/api-3/images/google_gray.svg" ) {
-    //     try {
-    //     (el.parentElement.parentElement).remove()
-    //     }catch(e){
-
-    //     }
-    //   }
-    // });
     try{
     document.querySelector("a[rel=noopener]")?.remove()
     }catch(e){}
-    // const devDivs = document.querySelectorAll('[style*="position: absolute;"][style*="pointer-events: none;"][style*="transform: translate(-50%, -50%);"][style*="z-index: 1000;"][style*="top: 50%;"][style*="color: white;"][style*="font-size: 20px;"][style*="left: 50%;"][style*="background-color: rgba(0, 0, 0, 0.3);"][style*="padding: 5px;"][style*="border-radius: 3px;"][style*="text-align: center;"]');
-    //   devDivs.forEach(element => {
-    //   element.remove()
-    //   })
-    // const elements = document.querySelectorAll('img[src="https://maps.gstatic.com/mapfiles/api-3/images/google_gray.svg"]');
-    // elements.forEach(el => {
-    //   try{
-    //     el.parentElement.parentElement.remove()
-    //   }catch(e) {
-
-    //   }
-    // });
-
-
-
   }
   useEffect(() => {
     const int= setInterval(() => {
@@ -332,6 +299,10 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     panorama.addListener("pano_changed", () => {
       if(loaded) return;
       loaded = true;
+      setTimeout(() => {
+      setLoading(false)
+      setStreetViewShown(true)
+      }, 200)
       fixBranding();
 
       fixPitch();

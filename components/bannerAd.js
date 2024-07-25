@@ -99,6 +99,7 @@ export default function Ad({
         backgroundColor: (isClient==="debug") ? "gray" : undefined,
         height: types[type][1],
         width: types[type][0],
+        textAlign: "center",
         // transform:
         //   centerOnOverflow && centerOnOverflow < types[type][0]
         //     ? `translateX(calc(-1 * (${types[type][0]}px - ${centerOnOverflow}px) / 2))`

@@ -36,7 +36,6 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
               }
           };
           websocket.onclose = function () {
-            toast('Connection to server lost.', { type: 'error' });
               console.info('websocket closed! url: ' + url);
               rejectInternal();
           };
@@ -55,7 +54,6 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
           } else if(!hasReturned && !window.dontReconnect) {
               hasReturned = true;
               console.info('retrying connection to websocket! url: ' + url + ', remaining retries: ' + (numberOfRetries-1));
-                toast('Reconnecting...', { type: 'info' });
               setTimeout(() => {
               initWebsocket(url, null, timeoutMs, numberOfRetries-1).then(resolve, reject);
               }, 5000);

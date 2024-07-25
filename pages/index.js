@@ -40,6 +40,7 @@ import WsIcon from "@/components/wsIcon";
 import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
+import { inIframe } from "@/components/utils/inIframe";
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -121,6 +122,73 @@ export default function Home({ locale }) {
   }, [])
 
   useEffect(() => {
+    if(onboardingCompleted === false) {
+      if(onboardingCompleted===null)return;
+      if (!loading) {
+        function start() {
+        setScreen("onboarding")
+
+        let onboardingLocations = [
+          { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
+        { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
+        { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
+          { lat: -1.2758794, long: 36.8231793, country: "KE", otherOptions: ["IN", "US"] },
+          { lat: 35.7010698, long: 139.7061219, country: "JP", otherOptions: ["KR", "RU"] },
+          { lat: 37.5383413, long: 127.1002877, country: "KR", otherOptions: ["JP", "CA"] },
+          { lat: 19.3228523, long: -99.0982377, country: "MX", otherOptions: ["BR", "US"] },
+          { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
+        ]
+
+        // pick 5 random locations no repeats
+        const locations = [];
+        while (locations.length < 5) {
+          const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
+          if (!locations.find((l) => l.country === loc.country)) {
+            locations.push(loc)
+          }
+        }
+
+        setOnboarding({
+          round: 1,
+          locations: locations,
+          startTime: Date.now(),
+        })
+        sendEvent("tutorial_begin")
+        setShowCountryButtons(false)
+      }
+
+      // const isPPC = window.location.search.includes("cpc=true");
+
+      if(window && window.adBreak && inIframe()) {
+        // play preroll if game iframed
+        setLoading(true)
+        window.adBreak({
+          type: "preroll",
+          adBreakDone: function(e) {
+            sendEvent("interstitial", { type: "preroll", ...e })
+            setTimeout(() => {
+              setLoading(false)
+              start()
+            }, 500)
+            // start()
+          }
+        })
+      } else start()
+      }
+    } else if(inIframe()) {
+      if(window && window.adBreak) {
+        // play preroll if game iframed
+        window.adBreak({
+          type: "preroll",
+          adBreakDone: function(e) {
+            sendEvent("interstitial", { type: "preroll", ...e })
+          }
+        })
+      }
+    }
+  }, [onboardingCompleted])
+
+  useEffect(() => {
     if(session && session.token && session.token.username) {
       setOnboardingCompleted(true)
       window.localStorage.setItem("onboarding", "done")
@@ -154,14 +222,6 @@ export default function Home({ locale }) {
 
   }
   useEffect(()=>{loadOptions()}, [])
-  useEffect(() => {
-    if (window && window.adBreak) {
-      console.log('preloading ad break')
-      window.adBreak({preloadAdBreaks: 'on', onReady: function(e) {
-        console.log('ad break loaded', e)
-      }})
-    }
-  }, [])
 
   useEffect(() => {
     console.log("options", options)
@@ -640,8 +700,6 @@ export default function Home({ locale }) {
     setLoading(true)
     setTimeout(() => {
       setLatLong(latLong)
-      setLoading(false)
-      setStreetViewShown(true)
     }, 100);
   }
   function backBtnPressed(queueNextGame = false) {
@@ -701,15 +759,6 @@ export default function Home({ locale }) {
   function loadLocation() {
     if (loading) return;
 
-    function afterSet() {
-      setTimeout(() => {
-        setStreetViewShown(true)
-        setTimeout(() => {
-
-          setLoading(false)
-        }, 100);
-      }, 100);
-    }
 
 
 
@@ -726,12 +775,10 @@ export default function Home({ locale }) {
       // shuffle
       options = options.sort(() => Math.random() - 0.5)
       setOtherOptions(options)
-      afterSet();
     } else {
     function defaultMethod() {
     findLatLongRandom(gameOptions).then((latLong) => {
       setLatLong(latLong)
-      afterSet()
     });
   }
   function fetchMethod() {
@@ -843,60 +890,12 @@ export default function Home({ locale }) {
           <>
 
           <div className="home__ui">
+            { onboardingCompleted && (
             <h1 className="home__title">WorldGuessr</h1>
+            )}
 
-            { !onboardingCompleted &&
-            <h2 className="home__subtitle">{text("subtitle")}</h2> }
             <div className="home__btns">
-              { !onboardingCompleted &&
-              <button className="gameBtn play" onClick={() => {
-                if(onboardingCompleted===null)return;
-                if (!loading) {
-                  function start() {
-                  setScreen("onboarding")
 
-                  let onboardingLocations = [
-                    { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
-                  { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
-                  { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
-                    { lat: -1.2758794, long: 36.8231793, country: "KE", otherOptions: ["IN", "US"] },
-                    { lat: 35.7010698, long: 139.7061219, country: "JP", otherOptions: ["KR", "RU"] },
-                    { lat: 37.5383413, long: 127.1002877, country: "KR", otherOptions: ["JP", "CA"] },
-                    { lat: 19.3228523, long: -99.0982377, country: "MX", otherOptions: ["BR", "US"] },
-                    { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
-                  ]
-
-                  // pick 5 random locations no repeats
-                  const locations = [];
-                  while (locations.length < 5) {
-                    const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
-                    if (!locations.find((l) => l.country === loc.country)) {
-                      locations.push(loc)
-                    }
-                  }
-
-
-                  setOnboarding({
-                    round: 1,
-                    locations: locations,
-                    startTime: Date.now(),
-                  })
-                  sendEvent("tutorial_begin")
-                  setShowCountryButtons(false)
-                }
-
-                const isPPC = window.location.search.includes("cpc=true");
-                if(window.adBreak && isPPC) {
-                  window.adBreak({
-                    type: 'start',
-                    adBreakDone: (e) => {
-                  sendEvent("ppc_adbreak", e);
-                  start()
-                    }
-                  });
-                } else start()
-                }
-              }} >{text("playNow")}</button> }
               { onboardingCompleted && (
 
               <>

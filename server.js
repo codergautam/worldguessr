@@ -195,6 +195,7 @@ const generateMainLocations = async () => {
         while (true) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
           let latLong = await findLatLongRandom({ location: 'all' }, cityGen, lookup);
+          // console.log('Generated', latLong);
           if(!latLong) {
             continue;
           }
