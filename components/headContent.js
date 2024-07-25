@@ -34,7 +34,6 @@ export default function HeadContent({text}) {
     ></script>
 
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972"
-    data-adbreak-test="on"
       crossorigin="anonymous">
 </script>
 
