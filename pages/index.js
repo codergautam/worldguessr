@@ -175,7 +175,7 @@ export default function Home({ locale }) {
         })
       } else start()
       }
-    } else if(inIframe()) {
+    } else if(inIframe() && onboardingCompleted === true) {
       if(window && window.adBreak) {
         // play preroll if game iframed
         window.adBreak({
