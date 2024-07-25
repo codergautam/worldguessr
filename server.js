@@ -39,6 +39,11 @@ import { readFile, unlinkSync } from 'fs';
 import path from 'path';
 import countries from './public/countries.json' assert { type: "json" };
 import cities from './public/cities.json' assert { type: "json" };
+import moment from 'moment-timezone';
+
+function isValidTimezone(tz) {
+  return !!moment.tz.zone(tz);
+}
 
 let multiplayerEnabled = true;
 
@@ -729,7 +734,41 @@ app.prepare().then(() => {
 
           player.allowFriendReq = valid.allowFriendReq;
 
-          console.log('User verified', id, valid.username, player.sentReq);
+          if (json.tz && isValidTimezone(json.tz)) {
+            const existingTimeZone = valid.timeZone;
+            let streak = valid.streak;
+
+            const lastLoginUTC = valid.lastLogin;
+            const userTimezoneDay = moment().tz(json.tz).startOf('day');
+            const lastLoginUserTimezone = moment.tz(lastLoginUTC, existingTimeZone).startOf('day');
+
+            if (userTimezoneDay.diff(lastLoginUserTimezone, 'days') === 1) {
+              console.log(`User ${player.accountId} has logged in after a day.`);
+              streak++;
+              player.send({
+                type: 'streak',
+                streak
+              })
+            } else if(userTimezoneDay.diff(lastLoginUserTimezone, 'days') > 1) {
+              console.log(`User ${player.accountId} lost their streak`);
+              streak = 0;
+              player.send({
+                type: 'streak',
+                streak
+              })
+            }
+            if(!valid.firstLoginComplete) {
+              streak = 1;
+              player.send({
+                type: 'streak',
+                streak
+              })
+            }
+
+            await User.updateOne({_id: player.accountId}, {timeZone: json.tz, lastLogin: Date.now(), streak, firstLoginComplete: true})
+          }
+
+          console.log('User verified', id, valid.username, player.sentReq, json?.tz);
         } else {
           player.send({
             type: 'error',

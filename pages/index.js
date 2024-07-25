@@ -41,6 +41,8 @@ import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
 import { inIframe } from "@/components/utils/inIframe";
+import moment from 'moment-timezone';
+
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -385,8 +387,10 @@ export default function Home({ locale }) {
 
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
           const JWT = data.jwt;
-          ws.send(JSON.stringify({ type: "verify", jwt: JWT }))
+          const tz = moment.tz.guess();
+          console.log("tz", tz)
 
+          ws.send(JSON.stringify({ type: "verify", jwt: JWT, tz}))
         });
       } else {
         alert("could not connect to server")

@@ -42,6 +42,22 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  timeZone: {
+    type: String,
+    default: 'America/Los_Angeles',
+  },
+  streak: {
+    type: Number,
+    default: 0,
+  },
+  lastLogin: {
+    type: Date,
+    default: Date.now
+  },
+  firstLoginComplete: {
+    type: Boolean,
+    default: false
+  }
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
