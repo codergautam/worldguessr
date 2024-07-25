@@ -157,7 +157,7 @@ registerHandler('/wiki', 'GET', (req,res,query)=>{
 //   }
 // });
 let allLocations = [];
-const locationCnt = 100;
+const locationCnt = 2000;
 const batchSize = 20;
 
 function cityGen(location) {
