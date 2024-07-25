@@ -568,7 +568,6 @@ h1, h2, h3, span {
 
 #miniMapArea {
   width: 25%;
-  transition: all 200ms ease;
   height: 35%;
   max-height: 100%;
   z-index: 10;
@@ -593,7 +592,6 @@ h1, h2, h3, span {
 #miniMapArea.shown {
   opacity: 50%;
   transform: translateY(0%);
-  transition: all 0.5s;
 }
 
 
@@ -603,7 +601,9 @@ h1, h2, h3, span {
   background-color: #B9D3DC;
   position: relative;
 }
-
+#miniMapArea.answerNotShown {
+  transition: all 250ms ease;
+}
 #miniMapArea.answerNotShown #miniMapContent {
   border: 5px solid #0F251D;
   border-radius: 10px;
@@ -734,27 +734,23 @@ screen and (pointer:coarse) {
     box-sizing: border-box;
     opacity: 1;
     transition: all 0.5s;
-    animation: fadeIn 1s ease-in-out forwards;
     position: fixed !important;
 }
 #googlemaps.hidden,
 #streetview.hidden {
-  transform: translateY(-105%);
+  // transform: translateY(-105%);
   opacity: 0;
-  transition: all 0.5s;
 }
 
-
+// on screens larger than 600px
 @media screen and (min-width: 600px) {
   #miniMapArea.mapExpanded {
     /* full screen center not 100% */
-    transition: all 250ms ease;
     height: 65%;
     width: 55%;
   }
 
   #miniMapArea.fullscreen {
-    transition: all 250ms ease;
     height: 80%;
     width: 75%;
   }
@@ -769,13 +765,13 @@ screen and (pointer:coarse) {
   top: 0px;
   margin-right: 0;
   margin-top: 0;
+  transition: all 1000ms ease;
 }
 
 
 
 #miniMapArea.gameOver {
   /* full screen center not 100% */
-  transition: none !important;
   height: 100%;
   width: 100%;
   margin-right: 0;
@@ -1516,4 +1512,13 @@ screen and (pointer:coarse) {
     height: 200px;
   }
 
+}
+
+/* Hide the elements with specific inline styles */
+[style*="position: absolute;"][style*="pointer-events: none;"][style*="transform: translate(-50%, -50%);"][style*="z-index: 1000;"][style*="top: 50%;"][style*="color: white;"][style*="font-size: 20px;"][style*="left: 50%;"][style*="background-color: rgba(0, 0, 0, 0.3);"][style*="padding: 5px;"][style*="border-radius: 3px;"][style*="text-align: center;"] {
+  display: none !important;
+}
+
+div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans-serif; padding: 15px 25px; box-sizing: border-box; top: 5px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 5px; left: 50%; max-width: 375px; position: absolute; transform: translateX(-50%); width: calc(100% - 10px); z-index: 1;"] {
+  display: none;
 }

@@ -101,6 +101,7 @@ export default function Home({ locale }) {
   const [showCountryButtons, setShowCountryButtons] = useState(true);
   const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
   const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
+  const [allLocsArray, setAllLocsArray] = useState([]);
 
   useEffect(() => {
     if(onboarding?.round >1) {
@@ -144,7 +145,6 @@ export default function Home({ locale }) {
       let system = "metric";
       if(countryCode && ["US", "LR", "MM", "UK"].includes(countryCode)) system = "imperial";
 
-      console.log("system", system)
 
       setOptions({
         units: system,
@@ -156,7 +156,10 @@ export default function Home({ locale }) {
   useEffect(()=>{loadOptions()}, [])
   useEffect(() => {
     if (window && window.adBreak) {
-      window.adBreak({preloadAdBreaks: 'on'})
+      console.log('preloading ad break')
+      window.adBreak({preloadAdBreaks: 'on', onReady: function(e) {
+        console.log('ad break loaded', e)
+      }})
     }
   }, [])
 
@@ -725,11 +728,45 @@ export default function Home({ locale }) {
       setOtherOptions(options)
       afterSet();
     } else {
+    function defaultMethod() {
     findLatLongRandom(gameOptions).then((latLong) => {
       setLatLong(latLong)
       afterSet()
     });
   }
+  function fetchMethod() {
+    fetch("/allCountries.json").then((res) => res.json()).then((data) => {
+      if(data.ready) {
+        setAllLocsArray(data.locations)
+        const loc = data.locations[0]
+        setLatLong(loc)
+        afterSet()
+      } else {
+        console.log("pregen not ready :(")
+        defaultMethod()
+      }
+    }).catch((e) => {
+      defaultMethod()
+    });
+  }
+  if(gameOptions.location==="all") {
+    if(allLocsArray.length===0) {
+      fetchMethod()
+    } else if(allLocsArray.length>0) {
+      const locIndex = allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long);
+      if((locIndex === -1) || (locIndex === allLocsArray.length-1)) {
+       fetchMethod()
+      } else {
+        const loc = allLocsArray[locIndex+1] ?? allLocsArray[0];
+        setLatLong(loc)
+        afterSet()
+      }
+
+      afterSet()
+    }
+  } else defaultMethod()
+}
+
   }
 
   function onNavbarLogoPress() {
@@ -852,7 +889,10 @@ export default function Home({ locale }) {
                 if(window.adBreak && isPPC) {
                   window.adBreak({
                     type: 'start',
-                    adBreakDone: start
+                    adBreakDone: (e) => {
+                  sendEvent("ppc_adbreak", e);
+                  start()
+                    }
                   });
                 } else start()
                 }
@@ -889,7 +929,7 @@ export default function Home({ locale }) {
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
-<Ad screenH={height} screenW={width} types={[[320, 50],[728,90]]} centerOnOverflow={600} />
+<Ad screenH={height} screenW={width} types={[[320, 50],[728,90],[970,90]]} centerOnOverflow={600} />
 
               </>
             )}

@@ -38,6 +38,8 @@ import { promisify } from 'util';
 import { readFile, unlinkSync } from 'fs';
 import path from 'path';
 import countries from './public/countries.json' assert { type: "json" };
+import cities from './public/cities.json' assert { type: "json" };
+
 let multiplayerEnabled = true;
 
 if (!process.env.MONGODB) {
@@ -130,30 +132,95 @@ registerHandler('/wiki', 'GET', (req,res,query)=>{
   res.end();
 });
 
-registerHandler('/memdump', 'GET', (req, res, query) => {
-  const filename = writeHeapSnapshot();
+// registerHandler('/memdump', 'GET', (req, res, query) => {
+//   const filename = writeHeapSnapshot();
 
-console.log('a memdump requested')
-  // Ensure cleanup in case of request abortion
-  // res.onAborted(() => {
-  //   fs.unlinkSync(filename); // Clean up the file if the client aborts the connection
-  // });
+// console.log('a memdump requested')
+//   // Ensure cleanup in case of request abortion
+//   // res.onAborted(() => {
+//   //   fs.unlinkSync(filename); // Clean up the file if the client aborts the connection
+//   // });
 
-  try {
-    // Read the file into memory - be cautious with large files
-    readFileAsync(filename).then((data) => {
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', 'attachment; filename=memdump.heapsnapshot');
-      res.end(data);
+//   try {
+//     // Read the file into memory - be cautious with large files
+//     readFileAsync(filename).then((data) => {
+//       res.setHeader('Content-Type', 'application/octet-stream');
+//       res.setHeader('Content-Disposition', 'attachment; filename=memdump.heapsnapshot');
+//       res.end(data);
 
-      // Clean up the file after sending
-      unlinkSync(filename);
-    });
-  } catch (error) {
-    unlinkSync(filename);
-    res.end("e")
+//       // Clean up the file after sending
+//       unlinkSync(filename);
+//     });
+//   } catch (error) {
+//     unlinkSync(filename);
+//     res.end("e")
+//   }
+// });
+let allLocations = [];
+const locationCnt = 100;
+const batchSize = 20;
+
+function cityGen(location) {
+  const city = cities[Math.floor(Math.random() * cities.length)];
+  const coord = city.coordinates;
+  const lat = coord.lat;
+  const long = coord.lon;
+
+  const radius_km = 5;
+  const latOffset = Math.random() * radius_km * 0.009;
+  const longOffset = Math.random() * radius_km * 0.009;
+
+  return [lat + latOffset, long + longOffset];
+
+}
+
+const generateMainLocations = async () => {
+  for (let i = 0; i < locationCnt; i += batchSize) {
+    const batchPromises = [];
+
+    for (let j = 0; j < batchSize && i + j < locationCnt; j++) {
+      const locationPromise = new Promise((resolve, reject) => {
+        findLatLongRandom({ location: 'all' }, cityGen, lookup).then(resolve).catch(reject)
+      });
+
+      batchPromises.push(locationPromise);
+    }
+
+    try {
+      const batchResults = await Promise.all(batchPromises);
+      allLocations.push(...batchResults);
+      console.log('Generated', allLocations.length, '/', locationCnt);
+      if(allLocations.length === locationCnt) {
+        console.log('Finished generating all locations');
+        while (true) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          let latLong = await findLatLongRandom({ location: 'all' }, cityGen, lookup);
+          if(!latLong) {
+            continue;
+          }
+          // put in first allLocations and remove the last
+          allLocations.unshift(latLong);
+          allLocations.pop();
+
+        }
+      }
+    } catch (error) {
+      console.error('Error generating batch', i / batchSize, error);
+    }
+  }
+};
+
+generateMainLocations();
+
+registerHandler('/allCountries.json', 'GET', (req, res, query) => {
+  if(allLocations.length !== locationCnt) {
+    // send json {ready: false}
+    res.end(JSON.stringify({ ready: false }));
+  } else {
+    res.end(JSON.stringify({ ready: true, locations: allLocations }));
   }
 });
+
 
 function make6DigitCode() {
   return Math.floor(100000 + Math.random() * 900000);

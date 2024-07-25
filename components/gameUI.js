@@ -168,7 +168,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       document.removeEventListener('keydown', keydown);
     }
   }, [pinPoint, showAnswer, onboarding, xpEarned]);
-  
+
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
       setMiniMapShown(true)
@@ -265,18 +265,18 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     try{
     document.querySelector("a[rel=noopener]")?.remove()
     }catch(e){}
-    const devDivs = document.querySelectorAll('[style*="position: absolute;"][style*="pointer-events: none;"][style*="transform: translate(-50%, -50%);"][style*="z-index: 1000;"][style*="top: 50%;"][style*="color: white;"][style*="font-size: 20px;"][style*="left: 50%;"][style*="background-color: rgba(0, 0, 0, 0.3);"][style*="padding: 5px;"][style*="border-radius: 3px;"][style*="text-align: center;"]');
-      devDivs.forEach(element => {
-      element.remove()
-      })
-    const elements = document.querySelectorAll('img[src="https://maps.gstatic.com/mapfiles/api-3/images/google_gray.svg"]');
-    elements.forEach(el => {
-      try{
-        el.parentElement.parentElement.remove()
-      }catch(e) {
+    // const devDivs = document.querySelectorAll('[style*="position: absolute;"][style*="pointer-events: none;"][style*="transform: translate(-50%, -50%);"][style*="z-index: 1000;"][style*="top: 50%;"][style*="color: white;"][style*="font-size: 20px;"][style*="left: 50%;"][style*="background-color: rgba(0, 0, 0, 0.3);"][style*="padding: 5px;"][style*="border-radius: 3px;"][style*="text-align: center;"]');
+    //   devDivs.forEach(element => {
+    //   element.remove()
+    //   })
+    // const elements = document.querySelectorAll('img[src="https://maps.gstatic.com/mapfiles/api-3/images/google_gray.svg"]');
+    // elements.forEach(el => {
+    //   try{
+    //     el.parentElement.parentElement.remove()
+    //   }catch(e) {
 
-      }
-    });
+    //   }
+    // });
 
 
 
