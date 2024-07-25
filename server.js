@@ -448,7 +448,13 @@ class Game {
       generated: this.locations.length,
     })
     for (let i = 0; i < this.rounds; i++) {
-      const loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
+      let loc;
+      if(this.location === "all") {
+        // get n random from the list
+        loc = allLocations[Math.floor(Math.random() * allLocations.length)];
+      } else {
+      await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
+      }
       this.locations.push(loc);
       console.log('Generated', this.locations.length,'/',this.rounds, 'for game',this.id, this.location);
       this.sendAllPlayers({
