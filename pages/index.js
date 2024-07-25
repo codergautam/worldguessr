@@ -158,32 +158,30 @@ export default function Home({ locale }) {
       }
 
       // const isPPC = window.location.search.includes("cpc=true");
+        if(inIframe() && window.adBreak) {
+          console.log("trying to show preroll")
+          window.onboardPrerollEnd = false;
+          setLoading(true)
+          window.adBreak({
+            type: "preroll",
+            adBreakDone: function(e) {
+              setLoading(false)
+              window.onboardPrerollEnd = true;
+              sendEvent("interstitial", { type: "preroll", ...e })
+              start()
+            }
+          })
 
-      if(window && window.adBreak && inIframe()) {
-        // play preroll if game iframed
-        setLoading(true)
-        window.adBreak({
-          type: "preroll",
-          adBreakDone: function(e) {
-            sendEvent("interstitial", { type: "preroll", ...e })
-            setTimeout(() => {
+          setTimeout(() => {
+            if(!window.onboardPrerollEnd) {
+              console.log("preroll timeout")
               setLoading(false)
               start()
-            }, 500)
-            // start()
-          }
-        })
-      } else start()
-      }
-    } else if(inIframe() && onboardingCompleted === true) {
-      if(window && window.adBreak) {
-        // play preroll if game iframed
-        window.adBreak({
-          type: "preroll",
-          adBreakDone: function(e) {
-            sendEvent("interstitial", { type: "preroll", ...e })
-          }
-        })
+            }
+          }, 2000)
+        } else {
+        start()
+        }
       }
     }
   }, [onboardingCompleted])
