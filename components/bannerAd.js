@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react"
 import useWindowDimensions from "./useWindowDimensions";
 import sendEvent from "./utils/sendEvent";
 
-const AD_REFRESH_MS = 30000 // refresh ad every 30 seconds
+const AD_REFRESH_MS = 60000 // refresh ad every 60 seconds
 
 function findAdType(screenW, screenH, types, vertThresh) {
   let type = 0
@@ -31,6 +31,7 @@ export default function Ad({
   )
   const [isClient, setIsClient] = useState(false)
   const adDivRef = useRef(null)
+  const lastRefresh = useRef(0)
 
   useEffect(() => {
     if(window.location.hostname === "localhost") setIsClient("debug")
@@ -40,6 +41,10 @@ export default function Ad({
   useEffect(() => {
     setType(findAdType(screenW, screenH, types, vertThresh))
   }, [screenW, screenH, types, vertThresh])
+
+  useEffect(() => {
+    lastRefresh.current = 0;
+  }, [type])
 
   useEffect(() => {
     const windowAny = window
@@ -58,16 +63,16 @@ export default function Ad({
       }
       if (type === -1) return
       setTimeout(() => {
-
         const isAdDivVisible = adDivRef.current.getBoundingClientRect().top < window.innerHeight && adDivRef.current.getBoundingClientRect().bottom > 0;
-
       if (
         windowAny.aiptag &&
         windowAny.aiptag.cmd &&
-        windowAny.aiptag.cmd.display
-        // isAdDivVisible
+        windowAny.aiptag.cmd.display &&
+        isAdDivVisible &&
+        (Date.now() - lastRefresh.current) > AD_REFRESH_MS
       ) {
 
+        lastRefresh.current = Date.now()
         sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`)
 
         windowAny.aiptag.cmd.display.push(function() {
@@ -77,6 +82,16 @@ export default function Ad({
         })
 
       } else {
+        // log why
+        // if(!windowAny.aiptag || !windowAny.aiptag.cmd || !windowAny.aiptag.cmd.display) {
+        //   console.log("aiptag not found")
+        // }
+        // if(!isAdDivVisible) {
+        //   console.log("ad div not visible")
+        // }
+        // if((Date.now() - lastRefresh.current) < AD_REFRESH_MS) {
+        //   console.log("too soon to refresh")
+        // }
       }
     }, 100)
 
@@ -84,7 +99,7 @@ export default function Ad({
 
     let timerId = setInterval(() => {
       displayNewAd()
-    }, AD_REFRESH_MS)
+    }, 1000)
     displayNewAd()
     return () => clearInterval(timerId)
   }, [type])
