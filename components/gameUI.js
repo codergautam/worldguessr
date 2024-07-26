@@ -292,6 +292,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       // point towards road
 
       panorama.setPov(panorama.getPhotographerPov());
+      panorama.setZoom(0);
     }
 
     let loaded = false;
