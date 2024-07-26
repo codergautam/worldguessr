@@ -168,5 +168,8 @@
   "alreadyInYourGame": "L'utilisateur est déjà dans votre jeu",
   "allowFriendRequests": "Autoriser les demandes d'ami",
   "pleaseWaitSeconds": "Veuillez attendre {{seconds}} secondes pour effectuer cette action",
-  "lastGuesser": "Vous êtes le dernier à deviner. Le chronomètre est réduit à {{s}} secondes"
+  "lastGuesser": "Vous êtes le dernier à deviner. Le chronomètre est réduit à {{s}} secondes",
+  "streakLost": "Série de connexions quotidiennes perdue. Revenez demain pour l'augmenter !",
+  "streakGained": "Vous avez une série de {{streak}} jours de connexion ! Continuez comme ça !",
+  "streakStarted": "Vous avez une série de connexion de 1 jour ! Connectez-vous tous les jours pour augmenter votre série !"
 }

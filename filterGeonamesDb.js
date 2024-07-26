@@ -4,8 +4,8 @@ console.log('cities-initial', geonames.length)
 // filter out cities that aren't in countries
 let cities = geonames.filter(city => countries.includes(city.country_code))
 console.log('cities-supported countries', cities.length)
-// filter out cities with under 20000 population
-cities = cities.filter(city => city.population > 20000)
+// filter out cities with under 50000 population
+cities = cities.filter(city => city.population > 50000)
 console.log('cities-population', cities.length)
 // log number of cities in each country
 const countryCounts = {}
@@ -16,12 +16,12 @@ cities.forEach(city => {
   countryCounts[city.country_code]++
 })
 console.log('cities-country counts', countryCounts)
-// if any country has more than 500 cities, only keep the top 500 populated
+// if any country has more than 200 cities, only keep the top 200 populated
 Object.keys(countryCounts).forEach(country => {
-  if (countryCounts[country] > 500) {
+  if (countryCounts[country] > 200) {
     const countryCities = cities.filter(city => city.country_code === country)
     countryCities.sort((a, b) => b.population - a.population)
-    cities = cities.filter(city => city.country_code !== country || countryCities.indexOf(city) < 500)
+    cities = cities.filter(city => city.country_code !== country || countryCities.indexOf(city) < 200)
   }
 })
 // recount

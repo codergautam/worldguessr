@@ -630,6 +630,16 @@ export default function Home({ locale }) {
         }
 
         toast(toastComponent, { type: 'info', theme: "dark", autoClose: 10000 })
+      } else if(data.type === 'streak') {
+        const streak = data.streak;
+
+        if(streak === 0) {
+          toast(text("streakLost"), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
+        } else if(streak === 1) {
+          toast(text("streakStarted"), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
+        } else {
+          toast(text("streakGained", { streak }), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
+        }
       }
     }
 
@@ -791,7 +801,6 @@ export default function Home({ locale }) {
         setAllLocsArray(data.locations)
         const loc = data.locations[0]
         setLatLong(loc)
-        afterSet()
       } else {
         console.log("pregen not ready :(")
         defaultMethod()
@@ -810,10 +819,8 @@ export default function Home({ locale }) {
       } else {
         const loc = allLocsArray[locIndex+1] ?? allLocsArray[0];
         setLatLong(loc)
-        afterSet()
       }
 
-      afterSet()
     }
   } else defaultMethod()
 }

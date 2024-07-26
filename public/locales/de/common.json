@@ -168,5 +168,8 @@
   "alreadyInYourGame": "Benutzer ist bereits in deinem Spiel",
   "allowFriendRequests": "Freundschaftsanfragen erlauben",
   "pleaseWaitSeconds": "Bitte warte {{seconds}} Sekunden, um diese Aktion auszuführen",
-  "lastGuesser": "Sie sind der letzte Rater. Timer auf {{s}} Sekunden reduziert"
+  "lastGuesser": "Sie sind der letzte Rater. Timer auf {{s}} Sekunden reduziert",
+  "streakLost": "Tägliche Login-Serie verloren. Komm morgen zurück, um sie zu erhöhen!",
+  "streakGained": "Du hast eine {{streak}}-Tage-Login-Serie! Weiter so!",
+  "streakStarted": "Du hast eine 1-Tage-Login-Serie! Melde dich täglich an, um deine Serie zu erhöhen!"
 }
