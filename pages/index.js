@@ -41,6 +41,8 @@ import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
 import { inIframe } from "@/components/utils/inIframe";
+import moment from 'moment-timezone';
+
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -385,8 +387,10 @@ export default function Home({ locale }) {
 
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
           const JWT = data.jwt;
-          ws.send(JSON.stringify({ type: "verify", jwt: JWT }))
+          const tz = moment.tz.guess();
+          console.log("tz", tz)
 
+          ws.send(JSON.stringify({ type: "verify", jwt: JWT, tz}))
         });
       } else {
         alert("could not connect to server")
@@ -626,6 +630,16 @@ export default function Home({ locale }) {
         }
 
         toast(toastComponent, { type: 'info', theme: "dark", autoClose: 10000 })
+      } else if(data.type === 'streak') {
+        const streak = data.streak;
+
+        if(streak === 0) {
+          toast(text("streakLost"), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
+        } else if(streak === 1) {
+          toast(text("streakStarted"), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
+        } else {
+          toast(text("streakGained", { streak }), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
+        }
       }
     }
 
@@ -787,7 +801,6 @@ export default function Home({ locale }) {
         setAllLocsArray(data.locations)
         const loc = data.locations[0]
         setLatLong(loc)
-        afterSet()
       } else {
         console.log("pregen not ready :(")
         defaultMethod()
@@ -806,10 +819,8 @@ export default function Home({ locale }) {
       } else {
         const loc = allLocsArray[locIndex+1] ?? allLocsArray[0];
         setLatLong(loc)
-        afterSet()
       }
 
-      afterSet()
     }
   } else defaultMethod()
 }

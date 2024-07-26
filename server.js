@@ -39,6 +39,11 @@ import { readFile, unlinkSync } from 'fs';
 import path from 'path';
 import countries from './public/countries.json' assert { type: "json" };
 import cities from './public/cities.json' assert { type: "json" };
+import moment from 'moment-timezone';
+
+function isValidTimezone(tz) {
+  return !!moment.tz.zone(tz);
+}
 
 let multiplayerEnabled = true;
 
@@ -132,30 +137,30 @@ registerHandler('/wiki', 'GET', (req,res,query)=>{
   res.end();
 });
 
-// registerHandler('/memdump', 'GET', (req, res, query) => {
-//   const filename = writeHeapSnapshot();
+registerHandler('/memdump', 'GET', (req, res, query) => {
+  const filename = writeHeapSnapshot();
 
-// console.log('a memdump requested')
-//   // Ensure cleanup in case of request abortion
-//   // res.onAborted(() => {
-//   //   fs.unlinkSync(filename); // Clean up the file if the client aborts the connection
-//   // });
+console.log('a memdump requested')
+  // Ensure cleanup in case of request abortion
+  // res.onAborted(() => {
+  //   fs.unlinkSync(filename); // Clean up the file if the client aborts the connection
+  // });
 
-//   try {
-//     // Read the file into memory - be cautious with large files
-//     readFileAsync(filename).then((data) => {
-//       res.setHeader('Content-Type', 'application/octet-stream');
-//       res.setHeader('Content-Disposition', 'attachment; filename=memdump.heapsnapshot');
-//       res.end(data);
+  try {
+    // Read the file into memory - be cautious with large files
+    readFileAsync(filename).then((data) => {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment; filename=memdump.heapsnapshot');
+      res.end(data);
 
-//       // Clean up the file after sending
-//       unlinkSync(filename);
-//     });
-//   } catch (error) {
-//     unlinkSync(filename);
-//     res.end("e")
-//   }
-// });
+      // Clean up the file after sending
+      unlinkSync(filename);
+    });
+  } catch (error) {
+    unlinkSync(filename);
+    res.end("e")
+  }
+});
 let allLocations = [];
 const locationCnt = 2000;
 const batchSize = 20;
@@ -690,6 +695,40 @@ app.prepare().then(() => {
             c: players.size
           })
 
+          if (json.tz && isValidTimezone(json.tz)) {
+            const existingTimeZone = valid.timeZone;
+            let streak = valid.streak;
+
+            const lastLoginUTC = valid.lastLogin;
+            const userTimezoneDay = moment().tz(json.tz).startOf('day');
+            const lastLoginUserTimezone = moment.tz(lastLoginUTC, existingTimeZone).startOf('day');
+
+            if (userTimezoneDay.diff(lastLoginUserTimezone, 'days') === 1) {
+              console.log(`User ${player.accountId} has logged in after a day.`);
+              streak++;
+              player.send({
+                type: 'streak',
+                streak
+              })
+            } else if(userTimezoneDay.diff(lastLoginUserTimezone, 'days') > 1) {
+              console.log(`User ${player.accountId} lost their streak`);
+              streak = 0;
+              player.send({
+                type: 'streak',
+                streak
+              })
+            }
+            if(!valid.firstLoginComplete) {
+              streak = 1;
+              player.send({
+                type: 'streak',
+                streak
+              })
+            }
+
+            await User.updateOne({_id: player.accountId}, {timeZone: json.tz, lastLogin: Date.now(), streak, firstLoginComplete: true})
+          }
+
           player.friends = valid.friends.map((id)=>({id}));
           player.sentReq = valid.sentReq.map((id)=>({id}));
           player.receivedReq = valid.receivedReq.map((id)=>({id}));
@@ -729,7 +768,7 @@ app.prepare().then(() => {
 
           player.allowFriendReq = valid.allowFriendReq;
 
-          console.log('User verified', id, valid.username, player.sentReq);
+          console.log('User verified', id, valid.username, player.sentReq, json?.tz);
         } else {
           player.send({
             type: 'error',

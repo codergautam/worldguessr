@@ -168,5 +168,8 @@
   "alreadyInYourGame": "El usuario ya está en tu juego",
   "allowFriendRequests": "Permitir solicitudes de amistad",
   "pleaseWaitSeconds": "Por favor espera {{seconds}} segundos para realizar esta acción",
-  "lastGuesser": "Eres el último en adivinar. El temporizador se redujo a {{s}} segundos"
+  "lastGuesser": "Eres el último en adivinar. El temporizador se redujo a {{s}} segundos",
+  "streakLost": "Racha de inicio de sesión diaria perdida. ¡Vuelve mañana para aumentarla!",
+  "streakGained": "¡Tienes una racha de inicio de sesión de {{streak}} días! ¡Sigue así!",
+  "streakStarted": "¡Tienes una racha de inicio de sesión de 1 día! ¡Inicia sesión diariamente para aumentar tu racha!"
 }
