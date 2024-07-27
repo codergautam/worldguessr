@@ -6,7 +6,7 @@ export default function BannerText({shown, text, showCompass}) {
 
 
 </span>
-<NextImage.default src={'/loader.gif'} width={100} height={100} />
+<NextImage.default alt="Loading compass" src={'/loader.gif'} width={100} height={100} />
 </div>
   )
 }
