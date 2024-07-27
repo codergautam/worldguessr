@@ -459,7 +459,7 @@ class Game {
         // get n random from the list
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
       } else {
-      await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
+      loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
       }
       this.locations.push(loc);
       console.log('Generated', this.locations.length,'/',this.rounds, 'for game',this.id, this.location);
