@@ -199,7 +199,10 @@ const generateMainLocations = async () => {
         console.log('Finished generating all locations');
         while (true) {
           await new Promise((resolve) => setTimeout(resolve, 1000));
-          let latLong = await findLatLongRandom({ location: 'all' }, cityGen, lookup);
+          let latLong;
+          try {
+          latLong = await findLatLongRandom({ location: 'all' }, cityGen, lookup);
+          }catch(e){}
           // console.log('Generated', latLong);
           if(!latLong) {
             continue;
@@ -212,6 +215,7 @@ const generateMainLocations = async () => {
       }
     } catch (error) {
       console.error('Error generating batch', i / batchSize, error);
+      generateMainLocations();
     }
   }
 };
