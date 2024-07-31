@@ -374,21 +374,11 @@ export default function GameUI({
   return (
     <div className="gameUI">
       {multiplayerState?.gameData?.state !== "end" && (
-        // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
-
-        // }}></iframe>
         <div
           id="googlemaps"
-          className={`streetview inverted ${false ? "multiplayer" : ""} ${gameOptions?.npz ? "nmpz" : ""}`}
+          className={`streetview inverted ${!streetViewShown || loading || showAnswer || multiplayerState?.gameData?.state === "getready" || !latLong ? "hidden" : ""} ${false ? "multiplayer" : ""} ${gameOptions?.npz ? "nmpz" : ""}`}
         ></div>
       )}
-      {/*
-
-
-',
-
-*/}
-
       {(!countryGuesser || (countryGuesser && showAnswer)) &&
         (!multiplayerState ||
           (multiplayerState.inGame &&
