@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import dynamic from "next/dynamic";
 import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
@@ -17,6 +17,8 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
+
+  let panorama = useRef(null);
 
   function loadLocationFunc() {
     if(onboarding) {
@@ -257,73 +259,64 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     }
   },[])
 
-
+  // init panorama once after first render
   useEffect(() => {
-    // const map =  new google.maps.Map(document.getElementById("map"), {
-    //   center: fenway,
-    //   zoom: 14,
-    // });
-    if(!latLong) return;
-
-
-    const panorama = new google.maps.StreetViewPanorama(
+    panorama.current = new google.maps.StreetViewPanorama(
       document.getElementById("googlemaps"),
       {
-        position: { lat: latLong.lat, lng: latLong.long },
+		//visible: false,
         pov: {
           heading: 0,
           pitch: 0,
         },
         motionTracking: false,
-        linksControl: gameOptions?.nm ? false:true,
-        clickToGo: gameOptions?.nm ? false:true,
-
-        panControl: gameOptions?.npz ? false:true,
-        zoomControl: gameOptions?.npz ? false:true,
-        showRoadLabels: gameOptions?.showRoadName===true?true:false,
         disableDefaultUI: true,
       },
     );
 
 
-    // pano onload
-
     function fixPitch() {
-      // point towards road
-
-      panorama.setPov(panorama.getPhotographerPov());
-      panorama.setZoom(0);
+      panorama.current.setPov(panorama.current.getPhotographerPov());
+      panorama.current.setZoom(0);
     }
 
-    let loaded = false;
-
-    panorama.addListener("pano_changed", () => {
-      if(loaded) return;
-      loaded = true;
+    panorama.current.addListener("pano_changed", () => {
       setTimeout(() => {
       setLoading(false)
       setStreetViewShown(true)
-      }, 200)
+		updatePano();
+      }, 1000)
       fixBranding();
 
       fixPitch();
     });
 
+	return () => { /* ? */ };
+  }, [])
 
-    return () => {
-    }
+	function updatePano() {
+		panorama.current.setPosition({ lat: latLong.lat, lng: latLong.long });
+		panorama.current.setOptions({
+			visible: true,
+			linksControl: gameOptions?.nm ? false:true,
+			clickToGo: gameOptions?.nm ? false:true,
+			panControl: gameOptions?.npz ? false:true,
+			zoomControl: gameOptions?.npz ? false:true,
+			showRoadLabels: gameOptions?.showRoadName===true?true:false,
+		});
+	}
 
-
+  useEffect(() => {
+	if (latLong) updatePano();
   }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
 
   return (
     <div className="gameUI">
-      { latLong && multiplayerState?.gameData?.state !== 'end' && (
+      { multiplayerState?.gameData?.state !== 'end' && (
       // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
       // }}></iframe>
-      <div id="googlemaps" className={`streetview inverted ${(!streetViewShown || loading || showAnswer ||  (multiplayerState?.gameData?.state === 'getready') || !latLong) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
-
+      <div id="googlemaps" className={`streetview inverted ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
       )}
 {/*
 
