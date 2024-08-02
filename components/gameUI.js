@@ -344,7 +344,7 @@ export default function GameUI({
         setLoading(false);
         setStreetViewShown(true);
         updatePano();
-      }, 1000);
+      }, 200);
       fixBranding();
 
       fixPitch();
