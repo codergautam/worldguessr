@@ -42,6 +42,7 @@ import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
 import { inIframe } from "@/components/utils/inIframe";
 import moment from 'moment-timezone';
+import MapsModal from "@/components/maps/mapsModal";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -85,6 +86,7 @@ export default function Home({ locale }) {
   const [xpEarned, setXpEarned] = useState(0)
   const [countryStreak, setCountryStreak] = useState(0)
   const [settingsModal, setSettingsModal] = useState(false)
+  const [mapModal, setMapModal] = useState(false)
   const [friendsModal, setFriendsModal] = useState(false)
   const [timeOffset, setTimeOffset] = useState(0)
   const [loginQueued, setLoginQueued] = useState(false);
@@ -756,6 +758,11 @@ export default function Home({ locale }) {
       });
       setScreen("home")
 
+    } else if(screen === "onboarding") {
+      setOnboarding(null)
+      setScreen("home")
+      window.localStorage.setItem("onboarding", "done")
+      setOnboardingCompleted(true)
     } else {
       setScreen("home");
       clearLocation();
@@ -934,9 +941,9 @@ export default function Home({ locale }) {
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                <Link target="_blank" href={"https://iogames.forum/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Forum"><FaNewspaper className="home__squarebtnicon" /></button></Link>
                 </>
                 )}
+                <button className="home__squarebtn gameBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}><FaMap className="home__squarebtnicon" /></button>
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
 <Ad screenH={height} screenW={width} types={[[320, 50],[728,90],[970,90]]} centerOnOverflow={600} />
@@ -950,6 +957,7 @@ export default function Home({ locale }) {
           <br />
         </div>
         <InfoModal shown={false} />
+        <MapsModal shown={mapModal} session={session} onClose={() => setMapModal(false)} />
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
           // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game
@@ -1006,7 +1014,7 @@ export default function Home({ locale }) {
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     })(window, document, "clarity", "script", "ndud94nvsg");
-    
+
   console.log("Ads by adinplay!")
   	window.aiptag = window.aiptag || {cmd: []};
 	aiptag.cmd.display = aiptag.cmd.display || [];

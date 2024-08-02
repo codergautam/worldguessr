@@ -1256,7 +1256,6 @@ app.prepare().then(() => {
 
       player.sendFriendData();
     }
-
     });
 
     // Set up a close listener on the client
