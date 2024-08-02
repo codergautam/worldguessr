@@ -37,8 +37,8 @@ import calcPoints from './components/calcPoints.js';
 import { promisify } from 'util';
 import { readFile, unlinkSync } from 'fs';
 import path from 'path';
-import countries from './public/countries.json' assert { type: "json" };
-import cities from './public/cities.json' assert { type: "json" };
+import countries from './public/countries.json' with { type: "json" };
+import cities from './public/cities.json' with { type: "json" };
 import moment from 'moment-timezone';
 
 function isValidTimezone(tz) {
