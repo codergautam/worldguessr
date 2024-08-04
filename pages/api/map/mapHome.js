@@ -4,23 +4,25 @@ import generateSlug from "@/components/utils/slugGenerator";
 import Map from "@/models/Map";
 import User from "@/models/User";
 
-let popularMapsCache = {
-  data: [],
-  timeStamp: 0,
-  persist: 7200000
-}
-let recentMapsCache = {
-  data: [],
-  timeStamp: 0,
-  persist: 1800000
-}
-let trendingMapsCache = {
-  data: [],
-  timeStamp: 0,
-  persist: 3600000
+let mapCache = {
+  popular: {
+    data: [],
+    timeStamp: 0,
+    persist: 7200000
+  },
+  recent: {
+    data: [],
+    timeStamp: 0,
+    persist: 1800000
+  },
+  trending: {
+    data: [],
+    timeStamp: 0,
+    persist: 3600000
+  }
 }
 
-function sendableMap(map) {
+function sendableMap(map, user) {
   return {
     created_at: Date.now() - map.created_at.getTime(),
     slug: map.slug,
@@ -28,7 +30,7 @@ function sendableMap(map) {
     hearts: map.hearts,
     plays: map.plays,
     description_short: map.description_short,
-    created_by: map.created_by,
+    created_by: user.name ?? map.created_by,
     id: map._id
   }
 }
@@ -50,11 +52,6 @@ export default async function handler(req, res) {
   const user = await User.findOne({
     secret: secret
   });
-  // find maps made by user
-  let ownedMaps = await Map.find({
-    created_by: user._id
-  });
-  ownedMaps.sort((a,b) => b.created_at.getTime() - a.created_at.getTime())
 
   if(!user) {
     return res.status(404).json({ message: 'User not found' });
@@ -62,14 +59,61 @@ export default async function handler(req, res) {
 
   let response = {};
   // sections
-  // [reviewQueue (if staff), myMaps (if exists), trendingMaps, recentMaps, popularMaps  ]
+  // [reviewQueue (if staff), myMaps (if exists), trending, recent, popular  ]
   if(user.staff) {
     // reviewQueue
     let queueMaps = await Map.find({
       in_review: true
     })
-    queueMaps.sort((a,b) => b.created_at.getTime() - a.created_at.getTime())
-    queueMaps = queueMaps.map(sendableMap);
 
+    let queueMapsSendable = await Promise.all(queueMaps.map(async (map) => {
+      const owner = await User.findById(map.created_by);
+      return sendableMap(map, owner);
+    }));
+
+    // newest to oldest
+    queueMapsSendable.sort((a,b) => a.created_at - b.created_at)
+    response.reviewQueue = queueMapsSendable;
   }
+
+  // owned maps
+  // find maps made by user
+  let myMaps = await Map.find({
+    created_by: user._id
+  });
+  myMaps = myMaps.map((map) => sendableMap(map,user))
+  myMaps.sort((a,b) => a.created_at - b.created_at)
+  if(myMaps.length > 0) response.myMaps = myMaps;
+
+  const discovery =  ["trending","recent","popular"]
+  for(const method of discovery) {
+    if(mapCache[method].data.length > 0 && Date.now() - mapCache[method].timeStamp < mapCache[method].persist) {
+      // retrieve from cache
+      response[method] = mapCache[method].data;
+    } else {
+      // retrieve from db
+      let maps = [];
+      const limit = 20; // 20 map limit on each section
+      if(method === "recent") {
+       maps = await Map.find({ accepted: true }).sort({ created_at: -1 }).limit(limit);
+      } else if(method === "popular") {
+       maps = await Map.find({ accepted: true }).sort({ hearts: -1 }).limit(limit);
+      } else if(method === "trending") {
+       maps = await Map.find({ accepted: true, created_at: {
+        $gte:  new Date(currentDate.getTime() - (30 * 24 * 60 * 60 * 1000)) // Date and time 30 days ago
+       } }).sort({ plays: -1 }).limit(limit);
+      }
+
+      let sendableMaps = await Promise.all(maps.map(async (map) => {
+        const owner = await User.findById(map.created_by);
+        return sendableMap(map, owner);
+      }));
+
+      response[method] = sendableMaps;
+      mapCache[method].data = sendableMaps;
+      mapCache[method].timeStamp = Date.now();
+    }
+  }
+
+  res.status(200).json(response);
 }
