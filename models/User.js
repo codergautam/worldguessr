@@ -57,7 +57,12 @@ const userSchema = new mongoose.Schema({
   firstLoginComplete: {
     type: Boolean,
     default: false
-  }
+  },
+  hearted_maps: {
+    type: Map,
+    of: Number,
+    default: {},
+  },
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
