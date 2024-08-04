@@ -1,7 +1,7 @@
 import { FaHeart, FaUser } from "react-icons/fa6";
 
 export default function MapTile({ map, onHeart, onClick, hearted }) {
-  // map => { slug, name, created_at, created_by, plays, hearts, data, _id, created_by_name, description_short, description_long }
+  // map => { slug, name, created_at, plays, hearts, id, created_by_name, description_short }
 
   return (
     <div className="map-tile" onClick={onClick}>

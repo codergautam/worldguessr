@@ -957,7 +957,7 @@ export default function Home({ locale }) {
           <br />
         </div>
         <InfoModal shown={false} />
-        <MapsModal shown={mapModal} session={session} onClose={() => setMapModal(false)} />
+        <MapsModal shown={mapModal} session={session} onClose={() => setMapModal(false)} text={text} />
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
           // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game

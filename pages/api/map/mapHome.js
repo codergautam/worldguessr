@@ -30,37 +30,35 @@ function sendableMap(map, user) {
     hearts: map.hearts,
     plays: map.plays,
     description_short: map.description_short,
-    created_by: user.name ?? map.created_by,
+    created_by_name: user.name ?? map.created_by,
     id: map._id
   }
 }
 
 export default async function handler(req, res) {
 
-  // only allow get
-  if(req.method !== 'GET') {
+  // only allow post
+  if(req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
   let { secret } = req.body;
+  let user;
 
-  if(!secret) {
-    return res.status(400).json({ message: 'Missing action or secret' });
-  }
-
-  // get user from secret
-  const user = await User.findOne({
+  if(secret) {
+  user = await User.findOne({
     secret: secret
   });
 
   if(!user) {
     return res.status(404).json({ message: 'User not found' });
   }
+}
 
   let response = {};
   // sections
   // [reviewQueue (if staff), myMaps (if exists), trending, recent, popular  ]
-  if(user.staff) {
+  if(user?.staff) {
     // reviewQueue
     let queueMaps = await Map.find({
       in_review: true
@@ -78,12 +76,14 @@ export default async function handler(req, res) {
 
   // owned maps
   // find maps made by user
+  if(user) {
   let myMaps = await Map.find({
     created_by: user._id
   });
   myMaps = myMaps.map((map) => sendableMap(map,user))
   myMaps.sort((a,b) => a.created_at - b.created_at)
   if(myMaps.length > 0) response.myMaps = myMaps;
+}
 
   const discovery =  ["trending","recent","popular"]
   for(const method of discovery) {

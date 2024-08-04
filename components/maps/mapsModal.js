@@ -1,7 +1,7 @@
 import { Modal } from "react-responsive-modal";
 import MapView from "./mapView";
 
-export default function MapsModal({ shown, onClose, session }) {
+export default function MapsModal({ shown, onClose, session, text }) {
 
     return (
         <Modal id="" styles={{
@@ -18,7 +18,7 @@ export default function MapsModal({ shown, onClose, session }) {
                display: "none"
             },
         }} open={shown} center onClose={onClose}>
-            <MapView close={onClose} session={session} />
+            <MapView close={onClose} session={session} text={text} />
         </Modal>
     );
 }
