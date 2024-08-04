@@ -42,6 +42,7 @@ import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
 import { inIframe } from "@/components/utils/inIframe";
 import moment from 'moment-timezone';
+import { useRouter } from "next/router";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -70,6 +71,7 @@ const initialMultiplayerState = {
 export default function Home({ locale }) {
   const { width, height } = useWindowDimensions();
 
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
@@ -129,8 +131,10 @@ export default function Home({ locale }) {
       window.learnMode = true;
 
       // immediately open single player
-      setScreen("singlePlayer")
-      
+      setScreen("singleplayer")
+
+
+
 
 
     }
@@ -738,6 +742,14 @@ export default function Home({ locale }) {
   }
   function backBtnPressed(queueNextGame = false) {
     if (loading) setLoading(false);
+
+    if(window.learnMode) {
+      // redirect to home
+      window.location.href = "/"
+      return;
+    }
+
+
     if (multiplayerState?.inGame) {
       ws.send(JSON.stringify({
         type: 'leaveGame'
@@ -791,9 +803,10 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
+    console.log("loading location")
     if (loading) return;
 
-
+    console.log("loading locationgood")
 
 
     // console.log("loading location")
