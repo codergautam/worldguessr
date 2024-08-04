@@ -124,6 +124,26 @@ export default function Home({ locale }) {
   }, [])
 
   useEffect(() => {
+    // check if learn mode
+    if(window.location.search.includes("learn=true")) {
+      window.learnMode = true;
+
+      // immediately open single player
+      setScreen("singlePlayer")
+      
+
+
+    }
+  }, [])
+
+  useEffect(() => {
+
+// check if learn mode
+    if(window.location.search.includes("learn=true")) {
+      setOnboardingCompleted(true)
+    }
+
+
     if(onboardingCompleted === false) {
       if(onboardingCompleted===null)return;
       if (!loading) {
@@ -796,7 +816,7 @@ export default function Home({ locale }) {
     });
   }
   function fetchMethod() {
-    fetch("/allCountries.json").then((res) => res.json()).then((data) => {
+    fetch(`/${window?.learnMode ? 'clue': 'all'}Countries.json`).then((res) => res.json()).then((data) => {
       if(data.ready) {
         setAllLocsArray(data.locations)
         const loc = data.locations[0]
@@ -1006,7 +1026,7 @@ export default function Home({ locale }) {
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     })(window, document, "clarity", "script", "ndud94nvsg");
-    
+
   console.log("Ads by adinplay!")
   	window.aiptag = window.aiptag || {cmd: []};
 	aiptag.cmd.display = aiptag.cmd.display || [];

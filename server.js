@@ -29,6 +29,7 @@ import { WebSocketServer } from 'ws';
 import { decrypt } from './components/utils/encryptDecrypt.js';
 import mongoose, { mongo } from 'mongoose';
 import User from './models/User.js';
+import Clue from './models/Clue.js';
 import Memsave from './models/Memsave.js';
 import validateJWT from './components/utils/validateJWT.js';
 import findLatLongRandom from './components/findLatLongServer.js';
@@ -162,6 +163,7 @@ console.log('a memdump requested')
   }
 });
 let allLocations = [];
+let clueLocations = [];
 const locationCnt = 2000;
 const batchSize = 20;
 
@@ -222,6 +224,43 @@ const generateMainLocations = async () => {
 
 generateMainLocations();
 
+
+// clue locations
+// get all clues
+const generateClueLocations = async () => {
+  const clues = await Clue.find({});
+  // remove duplicate latlong
+  const uniqueClues = [];
+  let uniqueLatLongs = new Set();
+  for(const clue of clues) {
+    const latLong = `${clue.lat},${clue.lng}`;
+    if(!uniqueLatLongs.has(latLong)) {
+      uniqueLatLongs.add(latLong);
+      uniqueClues.push(clue);
+    }
+  }
+
+  // shuffle
+  uniqueLatLongs = new Set([...uniqueLatLongs].sort(() => Math.random() - 0.5));
+  console.log('Generating clue locations', uniqueLatLongs.size);
+  // populate clueLocations
+  // ex format: {"lat":17.90240017665545,"long":102.7868538747363,"country":"TH"}
+  for(const clue of uniqueClues) {
+    const country = lookup(clue.lat, clue.lng, true)[0];
+    clueLocations.push({
+      lat: clue.lat,
+      long: clue.lng,
+      country
+    });
+  }
+}
+
+generateClueLocations();
+setTimeout(() => {
+  generateClueLocations();
+}, 20000);
+
+
 registerHandler('/allCountries.json', 'GET', (req, res, query) => {
   if(allLocations.length !== locationCnt) {
     // send json {ready: false}
@@ -230,6 +269,16 @@ registerHandler('/allCountries.json', 'GET', (req, res, query) => {
     res.end(JSON.stringify({ ready: true, locations: allLocations }));
   }
 });
+
+registerHandler('/clueCountries.json', 'GET', (req, res, query) => {
+  if(clueLocations.length === 0) {
+    // send json {ready: false}
+    res.end(JSON.stringify({ ready: false }));
+  } else {
+    res.end(JSON.stringify({ ready: true, locations: clueLocations }));
+  }
+});
+
 
 
 function make6DigitCode() {

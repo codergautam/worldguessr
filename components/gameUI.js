@@ -12,6 +12,8 @@ import { FaExpand, FaMinimize, FaThumbtack } from "react-icons/fa6";
 import { useTranslation } from 'next-i18next'
 import CountryBtns from "./countryButtons";
 import OnboardingText from "./onboardingText";
+import ClueBanner from "./clueBanner";
+import ExplanationModal from "./explanationModal";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -59,7 +61,14 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   const [km, setKm] = useState(null);
   const [onboardingTextShown, setOnboardingTextShown] = useState(false);
   const [onboardingWords, setOnboardingWords] = useState([]);
+  const [showPanoOnResult, setShowPanoOnResult] = useState(false);
+  const [explanationModalShown, setExplanationModalShown] = useState(false);
 
+  const [explanations, setExplanations] = useState([]);
+  const [showClueBanner, setShowClueBanner] = useState(false);
+  useEffect(() => {
+    if(showAnswer) setShowPanoOnResult(false)
+  }, [showAnswer])
 
   useEffect(() => {
 
@@ -73,6 +82,23 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       clearInterval(interval)
     }
   }, [multiplayerState, timeOffset])
+
+  useEffect(() => {
+    // fetch clue (if any)
+    setExplanations([])
+
+    fetch('/api/clues/getClue'+(latLong ? `?lat=${latLong.lat}&lng=${latLong.long}` : '')).then(res => res.json()).then(data => {
+
+      if(data.error) {
+        console.error(data.error);
+        return;
+      }
+      if(data.length === 0 ||  data.message) return;
+      setShowClueBanner(true);
+      setExplanations(data)
+    });
+
+  }, [latLong]);
 
   useEffect(() => {
     if(onboarding?.nextRoundTime) {
@@ -154,6 +180,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
   useEffect(() => {
     function keydown(e) {
+      if(explanationModalShown) return;
       if(pinPoint && e.key === ' ' && !showAnswer) {
         guess();
       } else if(showAnswer && e.key === ' ') {
@@ -165,7 +192,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, showAnswer, onboarding, xpEarned]);
+  }, [pinPoint, showAnswer, onboarding, xpEarned, explanationModalShown]);
 
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
@@ -197,7 +224,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     }
     if(multiplayerState?.inGame) return;
 
-    console.log(xpEarned)
     if(xpEarned > 0 && session?.token?.secret) {
       fetch('/api/storeGame', {
         method: 'POST',
@@ -297,20 +323,24 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
     let loaded = false;
 
-    panorama.addListener("pano_changed", () => {
-      if(loaded) return;
-      loaded = true;
-      setTimeout(() => {
-      setLoading(false)
-      setStreetViewShown(true)
-      }, 200)
-      fixBranding();
+    function onChangeListener() {
+      console.log("pano changed")
+        if(loaded) return;
+        loaded = true;
+        setTimeout(() => {
+        setLoading(false)
+        setStreetViewShown(true)
+        }, 200)
+        fixBranding();
 
-      fixPitch();
-    });
+        fixPitch();
+    }
+    panorama.addListener("pano_changed", onChangeListener);
 
 
     return () => {
+      if(!panorama) return;
+      google.maps.event.clearListeners(panorama, 'pano_changed');
     }
 
 
@@ -322,7 +352,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
       // }}></iframe>
-      <div id="googlemaps" className={`streetview inverted ${(!streetViewShown || loading || showAnswer ||  (multiplayerState?.gameData?.state === 'getready') || !latLong) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
+      <div id="googlemaps" className={`streetview inverted ${(!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
 
       )}
 {/*
@@ -343,7 +373,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       }} onMouseLeave={() => {
         if(mapPinned) return;
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${miniMapShown ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${miniMapShown&&((!showPanoOnResult && showAnswer) || (!showAnswer)) ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 
 {!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
@@ -465,15 +495,26 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
             backBtnPressed()
           }} />
         )}
+    <ExplanationModal lat={latLong?.lat} long={latLong?.long} shown={explanationModalShown} onClose={() => {
+        setExplanationModalShown(false)
+      }} session={session} />
 
       <GameOptions singleplayer={!multiplayerState?.inGame} shown={gameOptionsModalShown} onClose={() => {
         setGameOptionsModalShown(false)
       }} gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
 {/* <EndBanner xpEarned={xpEarned} usedHint={showHint} session={session} lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} /> */}
+
+<div className="endCards">
+  { showAnswer && showClueBanner && (
+<ClueBanner session={session} explanations={explanations} close={() => {setShowClueBanner(false)}} />
+  )}
 <EndBanner onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
 loadLocationFunc()
-  }} km={km} multiplayerState={multiplayerState} />
+  }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {
+    setShowPanoOnResult(!showPanoOnResult)
+  }} panoShown={showPanoOnResult} />
+  </div>
 
     </div>
   )

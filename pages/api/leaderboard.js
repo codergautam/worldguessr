@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     // Return the leaderboard
     return res.status(200).json({ leaderboard, myRank, myXp });
   } catch (error) {
-    console.log(error);
+    console.log("lb error", error);
     return res.status(500).json({ message: 'An error occurred', error: error.message });
   }
 }

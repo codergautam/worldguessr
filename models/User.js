@@ -57,7 +57,20 @@ const userSchema = new mongoose.Schema({
   firstLoginComplete: {
     type: Boolean,
     default: false
-  }
+  },
+  staff: {
+    type: Boolean,
+    default: false
+  },
+  canMakeClues: {
+    type: Boolean,
+    default: false
+  },
+  rated_clues: {
+    type: Map,
+    of: Number,
+    default: {},
+  },
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

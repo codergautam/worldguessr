@@ -837,9 +837,6 @@ screen and (pointer:coarse) {
 }
 
 #endBanner {
-  position: fixed;
-  bottom: 0;
-  z-index: 100;
   min-height: 150px;
   background-color: rgba(106, 107, 131, 0.5);
   backdrop-filter: blur(10px);
@@ -850,9 +847,32 @@ screen and (pointer:coarse) {
   justify-content: center;
   align-items: center;
   left: 50%;
-  transform: translate(-50%, 0);
   padding: 20px;
   margin-bottom: 10px;
+  pointer-events: all;
+}
+
+.endCards {
+  pointer-events: none;
+  display: flex;
+  position: fixed;
+  justify-content: space-around;
+  align-items: center;
+  width: 100%;
+  margin-top: 10px;
+  bottom: 0;
+  z-index: 100;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+@media screen and (max-width: 600px) {
+  .endCards {
+    flex-direction: column;
+    gap: 2px;
+  }
+
 }
 
 .bannerContent {
@@ -889,6 +909,12 @@ screen and (pointer:coarse) {
   font-weight: 500;
   padding: 0px;
 }
+.smallmainBannerTxt {
+  font-size: 1em;
+  font-weight: 500;
+  padding: 0px;
+}
+
 
 .motivation {
   font-size: 0.8em;
@@ -905,11 +931,16 @@ screen and (pointer:coarse) {
     font-size: 0.8em;
 
   }
-
+  .smallmainBannerTxt {
+    font-size: 0.6em;
+  }
 
   @media screen and (max-height: 840px) {
     .mainBannerTxt {
       font-size: 0.7em;
+    }
+    .smallmainBannerTxt {
+      font-size: 0.6em;
     }
     .motivation {
       font-size: 0.5em;
@@ -1500,6 +1531,10 @@ screen and (pointer:coarse) {
   height: 100px;
 }
 
+.clueBanner {
+  max-width: 40vw;
+}
+
 @media screen and (max-width: 600px) {
   .mainHomeBtns {
     flex-direction: column;
@@ -1510,6 +1545,10 @@ screen and (pointer:coarse) {
     flex-direction: column;
     gap: 10px;
     height: 200px;
+  }
+  .clueBanner {
+    max-width: 100vw;
+    max-height: 50vh;
   }
 
 }
