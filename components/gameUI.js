@@ -373,7 +373,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       }} onMouseLeave={() => {
         if(mapPinned) return;
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${miniMapShown&&((!showPanoOnResult && showAnswer) || (!showAnswer)) ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${(miniMapShown||showAnswer)&&((!showPanoOnResult && showAnswer) || (!showAnswer)) ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 
 {!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>

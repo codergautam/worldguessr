@@ -4,7 +4,7 @@ export default function Document() {
   return (
     <Html lang="en">
       <Head />
-      <body style={{overflow: 'hidden'}}>
+      <body style={{overflow: 'hidden', userSelect:"none"  }}>
         <Main />
         <NextScript />
       </body>

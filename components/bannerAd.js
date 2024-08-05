@@ -50,17 +50,7 @@ export default function Ad({
     const windowAny = window
     // clear ads
     const displayNewAd = () => {
-      try {
-        if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
-          for (const type of types) {
-            windowAny.aipDisplayTag.clear(
-              `worldguessr-com_${type[0]}x${type[1]}`
-            )
-          }
-        }
-      } catch (e) {
-        alert("error clearing ad")
-      }
+
       if (type === -1) return
       setTimeout(() => {
         const isAdDivVisible = adDivRef.current.getBoundingClientRect().top < window.innerHeight && adDivRef.current.getBoundingClientRect().bottom > 0;
@@ -72,8 +62,23 @@ export default function Ad({
         (Date.now() - lastRefresh.current) > AD_REFRESH_MS
       ) {
 
+        console.log('clearing and displaying ad')
+        try {
+          if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
+            for (const type of types) {
+              windowAny.aipDisplayTag.clear(
+                `worldguessr-com_${type[0]}x${type[1]}`
+              )
+            }
+          }
+        } catch (e) {
+          alert("error clearing ad")
+        }
+
         lastRefresh.current = Date.now()
         sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`)
+
+
 
         windowAny.aiptag.cmd.display.push(function() {
           windowAny.aipDisplayTag.display(

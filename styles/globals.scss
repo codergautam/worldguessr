@@ -620,6 +620,7 @@ h1, h2, h3, span {
 screen and (pointer:coarse) {
   #miniMapArea {
     transform: translateY(100%);
+    opacity: 0;
   }
   #miniMapArea.miniMap.shown {
     bottom: 0;
@@ -627,12 +628,11 @@ screen and (pointer:coarse) {
     opacity: 100%;
     transform: translateY(0%);
     margin-right: 0;
-    height:70%;
     width: 100%;
   }
-  #miniMapArea.answerShown {
-    transform: none;
-  }
+  // #miniMapArea.answerShown {
+  //   transform: none;
+  // }
   #miniMapContent {
     border: none;
   }
@@ -1494,6 +1494,7 @@ screen and (pointer:coarse) {
   bottom: -10px;
   left: 5px;
   pointer-events: none;
+  user-select: none;
 }
 .react-responsive-modal-closeButton {
   background-color: white !important;

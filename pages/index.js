@@ -917,8 +917,13 @@ export default function Home({ locale }) {
         transition: 'opacity 0.5s',
         opacity: 0.4,
         userSelect: 'none',
+       WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
+        pointerEvents: 'none',
       }}>
       <NextImage.default src={'/street1.jpg'}
+      draggable={false}
       fill   alt="Game Background" style={{objectFit: "cover",userSelect:'none'}}
       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       />
