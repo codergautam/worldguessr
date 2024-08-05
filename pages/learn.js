@@ -6,6 +6,7 @@ const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' })
 
 import NextImage from "next/image";
 import Link from 'next/link';
+import Head from 'next/head';
 
 export default function Learn({ locale }) {
 const [clueCnt, setClueCnt] = React.useState(0);
@@ -30,6 +31,13 @@ React.useEffect(() => {
 
   return (
     <>
+    <Head>
+      <title>WorldGuessr - Learn Mode</title>
+      <meta name="description" content="Learn Mode - Improve your Geoguessr skills by guessing & learning with community explanations of strategies you could've used to pinpoint each location." />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta name="theme-color" content="#000000" />
+      <meta name="robots" content="index, follow" />
+      </Head>
 <div style={{
         top: 0,
         left: 0,
@@ -65,12 +73,11 @@ React.useEffect(() => {
               <a style={{color: "cyan"}} target='_blank' href='https://discord.com/invite/ubdJHjKtrC'>Join our Discord</a> to become a contributor!
             </p>
 
-        <Link href="/?learn=true">
             <button className="gameBtn" onClick={() => {
+              window.location.href = '/?learn=true';
             }}>
               Play!
             </button>
-            </Link>
 </div>
 </div>
       </main>
