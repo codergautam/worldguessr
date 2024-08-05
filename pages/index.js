@@ -749,6 +749,17 @@ export default function Home({ locale }) {
       return;
     }
 
+    if(screen === "onboarding") {
+      setScreen("home")
+      setOnboarding(null)
+      setOnboardingCompleted(true)
+      try {
+        window.localStorage.setItem("onboarding", 'done')
+} catch(e) {
+}
+      return;
+    }
+
 
     if (multiplayerState?.inGame) {
       ws.send(JSON.stringify({

@@ -17,7 +17,14 @@ export default function SuggestAccountModal({ shown, setOpen }) {
             maxWidth: '500px',
             textAlign: 'center',
         }
-    }} open={shown} center onClose={() => { setOpen(false) }}>
+    }} open={shown} center onClose={() => {
+      try {
+        window.localStorage.setItem("onboarding", 'done')
+      } catch (e) {
+      }
+
+      setOpen(false)
+    }}>
       <h2>{text("trackYourProgress")}</h2>
       <p>{text("trackYourProgress1")}</p>
       <button onClick={() => signIn('google')} style={{
@@ -33,7 +40,13 @@ export default function SuggestAccountModal({ shown, setOpen }) {
       }}>
         {text("loginWithGoogle1")}
       </button>
-      <button onClick={() => setOpen(false)} style={{
+      <button onClick={() => {
+        try {
+          window.localStorage.setItem("onboarding", 'done')
+        } catch (e) {
+        }
+        setOpen(false)
+      }} style={{
           background: 'transparent',
           color: 'white',
           padding: '10px 20px',
