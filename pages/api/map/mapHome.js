@@ -30,7 +30,7 @@ function sendableMap(map, user) {
     hearts: map.hearts,
     plays: map.plays,
     description_short: map.description_short,
-    created_by_name: user.name ?? map.created_by,
+    created_by_name: user.username ?? map.created_by,
     id: map._id
   }
 }
@@ -58,19 +58,23 @@ export default async function handler(req, res) {
   let response = {};
   // sections
   // [reviewQueue (if staff), myMaps (if exists), trending, recent, popular  ]
+
   if(user?.staff) {
     // reviewQueue
+    console.log('staff queue');
     let queueMaps = await Map.find({
       in_review: true
     })
+
+    console.log(queueMaps);
 
     let queueMapsSendable = await Promise.all(queueMaps.map(async (map) => {
       const owner = await User.findById(map.created_by);
       return sendableMap(map, owner);
     }));
 
-    // newest to oldest
-    queueMapsSendable.sort((a,b) => a.created_at - b.created_at)
+    // oldest to newest
+    queueMapsSendable.sort((a,b) => b.created_at - a.created_at)
     response.reviewQueue = queueMapsSendable;
   }
 
@@ -78,7 +82,7 @@ export default async function handler(req, res) {
   // find maps made by user
   if(user) {
   let myMaps = await Map.find({
-    created_by: user._id
+    created_by: user._id.toString()
   });
   myMaps = myMaps.map((map) => sendableMap(map,user))
   myMaps.sort((a,b) => a.created_at - b.created_at)
@@ -99,6 +103,7 @@ export default async function handler(req, res) {
       } else if(method === "popular") {
        maps = await Map.find({ accepted: true }).sort({ hearts: -1 }).limit(limit);
       } else if(method === "trending") {
+        const currentDate = new Date();
        maps = await Map.find({ accepted: true, created_at: {
         $gte:  new Date(currentDate.getTime() - (30 * 24 * 60 * 60 * 1000)) // Date and time 30 days ago
        } }).sort({ plays: -1 }).limit(limit);

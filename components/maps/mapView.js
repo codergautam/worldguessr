@@ -18,7 +18,7 @@ export default function MapView({ close, session, text }) {
   const [mapHome, setMapHome] = useState({ message: text("loading") + "..." }); // {'sectionName': [sendableMap..]}
 
   useEffect(() => {
-    fetch('/api/mapHome', {
+    fetch('/api/map/mapHome', {
       method: "POST",
       headers: {
         'Content-Type': 'application/json',
