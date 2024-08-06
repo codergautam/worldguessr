@@ -82,7 +82,7 @@ export default function ExplanationModal({ lat, long, session, shown, onClose })
     >
       <h2>Write an explanation</h2>
       <p>Explain the reasoning behind your guess (in English)</p>
-      <p>Be specific and explain specific details in the streetview that helped you pinpoint the country</p>
+      <p>Be specific and explain specific details in the streetview that helped you pinpoint the country and region</p>
       <p style={{color: explanation.length < 100 ? "red" : "green"}}>({explanation.length} / 1000)</p>
 
       <textarea

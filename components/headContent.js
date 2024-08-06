@@ -22,7 +22,7 @@ export default function HeadContent({text}) {
 
     <link rel="icon" type="image/x-icon" href="/icon.ico" />
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
-<meta name="yandex-verification" content="3a7622d10295cc01" />
+<meta name="yandex-verification" content="2eb7e8ef6fb55e24" />
 
 {/* <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/> */}
