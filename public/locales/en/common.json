@@ -176,5 +176,10 @@
   "showMap": "Show Map",
   "share": "Share",
   "writeExplanation": "Write Explanation",
-  "explanationFooter": "By {{name}} - {{time}} ago"
+  "explanationFooter": "By {{name}} - {{time}} ago",
+  "restoreYourStreak": "Restore your {{streak}} country streak?",
+  "watchAnAdToRestore": "Watch a short ad to restore your streak.",
+  "watchAd": "Watch Ad",
+  "adDismissed": "Ad was dismissed",
+  "streakRestored": "Your streak has been restored!"
 }

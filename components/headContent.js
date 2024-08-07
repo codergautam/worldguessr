@@ -39,6 +39,8 @@ export default function HeadContent({text}) {
       crossorigin="anonymous">
 </script>
 
+{/* data-adbreak-test="on" */}
+
     <meta property="og:image" content="/icon_144x144.png" />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />

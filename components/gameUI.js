@@ -14,6 +14,8 @@ import CountryBtns from "./countryButtons";
 import OnboardingText from "./onboardingText";
 import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
+import SaveStreakBanner from "./streakSaveBanner";
+import { toast } from "react-toastify";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -63,12 +65,45 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   const [onboardingWords, setOnboardingWords] = useState([]);
   const [showPanoOnResult, setShowPanoOnResult] = useState(false);
   const [explanationModalShown, setExplanationModalShown] = useState(false);
+  const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
   useEffect(() => {
-    if(showAnswer) setShowPanoOnResult(false)
+    if(showAnswer) {
+      setShowPanoOnResult(false)
+    } else {
+    }
   }, [showAnswer])
+
+  useEffect(() => {
+    window.showRewardedAdFn = () => {};
+    if(showAnswer && lostCountryStreak > 0) {
+      console.log("requesting reward ad");
+      window.adBreak({
+        type: 'reward',  // rewarded ad
+        name: 'reward-continue',
+        beforeReward: (showAdFn) => {
+          window.showRewardedAdFn = () => { showAdFn(); };
+          // Rewarded ad available - prompt user for a rewarded ad
+          setShowStreakAdBanner(true);
+        },
+        beforeAd: () => { },     // You may also want to mute the game's sound.
+        adDismissed: () => {
+          toast.error(text("adDismissed"));
+        },
+        adViewed: () => {
+          setCountryStreak(lostCountryStreak);
+          setLostCountryStreak(0);
+          toast.success(text("streakRestored"));
+        },       // Reward granted - continue game at current score.
+        afterAd: () => { setShowStreakAdBanner(false) },       // Resume the game flow.
+      });
+    } else {
+      setShowStreakAdBanner(false);
+    }
+  }, [showAnswer, lostCountryStreak]);
+
 
   useEffect(() => {
 
@@ -495,6 +530,9 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
             backBtnPressed()
           }} />
         )}
+
+
+
     <ExplanationModal lat={latLong?.lat} long={latLong?.long} shown={explanationModalShown} onClose={() => {
         setExplanationModalShown(false)
       }} session={session} />
@@ -509,6 +547,10 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   { showAnswer && showClueBanner && (
 <ClueBanner session={session} explanations={explanations} close={() => {setShowClueBanner(false)}} />
   )}
+        <SaveStreakBanner shown={showStreakAdBanner} close={() => {
+          setShowStreakAdBanner(false)
+        }} lostCountryStreak={lostCountryStreak} playAd={()=>{window.showRewardedAdFn()}} setLostCountryStreak={setLostCountryStreak} countryStreak={countryStreak} setCountryStreak={setCountryStreak} />
+
 <EndBanner onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
 loadLocationFunc()
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {
