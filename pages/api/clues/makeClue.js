@@ -1,13 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import formidable from 'formidable';
-import { OpenAI } from 'openai';
+// import { OpenAI } from 'openai';
 import fs from 'fs';
 import User from '@/models/User';
 import Clue from '@/models/Clue';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// const openai = new OpenAI({
+//   apiKey: process.env.OPENAI_API_KEY,
+// });
 
 async function handler(req, res) {
   if (req.method === 'POST') {
@@ -78,27 +78,27 @@ async function handler(req, res) {
             return res.status(403).json({ message: 'User not authorized' });
           }
 
-        const filePath = files.screenImage[0].filepath
-        const base64 = fs.readFileSync(filePath).toString('base64');
-        // make the request to OpenAI
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "text", text: "Based on the given street view image, discuss specific unique aspects of this place leading to what country it may be. Only mention direct and obvious aspects that are clearly in the image, mention what you looked at in your clues that directly narrow down the country/region. At the end, reveal the country."+(fields.country ? ` The country is ${fields.country}.` : "") },
-                {
-                  type: "image_url",
-                  image_url: {
-                    "url": `data:image/png;base64,${base64}`,
-                  },
-                },
-              ],
-            },
-          ],
-        });
-        res.status(200).json({ message: response.choices[0].message.content[1].text });
+        // const filePath = files.screenImage[0].filepath
+        // const base64 = fs.readFileSync(filePath).toString('base64');
+        // // make the request to OpenAI
+        // const response = await openai.chat.completions.create({
+        //   model: "gpt-4o-mini",
+        //   messages: [
+        //     {
+        //       role: "user",
+        //       content: [
+        //         { type: "text", text: "Based on the given street view image, discuss specific unique aspects of this place leading to what country it may be. Only mention direct and obvious aspects that are clearly in the image, mention what you looked at in your clues that directly narrow down the country/region. At the end, reveal the country."+(fields.country ? ` The country is ${fields.country}.` : "") },
+        //         {
+        //           type: "image_url",
+        //           image_url: {
+        //             "url": `data:image/png;base64,${base64}`,
+        //           },
+        //         },
+        //       ],
+        //     },
+        //   ],
+        // });
+        // res.status(200).json({ message: response.choices[0].message.content[1].text });
         }
 
       } catch (err) {

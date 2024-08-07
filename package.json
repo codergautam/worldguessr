@@ -30,7 +30,6 @@
     "next-i18next": "^15.3.0",
     "nextjs-google-analytics": "^2.3.3",
     "ol": "^9.1.0",
-    "openai": "^4.54.0",
     "react": "^18.2.0",
     "react-chatbot-kit": "^2.2.2",
     "react-dom": "^18.2.0",
