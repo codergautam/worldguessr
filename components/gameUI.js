@@ -76,33 +76,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     }
   }, [showAnswer])
 
-  useEffect(() => {
-    window.showRewardedAdFn = () => {};
-    if(!multiplayerState?.inGame && showAnswer && lostCountryStreak > 0) {
-      console.log("requesting reward ad");
-      window.adBreak({
-        type: 'reward',  // rewarded ad
-        name: 'reward-continue',
-        beforeReward: (showAdFn) => {
-          window.showRewardedAdFn = () => { showAdFn(); };
-          // Rewarded ad available - prompt user for a rewarded ad
-          setShowStreakAdBanner(true);
-        },
-        beforeAd: () => { },     // You may also want to mute the game's sound.
-        adDismissed: () => {
-          toast.error(text("adDismissed"));
-        },
-        adViewed: () => {
-          setCountryStreak(lostCountryStreak);
-          setLostCountryStreak(0);
-          toast.success(text("streakRestored"));
-        },       // Reward granted - continue game at current score.
-        afterAd: () => { setShowStreakAdBanner(false) },       // Resume the game flow.
-      });
-    } else {
-      setShowStreakAdBanner(false);
-    }
-  }, [showAnswer, lostCountryStreak, multiplayerState?.inGame]);
 
 
   useEffect(() => {
@@ -291,9 +264,33 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       setLostCountryStreak(0);
       if(country === latLong.country) {
         setCountryStreak(countryStreak + 1);
+        setShowStreakAdBanner(false);
       } else {
         setCountryStreak(0);
         setLostCountryStreak(countryStreak);
+
+        console.log("requesting reward ad")
+
+        window.adBreak({
+          type: 'reward',  // rewarded ad
+          name: 'reward-continue',
+          beforeReward: (showAdFn) => {
+            window.showRewardedAdFn = () => { showAdFn(); };
+            // Rewarded ad available - prompt user for a rewarded ad
+            setShowStreakAdBanner(true);
+            console.log("reward ad available")
+          },
+          beforeAd: () => { },     // You may also want to mute the game's sound.
+          adDismissed: () => {
+            toast.error(text("adDismissed"));
+          },
+          adViewed: () => {
+            setCountryStreak(lostCountryStreak);
+            setLostCountryStreak(0);
+            toast.success(text("streakRestored"));
+          },       // Reward granted - continue game at current score.
+          afterAd: () => { setShowStreakAdBanner(false) },       // Resume the game flow.
+        });
       }
     });
     }
@@ -354,6 +351,11 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
       panorama.setPov(panorama.getPhotographerPov());
       panorama.setZoom(0);
+
+      // if localhost log the location
+      if(window.location.hostname === "localhost") {
+        console.log("[DEV] country:", latLong.country);
+      }
     }
 
     let loaded = false;

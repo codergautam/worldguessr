@@ -814,11 +814,7 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
-    console.log("loading location")
     if (loading) return;
-
-    console.log("loading locationgood")
-
 
     // console.log("loading location")
     setLoading(true)
