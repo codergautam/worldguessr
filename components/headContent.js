@@ -36,9 +36,10 @@ export default function HeadContent({text}) {
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" defer></script>
 <script src="https://greggman.github.io/webgl-helpers/webgl-force-preservedrawingbuffer.js" defer></script>
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972"
-data-adbreak-test="on"
       crossorigin="anonymous">
 </script>
+{/* data-adbreak-test="on" */}
+{/*  */}
 
 
     <meta property="og:image" content="/icon_144x144.png" />
