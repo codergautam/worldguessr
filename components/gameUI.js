@@ -16,6 +16,7 @@ import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import SaveStreakBanner from "./streakSaveBanner";
 import { toast } from "react-toastify";
+import sendEvent from "./utils/sendEvent";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -269,28 +270,34 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
         setCountryStreak(0);
         setLostCountryStreak(countryStreak);
 
+        if(countryStreak > 0 && window.adBreak) {
         console.log("requesting reward ad")
-
         window.adBreak({
           type: 'reward',  // rewarded ad
           name: 'reward-continue',
           beforeReward: (showAdFn) => {
-            window.showRewardedAdFn = () => { showAdFn(); };
+            window.showRewardedAdFn = () => { showAdFn();
+              sendEvent('reward_ad_play', { countryStreak });
+              };
             // Rewarded ad available - prompt user for a rewarded ad
             setShowStreakAdBanner(true);
+            sendEvent('reward_ad_available', { countryStreak });
             console.log("reward ad available")
           },
           beforeAd: () => { },     // You may also want to mute the game's sound.
           adDismissed: () => {
             toast.error(text("adDismissed"));
+            sendEvent('reward_ad_dismissed', { countryStreak });
           },
           adViewed: () => {
-            setCountryStreak(lostCountryStreak);
+            setCountryStreak(countryStreak);
             setLostCountryStreak(0);
             toast.success(text("streakRestored"));
+            sendEvent('reward_ad_viewed', { countryStreak });
           },       // Reward granted - continue game at current score.
           afterAd: () => { setShowStreakAdBanner(false) },       // Resume the game flow.
         });
+      }
       }
     });
     }
