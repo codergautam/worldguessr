@@ -171,5 +171,10 @@
   "lastGuesser": "You are the last guesser. Timer reduced to {{s}} seconds",
   "streakLost": "Daily login streak lost. Come back tomorrow to grow it!",
   "streakGained": "You have a {{streak}} day login streak! Keep it up!",
-  "streakStarted": "You have a 1 day login streak! Log in daily to grow your streak!"
+  "streakStarted": "You have a 1 day login streak! Log in daily to grow your streak!",
+  "showPano": "Show Street View",
+  "showMap": "Show Map",
+  "share": "Share",
+  "writeExplanation": "Write Explanation",
+  "explanationFooter": "By {{name}} - {{time}} ago"
 }

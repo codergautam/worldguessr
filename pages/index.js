@@ -43,6 +43,7 @@ import InfoModal from "@/components/infoModal";
 import { inIframe } from "@/components/utils/inIframe";
 import moment from 'moment-timezone';
 import MapsModal from "@/components/maps/mapsModal";
+import { useRouter } from "next/router";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -71,6 +72,7 @@ const initialMultiplayerState = {
 export default function Home({ locale }) {
   const { width, height } = useWindowDimensions();
 
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
@@ -126,6 +128,28 @@ export default function Home({ locale }) {
   }, [])
 
   useEffect(() => {
+    // check if learn mode
+    if(window.location.search.includes("learn=true")) {
+      window.learnMode = true;
+
+      // immediately open single player
+      setScreen("singleplayer")
+
+
+
+
+
+    }
+  }, [])
+
+  useEffect(() => {
+
+// check if learn mode
+    if(window.location.search.includes("learn=true")) {
+      setOnboardingCompleted(true)
+    }
+
+
     if(onboardingCompleted === false) {
       if(onboardingCompleted===null)return;
       if (!loading) {
@@ -720,6 +744,25 @@ export default function Home({ locale }) {
   }
   function backBtnPressed(queueNextGame = false) {
     if (loading) setLoading(false);
+
+    if(window.learnMode) {
+      // redirect to home
+      window.location.href = "/"
+      return;
+    }
+
+    if(screen === "onboarding") {
+      setScreen("home")
+      setOnboarding(null)
+      setOnboardingCompleted(true)
+      try {
+        window.localStorage.setItem("onboarding", 'done')
+} catch(e) {
+}
+      return;
+    }
+
+
     if (multiplayerState?.inGame) {
       ws.send(JSON.stringify({
         type: 'leaveGame'
@@ -778,9 +821,10 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
+    console.log("loading location")
     if (loading) return;
 
-
+    console.log("loading locationgood")
 
 
     // console.log("loading location")
@@ -803,7 +847,7 @@ export default function Home({ locale }) {
     });
   }
   function fetchMethod() {
-    fetch("/allCountries.json").then((res) => res.json()).then((data) => {
+    fetch(`/${window?.learnMode ? 'clue': 'all'}Countries.json`).then((res) => res.json()).then((data) => {
       if(data.ready) {
         setAllLocsArray(data.locations)
         const loc = data.locations[0]
@@ -880,8 +924,13 @@ export default function Home({ locale }) {
         transition: 'opacity 0.5s',
         opacity: 0.4,
         userSelect: 'none',
+       WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
+        pointerEvents: 'none',
       }}>
       <NextImage.default src={'/street1.jpg'}
+      draggable={false}
       fill   alt="Game Background" style={{objectFit: "cover",userSelect:'none'}}
       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       />

@@ -60,6 +60,19 @@ const userSchema = new mongoose.Schema({
   },
   hearted_maps: {
     type: Map,
+    of: Boolean,
+    default: {},
+  },
+  staff: {
+    type: Boolean,
+    default: false
+  },
+  canMakeClues: {
+    type: Boolean,
+    default: false
+  },
+  rated_clues: {
+    type: Map,
     of: Number,
     default: {},
   },

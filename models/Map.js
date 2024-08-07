@@ -53,6 +53,10 @@ const mapSchema = new mongoose.Schema({
   resubmittable: {
     type: Boolean,
     default: true
+  },
+  countryMap: {
+    type: String,
+    required: false
   }
 });
 

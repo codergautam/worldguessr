@@ -1,8 +1,9 @@
 import { Modal } from "react-responsive-modal";
 import MapView from "./mapView";
+import { useRouter } from "next/router";
 
 export default function MapsModal({ shown, onClose, session, text }) {
-
+    const router = useRouter();
     return (
         <Modal id="" styles={{
             modal: {
@@ -18,7 +19,9 @@ export default function MapsModal({ shown, onClose, session, text }) {
                display: "none"
             },
         }} open={shown} center onClose={onClose}>
-            <MapView close={onClose} session={session} text={text} />
+            <MapView close={onClose} session={session} text={text} onMapClick={(map)=>{
+                router.push(`/map/${map.slug}`)
+            }} />
         </Modal>
     );
 }

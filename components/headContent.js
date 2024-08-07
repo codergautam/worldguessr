@@ -22,7 +22,7 @@ export default function HeadContent({text}) {
 
     <link rel="icon" type="image/x-icon" href="/icon.ico" />
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
-<meta name="yandex-verification" content="3a7622d10295cc01" />
+<meta name="yandex-verification" content="2eb7e8ef6fb55e24" />
 
 {/* <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/> */}
@@ -32,7 +32,9 @@ export default function HeadContent({text}) {
       src="https://maps.googleapis.com/maps/api/js?callback=initialize&v=weekly"
       defer
     ></script>
-
+{/* <script src="https://greggman.github.io/webgl-helpers/webgl-force-preservedrawingbuffer.js"></script> */}
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" defer></script>
+<script src="https://greggman.github.io/webgl-helpers/webgl-force-preservedrawingbuffer.js" defer></script>
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972"
       crossorigin="anonymous">
 </script>

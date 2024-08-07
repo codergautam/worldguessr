@@ -40,7 +40,8 @@ export default NextAuth.default({
           email,
         });
         if (userDb) {
-          output = { secret: userDb.secret, username: userDb.username, email: userDb.email };
+          output = { secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues };
+          console.log('jwt', output);
         }
       }
       return output;

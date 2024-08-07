@@ -12,7 +12,7 @@ const initMakeMap = {
   data: ""
 };
 
-export default function MapView({ close, session, text }) {
+export default function MapView({ close, session, text, onMapClick }) {
 
   const [makeMap, setMakeMap] = useState(initMakeMap);
   const [mapHome, setMapHome] = useState({ message: text("loading") + "..." }); // {'sectionName': [sendableMap..]}
@@ -115,7 +115,7 @@ export default function MapView({ close, session, text }) {
                 <h2 className="mapSectionTitle">{text(section)}</h2>
                 <div className="mapSectionMaps">
 
-                  {mapsArray.map((map, i) => <MapTile key={i} map={map} />)}
+                  {mapsArray.map((map, i) => <MapTile key={i} map={map} onClick={()=>onMapClick(map)} />)}
 
                 </div>
               </div>

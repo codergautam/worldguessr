@@ -5,7 +5,7 @@ import { useTranslation } from 'next-i18next'
 import Ad from "./bannerAd";
 import useWindowDimensions from "./useWindowDimensions";
 
-export default function EndBanner({ onboarding, countryGuesser, countryGuesserCorrect, options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint }) {
+export default function EndBanner({ onboarding, countryGuesser, countryGuesserCorrect, options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
   const { t: text } = useTranslation("common");
   const { height, width } = useWindowDimensions();
 
@@ -46,10 +46,16 @@ export default function EndBanner({ onboarding, countryGuesser, countryGuesserCo
         )}
 
 
-      {xpEarned > 0 && session?.token?.secret ? <p>{text("earnedXP",{xp:xpEarned})}!</p> : ''}
-          {countryStreak > 0 ? <p>{text("onCountryStreak",{streak:countryStreak})}!</p> : ''}
-          {lostCountryStreak > 0 ? <p>{text("lostCountryStreak",{streak:lostCountryStreak})}!</p> : ''}
+
     </p>
+    <p className="motivation">
+    {xpEarned > 0 && session?.token?.secret ? text("earnedXP",{xp:xpEarned}) : ''}
+
+      </p>
+      <p className="motivation">
+      {countryStreak > 0 ? text("onCountryStreak",{streak:countryStreak}) : ''}
+      {lostCountryStreak > 0 ? `${text("lostCountryStreak",{streak:lostCountryStreak})}!` : ''}
+      </p>
   </div>
   { !multiplayerState && (
 
@@ -57,13 +63,29 @@ export default function EndBanner({ onboarding, countryGuesser, countryGuesserCo
   <button className="playAgain" onClick={fullReset}>
     {onboarding&&onboarding.round === 5 ? text("viewResults") : text("nextRound")}
   </button>
-  { !onboarding && (
+  {/* { !onboarding && (
   <button className="openInMaps" onClick={() => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${latLong.lat},${latLong.long}`);
   }}>
     {text("openInMaps")}
   </button>
-  )}
+  )} */}
+
+<button className="openInMaps" onClick={() => {
+    toggleMap();
+  }}>
+    {panoShown ? text("showMap") : text("showPano")}
+  </button>
+
+{session?.token?.canMakeClues && (
+  <button className="openInMaps" onClick={() => {
+    if(!panoShown) toggleMap();
+    setExplanationModalShown(true);
+  }}>
+    {text("writeExplanation")}
+  </button>
+)}
+
 </div>
   )}
 <Ad screenH={height} screenW={width} types={[[320, 50]]} centerOnOverflow={600} />

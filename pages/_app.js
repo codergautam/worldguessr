@@ -6,6 +6,8 @@ import { GoogleAnalytics } from "nextjs-google-analytics";
 import { useEffect } from "react";
 import { appWithTranslation } from 'next-i18next'
 
+import '@smastrom/react-rating/style.css'
+
 function App({ Component, pageProps }) {
   useEffect(() => {
     console.log("App mounted - build 2");
