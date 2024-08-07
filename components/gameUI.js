@@ -78,7 +78,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
   useEffect(() => {
     window.showRewardedAdFn = () => {};
-    if(showAnswer && lostCountryStreak > 0) {
+    if(!multiplayerState?.inGame && showAnswer && lostCountryStreak > 0) {
       console.log("requesting reward ad");
       window.adBreak({
         type: 'reward',  // rewarded ad
@@ -102,7 +102,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     } else {
       setShowStreakAdBanner(false);
     }
-  }, [showAnswer, lostCountryStreak]);
+  }, [showAnswer, lostCountryStreak, multiplayerState?.inGame]);
 
 
   useEffect(() => {
