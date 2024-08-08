@@ -1067,6 +1067,7 @@ export default function Home({ locale }) {
 	}
    window.adsbygoogle = window.adsbygoogle || [];
   window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
+   adConfig({preloadAdBreaks: 'on'});
   `}
         </Script>
       </main>
