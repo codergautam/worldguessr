@@ -17,6 +17,7 @@ import ExplanationModal from "./explanationModal";
 import SaveStreakBanner from "./streakSaveBanner";
 import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
+import Ad from "./bannerAd";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -392,6 +393,11 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
   return (
     <div className="gameUI">
+
+    <div className="topAdFixed">
+    <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    </div>
+
       { latLong && multiplayerState?.gameData?.state !== 'end' && (
       // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
