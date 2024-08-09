@@ -391,10 +391,13 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
   }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
 
+
+  const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
+  const onboardingTimerShown = !((loading||showAnswer||!onboarding));
   return (
     <div className="gameUI">
 
-    <div className="topAdFixed">
+    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown)?'moreDown':''}`}>
     <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 
@@ -512,13 +515,13 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
         }
         }} />
       )}
-      <span className={`timer ${(loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end') ? '' : 'shown'}`}>
+      <span className={`timer ${!multiplayerTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
         </span>
 
-        <span className={`timer ${(loading||showAnswer||!onboarding) ? '' : 'shown'}`}>
+        <span className={`timer ${!onboardingTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {timeToNextRound ?

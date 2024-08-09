@@ -377,6 +377,7 @@ h1, h2, h3, span {
   transform: translateY(0%);
   transition: all 0.5s;
   animation: fadeIn 0.5s ease-in-out forwards;
+  z-index: 1001;
 }
 
 
@@ -1578,6 +1579,9 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 @media screen and (max-width: 850px) {
   .topAdFixed {
     top: 50px;
+  }
+  .topAdFixed.moreDown {
+    top: 100px;
   }
 
 }
