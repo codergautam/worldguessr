@@ -275,7 +275,7 @@ registerHandler('/clueCountries.json', 'GET', (req, res, query) => {
     // send json {ready: false}
     res.end(JSON.stringify({ ready: false }));
   } else {
-    res.end(JSON.stringify({ ready: true, locations: clueLocations }));
+    res.end(JSON.stringify({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) }));
   }
 });
 

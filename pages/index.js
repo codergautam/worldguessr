@@ -984,7 +984,6 @@ export default function Home({ locale }) {
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
-<Ad screenH={height} screenW={width} types={[[320, 50],[728,90],[970,90]]} centerOnOverflow={600} />
 
               </>
             )}
