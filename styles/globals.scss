@@ -244,12 +244,14 @@ button {
 .navBtn {
   font-size: 1.5em;
   width: auto;
+  pointer-events: all;
 }
 .backBtn {
   background-color: #AE4141;
   // width: 100px;
 
   margin-left: 10px;
+  pointer-events: all;
 }
 .backBtn:hover {
   background-color: darkred;
@@ -277,6 +279,7 @@ h1, h2, h3, span {
   z-index: 102;
   padding: 0 20px;
   overflow-x: hidden;
+  pointer-events: none;
 
   // enter from top
 
@@ -323,6 +326,7 @@ h1, h2, h3, span {
 .nonHome.shown {
   display: flex;
   animation: fadeInNonHome 0.5s ease-in-out forwards;
+  pointer-events: all;
 }
 
 @keyframes fadeInNonHome {
@@ -1349,6 +1353,7 @@ screen and (pointer:coarse) {
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: all;
 }
 .input-group {
   display: flex;
