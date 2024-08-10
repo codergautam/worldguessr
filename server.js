@@ -286,7 +286,7 @@ function make6DigitCode() {
 }
 
 class Game {
-  constructor(id, publicLobby, location="all") {
+  constructor(id, publicLobby, location="all", rounds=5) {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
@@ -300,7 +300,7 @@ class Game {
     this.nextEvtTime = null;
     this.locations = [];
     this.location = location;
-    this.rounds = 5;
+    this.rounds = rounds;
     this.curRound = 0; // 1 = 1st round
     this.maxPlayers = 100;
 
@@ -1065,8 +1065,7 @@ app.prepare().then(() => {
         //   }
         // }
 
-        const game = new Game(gameId, false, location);
-        game.rounds = rounds;
+        const game = new Game(gameId, false, location, rounds);
         game.timePerRound = timePerRound * 1000;
         // game.locations = locations;
         // game.location = location;
