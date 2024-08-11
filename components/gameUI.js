@@ -149,7 +149,11 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   }, [latLong, multiplayerState])
 
   useEffect(() => {
+    try {
     window.localStorage.setItem("countryStreak", countryStreak);
+    } catch(e) {
+      console.log("error setting countryStreak in localstorage")
+    }
   }, [countryStreak])
 
   useEffect(() => {

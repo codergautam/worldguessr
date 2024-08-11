@@ -120,9 +120,13 @@ export default function Home({ locale }) {
     }
   }, [onboarding?.completed])
   useEffect(() => {
+    try {
     const onboarding = window.localStorage.getItem("onboarding");
     if(onboarding && onboarding === "done") setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
+  } catch(e) {
+    setOnboardingCompleted(true);
+  }
   }, [])
 
   useEffect(() => {
@@ -217,14 +221,19 @@ export default function Home({ locale }) {
   useEffect(() => {
     if(session && session.token && session.token.username) {
       setOnboardingCompleted(true)
-      window.localStorage.setItem("onboarding", "done")
+      try {
+        window.localStorage.setItem("onboarding", 'done')
+      } catch(e) {}
     }
   }, [session])
 
   const loadOptions =async () => {
 
     // try to fetch options from localstorage
+    try {
     const options = localStorage.getItem("options");
+
+
     if (options) {
       setOptions(JSON.parse(options))
     } else {
@@ -245,6 +254,7 @@ export default function Home({ locale }) {
         mapType: "m" //m for normal
       })
     }
+  } catch(e) {}
 
   }
   useEffect(()=>{loadOptions()}, [])
@@ -253,7 +263,9 @@ export default function Home({ locale }) {
     console.log("options", options)
     if(options && options.units && options.mapType){
       console.log("options", options)
+      try {
       localStorage.setItem("options", JSON.stringify(options))
+      } catch(e) {}
     }
   }, [options])
 
@@ -720,6 +732,7 @@ export default function Home({ locale }) {
   }
 
   useEffect(() => {
+    try {
     const streak = localStorage.getItem("countryStreak");
     if (streak) {
       setCountryStreak(parseInt(streak))
@@ -730,6 +743,7 @@ export default function Home({ locale }) {
     img.src = "/src.png";
     const img2 = new Image();
     img2.src = "/dest.png";
+  } catch(e) {}
 
   }, [])
 
@@ -1013,7 +1027,9 @@ export default function Home({ locale }) {
               <OnboardingText words={[
                 text("onboarding1")
               ]} pageDone={() => {
-                window.localStorage.setItem("onboarding", 'done')
+                try {
+                  window.localStorage.setItem("onboarding", 'done')
+                } catch(e) {}
                 setOnboarding((prev)=>{
                   return {
                     ...prev,
