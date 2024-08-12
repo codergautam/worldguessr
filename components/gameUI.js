@@ -174,10 +174,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     } else if(onboarding.round === 3) {
       setOnboardingWords([
         text("astounding"),
-        text("onboarding6"),
-        text("onboarding7"),
-        text("onboarding8"),
-        text("onboarding9"),
       ])
     } else if(onboarding.round === 4) {
       setOnboardingWords([

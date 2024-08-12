@@ -162,11 +162,16 @@ export default function Home({ locale }) {
           { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
         { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
         { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
-          { lat: -1.2758794, long: 36.8231793, country: "KE", otherOptions: ["IN", "US"] },
-          { lat: 35.7010698, long: 139.7061219, country: "JP", otherOptions: ["KR", "RU"] },
-          { lat: 37.5383413, long: 127.1002877, country: "KR", otherOptions: ["JP", "CA"] },
-          { lat: 19.3228523, long: -99.0982377, country: "MX", otherOptions: ["BR", "US"] },
           { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
+          // pyramid of giza 29.9773337,31.1321796
+          { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
+          // eiffel tower 48.8592946,2.2927855
+          { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
+          // statue of liberty 40.6909253,-74.0552998
+          { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
+          // brandenburg gate 52.5161999,13.3756414
+          { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
+          
         ]
 
         // pick 5 random locations no repeats
@@ -1019,7 +1024,7 @@ export default function Home({ locale }) {
         </div>}
 
         {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
-          <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding.round < 3} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
           </div>}
 
           {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
@@ -1037,7 +1042,7 @@ export default function Home({ locale }) {
                   }
                 })
               }} shown={!onboarding?.finalOnboardingShown} />
-              <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={20000} onHomePress={() =>{
+              <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} onHomePress={() =>{
                 if(onboarding) sendEvent("tutorial_end");
 
                 setOnboarding(null)
