@@ -171,7 +171,7 @@ export default function Home({ locale }) {
           { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
           // brandenburg gate 52.5161999,13.3756414
           { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
-          
+
         ]
 
         // pick 5 random locations no repeats
@@ -1006,6 +1006,12 @@ export default function Home({ locale }) {
 
               </>
             )}
+            </div>
+
+          <div style={{ marginTop: "20px" }}>
+            <center>
+    <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} screenW={width} />
+            </center>
             </div>
           </div>
           </>

@@ -50,6 +50,10 @@ const Leaderboard = ({ }) => {
             justify-content: center;
         }
 
+        .mainBody {
+            user-select: auto !important;
+            overflow: auto !important;
+        }
         main {
             width: 40rem;
             background-color: #1f2747; /* Darker background */
