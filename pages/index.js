@@ -40,7 +40,7 @@ import WsIcon from "@/components/wsIcon";
 import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
-import { inIframe } from "@/components/utils/inIframe";
+import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
 import moment from 'moment-timezone';
 import { useRouter } from "next/router";
 
@@ -131,6 +131,14 @@ export default function Home({ locale }) {
 
   useEffect(() => {
     // check if learn mode
+
+    if(isForbiddenIframe() && !window.blocked) {
+      // display a message
+      window.blocked = true;
+      document.write("Your request has been blocked as this website is not authorized to embed WorldGuessr.<br><br><h3><a href='https://worldguessr.com' target=\"_blank\">Click here to play WorldGuessr on the official site, for free!</a></h3><br>- Gautam, developer of WorldGuessr")
+      sendEvent("blocked_iframe")
+    }
+
     if(window.location.search.includes("learn=true")) {
       window.learnMode = true;
 
