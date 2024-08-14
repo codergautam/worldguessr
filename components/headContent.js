@@ -38,6 +38,9 @@ export default function HeadContent({text}) {
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972"
       crossorigin="anonymous">
 </script>
+{/* data-adbreak-test="on" */}
+{/*  */}
+
 
     <meta property="og:image" content="/icon_144x144.png" />
     <meta property="og:url" content="https://worldguessr.com" />

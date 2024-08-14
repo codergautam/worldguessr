@@ -40,10 +40,12 @@ import WsIcon from "@/components/wsIcon";
 import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
-import { inIframe } from "@/components/utils/inIframe";
+import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
 import moment from 'moment-timezone';
 import MapsModal from "@/components/maps/mapsModal";
 import { useRouter } from "next/router";
+import { fromLonLat, transformExtent } from "ol/proj";
+import { boundingExtent } from "ol/extent";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -81,7 +83,8 @@ export default function Home({ locale }) {
   const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
   const [streetViewShown, setStreetViewShown] = useState(false)
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
-  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000 });
+  // location aka map slug
+  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null });
   const [showAnswer, setShowAnswer] = useState(false)
   const [pinPoint, setPinPoint] = useState(null)
   const [hintShown, setHintShown] = useState(false)
@@ -122,23 +125,43 @@ export default function Home({ locale }) {
     }
   }, [onboarding?.completed])
   useEffect(() => {
+    try {
     const onboarding = window.localStorage.getItem("onboarding");
     if(onboarding && onboarding === "done") setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
+  } catch(e) {
+    setOnboardingCompleted(true);
+  }
   }, [])
 
   useEffect(() => {
+
+    // check if pirated
+    if(isForbiddenIframe() && !window.blocked) {
+      // display a message
+      window.blocked = true;
+      document.write("Your request has been blocked as this website is not authorized to embed WorldGuessr.<br><br><h3><a href='https://worldguessr.com' target=\"_blank\">Click here to play WorldGuessr on the official site, for free!</a></h3><br>- Gautam, developer of WorldGuessr")
+      sendEvent("blocked_iframe")
+    }
     // check if learn mode
     if(window.location.search.includes("learn=true")) {
       window.learnMode = true;
 
       // immediately open single player
       setScreen("singleplayer")
-
-
-
-
-
+    }
+    // check if from map screen
+    if(window.location.search.includes("map=")) {
+      // get map slug map=slug from url
+      const params = new URLSearchParams(window.location.search);
+      const mapSlug = params.get("map");
+      console.log("map slug", mapSlug)
+      setScreen("singleplayer")
+      setGameOptions((prev) => ({
+        ...prev,
+        location: mapSlug,
+        official: false
+      }))
     }
   }, [])
 
@@ -160,11 +183,16 @@ export default function Home({ locale }) {
           { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
         { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
         { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
-          { lat: -1.2758794, long: 36.8231793, country: "KE", otherOptions: ["IN", "US"] },
-          { lat: 35.7010698, long: 139.7061219, country: "JP", otherOptions: ["KR", "RU"] },
-          { lat: 37.5383413, long: 127.1002877, country: "KR", otherOptions: ["JP", "CA"] },
-          { lat: 19.3228523, long: -99.0982377, country: "MX", otherOptions: ["BR", "US"] },
           { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
+          // pyramid of giza 29.9773337,31.1321796
+          { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
+          // eiffel tower 48.8592946,2.2927855
+          { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
+          // statue of liberty 40.6909253,-74.0552998
+          { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
+          // brandenburg gate 52.5161999,13.3756414
+          { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
+
         ]
 
         // pick 5 random locations no repeats
@@ -219,14 +247,19 @@ export default function Home({ locale }) {
   useEffect(() => {
     if(session && session.token && session.token.username) {
       setOnboardingCompleted(true)
-      window.localStorage.setItem("onboarding", "done")
+      try {
+        window.localStorage.setItem("onboarding", 'done')
+      } catch(e) {}
     }
   }, [session])
 
   const loadOptions =async () => {
 
     // try to fetch options from localstorage
+    try {
     const options = localStorage.getItem("options");
+
+
     if (options) {
       setOptions(JSON.parse(options))
     } else {
@@ -247,6 +280,7 @@ export default function Home({ locale }) {
         mapType: "m" //m for normal
       })
     }
+  } catch(e) {}
 
   }
   useEffect(()=>{loadOptions()}, [])
@@ -255,7 +289,9 @@ export default function Home({ locale }) {
     console.log("options", options)
     if(options && options.units && options.mapType){
       console.log("options", options)
+      try {
       localStorage.setItem("options", JSON.stringify(options))
+      } catch(e) {}
     }
   }, [options])
 
@@ -722,6 +758,7 @@ export default function Home({ locale }) {
   }
 
   useEffect(() => {
+    try {
     const streak = localStorage.getItem("countryStreak");
     if (streak) {
       setCountryStreak(parseInt(streak))
@@ -732,6 +769,7 @@ export default function Home({ locale }) {
     img.src = "/src.png";
     const img2 = new Image();
     img2.src = "/dest.png";
+  } catch(e) {}
 
   }, [])
 
@@ -821,11 +859,7 @@ export default function Home({ locale }) {
   }
 
   function loadLocation() {
-    console.log("loading location")
     if (loading) return;
-
-    console.log("loading locationgood")
-
 
     // console.log("loading location")
     setLoading(true)
@@ -847,20 +881,54 @@ export default function Home({ locale }) {
     });
   }
   function fetchMethod() {
-    fetch(`/${window?.learnMode ? 'clue': 'all'}Countries.json`).then((res) => res.json()).then((data) => {
+    fetch((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:`/mapLocations/${gameOptions.location}`).then((res) => res.json()).then((data) => {
       if(data.ready) {
+        // this uses long for lng
+        for(let i = 0; i < data.locations.length; i++) {
+          if(data.locations[i].lng && !data.locations[i].long) {
+            data.locations[i].long = data.locations[i].lng;
+            delete data.locations[i].lng;
+          }
+        }
+
         setAllLocsArray(data.locations)
+
+        if(gameOptions.location === "all") {
         const loc = data.locations[0]
         setLatLong(loc)
+        } else {
+          const loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+          setLatLong(loc)
+          if(data.name) {
+            // map name
+             // calculate extent (for openlayers)
+             const mappedLatLongs = data.locations.map((l) => fromLonLat([l.long, l.lat], 'EPSG:4326'));
+             let extent = boundingExtent(mappedLatLongs);
+             // convert extent from EPSG:4326 to EPSG:3857 (for openlayers)
+
+            setGameOptions((prev) => ({
+              ...prev,
+              communityMapName: data.name,
+              official: data.official ?? false,
+              maxDist: data.maxDist ?? 20000,
+              extent: extent
+            }))
+
+          }
+        }
+
       } else {
-        console.log("pregen not ready :(")
+      toast(text("errorLoadingMap"), { type: 'error' })
         defaultMethod()
       }
     }).catch((e) => {
+      toast(text("errorLoadingMap"), { type: 'error' })
       defaultMethod()
     });
   }
-  if(gameOptions.location==="all") {
+  if(gameOptions.countryMap && gameOptions.official) {
+    defaultMethod()
+  } else {
     if(allLocsArray.length===0) {
       fetchMethod()
     } else if(allLocsArray.length>0) {
@@ -868,13 +936,19 @@ export default function Home({ locale }) {
       if((locIndex === -1) || (locIndex === allLocsArray.length-1)) {
        fetchMethod()
       } else {
+        if(gameOptions.location === "all") {
         const loc = allLocsArray[locIndex+1] ?? allLocsArray[0];
         setLatLong(loc)
+        } else {
+          // community maps are randomized
+          const loc = allLocsArray[Math.floor(Math.random() * allLocsArray.length)];
+          setLatLong(loc)
+        }
       }
 
-    }
-  } else defaultMethod()
+  }
 }
+    }
 
   }
 
@@ -995,10 +1069,15 @@ export default function Home({ locale }) {
                 <button className="home__squarebtn gameBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}><FaMap className="home__squarebtnicon" /></button>
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
-<Ad screenH={height} screenW={width} types={[[320, 50],[728,90],[970,90]]} centerOnOverflow={600} />
 
               </>
             )}
+            </div>
+
+          <div style={{ marginTop: "20px" }}>
+            <center>
+    <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} screenW={width} />
+            </center>
             </div>
           </div>
           </>
@@ -1018,7 +1097,7 @@ export default function Home({ locale }) {
         </div>}
 
         {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
-          <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding.round < 3} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
           </div>}
 
           {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
@@ -1026,7 +1105,9 @@ export default function Home({ locale }) {
               <OnboardingText words={[
                 text("onboarding1")
               ]} pageDone={() => {
-                window.localStorage.setItem("onboarding", 'done')
+                try {
+                  window.localStorage.setItem("onboarding", 'done')
+                } catch(e) {}
                 setOnboarding((prev)=>{
                   return {
                     ...prev,
@@ -1034,7 +1115,7 @@ export default function Home({ locale }) {
                   }
                 })
               }} shown={!onboarding?.finalOnboardingShown} />
-              <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={20000} onHomePress={() =>{
+              <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} onHomePress={() =>{
                 if(onboarding) sendEvent("tutorial_end");
 
                 setOnboarding(null)
@@ -1079,6 +1160,7 @@ export default function Home({ locale }) {
 	}
    window.adsbygoogle = window.adsbygoogle || [];
   window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
+   adConfig({preloadAdBreaks: 'on'});
   `}
         </Script>
       </main>

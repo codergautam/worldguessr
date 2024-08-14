@@ -88,7 +88,6 @@ export default function EndBanner({ onboarding, countryGuesser, countryGuesserCo
 
 </div>
   )}
-<Ad screenH={height} screenW={width} types={[[320, 50]]} centerOnOverflow={600} />
 </div>
   )
 }

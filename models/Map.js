@@ -57,6 +57,14 @@ const mapSchema = new mongoose.Schema({
   countryMap: {
     type: String,
     required: false
+  },
+  official: {
+    type: Boolean,
+    default: false
+  },
+  maxDist: {
+    type: Number,
+    required: true
   }
 });
 

@@ -65,6 +65,7 @@ button {
   left: 100%;
   opacity: 0;
   animation: hide 0.5s ease-in-out forwards;
+  pointer-events: none;
 }
 
 .home__btns {
@@ -245,12 +246,14 @@ button {
 .navBtn {
   font-size: 1.5em;
   width: auto;
+  pointer-events: all;
 }
 .backBtn {
   background-color: #AE4141;
   // width: 100px;
 
   margin-left: 10px;
+  pointer-events: all;
 }
 .backBtn:hover {
   background-color: darkred;
@@ -278,6 +281,7 @@ h1, h2, h3, span {
   z-index: 102;
   padding: 0 20px;
   overflow-x: hidden;
+  pointer-events: none;
 
   // enter from top
 
@@ -324,6 +328,7 @@ h1, h2, h3, span {
 .nonHome.shown {
   display: flex;
   animation: fadeInNonHome 0.5s ease-in-out forwards;
+  pointer-events: all;
 }
 
 @keyframes fadeInNonHome {
@@ -374,6 +379,7 @@ h1, h2, h3, span {
   transform: translateY(0%);
   transition: all 0.5s;
   animation: fadeIn 0.5s ease-in-out forwards;
+  z-index: 1001;
 }
 
 
@@ -744,7 +750,7 @@ screen and (pointer:coarse) {
 }
 
 // on screens larger than 600px
-@media screen and (min-width: 600px) {
+@media screen and (min-width: 600px) and (pointer: fine) {
   #miniMapArea.mapExpanded {
     /* full screen center not 100% */
     height: 65%;
@@ -756,6 +762,19 @@ screen and (pointer:coarse) {
     width: 75%;
   }
 }
+
+// if less than 600px or touch screen
+@media screen and (max-width: 600px),
+screen and (pointer:coarse) {
+  #miniMapArea {
+    /* full screen center not 100% */
+    height: 70%;
+    width: 55%;
+  }
+
+
+}
+
 
 
 #miniMapArea.answerShown {
@@ -791,11 +810,11 @@ screen and (pointer:coarse) {
   justify-content: space-around;
   // padding: 20px;
   overflow-y: scroll;
-  max-height: 50vh;
+  // max-height: 50vh;
+  // height: 50vh;
 
   // green scrollbar
-  scrollbar-color: #96c6a3 #414c48;
-  scrollbar-width: thin;
+  overflow: hidden;
 }
 
 .countryCard {
@@ -1350,6 +1369,7 @@ screen and (pointer:coarse) {
   display: flex;
   align-items: center;
   justify-content: center;
+  pointer-events: all;
 }
 .input-group {
   display: flex;
@@ -1578,6 +1598,8 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   transition: all 0.2s;
   cursor: pointer;
   width: 300px;
+  min-width: 200px;
+  max-width: 300px;
   margin: 10px;
   height: fit-content;
 }
@@ -1697,8 +1719,44 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   transform: scale(1.05);
 }
 .mapSectionMaps {
-  display: flex;
+  // display: flex;
+  // overflow-x: auto;
+  // padding-left: 20px;
+  // padding-right: 20px;
+
+  /* Custom scrollbar styles */
+  scrollbar-width: thin;
+  scrollbar-color: #86b386 rgba(0, 0, 0, 0);
+  cursor: grabbing;
+
+  /* Track */
+  &::-webkit-scrollbar-track {
+    background-color: rgba(0, 0, 0, 0);
+  }
+
+  /* Handle */
+  &::-webkit-scrollbar-thumb {
+    background-color: #00DD00; /* Modified color */
+    border-radius: 5px;
+  }
+
+  /* Handle on hover */
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: #84cc84; /* Modified color */
+  }
+
+  /* Remove arrows */
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  // /* arrows */
+
 }
+.mapSectionMaps:active {
+  cursor: grabbing;
+}
+
 .mapSectionTitle {
   font-size: 40px;
 }
@@ -1811,4 +1869,25 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
     margin-left: 10px;
     /* This can be used for future validation styling */
   }
+}
+.topAdFixed {
+  position: fixed;
+  top: 0;
+  z-index: 1000;
+  left: 50%;
+  transform: translateX(-50%);
+}
+@media screen and (max-width: 850px) {
+  .topAdFixed {
+    top: 50px;
+  }
+  .topAdFixed.moreDown {
+    top: 100px;
+  }
+
+}
+
+.mainBody {
+  overflow: hidden;
+  user-select: none;
 }

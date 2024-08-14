@@ -41,6 +41,7 @@ import path from 'path';
 import countries from './public/countries.json' with { type: "json" };
 import cities from './public/cities.json' with { type: "json" };
 import moment from 'moment-timezone';
+import MapModel from './models/Map.js';
 
 function isValidTimezone(tz) {
   return !!moment.tz.zone(tz);
@@ -250,7 +251,7 @@ const generateClueLocations = async () => {
     const country = lookup(clue.lat, clue.lng, true)[0];
     clueLocations.push({
       lat: clue.lat,
-      long: clue.lng,
+      lng: clue.lng,
       country
     });
   }
@@ -276,7 +277,7 @@ registerHandler('/clueCountries.json', 'GET', (req, res, query) => {
     // send json {ready: false}
     res.end(JSON.stringify({ ready: false }));
   } else {
-    res.end(JSON.stringify({ ready: true, locations: clueLocations }));
+    res.end(JSON.stringify({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) }));
   }
 });
 
@@ -287,7 +288,7 @@ function make6DigitCode() {
 }
 
 class Game {
-  constructor(id, publicLobby, location="all") {
+  constructor(id, publicLobby, location="all", rounds=5) {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
@@ -301,7 +302,7 @@ class Game {
     this.nextEvtTime = null;
     this.locations = [];
     this.location = location;
-    this.rounds = 5;
+    this.rounds = rounds;
     this.curRound = 0; // 1 = 1st round
     this.maxPlayers = 100;
 
@@ -646,6 +647,25 @@ app.prepare().then(() => {
 
       if (handlers[pathname] && req.method === handlers[pathname].method) {
         return handlers[pathname].handler(req, res, query);
+      }
+
+      // check if in format /mapLocations/:slug
+      const mapLocMatch = pathname.includes('/mapLocations/');
+      if (mapLocMatch) {
+        const slug = pathname.split('/mapLocations/')[1].split('?')[0];
+        console.log('Map location requested', slug);
+        const map = await MapModel.findOne({ slug });
+        if (!map) {
+          return app.render(req, res, '/404', query);
+        }
+        res.end(JSON.stringify({
+          ready: true,
+          locations: map.data,
+          name: map.name,
+          official: map.official,
+          maxDist: map.maxDist
+      }));
+        return;
       }
 
       await handle(req, res, parsedUrl)
@@ -1066,8 +1086,7 @@ app.prepare().then(() => {
         //   }
         // }
 
-        const game = new Game(gameId, false, location);
-        game.rounds = rounds;
+        const game = new Game(gameId, false, location, rounds);
         game.timePerRound = timePerRound * 1000;
         // game.locations = locations;
         // game.location = location;

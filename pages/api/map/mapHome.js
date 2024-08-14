@@ -14,11 +14,6 @@ let mapCache = {
     data: [],
     timeStamp: 0,
     persist: 1800000
-  },
-  trending: {
-    data: [],
-    timeStamp: 0,
-    persist: 3600000
   }
 }
 
@@ -57,7 +52,7 @@ export default async function handler(req, res) {
 
   let response = {};
   // sections
-  // [reviewQueue (if staff), myMaps (if exists), trending, recent, popular  ]
+  // [reviewQueue (if staff), myMaps (if exists), recent, popular  ]
 
   if(user?.staff) {
     // reviewQueue
@@ -89,7 +84,7 @@ export default async function handler(req, res) {
   if(myMaps.length > 0) response.myMaps = myMaps;
 }
 
-  const discovery =  ["trending","recent","popular"]
+  const discovery =  ["recent","popular"]
   for(const method of discovery) {
     if(mapCache[method].data.length > 0 && Date.now() - mapCache[method].timeStamp < mapCache[method].persist) {
       // retrieve from cache
@@ -102,11 +97,6 @@ export default async function handler(req, res) {
        maps = await Map.find({ accepted: true }).sort({ created_at: -1 }).limit(limit);
       } else if(method === "popular") {
        maps = await Map.find({ accepted: true }).sort({ hearts: -1 }).limit(limit);
-      } else if(method === "trending") {
-        const currentDate = new Date();
-       maps = await Map.find({ accepted: true, created_at: {
-        $gte:  new Date(currentDate.getTime() - (30 * 24 * 60 * 60 * 1000)) // Date and time 30 days ago
-       } }).sort({ plays: -1 }).limit(limit);
       }
 
       let sendableMaps = await Promise.all(maps.map(async (map) => {

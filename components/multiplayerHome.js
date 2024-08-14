@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import BannerText from "./bannerText"
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa"
 import enforceMinMax from "./utils/enforceMinMax"
-import GameOptions from "./gameOptionsModal";
 import PlayerList from "./playerList";
 import { useTranslation } from 'next-i18next'
 import sendEvent from "./utils/sendEvent";
@@ -58,13 +57,6 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
 <button className="goBtn" onClick={() => setSelectCountryModalShown(true)} disabled={(multiplayerState?.createOptions?.progress !== false)}>{text("change")}</button>
 
 <br/>
-<GameOptions setGameOptions={(p) => {
-  setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, location: p.location } }))
-}} gameOptions={() => {
-  return {
-    location: multiplayerState.createOptions.location
-  }
-}} shown={selectCountryModalShown} onClose={() => setSelectCountryModalShown(false)} />
 
 </div>
         <button className="gameBtn goBtn" style={{width: "auto"}} onClick={() => handleAction("createPrivateGame", multiplayerState.createOptions)} disabled={multiplayerState?.createOptions?.progress !== false}>

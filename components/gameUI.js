@@ -2,7 +2,6 @@ import { useEffect, useState } from "react"
 import dynamic from "next/dynamic";
 import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
-import GameOptions from "./gameOptionsModal";
 import EndBanner from "./endBanner";
 import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
@@ -14,6 +13,10 @@ import CountryBtns from "./countryButtons";
 import OnboardingText from "./onboardingText";
 import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
+import SaveStreakBanner from "./streakSaveBanner";
+import { toast } from "react-toastify";
+import sendEvent from "./utils/sendEvent";
+import Ad from "./bannerAd";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -63,12 +66,18 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   const [onboardingWords, setOnboardingWords] = useState([]);
   const [showPanoOnResult, setShowPanoOnResult] = useState(false);
   const [explanationModalShown, setExplanationModalShown] = useState(false);
+  const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
   useEffect(() => {
-    if(showAnswer) setShowPanoOnResult(false)
+    if(showAnswer) {
+      setShowPanoOnResult(false)
+    } else {
+    }
   }, [showAnswer])
+
+
 
   useEffect(() => {
 
@@ -139,7 +148,11 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   }, [latLong, multiplayerState])
 
   useEffect(() => {
+    try {
     window.localStorage.setItem("countryStreak", countryStreak);
+    } catch(e) {
+      console.log("error setting countryStreak in localstorage")
+    }
   }, [countryStreak])
 
   useEffect(() => {
@@ -160,10 +173,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     } else if(onboarding.round === 3) {
       setOnboardingWords([
         text("astounding"),
-        text("onboarding6"),
-        text("onboarding7"),
-        text("onboarding8"),
-        text("onboarding9"),
       ])
     } else if(onboarding.round === 4) {
       setOnboardingWords([
@@ -224,7 +233,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     }
     if(multiplayerState?.inGame) return;
 
-    if(xpEarned > 0 && session?.token?.secret) {
+    if(xpEarned > 0 && session?.token?.secret && gameOptions.official) {
       fetch('/api/storeGame', {
         method: 'POST',
         headers: {
@@ -256,16 +265,46 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       setLostCountryStreak(0);
       if(country === latLong.country) {
         setCountryStreak(countryStreak + 1);
+        setShowStreakAdBanner(false);
       } else {
         setCountryStreak(0);
         setLostCountryStreak(countryStreak);
+
+        if(countryStreak > 0 && window.adBreak) {
+        console.log("requesting reward ad")
+        window.adBreak({
+          type: 'reward',  // rewarded ad
+          name: 'reward-continue',
+          beforeReward: (showAdFn) => {
+            window.showRewardedAdFn = () => { showAdFn();
+              sendEvent('reward_ad_play', { countryStreak });
+              };
+            // Rewarded ad available - prompt user for a rewarded ad
+            setShowStreakAdBanner(true);
+            sendEvent('reward_ad_available', { countryStreak });
+            console.log("reward ad available")
+          },
+          beforeAd: () => { },     // You may also want to mute the game's sound.
+          adDismissed: () => {
+            toast.error(text("adDismissed"));
+            sendEvent('reward_ad_dismissed', { countryStreak });
+          },
+          adViewed: () => {
+            setCountryStreak(countryStreak);
+            setLostCountryStreak(0);
+            toast.success(text("streakRestored"));
+            sendEvent('reward_ad_viewed', { countryStreak });
+          },       // Reward granted - continue game at current score.
+          afterAd: () => { setShowStreakAdBanner(false) },       // Resume the game flow.
+        });
+      }
       }
     });
     }
   }
 
   useEffect(() => {
-    if(!latLong || !pinPoint || multiplayerState?.inGame) return;
+    if(!latLong || !pinPoint || multiplayerState?.inGame || !gameOptions?.official) return;
     setXpEarned(Math.round(calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist }) / 50))
   }, [km, latLong, pinPoint])
 
@@ -319,6 +358,11 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
       panorama.setPov(panorama.getPhotographerPov());
       panorama.setZoom(0);
+
+      // if localhost log the location
+      if(window.location.hostname === "localhost") {
+        console.log("[DEV] country:", latLong.country);
+      }
     }
 
     let loaded = false;
@@ -346,8 +390,18 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
   }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
 
+
+  const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
+  const onboardingTimerShown = !((loading||showAnswer||!onboarding));
   return (
     <div className="gameUI">
+
+{/* { !onboarding && (
+    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown)?'moreDown':''}`}>
+    <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    </div>
+)} */}
+
       { latLong && multiplayerState?.gameData?.state !== 'end' && (
       // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
@@ -462,13 +516,13 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
         }
         }} />
       )}
-      <span className={`timer ${(loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end') ? '' : 'shown'}`}>
+      <span className={`timer ${!multiplayerTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
         </span>
 
-        <span className={`timer ${(loading||showAnswer||!onboarding) ? '' : 'shown'}`}>
+        <span className={`timer ${!onboardingTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {timeToNextRound ?
@@ -495,13 +549,12 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
             backBtnPressed()
           }} />
         )}
+
+
+
     <ExplanationModal lat={latLong?.lat} long={latLong?.long} shown={explanationModalShown} onClose={() => {
         setExplanationModalShown(false)
       }} session={session} />
-
-      <GameOptions singleplayer={!multiplayerState?.inGame} shown={gameOptionsModalShown} onClose={() => {
-        setGameOptionsModalShown(false)
-      }} gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
 {/* <EndBanner xpEarned={xpEarned} usedHint={showHint} session={session} lostCountryStreak={lostCountryStreak} guessed={guessed} latLong={latLong} pinPoint={pinPoint} countryStreak={countryStreak} fullReset={fullReset} km={km} playingMultiplayer={playingMultiplayer} /> */}
 
@@ -509,6 +562,10 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   { showAnswer && showClueBanner && (
 <ClueBanner session={session} explanations={explanations} close={() => {setShowClueBanner(false)}} />
   )}
+        <SaveStreakBanner shown={showStreakAdBanner} close={() => {
+          setShowStreakAdBanner(false)
+        }} lostCountryStreak={lostCountryStreak} playAd={()=>{window.showRewardedAdFn()}} setLostCountryStreak={setLostCountryStreak} countryStreak={countryStreak} setCountryStreak={setCountryStreak} />
+
 <EndBanner onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
 loadLocationFunc()
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {

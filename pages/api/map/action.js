@@ -3,6 +3,26 @@ import parseMapData from "@/components/utils/parseMapData";
 import generateSlug from "@/components/utils/slugGenerator";
 import Map from "@/models/Map";
 import User from "@/models/User";
+import countries from '@/public/countries.json';
+
+// Function to convert latitude and longitude to Cartesian coordinates
+function latLngToCartesian(lat, lng) {
+  const R = 6371; // Earth radius in km
+  const phi = (lat * Math.PI) / 180;
+  const theta = (lng * Math.PI) / 180;
+  const x = R * Math.cos(phi) * Math.cos(theta);
+  const y = R * Math.cos(phi) * Math.sin(theta);
+  const z = R * Math.sin(phi);
+  return { x, y, z };
+}
+
+// Function to calculate the distance between two Cartesian coordinates
+function calculateDistance(cart1, cart2) {
+  const dx = cart1.x - cart2.x;
+  const dy = cart1.y - cart2.y;
+  const dz = cart1.z - cart2.z;
+  return Math.sqrt(dx * dx + dy * dy + dz * dz);
+}
 
 export default async function handler(req, res) {
 
@@ -11,17 +31,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  let { action, secret, name, data, description_short, description_long } = req.body;
+  let { action, secret, name, data, description_short, description_long, mapId } = req.body;
 
   if(!action || !secret) {
     return res.status(400).json({ message: 'Missing action or secret' });
   }
 
   // get user from secret
-  const user = await User.findOne({
-    secret: secret
-  });
-
+  const user = await User.findOne({ secret: secret });
   if(!user) {
     return res.status(404).json({ message: 'User not found' });
   }
@@ -57,6 +74,9 @@ export default async function handler(req, res) {
     }
 
     const slug = generateSlug(name);
+    if(slug === 'all' || countries.includes(slug.toUpperCase())) {
+      return res.status(400).json({ message: 'Please choose a different name' });
+    }
 
     // validate data
     const locationsData = parseMapData(data);
@@ -67,19 +87,14 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: `To make a map with more than ${mapConst.MAX_LOCATIONS} locations, please contact us at gautam@worldguessr.com` });
     }
 
-    // make sure last map made over 1h ago
-    const lastMap = await Map.findOne({ created_by: user._id }).sort({ created_at: -1 });
-    if(lastMap && (Date.now() - lastMap.created_at.getTime()) < mapConst.MIN_MAP_INTERVAL) {
-      const timeRemaining = mapConst.MIN_MAP_INTERVAL - (Date.now() - lastMap.created_at.getTime());
-      return res.status(400).json({ message: 'Please wait at least ' + Math.round(timeRemaining / 1000 / 60) + ' minutes before creating another map' });
-    }
+    // Convert all locations to Cartesian coordinates
+    const cartesianLocations = locationsData.map(loc => latLngToCartesian(loc.lat, loc.lng));
 
-    // make sure slug or name doesn't already exist
-    const existing = await Map.findOne({ $or: [{ slug }, { name }] });
-    if(existing) {
-      return res.status(400).json({ message: 'Map with that name already exists' });
-    }
+    // Sort by x-coordinate (you can choose any dimension)
+    cartesianLocations.sort((a, b) => a.x - b.x);
 
+    // Find the maximum distance between the first and last sorted locations
+    const maxDist = calculateDistance(cartesianLocations[0], cartesianLocations[cartesianLocations.length - 1]);
 
     // create map
     const map = await Map.create({
@@ -88,14 +103,38 @@ export default async function handler(req, res) {
       created_by: user._id,
       data: locationsData,
       description_short,
-      description_long
+      description_long,
+      maxDist
     });
 
     return res.status(200).json({ message: 'Map created', map });
   }
 
+  // delete map
+  if(action === 'delete') {
+    if(!mapId) {
+      return res.status(400).json({ message: 'Missing mapId' });
+    }
 
+    // find the map
+    const map = await Map.findById(mapId);
+    if(!map) {
+      return res.status(404).json({ message: 'Map not found' });
+    }
+
+    // check if the user is the owner
+    if(map.created_by.toString() !== user._id.toString()) {
+      return res.status(403).json({ message: 'You are not authorized to delete this map' });
+    }
+
+    // delete the map
+    await map.remove();
+    return res.status(200).json({ message: 'Map deleted' });
+  }
+
+  return res.status(400).json({ message: 'Invalid action' });
 }
+
 export const config = {
   api: {
       bodyParser: {

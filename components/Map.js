@@ -10,18 +10,20 @@ import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import LineString from 'ol/geom/LineString';
 import { Icon, Style, Stroke, Fill, Text } from 'ol/style';
-import { fromLonLat, toLonLat, transformExtent } from 'ol/proj';
+import { fromLonLat, get, toLonLat, transformExtent } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
 import ol, { DoubleClickZoom, KeyboardZoom, MouseWheelZoom } from 'ol/interaction';
 import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
 import { useTranslation } from 'react-i18next';
 import sendEvent from './utils/sendEvent';
+import { boundingExtent } from 'ol/extent';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
-const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions, focused }) => {
+const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions, focused, extent }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
+  const [mapInitialized, setMapInitialized] = useState(false);
   const [randomOffsetS, setRandomOffsetS] = useState([0, 0]);
   const plopSound = useRef();
   const vectorSource = useRef(new VectorSource());
@@ -54,6 +56,40 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
   }
   // Initialize map on first render
   useEffect(() => {
+    let extent = gameOptions?.extent;
+    if (!extent || !map || !mapInitialized) return;
+
+    // new  york
+//     var coordMin = fromLonLat([148.77638,-34.491728], 'EPSG:3857');
+// var coordMax = fromLonLat([148.77896,-34.492302], 'EPSG:3857');
+// var extentt=[coordMin[0],coordMin[1],coordMax[0],coordMax[1]];
+// map.getView().fit(boundingExtent(extentt),map.getSize());
+
+const newView = new View({
+  center: fromLonLat([2, 35]),
+  zoom: 1,
+  zoomFactor: 2.5,
+});
+map.setView(newView);
+
+    const center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+
+    newView.setCenter(fromLonLat(center));
+    // zoom so that the extent fits in the map
+    newView.fit(transformExtent(extent, 'EPSG:4326', 'EPSG:3857'));
+    map.thingySet = true;
+    console.log("extent", extent)
+
+
+
+    // const center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+    //   console.log("center", center)
+    // const view = map.getView();
+    // view.setCenter(fromLonLat(center));
+    // view.fit(transformExtent(extent, 'EPSG:4326', 'EPSG:3857'), { duration: 1000 });
+  }, [gameOptions?.extent, mapInitialized])
+
+  useEffect(() => {
     const initialMap = new Map({
       target: mapRef.current,
       layers: [
@@ -72,6 +108,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
         center: fromLonLat([2, 35]),
         zoom: 1,
         zoomFactor: 2.5,
+        extent: transformExtent([-180, -85, 180, 85], 'EPSG:4326', 'EPSG:3857'),
       }),
     });
 
@@ -120,6 +157,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
     initialMap.on('click', onMapClick);
 
     setMap(initialMap);
+    setMapInitialized(true);
 
     return () => {
       initialMap.setTarget(undefined);
@@ -400,14 +438,18 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
   useEffect(() => {
     if(!answerShown || !location || !map) return;
     try {
+      if(gameOptions?.extent) {
+        map.getView().fit(transformExtent(gameOptions.extent, 'EPSG:4326', 'EPSG:3857'));
+          }
     setTimeout(() => {
-      map.getView().animate({ center: fromLonLat([location.long, location.lat]), zoom: 5, duration: 3000 });
-    }, 100);
+
+      map.getView().animate({ center: fromLonLat([location.long, location.lat]), duration: 3000, zoom: map.getView().getZoom()+2 });
+    }, 200);
   }catch(e) {
 
   }
 
-  }, [answerShown, location, map])
+  }, [answerShown, location, map, gameOptions?.extent])
 
   useEffect(() => {
     if(!gameOptions || !location) return;
