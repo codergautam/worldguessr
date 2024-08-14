@@ -88,7 +88,7 @@ export default function SetUsernameModal({ shown, onClose, session }) {
                 {text("save")}
             </button>
 
-            <button className="saveUsername" style={{
+            {/* <button className="saveUsername" style={{
                 fontSize: '16px',
                 color: 'white',
                 background: 'black',
@@ -99,7 +99,7 @@ export default function SetUsernameModal({ shown, onClose, session }) {
                 marginLeft: '10px'
             }} onClick={signOut}>
                 {text("logOut")}
-            </button>
+            </button> */}
         </Modal>
     )
 }
