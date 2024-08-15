@@ -16,7 +16,7 @@ const initMakeMap = {
   data: "",
 };
 
-export default function MapView({ close, session, text, onMapClick }) {
+export default function MapView({ close, session, text, onMapClick, chosenMap }) {
   const [makeMap, setMakeMap] = useState(initMakeMap);
   const [mapHome, setMapHome] = useState({
     message: text("loading") + "...",

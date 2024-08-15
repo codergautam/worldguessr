@@ -101,6 +101,8 @@ export default function Home({ locale }) {
   });
   const [isApp, setIsApp] = useState(false);
 
+
+
   useEffect(() => {
     if(window.location.search.includes("app=true")) {
       setIsApp(true);
@@ -114,6 +116,18 @@ export default function Home({ locale }) {
   const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
   const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
   const [allLocsArray, setAllLocsArray] = useState([]);
+
+  function openMap(mapSlug) {
+    const country = countries.find((c) => c === mapSlug.toUpperCase());
+    setAllLocsArray([])
+
+    setGameOptions((prev) => ({
+      ...prev,
+      location: mapSlug,
+      official: country ? true : false,
+      countryMap: country,
+    }))
+  }
 
   useEffect(() => {
     if(onboarding?.round >1) {
@@ -160,16 +174,7 @@ export default function Home({ locale }) {
       console.log("map slug", mapSlug)
       setScreen("singleplayer")
 
-      const country = countries.find((c) => c === mapSlug.toUpperCase());
-
-      console.log("country", countries, country)
-
-      setGameOptions((prev) => ({
-        ...prev,
-        location: mapSlug,
-        official: country ? true : false,
-        countryMap: country,
-      }))
+      openMap(mapSlug)
     }
   }, [])
 
@@ -1093,7 +1098,13 @@ export default function Home({ locale }) {
           <br />
         </div>
         <InfoModal shown={false} />
-        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text} />
+        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
+            customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
+              console.log("map", map)
+              openMap(map.countryMap||map.slug);
+              setGameOptionsModalShown(false)
+            }:null}
+          />
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
 
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
