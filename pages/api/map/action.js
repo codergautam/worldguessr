@@ -3,7 +3,9 @@ import parseMapData from "@/components/utils/parseMapData";
 import generateSlug from "@/components/utils/slugGenerator";
 import Map from "@/models/Map";
 import User from "@/models/User";
+
 import countries from '@/public/countries.json';
+import officialCountryMaps from '@/public/officialCountryMaps.json';
 
 // Function to convert latitude and longitude to Cartesian coordinates
 function latLngToCartesian(lat, lng) {
@@ -74,7 +76,7 @@ export default async function handler(req, res) {
     }
 
     const slug = generateSlug(name);
-    if(slug === 'all' || countries.includes(slug.toUpperCase())) {
+    if(slug === 'all' || countries.includes(slug.toUpperCase()) || Object.values(officialCountryMaps).find(map => map.slug === slug)) {
       return res.status(400).json({ message: 'Please choose a different name' });
     }
 

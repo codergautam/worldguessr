@@ -1601,7 +1601,11 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   min-width: 200px;
   max-width: 300px;
   margin: 10px;
-  height: fit-content;
+  height: 90%;
+}
+
+.map-tile.country {
+  width: 200px;
 }
 
 .map-tile:hover {
@@ -1609,10 +1613,23 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 
 }
 
+.map-tile.country:hover {
+  scale: 1.1;
+
+}
+
 .map-tile__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+
+}
+
+.map-tile__header.country {
+  background-color: rgba(0,0,0,.8);
+  padding: 5px;
+  border-radius: 8px;
+  width: fit-content;
 }
 
 .map-tile__name {
@@ -1668,6 +1685,7 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   border-radius: 10px;
   padding: 10px;
 }
+
 .mapSectionTitle {
   text-align: center;
 }
@@ -1727,7 +1745,6 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   /* Custom scrollbar styles */
   scrollbar-width: thin;
   scrollbar-color: #86b386 rgba(0, 0, 0, 0);
-  cursor: grabbing;
 
   /* Track */
   &::-webkit-scrollbar-track {
@@ -1753,10 +1770,22 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   // /* arrows */
 
 }
-.mapSectionMaps:active {
-  cursor: grabbing;
+// mobile map section
+@media screen and (max-width: 600px) {
+  .mapSection {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .mapViewTitle {
+    font-size: 30px;
+  }
+  .mapViewMake {
+    font-size: 15px;
+  }
+  .mapViewClose {
+    font-size: 15px;
+  }
 }
-
 .mapSectionTitle {
   font-size: 40px;
 }

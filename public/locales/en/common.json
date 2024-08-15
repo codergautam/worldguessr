@@ -182,5 +182,8 @@
   "myMaps": "My Maps",
   "recent": "Recent",
   "popular": "Popular",
-  "errorLoadingMap": "Error loading this map"
+  "errorLoadingMap": "Error loading this map",
+  "freeGeoguessrAlt": "Your free GeoGuessr alternative",
+  "backToGame": "Back to Game",
+  "countryMaps": "Country Maps"
 }

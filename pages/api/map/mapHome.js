@@ -3,6 +3,7 @@ import parseMapData from "@/components/utils/parseMapData";
 import generateSlug from "@/components/utils/slugGenerator";
 import Map from "@/models/Map";
 import User from "@/models/User";
+import officialCountryMaps from '@/public/officialCountryMaps.json';
 
 let mapCache = {
   popular: {
@@ -52,7 +53,7 @@ export default async function handler(req, res) {
 
   let response = {};
   // sections
-  // [reviewQueue (if staff), myMaps (if exists), recent, popular  ]
+  // [reviewQueue (if staff), myMaps (if exists), officialCountryMaps, recent, popular  ]
 
   if(user?.staff) {
     // reviewQueue
@@ -83,6 +84,14 @@ export default async function handler(req, res) {
   myMaps.sort((a,b) => a.created_at - b.created_at)
   if(myMaps.length > 0) response.myMaps = myMaps;
 }
+
+response.countryMaps = Object.values(officialCountryMaps).map((map) => ({
+  ...map,
+  created_by_name: 'WorldGuessr',
+  official: true,
+  countryMap: map.countryCode,
+  description_short: map.shortDescription,
+})).sort((b,a)=>a.maxDist - b.maxDist);
 
   const discovery =  ["recent","popular"]
   for(const method of discovery) {

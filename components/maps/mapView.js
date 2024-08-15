@@ -4,6 +4,7 @@ import MakeMapForm from "./makeMap";
 import MapTile from "./mapTile";
 import { ScrollMenu, VisibilityContext } from "react-horizontal-scrolling-menu";
 import "react-horizontal-scrolling-menu/dist/styles.css";
+import R from "@/public/cesium/Workers/createBoxOutlineGeometry";
 
 // Initial state for creating a map
 const initMakeMap = {
@@ -133,20 +134,37 @@ export default function MapView({ close, session, text, onMapClick }) {
                   <h2 className="mapSectionTitle">{text(section)}</h2>
 
                   <div className="mapSectionMaps">
-                    <ScrollMenu
-                      // LeftArrow={LeftArrow}
-                      // RightArrow={RightArrow}
-                      drag
-                    >
-                      {mapsArray.map((map, i) => (
-                        <MapTile
-                          key={i}
-                          map={map}
-                          onClick={() => onMapClick(map)}
-                        />
-                      ))}
+                  <ScrollMenu drag>
+  {section === "countryMaps" ? (
+     mapsArray.map((map, i) => {
+      if (i % 3 === 0) {
+          return (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                  {mapsArray.slice(i, i + 3).map((tileMap, index) => (
+                      <MapTile
+                          key={i + index}
+                          map={tileMap}
+                          onClick={() => onMapClick(tileMap)}
+                          country={tileMap.countryMap}
+                      />
+                  ))}
+              </div>
+          );
+      } else return null;
+  })
 
-                    </ScrollMenu>
+  ) : (
+    mapsArray.map((map, i) => (
+      <MapTile
+        key={i}
+        map={map}
+        onClick={() => onMapClick(map)}
+        country={map.countryMap}
+      />
+    ))
+  )}
+</ScrollMenu>
+
                   </div>
                 </div>
               );

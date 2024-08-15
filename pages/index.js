@@ -47,6 +47,8 @@ import { useRouter } from "next/router";
 import { fromLonLat, transformExtent } from "ol/proj";
 import { boundingExtent } from "ol/extent";
 
+import countries from "@/public/countries.json";
+
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -157,10 +159,16 @@ export default function Home({ locale }) {
       const mapSlug = params.get("map");
       console.log("map slug", mapSlug)
       setScreen("singleplayer")
+
+      const country = countries.find((c) => c === mapSlug.toUpperCase());
+
+      console.log("country", countries, country)
+
       setGameOptions((prev) => ({
         ...prev,
         location: mapSlug,
-        official: false
+        official: country ? true : false,
+        countryMap: country,
       }))
     }
   }, [])
@@ -1085,8 +1093,9 @@ export default function Home({ locale }) {
           <br />
         </div>
         <InfoModal shown={false} />
-        <MapsModal shown={mapModal} session={session} onClose={() => setMapModal(false)} text={text} />
+        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text} />
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
+
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
           // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game
           multiplayerState?.inGame && !multiplayerState?.gameData?.public
