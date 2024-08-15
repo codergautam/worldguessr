@@ -133,7 +133,7 @@ export default function MapView({ close, session, text, onMapClick }) {
                 <div className="mapSection" key={si}>
                   <h2 className="mapSectionTitle">{text(section)}</h2>
 
-                  <div className="mapSectionMaps">
+                  <div className={`mapSectionMaps`}>
                   <ScrollMenu drag>
   {section === "countryMaps" ? (
      mapsArray.map((map, i) => {

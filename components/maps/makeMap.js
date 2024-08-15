@@ -87,7 +87,7 @@ export default function MakeMapForm({ map, setMap, createMap }) {
         <h2>Rules</h2>
         <li>Use a descriptive name</li>
         <li>Have helpful and informative descriptions</li>
-        <li>Add at least 25 locations</li>
+        <li>Add at least {mapConst.MIN_LOCATIONS} locations</li>
         <li>You can make 1 map an hour</li>
         <li>Keep all details in English (no NSFW)</li>
         <li>All maps will be reviewed before being published</li>
