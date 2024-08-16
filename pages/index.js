@@ -64,6 +64,7 @@ const initialMultiplayerState = {
     rounds: 5,
     timePerRound: 30,
     location: "all",
+    displayLocation: "All countries",
     progress: false
   },
   joinOptions: {
@@ -107,6 +108,8 @@ export default function Home({ locale }) {
     if(window.location.search.includes("app=true")) {
       setIsApp(true);
     }
+    initialMultiplayerState.createOptions.displayLocation = text("allCountries")
+
   }, []);
 
   const [onboarding, setOnboarding] = useState(null);
@@ -1167,6 +1170,7 @@ export default function Home({ locale }) {
               openMap(map.countryMap||map.slug);
               setGameOptionsModalShown(false)
             }:null}
+            showAllCountriesOption={(gameOptionsModalShown&&screen==="singleplayer")}
           />
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
 

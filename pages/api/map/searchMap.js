@@ -22,7 +22,7 @@ export default async function searchMaps(req, res) {
     }
   }
 
-  let hearted_maps = user ? user.hearted_maps : new Map();
+  let hearted_maps = user ? user.hearted_maps : null;
 
   // Validate the search query
   if (!query || query.length < 3) {
@@ -43,7 +43,7 @@ export default async function searchMaps(req, res) {
     // Convert maps to sendable format
     let sendableMaps = await Promise.all(maps.map(async (map) => {
       const owner = await User.findById(map.created_by);
-      return sendableMap(map, owner, hearted_maps.has(map._id.toString()));
+      return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false);
     }));
 
     res.status(200).json(sendableMaps);

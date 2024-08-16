@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     }
   }
 
-  let hearted_maps = user ? user.hearted_maps : new Map();
+  let hearted_maps = user ? user.hearted_maps :  null;
   let response = {};
   // sections
   // [reviewQueue (if staff), myMaps (if exists), officialCountryMaps, recent, popular  ]
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
 
     let queueMapsSendable = await Promise.all(queueMaps.map(async (map) => {
       const owner = await User.findById(map.created_by);
-      return sendableMap(map, owner, hearted_maps.has(map._id.toString()));
+      return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false);
     }));
 
     // oldest to newest
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
   // find maps made by user
   if(user) {
     let myMaps = await Map.find({ created_by: user._id.toString() });
-    myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps.has(map._id.toString())));
+    myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps?hearted_maps.has(map._id.toString()):false));
     myMaps.sort((a,b) => a.created_at - b.created_at);
     if(myMaps.length > 0) response.myMaps = myMaps;
   }
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
 
       let sendableMaps = await Promise.all(maps.map(async (map) => {
         const owner = await User.findById(map.created_by);
-        return sendableMap(map, owner, hearted_maps.has(map._id.toString()));
+        return sendableMap(map, owner,hearted_maps?hearted_maps.has(map._id.toString()):false);
       }));
 
       response[method] = sendableMaps;

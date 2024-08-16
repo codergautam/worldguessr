@@ -23,7 +23,7 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
   const [searchResults, setSearchResults] = useState([]);
   const [heartingMap, setHeartingMap] = useState("");
 
-  useEffect(() => {
+  function refreshHome() {
     fetch("/api/map/mapHome", {
       method: "POST",
       headers: {
@@ -40,6 +40,9 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
       .catch(() => {
         setMapHome({ message: "Failed to fetch" });
       });
+    }
+  useEffect(() => {
+    refreshHome();
   }, [session?.token?.secret, text]);
 
   const debounce = (func, delay) => {
@@ -222,7 +225,7 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
                       <ScrollMenu drag>
                         {section === "countryMaps" ? (
                           mapsArray.map((map, i) => {
-                            if (i % 4 === 0) {
+                            if (i % 3 === 0) {
                               return (
                                 <div
                                   style={{
@@ -232,7 +235,7 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
                                   key={i}
                                 >
                                   {mapsArray
-                                    .slice(i, i + 4)
+                                    .slice(i, i + 3)
                                     .map((tileMap, index) => (
                                       <MapTile
                                         key={i + index}
@@ -255,6 +258,8 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
                               onClick={() => onMapClick(map)}
                               country={map.countryMap}
                               searchTerm={searchTerm}
+                              secret={session?.token?.secret}
+                              refreshHome={refreshHome}
                               showReviewOptions={session?.token?.staff && section === "reviewQueue"}
                               onHeart={() => {
                                 if (!session?.token?.secret) {

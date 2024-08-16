@@ -1,6 +1,7 @@
 import { FaHeart } from "react-icons/fa6";
 import {useState} from "react";
 import { toast } from "react-toastify";
+import formatNumber from "../utils/fmtNumber";
 export default function MapTile({ map, onHeart, onClick, country, searchTerm, canHeart, showReviewOptions, secret, refreshHome }) {
   const backgroundImage = country ? `url("https://flagcdn.com/h240/${country.toLowerCase()}.png")` : "";
 
@@ -31,7 +32,7 @@ export default function MapTile({ map, onHeart, onClick, country, searchTerm, ca
       if(reject_reason === null) return;
     }
 
-    fetch(`/api/maps/approveRejectMap`, {
+    fetch(`/api/map/approveRejectMap`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -40,7 +41,7 @@ export default function MapTile({ map, onHeart, onClick, country, searchTerm, ca
         secret,
         mapId,
         action: accepted ? 'approve' : 'reject',
-        reject_reason,
+        rejectReason: reject_reason,
         resubmittable: mapResubmittable
       })
     }).then(res => {
@@ -52,7 +53,13 @@ export default function MapTile({ map, onHeart, onClick, country, searchTerm, ca
           toast.error(data.message);
           refreshHome();
         }
+      }).catch(err => {
+        console.error(err);
+        toast.error("An error occurred while trying to review the map. Please try again later.");
       });
+    }).catch(err => {
+      console.error(err);
+      toast.error("An error occurred while trying to review the map. Please try again later.");
     });
 
   }
@@ -73,6 +80,12 @@ export default function MapTile({ map, onHeart, onClick, country, searchTerm, ca
           {!map.countryMap && map.created_by_name && (
             <div className="map-tile__author">
               by {highlightMatch(map.created_by_name, searchTerm)}
+
+              {map.accepted && (
+                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}>&nbsp; &middot; {formatNumber(map.plays,3)} plays</span>
+              )}
+
+
             </div>
           )}
         </div>
@@ -85,11 +98,13 @@ export default function MapTile({ map, onHeart, onClick, country, searchTerm, ca
       </div>
 
       {/* Review Queue Status and Reject Reason */}
-      {!country && map.in_review && map.yours && !map.accepted && (
+      {!country && (map.in_review||map.reject_reason) && map.yours && !map.accepted && (
         <div className={`map-tile__status ${map.reject_reason ? 'rejected' : 'in-review'}`}>
           {!map.accepted && map.resubmittable && map.reject_reason && (
             <span>
               Rejected: {map.reject_reason}
+              <br />
+              {mapResubmittable ? "Resubmittable" : "Not Resubmittable"}
             </span>
           )}
           {!map.accepted && !map.reject_reason && <span>In Review</span>}
