@@ -1587,7 +1587,7 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   display: none;
 }
 
-// map tile component
+// map tiles
 .map-tile {
   display: flex;
   flex-direction: column;
@@ -1610,19 +1610,16 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 
 .map-tile:hover {
   background-color: rgba(0,0,0,.5);
-
 }
 
 .map-tile.country:hover {
   scale: 1.1;
-
 }
 
 .map-tile__header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-
 }
 
 .map-tile__header.country {
@@ -1654,22 +1651,47 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   color: rgba(255, 255, 255, 0.5);
 }
 
+.map-tile__author {
+  display: flex;
+}
 .map-tile__heart {
   color: #ffffff;
 }
+
 .map-tile__description {
   margin-top: 8px;
   color: white;
 }
+
 .map-tile__heart {
   background-color: rgba(0,0,0,.25);
-
   border-radius: 10px;
   transition: transform 0.2s;
 }
+
 .map-tile__heart:hover {
   transform: scale(1.1);
 }
+
+/* Review Queue Status and Reject Reason */
+.map-tile__status {
+  font-size: 0.875rem;
+  margin-top: 8px;
+  padding: 4px;
+  border-radius: 4px;
+  color: white;
+  width: fit-content;
+}
+
+
+.map-tile__status.rejected {
+  background-color: red;
+}
+
+.map-tile__status.in-review {
+  background-color: rgb(208, 136, 2);
+}
+
 
 .mapViewTitle {
   text-align: center;

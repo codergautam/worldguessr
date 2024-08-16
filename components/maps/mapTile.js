@@ -1,8 +1,6 @@
 import { FaHeart, FaUser } from "react-icons/fa6";
 
 export default function MapTile({ map, onHeart, onClick, hearted, country, searchTerm }) {
-  // map => { slug, name, created_at, plays, hearts, id, created_by_name, description_short }
-
   const backgroundImage = country ? `url("https://flagcdn.com/h240/${country.toLowerCase()}.png")` : "";
 
   const highlightMatch = (text, searchTerm) => {
@@ -34,15 +32,29 @@ export default function MapTile({ map, onHeart, onClick, hearted, country, searc
             </div>
           )}
         </div>
-        {!country &&  map.created_by_name && (
+        {!country && map.created_by_name && (
           <button className="map-tile__heart" onClick={onHeart}>
             {map.hearts}&nbsp;
             <FaHeart color={hearted ? "red" : "white"} size={20} />
           </button>
         )}
       </div>
+
+      {/* Review Queue Status and Reject Reason */}
+      {!country && map.in_review && map.yours && !map.accepted && (
+        <div className={`map-tile__status ${map.reject_reason ? 'rejected' : 'in-review'}`}>
+          {!map.accepted && map.resubmittable && map.reject_reason && (
+            <span>
+              Rejected: {map.reject_reason}
+            </span>
+          )}
+          {!map.accepted && !map.reject_reason && <span>In Review</span>}
+        </div>
+      )}
+
       {!country && (
         <div className="map-tile__description">
+          {/* {JSON.stringify(map)} */}
           {highlightMatch(map.description_short, searchTerm)}
         </div>
       )}
