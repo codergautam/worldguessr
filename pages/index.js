@@ -121,11 +121,15 @@ export default function Home({ locale }) {
     const country = countries.find((c) => c === mapSlug.toUpperCase());
     setAllLocsArray([])
 
-    if(!country && mapSlug !== gameOptions.location && ((window?.lastPlayTrack||0) + 5000 < Date.now())) {
-      try {
+    if(!country && mapSlug !== gameOptions.location) {
+      if( ((window?.lastPlayTrack||0) + 20000 < Date.now())) {
+
+      fetch(`/mapPlay/${mapSlug}`, {method: "POST"})
+    }
+
+    try {
       window.lastPlayTrack = Date.now();
       } catch(e) {}
-      fetch(`/mapPlay/${mapSlug}`, {method: "POST"})
     }
 
     setGameOptions((prev) => ({
