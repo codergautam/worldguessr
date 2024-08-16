@@ -2,6 +2,7 @@ import {Modal} from "react-responsive-modal";
 import { useState } from "react";
 import { useTranslation } from 'next-i18next'
 import sendEvent from "./utils/sendEvent";
+import { signOut } from "next-auth/react";
 
 export default function SetUsernameModal({ shown, onClose, session }) {
     const [username, setUsername] = useState("");
@@ -86,6 +87,19 @@ export default function SetUsernameModal({ shown, onClose, session }) {
             }} onClick={handleSave}>
                 {text("save")}
             </button>
+
+            {/* <button className="saveUsername" style={{
+                fontSize: '16px',
+                color: 'white',
+                background: 'black',
+                border: 'none',
+                borderRadius: '5px',
+                padding: '10px 20px',
+                cursor: 'pointer',
+                marginLeft: '10px'
+            }} onClick={signOut}>
+                {text("logOut")}
+            </button> */}
         </Modal>
     )
 }
