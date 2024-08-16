@@ -1,9 +1,13 @@
 import Map from '@/models/Map';
 import User from '@/models/User';
 
-const HEART_COOLDOWN = 5000;
+const HEART_COOLDOWN = 500;
+let recentHearts = {}
 
 async function handler(req, res) {
+  if(!recentHearts) {
+    recentHearts = {};
+  }
   if (req.method === 'POST') {
     try {
       const { mapId, secret } = req.body;
@@ -18,12 +22,8 @@ async function handler(req, res) {
         return res.status(404).json({ message: 'User not found' });
       }
 
-      console.log('Hearted map', user.lastHearted); // convert to Date.now format
-      if(user.lastHearted && Date.now() - user.lastHearted < HEART_COOLDOWN) {
-        console.log("fucky", Date.now() - user.lastHearted)
-        return res.status(400).json({ message: 'yourTooFastForUs' });
-      } else {
-        console.log('Hearted map', Date.now() - user.lastHearted);
+      if(recentHearts[user._id] && Date.now() - recentHearts[user._id] < HEART_COOLDOWN) {
+        return res.status(429).json({ message: 'yourTooFastForUs' });
       }
 
       if (!user.hearted_maps) {
@@ -40,15 +40,18 @@ async function handler(req, res) {
         // If the user has already hearted the map, remove the heart
         user.hearted_maps.delete(mapId);
         map.hearts--;
+        if(map.hearts < 0) {
+          map.hearts = 0;
+        }
       } else {
         // If the user has not hearted the map, add the heart
         user.hearted_maps.set(mapId, true);
         map.hearts++;
       }
 
-      user.lastHearted = Date.now();
+      //save in recentHearts
+      recentHearts[user._id] = Date.now();
 
-      console.log("i love fucking")
       await map.save();
       await user.save();
 

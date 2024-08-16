@@ -1641,6 +1641,10 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   font-size: 1.5rem;
   cursor: pointer;
 }
+.map-tile__heart.disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
 
 .map-tile__author,
 .map-tile__hearts,

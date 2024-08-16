@@ -291,17 +291,19 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
                                       // update state
                                       setMapHome((prev) => {
                                         const newMapHome = { ...prev };
-                                        newMapHome[section] = newMapHome[section].map((m) => {
-                                          if (m.id === map.id) {
-                                            m.hearts = newHeartsCnt;
-                                            m.hearted = json.hearted;
-                                          }
-                                          return m;
+                                        Object.keys(newMapHome).forEach((section) => {
+                                          newMapHome[section] = newMapHome[section].map((m) => {
+                                            if (m.id === map.id) {
+                                              m.hearts = newHeartsCnt;
+                                              m.hearted = json.hearted;
+                                            }
+                                            return m;
+                                          });
                                         });
                                         return newMapHome;
                                       });
                                     } else {
-                                      toast.error(text(json.message || "unexpectedError"));
+                                      toast.error(text(json.message || json.error || "unexpectedError"));
                                     }
                                   })
                                   .catch((e) => {
