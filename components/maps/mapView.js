@@ -14,7 +14,7 @@ const initMakeMap = {
   data: "",
 };
 
-export default function MapView({ close, session, text, onMapClick, chosenMap }) {
+export default function MapView({ close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
   const [makeMap, setMakeMap] = useState(initMakeMap);
   const [mapHome, setMapHome] = useState({
     message: text("loading") + "...",
@@ -188,6 +188,12 @@ export default function MapView({ close, session, text, onMapClick, chosenMap })
             <span className="bigSpan">{mapHome?.message}</span>
           )}
 
+          <center>
+          {showAllCountriesOption && ((searchTerm.length === 0) || (text("allCountries").toLowerCase().includes(searchTerm.toLowerCase()))) && (
+            <MapTile map={{ name: text("allCountries"), slug: "all" }} onClick={()=>onMapClick({ name: text("allCountries"), slug: "all" })} searchTerm={searchTerm} />
+          )}
+          </center>
+
           {hasResults ? (
             Object.keys(mapHome)
               .filter((k) => k !== "message")
@@ -256,7 +262,10 @@ export default function MapView({ close, session, text, onMapClick, chosenMap })
                 ) : null;
               })
           ) : (
-            <div className="noResults">{text("noResultsFound")}</div>
+            // make sure not loading
+            !mapHome?.message && (
+              <div className="noResults">{text("noResultsFound")}</div>
+            )
           )}
         </div>
       )}

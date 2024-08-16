@@ -75,7 +75,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
           <PlayerList multiplayerState={multiplayerState} startGameHost={() => handleAction("startGameHost")} />
         )}
 
-        <MapsModal shown={selectCountryModalShown} onClose={() => setSelectCountryModalShown(false)} session={session} text={text} customChooseMapCallback={(map) => {
+        <MapsModal showAllCountriesOption={true} shown={selectCountryModalShown} onClose={() => setSelectCountryModalShown(false)} session={session} text={text} customChooseMapCallback={(map) => {
           setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, location: map.countryMap || map.slug, displayLocation: map.name } }));
           setSelectCountryModalShown(false);
         }} chosenMap={multiplayerState?.createOptions?.location} />

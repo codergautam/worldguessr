@@ -2,7 +2,7 @@ import { Modal } from "react-responsive-modal";
 import MapView from "./mapView";
 import { useRouter } from "next/router";
 
-export default function MapsModal({ shown, onClose, session, text, customChooseMapCallback, chosenMap }) {
+export default function MapsModal({ shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption }) {
     const router = useRouter();
     return (
         <Modal id="" styles={{
@@ -19,7 +19,7 @@ export default function MapsModal({ shown, onClose, session, text, customChooseM
                display: "none"
             },
         }} open={shown} center onClose={onClose}>
-            <MapView chosenMap={chosenMap} close={onClose} session={session} text={text} onMapClick={(map)=>{
+            <MapView showAllCountriesOption={showAllCountriesOption} chosenMap={chosenMap} close={onClose} session={session} text={text} onMapClick={(map)=>{
                 if(customChooseMapCallback) {
                     customChooseMapCallback(map);
                     return;

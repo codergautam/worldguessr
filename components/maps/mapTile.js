@@ -8,7 +8,7 @@ export default function MapTile({ map, onHeart, onClick, hearted, country, searc
   const highlightMatch = (text, searchTerm) => {
     if (!searchTerm || !text || typeof searchTerm !== 'string') return text;
     if(searchTerm.length < 3) return text;
-    
+
     const regex = new RegExp(`(${searchTerm})`, 'gi');
     return text.split(regex).map((part, index) =>
       part.toLowerCase() === searchTerm.toLowerCase() ? (
@@ -28,13 +28,13 @@ export default function MapTile({ map, onHeart, onClick, hearted, country, searc
       <div className={`map-tile__header ${country && 'country'}`}>
         <div className="map-tile__mapdetails">
           <div className="map-tile__name">{highlightMatch(map.name, searchTerm)}</div>
-          {!map.countryMap && (
+          {!map.countryMap && map.created_by_name && (
             <div className="map-tile__author">
               by {highlightMatch(map.created_by_name, searchTerm)}
             </div>
           )}
         </div>
-        {!country && (
+        {!country &&  map.created_by_name && (
           <button className="map-tile__heart" onClick={onHeart}>
             {map.hearts}&nbsp;
             <FaHeart color={hearted ? "red" : "white"} size={20} />
