@@ -49,27 +49,6 @@ import { boundingExtent } from "ol/extent";
 
 import countries from "@/public/countries.json";
 
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-
-const MapComponent = ({ center, zoom, markers }) => {
-  return (
-    <MapContainer center={center} zoom={zoom} style={{ height: "100vh", width: "100%" }}>
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-      />
-      {markers.map((marker, index) => (
-        <Marker key={index} position={marker.position}>
-          <Popup>{marker.popupText}</Popup>
-        </Marker>
-      ))}
-    </MapContainer>
-  );
-};
-
-// todo css for the leaflet map
-
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
@@ -1022,8 +1001,8 @@ export default function Home({ locale }) {
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
 
       {ChatboxMemo}
-      <ToastContainer/>
-      <div style={{
+    <ToastContainer/>
+<div style={{
         top: 0,
         left: 0,
         position: 'fixed',
@@ -1032,19 +1011,21 @@ export default function Home({ locale }) {
         transition: 'opacity 0.5s',
         opacity: 0.4,
         userSelect: 'none',
-        WebkitUserSelect: 'none',
+       WebkitUserSelect: 'none',
         MozUserSelect: 'none',
         msUserSelect: 'none',
         pointerEvents: 'none',
       }}>
-        <NextImage.default src={'/street1.jpg'}
-          draggable={false}
-          fill alt="Game Background" style={{objectFit: "cover",userSelect:'none'}}
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-        />
+      <NextImage.default src={'/street1.jpg'}
+      draggable={false}
+      fill   alt="Game Background" style={{objectFit: "cover",userSelect:'none'}}
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+      />
       </div>
 
+
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">
+
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
         {process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
@@ -1052,102 +1033,97 @@ export default function Home({ locale }) {
         }
         <Navbar loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
 
+
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
-          { onboardingCompleted===null ? (
-            <>
-            </>
-          ) : (
-            <>
-              <div className="home__ui">
-                { onboardingCompleted && (
-                  <h1 className="home__title">WorldGuessr</h1>
+
+        { onboardingCompleted===null ? (
+          <>
+
+          </>
+        ) : (
+          <>
+
+          <div className="home__ui">
+            { onboardingCompleted && (
+            <h1 className="home__title">WorldGuessr</h1>
+            )}
+
+            <div className="home__btns">
+
+              { onboardingCompleted && (
+
+              <>
+      <div className="mainHomeBtns">
+
+               {/* <GameBtn text={text("singleplayer")} onClick={() => {
+                if (!loading) setScreen("singleplayer")
+              }} /> */}
+              <button className="homeBtn" onClick={() => {
+                if (!loading) setScreen("singleplayer")
+              }} >{text("singleplayer")}</button>
+        {/* <span className="bigSpan">{text("playOnline")}</span> */}
+        <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
+          disabled={!multiplayerState.connected}>{text("findDuel")}</button>
+        {/* <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span> */}
+        <div className="multiplayerPrivBtns">
+        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
+        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
+        </div>
+      </div>
+
+              <div className="home__squarebtns">
+                { !isApp && (
+                  <>
+                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                </>
                 )}
-
-                <div className="home__btns">
-                  { onboardingCompleted && (
-                    <>
-                      <button className="homeBtn" onClick={() => {
-                        if (!loading) setScreen("singleplayer")
-                      }}>{text("singleplayer")}</button>
-                      <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")} disabled={!multiplayerState.connected}>{text("findDuel")}</button>
-                      <div className="multiplayerPrivBtns">
-                        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
-                        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                <div className="home__squarebtns">
-                  {!isApp && (
-                    <>
-                      <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
-                      <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
-                      <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                    </>
-                  )}
-                  <button className="home__squarebtn gameBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}><FaMap className="home__squarebtnicon" /></button>
-                  <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
-                </div>
+                <button className="home__squarebtn gameBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}><FaMap className="home__squarebtnicon" /></button>
+                <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
 
-              <div style={{ marginTop: "20px" }}>
-                <center>
-                  <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} screenW={width} />
-                </center>
-              </div>
-            </>
-          )}
+              </>
+            )}
+            </div>
+
+          <div style={{ marginTop: "20px" }}>
+            <center>
+    <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} screenW={width} />
+            </center>
+            </div>
+          </div>
+          </>
+        )}
           <br />
         </div>
         <InfoModal shown={false} />
-        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {…}} text={text}
-          customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {…}:null}
-        />
-        <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
-
-        <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
-          multiplayerState?.inGame && !multiplayerState?.gameData?.public
-        } sendInvite={sendInvite} />
-
-        {screen === "singleplayer" && <div className="home__singleplayer"></div>
-          <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
-        </div>}
-
-        {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
-          <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
-        </div>}
-
-        {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
         <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
             customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
               console.log("map", map)
               openMap(map.countryMap||map.slug);
               setGameOptionsModalShown(false)
             }:null}
-              text("onboarding1")
-            ]} pageDone={() => {…}} shown={!onboarding?.finalOnboardingShown} /></div>
-            <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} onHomePress={() =>{…}}/>
-          </div>
-        <MapComponent />
+          />
+        <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
 
+        <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
           // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game
+          multiplayerState?.inGame && !multiplayerState?.gameData?.public
+        } sendInvite={sendInvite} />
+
+        {screen === "singleplayer" && <div className="home__singleplayer">
+          <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
-        {screen === "multiplayer" && <div className="home__multiplayer">
-          <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
-        </div>}
+        {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
+          <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          </div>}
 
-        {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
-          <GameUI options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
-        )}
-
-
-        <Script>
-          {`
-            (function(c,l,a,r,i,t,y){
-              c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-              t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+          {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
+            <div className="home__onboarding__completed">
+              <OnboardingText words={[
+                text("onboarding1")
               ]} pageDone={() => {
                 try {
                   window.localStorage.setItem("onboarding", 'done')
@@ -1168,24 +1144,44 @@ export default function Home({ locale }) {
     }
                 setScreen("home")
               }}/>
+              </div>
+              </div>
+}
 
-            console.log("Ads by adinplay!")
-            window.aiptag = window.aiptag || {cmd: []};
-            aiptag.cmd.display = aiptag.cmd.display || [];
-            aiptag.cmd.player = aiptag.cmd.player || [];
+        {screen === "multiplayer" && <div className="home__multiplayer">
+          <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
+        </div>}
 
-            //CMP tool settings
-            aiptag.cmp = {
-              show: true,
-              position: "centered",  //centered, bottom
-              button: true,
-              buttonText: "Privacy settings",
-              buttonPosition: "bottom-left" //bottom-left, bottom-right, bottom-center, top-left, top-right
-            }
-            window.adsbygoogle = window.adsbygoogle || [];
-            window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
-            adConfig({preloadAdBreaks: 'on'});
-          `}
+        {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
+          <GameUI options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+        )}
+
+        <Script>
+          {`
+
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "ndud94nvsg");
+
+  console.log("Ads by adinplay!")
+  	window.aiptag = window.aiptag || {cmd: []};
+	aiptag.cmd.display = aiptag.cmd.display || [];
+	aiptag.cmd.player = aiptag.cmd.player || [];
+
+	//CMP tool settings
+	aiptag.cmp = {
+		show: true,
+		position: "centered",  //centered, bottom
+		button: true,
+		buttonText: "Privacy settings",
+		buttonPosition: "bottom-left" //bottom-left, bottom-right, bottom-center, top-left, top-right
+	}
+   window.adsbygoogle = window.adsbygoogle || [];
+  window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
+   adConfig({preloadAdBreaks: 'on'});
+  `}
         </Script>
       </main>
     </>
