@@ -29,6 +29,22 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
   const vectorSource = useRef(new VectorSource());
   const { t: text } = useTranslation("common");
 
+  function placeExtent(extent) {
+    if(!map) return;
+    const newView = new View({
+      center: fromLonLat([2, 35]),
+      zoom: 1,
+      zoomFactor: 2.5,
+    });
+    map.setView(newView);
+
+        const center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
+
+        newView.setCenter(fromLonLat(center));
+        // zoom so that the extent fits in the map
+        newView.fit(transformExtent(extent, 'EPSG:4326', 'EPSG:3857'));
+        map.thingySet = true;
+  }
 
   function drawHint(initialMap, location, randomOffset) {
     // create a circle overlay 10000km radius from location
@@ -59,37 +75,14 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
     let extent = gameOptions?.extent;
     if (!extent || !map || !mapInitialized) return;
 
-    // new  york
-//     var coordMin = fromLonLat([148.77638,-34.491728], 'EPSG:3857');
-// var coordMax = fromLonLat([148.77896,-34.492302], 'EPSG:3857');
-// var extentt=[coordMin[0],coordMin[1],coordMax[0],coordMax[1]];
-// map.getView().fit(boundingExtent(extentt),map.getSize());
+    placeExtent(extent);
 
-const newView = new View({
-  center: fromLonLat([2, 35]),
-  zoom: 1,
-  zoomFactor: 2.5,
-});
-map.setView(newView);
-
-    const center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
-
-    newView.setCenter(fromLonLat(center));
-    // zoom so that the extent fits in the map
-    newView.fit(transformExtent(extent, 'EPSG:4326', 'EPSG:3857'));
-    map.thingySet = true;
-    console.log("extent", extent)
-
-
-
-    // const center = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
-    //   console.log("center", center)
-    // const view = map.getView();
-    // view.setCenter(fromLonLat(center));
-    // view.fit(transformExtent(extent, 'EPSG:4326', 'EPSG:3857'), { duration: 1000 });
-  }, [gameOptions?.extent, mapInitialized])
+  }, [gameOptions?.extent, mapInitialized, answerShown, map])
 
   useEffect(() => {
+    let extent = gameOptions?.extent;
+
+
     const initialMap = new Map({
       target: mapRef.current,
       layers: [
@@ -125,6 +118,10 @@ map.setView(newView);
     initialMap.addInteraction(new KeyboardZoom({
       duration: duration
     }));
+
+    if(extent) {
+      placeExtent(extent);
+    }
 
 
     // const mouseDown = (e) => {

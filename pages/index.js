@@ -551,6 +551,26 @@ export default function Home({ locale }) {
 
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
+
+            if(data.map !== "all" && !countries.map((c) => c.toLowerCase()).includes(data.map.toLowerCase())  && !gameOptions?.extent) {
+              // calculate extent
+
+              fetch(`/mapLocations/${data.map}`).then((res) => res.json()).then((data) => {
+                if(data.ready) {
+
+                  const mappedLatLongs = data.locations.map((l) => fromLonLat([l.lng, l.lat], "EPSG:4326"));
+                  let extent = boundingExtent(mappedLatLongs);
+                  console.log("extent", extent)
+
+                  setGameOptions((prev) => ({
+                    ...prev,
+                    extent
+                  }))
+
+                }
+              })
+            }
+
           } else if (data.state === "guess") {
             const didIguess = (data.players ?? prev.gameData?.players)?.find((p) => p.id === prev.gameData?.myId)?.final;
             if (didIguess) {
@@ -591,6 +611,17 @@ export default function Home({ locale }) {
         } else if (data.state === "guess") {
           setStreetViewShown(true)
         }
+      } else if(data.type === "maxDist") {
+        const maxDist = data.maxDist;
+        console.log("got new max dist", maxDist)
+        setMultiplayerState((prev) => ({
+          ...prev,
+          gameData: {
+            ...prev.gameData,
+            maxDist
+          }
+        }))
+
       } else if (data.type === "player") {
         if (data.action === "remove") {
           setMultiplayerState((prev) => ({
@@ -622,6 +653,10 @@ export default function Home({ locale }) {
         }
       } else if (data.type === "gameOver") {
         setLatLong(null)
+        setGameOptions((prev) => ({
+          ...prev,
+          extent: null
+        }))
 
       } else if (data.type === "gameShutdown") {
         setScreen("home")
@@ -634,6 +669,10 @@ export default function Home({ locale }) {
             guestName: prev.guestName
           }
         });
+        setGameOptions((prev) => ({
+          ...prev,
+          extent: null
+        }))
       } else if (data.type === "gameJoinError" && multiplayerState.enteringGameCode) {
         setMultiplayerState((prev) => {
           return {
@@ -736,7 +775,7 @@ export default function Home({ locale }) {
     return () => {
       ws.onmessage = null;
     }
-  }, [ws, multiplayerState, timeOffset]);
+  }, [ws, multiplayerState, timeOffset, gameOptions?.extent]);
 
   useEffect(() => {
     if (multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
@@ -921,6 +960,7 @@ export default function Home({ locale }) {
             // calculate extent (for openlayers)
              const mappedLatLongs = data.locations.map((l) => fromLonLat([l.long, l.lat], 'EPSG:4326'));
              let extent = boundingExtent(mappedLatLongs);
+             console.log("extent", extent)
              // convert extent from EPSG:4326 to EPSG:3857 (for openlayers)
 
             setGameOptions((prev) => ({
@@ -1165,7 +1205,7 @@ export default function Home({ locale }) {
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
-          <GameUI options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          <GameUI options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
 
         <Script>

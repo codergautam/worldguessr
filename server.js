@@ -388,7 +388,8 @@ class Game {
       maxPlayers: this.maxPlayers,
       nextEvtTime: this.nextEvtTime,
       players: Object.values(this.players),
-      generated: this.locations.length
+      generated: this.locations.length,
+      map: this.location,
     };
     if (includeLocations) {
       state.locations = this.locations;
@@ -518,6 +519,12 @@ class Game {
         return;
       }
       this.maxDist = map.maxDist;
+
+      this.sendAllPlayers({
+        type: 'maxDist',
+        maxDist: this.maxDist
+      });
+
       // get n random from the list
       let locs = map.data;
       if(locs.length < this.rounds) {
