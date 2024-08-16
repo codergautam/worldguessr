@@ -120,7 +120,7 @@ async function updateRecentPlays() {
     if(recentPlays[mapSlug] > 0) {
 
       const map = await MapModel.findOne({ slug: mapSlug });
-      if(map) {
+      if(map && map.accepted) {
         map.plays += recentPlays[mapSlug];
         console.log('Updating plays for', mapSlug, 'by', recentPlays[mapSlug]);
         await map.save();

@@ -1687,6 +1687,18 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   width: fit-content;
 }
 
+.map-tile__review-options {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  .accept {
+    background-color: green;
+  }
+  .reject {
+    background-color: red;
+  }
+}
+
 
 .map-tile__status.rejected {
   background-color: red;

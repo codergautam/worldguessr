@@ -255,6 +255,7 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
                               onClick={() => onMapClick(map)}
                               country={map.countryMap}
                               searchTerm={searchTerm}
+                              showReviewOptions={session?.token?.staff && section === "reviewQueue"}
                               onHeart={() => {
                                 if (!session?.token?.secret) {
                                   toast.error("Not logged in");
