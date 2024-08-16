@@ -143,7 +143,10 @@ export default function Home({ locale }) {
   useEffect(() => {
     try {
     const onboarding = window.localStorage.getItem("onboarding");
+    // check url
+    const specifiedMapSlug = window.location.search.includes("map=");
     if(onboarding && onboarding === "done") setOnboardingCompleted(true)
+      else if(specifiedMapSlug) setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
   } catch(e) {
     setOnboardingCompleted(true);
