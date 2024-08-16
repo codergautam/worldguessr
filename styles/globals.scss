@@ -579,19 +579,27 @@ h1, h2, h3, span {
   z-index: 10;
   border-radius: 10px;
   position: absolute;
-  right: 0;
+  right:  0px;
   display: flex;
-  flex-direction: column;
+  flex-flow: column;
+
+
   bottom: 40px;
+  margin-top: auto;
+  margin-left: auto;
   margin-right: 100px;
+
   transform: translateY(105%);
   opacity: 0;
 }
 
+
+
 #miniMapArea.shown {
-  opacity: 0.5;
-  transform: translateY(0);
+  opacity: 50%;
+  transform: translateY(0%);
 }
+
 
 #miniMapContent {
   cursor: crosshair;
@@ -599,16 +607,13 @@ h1, h2, h3, span {
   background-color: #B9D3DC;
   position: relative;
 }
-
 #miniMapArea.answerNotShown {
   transition: all 250ms ease;
 }
-
 #miniMapArea.answerNotShown #miniMapContent {
   border: 5px solid #0F251D;
   border-radius: 10px;
 }
-
 #miniMapArea.answerShown .ol-zoom {
   display: none;
 }
@@ -618,21 +623,22 @@ h1, h2, h3, span {
 }
 
 @media screen and (max-width: 600px),
-screen and (pointer: coarse) {
+screen and (pointer:coarse) {
   #miniMapArea {
     transform: translateY(100%);
     opacity: 0;
   }
-
   #miniMapArea.miniMap.shown {
     bottom: 0;
     right: 0;
-    opacity: 1;
-    transform: translateY(0);
+    opacity: 100%;
+    transform: translateY(0%);
     margin-right: 0;
     width: 100%;
   }
-
+  // #miniMapArea.answerShown {
+  //   transform: none;
+  // }
   #miniMapContent {
     border: none;
   }
@@ -646,6 +652,7 @@ screen and (pointer: coarse) {
   align-items: center;
   gap: 10px;
   margin-top: 10px;
+
 }
 
 .miniMap__btn {
@@ -657,18 +664,18 @@ screen and (pointer: coarse) {
   cursor: pointer;
   transition: background-color 0.3s;
   border-radius: 15px;
+  // box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
+  // background-image: radial-gradient(150% 160% at 50% 15%,hsla(0,0%,100%,.6) 0,transparent 30%);
 }
 
 .mobile_minimap__btns {
   display: none;
 }
-
 @media screen and (max-width: 600px),
-screen and (pointer: coarse) {
+screen and (pointer:coarse) {
   .miniMap__btns {
     display: none;
   }
-
   .mobile_minimap__btns {
     display: flex;
     justify-content: space-around;
@@ -681,13 +688,11 @@ screen and (pointer: coarse) {
     bottom: 30px;
     animation: fadeIn 1s ease-in-out forwards;
   }
-
   .mobile_minimap__btns.miniMapShown {
     bottom: calc(70% + 5px);
     width: 100%;
     right: 0;
   }
-
   .mobileMiniMapExpandedToggle {
     width: 20%;
   }
@@ -1095,6 +1100,9 @@ screen and (pointer:coarse) {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 5px;
   background-color: #fff;
   width: 40%;
   box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
