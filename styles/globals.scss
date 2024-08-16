@@ -1681,7 +1681,7 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   margin-left: 100px;
   margin-right: 100px;
   background-color: rgba(15, 255, 243, 0.25);
-  margin-top: 50px;
+  margin-top: 20px;
   border-radius: 10px;
   padding: 10px;
 }
@@ -1770,22 +1770,7 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 
 }
 
-// mobile map section
-@media screen and (max-width: 600px) {
-  .mapSection {
-    margin-left: 0;
-    margin-right: 0;
-  }
-  .mapViewTitle {
-    font-size: 30px;
-  }
-  .mapViewMake {
-    font-size: 15px;
-  }
-  .mapViewClose {
-    font-size: 15px;
-  }
-}
+
 .mapSectionTitle {
   font-size: 40px;
 }
@@ -1919,4 +1904,40 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 .mainBody {
   overflow: hidden;
   user-select: none;
+}
+
+.mapSearch {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+}
+.mapSearchInput {
+  width: 50%;
+}
+
+.noResults {
+  font-size: 1.5em;
+  color: white;
+  text-align: center;
+}
+
+// mobile map section
+@media screen and (max-width: 600px) {
+  .mapSection {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .mapViewTitle {
+    font-size: 30px;
+  }
+  .mapViewMake {
+    font-size: 15px;
+  }
+  .mapViewClose {
+    font-size: 15px;
+  }
+  .mapSearchInput {
+    width: 80%;
+  }
 }

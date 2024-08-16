@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
 import MakeMapForm from "./makeMap";
 import MapTile from "./mapTile";
-import { ScrollMenu, VisibilityContext } from "react-horizontal-scrolling-menu";
+import { ScrollMenu } from "react-horizontal-scrolling-menu";
 import "react-horizontal-scrolling-menu/dist/styles.css";
-import R from "@/public/cesium/Workers/createBoxOutlineGeometry";
 
-// Initial state for creating a map
 const initMakeMap = {
   open: false,
   progress: false,
@@ -21,6 +19,8 @@ export default function MapView({ close, session, text, onMapClick, chosenMap })
   const [mapHome, setMapHome] = useState({
     message: text("loading") + "...",
   });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
 
   useEffect(() => {
     fetch("/api/map/mapHome", {
@@ -39,7 +39,43 @@ export default function MapView({ close, session, text, onMapClick, chosenMap })
       .catch(() => {
         setMapHome({ message: "Failed to fetch" });
       });
-  }, []);
+  }, [session?.token?.secret, text]);
+
+  const debounce = (func, delay) => {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      timer = setTimeout(() => func(...args), delay);
+    };
+  };
+
+  const handleSearch = useCallback(
+    debounce((term) => {
+      if (term.length > 3) {
+        fetch("/api/map/searchMap", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query: term }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            setSearchResults(data);
+          })
+          .catch(() => {
+            toast.error("Failed to search maps");
+          });
+      } else {
+        setSearchResults([]);
+      }
+    }, 300),
+    []
+  );
+
+  useEffect(() => {
+    handleSearch(searchTerm);
+  }, [searchTerm, handleSearch]);
 
   function createMap(map) {
     if (!session?.token?.secret) {
@@ -70,7 +106,6 @@ export default function MapView({ close, session, text, onMapClick, chosenMap })
           setMakeMap({ ...makeMap, progress: false });
           return;
         }
-        console.log(json);
         if (res.ok) {
           toast.success("Map created");
           setMakeMap(initMakeMap);
@@ -79,12 +114,31 @@ export default function MapView({ close, session, text, onMapClick, chosenMap })
           toast.error(json.message);
         }
       })
-      .catch((e) => {
-        console.error(e);
+      .catch(() => {
         setMakeMap({ ...makeMap, progress: false });
         toast.error("Unexpected Error creating map - 2");
       });
   }
+
+  const hasResults =
+    Object.keys(mapHome)
+      .filter((k) => k !== "message")
+      .some((section) => {
+        const mapsArray =
+          section === "recent" && searchResults.length > 0
+            ? searchResults
+            : mapHome[section].filter(
+                (map) =>
+                  map.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  map.description_short
+                    .toLowerCase()
+                    .includes(searchTerm.toLowerCase()) ||
+                  map.created_by_name
+                    .toLowerCase()
+                    .includes(searchTerm.toLowerCase())
+              );
+        return mapsArray.length > 0;
+      });
 
   return (
     <div className="mapView">
@@ -118,57 +172,92 @@ export default function MapView({ close, session, text, onMapClick, chosenMap })
         </div>
       </div>
 
+      <div className="mapSearch">
+        <input
+          type="text"
+          placeholder={text("searchForMaps")}
+          className="mapSearchInput"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+
       {!makeMap.open && (
         <div>
           {mapHome?.message && (
             <span className="bigSpan">{mapHome?.message}</span>
           )}
 
-          {Object.keys(mapHome)
-            .filter((k) => k !== "message")
-            .map((section, si) => {
-              const mapsArray = mapHome[section];
+          {hasResults ? (
+            Object.keys(mapHome)
+              .filter((k) => k !== "message")
+              .map((section, si) => {
+                const mapsArray =
+                  section === "recent" && searchResults.length > 0
+                    ? searchResults
+                    : mapHome[section].filter((map) =>
+                        map.name
+                          .toLowerCase()
+                          .includes(searchTerm.toLowerCase()) ||
+                        map.description_short
+                          .toLowerCase()
+                          .includes(searchTerm.toLowerCase()) ||
+                        map.created_by_name
+                          .toLowerCase()
+                          .includes(searchTerm.toLowerCase())
+                      );
 
-              return (
-                <div className="mapSection" key={si}>
-                  <h2 className="mapSectionTitle">{text(section)}</h2>
+                return mapsArray.length > 0 ? (
+                  <div className="mapSection" key={si}>
+                    <h2 className="mapSectionTitle">{text(section)}</h2>
 
-                  <div className={`mapSectionMaps`}>
-                  <ScrollMenu drag>
-  {section === "countryMaps" ? (
-     mapsArray.map((map, i) => {
-      if (i % 3 === 0) {
-          return (
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                  {mapsArray.slice(i, i + 3).map((tileMap, index) => (
-                      <MapTile
-                          key={i + index}
-                          map={tileMap}
-                          onClick={() => onMapClick(tileMap)}
-                          country={tileMap.countryMap}
-                      />
-                  ))}
-              </div>
-          );
-      } else return null;
-  })
-
-  ) : (
-    mapsArray.map((map, i) => (
-      <MapTile
-        key={i}
-        map={map}
-        onClick={() => onMapClick(map)}
-        country={map.countryMap}
-      />
-    ))
-  )}
-</ScrollMenu>
-
+                    <div className={`mapSectionMaps`}>
+                      <ScrollMenu drag>
+                        {section === "countryMaps" ? (
+                          mapsArray.map((map, i) => {
+                            if (i % 4 === 0) {
+                              return (
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                  }}
+                                  key={i}
+                                >
+                                  {mapsArray
+                                    .slice(i, i + 4)
+                                    .map((tileMap, index) => (
+                                      <MapTile
+                                        key={i + index}
+                                        map={tileMap}
+                                        onClick={() => onMapClick(tileMap)}
+                                        country={tileMap.countryMap}
+                                        searchTerm={searchTerm}
+                                      />
+                                    ))}
+                                </div>
+                              );
+                            } else return null;
+                          })
+                        ) : (
+                          mapsArray.map((map, i) => (
+                            <MapTile
+                              key={i}
+                              map={map}
+                              onClick={() => onMapClick(map)}
+                              country={map.countryMap}
+                              searchTerm={searchTerm}
+                            />
+                          ))
+                        )}
+                      </ScrollMenu>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                ) : null;
+              })
+          ) : (
+            <div className="noResults">{text("noResultsFound")}</div>
+          )}
         </div>
       )}
 
@@ -178,32 +267,3 @@ export default function MapView({ close, session, text, onMapClick, chosenMap })
     </div>
   );
 }
-
-// Arrow components
-// const LeftArrow = () => {
-//   const { isFirstItemVisible, scrollPrev } = React.useContext(VisibilityContext);
-
-//   return (
-//     <button
-//       disabled={isFirstItemVisible}
-//       onClick={() => scrollPrev()}
-//       className="arrow"
-//     >
-//       {"<"}
-//     </button>
-//   );
-// };
-
-// const RightArrow = () => {
-//   const { isLastItemVisible, scrollNext } = React.useContext(VisibilityContext);
-
-//   return (
-//     <button
-//       disabled={isLastItemVisible}
-//       onClick={() => scrollNext()}
-//       className="arrow"
-//     >
-//       {">"}
-//     </button>
-//   );
-// };

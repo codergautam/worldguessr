@@ -185,6 +185,8 @@
   "errorLoadingMap": "Error loading this map",
   "freeGeoguessrAlt": "Your free GeoGuessr alternative",
   "backToGame": "Back to Game",
-  "countryMaps": "Country Maps",
-  "copiedToClipboard": "Copied to clipboard"
+  "countryMaps": "Official Country Maps",
+  "copiedToClipboard": "Copied to clipboard",
+  "searchForMaps": "Search for maps",
+  "noResultsFound": "No results found"
 }

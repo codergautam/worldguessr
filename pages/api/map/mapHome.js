@@ -1,5 +1,6 @@
 import mapConst from "@/components/maps/mapConst";
 import parseMapData from "@/components/utils/parseMapData";
+import sendableMap from "@/components/utils/sendableMap";
 import generateSlug from "@/components/utils/slugGenerator";
 import Map from "@/models/Map";
 import User from "@/models/User";
@@ -15,19 +16,6 @@ let mapCache = {
     data: [],
     timeStamp: 0,
     persist: 1800000
-  }
-}
-
-function sendableMap(map, user) {
-  return {
-    created_at: Date.now() - map.created_at.getTime(),
-    slug: map.slug,
-    name: map.name,
-    hearts: map.hearts,
-    plays: map.plays,
-    description_short: map.description_short,
-    created_by_name: user.username ?? map.created_by,
-    id: map._id
   }
 }
 
