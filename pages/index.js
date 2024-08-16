@@ -140,6 +140,7 @@ export default function Home({ locale }) {
       location: mapSlug,
       official: country ? true : false,
       countryMap: country,
+      extent: null
     }))
   }
 
