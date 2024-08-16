@@ -894,6 +894,7 @@ export default function Home({ locale }) {
     });
   }
   function fetchMethod() {
+    console.log("fetching")
     fetch((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:`/mapLocations/${gameOptions.location}`).then((res) => res.json()).then((data) => {
       if(data.ready) {
         // this uses long for lng
@@ -913,8 +914,8 @@ export default function Home({ locale }) {
           const loc = data.locations[Math.floor(Math.random() * data.locations.length)];
           setLatLong(loc)
           if(data.name) {
-            // map name
-             // calculate extent (for openlayers)
+
+            // calculate extent (for openlayers)
              const mappedLatLongs = data.locations.map((l) => fromLonLat([l.long, l.lat], 'EPSG:4326'));
              let extent = boundingExtent(mappedLatLongs);
              // convert extent from EPSG:4326 to EPSG:3857 (for openlayers)
@@ -931,10 +932,13 @@ export default function Home({ locale }) {
         }
 
       } else {
+        if(gameOptions.location !== "all") {
       toast(text("errorLoadingMap"), { type: 'error' })
+        }
         defaultMethod()
       }
     }).catch((e) => {
+      console.error(e)
       toast(text("errorLoadingMap"), { type: 'error' })
       defaultMethod()
     });
@@ -953,8 +957,13 @@ export default function Home({ locale }) {
         const loc = allLocsArray[locIndex+1] ?? allLocsArray[0];
         setLatLong(loc)
         } else {
+          // prevent repeats: remove the prev location from the array
+          setAllLocsArray((prev) => prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long))
           // community maps are randomized
           const loc = allLocsArray[Math.floor(Math.random() * allLocsArray.length)];
+
+
+          console.log("allLocsArray", allLocsArray)
           setLatLong(loc)
         }
       }
