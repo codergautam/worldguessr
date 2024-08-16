@@ -188,5 +188,6 @@
   "countryMaps": "Official Country Maps",
   "copiedToClipboard": "Copied to clipboard",
   "searchForMaps": "Search for maps",
-  "noResultsFound": "No results found"
+  "noResultsFound": "No results found",
+  "map": "Map"
 }

@@ -5,6 +5,7 @@ import enforceMinMax from "./utils/enforceMinMax"
 import PlayerList from "./playerList";
 import { useTranslation } from 'next-i18next'
 import sendEvent from "./utils/sendEvent";
+import MapsModal from "./maps/mapsModal";
 
 
 export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultiplayerState, session, handleAction }) {
@@ -53,7 +54,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
 <FaArrowRight onClick={() => !(multiplayerState?.createOptions?.progress !== false) && setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(1, Math.min(300, Number(multiplayerState.createOptions.timePerRound) + 10)) }}))} />
 </div>
 
-<label>{text("country")}: {multiplayerState?.createOptions?.location}</label>
+<label>{text("map")}: {multiplayerState?.createOptions?.displayLocation || multiplayerState?.createOptions?.location }</label>
 <button className="goBtn" onClick={() => setSelectCountryModalShown(true)} disabled={(multiplayerState?.createOptions?.progress !== false)}>{text("change")}</button>
 
 <br/>
@@ -73,6 +74,11 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
         { multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && !multiplayerState.gameData?.public && (
           <PlayerList multiplayerState={multiplayerState} startGameHost={() => handleAction("startGameHost")} />
         )}
+
+        <MapsModal shown={selectCountryModalShown} onClose={() => setSelectCountryModalShown(false)} session={session} text={text} customChooseMapCallback={(map) => {
+          setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, location: map.countryMap || map.slug, displayLocation: map.name } }));
+          setSelectCountryModalShown(false);
+        }} chosenMap={multiplayerState?.createOptions?.location} />
     </div>
   )
 }
