@@ -21,6 +21,7 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [heartingMap, setHeartingMap] = useState("");
 
   useEffect(() => {
     fetch("/api/map/mapHome", {
@@ -250,9 +251,65 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
                             <MapTile
                               key={i}
                               map={map}
+                              canHeart={session?.token?.secret && heartingMap !== map.id}
                               onClick={() => onMapClick(map)}
                               country={map.countryMap}
                               searchTerm={searchTerm}
+                              onHeart={() => {
+                                if (!session?.token?.secret) {
+                                  toast.error("Not logged in");
+                                  return;
+                                }
+
+                                setHeartingMap(map.id);
+
+                                fetch("/api/map/heartMap", {
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    secret: session?.token?.secret,
+                                    mapId: map.id,
+                                  }),
+                                })
+                                  .then(async (res) => {
+                                    setHeartingMap("");
+                                    let json;
+                                    try {
+                                      json = await res.json();
+                                    } catch (e) {
+                                      toast.error("Unexpected Error hearting map - 1");
+                                      return;
+                                    }
+                                    if (res.ok && json.success) {
+                                      toast(json.hearted ? text("heartedMap") : text("unheartedMap"), {
+                                        type: json.hearted ? 'success' : 'info'
+                                      });
+
+                                      const newHeartsCnt = json.hearts;
+                                      // update state
+                                      setMapHome((prev) => {
+                                        const newMapHome = { ...prev };
+                                        newMapHome[section] = newMapHome[section].map((m) => {
+                                          if (m.id === map.id) {
+                                            m.hearts = newHeartsCnt;
+                                            m.hearted = json.hearted;
+                                          }
+                                          return m;
+                                        });
+                                        return newMapHome;
+                                      });
+                                    } else {
+                                      toast.error(text(json.message || "unexpectedError"));
+                                    }
+                                  })
+                                  .catch((e) => {
+                                    setHeartingMap("");
+                                    console.log(e);
+                                    toast.error("Unexpected Error hearting map - 2");
+                                  });
+                              }}
                             />
                           ))
                         )}

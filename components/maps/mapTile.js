@@ -1,6 +1,6 @@
-import { FaHeart, FaUser } from "react-icons/fa6";
+import { FaHeart } from "react-icons/fa6";
 
-export default function MapTile({ map, onHeart, onClick, hearted, country, searchTerm }) {
+export default function MapTile({ map, onHeart, onClick, country, searchTerm, canHeart }) {
   const backgroundImage = country ? `url("https://flagcdn.com/h240/${country.toLowerCase()}.png")` : "";
 
   const highlightMatch = (text, searchTerm) => {
@@ -13,6 +13,13 @@ export default function MapTile({ map, onHeart, onClick, hearted, country, searc
         <span key={index} style={{ backgroundColor: 'darkOrange' }}>{part}</span>
       ) : part
     );
+  };
+
+  const handleHeartClick = (e) => {
+    e.stopPropagation(); // Prevent onClick from firing
+    if(!canHeart) return;
+
+    onHeart();
   };
 
   return (
@@ -33,9 +40,9 @@ export default function MapTile({ map, onHeart, onClick, hearted, country, searc
           )}
         </div>
         {!country && map.created_by_name && (
-          <button className="map-tile__heart" onClick={onHeart}>
+          <button className={`map-tile__heart ${!canHeart ? 'disabled' : ''}`} onClick={handleHeartClick} disabled={!canHeart}>
             {map.hearts}&nbsp;
-            <FaHeart color={hearted ? "red" : "white"} size={20} />
+            <FaHeart color={map.hearted ? "red" : "white"} size={20} />
           </button>
         )}
       </div>
@@ -54,7 +61,6 @@ export default function MapTile({ map, onHeart, onClick, hearted, country, searc
 
       {!country && (
         <div className="map-tile__description">
-          {/* {JSON.stringify(map)} */}
           {highlightMatch(map.description_short, searchTerm)}
         </div>
       )}

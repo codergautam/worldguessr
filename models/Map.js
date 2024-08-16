@@ -64,7 +64,8 @@ const mapSchema = new mongoose.Schema({
   },
   maxDist: {
     type: Number,
-    required: true
+    required: true,
+    default: 20000
   }
 });
 

@@ -76,6 +76,10 @@ const userSchema = new mongoose.Schema({
     of: Number,
     default: {},
   },
+  lastHearted: {
+    type: Date,
+    default: Date.now
+  },
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

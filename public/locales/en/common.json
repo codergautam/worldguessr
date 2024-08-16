@@ -190,5 +190,9 @@
   "searchForMaps": "Search for maps",
   "noResultsFound": "No results found",
   "map": "Map",
-  "notEnoughLocationsInMap": "Not enough locations in this map. Please choose a lower round count."
+  "notEnoughLocationsInMap": "Not enough locations in this map. Please choose a lower round count.",
+  "heartedMap": "Hearted map!",
+  "unheartedMap": "Unhearted map",
+  "unexpectedError": "Unexpected error",
+  "yourTooFastForUs": "You're too fast for us! Please slow down."
 }

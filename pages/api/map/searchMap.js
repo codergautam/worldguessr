@@ -12,7 +12,17 @@ export default async function searchMaps(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { query } = req.body;
+  const { query, secret } = req.body;
+  let user;
+
+  if(secret) {
+    user = await User.findOne({ secret });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+  }
+
+  let hearted_maps = user ? user.hearted_maps : new Map();
 
   // Validate the search query
   if (!query || query.length < 3) {
@@ -33,7 +43,7 @@ export default async function searchMaps(req, res) {
     // Convert maps to sendable format
     let sendableMaps = await Promise.all(maps.map(async (map) => {
       const owner = await User.findById(map.created_by);
-      return sendableMap(map, owner);
+      return sendableMap(map, owner, hearted_maps.has(map._id.toString()));
     }));
 
     res.status(200).json(sendableMaps);

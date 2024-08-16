@@ -30,15 +30,14 @@ export default async function handler(req, res) {
   let user;
 
   if(secret) {
-  user = await User.findOne({
-    secret: secret
-  });
+    user = await User.findOne({ secret: secret });
 
-  if(!user) {
-    return res.status(404).json({ message: 'User not found' });
+    if(!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
   }
-}
 
+  let hearted_maps = user ? user.hearted_maps : new Map();
   let response = {};
   // sections
   // [reviewQueue (if staff), myMaps (if exists), officialCountryMaps, recent, popular  ]
@@ -46,42 +45,38 @@ export default async function handler(req, res) {
   if(user?.staff) {
     // reviewQueue
     console.log('staff queue');
-    let queueMaps = await Map.find({
-      in_review: true
-    })
+    let queueMaps = await Map.find({ in_review: true });
 
     console.log(queueMaps);
 
     let queueMapsSendable = await Promise.all(queueMaps.map(async (map) => {
       const owner = await User.findById(map.created_by);
-      return sendableMap(map, owner);
+      return sendableMap(map, owner, hearted_maps.has(map._id.toString()));
     }));
 
     // oldest to newest
-    queueMapsSendable.sort((a,b) => b.created_at - a.created_at)
+    queueMapsSendable.sort((a,b) => b.created_at - a.created_at);
     response.reviewQueue = queueMapsSendable;
   }
 
   // owned maps
   // find maps made by user
   if(user) {
-  let myMaps = await Map.find({
-    created_by: user._id.toString()
-  });
-  myMaps = myMaps.map((map) => sendableMap(map,user))
-  myMaps.sort((a,b) => a.created_at - b.created_at)
-  if(myMaps.length > 0) response.myMaps = myMaps;
-}
+    let myMaps = await Map.find({ created_by: user._id.toString() });
+    myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps.has(map._id.toString())));
+    myMaps.sort((a,b) => a.created_at - b.created_at);
+    if(myMaps.length > 0) response.myMaps = myMaps;
+  }
 
-response.countryMaps = Object.values(officialCountryMaps).map((map) => ({
-  ...map,
-  created_by_name: 'WorldGuessr',
-  official: true,
-  countryMap: map.countryCode,
-  description_short: map.shortDescription,
-})).sort((b,a)=>a.maxDist - b.maxDist);
+  response.countryMaps = Object.values(officialCountryMaps).map((map) => ({
+    ...map,
+    created_by_name: 'WorldGuessr',
+    official: true,
+    countryMap: map.countryCode,
+    description_short: map.shortDescription,
+  })).sort((b,a)=>a.maxDist - b.maxDist);
 
-  const discovery =  ["recent","popular"]
+  const discovery =  ["recent","popular"];
   for(const method of discovery) {
     if(mapCache[method].data.length > 0 && Date.now() - mapCache[method].timeStamp < mapCache[method].persist) {
       // retrieve from cache
@@ -91,14 +86,14 @@ response.countryMaps = Object.values(officialCountryMaps).map((map) => ({
       let maps = [];
       const limit = 20; // 20 map limit on each section
       if(method === "recent") {
-       maps = await Map.find({ accepted: true }).sort({ created_at: -1 }).limit(limit);
+        maps = await Map.find({ accepted: true }).sort({ created_at: -1 }).limit(limit);
       } else if(method === "popular") {
-       maps = await Map.find({ accepted: true }).sort({ hearts: -1 }).limit(limit);
+        maps = await Map.find({ accepted: true }).sort({ hearts: -1 }).limit(limit);
       }
 
       let sendableMaps = await Promise.all(maps.map(async (map) => {
         const owner = await User.findById(map.created_by);
-        return sendableMap(map, owner);
+        return sendableMap(map, owner, hearted_maps.has(map._id.toString()));
       }));
 
       response[method] = sendableMaps;
