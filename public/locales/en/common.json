@@ -189,5 +189,6 @@
   "copiedToClipboard": "Copied to clipboard",
   "searchForMaps": "Search for maps",
   "noResultsFound": "No results found",
-  "map": "Map"
+  "map": "Map",
+  "notEnoughLocationsInMap": "Not enough locations in this map. Please choose a lower round count."
 }

@@ -508,21 +508,62 @@ class Game {
       type: 'generating',
       generated: this.locations.length,
     })
+
+    if(this.location !== "all" && !countries.includes(this.location)) {
+      // community map
+      console.log('Community map', this.location);
+      const slug = this.location;
+      const map = await MapModel.findOne({ slug });
+      if (!map) {
+        return;
+      }
+      this.maxDist = map.maxDist;
+      // get n random from the list
+      let locs = map.data;
+      if(locs.length < this.rounds) {
+        console.error('Not enough locations in map', this.location);
+        // send error to all players
+        this.sendAllPlayers({
+          type: 'toast',
+          key: 'notEnoughLocationsInMap'
+        });
+        return;
+      }
+      locs = locs.sort(() => Math.random() - 0.5).slice(0, this.rounds).map((loc) => ({
+        // lng -> long
+        ...loc,
+        long: loc.lng,
+        lng: undefined
+      }));
+      this.locations = locs;
+      console.log(this.locations);
+
+      this.sendAllPlayers({
+        type: 'generating',
+        generated: this.locations.length,
+      })
+
+
+    } else {
+
+
     for (let i = 0; i < this.rounds; i++) {
       let loc;
       if(this.location === "all") {
         // get n random from the list
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
-      } else {
+      } else if(countries.includes(this.location)) {
       loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
       }
       this.locations.push(loc);
       console.log('Generated', this.locations.length,'/',this.rounds, 'for game',this.id, this.location);
+      if(!this.maxDist) this.maxDist = 20000;
       this.sendAllPlayers({
         type: 'generating',
         generated: this.locations.length,
       })
     }
+  }
   }
   sendAllPlayers(json) {
     for (const playerId of Object.keys(this.players)) {
@@ -653,7 +694,6 @@ app.prepare().then(() => {
       const mapLocMatch = pathname.includes('/mapLocations/');
       if (mapLocMatch) {
         const slug = pathname.split('/mapLocations/')[1].split('?')[0];
-        console.log('Map location requested', slug);
         const map = await MapModel.findOne({ slug });
         if (!map) {
           return app.render(req, res, '/404', query);
@@ -714,7 +754,6 @@ app.prepare().then(() => {
       t: Date.now()
     })
     players.set(id, player);
-    console.log('Client joined', id);
 
     // Set up a message listener on the client
     ws.on('message', async (message) => {
@@ -1040,9 +1079,9 @@ app.prepare().then(() => {
         // options
         let {rounds, timePerRound, locations, maxDist, location} = json;
         rounds = Number(rounds);
-        // console.log(location);
+        // maxDist no longer required-> can be pulled from community map
         if(!location) return;
-        if(!rounds || !timePerRound || !maxDist) {
+        if(!rounds || !timePerRound) {
           return;
         }
         // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
@@ -1052,14 +1091,14 @@ app.prepare().then(() => {
         // if(locations.length !== rounds) {
         //   return;
         // }
-        if(typeof maxDist !== 'number' || maxDist > 20000 || maxDist < 10) {
-          return;
-        }
+        // if(typeof maxDist !== 'number' || maxDist > 20000 || maxDist < 10) {
+        //   return;
+        // }
 
-        // validate location (can be all or a 2 letter country code)
-        if(!((location === 'all') || (countries.findIndex((c) => c === location) > -1))) {
-          return;
-        }
+        // validate location (can be all or a 2 letter country code) NOT VALID ANYMORE-> COMMUNITY MAP SLUG
+        // if(!((location === 'all') || (countries.findIndex((c) => c === location) > -1))) {
+        //   return;
+        // }
 
 
         // validate round format
@@ -1090,7 +1129,7 @@ app.prepare().then(() => {
         game.timePerRound = timePerRound * 1000;
         // game.locations = locations;
         // game.location = location;
-        game.maxDist = maxDist;
+        if(maxDist) game.maxDist = maxDist;
 
         games.set(gameId, game);
 
