@@ -113,6 +113,26 @@ const readFileAsync = promisify(readFile);
 const publicFilesToServe = ["ads.txt","manifest.json"];
 const __dirname = import.meta.dirname;
 
+let recentPlays = {}; // track the recent plays gains of maps
+
+async function updateRecentPlays() {
+  for(const mapSlug of Object.keys(recentPlays)) {
+    if(recentPlays[mapSlug] > 0) {
+
+      const map = await MapModel.findOne({ slug: mapSlug });
+      if(map) {
+        map.plays += recentPlays[mapSlug];
+        console.log('Updating plays for', mapSlug, 'by', recentPlays[mapSlug]);
+        await map.save();
+      }
+
+    }
+  }
+  recentPlays = {};
+}
+
+setInterval(updateRecentPlays, 60000);
+
 for(const file of publicFilesToServe) {
   registerHandler(`/${file}`, 'GET', (req,res,query)=>{
     try{
@@ -543,13 +563,13 @@ class Game {
         lng: undefined
       }));
       this.locations = locs;
-      console.log(this.locations);
 
       this.sendAllPlayers({
         type: 'generating',
         generated: this.locations.length,
       })
 
+      recentPlays[map.slug] = (recentPlays[map.slug] || 0) + 1;
 
     } else {
 
@@ -713,6 +733,14 @@ app.prepare().then(() => {
           maxDist: map.maxDist
       }));
         return;
+      }
+
+      const mapPlayMatch = pathname.includes('/mapPlay/');
+      if (mapPlayMatch && req.method === 'POST') {
+        // make suere POST
+        const slug = pathname.split('/mapPlay/')[1].split('?')[0];
+        recentPlays[slug] = (recentPlays[slug] || 0) + 1;
+        res.end('ok');
       }
 
       await handle(req, res, parsedUrl)
