@@ -1648,7 +1648,8 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 
 .map-tile__author,
 .map-tile__hearts,
-.map-tile__description {
+.map-tile__description,
+.map-tile__reject-reason {
   font-size: 0.875rem;
   margin-bottom: 4px;
   overflow-wrap: break-word;
@@ -1667,6 +1668,10 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   color: white;
 }
 
+.map-tile__reject-reason {
+  color: red; 
+}
+
 .map-tile__heart {
   background-color: rgba(0,0,0,.25);
   border-radius: 10px;
@@ -1680,7 +1685,6 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 /* Review Queue Status and Reject Reason */
 .map-tile__status {
   font-size: 0.875rem;
-  margin-top: 8px;
   padding: 4px;
   border-radius: 4px;
   color: white;

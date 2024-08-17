@@ -76,34 +76,14 @@ export default function MapTile({ map, onHeart, onClick, country, searchTerm, ca
     }}>
       <div className={`map-tile__header ${country && 'country'}`}>
         <div className="map-tile__mapdetails">
-          <div className="map-tile__name">{highlightMatch(map.name, searchTerm)}</div>
-          {!map.countryMap && map.created_by_name && (
-            <div className="map-tile__author">
-              by {highlightMatch(map.created_by_name, searchTerm)}
-
-              {map.accepted && (
-                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}>&nbsp; &middot; {formatNumber(map.plays,3)} plays</span>
-              )}
-
-
-            </div>
-          )}
-        </div>
-        {!country && map.created_by_name && (
-          <button className={`map-tile__heart ${!canHeart ? 'disabled' : ''}`} onClick={handleHeartClick} disabled={!canHeart}>
-            {map.hearts}&nbsp;
-            <FaHeart color={map.hearted ? "red" : "white"} size={20} />
-          </button>
-        )}
-      </div>
-
-      {/* Review Queue Status and Reject Reason */}
-      {!country && (map.in_review||map.reject_reason) && map.yours && !map.accepted && (
+          <div className="map-tile__name" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+           <p>{highlightMatch(map.name, searchTerm)}</p>
+{/* Review Queue Status and Reject Reason */}
+{!country && (map.in_review||map.reject_reason) && map.yours && !map.accepted && (
         <div className={`map-tile__status ${map.reject_reason ? 'rejected' : 'in-review'}`}>
           {!map.accepted && map.resubmittable && map.reject_reason && (
             <span>
-              Rejected: {map.reject_reason}
-              <br />
+              Rejected
               {/* {mapResubmittable ? "Resubmittable" : "Not Resubmittable"} */}
             </span>
           )}
@@ -124,10 +104,37 @@ export default function MapTile({ map, onHeart, onClick, country, searchTerm, ca
           )}
         </div>
       )}
+            </div>
+          {!map.countryMap && map.created_by_name && (
+            <div className="map-tile__author">
+              by {highlightMatch(map.created_by_name, searchTerm)}
+
+              {map.accepted && (
+                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}>&nbsp; &middot; {formatNumber(map.plays,3)} plays</span>
+              )}
+
+
+            </div>
+          )}
+        </div>
+        {!country && map.created_by_name && (
+          <button className={`map-tile__heart ${!canHeart ? 'disabled' : ''}`} onClick={handleHeartClick} disabled={!canHeart}>
+            {map.hearts}&nbsp;
+            <FaHeart color={map.hearted ? "red" : "white"} size={20} />
+          </button>
+        )}
+      </div>
+
+
 
       {!country && (
         <div className="map-tile__description">
           {highlightMatch(map.description_short, searchTerm)}
+        </div>
+      )}
+      {map.yours && map.reject_reason && (
+        <div className="map-tile__reject-reason">
+          <p>Reject Reason: {map.reject_reason}</p>
         </div>
       )}
     </div>
