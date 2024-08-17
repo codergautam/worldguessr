@@ -160,3 +160,28 @@
   font-size: 1.2rem;
   opacity: 0.8;
 }
+
+.statusMessage {
+  margin: 20px 0;
+  padding: 10px;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.statusMessage p {
+  margin: 0;
+}
+
+.fadeIn {
+  opacity: 1;
+  transition: opacity 1s ease-in;
+}
+
+.fadeOut {
+  opacity: 0;
+  transition: opacity 1s ease-out;
+}
