@@ -195,5 +195,7 @@
   "unheartedMap": "Carte retirée des favoris",
   "unexpectedError": "Erreur inattendue",
   "yourTooFastForUs": "Vous allez trop vite pour nous ! Veuillez ralentir.",
-  "likedMaps": "Cartes aimées"
+  "likedMaps": "Cartes aimées",
+  "watchingAdsSupport": "Les publicités nous aident à faire fonctionner le jeu et à le maintenir gratuit pour tout le monde. Merci pour votre soutien !",
+  "disableVideoAds": "Désactiver les publicités vidéo"
 }

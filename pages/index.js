@@ -320,14 +320,17 @@ export default function Home({ locale }) {
   useEffect(()=>{loadOptions()}, [])
 
   useEffect(() => {
-    console.log("options", options)
-    if(options && options.units && options.mapType){
+    if(options && options.units && options.mapType) {
       console.log("options", options)
       try {
       localStorage.setItem("options", JSON.stringify(options))
       } catch(e) {}
     }
   }, [options])
+
+  useEffect(() => {
+    window.disableVideoAds = options?.disableVideoAds;
+  }, [options?.disableVideoAds]);
 
   // multiplayer stuff
   const [ws, setWs] = useState(null);
@@ -1072,6 +1075,9 @@ export default function Home({ locale }) {
 
       {ChatboxMemo}
     <ToastContainer/>
+
+    <div id="videoad"></div>
+
 <div style={{
         top: 0,
         left: 0,
@@ -1230,6 +1236,9 @@ export default function Home({ locale }) {
         <Script>
           {`
 
+            window.lastAdShown = Date.now();
+            window.adInterval = 1200000;
+
     (function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
@@ -1252,6 +1261,55 @@ export default function Home({ locale }) {
    window.adsbygoogle = window.adsbygoogle || [];
   window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
    adConfig({preloadAdBreaks: 'on'});
+
+   aiptag.cmd.player.push(function() {
+	aiptag.adplayer = new aipPlayer({
+		AD_WIDTH: window.innerWidth,
+		AD_HEIGHT: window.innerHeight,
+		AD_DISPLAY: 'default', //default, fullscreen, fill, center, modal-center
+		LOADING_TEXT: 'loading advertisement',
+		PREROLL_ELEM: function(){ return document.getElementById('videoad'); },
+		AIP_COMPLETE: function (state) {
+    console.log("Ad complete", state)
+			// The callback will be executed once the video ad is completed.
+      window.lastAdShown = Date.now();
+
+			if (typeof aiptag.adplayer.adCompleteCallback === 'function') {
+				aiptag.adplayer.adCompleteCallback(state);
+			}
+		}
+	});
+});
+
+window.show_videoad = function(callback) {
+
+          if(window.disableVideoAds) {
+          console.log("Video ads disabled")
+            callback("DISABLED");
+            return;
+          }
+
+  if(window.lastAdShown + window.adInterval > Date.now()) {
+  console.log("Time since last ad shown", Date.now() - window.lastAdShown, "ms")
+            callback("COOLDOWN");
+            return;
+          }
+
+	// Assign the callback to be executed when the ad is done
+	aiptag.adplayer.adCompleteCallback = callback;
+
+	// Check if the adslib is loaded correctly or blocked by adblockers etc.
+	if (typeof aiptag.adplayer !== 'undefined') {
+  console.log("Showing ad")
+		aiptag.cmd.player.push(function() { aiptag.adplayer.startVideoAd(); });
+	} else {
+   console.log("Adlib not loaded")
+		// Adlib didn't load; this could be due to an ad blocker, timeout, etc.
+		// Please add your script here that starts the content, this usually is the same script as added in AIP_COMPLETE.
+		aiptag.adplayer.aipConfig.AIP_COMPLETE();
+	}
+}
+
   `}
         </Script>
       </main>

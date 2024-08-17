@@ -23,7 +23,8 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
 
-  function loadLocationFunc() {
+
+  function loadLocationFuncRaw() {
     if(onboarding) {
       if(onboarding.round === 5) {
         setOnboarding((prev)=>{
@@ -43,6 +44,20 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       })
     } else
       loadLocation()
+  }
+
+  function loadLocationFunc() {
+    if(window.show_videoad) {
+      window.show_videoad((state) =>{
+        if(!['DISABLED', 'COOLDOWN'].includes(state)) {
+      toast.info(text("watchingAdsSupport"))
+        }
+
+        loadLocationFuncRaw()
+      });
+    } else {
+      loadLocationFuncRaw()
+    }
   }
 
   const { width, height } = useWindowDimensions();
@@ -567,7 +582,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
         }} lostCountryStreak={lostCountryStreak} playAd={()=>{window.showRewardedAdFn()}} setLostCountryStreak={setLostCountryStreak} countryStreak={countryStreak} setCountryStreak={setCountryStreak} />
 
 <EndBanner onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
-loadLocationFunc()
+  loadLocationFunc()
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {
     setShowPanoOnResult(!showPanoOnResult)
   }} panoShown={showPanoOnResult} />
