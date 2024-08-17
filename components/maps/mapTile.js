@@ -104,7 +104,7 @@ export default function MapTile({ map, onHeart, onClick, country, searchTerm, ca
             <span>
               Rejected: {map.reject_reason}
               <br />
-              {mapResubmittable ? "Resubmittable" : "Not Resubmittable"}
+              {/* {mapResubmittable ? "Resubmittable" : "Not Resubmittable"} */}
             </span>
           )}
           {!map.accepted && !map.reject_reason && <span>In Review</span>}

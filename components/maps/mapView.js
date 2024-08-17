@@ -293,6 +293,7 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
                                         type: json.hearted ? 'success' : 'info'
                                       });
 
+
                                       const newHeartsCnt = json.hearts;
                                       // update state
                                       setMapHome((prev) => {
@@ -305,6 +306,14 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
                                             }
                                             return m;
                                           });
+
+                                          if(section === "likedMaps") {
+                                            if(json.hearted) {
+                                              newMapHome[section].push(map);
+                                            } else {
+                                              newMapHome[section] = newMapHome[section].filter((m) => m.id !== map.id);
+                                            }
+                                          }
                                         });
                                         return newMapHome;
                                       });

@@ -40,7 +40,7 @@ export default async function handler(req, res) {
   let hearted_maps = user ? user.hearted_maps :  null;
   let response = {};
   // sections
-  // [reviewQueue (if staff), myMaps (if exists), officialCountryMaps, recent, popular  ]
+  // [reviewQueue (if staff), myMaps (if exists), likedMaps, officialCountryMaps, recent, popular  ]
 
   if(user?.staff) {
     // reviewQueue
@@ -66,6 +66,16 @@ export default async function handler(req, res) {
     myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps?hearted_maps.has(map._id.toString()):false));
     myMaps.sort((a,b) => a.created_at - b.created_at);
     if(myMaps.length > 0) response.myMaps = myMaps;
+    // likedMaps
+    // find maps liked by user
+    const likedMaps = user.hearted_maps ? await Map.find({ _id: { $in: Array.from(user.hearted_maps.keys()) } }) : [];
+    let likedMapsSendable = await Promise.all(likedMaps.map(async (map) => {
+      const owner = await User.findById(map.created_by);
+      return sendableMap(map, owner, true);
+    }));
+    likedMapsSendable.sort((a,b) => b.created_at - a.created_at);
+    if(likedMapsSendable.length > 0) response.likedMaps = likedMapsSendable;
+    
   }
 
   response.countryMaps = Object.values(officialCountryMaps).map((map) => ({

@@ -194,5 +194,6 @@
   "heartedMap": "Hearted map!",
   "unheartedMap": "Unhearted map",
   "unexpectedError": "Unexpected error",
-  "yourTooFastForUs": "You're too fast for us! Please slow down."
+  "yourTooFastForUs": "You're too fast for us! Please slow down.",
+  "likedMaps": "Liked Maps"
 }

@@ -194,6 +194,9 @@ export default function Home({ locale }) {
 
       openMap(mapSlug)
     }
+
+    if(window.location.search.includes("createPrivateGame=true")) {
+    }
   }, [])
 
   useEffect(() => {
