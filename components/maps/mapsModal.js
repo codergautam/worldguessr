@@ -24,7 +24,8 @@ export default function MapsModal({ shown, onClose, session, text, customChooseM
                     customChooseMapCallback(map);
                     return;
                 }
-                router.push(`/map/${map.slug}`)
+                // router.push(`/map/${map.slug}`)
+                window.location.href = `/map/${map.slug}`;
             }} />
         </Modal>
     );
