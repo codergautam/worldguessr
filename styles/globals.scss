@@ -1669,7 +1669,7 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 }
 
 .map-tile__reject-reason {
-  color: red; 
+  color: red;
 }
 
 .map-tile__heart {
@@ -1982,4 +1982,17 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   .mapSearchInput {
     width: 80%;
   }
+}
+
+.linkButton {
+  background-color: none;
+  color: #007Bff;
+  text-decoration: underline;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.linkButton:hover {
+  background-color: #0056b3;
+  color: white;
 }
