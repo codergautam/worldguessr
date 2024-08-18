@@ -814,7 +814,7 @@ screen and (pointer:coarse) {
   // height: 50vh;
 
   // green scrollbar
-  overflow: hidden;
+  // overflow: hidden;
 }
 
 .countryCard {
@@ -1712,7 +1712,9 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   background-color: rgb(208, 136, 2);
 }
 
-
+.mapView {
+  padding-bottom: 100px;
+}
 .mapViewTitle {
   text-align: center;
   font-size: 40px;

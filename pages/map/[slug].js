@@ -110,7 +110,8 @@ export default function MapPage({ mapData }) {
       <Head>
         <title>{mapData.name + " - Play Free on WorldGuessr"}</title>
         <meta name="description" content={`Explore ${mapData.name} on WorldGuessr, a free GeoGuessr clone. ${mapData.description_short}`} />
-        <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" type="image/x-icon" href="/icon.ico" />
+
       </Head>
       <style>
         {`
