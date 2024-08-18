@@ -6,7 +6,7 @@ import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
 import { FaBook, FaGear, FaMap, FaNewspaper, FaRankingStar } from "react-icons/fa6";
 import { signIn, signOut, useSession } from "next-auth/react";
 import 'react-responsive-modal/styles.css';
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
@@ -48,6 +48,7 @@ import { fromLonLat, transformExtent } from "ol/proj";
 import { boundingExtent } from "ol/extent";
 
 import countries from "@/public/countries.json";
+import fixBranding from "@/components/utils/fixBranding";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -1062,6 +1063,115 @@ export default function Home({ locale }) {
 
     return () => clearInterval(pongInterval);
   }, [ws]);
+  const panoramaRef = useRef(null);
+  const [showPanoOnResult, setShowPanoOnResult] = useState(false);
+
+  useEffect(() => {
+    // const map =  new google.maps.Map(document.getElementById("map"), {
+    //   center: fenway,
+    //   zoom: 14,
+    // });
+    if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
+    if(!document.getElementById("googlemaps")) return;
+
+    if(!panoramaRef.current) {
+
+
+
+    panoramaRef.current = new google.maps.StreetViewPanorama(
+      document.getElementById("googlemaps"),
+      {
+        position: { lat: latLong.lat, lng: latLong.long },
+        pov: {
+          heading: 0,
+          pitch: 0,
+        },
+        motionTracking: false,
+        linksControl: gameOptions?.nm ? false:true,
+        clickToGo: gameOptions?.nm ? false:true,
+
+        panControl: gameOptions?.npz ? false:true,
+        zoomControl: gameOptions?.npz ? false:true,
+        showRoadLabels: gameOptions?.showRoadName===true?true:false,
+        disableDefaultUI: true,
+      },
+    );
+
+    window.reloadLoc = () => {
+      panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
+    }
+    window.panorama = panoramaRef.current;
+    console.log("creating panorama", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
+  } else {
+    console.log("setting position", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
+
+    panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
+
+    window.reloadLoc = () => {
+      panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
+    }
+  }
+
+
+    // pano onload
+
+    function fixPitch() {
+      // point towards road
+
+      panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
+      panoramaRef.current.setZoom(0);
+
+      // if localhost log the location
+      if(window.location.hostname === "localhost") {
+        console.log("[DEV] country:", latLong.country);
+      }
+    }
+
+
+    let loaded = false;
+    function onChangeListener(e) {
+      if(loaded) return;
+      loaded = true;
+
+        setTimeout(() => {
+        setLoading(false)
+        setStreetViewShown(true)
+            // Select all <meta> tags with the attribute http-equiv="origin-trial"
+    const metaTags = document.querySelectorAll('meta[http-equiv="origin-trial"]');
+
+    // Loop through the NodeList and remove each tag
+    metaTags.forEach(meta => meta.remove());
+        }, 500)
+        fixBranding();
+
+        fixPitch();
+    }
+    panoramaRef.current.addListener("pano_changed", onChangeListener);
+
+
+    return () => {
+      if(!panoramaRef.current) return;
+      google.maps.event.clearListeners(panoramaRef.current, 'pano_changed');
+    }
+
+
+  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
+
+  useEffect(() => {
+
+    if(panoramaRef.current) {
+      panoramaRef.current.setOptions({
+        linksControl: gameOptions?.nm ? false:true,
+        clickToGo: gameOptions?.nm ? false:true,
+
+        panControl: gameOptions?.npz ? false:true,
+
+        zoomControl: gameOptions?.npz ? false:true,
+        showRoadLabels: gameOptions?.showRoadName===true?true:false,
+      })
+    }
+  }, [gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
+
 
   return (
     <>
@@ -1099,6 +1209,10 @@ export default function Home({ locale }) {
 
 
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">
+      {/* // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
+
+      // }}></iframe> */}
+      <div id="googlemaps" className={`streetview inverted ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
 
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
@@ -1161,11 +1275,11 @@ export default function Home({ locale }) {
             )}
             </div>
 
-          <div style={{ marginTop: "20px" }}>
+          {/* <div style={{ marginTop: "20px" }}>
             <center>
     <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} screenW={width} />
             </center>
-            </div>
+            </div> */}
           </div>
           </>
         )}
@@ -1190,11 +1304,11 @@ export default function Home({ locale }) {
         } sendInvite={sendInvite} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
         {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
-          <GameUI countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
           </div>}
 
           {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
@@ -1230,7 +1344,7 @@ export default function Home({ locale }) {
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
-          <GameUI options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          <GameUI showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
 
         <Script>

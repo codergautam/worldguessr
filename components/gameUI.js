@@ -17,10 +17,11 @@ import SaveStreakBanner from "./streakSaveBanner";
 import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAd";
+import fixBranding from "./utils/fixBranding";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
 
 
@@ -79,13 +80,11 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   const [km, setKm] = useState(null);
   const [onboardingTextShown, setOnboardingTextShown] = useState(false);
   const [onboardingWords, setOnboardingWords] = useState([]);
-  const [showPanoOnResult, setShowPanoOnResult] = useState(false);
   const [explanationModalShown, setExplanationModalShown] = useState(false);
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
-  const panoramaRef = useRef(null);
   useEffect(() => {
     if(showAnswer) {
       setShowPanoOnResult(false)
@@ -324,11 +323,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     setXpEarned(Math.round(calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist }) / 50))
   }, [km, latLong, pinPoint])
 
-  function fixBranding() {
-    try{
-    document.querySelector("a[rel=noopener]")?.remove()
-    }catch(e){}
-  }
+
   useEffect(() => {
     const int= setInterval(() => {
       fixBranding();
@@ -339,95 +334,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
   },[])
 
 
-  useEffect(() => {
-    // const map =  new google.maps.Map(document.getElementById("map"), {
-    //   center: fenway,
-    //   zoom: 14,
-    // });
-    if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
-
-    if(!panoramaRef.current) {
-
-
-
-    panoramaRef.current = new google.maps.StreetViewPanorama(
-      document.getElementById("googlemaps"),
-      {
-        position: { lat: latLong.lat, lng: latLong.long },
-        pov: {
-          heading: 0,
-          pitch: 0,
-        },
-        motionTracking: false,
-        linksControl: gameOptions?.nm ? false:true,
-        clickToGo: gameOptions?.nm ? false:true,
-
-        panControl: gameOptions?.npz ? false:true,
-        zoomControl: gameOptions?.npz ? false:true,
-        showRoadLabels: gameOptions?.showRoadName===true?true:false,
-        disableDefaultUI: true,
-      },
-    );
-
-    window.reloadLoc = () => {
-      panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
-    }
-    window.panorama = panoramaRef.current;
-    console.log("creating panorama", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
-  } else {
-    console.log("setting position", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
-
-    panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
-
-    window.reloadLoc = () => {
-      panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
-    }
-  }
-
-
-    // pano onload
-
-    function fixPitch() {
-      // point towards road
-
-      panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
-      panoramaRef.current.setZoom(0);
-
-      // if localhost log the location
-      if(window.location.hostname === "localhost") {
-        console.log("[DEV] country:", latLong.country);
-      }
-    }
-
-
-    let loaded = false;
-    function onChangeListener(e) {
-      if(loaded) return;
-      loaded = true;
-
-        setTimeout(() => {
-        setLoading(false)
-        setStreetViewShown(true)
-            // Select all <meta> tags with the attribute http-equiv="origin-trial"
-    const metaTags = document.querySelectorAll('meta[http-equiv="origin-trial"]');
-
-    // Loop through the NodeList and remove each tag
-    metaTags.forEach(meta => meta.remove());
-        }, 500)
-        fixBranding();
-
-        fixPitch();
-    }
-    panoramaRef.current.addListener("pano_changed", onChangeListener);
-
-
-    return () => {
-      if(!panoramaRef.current) return;
-      google.maps.event.clearListeners(panoramaRef.current, 'pano_changed');
-    }
-
-
-  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
 
 
   const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
@@ -441,13 +347,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     </div>
 )} */}
 
-      { latLong && multiplayerState?.gameData?.state !== 'end' && (
-      // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
-
-      // }}></iframe>
-      <div id="googlemaps" className={`streetview inverted ${(!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
-
-      )}
 {/*
 
 
