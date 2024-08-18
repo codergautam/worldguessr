@@ -148,6 +148,12 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
         }
 
+            // Select all <meta> tags with the attribute http-equiv="origin-trial"
+    const metaTags = document.querySelectorAll('meta[http-equiv="origin-trial"]');
+
+    // Loop through the NodeList and remove each tag
+    metaTags.forEach(meta => meta.remove());
+
         if(plopSound.current) plopSound.current.play();
       }
     }

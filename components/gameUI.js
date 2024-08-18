@@ -346,10 +346,6 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     // });
     if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
 
-    if(window.panorama && !panoramaRef.current) {
-      panoramaRef.current = window.panorama;
-    }
-
     if(!panoramaRef.current) {
 
 
@@ -372,13 +368,20 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
         disableDefaultUI: true,
       },
     );
+
+    window.reloadLoc = () => {
+      panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
+    }
     window.panorama = panoramaRef.current;
     console.log("creating panorama", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
   } else {
     console.log("setting position", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
+
     panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
-    panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
-    panoramaRef.current.setZoom(0);
+
+    window.reloadLoc = () => {
+      panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
+    }
   }
 
 
@@ -387,11 +390,8 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     function fixPitch() {
       // point towards road
 
-      const pov = panoramaRef.current.getPhotographerPov();
-      const zoom = 0;
-      const smooth = true;
-      panoramaRef.current.setPov(pov, smooth);
-      panoramaRef.current.setZoom(zoom, smooth);
+      panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
+      panoramaRef.current.setZoom(0);
 
       // if localhost log the location
       if(window.location.hostname === "localhost") {
@@ -399,17 +399,21 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       }
     }
 
-    let loaded = false;
 
-    function onChangeListener() {
-      console.log("pano changed")
-        if(loaded) return;
-        loaded = true;
-        // setStreetViewShown(false)
+    let loaded = false;
+    function onChangeListener(e) {
+      if(loaded) return;
+      loaded = true;
+
         setTimeout(() => {
         setLoading(false)
         setStreetViewShown(true)
-        }, 100)
+            // Select all <meta> tags with the attribute http-equiv="origin-trial"
+    const metaTags = document.querySelectorAll('meta[http-equiv="origin-trial"]');
+
+    // Loop through the NodeList and remove each tag
+    metaTags.forEach(meta => meta.remove());
+        }, 500)
         fixBranding();
 
         fixPitch();

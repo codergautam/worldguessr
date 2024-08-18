@@ -850,11 +850,9 @@ export default function Home({ locale }) {
   }, [])
 
   function reloadBtnPressed() {
-    setLatLong(null)
-    setLoading(true)
-    setTimeout(() => {
-      setLatLong(latLong)
-    }, 100);
+    if(window.reloadLoc) {
+      window.reloadLoc()
+    }
   }
   function backBtnPressed(queueNextGame = false) {
     if (loading) setLoading(false);
@@ -937,7 +935,7 @@ export default function Home({ locale }) {
   function loadLocation() {
     if (loading) return;
 
-    // console.log("loading location")
+    console.log("loading location")
     setLoading(true)
     setShowAnswer(false)
     setPinPoint(null)
