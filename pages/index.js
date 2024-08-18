@@ -1181,7 +1181,9 @@ export default function Home({ locale }) {
               setGameOptionsModalShown(false)
             }:null}
             showAllCountriesOption={(gameOptionsModalShown&&screen==="singleplayer")}
-          />
+            singleplayer={screen==="singleplayer"}
+            gameOptions={gameOptions} setGameOptions={setGameOptions} />
+
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
 
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={

@@ -14,7 +14,7 @@ const initMakeMap = {
   data: "",
 };
 
-export default function MapView({ close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
+export default function MapView({ gameOptions, setGameOptions, singleplayer, close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
   const [makeMap, setMakeMap] = useState(initMakeMap);
   const [mapHome, setMapHome] = useState({
     message: text("loading") + "...",
@@ -156,12 +156,12 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
             }
             className="mapViewClose"
           >
-            {makeMap.open ? "Back" : "Close"}
+            {makeMap.open ? text("back") : text("close")}
           </button>
         </div>
 
         <h1 className="mapViewTitle">
-          {makeMap.open ? "Make Map" : "Community Maps"}
+          {makeMap.open ? "Make Map" : text("maps")}
         </h1>
 
         <div className="mapViewRight">
@@ -175,6 +175,41 @@ export default function MapView({ close, session, text, onMapClick, chosenMap, s
           )}
         </div>
       </div>
+
+      {singleplayer && (
+    <div style={{display: "flex", flexDirection: 'column', alignItems: 'center', marginBottom: '5px', marginTop: '5px'}}>
+        <div>
+            <span>{text('nm')}</span>
+            <input type="checkbox" checked={gameOptions.nm} onChange={(e) => {
+                setGameOptions({
+                    ...gameOptions,
+                    nm: e.target.checked
+                })
+            }
+            } />
+        </div>
+        <div>
+            <span>{text('npz')}</span>
+            <input type="checkbox" checked={gameOptions.npz} onChange={(e) => {
+                setGameOptions({
+                    ...gameOptions,
+                    npz: e.target.checked
+                })
+            }
+            } />
+        </div>
+        <div>
+            <span>{text('showRoadName')}</span>
+            <input type="checkbox" checked={gameOptions.showRoadName} onChange={(e) => {
+                setGameOptions({
+                    ...gameOptions,
+                    showRoadName: e.target.checked
+                })
+            }
+            } />
+        </div>
+        </div>
+    )}
 
       <div className="mapSearch">
         <input
