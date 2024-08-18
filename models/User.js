@@ -58,6 +58,11 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  hearted_maps: {
+    type: Map,
+    of: Boolean,
+    default: {},
+  },
   staff: {
     type: Boolean,
     default: false
@@ -70,7 +75,7 @@ const userSchema = new mongoose.Schema({
     type: Map,
     of: Number,
     default: {},
-  },
+  }
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

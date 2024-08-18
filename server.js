@@ -38,9 +38,10 @@ import calcPoints from './components/calcPoints.js';
 import { promisify } from 'util';
 import { readFile, unlinkSync } from 'fs';
 import path from 'path';
-import countries from './public/countries.json' assert { type: "json" };
-import cities from './public/cities.json' assert { type: "json" };
+import countries from './public/countries.json' with { type: "json" };
+import cities from './public/cities.json' with { type: "json" };
 import moment from 'moment-timezone';
+import MapModel from './models/Map.js';
 
 function isValidTimezone(tz) {
   return !!moment.tz.zone(tz);
@@ -111,6 +112,26 @@ const readFileAsync = promisify(readFile);
 
 const publicFilesToServe = ["ads.txt","manifest.json"];
 const __dirname = import.meta.dirname;
+
+let recentPlays = {}; // track the recent plays gains of maps
+
+async function updateRecentPlays() {
+  for(const mapSlug of Object.keys(recentPlays)) {
+    if(recentPlays[mapSlug] > 0) {
+
+      const map = await MapModel.findOne({ slug: mapSlug });
+      if(map && map.accepted) {
+        map.plays += recentPlays[mapSlug];
+        console.log('Updating plays for', mapSlug, 'by', recentPlays[mapSlug]);
+        await map.save();
+      }
+
+    }
+  }
+  recentPlays = {};
+}
+
+setInterval(updateRecentPlays, 60000);
 
 for(const file of publicFilesToServe) {
   registerHandler(`/${file}`, 'GET', (req,res,query)=>{
@@ -245,11 +266,12 @@ const generateClueLocations = async () => {
   console.log('Generating clue locations', uniqueLatLongs.size);
   // populate clueLocations
   // ex format: {"lat":17.90240017665545,"long":102.7868538747363,"country":"TH"}
+  clueLocations = [];
   for(const clue of uniqueClues) {
     const country = lookup(clue.lat, clue.lng, true)[0];
     clueLocations.push({
       lat: clue.lat,
-      long: clue.lng,
+      lng: clue.lng,
       country
     });
   }
@@ -386,7 +408,8 @@ class Game {
       maxPlayers: this.maxPlayers,
       nextEvtTime: this.nextEvtTime,
       players: Object.values(this.players),
-      generated: this.locations.length
+      generated: this.locations.length,
+      map: this.location,
     };
     if (includeLocations) {
       state.locations = this.locations;
@@ -506,21 +529,68 @@ class Game {
       type: 'generating',
       generated: this.locations.length,
     })
+
+    if(this.location !== "all" && !countries.includes(this.location)) {
+      // community map
+      console.log('Community map', this.location);
+      const slug = this.location;
+      const map = await MapModel.findOne({ slug });
+      if (!map) {
+        return;
+      }
+      this.maxDist = map.maxDist;
+
+      this.sendAllPlayers({
+        type: 'maxDist',
+        maxDist: this.maxDist
+      });
+
+      // get n random from the list
+      let locs = map.data;
+      if(locs.length < this.rounds) {
+        console.error('Not enough locations in map', this.location);
+        // send error to all players
+        this.sendAllPlayers({
+          type: 'toast',
+          key: 'notEnoughLocationsInMap'
+        });
+        return;
+      }
+      locs = locs.sort(() => Math.random() - 0.5).slice(0, this.rounds).map((loc) => ({
+        // lng -> long
+        ...loc,
+        long: loc.lng,
+        lng: undefined
+      }));
+      this.locations = locs;
+
+      this.sendAllPlayers({
+        type: 'generating',
+        generated: this.locations.length,
+      })
+
+      recentPlays[map.slug] = (recentPlays[map.slug] || 0) + 1;
+
+    } else {
+
+
     for (let i = 0; i < this.rounds; i++) {
       let loc;
       if(this.location === "all") {
         // get n random from the list
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
-      } else {
+      } else if(countries.includes(this.location)) {
       loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
       }
       this.locations.push(loc);
       console.log('Generated', this.locations.length,'/',this.rounds, 'for game',this.id, this.location);
+      if(!this.maxDist) this.maxDist = 20000;
       this.sendAllPlayers({
         type: 'generating',
         generated: this.locations.length,
       })
     }
+  }
   }
   sendAllPlayers(json) {
     for (const playerId of Object.keys(this.players)) {
@@ -647,6 +717,32 @@ app.prepare().then(() => {
         return handlers[pathname].handler(req, res, query);
       }
 
+      // check if in format /mapLocations/:slug
+      const mapLocMatch = pathname.includes('/mapLocations/');
+      if (mapLocMatch) {
+        const slug = pathname.split('/mapLocations/')[1].split('?')[0];
+        const map = await MapModel.findOne({ slug });
+        if (!map) {
+          return app.render(req, res, '/404', query);
+        }
+        res.end(JSON.stringify({
+          ready: true,
+          locations: map.data,
+          name: map.name,
+          official: map.official,
+          maxDist: map.maxDist
+      }));
+        return;
+      }
+
+      const mapPlayMatch = pathname.includes('/mapPlay/');
+      if (mapPlayMatch && req.method === 'POST') {
+        // make suere POST
+        const slug = pathname.split('/mapPlay/')[1].split('?')[0];
+        recentPlays[slug] = (recentPlays[slug] || 0) + 1;
+        res.end('ok');
+      }
+
       await handle(req, res, parsedUrl)
     } catch (err) {
       console.error('Error occurred handling', req.url, err)
@@ -693,7 +789,6 @@ app.prepare().then(() => {
       t: Date.now()
     })
     players.set(id, player);
-    console.log('Client joined', id);
 
     // Set up a message listener on the client
     ws.on('message', async (message) => {
@@ -1019,9 +1114,9 @@ app.prepare().then(() => {
         // options
         let {rounds, timePerRound, locations, maxDist, location} = json;
         rounds = Number(rounds);
-        // console.log(location);
+        // maxDist no longer required-> can be pulled from community map
         if(!location) return;
-        if(!rounds || !timePerRound || !maxDist) {
+        if(!rounds || !timePerRound) {
           return;
         }
         // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
@@ -1031,14 +1126,14 @@ app.prepare().then(() => {
         // if(locations.length !== rounds) {
         //   return;
         // }
-        if(typeof maxDist !== 'number' || maxDist > 20000 || maxDist < 10) {
-          return;
-        }
+        // if(typeof maxDist !== 'number' || maxDist > 20000 || maxDist < 10) {
+        //   return;
+        // }
 
-        // validate location (can be all or a 2 letter country code)
-        if(!((location === 'all') || (countries.findIndex((c) => c === location) > -1))) {
-          return;
-        }
+        // validate location (can be all or a 2 letter country code) NOT VALID ANYMORE-> COMMUNITY MAP SLUG
+        // if(!((location === 'all') || (countries.findIndex((c) => c === location) > -1))) {
+        //   return;
+        // }
 
 
         // validate round format
@@ -1069,7 +1164,7 @@ app.prepare().then(() => {
         game.timePerRound = timePerRound * 1000;
         // game.locations = locations;
         // game.location = location;
-        game.maxDist = maxDist;
+        if(maxDist) game.maxDist = maxDist;
 
         games.set(gameId, game);
 
@@ -1304,7 +1399,6 @@ app.prepare().then(() => {
 
       player.sendFriendData();
     }
-
     });
 
     // Set up a close listener on the client

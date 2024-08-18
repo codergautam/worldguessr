@@ -5,6 +5,7 @@ html * {
   font-family: "Jockey One", "Roboto", sans-serif;
     box-sizing: border-box
 }
+.button,
 button {
   box-shadow: 0 0.275rem 1.125rem rgba(0,0,0,.25), inset 0 0.0625rem 0 hsla(0,0%,100%,.2), inset 0 -0.125rem 0 rgba(0,0,0,.3);
   border: none;
@@ -1573,6 +1574,9 @@ screen and (pointer:coarse) {
   }
 
 }
+.react-responsive-modal-modal {
+  max-width: none !important;
+}
 
 /* Hide the elements with specific inline styles */
 [style*="position: absolute;"][style*="pointer-events: none;"][style*="transform: translate(-50%, -50%);"][style*="z-index: 1000;"][style*="top: 50%;"][style*="color: white;"][style*="font-size: 20px;"][style*="left: 50%;"][style*="background-color: rgba(0, 0, 0, 0.3);"][style*="padding: 5px;"][style*="border-radius: 3px;"][style*="text-align: center;"] {
@@ -1583,6 +1587,345 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   display: none;
 }
 
+// map tiles
+.map-tile {
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(0,0,0,.25);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 16px;
+  transition: all 0.2s;
+  cursor: pointer;
+  width: 300px;
+  min-width: 200px;
+  max-width: 300px;
+  margin: 10px;
+  height: 90%;
+}
+
+.map-tile.country {
+  width: 200px;
+}
+
+.map-tile:hover {
+  background-color: rgba(0,0,0,.5);
+}
+
+.map-tile.country:hover {
+  scale: 1.1;
+}
+
+.map-tile__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.map-tile__header.country {
+  background-color: rgba(0,0,0,.8);
+  padding: 5px;
+  border-radius: 8px;
+  width: fit-content;
+}
+
+.map-tile__name {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: white;
+}
+
+.map-tile__heart {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+.map-tile__heart.disabled {
+  color: #ccc;
+  cursor: not-allowed;
+}
+
+.map-tile__author,
+.map-tile__hearts,
+.map-tile__description,
+.map-tile__reject-reason {
+  font-size: 0.875rem;
+  margin-bottom: 4px;
+  overflow-wrap: break-word;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.map-tile__author {
+  display: flex;
+}
+.map-tile__heart {
+  color: #ffffff;
+}
+
+.map-tile__description {
+  margin-top: 8px;
+  color: white;
+}
+
+.map-tile__reject-reason {
+  color: red;
+}
+
+.map-tile__heart {
+  background-color: rgba(0,0,0,.25);
+  border-radius: 10px;
+  transition: transform 0.2s;
+}
+
+.map-tile__heart:hover {
+  transform: scale(1.1);
+}
+
+/* Review Queue Status and Reject Reason */
+.map-tile__status {
+  font-size: 0.875rem;
+  padding: 4px;
+  border-radius: 4px;
+  color: white;
+  width: fit-content;
+}
+
+.map-tile__review-options {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  .accept {
+    background-color: green;
+  }
+  .reject {
+    background-color: red;
+  }
+}
+
+
+.map-tile__status.rejected {
+  background-color: red;
+}
+
+.map-tile__status.in-review {
+  background-color: rgb(208, 136, 2);
+}
+
+
+.mapViewTitle {
+  text-align: center;
+  font-size: 40px;
+}
+
+.mapSection {
+
+  margin-left: 100px;
+  margin-right: 100px;
+  background-color: rgba(15, 255, 243, 0.25);
+  margin-top: 20px;
+  border-radius: 10px;
+  padding: 10px;
+}
+.mapSectionTitle {
+  text-align: center;
+}
+.mapViewNavbar {
+  width: 100%;
+  align-items: center;
+  top: 0;
+  display: flex;
+  height: 100px;
+  background-color: #327A60;
+  border-radius: 10px;
+
+  backdrop-filter: blur(10px);
+
+
+}
+
+.mapViewLeft,
+.mapViewRight {
+  flex: 1;
+}
+
+
+.mapViewClose,
+.mapViewMake {
+  cursor: pointer;
+  transition: all 250ms ease;
+  padding: 10px 20px;
+  font-size: 25px;
+  color: black;
+  width: fit-content;
+  height: 50px;
+  line-height: 20px;
+  background-color: white;
+  border-radius: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  margin-left: 20px;
+}
+
+.mapViewMake {
+  background-color: cyan;
+  float: right;
+  margin-right: 20px;
+}
+
+.mapViewClose:hover,
+.mapViewMake:hover {
+  transform: scale(1.05);
+}
+.mapSectionMaps {
+  // display: flex;
+  // overflow-x: auto;
+  // padding-left: 20px;
+  // padding-right: 20px;
+
+  /* Custom scrollbar styles */
+  scrollbar-width: thin;
+  scrollbar-color: #86b386 rgba(0, 0, 0, 0);
+
+  /* Track */
+  &::-webkit-scrollbar-track {
+    background-color: rgba(0, 0, 0, 0);
+  }
+
+  /* Handle */
+  &::-webkit-scrollbar-thumb {
+    background-color: #00DD00; /* Modified color */
+    border-radius: 5px;
+  }
+
+  /* Handle on hover */
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: #84cc84; /* Modified color */
+  }
+
+  /* Remove arrows */
+  &::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  // /* arrows */
+
+}
+
+
+.mapSectionTitle {
+  font-size: 40px;
+}
+
+//make map form
+.make-map-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 20px;
+  border-radius: 10px;
+  margin-top: 20px;
+  background-color: #0e281f;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.make-map-form label {
+  display: flex;
+  flex-direction: column;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.make-map-form li,
+.make-map-form label {
+  color: white;
+}
+
+.make-map-form input[type="text"],
+.make-map-form textarea {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 16px;
+  background-color: #444;
+  color: white;
+  margin:0;
+  margin-top: 5px;
+}
+
+.make-map-form textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+.make-map-form .button,
+.make-map-form button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  text-align: center;
+}
+
+
+
+.make-map-form button:hover {
+  background-color: #0056b3;
+}
+
+// disabled button
+.make-map-form .button:disabled,
+.make-map-form button:disabled {
+  background-color:  gray;
+  cursor: not-allowed;
+}
+
+.make-map-form {
+  .url-input-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  .url-input {
+    flex: 1;
+    padding: 5px;
+    margin-right: 5px;
+  }
+
+  .delete-button {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 5px;
+    cursor: pointer;
+  }
+  .delete-button:hover {
+    background-color: #5c1414;
+  }
+
+  .add-button {
+    margin-top: 10px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    padding: 10px;
+    cursor: pointer;
+  }
+  .add-button:hover {
+    background-color: #388e3c;
+  }
+
+  .validation-icon {
+    margin-left: 10px;
+    /* This can be used for future validation styling */
+  }
+}
 .topAdFixed {
   position: fixed;
   top: 0;
@@ -1603,4 +1946,53 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 .mainBody {
   overflow: hidden;
   user-select: none;
+}
+
+.mapSearch {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+}
+.mapSearchInput {
+  width: 50%;
+}
+
+.noResults {
+  font-size: 1.5em;
+  color: white;
+  text-align: center;
+}
+
+// mobile map section
+@media screen and (max-width: 600px) {
+  .mapSection {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  .mapViewTitle {
+    font-size: 30px;
+  }
+  .mapViewMake {
+    font-size: 15px;
+  }
+  .mapViewClose {
+    font-size: 15px;
+  }
+  .mapSearchInput {
+    width: 80%;
+  }
+}
+
+.linkButton {
+  background-color: none;
+  color: #007Bff;
+  text-decoration: underline;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.linkButton:hover {
+  background-color: #0056b3;
+  color: white;
 }

@@ -53,6 +53,13 @@ export default function SettingsModal({ shown, onClose, options, setOptions }) {
                     <option value="y">{text("hybrid")}</option>
                 </select>
             </div>
+
+            {/* disableVideoAds checkbox */}
+            <div style={{ marginTop: '20px' }}>
+                <input type="checkbox" id="disableVideoAds" checked={options.disableVideoAds} onChange={() => setOptions((prevOptions) => ({ ...prevOptions, disableVideoAds: !prevOptions.disableVideoAds }))} />
+                <label htmlFor="disableVideoAds" style={{ marginLeft: '10px' }}>{text("disableVideoAds")}</label>
+            </div>
+
         </Modal>
     );
 }

@@ -1,0 +1,362 @@
+[
+  {
+    "name": "Argentina",
+    "slug": "argentina",
+    "longDescription": "Explore Argentina in WorldGuessr! From the bustling streets of Buenos Aires to the breathtaking landscapes of Patagonia, discover the vast beauty and culture of this South American gem.",
+    "shortDescription": "Explore Argentina's 23 provinces and diverse landscapes!",
+    "maxDist": 3720.101,
+    "countryCode": "AR"
+  },
+  {
+    "name": "Australia",
+    "slug": "australia",
+    "longDescription": "Explore Australia in WorldGuessr! Travel through the Outback, visit the iconic Sydney Opera House, and experience the unique wildlife of this vast island continent.",
+    "shortDescription": "Explore Australia's 8 states and territories!",
+    "maxDist": 4600.556,
+    "countryCode": "AU"
+  },
+  {
+    "name": "Austria",
+    "slug": "austria",
+    "longDescription": "Explore Austria in WorldGuessr! From the Alps to the historic cities like Vienna, discover the rich cultural heritage and stunning landscapes of Austria.",
+    "shortDescription": "Explore Austria's 9 federal states!",
+    "maxDist": 577.829,
+    "countryCode": "AT"
+  },
+  {
+    "name": "Belgium",
+    "slug": "belgium",
+    "longDescription": "Explore Belgium in WorldGuessr! Discover the medieval towns, vibrant cities, and rich cultural heritage in the heart of Europe.",
+    "shortDescription": "Explore Belgium's 3 regions and over 800 types of beer!",
+    "maxDist": 344.702,
+    "countryCode": "BE"
+  },
+  {
+    "name": "Brazil",
+    "slug": "brazil",
+    "longDescription": "Explore Brazil in WorldGuessr! From the Amazon rainforest to the vibrant city of Rio de Janeiro, immerse yourself in the diverse culture and natural beauty of Brazil.",
+    "shortDescription": "Explore Brazil's 26 states and the world's largest rainforest!",
+    "maxDist": 4670.419,
+    "countryCode": "BR"
+  },
+  {
+    "name": "Bulgaria",
+    "slug": "bulgaria",
+    "longDescription": "Explore Bulgaria in WorldGuessr! Discover the rich history, beautiful mountains, and cultural diversity of this Eastern European country.",
+    "shortDescription": "Explore Bulgaria's 28 provinces and rich history!",
+    "maxDist": 582.029,
+    "countryCode": "BG"
+  },
+  {
+    "name": "Canada",
+    "slug": "canada",
+    "longDescription": "Explore Canada in WorldGuessr! From the Rocky Mountains to the French-speaking province of Quebec, explore the vast and diverse landscapes of Canada.",
+    "shortDescription": "Explore Canada's 10 provinces and 3 territories!",
+    "maxDist": 5656.416,
+    "countryCode": "CA"
+  },
+  {
+    "name": "Chile",
+    "slug": "chile",
+    "longDescription": "Explore Chile in WorldGuessr! From the Atacama Desert to the fjords of Patagonia, discover the diverse and stunning landscapes of Chile.",
+    "shortDescription": "Explore Chile's 16 regions and the world's driest desert!",
+    "maxDist": 4815.36,
+    "countryCode": "CL"
+  },
+  {
+    "name": "Colombia",
+    "slug": "colombia",
+    "longDescription": "Explore Colombia in WorldGuessr! Discover the vibrant cities, lush rainforests, and rich culture of this South American country.",
+    "shortDescription": "Explore Colombia's 32 departments and diverse ecosystems!",
+    "maxDist": 2352.2,
+    "countryCode": "CO"
+  },
+  {
+    "name": "Czech Republic",
+    "slug": "czech-republic",
+    "longDescription": "Explore the Czech Republic in WorldGuessr! Discover the historic castles, charming towns, and vibrant culture of this Central European country.",
+    "shortDescription": "Explore the Czech Republic's 14 regions and over 2,000 castles!",
+    "maxDist": 490.955,
+    "countryCode": "CZ"
+  },
+  {
+    "name": "Denmark",
+    "slug": "denmark",
+    "longDescription": "Explore Denmark in WorldGuessr! From the historic city of Copenhagen to the scenic coastal landscapes, discover the charm of this Scandinavian country.",
+    "shortDescription": "Explore Denmark's 5 regions and over 400 islands!",
+    "maxDist": 518.274,
+    "countryCode": "DK"
+  },
+  {
+    "name": "Egypt",
+    "slug": "egypt",
+    "longDescription": "Explore Egypt in WorldGuessr! Discover the ancient pyramids, the Nile River, and the vibrant culture of this historic North African country.",
+    "shortDescription": "Explore Egypt's 27 governorates and the world's longest river!",
+    "maxDist": 1660.865,
+    "countryCode": "EG"
+  },
+  {
+    "name": "Finland",
+    "slug": "finland",
+    "longDescription": "Explore Finland in WorldGuessr! From the Northern Lights to the thousands of lakes, immerse yourself in the natural beauty and unique culture of Finland.",
+    "shortDescription": "Explore Finland's 19 regions and over 188,000 lakes!",
+    "maxDist": 1266.549,
+    "countryCode": "FI"
+  },
+  {
+    "name": "France",
+    "slug": "france",
+    "longDescription": "Explore France in WorldGuessr! Discover the Eiffel Tower, the French Riviera, and the diverse culture and landscapes of France.",
+    "shortDescription": "Explore France's 18 regions and 1,200+ cheeses!",
+    "maxDist": 1400,
+    "countryCode": "FR"
+  },
+  {
+    "name": "Germany",
+    "slug": "germany",
+    "longDescription": "Explore Germany in WorldGuessr! From the Black Forest to Berlin, discover the rich history, culture, and landscapes of Germany.",
+    "shortDescription": "Explore Germany's 16 states and 300+ types of bread!",
+    "maxDist": 906.917,
+    "countryCode": "DE"
+  },
+  {
+    "name": "Greece",
+    "slug": "greece",
+    "longDescription": "Explore Greece in WorldGuessr! Discover the ancient ruins, beautiful islands, and rich culture of this Mediterranean country.",
+    "shortDescription": "Explore Greece's 13 regions and 6,000+ islands!",
+    "maxDist": 1005.522,
+    "countryCode": "GR"
+  },
+  {
+    "name": "Hungary",
+    "slug": "hungary",
+    "longDescription": "Explore Hungary in WorldGuessr! Discover the historic cities, thermal baths, and rich cultural heritage of this Central European country.",
+    "shortDescription": "Explore Hungary's 19 counties and 1,500+ thermal springs!",
+    "maxDist": 525.881,
+    "countryCode": "HU"
+  },
+  {
+    "name": "India",
+    "slug": "india",
+    "longDescription": "Explore India in WorldGuessr! From the Himalayas to the bustling streets of Delhi, experience the diverse culture, languages, and landscapes of India.",
+    "shortDescription": "Explore India's 28 states and over 1,600 languages spoken!",
+    "maxDist": 3828.242,
+    "countryCode": "IN"
+  },
+  {
+    "name": "Indonesia",
+    "slug": "indonesia",
+    "longDescription": "Explore Indonesia in WorldGuessr! Discover the stunning islands, active volcanoes, and rich culture of this Southeast Asian archipelago.",
+    "shortDescription": "Explore Indonesia's 17,000+ islands and 300+ ethnic groups!",
+    "maxDist": 5642.759,
+    "countryCode": "ID"
+  },
+  {
+    "name": "Ireland",
+    "slug": "ireland",
+    "longDescription": "Explore Ireland in WorldGuessr! Discover the lush green landscapes, historic castles, and vibrant culture of the Emerald Isle.",
+    "shortDescription": "Explore Ireland's 4 provinces and over 30,000 castles!",
+    "maxDist": 570.923,
+    "countryCode": "IE"
+  },
+  {
+    "name": "Israel",
+    "slug": "israel",
+    "longDescription": "Explore Israel in WorldGuessr! Discover the ancient cities, religious sites, and diverse culture of this Middle Eastern country.",
+    "shortDescription": "Explore Israel's 6 districts and the Dead Sea, the lowest point on Earth!",
+    "maxDist": 439.764,
+    "countryCode": "IL"
+  },
+  {
+    "name": "Italy",
+    "slug": "italy",
+    "longDescription": "Explore Italy in WorldGuessr! From the ruins of Rome to the canals of Venice, experience the rich history, culture, and cuisine of Italy.",
+    "shortDescription": "Explore Italy's 20 regions and 55 UNESCO World Heritage sites!",
+    "maxDist": 1317.252,
+    "countryCode": "IT"
+  },
+  {
+    "name": "Japan",
+    "slug": "japan",
+    "longDescription": "Explore Japan in WorldGuessr! Discover the blend of ancient traditions and modern technology in the Land of the Rising Sun.",
+    "shortDescription": "Explore Japan's 47 prefectures and over 6,800 islands!",
+    "maxDist": 3020.565,
+    "countryCode": "JP"
+  },
+  {
+    "name": "Kenya",
+    "slug": "kenya",
+    "longDescription": "Explore Kenya in WorldGuessr! From the savannas to the bustling city of Nairobi, discover the diverse wildlife and landscapes of Kenya.",
+    "shortDescription": "Explore Kenya's 47 counties and the Great Rift Valley!",
+    "maxDist": 1208.97,
+    "countryCode": "KE"
+  },
+  {
+    "name": "Malaysia",
+    "slug": "malaysia",
+    "longDescription": "Explore Malaysia in WorldGuessr! Discover the vibrant cities, stunning beaches, and rich cultural diversity of this Southeast Asian country.",
+    "shortDescription": "Explore Malaysia's 13 states and 3 federal territories!",
+    "maxDist": 2239.742,
+    "countryCode": "MY"
+  },
+  {
+    "name": "Mexico",
+    "slug": "mexico",
+    "longDescription": "Explore Mexico in WorldGuessr! Discover the rich history, vibrant culture, and diverse landscapes of this North American country.",
+    "shortDescription": "Explore Mexico's 32 states and over 60 indigenous languages!",
+    "maxDist": 3493.148,
+    "countryCode": "MX"
+  },
+  {
+    "name": "Netherlands",
+    "slug": "netherlands",
+    "longDescription": "Explore the Netherlands in WorldGuessr! Discover the iconic windmills, tulip fields, and vibrant cities of this European country.",
+    "shortDescription": "Explore the Netherlands' 12 provinces and over 4,000 km of canals!",
+    "maxDist": 300,
+    "countryCode": "NL"
+  },
+  {
+    "name": "New Zealand",
+    "slug": "new-zealand",
+    "longDescription": "Explore New Zealand in WorldGuessr! Discover the stunning landscapes, from mountains to beaches, in this beautiful island nation.",
+    "shortDescription": "Explore New Zealand's 2 main islands and over 600 smaller islands!",
+    "maxDist": 2473.615,
+    "countryCode": "NZ"
+  },
+  {
+    "name": "Nigeria",
+    "slug": "nigeria",
+    "longDescription": "Explore Nigeria in WorldGuessr! Discover the diverse culture, vibrant cities, and rich history of Africa's most populous country.",
+    "shortDescription": "Explore Nigeria's 36 states and over 500 ethnic groups!",
+    "maxDist": 1470.5,
+    "countryCode": "NG"
+  },
+  {
+    "name": "Norway",
+    "slug": "norway",
+    "longDescription": "Explore Norway in WorldGuessr! Discover the stunning fjords, Northern Lights, and rich cultural heritage of this Scandinavian country.",
+    "shortDescription": "Explore Norway's 11 counties and over 1,000 fjords!",
+    "maxDist": 1942.584,
+    "countryCode": "NO"
+  },
+  {
+    "name": "Peru",
+    "slug": "peru",
+    "longDescription": "Explore Peru in WorldGuessr! From the ancient ruins of Machu Picchu to the vibrant city of Lima, discover the rich history and culture of Peru.",
+    "shortDescription": "Explore Peru's 25 regions and the world's largest rainforest!",
+    "maxDist": 2114.034,
+    "countryCode": "PE"
+  },
+  {
+    "name": "Philippines",
+    "slug": "philippines",
+    "longDescription": "Explore the Philippines in WorldGuessr! Discover the stunning beaches, vibrant cities, and rich culture of this Southeast Asian archipelago.",
+    "shortDescription": "Explore the Philippines' 7,641 islands and over 175 languages!",
+    "maxDist": 1976.332,
+    "countryCode": "PH"
+  },
+  {
+    "name": "Poland",
+    "slug": "poland",
+    "longDescription": "Explore Poland in WorldGuessr! Discover the historic cities, beautiful countryside, and rich cultural heritage of this Central European country.",
+    "shortDescription": "Explore Poland's 16 voivodeships and over 100 castles!",
+    "maxDist": 827.137,
+    "countryCode": "PL"
+  },
+  {
+    "name": "Portugal",
+    "slug": "portugal",
+    "longDescription": "Explore Portugal in WorldGuessr! Discover the historic cities, beautiful beaches, and rich cultural heritage of this Southern European country.",
+    "shortDescription": "Explore Portugal's 18 districts and 800 km of coastline!",
+    "maxDist": 1837.279,
+    "countryCode": "PT"
+  },
+  {
+    "name": "Romania",
+    "slug": "romania",
+    "longDescription": "Explore Romania in WorldGuessr! Discover the historic castles, beautiful mountains, and rich culture of this Eastern European country.",
+    "shortDescription": "Explore Romania's 41 counties and the legend of Dracula!",
+    "maxDist": 770.108,
+    "countryCode": "RO"
+  },
+  {
+    "name": "Russia",
+    "slug": "russia",
+    "longDescription": "Explore Russia in WorldGuessr! From the historic cities of Moscow and St. Petersburg to the vast wilderness of Siberia, discover the diverse landscapes and culture of Russia.",
+    "shortDescription": "Explore Russia's 85 federal subjects and the largest country in the world!",
+    "maxDist": 8224.333,
+    "countryCode": "RU"
+  },
+  {
+    "name": "South Africa",
+    "slug": "south-africa",
+    "longDescription": "Explore South Africa in WorldGuessr! Discover the diverse cultures, stunning landscapes, and vibrant cities of this southernmost African country.",
+    "shortDescription": "Explore South Africa's 9 provinces and 11 official languages!",
+    "maxDist": 1905.569,
+    "countryCode": "ZA"
+  },
+  {
+    "name": "South Korea",
+    "slug": "south-korea",
+    "longDescription": "Explore South Korea in WorldGuessr! Discover the blend of ancient traditions and modern technology in this East Asian country.",
+    "shortDescription": "Explore South Korea's 9 provinces and over 5,000 years of history!",
+    "maxDist": 683,
+    "countryCode": "KR"
+  },
+  {
+    "name": "Spain",
+    "slug": "spain",
+    "longDescription": "Explore Spain in WorldGuessr! Discover the historic cities, beautiful beaches, and rich cultural heritage of this Southern European country.",
+    "shortDescription": "Explore Spain's 17 autonomous communities and over 47 UNESCO World Heritage sites!",
+    "maxDist": 2607.001,
+    "countryCode": "ES"
+  },
+  {
+    "name": "Sweden",
+    "slug": "sweden",
+    "longDescription": "Explore Sweden in WorldGuessr! Discover the stunning landscapes, vibrant cities, and rich cultural heritage of this Scandinavian country.",
+    "shortDescription": "Explore Sweden's 21 counties and over 100,000 lakes!",
+    "maxDist": 1592.015,
+    "countryCode": "SE"
+  },
+  {
+    "name": "Switzerland",
+    "slug": "switzerland",
+    "longDescription": "Explore Switzerland in WorldGuessr! Discover the stunning Alps, charming cities, and rich cultural heritage of this Central European country.",
+    "shortDescription": "Explore Switzerland's 26 cantons and over 7,000 lakes!",
+    "maxDist": 358.077,
+    "countryCode": "CH"
+  },
+  {
+    "name": "Thailand",
+    "slug": "thailand",
+    "longDescription": "Explore Thailand in WorldGuessr! Discover the stunning beaches, vibrant cities, and rich cultural heritage of this Southeast Asian country.",
+    "shortDescription": "Explore Thailand's 77 provinces and the world's longest reign by a monarch!",
+    "maxDist": 1657.708,
+    "countryCode": "TH"
+  },
+  {
+    "name": "Turkey",
+    "slug": "turkey",
+    "longDescription": "Explore Turkey in WorldGuessr! Discover the rich history, vibrant cities, and diverse landscapes of this transcontinental country.",
+    "shortDescription": "Explore Turkey's 81 provinces and over 2,000 years of history!",
+    "maxDist": 1696.647,
+    "countryCode": "TR"
+  },
+  {
+    "name": "United Kingdom",
+    "slug": "united-kingdom",
+    "longDescription": "Explore the United Kingdom in WorldGuessr! Discover the historic cities, beautiful countryside, and rich cultural heritage of England, Scotland, Wales, and Northern Ireland.",
+    "shortDescription": "Explore the UK's 4 nations and over 32 UNESCO World Heritage sites!",
+    "maxDist": 1400,
+    "countryCode": "GB"
+  },
+  {
+    "name": "United States",
+    "slug": "united-states",
+    "longDescription": "Explore the United States in WorldGuessr! From the bustling cities to the stunning national parks, discover the diverse landscapes and cultures of this vast country.",
+    "shortDescription": "Explore the USA's 50 states and over 400 national parks!",
+    "maxDist": 6000,
+    "countryCode": "US"
+  }
+]

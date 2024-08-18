@@ -46,10 +46,16 @@ export default function EndBanner({ onboarding, countryGuesser, countryGuesserCo
         )}
 
 
-      {xpEarned > 0 && session?.token?.secret ? <p>{text("earnedXP",{xp:xpEarned})}!</p> : ''}
-          {countryStreak > 0 ? <p>{text("onCountryStreak",{streak:countryStreak})}!</p> : ''}
-          {lostCountryStreak > 0 ? <p>{text("lostCountryStreak",{streak:lostCountryStreak})}!</p> : ''}
+
     </p>
+    <p className="motivation">
+    {xpEarned > 0 && session?.token?.secret ? text("earnedXP",{xp:xpEarned}) : ''}
+
+      </p>
+      <p className="motivation">
+      {countryStreak > 0 ? text("onCountryStreak",{streak:countryStreak}) : ''}
+      {lostCountryStreak > 0 ? `${text("lostCountryStreak",{streak:lostCountryStreak})}!` : ''}
+      </p>
   </div>
   { !multiplayerState && (
 

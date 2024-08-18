@@ -74,9 +74,9 @@ async function handler(req, res) {
 
 
         } else {
-          if(!user.staff) {
+          // if(!user.staff) {
             return res.status(403).json({ message: 'User not authorized' });
-          }
+          // }
 
         // const filePath = files.screenImage[0].filepath
         // const base64 = fs.readFileSync(filePath).toString('base64');

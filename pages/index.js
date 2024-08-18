@@ -42,7 +42,12 @@ import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
 import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
 import moment from 'moment-timezone';
+import MapsModal from "@/components/maps/mapsModal";
 import { useRouter } from "next/router";
+import { fromLonLat, transformExtent } from "ol/proj";
+import { boundingExtent } from "ol/extent";
+
+import countries from "@/public/countries.json";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -59,6 +64,7 @@ const initialMultiplayerState = {
     rounds: 5,
     timePerRound: 30,
     location: "all",
+    displayLocation: "All countries",
     progress: false
   },
   joinOptions: {
@@ -80,13 +86,15 @@ export default function Home({ locale }) {
   const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
   const [streetViewShown, setStreetViewShown] = useState(false)
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
-  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000 });
+  // location aka map slug
+  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null });
   const [showAnswer, setShowAnswer] = useState(false)
   const [pinPoint, setPinPoint] = useState(null)
   const [hintShown, setHintShown] = useState(false)
   const [xpEarned, setXpEarned] = useState(0)
   const [countryStreak, setCountryStreak] = useState(0)
   const [settingsModal, setSettingsModal] = useState(false)
+  const [mapModal, setMapModal] = useState(false)
   const [friendsModal, setFriendsModal] = useState(false)
   const [timeOffset, setTimeOffset] = useState(0)
   const [loginQueued, setLoginQueued] = useState(false);
@@ -94,10 +102,14 @@ export default function Home({ locale }) {
   });
   const [isApp, setIsApp] = useState(false);
 
+
+
   useEffect(() => {
     if(window.location.search.includes("app=true")) {
       setIsApp(true);
     }
+    initialMultiplayerState.createOptions.displayLocation = text("allCountries")
+
   }, []);
 
   const [onboarding, setOnboarding] = useState(null);
@@ -107,6 +119,30 @@ export default function Home({ locale }) {
   const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
   const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
   const [allLocsArray, setAllLocsArray] = useState([]);
+
+  function openMap(mapSlug) {
+    const country = countries.find((c) => c === mapSlug.toUpperCase());
+    setAllLocsArray([])
+
+    if(!country && mapSlug !== gameOptions.location) {
+      if( ((window?.lastPlayTrack||0) + 20000 < Date.now())) {
+
+      fetch(`/mapPlay/${mapSlug}`, {method: "POST"})
+    }
+
+    try {
+      window.lastPlayTrack = Date.now();
+      } catch(e) {}
+    }
+
+    setGameOptions((prev) => ({
+      ...prev,
+      location: mapSlug,
+      official: country ? true : false,
+      countryMap: country,
+      extent: null
+    }))
+  }
 
   useEffect(() => {
     if(onboarding?.round >1) {
@@ -122,7 +158,10 @@ export default function Home({ locale }) {
   useEffect(() => {
     try {
     const onboarding = window.localStorage.getItem("onboarding");
+    // check url
+    const specifiedMapSlug = window.location.search.includes("map=");
     if(onboarding && onboarding === "done") setOnboardingCompleted(true)
+      else if(specifiedMapSlug) setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
   } catch(e) {
     setOnboardingCompleted(true);
@@ -130,25 +169,33 @@ export default function Home({ locale }) {
   }, [])
 
   useEffect(() => {
-    // check if learn mode
 
+    // check if pirated
     if(isForbiddenIframe() && !window.blocked) {
       // display a message
       window.blocked = true;
       document.write("Your request has been blocked as this website is not authorized to embed WorldGuessr.<br><br><h3><a href='https://worldguessr.com' target=\"_blank\">Click here to play WorldGuessr on the official site, for free!</a></h3><br>- Gautam, developer of WorldGuessr")
       sendEvent("blocked_iframe")
     }
-
+    // check if learn mode
     if(window.location.search.includes("learn=true")) {
       window.learnMode = true;
 
       // immediately open single player
       setScreen("singleplayer")
+    }
+    // check if from map screen
+    if(window.location.search.includes("map=")) {
+      // get map slug map=slug from url
+      const params = new URLSearchParams(window.location.search);
+      const mapSlug = params.get("map");
+      console.log("map slug", mapSlug)
+      setScreen("singleplayer")
 
+      openMap(mapSlug)
+    }
 
-
-
-
+    if(window.location.search.includes("createPrivateGame=true")) {
     }
   }, [])
 
@@ -273,14 +320,17 @@ export default function Home({ locale }) {
   useEffect(()=>{loadOptions()}, [])
 
   useEffect(() => {
-    console.log("options", options)
-    if(options && options.units && options.mapType){
+    if(options && options.units && options.mapType) {
       console.log("options", options)
       try {
       localStorage.setItem("options", JSON.stringify(options))
       } catch(e) {}
     }
   }, [options])
+
+  useEffect(() => {
+    window.disableVideoAds = options?.disableVideoAds;
+  }, [options?.disableVideoAds]);
 
   // multiplayer stuff
   const [ws, setWs] = useState(null);
@@ -522,6 +572,26 @@ export default function Home({ locale }) {
 
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
+
+            if(data.map !== "all" && !countries.map((c) => c.toLowerCase()).includes(data.map.toLowerCase())  && !gameOptions?.extent) {
+              // calculate extent
+
+              fetch(`/mapLocations/${data.map}`).then((res) => res.json()).then((data) => {
+                if(data.ready) {
+
+                  const mappedLatLongs = data.locations.map((l) => fromLonLat([l.lng, l.lat], "EPSG:4326"));
+                  let extent = boundingExtent(mappedLatLongs);
+                  console.log("extent", extent)
+
+                  setGameOptions((prev) => ({
+                    ...prev,
+                    extent
+                  }))
+
+                }
+              })
+            }
+
           } else if (data.state === "guess") {
             const didIguess = (data.players ?? prev.gameData?.players)?.find((p) => p.id === prev.gameData?.myId)?.final;
             if (didIguess) {
@@ -562,6 +632,17 @@ export default function Home({ locale }) {
         } else if (data.state === "guess") {
           setStreetViewShown(true)
         }
+      } else if(data.type === "maxDist") {
+        const maxDist = data.maxDist;
+        console.log("got new max dist", maxDist)
+        setMultiplayerState((prev) => ({
+          ...prev,
+          gameData: {
+            ...prev.gameData,
+            maxDist
+          }
+        }))
+
       } else if (data.type === "player") {
         if (data.action === "remove") {
           setMultiplayerState((prev) => ({
@@ -593,6 +674,10 @@ export default function Home({ locale }) {
         }
       } else if (data.type === "gameOver") {
         setLatLong(null)
+        setGameOptions((prev) => ({
+          ...prev,
+          extent: null
+        }))
 
       } else if (data.type === "gameShutdown") {
         setScreen("home")
@@ -605,6 +690,10 @@ export default function Home({ locale }) {
             guestName: prev.guestName
           }
         });
+        setGameOptions((prev) => ({
+          ...prev,
+          extent: null
+        }))
       } else if (data.type === "gameJoinError" && multiplayerState.enteringGameCode) {
         setMultiplayerState((prev) => {
           return {
@@ -707,7 +796,7 @@ export default function Home({ locale }) {
     return () => {
       ws.onmessage = null;
     }
-  }, [ws, multiplayerState, timeOffset]);
+  }, [ws, multiplayerState, timeOffset, gameOptions?.extent]);
 
   useEffect(() => {
     if (multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
@@ -826,6 +915,11 @@ export default function Home({ locale }) {
       });
       setScreen("home")
 
+    } else if(screen === "onboarding") {
+      setOnboarding(null)
+      setScreen("home")
+      window.localStorage.setItem("onboarding", "done")
+      setOnboardingCompleted(true)
     } else {
       setScreen("home");
       clearLocation();
@@ -863,20 +957,59 @@ export default function Home({ locale }) {
     });
   }
   function fetchMethod() {
-    fetch(`/${window?.learnMode ? 'clue': 'all'}Countries.json`).then((res) => res.json()).then((data) => {
+    console.log("fetching")
+    fetch((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:`/mapLocations/${gameOptions.location}`).then((res) => res.json()).then((data) => {
       if(data.ready) {
+        // this uses long for lng
+        for(let i = 0; i < data.locations.length; i++) {
+          if(data.locations[i].lng && !data.locations[i].long) {
+            data.locations[i].long = data.locations[i].lng;
+            delete data.locations[i].lng;
+          }
+        }
+
         setAllLocsArray(data.locations)
+
+        if(gameOptions.location === "all") {
         const loc = data.locations[0]
         setLatLong(loc)
+        } else {
+          const loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+          setLatLong(loc)
+          if(data.name) {
+
+            // calculate extent (for openlayers)
+             const mappedLatLongs = data.locations.map((l) => fromLonLat([l.long, l.lat], 'EPSG:4326'));
+             let extent = boundingExtent(mappedLatLongs);
+             console.log("extent", extent)
+             // convert extent from EPSG:4326 to EPSG:3857 (for openlayers)
+
+            setGameOptions((prev) => ({
+              ...prev,
+              communityMapName: data.name,
+              official: data.official ?? false,
+              maxDist: data.maxDist ?? 20000,
+              extent: extent
+            }))
+
+          }
+        }
+
       } else {
-        console.log("pregen not ready :(")
+        if(gameOptions.location !== "all") {
+      toast(text("errorLoadingMap"), { type: 'error' })
+        }
         defaultMethod()
       }
     }).catch((e) => {
+      console.error(e)
+      toast(text("errorLoadingMap"), { type: 'error' })
       defaultMethod()
     });
   }
-  if(gameOptions.location==="all") {
+  if(gameOptions.countryMap && gameOptions.official) {
+    defaultMethod()
+  } else {
     if(allLocsArray.length===0) {
       fetchMethod()
     } else if(allLocsArray.length>0) {
@@ -884,13 +1017,24 @@ export default function Home({ locale }) {
       if((locIndex === -1) || (locIndex === allLocsArray.length-1)) {
        fetchMethod()
       } else {
+        if(gameOptions.location === "all") {
         const loc = allLocsArray[locIndex+1] ?? allLocsArray[0];
         setLatLong(loc)
+        } else {
+          // prevent repeats: remove the prev location from the array
+          setAllLocsArray((prev) => prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long))
+          // community maps are randomized
+          const loc = allLocsArray[Math.floor(Math.random() * allLocsArray.length)];
+
+
+          console.log("allLocsArray", allLocsArray)
+          setLatLong(loc)
+        }
       }
 
-    }
-  } else defaultMethod()
+  }
 }
+    }
 
   }
 
@@ -931,6 +1075,9 @@ export default function Home({ locale }) {
 
       {ChatboxMemo}
     <ToastContainer/>
+
+    <div id="videoad"></div>
+
 <div style={{
         top: 0,
         left: 0,
@@ -1006,9 +1153,9 @@ export default function Home({ locale }) {
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                <Link target="_blank" href={"https://iogames.forum/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Forum"><FaNewspaper className="home__squarebtnicon" /></button></Link>
                 </>
                 )}
+                <button className="home__squarebtn gameBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}><FaMap className="home__squarebtnicon" /></button>
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
               </div>
 
@@ -1027,7 +1174,18 @@ export default function Home({ locale }) {
           <br />
         </div>
         <InfoModal shown={false} />
+        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
+            customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
+              console.log("map", map)
+              openMap(map.countryMap||map.slug);
+              setGameOptionsModalShown(false)
+            }:null}
+            showAllCountriesOption={(gameOptionsModalShown&&screen==="singleplayer")}
+            singleplayer={screen==="singleplayer"}
+            gameOptions={gameOptions} setGameOptions={setGameOptions} />
+
         <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
+
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
           // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game
           multiplayerState?.inGame && !multiplayerState?.gameData?.public
@@ -1074,11 +1232,14 @@ export default function Home({ locale }) {
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
-          <GameUI options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000 }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          <GameUI options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
 
         <Script>
           {`
+
+            window.lastAdShown = Date.now();
+            window.adInterval = 1200000;
 
     (function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
@@ -1102,6 +1263,55 @@ export default function Home({ locale }) {
    window.adsbygoogle = window.adsbygoogle || [];
   window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
    adConfig({preloadAdBreaks: 'on'});
+
+   aiptag.cmd.player.push(function() {
+	aiptag.adplayer = new aipPlayer({
+		AD_WIDTH: window.innerWidth,
+		AD_HEIGHT: window.innerHeight,
+		AD_DISPLAY: 'default', //default, fullscreen, fill, center, modal-center
+		LOADING_TEXT: 'loading advertisement',
+		PREROLL_ELEM: function(){ return document.getElementById('videoad'); },
+		AIP_COMPLETE: function (state) {
+    console.log("Ad complete", state)
+			// The callback will be executed once the video ad is completed.
+      window.lastAdShown = Date.now();
+
+			if (typeof aiptag.adplayer.adCompleteCallback === 'function') {
+				aiptag.adplayer.adCompleteCallback(state);
+			}
+		}
+	});
+});
+
+window.show_videoad = function(callback) {
+
+          if(window.disableVideoAds) {
+          console.log("Video ads disabled")
+            callback("DISABLED");
+            return;
+          }
+
+  if(window.lastAdShown + window.adInterval > Date.now()) {
+  console.log("Time since last ad shown", Date.now() - window.lastAdShown, "ms")
+            callback("COOLDOWN");
+            return;
+          }
+
+	// Assign the callback to be executed when the ad is done
+	aiptag.adplayer.adCompleteCallback = callback;
+
+	// Check if the adslib is loaded correctly or blocked by adblockers etc.
+	if (typeof aiptag.adplayer !== 'undefined') {
+  console.log("Showing ad")
+		aiptag.cmd.player.push(function() { aiptag.adplayer.startVideoAd(); });
+	} else {
+   console.log("Adlib not loaded")
+		// Adlib didn't load; this could be due to an ad blocker, timeout, etc.
+		// Please add your script here that starts the content, this usually is the same script as added in AIP_COMPLETE.
+		aiptag.adplayer.aipConfig.AIP_COMPLETE();
+	}
+}
+
   `}
         </Script>
       </main>

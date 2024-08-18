@@ -1,0 +1,187 @@
+.container {
+  min-height: 100vh;
+  background-color: #1a2f23;
+  color: #ffffff;
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.mapHeader {
+  position: relative;
+  height: 300px;
+  border-radius: 15px;
+  overflow: hidden;
+  margin-bottom: 2rem;
+}
+
+.mapImage {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.mapInfo {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1rem;
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+}
+
+.mapInfo h1 {
+  margin: 0;
+  font-size: 2.5rem;
+}
+
+.mapStats {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2rem;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #2a3f33;
+  padding: 1rem;
+  border-radius: 10px;
+  flex: 1;
+  margin: 0 0.5rem;
+}
+
+.statIcon {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.statValue {
+  font-size: 1.25rem;
+  font-weight: bold;
+}
+
+.statLabel {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.playButton {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffffff;
+  background-color: #4CAF50;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.playButton:hover {
+  background-color: #45a049;
+}
+
+.mapDescription {
+  margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+  .mapStats {
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    flex-basis: calc(50% - 1rem);
+    margin-bottom: 1rem;
+  }
+}
+.branding {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border-bottom: 1px solid #ddd;
+}
+
+.branding h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.branding p {
+  font-size: 1.2rem;
+  color: #efefef;
+}
+/* MapPage.module.css */
+.iframeContainer {
+  overflow: hidden;
+  border: none;
+}
+
+.iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transition: opacity 1s ease-in-out;
+  border: none;
+}
+
+.iframe.fadeOut {
+  opacity: 0;
+}
+
+.iframe.fadeIn {
+  opacity: 1;
+}
+.backButton {
+  display: block;
+  background-color: gray;
+  color: white;
+  padding: 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  border: none;
+  border-radius: 10px;
+  width: fit-content;
+  cursor: pointer;
+}
+.mapAuthor {
+  margin-top: 2rem;
+  font-size: 1.2rem;
+  opacity: 0.8;
+}
+
+.statusMessage {
+  margin: 20px 0;
+  padding: 10px;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 16px;
+}
+
+.statusMessage p {
+  margin: 0;
+}
+
+.fadeIn {
+  opacity: 1;
+  transition: opacity 1s ease-in;
+}
+
+.fadeOut {
+  opacity: 0;
+  transition: opacity 1s ease-out;
+}

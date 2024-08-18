@@ -58,7 +58,7 @@ export default function Navbar({ inGame, openAccountModal, shown, backBtnPressed
         )}
         { screen === 'singleplayer' && (
         <button className="gameBtn navBtn" disabled={loading} onClick={()=>setGameOptionsModalShown(true)}>
-          {((gameOptions.location === "all")|| !gameOptions.location)? text("allCountries") : nameFromCode(gameOptions.location)}
+          {((gameOptions.location === "all")|| !gameOptions.location)? text("allCountries") : gameOptions?.countryMap?nameFromCode(gameOptions.location):gameOptions?.communityMapName}
           {gameOptions.nm && gameOptions.npz?
           ', NMPZ':
           gameOptions.nm? ', NM' :

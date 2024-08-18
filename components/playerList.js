@@ -1,4 +1,6 @@
 import { useTranslation } from 'next-i18next'
+import { FaCopy } from 'react-icons/fa6';
+import { toast } from 'react-toastify';
 
 export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost }) {
   const { t: text } = useTranslation("common");
@@ -22,9 +24,28 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
 
       { waitingForStart && (
 
-        <>
+        <div style={{display: "flex", flexDirection: "row", alignItems: "center"}}>
         <h2 style={{color: "orange", pointerEvents: "all"}}>{text("gameCode")}: {multiplayerState.gameData?.code}</h2>
-        </>
+        {/* copy */}
+        <button onClick={() => {
+          navigator.clipboard.writeText(multiplayerState.gameData?.code);
+          toast.success(text("copiedToClipboard"));
+        }} style={{
+          marginLeft: "10px",
+          padding: "5px",
+          backgroundColor: "orange",
+          color: "white",
+          border: "none",
+          cursor: "pointer",
+          pointerEvents: "all",
+          borderRadius: "5px"
+        }}>
+          {/* copy icon */}
+
+          <FaCopy />
+        </button>
+
+        </div>
       )}
 
       {players.slice(0, N).map((player, i) => {
