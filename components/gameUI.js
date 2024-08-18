@@ -346,7 +346,14 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     // });
     if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
 
+    if(window.panorama && !panoramaRef.current) {
+      panoramaRef.current = window.panorama;
+    }
+
     if(!panoramaRef.current) {
+
+
+
     panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById("googlemaps"),
       {
@@ -365,6 +372,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
         disableDefaultUI: true,
       },
     );
+    window.panorama = panoramaRef.current;
     console.log("creating panorama", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
   } else {
     console.log("setting position", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
@@ -379,8 +387,11 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     function fixPitch() {
       // point towards road
 
-      panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
-      panoramaRef.current.setZoom(0);
+      const pov = panoramaRef.current.getPhotographerPov();
+      const zoom = 0;
+      const smooth = true;
+      panoramaRef.current.setPov(pov, smooth);
+      panoramaRef.current.setZoom(zoom, smooth);
 
       // if localhost log the location
       if(window.location.hostname === "localhost") {
@@ -394,10 +405,11 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
       console.log("pano changed")
         if(loaded) return;
         loaded = true;
+        // setStreetViewShown(false)
         setTimeout(() => {
         setLoading(false)
         setStreetViewShown(true)
-        }, 200)
+        }, 100)
         fixBranding();
 
         fixPitch();
