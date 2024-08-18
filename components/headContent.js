@@ -29,7 +29,7 @@ export default function HeadContent({text}) {
 <link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet"/>
 
 <script
-      src="https://maps.googleapis.com/maps/api/js?callback=initialize&v=weekly"
+      src="https://maps.googleapis.com/maps/api/js?v=weekly"
       defer
     ></script>
 {/* <script src="https://greggman.github.io/webgl-helpers/webgl-force-preservedrawingbuffer.js"></script> */}

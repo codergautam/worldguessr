@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import dynamic from "next/dynamic";
 import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
@@ -85,6 +85,7 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
+  const panoramaRef = useRef(null);
   useEffect(() => {
     if(showAnswer) {
       setShowPanoOnResult(false)
@@ -343,10 +344,10 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     //   center: fenway,
     //   zoom: 14,
     // });
-    if(!latLong) return;
+    if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
 
-
-    const panorama = new google.maps.StreetViewPanorama(
+    if(!panoramaRef.current) {
+    panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById("googlemaps"),
       {
         position: { lat: latLong.lat, lng: latLong.long },
@@ -364,6 +365,13 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
         disableDefaultUI: true,
       },
     );
+    console.log("creating panorama", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
+  } else {
+    console.log("setting position", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
+    panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
+    panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
+    panoramaRef.current.setZoom(0);
+  }
 
 
     // pano onload
@@ -371,8 +379,8 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
     function fixPitch() {
       // point towards road
 
-      panorama.setPov(panorama.getPhotographerPov());
-      panorama.setZoom(0);
+      panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
+      panoramaRef.current.setZoom(0);
 
       // if localhost log the location
       if(window.location.hostname === "localhost") {
@@ -394,12 +402,12 @@ export default function GameUI({ countryGuesserCorrect, setCountryGuesserCorrect
 
         fixPitch();
     }
-    panorama.addListener("pano_changed", onChangeListener);
+    panoramaRef.current.addListener("pano_changed", onChangeListener);
 
 
     return () => {
-      if(!panorama) return;
-      google.maps.event.clearListeners(panorama, 'pano_changed');
+      if(!panoramaRef.current) return;
+      google.maps.event.clearListeners(panoramaRef.current, 'pano_changed');
     }
 
 
