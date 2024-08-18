@@ -10,12 +10,12 @@ let mapCache = {
   popular: {
     data: [],
     timeStamp: 0,
-    persist: 1800000
+    persist: 120000
   },
   recent: {
     data: [],
     timeStamp: 0,
-    persist: 1800000
+    persist: 120000
   }
 }
 
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
     description_short: map.shortDescription,
   })).sort((b,a)=>a.maxDist - b.maxDist);
 
-  const discovery =  ["recent","popular"];
+  const discovery =  ["popular","recent"];
   for(const method of discovery) {
     console.log(mapCache[method].data.length, Date.now() - mapCache[method].timeStamp, mapCache[method].persist);
     if(mapCache[method].data.length > 0 && Date.now() - mapCache[method].timeStamp < mapCache[method].persist) {
@@ -94,7 +94,8 @@ export default async function handler(req, res) {
       response[method] = mapCache[method].data;
       // check hearted maps
       response[method].map((map) => {
-        map.hearted = hearted_maps?hearted_maps.has(map._id):false;
+        console.log(map)
+        map.hearted = hearted_maps?hearted_maps.has(map.id.toString()):false;
         return map;
       });
     } else {
