@@ -10,7 +10,7 @@ let mapCache = {
   popular: {
     data: [],
     timeStamp: 0,
-    persist: 7200000
+    persist: 1800000
   },
   recent: {
     data: [],
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
     }));
     likedMapsSendable.sort((a,b) => b.created_at - a.created_at);
     if(likedMapsSendable.length > 0) response.likedMaps = likedMapsSendable;
-    
+
   }
 
   response.countryMaps = Object.values(officialCountryMaps).map((map) => ({
@@ -88,9 +88,15 @@ export default async function handler(req, res) {
 
   const discovery =  ["recent","popular"];
   for(const method of discovery) {
+    console.log(mapCache[method].data.length, Date.now() - mapCache[method].timeStamp, mapCache[method].persist);
     if(mapCache[method].data.length > 0 && Date.now() - mapCache[method].timeStamp < mapCache[method].persist) {
       // retrieve from cache
       response[method] = mapCache[method].data;
+      // check hearted maps
+      response[method].map((map) => {
+        map.hearted = hearted_maps?hearted_maps.has(map._id):false;
+        return map;
+      });
     } else {
       // retrieve from db
       let maps = [];
@@ -108,6 +114,13 @@ export default async function handler(req, res) {
 
       response[method] = sendableMaps;
       mapCache[method].data = sendableMaps;
+      // dont store hearted maps in cache
+      mapCache[method].data = sendableMaps.map((map) => {
+        return {
+          ...map,
+          hearted: false
+        }
+      });
       mapCache[method].timeStamp = Date.now();
     }
   }
