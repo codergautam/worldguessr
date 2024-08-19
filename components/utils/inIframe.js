@@ -10,7 +10,6 @@ export function inIframe() {
 }
 export function isForbiddenIframe() {
   try {
-    console.log("iframe check", inIframe(), window?.location?.ancestorOrigins[0] ?? document.referrer);
     return inIframe() && forbiddenIframe.some((url) => (window?.location?.ancestorOrigins[0] ?? document.referrer).includes(url));
   } catch (e) {
     console.error("Piracy detection error", e);

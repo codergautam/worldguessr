@@ -190,7 +190,6 @@ export default function Home({ locale }) {
       // get map slug map=slug from url
       const params = new URLSearchParams(window.location.search);
       const mapSlug = params.get("map");
-      console.log("map slug", mapSlug)
       setScreen("singleplayer")
 
       openMap(mapSlug)
@@ -322,7 +321,6 @@ export default function Home({ locale }) {
 
   useEffect(() => {
     if(options && options.units && options.mapType) {
-      console.log("options", options)
       try {
       localStorage.setItem("options", JSON.stringify(options))
       } catch(e) {}
@@ -537,7 +535,6 @@ export default function Home({ locale }) {
           playerCount: data.c
         }))
       } else if (data.type === "verify") {
-        console.log("verified")
         setMultiplayerState((prev) => ({
           ...prev,
           connected: true,
@@ -973,7 +970,12 @@ export default function Home({ locale }) {
         const loc = data.locations[0]
         setLatLong(loc)
         } else {
-          const loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+          let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+
+          while(loc.lat === latLong.lat && loc.long === latLong.long) {
+            loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+          }
+          
           setLatLong(loc)
           if(data.name) {
 
@@ -1013,7 +1015,8 @@ export default function Home({ locale }) {
       fetchMethod()
     } else if(allLocsArray.length>0) {
       const locIndex = allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long);
-      if((locIndex === -1) || (locIndex === allLocsArray.length-1)) {
+      if((locIndex === -1) || allLocsArray.length === 1) {
+        console.log("could not find location in array", locIndex, allLocsArray)
        fetchMethod()
       } else {
         if(gameOptions.location === "all") {
@@ -1021,13 +1024,19 @@ export default function Home({ locale }) {
         setLatLong(loc)
         } else {
           // prevent repeats: remove the prev location from the array
-          setAllLocsArray((prev) => prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long))
-          // community maps are randomized
-          const loc = allLocsArray[Math.floor(Math.random() * allLocsArray.length)];
+          setAllLocsArray((prev) => {
+             const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
 
 
-          console.log("allLocsArray", allLocsArray)
-          setLatLong(loc)
+             console.log("newArr", newArr)
+             // community maps are randomized
+             const loc = newArr[Math.floor(Math.random() * newArr.length)];
+
+
+             setLatLong(loc)
+             return newArr;
+            })
+
         }
       }
 
@@ -1101,10 +1110,9 @@ export default function Home({ locale }) {
       panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
     }
     window.panorama = panoramaRef.current;
-    console.log("creating panorama", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
   } else {
-    console.log("setting position", latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName)
 
+    console.log("setting position", latLong)
     panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
 
     window.reloadLoc = () => {
@@ -1404,7 +1412,6 @@ window.show_videoad = function(callback) {
           }
 
   if(window.lastAdShown + window.adInterval > Date.now()) {
-  console.log("Time since last ad shown", Date.now() - window.lastAdShown, "ms")
             callback("COOLDOWN");
             return;
           }
