@@ -61,7 +61,7 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ query: term }),
+          body: JSON.stringify({ query: term, secret: session?.token?.secret }),
         })
           .then((res) => res.json())
           .then((data) => {
@@ -122,6 +122,88 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
       .catch(() => {
         setMakeMap({ ...makeMap, progress: false });
         toast.error("Unexpected Error creating map - 2");
+      });
+  }
+
+  function heartMap(map) {
+    if (!session?.token?.secret) {
+      toast.error("Not logged in");
+      return;
+    }
+
+    setHeartingMap(map.id);
+
+    fetch("/api/map/heartMap", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        secret: session?.token?.secret,
+        mapId: map.id,
+      }),
+    })
+      .then(async (res) => {
+        setHeartingMap("");
+        let json;
+        try {
+          json = await res.json();
+        } catch (e) {
+          toast.error("Unexpected Error hearting map - 1");
+          return;
+        }
+        if (res.ok && json.success) {
+          toast(json.hearted ? text("heartedMap") : text("unheartedMap"), {
+            type: json.hearted ? 'success' : 'info'
+          });
+
+
+          const newHeartsCnt = json.hearts;
+          // update state
+          setMapHome((prev) => {
+            const newMapHome = { ...prev };
+            Object.keys(newMapHome).forEach((section) => {
+              console.log(section,"section");
+              newMapHome[section] = newMapHome[section].map((m) => {
+                if (m.id === map.id) {
+              console.log(section);
+
+                  m.hearts = newHeartsCnt;
+                  m.hearted = json.hearted;
+                } else console.log(m.id, map.id, "names", m.name, map.name);
+                return m;
+              });
+
+              if(section === "likedMaps") {
+                if(json.hearted) {
+                  newMapHome[section].push(map);
+                } else {
+                  newMapHome[section] = newMapHome[section].filter((m) => m.id !== map.id);
+                }
+              }
+            });
+            return newMapHome;
+          });
+
+          if(searchResults.length > 0) {
+            setSearchResults((prev) => {
+              return prev.map((m) => {
+                if (m.id === map.id) {
+                  m.hearts = newHeartsCnt;
+                  m.hearted = json.hearted;
+                }
+                return m;
+              });
+            });
+          }
+        } else {
+          toast.error(text(json.message || json.error || "unexpectedError"));
+        }
+      })
+      .catch((e) => {
+        setHeartingMap("");
+        console.log(e);
+        toast.error("Unexpected Error hearting map - 2");
       });
   }
 
@@ -291,72 +373,10 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
                               searchTerm={searchTerm}
                               secret={session?.token?.secret}
                               refreshHome={refreshHome}
+                              showDeleteButton={(map.yours && section==="myMaps") || session?.token?.staff}
                               showReviewOptions={session?.token?.staff && section === "reviewQueue"}
                               onHeart={() => {
-                                if (!session?.token?.secret) {
-                                  toast.error("Not logged in");
-                                  return;
-                                }
-
-                                setHeartingMap(map.id);
-
-                                fetch("/api/map/heartMap", {
-                                  method: "POST",
-                                  headers: {
-                                    "Content-Type": "application/json",
-                                  },
-                                  body: JSON.stringify({
-                                    secret: session?.token?.secret,
-                                    mapId: map.id,
-                                  }),
-                                })
-                                  .then(async (res) => {
-                                    setHeartingMap("");
-                                    let json;
-                                    try {
-                                      json = await res.json();
-                                    } catch (e) {
-                                      toast.error("Unexpected Error hearting map - 1");
-                                      return;
-                                    }
-                                    if (res.ok && json.success) {
-                                      toast(json.hearted ? text("heartedMap") : text("unheartedMap"), {
-                                        type: json.hearted ? 'success' : 'info'
-                                      });
-
-
-                                      const newHeartsCnt = json.hearts;
-                                      // update state
-                                      setMapHome((prev) => {
-                                        const newMapHome = { ...prev };
-                                        Object.keys(newMapHome).forEach((section) => {
-                                          newMapHome[section] = newMapHome[section].map((m) => {
-                                            if (m.id === map.id) {
-                                              m.hearts = newHeartsCnt;
-                                              m.hearted = json.hearted;
-                                            }
-                                            return m;
-                                          });
-
-                                          if(section === "likedMaps") {
-                                            if(json.hearted) {
-                                              newMapHome[section].push(map);
-                                            } else {
-                                              newMapHome[section] = newMapHome[section].filter((m) => m.id !== map.id);
-                                            }
-                                          }
-                                        });
-                                        return newMapHome;
-                                      });
-                                    } else {
-                                      toast.error(text(json.message || json.error || "unexpectedError"));
-                                    }
-                                  })
-                                  .catch((e) => {
-                                    setHeartingMap("");
-                                    console.log(e);
-                                    toast.error("Unexpected Error hearting map - 2");
-                                  });
+                                heartMap(map);
                               }}
                             />
                           ))

@@ -23,6 +23,7 @@ export default async function searchMaps(req, res) {
   }
 
   let hearted_maps = user ? user.hearted_maps : null;
+  console.log('searching maps for query:', query, user.hearted_maps);
 
   // Validate the search query
   if (!query || query.length < 3) {

@@ -2115,3 +2115,11 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   background-color: #0056b3;
   color: white;
 }
+
+.map-tile__delete {
+  cursor: pointer;
+}
+.map-tile__edit {
+  background-color: black;
+  cursor: pointer;
+}
