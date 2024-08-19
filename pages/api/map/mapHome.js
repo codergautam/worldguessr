@@ -101,11 +101,10 @@ export default async function handler(req, res) {
     } else {
       // retrieve from db
       let maps = [];
-      const limit = 20; // 20 map limit on each section
       if(method === "recent") {
-        maps = await Map.find({ accepted: true }).sort({ created_at: -1 }).limit(limit);
+        maps = await Map.find({ accepted: true }).sort({ created_at: -1 }).limit(20);
       } else if(method === "popular") {
-        maps = await Map.find({ accepted: true }).sort({ hearts: -1 }).limit(limit);
+        maps = await Map.find({ accepted: true }).sort({ hearts: -1 }).limit(100);
       }
 
       let sendableMaps = await Promise.all(maps.map(async (map) => {

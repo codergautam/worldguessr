@@ -43,4 +43,11 @@
     <priority>0.8</priority>
   </url>
 
+  <url>
+    <loc>https://worldguessr.com/maps</loc>
+    <lastmod>2024-08-19</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
 </urlset>
