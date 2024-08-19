@@ -113,6 +113,7 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
         if (res.ok) {
           toast.success("Map created");
           setMakeMap(initMakeMap);
+          refreshHome();
         } else {
           setMakeMap({ ...makeMap, progress: false });
           toast.error(json.message);
