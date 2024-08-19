@@ -254,7 +254,7 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
                       );
 
                 return mapsArray.length > 0 ? (
-                  <div className="mapSection" key={si}>
+                  <div className={`mapSection ${section==="recent"?"recent":""}`} key={si}>
                     <h2 className="mapSectionTitle">{text(section)}</h2>
 
                     <div className={`mapSectionMaps`}>

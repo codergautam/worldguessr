@@ -2085,6 +2085,17 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   }
 }
 
+.mapSection.recent {
+  background-color: rgba(0,0,0,0);
+}
+.recent .react-horizontal-scrolling-menu--scroll-container {
+  display: grid;
+  justify-content: center;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  /* gap: 10px; */
+  justify-items: center;
+}
+
 .linkButton {
   background-color: none;
   color: #007Bff;

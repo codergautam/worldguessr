@@ -1196,7 +1196,7 @@ export default function Home({ locale }) {
     <div className="videoAdParent hidden">
   <div className="videoAdPlayer">
     <div className="messageContainer">
-      <p className="thankYouMessage">{text("videoAdThanks")}</p>
+      <p className="thankYouMessage">{text("videoAdThanks")}<br/>{text("enjoyGameplay")}</p>
     </div>
     <div id="videoad"></div>
   </div>
