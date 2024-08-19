@@ -134,13 +134,11 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
             ? searchResults
             : mapHome[section].filter(
                 (map) =>
-                  map.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  map.description_short
-                    .toLowerCase()
-                    .includes(searchTerm.toLowerCase()) ||
-                  map.created_by_name
-                    .toLowerCase()
-                    .includes(searchTerm.toLowerCase())
+                  map.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
+                  map.description_short?.toLowerCase()
+                    .includes(searchTerm?.toLowerCase()) ||
+                  map.created_by_name?.toLowerCase()
+                    .includes(searchTerm?.toLowerCase())
               );
         return mapsArray.length > 0;
       });
@@ -229,7 +227,7 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
           )}
 
           <center>
-          {showAllCountriesOption && ((searchTerm.length === 0) || (text("allCountries").toLowerCase().includes(searchTerm.toLowerCase()))) && (
+          {showAllCountriesOption && ((searchTerm.length === 0) || (text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase()))) && (
             <MapTile map={{ name: text("allCountries"), slug: "all" }} onClick={()=>onMapClick({ name: text("allCountries"), slug: "all" })} searchTerm={searchTerm} />
           )}
           </center>
@@ -242,15 +240,12 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
                   section === "recent" && searchResults.length > 0
                     ? searchResults
                     : mapHome[section].filter((map) =>
-                        map.name
-                          .toLowerCase()
+                        map.name?.toLowerCase()
                           .includes(searchTerm.toLowerCase()) ||
-                        map.description_short
-                          .toLowerCase()
+                        map.description_short?.toLowerCase()
                           .includes(searchTerm.toLowerCase()) ||
-                        map.created_by_name
-                          .toLowerCase()
-                          .includes(searchTerm.toLowerCase())
+                        map.created_by_name?.toLowerCase()
+                          .includes(searchTerm?.toLowerCase())
                       );
 
                 return mapsArray.length > 0 ? (

@@ -3,7 +3,7 @@ import {useState} from "react";
 import { toast } from "react-toastify";
 import formatNumber from "../utils/fmtNumber";
 export default function MapTile({ map, onHeart, onClick, country, searchTerm, canHeart, showReviewOptions, secret, refreshHome }) {
-  const backgroundImage = country ? `url("https://flagcdn.com/h240/${country.toLowerCase()}.png")` : "";
+  const backgroundImage = country ? `url("https://flagcdn.com/h240/${country?.toLowerCase()}.png")` : "";
 
   const highlightMatch = (text, searchTerm) => {
     if (!searchTerm || !text || typeof searchTerm !== 'string') return text;
@@ -11,7 +11,7 @@ export default function MapTile({ map, onHeart, onClick, country, searchTerm, ca
 
     const regex = new RegExp(`(${searchTerm})`, 'gi');
     return text.split(regex).map((part, index) =>
-      part.toLowerCase() === searchTerm.toLowerCase() ? (
+      part?.toLowerCase() === searchTerm?.toLowerCase() ? (
         <span key={index} style={{ backgroundColor: 'darkOrange' }}>{part}</span>
       ) : part
     );

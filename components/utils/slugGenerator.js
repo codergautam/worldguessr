@@ -1,6 +1,6 @@
 export default function generateSlug (str) {
   str = str.replace(/^\s+|\s+$/g, ''); // trim
-  str = str.toLowerCase();
+  str = str?.toLowerCase();
 
   // remove accents, swap ñ for n, etc
   var from = "àáäâèéëêìíïîòóöôùúüûñç·/_,:;";

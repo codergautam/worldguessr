@@ -2,7 +2,7 @@ import nameFromCode from "./utils/nameFromCode";
 
 function countryDiv({country, onPress}) {
   return (
-            <div key={country} className="countryCard countryGuessrCard" style={{backgroundImage: `url(https://flagcdn.com/w160/${country.toLowerCase()}.png)`}}
+            <div key={country} className="countryCard countryGuessrCard" style={{backgroundImage: `url(https://flagcdn.com/w160/${country?.toLowerCase()}.png)`}}
             onClick={() => {
                 onPress(country)
             }}

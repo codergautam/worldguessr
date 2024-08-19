@@ -572,7 +572,7 @@ export default function Home({ locale }) {
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
 
-            if(data.map !== "all" && !countries.map((c) => c.toLowerCase()).includes(data.map.toLowerCase())  && !gameOptions?.extent) {
+            if(data.map !== "all" && !countries.map((c) => c?.toLowerCase()).includes(data.map?.toLowerCase())  && !gameOptions?.extent) {
               // calculate extent
 
               fetch(`/mapLocations/${data.map}`).then((res) => res.json()).then((data) => {

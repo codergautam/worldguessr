@@ -161,7 +161,7 @@ export default function MapPage({ mapData }) {
             )}
 
             {mapData.countryCode && (
-              <img src={`https://flagcdn.com/w2560/${mapData.countryCode.toLowerCase()}.png`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={`https://flagcdn.com/w2560/${mapData.countryCode?.toLowerCase()}.png`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             )}
           </div>
           <div className={styles.mapInfo}>
