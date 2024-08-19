@@ -975,7 +975,7 @@ export default function Home({ locale }) {
           while(loc.lat === latLong.lat && loc.long === latLong.long) {
             loc = data.locations[Math.floor(Math.random() * data.locations.length)];
           }
-          
+
           setLatLong(loc)
           if(data.name) {
 
@@ -1283,11 +1283,11 @@ export default function Home({ locale }) {
             )}
             </div>
 
-          {/* <div style={{ marginTop: "20px" }}>
+          <div style={{ marginTop: "20px" }}>
             <center>
-    <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} screenW={width} />
+    <Ad screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} />
             </center>
-            </div> */}
+            </div>
           </div>
           </>
         )}
