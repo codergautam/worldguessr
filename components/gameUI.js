@@ -35,6 +35,8 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
           timeTaken: Date.now() - prev.startTime
           }
         })
+        setShowAnswer(false)
+        setStreetViewShown(false)
       } else
       setOnboarding((prev) => {
         return {
