@@ -18,8 +18,7 @@ export default function HeadContent({text}) {
     content={text("fullDescMeta")}
     />
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0"/>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <link rel="icon" type="image/x-icon" href="/icon.ico" />
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
 <meta name="yandex-verification" content="2eb7e8ef6fb55e24" />
