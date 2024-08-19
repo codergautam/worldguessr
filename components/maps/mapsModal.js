@@ -58,6 +58,7 @@ const styles = {
         borderRadius: "8px",
         padding: "20px",
         position: "relative",
+        pointerEvents: "all",
         zIndex: 1010,
     },
     modalContent: {
