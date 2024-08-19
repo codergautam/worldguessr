@@ -166,14 +166,12 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
           setMapHome((prev) => {
             const newMapHome = { ...prev };
             Object.keys(newMapHome).forEach((section) => {
-              console.log(section,"section");
               newMapHome[section] = newMapHome[section].map((m) => {
                 if (m.id === map.id) {
-              console.log(section);
 
                   m.hearts = newHeartsCnt;
                   m.hearted = json.hearted;
-                } else console.log(m.id, map.id, "names", m.name, map.name);
+                }
                 return m;
               });
 

@@ -44,10 +44,7 @@ export default async function handler(req, res) {
 
   if(user?.staff) {
     // reviewQueue
-    console.log('staff queue');
     let queueMaps = await Map.find({ in_review: true });
-
-    console.log(queueMaps);
 
     let queueMapsSendable = await Promise.all(queueMaps.map(async (map) => {
       const owner = await User.findById(map.created_by);
@@ -126,4 +123,10 @@ export default async function handler(req, res) {
   }
 
   res.status(200).json(response);
+}
+
+export const config = {
+  api: {
+    responseLimit: false,
+  },
 }
