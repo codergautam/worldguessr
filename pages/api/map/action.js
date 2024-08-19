@@ -26,6 +26,80 @@ function calculateDistance(cart1, cart2) {
   return Math.sqrt(dx * dx + dy * dy + dz * dz);
 }
 
+
+async function validateMap(name, data, description_short, description_long, edit=false, mapId=null) {
+
+  if(!name || !data || !description_short || !description_long) {
+    return 'Missing name, data, description_short, or description_long';
+  }
+
+  name = name.trim();
+  description_short = description_short.trim();
+  description_long = description_long.trim();
+
+  // validate name
+  if(typeof name !== 'string' || name.length < mapConst.MIN_NAME_LENGTH  || name.length > mapConst.MAX_NAME_LENGTH) {
+    // return res.status(400).json({ message: `Name must be between ${mapConst.MIN_NAME_LENGTH} and ${mapConst.MAX_NAME_LENGTH} characters` });
+    return `Name must be between ${mapConst.MIN_NAME_LENGTH} and ${mapConst.MAX_NAME_LENGTH} characters`;
+  }
+
+  // validate short description
+  if(typeof description_short !== 'string' || description_short.length < mapConst.MIN_SHORT_DESCRIPTION_LENGTH || description_short.length > mapConst.MAX_SHORT_DESCRIPTION_LENGTH) {
+    // return res.status(400).json({ message: `Short description must be between ${mapConst.MIN_SHORT_DESCRIPTION_LENGTH} and ${mapConst.MAX_SHORT_DESCRIPTION_LENGTH} characters` });
+    return `Short description must be between ${mapConst.MIN_SHORT_DESCRIPTION_LENGTH} and ${mapConst.MAX_SHORT_DESCRIPTION_LENGTH} characters`;
+  }
+
+  // validate long description
+  if(typeof description_long !== 'string' || description_long.length < mapConst.MIN_LONG_DESCRIPTION_LENGTH || description_long.length > mapConst.MAX_LONG_DESCRIPTION_LENGTH) {
+    // return res.status(400).json({ message: `Long description must be between ${mapConst.MIN_LONG_DESCRIPTION_LENGTH} and ${mapConst.MAX_LONG_DESCRIPTION_LENGTH} characters` });
+    return `Long description must be between ${mapConst.MIN_LONG_DESCRIPTION_LENGTH} and ${mapConst.MAX_LONG_DESCRIPTION_LENGTH} characters`;
+  }
+
+  // make sure short and long descriptions are different
+  if(description_short === description_long) {
+    // return res.status(400).json({ message: 'Short and long descriptions must be different' });
+    return 'Short and long descriptions must be different';
+  }
+
+  const slug = generateSlug(name);
+  if(slug === 'all' || countries.includes(slug.toUpperCase()) || Object.values(officialCountryMaps).find(map => map.slug === slug)) {
+    // return res.status(400).json({ message: 'Please choose a different name' });
+    return 'Please choose a different name';
+  }
+
+  // validate data
+  const locationsData = parseMapData(data);
+  if(!locationsData || locationsData.length < mapConst.MIN_LOCATIONS) {
+    // return res.status(400).json({ message: 'Need at least ' + mapConst.MIN_LOCATIONS + ' valid locations (got ' + (locationsData?.length ?? 0)+ ')' });
+    return 'Need at least ' + mapConst.MIN_LOCATIONS + ' valid locations (got ' + (locationsData?.length ?? 0)+ ')';
+  }
+  if(locationsData.length > mapConst.MAX_LOCATIONS) {
+    // return res.status(400).json({ message: `To make a map with more than ${mapConst.MAX_LOCATIONS} locations, please contact us at gautam@worldguessr.com` });
+    return `To make a map with more than ${mapConst.MAX_LOCATIONS} locations, please contact us at`
+  }
+
+  // Convert all locations to Cartesian coordinates
+  const cartesianLocations = locationsData.map(loc => latLngToCartesian(loc.lat, loc.lng));
+
+  // Sort by x-coordinate (you can choose any dimension)
+  cartesianLocations.sort((a, b) => a.x - b.x);
+
+  // Find the maximum distance between the first and last sorted locations
+  const maxDist = calculateDistance(cartesianLocations[0], cartesianLocations[cartesianLocations.length - 1]);
+
+  // make sure slug or name is not already taken
+  const existing = await Map.findOne({ slug: slug });
+  if(existing && (edit ? existing._id.toString() != mapId : true)) {
+    return 'Name already taken';
+  }
+  const existingName = await Map.findOne({ name: name });
+  if(existingName && (edit ? existingName._id.toString() != mapId : true)) {
+    return 'Name already taken';
+  }
+
+  return { slug, locationsData, maxDist };
+}
+
 export default async function handler(req, res) {
 
   // only allow post
@@ -47,91 +121,59 @@ export default async function handler(req, res) {
 
   // creating map
   if(action === 'create') {
-    if(!name || !data || !description_short || !description_long) {
-      return res.status(400).json({ message: 'Missing name, data, description_short, or description_long' });
+
+    const validation = await validateMap(name, data, description_short, description_long);
+    if(typeof validation === 'string') {
+      return res.status(400).json({ message: validation });
     }
-
-    name = name.trim();
-    description_short = description_short.trim();
-    description_long = description_long.trim();
-
-    // validate name
-    if(typeof name !== 'string' || name.length < mapConst.MIN_NAME_LENGTH  || name.length > mapConst.MAX_NAME_LENGTH) {
-      return res.status(400).json({ message: `Name must be between ${mapConst.MIN_NAME_LENGTH} and ${mapConst.MAX_NAME_LENGTH} characters` });
-    }
-
-    // validate short description
-    if(typeof description_short !== 'string' || description_short.length < mapConst.MIN_SHORT_DESCRIPTION_LENGTH || description_short.length > mapConst.MAX_SHORT_DESCRIPTION_LENGTH) {
-      return res.status(400).json({ message: `Short description must be between ${mapConst.MIN_SHORT_DESCRIPTION_LENGTH} and ${mapConst.MAX_SHORT_DESCRIPTION_LENGTH} characters` });
-    }
-
-    // validate long description
-    if(typeof description_long !== 'string' || description_long.length < mapConst.MIN_LONG_DESCRIPTION_LENGTH || description_long.length > mapConst.MAX_LONG_DESCRIPTION_LENGTH) {
-      return res.status(400).json({ message: `Long description must be between ${mapConst.MIN_LONG_DESCRIPTION_LENGTH} and ${mapConst.MAX_LONG_DESCRIPTION_LENGTH} characters` });
-    }
-
-    // make sure short and long descriptions are different
-    if(description_short === description_long) {
-      return res.status(400).json({ message: 'Short and long descriptions must be different' });
-    }
-
-    const slug = generateSlug(name);
-    if(slug === 'all' || countries.includes(slug.toUpperCase()) || Object.values(officialCountryMaps).find(map => map.slug === slug)) {
-      return res.status(400).json({ message: 'Please choose a different name' });
-    }
-
-    // validate data
-    const locationsData = parseMapData(data);
-    if(!locationsData || locationsData.length < mapConst.MIN_LOCATIONS) {
-      return res.status(400).json({ message: 'Need at least ' + mapConst.MIN_LOCATIONS + ' valid locations (got ' + (locationsData?.length ?? 0)+ ')' });
-    }
-    if(locationsData.length > mapConst.MAX_LOCATIONS) {
-      return res.status(400).json({ message: `To make a map with more than ${mapConst.MAX_LOCATIONS} locations, please contact us at gautam@worldguessr.com` });
-    }
-
-    // Convert all locations to Cartesian coordinates
-    const cartesianLocations = locationsData.map(loc => latLngToCartesian(loc.lat, loc.lng));
-
-    // Sort by x-coordinate (you can choose any dimension)
-    cartesianLocations.sort((a, b) => a.x - b.x);
-
-    // Find the maximum distance between the first and last sorted locations
-    const maxDist = calculateDistance(cartesianLocations[0], cartesianLocations[cartesianLocations.length - 1]);
 
     // create map
     const map = await Map.create({
-      slug,
+      slug: validation.slug,
       name,
       created_by: user._id,
-      data: locationsData,
+      data: validation.locationsData,
       description_short,
       description_long,
-      maxDist
+      maxDist: validation.maxDist,
     });
 
     return res.status(200).json({ message: 'Map created', map });
-  }
-
-  // delete map
-  if(action === 'delete') {
+  } else if(action === 'edit') {
     if(!mapId) {
       return res.status(400).json({ message: 'Missing mapId' });
     }
 
-    // find the map
     const map = await Map.findById(mapId);
     if(!map) {
       return res.status(404).json({ message: 'Map not found' });
     }
-
-    // check if the user is the owner
-    if(map.created_by.toString() !== user._id.toString()) {
-      return res.status(403).json({ message: 'You are not authorized to delete this map' });
+    if(!map.resubmittable) {
+      return res.status(400).json({ message: 'This map cannot be edited' });
+    }
+    if(!user.staff && map.created_by.toString() !== user._id.toString()) {
+      return res.status(403).json({ message: 'You do not have permission to edit this map' });
     }
 
-    // delete the map
-    await map.remove();
-    return res.status(200).json({ message: 'Map deleted' });
+    const validation = await validateMap(name, data, description_short, description_long, true, mapId);
+    if(typeof validation === 'string') {
+      return res.status(400).json({ message: validation });
+    }
+
+    // map.slug = validation.slug;
+    map.name = name;
+    map.data = validation.locationsData;
+    map.description_short = description_short;
+    map.description_long = description_long;
+    map.in_review= true;
+    map.reject_reason = "";
+    map.accepted = false;
+
+    map.maxDist = validation.maxDist;
+
+    await map.save();
+
+    return res.status(200).json({ message: 'Map edited', map });
   }
 
   return res.status(400).json({ message: 'Invalid action' });

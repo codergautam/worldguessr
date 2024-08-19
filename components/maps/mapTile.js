@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 import formatNumber from "../utils/fmtNumber";
 import { FaHeart, FaPencil, FaTrash } from "react-icons/fa6";
 
-export default function MapTile({ showDeleteButton, map, onHeart, onClick, country, searchTerm, canHeart, showReviewOptions, secret, refreshHome }) {
+export default function MapTile({ onPencilClick, showEditControls, map, onHeart, onClick, country, searchTerm, canHeart, showReviewOptions, secret, refreshHome }) {
   const backgroundImage = country ? `url("https://flagcdn.com/h240/${country?.toLowerCase()}.png")` : "";
 
   const highlightMatch = (text, searchTerm) => {
@@ -161,13 +161,16 @@ export default function MapTile({ showDeleteButton, map, onHeart, onClick, count
               <FaHeart color={map.hearted ? "red" : "white"} size={20} />
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexDirection: 'column' }}>
-            {showDeleteButton && map.yours && (
+            {showEditControls && map.yours && (
               <button className="map-tile__delete" onClick={(e) => onDelete(e, map.id)}>
                 <FaTrash color="red" size={10} />
               </button>
             )}
-            {showDeleteButton && map.yours && (
-              <button className="map-tile__edit" onClick={(e) => e.stopPropagation()}>
+            {showEditControls && map.yours && (
+              <button className="map-tile__edit" onClick={(e) => {
+                e.stopPropagation()
+                onPencilClick(map)
+              }}>
                 <FaPencil color="white" size={10} />
               </button>
             )}

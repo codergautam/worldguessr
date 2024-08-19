@@ -12,6 +12,8 @@ const initMakeMap = {
   description_short: "",
   description_long: "",
   data: "",
+  edit: false,
+  mapId: "",
 };
 
 export default function MapView({ gameOptions, setGameOptions, singleplayer, close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
@@ -93,7 +95,8 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        action: "create",
+        action: makeMap.edit ? "edit" : "create",
+        mapId: makeMap.mapId,
         secret: session?.token?.secret,
         name: map.name,
         description_short: map.description_short,
@@ -106,12 +109,12 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
         try {
           json = await res.json();
         } catch (e) {
-          toast.error("Unexpected Error creating map - 1");
+          toast.error("Unexpected Error - 1");
           setMakeMap({ ...makeMap, progress: false });
           return;
         }
         if (res.ok) {
-          toast.success("Map created");
+          toast.success("Map " + (makeMap.edit ? "edited" : "created"));
           setMakeMap(initMakeMap);
           refreshHome();
         } else {
@@ -242,13 +245,20 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
         </div>
 
         <h1 className="mapViewTitle">
-          {makeMap.open ? "Make Map" : text("maps")}
+          {makeMap.open ? makeMap?.edit ? "Edit Map": "Make Map" : text("maps")}
         </h1>
 
         <div className="mapViewRight">
           {!makeMap.open && session?.token?.secret && (
             <button
-              onClick={() => setMakeMap({ ...makeMap, open: true })}
+              onClick={() => {
+                if(makeMap.edit) {
+                  setMakeMap({
+                    ...initMakeMap,
+                    open: true,
+                  });
+                } else setMakeMap({ ...makeMap, open: true })
+              }}
               className="mapViewMake"
             >
               Make Map
@@ -373,8 +383,26 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
                               searchTerm={searchTerm}
                               secret={session?.token?.secret}
                               refreshHome={refreshHome}
-                              showDeleteButton={(map.yours && section==="myMaps") || session?.token?.staff}
+                              showEditControls={(map.yours && section==="myMaps") || session?.token?.staff}
                               showReviewOptions={session?.token?.staff && section === "reviewQueue"}
+
+                              onPencilClick={(map) => {
+                                // go back to editscreen
+                                console.log("edit", map);
+                                setMakeMap({
+                                  ...initMakeMap,
+                                  open: true,
+                                  edit: true,
+                                  mapId: map.id,
+                                  name: map.name,
+                                  description_short: map.description_short,
+                                  description_long: map.description_long,
+                                  data: map.data.map((loc) => {
+                                    return JSON.stringify(loc);
+                                  }),
+                                });
+
+                              }}
                               onHeart={() => {
                                 heartMap(map);
                               }}

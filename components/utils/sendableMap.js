@@ -7,6 +7,8 @@ export default function sendableMap(map, user, hearted=false) {
     hearted,
     plays: map.plays,
     description_short: map.description_short,
+    description_long: (map.created_by== user._id || user.staff)?map.description_long:undefined,
+    data: map.data,
     created_by_name: user.username ?? map.created_by,
     id: map._id,
     in_review: map.in_review,
