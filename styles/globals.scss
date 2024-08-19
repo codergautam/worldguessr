@@ -2057,6 +2057,13 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 }
 .mapSearchInput {
   width: 50%;
+  background-color: #8c8c8c !important;
+  // placehoder color
+  color: #000000 !important;
+}
+.mapSearchInput::placeholder {
+  color: #454545 !important;
+  opacity: 1; /* Firefox */
 }
 
 .noResults {
