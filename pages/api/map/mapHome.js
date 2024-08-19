@@ -10,12 +10,12 @@ let mapCache = {
   popular: {
     data: [],
     timeStamp: 0,
-    persist: 120000
+    persist: 4800000
   },
   recent: {
     data: [],
     timeStamp: 0,
-    persist: 120000
+    persist: 2400000
   }
 }
 
