@@ -49,6 +49,7 @@ import { boundingExtent } from "ol/extent";
 
 import countries from "@/public/countries.json";
 import fixBranding from "@/components/utils/fixBranding";
+import PrivacyPolicyLink from "@/components/privacyPolicyLink";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -1193,6 +1194,10 @@ export default function Home({ locale }) {
     <ToastContainer/>
 
     <div id="videoad"></div>
+
+    {screen === "home" && (
+      <PrivacyPolicyLink />
+    )}
 
 <div style={{
         top: 0,

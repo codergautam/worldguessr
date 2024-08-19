@@ -1719,7 +1719,20 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   text-align: center;
   font-size: 40px;
 }
+.privacyPolicyLink {
+  color: white;
+  text-decoration: underline;
+  cursor: pointer;
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  z-index: 1000;
+}
 
+.privacyPolicyLink a {
+  color: white;
+  text-decoration: underline;
+}
 .mapSection {
 
   margin-left: 100px;
