@@ -17,7 +17,6 @@ function findAdType(screenW, screenH, types, vertThresh) {
 
   return type;
 }
-
 export default function Ad({
   types,
   centerOnOverflow,
@@ -98,20 +97,14 @@ export default function Ad({
   return (
     <div
       style={{
-        backgroundColor: "rgba(0,0,0,0.5)",
-        height: types[type][1],
-        width: types[type][0],
-        textAlign: "center",
-        border: "2px solid black", // Outline around the banner
-        position: "relative", // Positioning for the "Advertisement" text
+        position: "relative",
+        display: "inline-block",
       }}
-      id={`worldguessr-com_${types[type][0]}x${types[type][1]}`}
-      ref={adDivRef}
     >
       <span
         style={{
           position: "absolute",
-          top: "-23px",
+          top: "-24px",
           left: "0px",
           padding: "0 5px",
           fontSize: "18px",
@@ -120,14 +113,27 @@ export default function Ad({
       >
         Advertisement
       </span>
-      {isClient === "debug" && (
-        <>
-          <h3>Banner Ad Here</h3>
-          <p style={{ fontSize: "0.8em", color: "white" }}>
-            Ad size: {types[type][0]} x {types[type][1]}
-          </p>
-        </>
-      )}
+      <div
+        style={{
+          backgroundColor: "rgba(0,0,0,0.5)",
+          height: types[type][1],
+          width: types[type][0],
+          textAlign: "center",
+          border: "2px solid black", // Outline around the banner
+          position: "relative",
+        }}
+        id={`worldguessr-com_${types[type][0]}x${types[type][1]}`}
+        ref={adDivRef}
+      >
+        {isClient === "debug" && (
+          <>
+            <h3>Banner Ad Here</h3>
+            <p style={{ fontSize: "0.8em", color: "white" }}>
+              Ad size: {types[type][0]} x {types[type][1]}
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }
