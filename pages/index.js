@@ -1193,7 +1193,15 @@ export default function Home({ locale }) {
       {ChatboxMemo}
     <ToastContainer/>
 
+    <div className="videoAdParent hidden">
+  <div className="videoAdPlayer">
+    <div className="messageContainer">
+      <p className="thankYouMessage">{text("videoAdThanks")}</p>
+    </div>
     <div id="videoad"></div>
+  </div>
+</div>
+
 
     {screen === "home" && (
       <PrivacyPolicyLink />
@@ -1364,7 +1372,12 @@ export default function Home({ locale }) {
           {`
 
             window.lastAdShown = Date.now();
-            window.adInterval = 1200000;
+            try {
+            if(window.localStorage.getItem("lastAdShown")) {
+              window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
+          }
+            } catch(e) {}
+            window.adInterval = 1800000;
 
     (function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
@@ -1391,15 +1404,21 @@ export default function Home({ locale }) {
 
    aiptag.cmd.player.push(function() {
 	aiptag.adplayer = new aipPlayer({
-		AD_WIDTH: window.innerWidth,
-		AD_HEIGHT: window.innerHeight,
+		AD_WIDTH: Math.min(Math.max(window.innerWidth, 300), 1066),
+		AD_HEIGHT: Math.min(Math.max(window.innerHeight, 150), 600),
 		AD_DISPLAY: 'default', //default, fullscreen, fill, center, modal-center
 		LOADING_TEXT: 'loading advertisement',
 		PREROLL_ELEM: function(){ return document.getElementById('videoad'); },
 		AIP_COMPLETE: function (state) {
+  document.querySelector('.videoAdParent').classList.add('hidden');
+
     console.log("Ad complete", state)
 			// The callback will be executed once the video ad is completed.
       window.lastAdShown = Date.now();
+      try {
+      window.localStorage.setItem("lastAdShown", window.lastAdShown)
+    } catch(e) {}
+
 
 			if (typeof aiptag.adplayer.adCompleteCallback === 'function') {
 				aiptag.adplayer.adCompleteCallback(state);
@@ -1427,6 +1446,8 @@ window.show_videoad = function(callback) {
 	// Check if the adslib is loaded correctly or blocked by adblockers etc.
 	if (typeof aiptag.adplayer !== 'undefined') {
   console.log("Showing ad")
+  // remove 'hidden' class from the parent div
+  document.querySelector('.videoAdParent').classList.remove('hidden');
 		aiptag.cmd.player.push(function() { aiptag.adplayer.startVideoAd(); });
 	} else {
    console.log("Adlib not loaded")
