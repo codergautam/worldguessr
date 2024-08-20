@@ -1389,11 +1389,11 @@ export default function Home({ locale }) {
           {`
 
             window.lastAdShown = Date.now();
-            try {
-            if(window.localStorage.getItem("lastAdShown")) {
-              window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
-          }
-            } catch(e) {}
+          //   try {
+          //   if(window.localStorage.getItem("lastAdShown")) {
+          //     window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
+          // }
+          //   } catch(e) {}
             window.adInterval = 1800000;
 
     (function(c,l,a,r,i,t,y){
