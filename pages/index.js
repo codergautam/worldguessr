@@ -307,27 +307,33 @@ export default function Home({ locale }) {
           // pass in the array 'pwUnits' defined right above
           .addUnits(pwUnits)
           .then((r) => {
-            console.log(r)
-             window.ramp.displayUnits().then((r) => {
-              console.log(r)
+             window.ramp.displayUnits().then(() => {
+              console.log("DISPLAYED PLAYWIRE UNITS")
              }).catch((e) => {
-                console.log(e)
+                console.log("ERROR DISPLAYING PLAYWIRE UNITS", e)
               });
           }).catch( (e) =>{
               // catch errors
               window.ramp.displayUnits()
-              console.log(e)
+              console.log("UNEXPECTED ERROR DISPLAYING PLAYWIRE UNITS", e)
           })
         }
 
         window.ramp.que.push(init);
       }
     } else {
-      if(!window.ramp) return;
+      if(!window.ramp || !window.ramp.destroyUnits || typeof window.ramp.destroyUnits !== "function") return;
+      console.log("DESTROYING PLAYWIRE UNITS")
       window.ramp.destroyUnits("all") // clear all units when not on home page
     }
   } catch(e) {}
   }, [screen])
+
+  useEffect(() => {
+    if(onboarding && onboarding.round && window.ramp && typeof window.ramp.displayUnits === "function") {
+      window.ramp.destroyUnits("all")
+    }
+  }, [onboarding])
 
   const loadOptions =async () => {
 
