@@ -83,26 +83,25 @@ export default function Ad({
   var pwUnits = [
     {
       // You can define the selectorId however you want, but the type must match to the ad unit's type
-      selectorId: `worldguessr-com_${types[type][0]}x${types[type][1]}`,
-      type: 'leaderboard_atf'
+      type: 'corner_ad_video'
     },
   ]
 
     // Define the init function
     var init = function () {
-      ramp
+      window.ramp
       // pass in the array 'pwUnits' defined right above
       .addUnits(pwUnits)
       .then((r) => {
         console.log(r)
-          console.log(ramp.displayUnits())
+          console.log(window.ramp.displayUnits())
       }).catch( (e) =>{
           // catch errors
-          ramp.displayUnits()
+          window.ramp.displayUnits()
           console.log(e)
       })
 }
-ramp.que.push(init);
+window.ramp.que.push(init);
 
 
 } catch (e) {
