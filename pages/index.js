@@ -309,31 +309,32 @@ export default function Home({ locale }) {
           .then((r) => {
              window.ramp.displayUnits().then(() => {
               console.log("DISPLAYED PLAYWIRE UNITS")
+              window.playWireUnitsDisplayed = true;
              }).catch((e) => {
                 console.log("ERROR DISPLAYING PLAYWIRE UNITS", e)
               });
           }).catch( (e) =>{
               // catch errors
               window.ramp.displayUnits()
+              window.playWireUnitsDisplayed = true;
+
               console.log("UNEXPECTED ERROR DISPLAYING PLAYWIRE UNITS", e)
           })
         }
 
+        if(!window.playWireUnitsDisplayed) {
         window.ramp.que.push(init);
+        }
       }
     } else {
       if(!window.ramp || !window.ramp.destroyUnits || typeof window.ramp.destroyUnits !== "function") return;
       console.log("DESTROYING PLAYWIRE UNITS")
+      window.playWireUnitsDisplayed = false;
+
       window.ramp.destroyUnits("all") // clear all units when not on home page
     }
   } catch(e) {}
-  }, [screen])
-
-  useEffect(() => {
-    if(onboarding && onboarding.round && window.ramp && typeof window.ramp.displayUnits === "function") {
-      window.ramp.destroyUnits("all")
-    }
-  }, [onboarding])
+  }, [screen, loading])
 
   const loadOptions =async () => {
 
