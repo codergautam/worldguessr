@@ -1167,21 +1167,20 @@ export default function Home({ locale }) {
 
   }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
 
-  useEffect(() => {
-//!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
-    // debug this condition:
-    console.log("isHidden", !(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
+//   useEffect(() => {
+// //!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
+//     // debug this condition:
+//     console.log("isHidden", !(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
 
-    console.log("latLong", latLong)
-    console.log("multiplayerState?.gameData?.state", multiplayerState?.gameData?.state)
-    console.log("streetViewShown", streetViewShown)
-    console.log("loading", loading)
-    console.log("showAnswer", showAnswer)
-    console.log("showPanoOnResult", showPanoOnResult)
-    console.log("multiplayerState?.gameData?.state", multiplayerState?.gameData?.state)
+//     console.log("latLong", latLong)
+//     console.log("multiplayerState?.gameData?.state", multiplayerState?.gameData?.state)
+//     console.log("streetViewShown", streetViewShown)
+//     console.log("loading", loading)
+//     console.log("showAnswer", showAnswer)
+//     console.log("showPanoOnResult", showPanoOnResult)
 
 
-  }, [latLong, multiplayerState?.gameData?.state, streetViewShown, loading, showAnswer, showPanoOnResult])
+//   }, [latLong, multiplayerState?.gameData?.state, streetViewShown, loading, showAnswer, showPanoOnResult])
 
   useEffect(() => {
 
