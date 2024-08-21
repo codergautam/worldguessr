@@ -287,6 +287,44 @@ export default function Home({ locale }) {
       } catch(e) {}
     }
   }, [session])
+  // playwire bottom rail & corner video
+  // only on home page
+  useEffect(() => {
+    if(screen === "home") {
+      if(window.ramp.que) {
+        var pwUnits = [
+          {
+            type: 'bottom_rail'
+          },
+          {
+            type: 'corner_ad_video'
+          }
+        ]
+
+        var init = function () {
+          window.ramp
+          // pass in the array 'pwUnits' defined right above
+          .addUnits(pwUnits)
+          .then((r) => {
+            console.log(r)
+             window.ramp.displayUnits().then((r) => {
+              console.log(r)
+             }).catch((e) => {
+                console.log(e)
+              });
+          }).catch( (e) =>{
+              // catch errors
+              window.ramp.displayUnits()
+              console.log(e)
+          })
+        }
+
+        window.ramp.que.push(init);
+      }
+    } else {
+      window.ramp.destroyUnits("all") // clear all units when not on home page
+    }
+  }, [screen])
 
   const loadOptions =async () => {
 
@@ -1314,7 +1352,7 @@ export default function Home({ locale }) {
 
           <div style={{ marginTop: "20px" }}>
             <center>
-    <Ad screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} />
+    {/* <Ad screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} /> */}
             </center>
             </div>
           </div>

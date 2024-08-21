@@ -82,26 +82,26 @@ export default function Ad({
   var pwUnits = [
     {
       // You can define the selectorId however you want, but the type must match to the ad unit's type
-      type: 'corner_ad_video'
+      // type:
     },
   ]
 
-  console.log("pwUnits",pwUnits)
-    // Define the init function
-    var init = function () {
-      window.ramp
-      // pass in the array 'pwUnits' defined right above
-      .addUnits(pwUnits)
-      .then((r) => {
-        console.log(r)
-          console.log(window.ramp.displayUnits())
-      }).catch( (e) =>{
-          // catch errors
-          window.ramp.displayUnits()
-          console.log(e)
-      })
-}
-window.ramp.que.push(init);
+//   console.log("pwUnits",pwUnits)
+//     // Define the init function
+//     var init = function () {
+//       window.ramp
+//       // pass in the array 'pwUnits' defined right above
+//       .addUnits(pwUnits)
+//       .then((r) => {
+//         console.log(r)
+//           console.log(window.ramp.displayUnits())
+//       }).catch( (e) =>{
+//           // catch errors
+//           window.ramp.displayUnits()
+//           console.log(e)
+//       })
+// }
+// window.ramp.que.push(init);
 
 
 } catch (e) {
