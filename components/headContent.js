@@ -45,11 +45,6 @@ export default function HeadContent({text}) {
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />
 
-
-    <script type="text/javascript"
-       async="true"
-       src="//cdn.intergient.com/1025355/75156/ramp.js">
-   </script>
 </Head>
   )
 }

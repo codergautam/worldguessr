@@ -60,7 +60,6 @@ export default function Ad({
           isAdDivVisible &&
           Date.now() - lastRefresh.current > AD_REFRESH_MS
         ) {
-          console.log("clearing and displaying ad");
           // adinplay
           // try {
           //   if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
@@ -87,6 +86,7 @@ export default function Ad({
     },
   ]
 
+  console.log("pwUnits",pwUnits)
     // Define the init function
     var init = function () {
       window.ramp

@@ -1384,8 +1384,23 @@ export default function Home({ locale }) {
           <GameUI showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
 
+
         <Script>
           {`
+    console.log("ramp script");
+    window.ramp = window.ramp || {};
+    window.ramp.que = window.ramp.que || [];
+    window.ramp.passiveMode = true;
+
+    /*  <script type="text/javascript"
+       async="true"
+       data-cfasync="false"
+       src="//cdn.intergient.com/1025355/75156/ramp.js">
+   </script> */
+
+   // add the above script to the head of the document
+          console.log("ramp script added to head");
+          document.head.innerHTML += '<script type="text/javascript" async="true" data-cfasync="false" src="//cdn.intergient.com/1025355/75156/ramp.js"></script>';
 
             window.lastAdShown = Date.now();
           //   try {
@@ -1400,13 +1415,6 @@ export default function Home({ locale }) {
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     })(window, document, "clarity", "script", "ndud94nvsg");
-
-  console.log("Ads by playwire!")
-
-    window.ramp = window.ramp || {};
-    window.ramp.que = window.ramp.que || [];
-    window.ramp.passiveMode = true;
-
 
 window.show_videoad = function(callback) {
 
@@ -1426,6 +1434,7 @@ window.show_videoad = function(callback) {
 
   `}
         </Script>
+
       </main>
     </>
   )
