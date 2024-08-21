@@ -1387,20 +1387,24 @@ export default function Home({ locale }) {
 
         <Script>
           {`
-    console.log("ramp script");
-    window.ramp = window.ramp || {};
-    window.ramp.que = window.ramp.que || [];
-    window.ramp.passiveMode = true;
+console.log("ramp script");
 
-    /*  <script type="text/javascript"
-       async="true"
-       data-cfasync="false"
-       src="//cdn.intergient.com/1025355/75156/ramp.js">
-   </script> */
+// Ensure the ramp object and queue are defined
+window.ramp = window.ramp || {};
+window.ramp.que = window.ramp.que || [];
+window.ramp.passiveMode = true;
 
-   // add the above script to the head of the document
-          console.log("ramp script added to head");
-          document.head.innerHTML += '<script type="text/javascript" async="true" data-cfasync="false" src="//cdn.intergient.com/1025355/75156/ramp.js"></script>';
+// Create a new script element
+var script = document.createElement("script");
+script.type = "text/javascript";
+script.async = true;
+script.setAttribute("data-cfasync", "false");
+script.src = "//cdn.intergient.com/1025355/75156/ramp.js";
+
+// Append the script to the head of the document
+document.head.appendChild(script);
+
+console.log("ramp script added to head");
 
             window.lastAdShown = Date.now();
           //   try {
