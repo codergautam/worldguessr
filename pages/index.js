@@ -290,8 +290,9 @@ export default function Home({ locale }) {
   // playwire bottom rail & corner video
   // only on home page
   useEffect(() => {
+    try {
     if(screen === "home") {
-      if(window.ramp.que) {
+      if(window?.ramp?.que) {
         var pwUnits = [
           {
             type: 'bottom_rail'
@@ -322,8 +323,10 @@ export default function Home({ locale }) {
         window.ramp.que.push(init);
       }
     } else {
+      if(!window.ramp) return;
       window.ramp.destroyUnits("all") // clear all units when not on home page
     }
+  } catch(e) {}
   }, [screen])
 
   const loadOptions =async () => {
