@@ -290,6 +290,8 @@ export default function Home({ locale }) {
   // playwire bottom rail & corner video
   // only on home page
   useEffect(() => {
+    console.log("screen", screen)
+    if(onboardingCompleted !== true) return;
     try {
     if(screen === "home") {
       if(window?.ramp?.que) {
@@ -334,7 +336,7 @@ export default function Home({ locale }) {
       window.ramp.destroyUnits("all") // clear all units when not on home page
     }
   } catch(e) {}
-  }, [screen, loading])
+  }, [screen, onboardingCompleted])
 
   const loadOptions =async () => {
 
