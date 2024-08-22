@@ -295,38 +295,11 @@ export default function Home({ locale }) {
     try {
     if(screen === "home") {
       if(window?.ramp?.que) {
-        var pwUnits = [
-          {
-            type: 'bottom_rail'
-          },
-          {
-            type: 'corner_ad_video'
-          }
-        ]
-
-        var init = function () {
-          window.ramp
-          // pass in the array 'pwUnits' defined right above
-          .addUnits(pwUnits)
-          .then((r) => {
-             window.ramp.displayUnits().then(() => {
-              console.log("DISPLAYED PLAYWIRE UNITS")
-              window.playWireUnitsDisplayed = true;
-             }).catch((e) => {
-                console.log("ERROR DISPLAYING PLAYWIRE UNITS", e)
-              });
-          }).catch( (e) =>{
-              // catch errors
-              window.ramp.displayUnits()
-              window.playWireUnitsDisplayed = true;
-
-              console.log("UNEXPECTED ERROR DISPLAYING PLAYWIRE UNITS", e)
-          })
-        }
-
-        if(!window.playWireUnitsDisplayed) {
-        window.ramp.que.push(init);
-        }
+        window.ramp.spaNewPage().then(() => {
+          console.log("SPA NEW PAGE")
+        }).catch((e) => {
+          console.log("SPA NEW PAGE ERROR", e)
+        })
       }
     } else {
       if(!window.ramp || !window.ramp.destroyUnits || typeof window.ramp.destroyUnits !== "function") return;
@@ -1439,10 +1412,20 @@ export default function Home({ locale }) {
           {`
 console.log("ramp script");
 
-// Ensure the ramp object and queue are defined
 window.ramp = window.ramp || {};
 window.ramp.que = window.ramp.que || [];
 window.ramp.passiveMode = true;
+
+const addUnits = () => {
+    // ramp.que.push ensures that the functions called are executed when Ramp has finished loading.
+    window.ramp.que.push(() => {
+        window.ramp.spaNewPage().then(() => {
+          console.log("Loaded playwire ads")
+}).catch((e) => {
+  console.error(e)
+})
+    })
+};
 
 // Create a new script element
 var script = document.createElement("script");
@@ -1454,7 +1437,9 @@ script.src = "//cdn.intergient.com/1025355/75156/ramp.js";
 // Append the script to the head of the document
 document.head.appendChild(script);
 
+
 console.log("ramp script added to head");
+addUnits();
 
             window.lastAdShown = Date.now();
           //   try {
