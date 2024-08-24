@@ -290,17 +290,31 @@ export default function Home({ locale }) {
   // playwire bottom rail & corner video
   // only on home page
   useEffect(() => {
-    console.log("screen", screen)
+    console.log("screen", screen, onboardingCompleted)
     if(onboardingCompleted !== true) return;
+    console.log("need to make playwire units")
     try {
     if(screen === "home") {
-      if(window?.ramp?.que) {
-        window.ramp.spaNewPage().then(() => {
-          console.log("SPA NEW PAGE")
-        }).catch((e) => {
-          console.log("SPA NEW PAGE ERROR", e)
-        })
+    console.log("need to make playwire units")
+
+      if(!window.ramp || !window.ramp.que) {
+        console.log("Defining ramp")
+        window.ramp = window.ramp || {};
+window.ramp.que = window.ramp.que || [];
+window.ramp.passiveMode = true;
       }
+      const addUnits = () => {
+        // ramp.que.push ensures that the functions called are executed when Ramp has finished loading.
+        window.ramp.que.push(() => {
+            window.ramp.spaNewPage().then(() => {
+              console.log("Loaded playwire ads")
+    }).catch((e) => {
+      console.error(e)
+    })
+        })
+    };
+
+    addUnits();
     } else {
       if(!window.ramp || !window.ramp.destroyUnits || typeof window.ramp.destroyUnits !== "function") return;
       console.log("DESTROYING PLAYWIRE UNITS")
@@ -308,7 +322,9 @@ export default function Home({ locale }) {
 
       window.ramp.destroyUnits("all") // clear all units when not on home page
     }
-  } catch(e) {}
+  } catch(e) {
+    console.error(e)
+  }
   }, [screen, onboardingCompleted])
 
   const loadOptions =async () => {
@@ -1418,13 +1434,13 @@ window.ramp.passiveMode = true;
 
 const addUnits = () => {
     // ramp.que.push ensures that the functions called are executed when Ramp has finished loading.
-    window.ramp.que.push(() => {
-        window.ramp.spaNewPage().then(() => {
-          console.log("Loaded playwire ads")
-}).catch((e) => {
-  console.error(e)
-})
-    })
+//     window.ramp.que.push(() => {
+//         window.ramp.spaNewPage().then(() => {
+//           console.log("Loaded playwire ads")
+// }).catch((e) => {
+//   console.error(e)
+// })
+//     })
 };
 
 // Create a new script element
