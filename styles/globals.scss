@@ -1724,9 +1724,9 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   text-decoration: underline;
   cursor: pointer;
   position: fixed;
-  bottom: 100px;
-  left: 10px;
-  z-index: 100000000000000;
+  bottom: 10px;
+  right: 10px;
+  z-index: 1000;
 }
 
 

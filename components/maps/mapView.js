@@ -300,7 +300,6 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
         </div>
     )}
 
-    { !makeMap.open && (
       <div className="mapSearch">
         <input
           type="text"
@@ -310,7 +309,6 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
-    )}
 
       {!makeMap.open && (
         <div>
