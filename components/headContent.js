@@ -44,7 +44,7 @@ export default function HeadContent({text}) {
     <meta property="og:image" content="/icon_144x144.png" />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />
-
+	  <script async src="https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js"></script>
 </Head>
   )
 }
