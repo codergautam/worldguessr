@@ -287,6 +287,45 @@ export default function Home({ locale }) {
       } catch(e) {}
     }
   }, [session])
+  // playwire bottom rail & corner video
+  // only on home page
+  useEffect(() => {
+    console.log("screen", screen, onboardingCompleted)
+    if(onboardingCompleted !== true) return;
+    console.log("need to make playwire units")
+    try {
+    if(screen === "home") {
+    console.log("need to make playwire units")
+
+      if(!window.ramp || !window.ramp.que) {
+        console.log("Defining ramp")
+        window.ramp = window.ramp || {};
+window.ramp.que = window.ramp.que || [];
+window.ramp.passiveMode = true;
+      }
+      const addUnits = () => {
+        // ramp.que.push ensures that the functions called are executed when Ramp has finished loading.
+        window.ramp.que.push(() => {
+            window.ramp.spaNewPage().then(() => {
+              console.log("Loaded playwire ads")
+    }).catch((e) => {
+      console.error(e)
+    })
+        })
+    };
+
+    addUnits();
+    } else {
+      if(!window.ramp || !window.ramp.destroyUnits || typeof window.ramp.destroyUnits !== "function") return;
+      console.log("DESTROYING PLAYWIRE UNITS")
+      window.playWireUnitsDisplayed = false;
+
+      window.ramp.destroyUnits("all") // clear all units when not on home page
+    }
+  } catch(e) {
+    console.error(e)
+  }
+  }, [screen, onboardingCompleted])
 
   const loadOptions =async () => {
 
@@ -1314,7 +1353,7 @@ export default function Home({ locale }) {
 
           <div style={{ marginTop: "20px" }}>
             <center>
-    <Ad screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} />
+    {/* <Ad screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} /> */}
             </center>
             </div>
           </div>
@@ -1384,8 +1423,39 @@ export default function Home({ locale }) {
           <GameUI showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
 
+
         <Script>
           {`
+console.log("ramp script");
+
+window.ramp = window.ramp || {};
+window.ramp.que = window.ramp.que || [];
+window.ramp.passiveMode = true;
+
+const addUnits = () => {
+    // ramp.que.push ensures that the functions called are executed when Ramp has finished loading.
+//     window.ramp.que.push(() => {
+//         window.ramp.spaNewPage().then(() => {
+//           console.log("Loaded playwire ads")
+// }).catch((e) => {
+//   console.error(e)
+// })
+//     })
+};
+
+// Create a new script element
+var script = document.createElement("script");
+script.type = "text/javascript";
+script.async = true;
+script.setAttribute("data-cfasync", "false");
+script.src = "//cdn.intergient.com/1025355/75156/ramp.js";
+
+// Append the script to the head of the document
+document.head.appendChild(script);
+
+
+console.log("ramp script added to head");
+addUnits();
 
             window.lastAdShown = Date.now();
           //   try {
@@ -1401,48 +1471,6 @@ export default function Home({ locale }) {
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     })(window, document, "clarity", "script", "ndud94nvsg");
 
-  console.log("Ads by adinplay!")
-  	window.aiptag = window.aiptag || {cmd: []};
-	aiptag.cmd.display = aiptag.cmd.display || [];
-	aiptag.cmd.player = aiptag.cmd.player || [];
-
-	//CMP tool settings
-	aiptag.cmp = {
-		show: true,
-		position: "centered",  //centered, bottom
-		button: true,
-		buttonText: "Privacy settings",
-		buttonPosition: "bottom-left" //bottom-left, bottom-right, bottom-center, top-left, top-right
-	}
-   window.adsbygoogle = window.adsbygoogle || [];
-  window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
-   adConfig({preloadAdBreaks: 'on'});
-
-   aiptag.cmd.player.push(function() {
-	aiptag.adplayer = new aipPlayer({
-		AD_WIDTH: Math.min(Math.max(window.innerWidth, 300), 1066),
-		AD_HEIGHT: Math.min(Math.max(window.innerHeight, 150), 600),
-		AD_DISPLAY: 'default', //default, fullscreen, fill, center, modal-center
-		LOADING_TEXT: 'loading advertisement',
-		PREROLL_ELEM: function(){ return document.getElementById('videoad'); },
-		AIP_COMPLETE: function (state) {
-  document.querySelector('.videoAdParent').classList.add('hidden');
-
-    console.log("Ad complete", state)
-			// The callback will be executed once the video ad is completed.
-      window.lastAdShown = Date.now();
-      try {
-      window.localStorage.setItem("lastAdShown", window.lastAdShown)
-    } catch(e) {}
-
-
-			if (typeof aiptag.adplayer.adCompleteCallback === 'function') {
-				aiptag.adplayer.adCompleteCallback(state);
-			}
-		}
-	});
-});
-
 window.show_videoad = function(callback) {
 
           if(window.disableVideoAds) {
@@ -1456,25 +1484,12 @@ window.show_videoad = function(callback) {
             return;
           }
 
-	// Assign the callback to be executed when the ad is done
-	aiptag.adplayer.adCompleteCallback = callback;
-
-	// Check if the adslib is loaded correctly or blocked by adblockers etc.
-	if (typeof aiptag.adplayer !== 'undefined') {
-  console.log("Showing ad")
-  // remove 'hidden' class from the parent div
-  document.querySelector('.videoAdParent').classList.remove('hidden');
-		aiptag.cmd.player.push(function() { aiptag.adplayer.startVideoAd(); });
-	} else {
-   console.log("Adlib not loaded")
-		// Adlib didn't load; this could be due to an ad blocker, timeout, etc.
-		// Please add your script here that starts the content, this usually is the same script as added in AIP_COMPLETE.
-		aiptag.adplayer.aipConfig.AIP_COMPLETE();
-	}
+          return callback("DISABLED")
 }
 
   `}
         </Script>
+
       </main>
     </>
   )

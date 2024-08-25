@@ -53,33 +53,66 @@ export default function Ad({
           adDivRef.current.getBoundingClientRect().top < window.innerHeight &&
           adDivRef.current.getBoundingClientRect().bottom > 0;
         if (
-          windowAny.aiptag &&
-          windowAny.aiptag.cmd &&
-          windowAny.aiptag.cmd.display &&
+          // windowAny.aiptag &&
+          // windowAny.aiptag.cmd &&
+          // windowAny.aiptag.cmd.display &&
+          window.ramp &&
           isAdDivVisible &&
           Date.now() - lastRefresh.current > AD_REFRESH_MS
         ) {
-          console.log("clearing and displaying ad");
-          try {
-            if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
-              for (const type of types) {
-                windowAny.aipDisplayTag.clear(
-                  `worldguessr-com_${type[0]}x${type[1]}`
-                );
-              }
-            }
-          } catch (e) {
-            alert("error clearing ad");
-          }
+          // adinplay
+          // try {
+          //   if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
+          //     for (const type of types) {
+          //       windowAny.aipDisplayTag.clear(
+          //         `worldguessr-com_${type[0]}x${type[1]}`
+          //       );
+          //     }
+          //   }
+          // } catch (e) {
+          //   alert("error clearing ad");
+          // }
+
+
 
           lastRefresh.current = Date.now();
           sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`);
+ // playwire
+ try {
+  var pwUnits = [
+    {
+      // You can define the selectorId however you want, but the type must match to the ad unit's type
+      // type:
+    },
+  ]
 
-          windowAny.aiptag.cmd.display.push(function () {
-            windowAny.aipDisplayTag.display(
-              `worldguessr-com_${types[type][0]}x${types[type][1]}`
-            );
-          });
+//   console.log("pwUnits",pwUnits)
+//     // Define the init function
+//     var init = function () {
+//       window.ramp
+//       // pass in the array 'pwUnits' defined right above
+//       .addUnits(pwUnits)
+//       .then((r) => {
+//         console.log(r)
+//           console.log(window.ramp.displayUnits())
+//       }).catch( (e) =>{
+//           // catch errors
+//           window.ramp.displayUnits()
+//           console.log(e)
+//       })
+// }
+// window.ramp.que.push(init);
+
+
+} catch (e) {
+  console.error("error clearing ad",e);
+}
+
+          // windowAny.aiptag.cmd.display.push(function () {
+          //   windowAny.aipDisplayTag.display(
+          //     `worldguessr-com_${types[type][0]}x${types[type][1]}`
+          //   );
+          // });
         }
       }, 100);
     };
@@ -125,6 +158,7 @@ export default function Ad({
         id={`worldguessr-com_${types[type][0]}x${types[type][1]}`}
         ref={adDivRef}
       >
+
         {isClient === "debug" && (
           <>
             <h3>Banner Ad Here</h3>
