@@ -23,9 +23,10 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
 export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
-
+  const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
   function loadLocationFuncRaw() {
+    setShowStreakAdBanner(false)
     if(onboarding) {
       if(onboarding.round === 5) {
         setOnboarding((prev)=>{
@@ -83,7 +84,6 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
   const [onboardingTextShown, setOnboardingTextShown] = useState(false);
   const [onboardingWords, setOnboardingWords] = useState([]);
   const [explanationModalShown, setExplanationModalShown] = useState(false);
-  const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
