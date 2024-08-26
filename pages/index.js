@@ -1388,11 +1388,11 @@ export default function Home({ locale }) {
           {`
 
             window.lastAdShown = Date.now();
-          //   try {
-          //   if(window.localStorage.getItem("lastAdShown")) {
-          //     window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
-          // }
-          //   } catch(e) {}
+            try {
+            if(window.localStorage.getItem("lastAdShown")) {
+              window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
+          }
+            } catch(e) {}
             window.adInterval = 1800000;
 
     (function(c,l,a,r,i,t,y){
@@ -1422,7 +1422,7 @@ export default function Home({ locale }) {
 	aiptag.adplayer = new aipPlayer({
 		AD_WIDTH: Math.min(Math.max(window.innerWidth, 300), 1066),
 		AD_HEIGHT: Math.min(Math.max(window.innerHeight, 150), 600),
-		AD_DISPLAY: 'default', //default, fullscreen, fill, center, modal-center
+		AD_DISPLAY: 'modal-center', //default, fullscreen, fill, center, modal-center
 		LOADING_TEXT: 'loading advertisement',
 		PREROLL_ELEM: function(){ return document.getElementById('videoad'); },
 		AIP_COMPLETE: function (state) {
