@@ -1389,7 +1389,7 @@ export default function Home({ locale }) {
         <Script>
           {`
 
-            window.lastAdShown = Date.now();
+            window.lastAdShown = 0;
             try {
             if(window.localStorage.getItem("lastAdShown")) {
               window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
