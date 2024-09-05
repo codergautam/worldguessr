@@ -1451,7 +1451,7 @@ app.prepare().then(() => {
 
 // update player count
 setInterval(() => {
-console.log("Number of games", games.size,"\nNumber of players in queue", playersInQueue.size, "\nNumber of players", players.size, "\n\n");
+// console.log("Number of games", games.size,"\nNumber of players in queue", playersInQueue.size, "\nNumber of players", players.size, "\n\n");
 
   for (const player of players.values()) {
     if (player.verified && !player.gameId) {
