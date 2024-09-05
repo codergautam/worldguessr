@@ -92,8 +92,8 @@ if(!process.env.GOOGLE_CLIENT_SECRET) {
 if(process.env.NEXT_PUBLIC_CESIUM_TOKEN) {
   console.log("[INFO] NEXT_PUBLIC_CESIUM_TOKEN env variable set, showing home animation".yellow);
 }
-if(process.env.WS_ONLY && process.env.WS_ONLY === 'true') {
-  console.log("[INFO] WS_ONLY env variable set, disabling HTTP server".yellow);
+if(process.env.NO_HTTP && process.env.NO_HTTP === 'true') {
+  console.log("[INFO] NO_HTTP env variable set, disabling HTTP server".yellow);
   httpEnabled = false;
 }
 if(process.env.NO_WS && process.env.NO_WS === 'true') {
