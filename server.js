@@ -48,10 +48,12 @@ function isValidTimezone(tz) {
 }
 
 let multiplayerEnabled = true;
+let dbEnabled = true;
+let httpEnabled = true;
 
 if (!process.env.MONGODB) {
   console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
-  multiplayerEnabled = false;
+  dbEnabled = false;
 } else {
   // Connect to MongoDB
   if (mongoose.connection.readyState !== 1) {
@@ -60,7 +62,7 @@ if (!process.env.MONGODB) {
       console.log('[INFO] Database Connected');
     } catch (error) {
       console.error('[ERROR] Database connection failed!'.red, error.message);
-      multiplayerEnabled = false;
+      dbEnabled = false;
     }
   }
 }
@@ -71,7 +73,7 @@ if(!process.env.I18NEXT_DEFAULT_CONFIG_PATH) {
 }
 if (!process.env.NEXTAUTH_SECRET) {
   console.log("[MISSING-ENV WARN] NEXTAUTH_SECRET env variable not set, please set it to a random string otherwise multi-player will not work".yellow);
-  multiplayerEnabled = false;
+  dbEnabled = false;
 }
 if (!process.env.NEXTAUTH_URL) {
   console.log("[MISSING-ENV WARN] NEXTAUTH_URL env variable not set, please set it!".yellow);
@@ -81,14 +83,27 @@ if(process.env.DISCORD_WEBHOOK) {
 }
 if(!process.env.GOOGLE_CLIENT_ID) {
   console.log("[MISSING-ENV WARN] GOOGLE_CLIENT_ID env variable not set, please set it for multiplayer/auth!".yellow);
-  multiplayerEnabled = false;
+  dbEnabled = false;
 }
 if(!process.env.GOOGLE_CLIENT_SECRET) {
   console.log("[MISSING-ENV WARN] GOOGLE_CLIENT_SECRET env variable not set, please set it for multiplayer/auth!".yellow);
-  multiplayerEnabled = false;
+  dbEnabled = false;
 }
 if(process.env.NEXT_PUBLIC_CESIUM_TOKEN) {
   console.log("[INFO] NEXT_PUBLIC_CESIUM_TOKEN env variable set, showing home animation".yellow);
+}
+if(process.env.WS_ONLY && process.env.WS_ONLY === 'true') {
+  console.log("[INFO] WS_ONLY env variable set, disabling HTTP server".yellow);
+  httpEnabled = false;
+}
+if(process.env.NO_WS && process.env.NO_WS === 'true') {
+  console.log("[INFO] NO_WS env variable set, disabling WebSocket server".yellow);
+  multiplayerEnabled = false;
+}
+// both?
+if(!httpEnabled && !multiplayerEnabled) {
+  console.log("[ERROR] Both WS_ONLY and NO_WS env variables are set, exiting".red);
+  throw new Error("Both WS_ONLY and NO_WS env variables are set, exiting");
 }
 
 
@@ -116,6 +131,7 @@ const __dirname = import.meta.dirname;
 let recentPlays = {}; // track the recent plays gains of maps
 
 async function updateRecentPlays() {
+  if(!dbEnabled) return;
   for(const mapSlug of Object.keys(recentPlays)) {
     if(recentPlays[mapSlug] > 0) {
 
@@ -735,6 +751,11 @@ app.prepare().then(() => {
         return;
       }
 
+      if(!httpEnabled) {
+        // send 404
+        return app.render(req, res, '/404', query);
+      }
+
       const mapPlayMatch = pathname.includes('/mapPlay/');
       if (mapPlayMatch && req.method === 'POST') {
         // make suere POST
@@ -771,6 +792,13 @@ app.prepare().then(() => {
 
   // Handle WebSocket connections
   server.on('upgrade', (request, socket, head) => {
+
+    if(!multiplayerEnabled) {
+      // close the connection
+      socket.destroy();
+      return;
+    }
+
     const { pathname } = parse(request.url, true);
     if(pathname === '/wg') {
       wss.handleUpgrade(request, socket, head, (ws) => {
@@ -1553,7 +1581,7 @@ setInterval(() => {
     }
   }
 }, 500);
-if(!dev && multiplayerEnabled) {
+if(!dev && dbEnabled) {
   setInterval(() => {
     const memUsage = process.memoryUsage().heapUsed;
     const gameCnt = games.size;

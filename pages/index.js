@@ -469,7 +469,10 @@ export default function Home({ locale }) {
 
 
     if (!ws && !multiplayerState.connecting && !multiplayerState.connected && !window?.dontReconnect) {
-      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/wg`
+      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${
+        process.env.NEXT_PUBLIC_WS_HOST ||
+        window.location.host
+      }/wg`
       setMultiplayerState((prev) => ({
         ...prev,
         connecting: true,
