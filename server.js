@@ -1256,7 +1256,7 @@ app.prepare().then(() => {
     }
 
     if(json.type === 'sendFriendRequest') {
-      if(!player.accountId || typeof json.accountId !== "string") {
+      if(!player.accountId) {
         return;
       }
       if(!json.name || typeof json.name !== "string" || json.name.length < 3 || json.name.length > 30 || !/^[a-zA-Z0-9_]+$/.test(json.name)) {
