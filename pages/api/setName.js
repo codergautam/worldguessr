@@ -20,6 +20,9 @@ export default async function handler(req, res) {
 
   // Extract the token and username from the request body
   const { token, username } = req.body;
+  if (typeof token !== 'string' || typeof username !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
   if (!token || !username) {
     return res.status(400).json({ message: 'Missing token or username' });
   }
