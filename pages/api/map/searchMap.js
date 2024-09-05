@@ -13,6 +13,11 @@ export default async function searchMaps(req, res) {
   }
 
   const { query, secret } = req.body;
+
+  // secret must be string
+  if (typeof secret !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
   let user;
 
   if(secret) {
@@ -29,6 +34,9 @@ export default async function searchMaps(req, res) {
   if (!query || query.length < 3) {
     return res.status(400).json({ message: 'Search query must be at least 3 characters long' });
   }
+
+  // sanitize query
+  query = query.replace(/[^a-zA-Z0-9\s]/g, '');
 
   try {
     // Find maps that match the search query in either name, short description, or author name

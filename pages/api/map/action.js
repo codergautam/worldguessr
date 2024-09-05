@@ -109,6 +109,10 @@ export default async function handler(req, res) {
 
   let { action, secret, name, data, description_short, description_long, mapId } = req.body;
 
+  //secret must be string
+  if(typeof secret !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
   if(!action || !secret) {
     return res.status(400).json({ message: 'Missing action or secret' });
   }

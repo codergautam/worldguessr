@@ -34,6 +34,7 @@ export default async function handler(req, res) {
   }
   // Make sure the username is unique (case-insensitive)
   const lowerUsername = username.toLowerCase();
+
   // quey check for username (case-insensitive)
   const existing = await User.findOne({ username: { $regex: new RegExp(`^${lowerUsername}$`, 'i') } });
   if (existing) {

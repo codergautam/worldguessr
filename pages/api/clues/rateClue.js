@@ -7,6 +7,11 @@ async function handler(req, res) {
     try {
       const { clueId, rating, secret } = req.body;
 
+      // secret must be string
+      if (typeof secret !== 'string') {
+        return res.status(400).json({ message: 'Invalid input' });
+      }
+      
       if (!clueId || !rating || !secret) {
         return res.status(400).json({ message: 'Missing clueId, rating, or secret' });
       }

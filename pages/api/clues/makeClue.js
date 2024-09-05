@@ -21,6 +21,11 @@ async function handler(req, res) {
         if(!secret) {
           return res.status(400).json({ message: 'Missing secret' });
         }
+        // secret must be string
+        if(typeof secret !== 'string') {
+          return res.status(400).json({ message: 'Invalid input' });
+        }
+        
         // get user from secret
         const user = await User.findOne({
           secret: secret

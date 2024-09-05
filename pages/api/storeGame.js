@@ -4,6 +4,11 @@ import storeGame from '@/components/storeGame';
 export default async function guess(req, res) {
   const { lat, long, actualLat, actualLong, usedHint, secret, roundTime, maxDist } = req.body;
 
+  // secret must be string
+  if(typeof secret !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
+  
   if(secret) {
     try {
       const calcXp = Math.round(calcPoints({ guessLat: lat, guessLon: long, lat: actualLat, lon: actualLong, usedHint, maxDist }) / 50);

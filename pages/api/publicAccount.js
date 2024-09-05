@@ -18,6 +18,11 @@ export default async function handler(req, res) {
 
   // Extract the token and username from the request body
   const { id, secret } = req.body;
+  // secret must be string
+  if (typeof id !== 'string' && typeof secret !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
+  
   if (!id && !secret) {
     return res.status(400).json({ message: 'Provide at least one of the following: id or secret' });
   }
