@@ -12,7 +12,7 @@ export default async function searchMaps(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { query, secret } = req.body;
+  let { query, secret } = req.body;
 
   // secret must be string
   if (typeof secret !== 'string') {
