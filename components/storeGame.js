@@ -14,7 +14,7 @@ export default async function storeGame(secret, xp, timeTaken, latLong) {
   if(!secret || !xp || !timeTaken || !latLong) {
     return { success: false, message: 'Missing required fields' };
   }
-  if(typeof xp !== 'number' || typeof timeTaken !== 'number' || typeof latLong !== 'object') {
+  if(typeof secret !== 'string' || typeof xp !== 'number' || typeof timeTaken !== 'number' || typeof latLong !== 'object') {
     return { success: false, message: 'Invalid input types' };
   }
   if(latLong.length !== 2 || typeof latLong[0] !== 'number' || typeof latLong[1] !== 'number') {

@@ -17,6 +17,9 @@ export default async function handler(req, res) {
   if (!secret || !mapId) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
+  if (typeof secret !== 'string' || typeof mapId !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
 
   let user = await User.findOne({ secret: secret });
 

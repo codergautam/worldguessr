@@ -8,6 +8,11 @@ export default async function guess(req, res) {
   if(typeof secret !== 'string') {
     return res.status(400).json({ message: 'Invalid input' });
   }
+
+  // handle impossible cases
+  if(lat === actualLat || long === actualLong || roundTime < 0 || maxDist < 10) {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
   
   if(secret) {
     try {

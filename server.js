@@ -1259,7 +1259,7 @@ app.prepare().then(() => {
       if(!player.accountId) {
         return;
       }
-      if(!json.name) {
+      if(!json.name || typeof json.name !== "string" || json.name.length < 3 || json.name.length > 30 || !/^[a-zA-Z0-9_]+$/.test(json.name)) {
         player.send({type:'friendReqState',state: 0})
         return;
       }
@@ -1327,6 +1327,10 @@ app.prepare().then(() => {
     }
 
     if(json.type === 'cancelRequest' && player.accountId && json.id) {
+      if(typeof json.id !== "string") {
+        return;
+      }
+
       // check if the request exists (player side)
       const exists = player.sentReq.findIndex((f) => f.id === json.id);
       if(exists === -1) {
