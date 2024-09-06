@@ -88,14 +88,6 @@
     "countryCode": "DK"
   },
   {
-    "name": "Egypt",
-    "slug": "egypt",
-    "longDescription": "Explore Egypt in WorldGuessr! Discover the ancient pyramids, the Nile River, and the vibrant culture of this historic North African country.",
-    "shortDescription": "Explore Egypt's 27 governorates and the world's longest river!",
-    "maxDist": 1660.865,
-    "countryCode": "EG"
-  },
-  {
     "name": "Finland",
     "slug": "finland",
     "longDescription": "Explore Finland in WorldGuessr! From the Northern Lights to the thousands of lakes, immerse yourself in the natural beauty and unique culture of Finland.",
