@@ -27,16 +27,14 @@ export default async function handler(req, res) {
   }
 
   let { secret } = req.body;
-  // secret must be string
-  if(typeof secret !== 'string') {
-    return res.status(400).json({ message: 'Invalid input' });
-  }
-  
+
   let user;
 
   if(secret) {
     user = await User.findOne({ secret: secret });
-
+    if(typeof secret !== 'string') {
+      return res.status(400).json({ message: 'Invalid input' });
+    }
     if(!user) {
       return res.status(404).json({ message: 'User not found' });
     }
