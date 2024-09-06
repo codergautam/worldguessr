@@ -1585,7 +1585,7 @@ setInterval(() => {
     }
   }
 }, 500);
-if(!dev && dbEnabled) {
+if(!dev && dbEnabled && multiplayerEnabled) {
   setInterval(() => {
     const memUsage = process.memoryUsage().heapUsed;
     const gameCnt = games.size;
