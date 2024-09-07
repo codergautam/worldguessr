@@ -88,7 +88,35 @@ button {
   /* vertically centered inside home__content */
 
 }
-
+.home__footer{
+  left: 10px;
+  bottom: 5px;
+  position: fixed;
+}
+.footer_btns {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  max-width: 1000px;
+  button {
+    animation: fadeIn 0.4s ease-in-out forwards;
+    opacity: 0;
+  }
+}
+.discord {
+  background-color: #738adb !important;
+}
+.discord:hover {
+  background-color: #3e4970 !important;
+}
+.youtube {
+  background-color: #ff000080 !important;
+}
+.youtube:hover {
+  background-color: darkred !important;
+}
 .home__title {
   font-size: clamp(2em, 6vw, 13em);
   font-weight: 500;
