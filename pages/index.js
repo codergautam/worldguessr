@@ -1222,7 +1222,7 @@ export default function Home({ locale }) {
 </div>
 
 
-{screen === "home" && (
+{screen === "home" && !mapModal && (
         <div className="home__footer">
           <div className="footer_btns">
         { !isApp && (
