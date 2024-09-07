@@ -11,7 +11,7 @@ export default function ratelimitMiddleware(handler, limit, windowMs) {
     // note: this ip can be spoofed when the site is not behind cloudflare
     const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
     
-    const ipLimit = undefined;
+    let ipLimit = undefined;
     if (!ipLimitTracker.has(ip)) {
       ipLimitTracker.set(ip, defaultData);
       ipLimit = defaultData;

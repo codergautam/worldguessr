@@ -1,7 +1,9 @@
 import calcPoints from '@/components/calcPoints';
 import storeGame from '@/components/storeGame';
+import ratelimiter from '@/components/utils/ratelimitMiddleware'
+
 // multiplayer after guess
-export default async function guess(req, res) {
+async function guess(req, res) {
   const { lat, long, actualLat, actualLong, usedHint, secret, roundTime, maxDist } = req.body;
 
   // secret must be string
@@ -24,3 +26,6 @@ export default async function guess(req, res) {
   }
   res.status(200).json({ success: true });
 }
+
+// Limit to 1 request per 5 seconds over a minute, generous limit but better than nothing
+export default ratelimiter(guess, 12, 60000)
