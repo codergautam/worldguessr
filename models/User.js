@@ -75,7 +75,11 @@ const userSchema = new mongoose.Schema({
     type: Map,
     of: Number,
     default: {},
-  }
+  },
+  instant_accept_maps: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

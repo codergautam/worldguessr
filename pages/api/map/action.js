@@ -169,9 +169,9 @@ export default async function handler(req, res) {
     map.data = validation.locationsData;
     map.description_short = description_short;
     map.description_long = description_long;
-    map.in_review= true;
+    map.in_review= user.instant_accept_maps ? false : true;
     map.reject_reason = "";
-    map.accepted = false;
+    map.accepted = !map.in_review;
 
     map.maxDist = validation.maxDist;
 
