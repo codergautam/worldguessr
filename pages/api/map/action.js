@@ -140,6 +140,8 @@ export default async function handler(req, res) {
       description_short,
       description_long,
       maxDist: validation.maxDist,
+      in_review: user.instant_accept_maps ? false : true,
+      accepted: !user.instant_accept_maps,
     });
 
     return res.status(200).json({ message: 'Map created', map });
