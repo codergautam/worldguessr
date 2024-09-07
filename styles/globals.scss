@@ -92,6 +92,8 @@ button {
   left: 10px;
   bottom: 5px;
   position: fixed;
+  pointer-events: all;
+  z-index: 10000;
 }
 .footer_btns {
   display: flex;
@@ -100,6 +102,8 @@ button {
   gap: 10px;
   margin-top: 20px;
   max-width: 1000px;
+  z-index: 100;
+  pointer-events: all;
   button {
     animation: fadeIn 0.4s ease-in-out forwards;
     opacity: 0;
