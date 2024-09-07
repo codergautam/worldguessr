@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 import User from '../models/User';
+import ratelimiter from "./utils/ratelimitMiddleware";
 
-export default async function storeGame(secret, xp, timeTaken, latLong) {
+async function storeGame(secret, xp, timeTaken, latLong) {
 
   // Connect to MongoDB
   if (mongoose.connection.readyState !== 1) {
@@ -31,19 +32,21 @@ export default async function storeGame(secret, xp, timeTaken, latLong) {
 
   // Store the game data
   try {
-  user.games.push({
-    xp,
-    timeTaken,
-    latLong,
-    time: new Date(),
-  });
-  user.totalGamesPlayed += 1;
-  user.totalXp += xp;
-} catch (error) {
-  return { success: false, message: 'An error occurred', error: error.message };
-}
+    user.games.push({
+      xp,
+      timeTaken,
+      latLong,
+      time: new Date(),
+    });
+    user.totalGamesPlayed += 1;
+    user.totalXp += xp;
+  } catch (error) {
+    return { success: false, message: 'An error occurred', error: error.message };
+  }
+
   await user.save();
   return { success: true };
-
-
 }
+
+// Limit to 1 request per 5 seconds over a minute, generous limit but better than nothing
+export default ratelimiter(storeGame, 12, 60000)
