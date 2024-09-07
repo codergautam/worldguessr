@@ -31,19 +31,18 @@ export default async function storeGame(secret, xp, timeTaken, latLong) {
 
   // Store the game data
   try {
-  user.games.push({
-    xp,
-    timeTaken,
-    latLong,
-    time: new Date(),
-  });
-  user.totalGamesPlayed += 1;
-  user.totalXp += xp;
-} catch (error) {
-  return { success: false, message: 'An error occurred', error: error.message };
-}
+    user.games.push({
+      xp,
+      timeTaken,
+      latLong,
+      time: new Date(),
+    });
+    user.totalGamesPlayed += 1;
+    user.totalXp += xp;
+  } catch (error) {
+    return { success: false, message: 'An error occurred', error: error.message };
+  }
+
   await user.save();
   return { success: true };
-
-
 }
