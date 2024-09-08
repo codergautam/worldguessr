@@ -1117,7 +1117,7 @@ export default function Home({ locale }) {
     window.panorama = panoramaRef.current;
   } else {
 
-    console.log("setting position", latLong)
+    console.log("setting position")
     panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
 
     window.reloadLoc = () => {
