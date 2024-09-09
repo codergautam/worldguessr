@@ -75,12 +75,14 @@ export default function Ad({
 
           lastRefresh.current = Date.now();
           sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`);
-
+          console.log("requesting ad", types[type]);
+          setTimeout(() => {
           windowAny.aiptag.cmd.display.push(function () {
             windowAny.aipDisplayTag.display(
               `worldguessr-com_${types[type][0]}x${types[type][1]}`
             );
           });
+        }, 50);
         }
       }, 100);
     };

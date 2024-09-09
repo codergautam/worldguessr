@@ -345,7 +345,7 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
 
 { !onboarding && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown)?'moreDown':''}`}>
-    <Ad showAdvertisementText={false} screenH={height} types={[[320, 50],[728,90],[970,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    <Ad showAdvertisementText={false} screenH={height} types={[[320, 50],[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
 
