@@ -1334,7 +1334,7 @@ export default function Home({ locale }) {
 
           <div style={{ marginTop: "20px" }}>
             <center>
-              { !loading && (
+              { !loading && screen === "home" && (
     <Ad screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} />
               )}
     </center>

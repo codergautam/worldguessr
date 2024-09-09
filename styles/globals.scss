@@ -2062,7 +2062,7 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 }
 .topAdFixed {
   position: fixed;
-  top: 0;
+  top: 5px;
   z-index: 1000;
   left: 50%;
   transform: translateX(-50%);

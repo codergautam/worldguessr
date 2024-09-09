@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import useWindowDimensions from "./useWindowDimensions";
 import sendEvent from "./utils/sendEvent";
 
-const AD_REFRESH_MS = 60000; // refresh ad every 60 seconds
+const AD_REFRESH_MS = 30000; // refresh ad every 60 seconds
 
 function findAdType(screenW, screenH, types, vertThresh) {
   let type = 0;
@@ -22,7 +22,8 @@ export default function Ad({
   centerOnOverflow,
   vertThresh = 0.3,
   screenW,
-  screenH
+  screenH,
+  showAdvertisementText = true,
 }) {
   const [type, setType] = useState(
     findAdType(screenW, screenH, types, vertThresh)
@@ -101,6 +102,7 @@ export default function Ad({
         display: "inline-block",
       }}
     >
+      {showAdvertisementText && (
       <span
         style={{
           position: "absolute",
@@ -113,6 +115,7 @@ export default function Ad({
       >
         Advertisement
       </span>
+      )}
       <div
         style={{
           backgroundColor: "rgba(0,0,0,0.5)",
