@@ -386,7 +386,6 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
 
                               onPencilClick={(map) => {
                                 // go back to editscreen
-                                console.log("edit", map);
                                 setMakeMap({
                                   ...initMakeMap,
                                   open: true,
