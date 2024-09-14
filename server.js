@@ -10,6 +10,7 @@ A game by Gautam
 https://github.com/codergautam/worldguessr
 */
 
+import fs from 'fs';
 import { parse } from 'url';
 import next from 'next';
 import { v4 as makeId } from 'uuid';
@@ -723,6 +724,10 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
 //   res.end(JSON.stringify(playerData));
 // })
 
+/* Successfully received certificate.
+Certificate is saved at: /etc/letsencrypt/live/www.worldguessr.com/fullchain.pem
+Key is saved at:         /etc/letsencrypt/live/www.worldguessr.com/privkey.pem
+*/
 app.prepare().then(() => {
 
   const useHttps = process.env.SSL_KEY_PATH && process.env.SSL_KEY_PATH.length > 0 && process.env.SSL_CERT_PATH && process.env.SSL_CERT_PATH.length > 0;
