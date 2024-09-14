@@ -10,8 +10,6 @@ A game by Gautam
 https://github.com/codergautam/worldguessr
 */
 
-
-import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';
 import { v4 as makeId } from 'uuid';
@@ -42,6 +40,8 @@ import countries from './public/countries.json' with { type: "json" };
 import cities from './public/cities.json' with { type: "json" };
 import moment from 'moment-timezone';
 import MapModel from './models/Map.js';
+import { createServer } from 'http';
+import { createServer as createHttpsServer } from 'https';
 
 function isValidTimezone(tz) {
   return !!moment.tz.zone(tz);
@@ -724,7 +724,21 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
 // })
 
 app.prepare().then(() => {
-  const server = createServer(async (req, res) => {
+
+  const useHttps = process.env.SSL_KEY_PATH && process.env.SSL_KEY_PATH.length > 0 && process.env.SSL_CERT_PATH && process.env.SSL_CERT_PATH.length > 0;
+  const sslOptions = useHttps ? {
+    key: fs.readFileSync(process.env.SSL_KEY_PATH),
+    cert: fs.readFileSync(process.env.SSL_CERT_PATH),
+    ca: process.env.SSL_CA_PATH ? fs.readFileSync(process.env.SSL_CA_PATH) : undefined,
+  } : null;
+
+  if(useHttps) {
+    console.log(`Using SSL`.green);
+  } else {
+    console.log(`Not using SSL`.yellow);
+  }
+
+  const callback = async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true)
       const { pathname, query } = parsedUrl
@@ -770,7 +784,9 @@ app.prepare().then(() => {
       res.statusCode = 500
       res.end('internal server error')
     }
-  })
+  };
+  let createServerFunction = sslOptions ? createHttpsServer : createServer;
+  const server = createServerFunction(sslOptions ? sslOptions : callback, !sslOptions ? callback : null)
     .once('error', (err) => {
       console.error(err)
       process.exit(1)
