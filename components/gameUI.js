@@ -113,6 +113,10 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
     // fetch clue (if any)
     setExplanations([])
 
+    // only if learn mode
+    if(window.location.search.includes("learn=true")) {
+
+      console.log("fetching clue")
     fetch('/api/clues/getClue'+(latLong ? `?lat=${latLong.lat}&lng=${latLong.long}` : '')).then(res => res.json()).then(data => {
 
       if(data.error) {
@@ -123,6 +127,7 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
       setShowClueBanner(true);
       setExplanations(data)
     });
+  }
 
   }, [latLong]);
 
