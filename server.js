@@ -791,6 +791,22 @@ app.prepare().then(() => {
     }
   };
   let createServerFunction = sslOptions ? createHttpsServer : createServer;
+
+  // if https enabled, create a http that redirects to https
+  if (useHttps) {
+    createServerFunction(
+      (req, res) => {
+        res.writeHead(301, {
+          Location: `https://${req.headers.host}${req.url}`
+        });
+        res.end();
+      }
+    )
+      .listen(80, () => {
+        console.log(`> Forwarder on http://${hostname}:80`);
+      });
+  }
+
   const server = createServerFunction(sslOptions ? sslOptions : callback, !sslOptions ? callback : null)
     .once('error', (err) => {
       console.error(err)
@@ -798,7 +814,7 @@ app.prepare().then(() => {
     })
     .listen(port, () => {
       setTimeout(() => {
-      console.log(`> Ready on http://${hostname}:${port}`)
+      console.log(`> Ready on http${useHttps ? 's' : ''}://${hostname}:${port}`)
       }, 100);
     })
 
