@@ -15,7 +15,7 @@ export default async function searchMaps(req, res) {
   let { query, secret } = req.body;
 
   // secret must be string
-  if (typeof secret !== 'string') {
+  if (secret && typeof secret !== 'string') {
     return res.status(400).json({ message: 'Invalid input' });
   }
   let user;
