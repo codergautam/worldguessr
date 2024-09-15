@@ -257,6 +257,9 @@ button {
   display: block;
   width: 100%;
   white-space: nowrap;
+  font-family: "Roboto", sans-serif !important;
+  text-shadow: 2px 2px black;
+  box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
   height: 100%;
 }
 // disabled homebtn

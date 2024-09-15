@@ -1295,7 +1295,7 @@ export default function Home({ locale }) {
               { onboardingCompleted && (
 
               <>
-      <div className="mainHomeBtns">
+      <div className={`mainHomeBtns ${roboto.className}`}>
 
                {/* <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
@@ -1325,7 +1325,7 @@ export default function Home({ locale }) {
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
  */}
-                <button className="homeBtn gameBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>
+                <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>
               </div>
 
               </>
