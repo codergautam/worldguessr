@@ -262,6 +262,13 @@ button {
   box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
   height: 100%;
 }
+// mobile homebtn has smaller font size and is less bold
+@media screen and (max-width: 600px) {
+  .homeBtn {
+    font-size: 1.2em;
+    font-weight: 200;
+  }
+}
 // disabled homebtn
 .homeBtn[disabled] {
   background-color: #373737;
@@ -282,6 +289,12 @@ button {
   font-size: 1.5em;
   width: auto;
   pointer-events: all;
+}
+@media screen and (max-width: 600px) {
+  .navBtn {
+    font-size: 1.2em;
+  }
+
 }
 .backBtn {
   background-color: #AE4141;
@@ -1601,11 +1614,13 @@ screen and (pointer:coarse) {
   .multiplayerPrivBtns {
     flex-direction: column;
     gap: 10px;
-    height: 200px;
   }
   .clueBanner {
     max-width: 100vw;
     max-height: 50vh;
+  }
+  .homeBtn {
+    height: 50px;
   }
 
 }
