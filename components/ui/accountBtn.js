@@ -18,9 +18,10 @@ export default function AccountBtn({ session, openAccountModal, navbarMode }) {
 
         { !session?.token?.secret && session !== null ? '...' :
         (
-          <div style={{marginRight: '10px',marginLeft: '10px'}}>
+          // <div style="margin-right: 10px; margin-left: 10px; display: flex; align-items: center; justify-content: center;">
+          <div style={{marginRight: '10px',marginLeft: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
 
-            {text("login")}
+            {text("login")}&nbsp;
             <FaGoogle className="home__squarebtnicon" />
           </div>
         )}
