@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import useWindowDimensions from "./useWindowDimensions";
 import sendEvent from "./utils/sendEvent";
+import NextImage from "next/image";
 
 const AD_REFRESH_MS = 30000; // refresh ad every 60 seconds
 
@@ -17,6 +18,7 @@ function findAdType(screenW, screenH, types, vertThresh) {
 
   return type;
 }
+
 export default function Ad({
   types,
   centerOnOverflow,
@@ -105,18 +107,18 @@ export default function Ad({
       }}
     >
       {showAdvertisementText && (
-      <span
-        style={{
-          position: "absolute",
-          top: "-24px",
-          left: "0px",
-          padding: "0 5px",
-          fontSize: "18px",
-          fontWeight: "bold",
-        }}
-      >
-        Advertisement
-      </span>
+        <span
+          style={{
+            position: "absolute",
+            top: "-24px",
+            left: "0px",
+            padding: "0 5px",
+            fontSize: "18px",
+            fontWeight: "bold",
+          }}
+        >
+          Advertisement
+        </span>
       )}
       <div
         style={{
@@ -124,18 +126,50 @@ export default function Ad({
           height: types[type][1],
           width: types[type][0],
           textAlign: "center",
-          border: "2px solid black", // Outline around the banner
           position: "relative",
         }}
         id={`worldguessr-com_${types[type][0]}x${types[type][1]}`}
         ref={adDivRef}
       >
-        {isClient === "debug" && (
+        {isClient === "debug" ? (
           <>
-            <h3>Banner Ad Here</h3>
-            <p style={{ fontSize: "0.8em", color: "white" }}>
-              Ad size: {types[type][0]} x {types[type][1]}
-            </p>
+            <div style={{ position: "relative", zIndex: 1 }}>
+              <NextImage.default
+                alt="Advertisement"
+                src={`/ad_${types[type][0]}x${types[type][1]}.png`}
+                width={types[type][0]}
+                height={types[type][1]}
+              />
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                bottom: "10px",
+                left: "0",
+                width: "100%",
+                color: "white",
+                zIndex: 2,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+              }}
+            >
+              <h3>Banner Ad Here</h3>
+              <p style={{ fontSize: "0.8em" }}>
+                Ad size: {types[type][0]} x {types[type][1]}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ position: "relative", zIndex: 1 }}>
+            <NextImage.default
+              alt="Advertisement"
+              src={`/ad_${types[type][0]}x${types[type][1]}.png`}
+              width={types[type][0]}
+              height={types[type][1]}
+            />
+            </div>
+
           </>
         )}
       </div>
