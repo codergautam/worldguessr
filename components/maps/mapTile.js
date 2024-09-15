@@ -53,7 +53,7 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
       res.json().then(data => {
         if(res.ok) {
           toast.success(data.message);
-          refreshHome();
+          refreshHome({removeMap: mapId});
         } else {
           toast.error(data.message);
           refreshHome();
@@ -154,7 +154,7 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
             </div>
           )}
         </div>
-        {!country && map.created_by_name && (
+        {!country && map.created_by_name && !map.in_review && !map.reject_reason && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button className={`map-tile__heart ${!canHeart ? 'disabled' : ''}`} onClick={handleHeartClick} disabled={!canHeart}>
               {map.hearts}&nbsp;

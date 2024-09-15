@@ -51,8 +51,23 @@ export default async function searchMaps(req, res) {
 
     // Convert maps to sendable format
     let sendableMaps = await Promise.all(maps.map(async (map) => {
-      const owner = await User.findById(map.created_by);
-      return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false);
+
+      let owner;
+      if(!map.map_creator_name) {
+      owner = await User.findById(map.created_by);
+      // if owner is not found, set to null
+      if(!owner) {
+        owner = null;
+      }
+      // save map creator name
+      console.log('updating map creator name', map._id, owner.username, map.name);
+      map.map_creator_name = owner.username;
+      await map.save();
+      } else{
+        owner = { username: map.map_creator_name };
+      }
+
+      return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false, user?.staff, map.created_by === user?._id.toString());
     }));
 
     res.status(200).json(sendableMaps);

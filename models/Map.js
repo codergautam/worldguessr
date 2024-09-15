@@ -19,6 +19,10 @@ const mapSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  map_creator_name: {
+    type: String,
+    required: true
+  },
   plays: {
     type: Number,
     default: 0

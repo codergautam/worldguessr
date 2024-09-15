@@ -25,7 +25,21 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
   const [searchResults, setSearchResults] = useState([]);
   const [heartingMap, setHeartingMap] = useState("");
 
-  function refreshHome() {
+  function refreshHome(removeMapId) {
+
+    console.log("refreshing home", removeMapId);
+    // if removeMapId is set, remove it from the mapHome temporarily
+    if(removeMapId) {
+      setMapHome((prev) => {
+        const newMapHome = { ...prev };
+        Object.keys(newMapHome).forEach((section) => {
+          newMapHome[section] = newMapHome[section].filter((m) => m.id !== removeMapId.removeMap);
+        });
+        return newMapHome;
+      });
+      return;
+    }
+
     fetch("/api/map/mapHome", {
       method: "POST",
       headers: {
@@ -340,7 +354,7 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
 
                 return mapsArray.length > 0 ? (
                   <div className={`mapSection ${section==="recent"?"recent":""}`} key={si}>
-                    <h2 className="mapSectionTitle">{text(section)}</h2>
+                    <h2 className="mapSectionTitle">{text(section)}{["myMaps", "likedMaps", "reviewQueue"].includes(section) && ` (${mapsArray.length})`}</h2>
 
                     <div className={`mapSectionMaps`}>
                       <ScrollMenu drag>

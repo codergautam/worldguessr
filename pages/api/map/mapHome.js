@@ -31,7 +31,9 @@ export default async function handler(req, res) {
   let user;
 
   if(secret) {
+    console.time('findUser');
     user = await User.findOne({ secret: secret });
+    console.timeEnd('findUser');
     if(typeof secret !== 'string') {
       return res.status(400).json({ message: 'Invalid input' });
     }
@@ -47,12 +49,27 @@ export default async function handler(req, res) {
 
   if(user?.staff) {
     // reviewQueue
+    console.time('findReviewQueue');
     let queueMaps = await Map.find({ in_review: true });
+    console.timeEnd('findReviewQueue');
 
+    console.time('findReviewQueueOwner');
     let queueMapsSendable = await Promise.all(queueMaps.map(async (map) => {
-      const owner = await User.findById(map.created_by);
-      return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false);
+      let owner;
+      if(!map.map_creator_name) {
+      owner = await User.findById(map.created_by);
+      // save map creator name
+      console.log('updating map creator name', map._id, owner.username, map.name);
+      map.map_creator_name = owner.username;
+      await map.save();
+      } else {
+        owner = { username: map.map_creator_name };
+      }
+
+      const isCreator = map.created_by === user._id.toString();
+      return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false, true, isCreator);
     }));
+    console.timeEnd('findReviewQueueOwner');
 
     // oldest to newest
     queueMapsSendable.sort((a,b) => b.created_at - a.created_at);
@@ -63,15 +80,25 @@ export default async function handler(req, res) {
   // find maps made by user
   if(user) {
     let myMaps = await Map.find({ created_by: user._id.toString() });
-    myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps?hearted_maps.has(map._id.toString()):false));
+    myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps?hearted_maps.has(map._id.toString()):false, user.staff, true));
     myMaps.sort((a,b) => a.created_at - b.created_at);
     if(myMaps.length > 0) response.myMaps = myMaps;
     // likedMaps
     // find maps liked by user
     const likedMaps = user.hearted_maps ? await Map.find({ _id: { $in: Array.from(user.hearted_maps.keys()) } }) : [];
     let likedMapsSendable = await Promise.all(likedMaps.map(async (map) => {
-      const owner = await User.findById(map.created_by);
-      return sendableMap(map, owner, true);
+      let owner;
+      if(!map.map_creator_name) {
+      owner = await User.findById(map.created_by);
+      // save map creator name
+      console.log('updating map creator name', map._id, owner.username, map.name);
+      map.map_creator_name = owner.username;
+      await map.save();
+
+      } else {
+        owner = { username: map.map_creator_name };
+      }
+      return sendableMap(map, owner, true, user.staff, map.created_by === user._id.toString());
     }));
     likedMapsSendable.sort((a,b) => b.created_at - a.created_at);
     if(likedMapsSendable.length > 0) response.likedMaps = likedMapsSendable;
@@ -106,7 +133,16 @@ export default async function handler(req, res) {
       }
 
       let sendableMaps = await Promise.all(maps.map(async (map) => {
-        const owner = await User.findById(map.created_by);
+        let owner;
+        if(!map.map_creator_name) {
+         owner = await User.findById(map.created_by);
+          // save map creator name
+          console.log('updating map creator name', map._id, owner.username, map.name);
+          map.map_creator_name = owner.username;
+          await map.save();
+        } else {
+          owner = { username: map.map_creator_name };
+        }
         return sendableMap(map, owner,hearted_maps?hearted_maps.has(map._id.toString()):false);
       }));
 
