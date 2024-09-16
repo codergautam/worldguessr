@@ -112,6 +112,9 @@ export default function Home({ locale }) {
     if(window.location.search.includes("app=true")) {
       setIsApp(true);
     }
+    if(window.location.search.includes("instantJoin=true")) {
+      // crazygames
+    }
     if(window.location.search.includes("crazygames")) {
       setInCrazyGames(true);
     }
