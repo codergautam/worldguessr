@@ -43,6 +43,8 @@ import moment from 'moment-timezone';
 import MapModel from './models/Map.js';
 import { createServer } from 'http';
 import { createServer as createHttpsServer } from 'https';
+import { Filter } from 'bad-words';
+const filter = new Filter();
 
 function isValidTimezone(tz) {
   return !!moment.tz.zone(tz);
@@ -1028,12 +1030,13 @@ app.prepare().then(() => {
       }
 
       if(json.type === 'chat' && player.gameId && games.has(player.gameId)) {
-        const message = json.message;
+        let message = json.message;
         const lastMessage = player.lastMessage || 0;
         if (typeof message !== 'string' || message.length < 1 || message.length > 200 || Date.now() - lastMessage < 500) {
           return;
         }
         const game = games.get(player.gameId);
+        message = filter.clean(message);
         player.lastMessage = Date.now();
         game.sendAllPlayers({
           type: 'chat',

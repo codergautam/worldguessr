@@ -21,7 +21,7 @@ import fixBranding from "./utils/fixBranding";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -348,7 +348,7 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
   return (
     <div className="gameUI">
 
-{ !onboarding && (
+{ !onboarding && !inCrazyGames && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown)?'moreDown':''}`}>
     <Ad showAdvertisementText={false} screenH={height} types={[[320, 50],[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>

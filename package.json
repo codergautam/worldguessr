@@ -12,6 +12,7 @@
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
     "@smastrom/react-rating": "^1.5.0",
+    "bad-words": "^4.0.0",
     "cesium": "^1.117.0",
     "colors": "^1.4.0",
     "coordinate_to_country": "^1.1.0",
