@@ -63,7 +63,7 @@ export default function Ad({
         if (
           (inCrazyGames || ( windowAny.aiptag && windowAny.aiptag.cmd && windowAny.aiptag.cmd.display)) &&
           isAdDivVisible &&
-          Date.now() - lastRefresh.current > AD_REFRESH_MS
+          Date.now() - lastRefresh.current > (AD_REFRESH_MS*(inCrazyGames?2:1))
         ) {
           console.log("clearing and displaying ad");
           if(!inCrazyGames) {
@@ -106,9 +106,13 @@ export default function Ad({
               height: types[type][1],
             }).then((e) => {
               console.log("Banner request success", e);
+                  // clear everything inside the div
+          // document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = "";
 
             }).catch((e) => {
               console.log("Banner request error", e);
+              document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = `
+              <img src='/ad_${types[type][0]}x${types[type][1]}.png' width='${types[type][0]}' height='${types[type][1]}' alt='Advertisement' />`;
 
             });
 

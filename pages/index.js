@@ -1431,8 +1431,7 @@ setShowCountryButtons(false)
 
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
-{!loading && (
-  <>
+
         {process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
           <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         }
@@ -1512,8 +1511,7 @@ setShowCountryButtons(false)
 
 
         </div>
-</>
-)}
+
         <InfoModal shown={false} />
         <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
             customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
