@@ -50,6 +50,7 @@ import { boundingExtent } from "ol/extent";
 import countries from "@/public/countries.json";
 import fixBranding from "@/components/utils/fixBranding";
 import PrivacyPolicyLink from "@/components/privacyPolicyLink";
+import gameStorage from "@/components/utils/localStorage";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -80,7 +81,8 @@ export default function Home({ locale }) {
   const { width, height } = useWindowDimensions();
 
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const [session, setSession] = useState(null);
+  const { data: mainSession, status } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
   const [loading, setLoading] = useState(false);
@@ -106,6 +108,12 @@ export default function Home({ locale }) {
   const [isApp, setIsApp] = useState(false);
   const [inCrazyGames, setInCrazyGames] = useState(false);
 
+  useEffect(() => {
+    if (mainSession && !inCrazyGames) {
+      setSession(mainSession)
+    }
+  }, [mainSession, inCrazyGames])
+
 
 
   useEffect(() => {
@@ -115,10 +123,75 @@ export default function Home({ locale }) {
     if(window.location.search.includes("instantJoin=true")) {
       // crazygames
     }
+
+
+    async function crazyAuthListener() {
+      const user = await window.CrazyGames.SDK.user.getUser();
+      if(user) {
+        const token = await window.CrazyGames.SDK.user.getUserToken();
+        if(token && user.username) {
+          // /api/crazyAuth
+          fetch("/api/crazyAuth", {
+            method: "POST",
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ token, username: user.username })
+          }).then((res) => res.json()).then((data) => {
+            try {
+            window.CrazyGames.SDK.game.loadingStop();
+            } catch(e) {}
+            if(data.secret && data.username) {
+              setSession({ token: { secret: data.secret, username: data.username } })
+            } else {
+              toast.error("CrazyGames auth failed")
+            }
+          }).catch((e) => {
+            try {
+            window.CrazyGames.SDK.game.loadingStop();
+            } catch(e) {}
+            console.error("crazygames auth failed", e)
+          });
+
+        }
+      }
+    }
+
     if(window.location.search.includes("crazygames")) {
       setInCrazyGames(true);
+      window.inCrazyGames = true;
+      // initialize the sdk
+      try {
+        console.log("init crazygames sdk")
+        setLoading(true)
+
+         window.CrazyGames.SDK.init().then(async () => {
+          console.log("sdk initialized")
+          setLoading(false)
+          try {
+          window.CrazyGames.SDK.game.loadingStart();
+          } catch(e) {}
+
+          crazyAuthListener().then(() => {
+            // check if onboarding is done
+            const onboardingCompletedd = gameStorage.getItem("onboarding");
+            console.log("onboarding", onboardingCompletedd)
+            if(onboardingCompletedd !== "done") startOnboarding();
+            else setOnboardingCompleted(true)
+          })
+
+
+
+         })
+      } catch(e) {}
     }
     initialMultiplayerState.createOptions.displayLocation = text("allCountries")
+
+    return () => {
+      try {
+        window.CrazyGames.SDK.user.removeAuthListener(crazyAuthListener);
+      } catch(e){}
+    }
 
   }, []);
 
@@ -129,7 +202,51 @@ export default function Home({ locale }) {
   const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
   const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
   const [allLocsArray, setAllLocsArray] = useState([]);
+  function startOnboarding() {
 
+    if(inCrazyGames) {
+      // make sure its not an invite link
+      const code = window.CrazyGames.SDK.game.getInviteParam("code")
+      if(code && code.length === 6) {
+        return;
+      }
+    }
+
+setScreen("onboarding")
+
+let onboardingLocations = [
+  { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
+{ lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
+{ lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
+  { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
+  // pyramid of giza 29.9773337,31.1321796
+  { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
+  // eiffel tower 48.8592946,2.2927855
+  { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
+  // statue of liberty 40.6909253,-74.0552998
+  { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
+  // brandenburg gate 52.5161999,13.3756414
+  { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
+
+]
+
+// pick 5 random locations no repeats
+const locations = [];
+while (locations.length < 5) {
+  const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
+  if (!locations.find((l) => l.country === loc.country)) {
+    locations.push(loc)
+  }
+}
+
+setOnboarding({
+  round: 1,
+  locations: locations,
+  startTime: Date.now(),
+})
+sendEvent("tutorial_begin")
+setShowCountryButtons(false)
+}
   function openMap(mapSlug) {
     const country = countries.find((c) => c === mapSlug.toUpperCase());
     setAllLocsArray([])
@@ -167,15 +284,20 @@ export default function Home({ locale }) {
   }, [onboarding?.completed])
   useEffect(() => {
     try {
-    const onboarding = window.localStorage.getItem("onboarding");
+    const onboarding = gameStorage.getItem("onboarding");
     // check url
     const specifiedMapSlug = window.location.search.includes("map=");
+    console.log("onboarding", onboarding, specifiedMapSlug)
+    // make it false just for testing
+    // gameStorage.setItem("onboarding", null)
     if(onboarding && onboarding === "done") setOnboardingCompleted(true)
       else if(specifiedMapSlug) setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
   } catch(e) {
+    console.error(e, "onboard");
     setOnboardingCompleted(true);
   }
+  // setOnboardingCompleted(false)
   }, [])
 
   useEffect(() => {
@@ -209,6 +331,7 @@ export default function Home({ locale }) {
   }, [])
 
   useEffect(() => {
+    console.log("HI df", onboardingCompleted)
 
 // check if learn mode
     if(window.location.search.includes("learn=true")) {
@@ -219,45 +342,10 @@ export default function Home({ locale }) {
     if(onboardingCompleted === false) {
       if(onboardingCompleted===null)return;
       if (!loading) {
-        function start() {
-        setScreen("onboarding")
 
-        let onboardingLocations = [
-          { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
-        { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
-        { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
-          { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
-          // pyramid of giza 29.9773337,31.1321796
-          { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
-          // eiffel tower 48.8592946,2.2927855
-          { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
-          // statue of liberty 40.6909253,-74.0552998
-          { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
-          // brandenburg gate 52.5161999,13.3756414
-          { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
-
-        ]
-
-        // pick 5 random locations no repeats
-        const locations = [];
-        while (locations.length < 5) {
-          const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
-          if (!locations.find((l) => l.country === loc.country)) {
-            locations.push(loc)
-          }
-        }
-
-        setOnboarding({
-          round: 1,
-          locations: locations,
-          startTime: Date.now(),
-        })
-        sendEvent("tutorial_begin")
-        setShowCountryButtons(false)
-      }
 
       // const isPPC = window.location.search.includes("cpc=true");
-        if(inIframe() && window.adBreak) {
+        if(inIframe() && window.adBreak && !inCrazyGames) {
           console.log("trying to show preroll")
           window.onboardPrerollEnd = false;
           setLoading(true)
@@ -268,7 +356,7 @@ export default function Home({ locale }) {
               setLoading(false)
               window.onboardPrerollEnd = true;
               sendEvent("interstitial", { type: "preroll", ...e })
-              start()
+              startOnboarding()
             }
           })
 
@@ -277,21 +365,22 @@ export default function Home({ locale }) {
               window.onboardPrerollEnd = true;
               console.log("preroll timeout")
               setLoading(false)
-              start()
+              startOnboarding()
             }
           }, 3000)
-        } else {
-        start()
+        } else if(!inCrazyGames) {
+
+          startOnboarding()
         }
       }
     }
   }, [onboardingCompleted])
 
   useEffect(() => {
-    if(session && session.token && session.token.username) {
+    if(session && session.token && session.token.username && !inCrazyGames) {
       setOnboardingCompleted(true)
       try {
-        window.localStorage.setItem("onboarding", 'done')
+        gameStorage.setItem("onboarding", 'done')
       } catch(e) {}
     }
   }, [session])
@@ -300,7 +389,7 @@ export default function Home({ locale }) {
 
     // try to fetch options from localstorage
     try {
-    const options = localStorage.getItem("options");
+    const options = gameStorage.getItem("options");
 
 
     if (options) {
@@ -331,7 +420,7 @@ export default function Home({ locale }) {
   useEffect(() => {
     if(options && options.units && options.mapType) {
       try {
-      localStorage.setItem("options", JSON.stringify(options))
+      gameStorage.setItem("options", JSON.stringify(options))
       } catch(e) {}
     }
   }, [options])
@@ -456,7 +545,7 @@ export default function Home({ locale }) {
           // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
           ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist }))
           sendEvent("multiplayer_create_private_game", { rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist })
-        // })()
+          // })()
       }
     }
 
@@ -509,6 +598,50 @@ export default function Home({ locale }) {
     }
   })();
   }, [multiplayerState, ws, screen])
+
+  useEffect(() => {
+    if(multiplayerState?.connected && inCrazyGames) {
+
+          // check if joined via invite link
+          try {
+            let code = window.CrazyGames.SDK.game.getInviteParam("code")
+
+            if(code) {
+
+              if(typeof code === "string") {
+                try {
+                  code = parseInt(code)
+                } catch(e) {
+                }
+              }
+
+            setOnboardingCompleted(true)
+            setOnboarding(null)
+            setLoading(false)
+            setScreen("home")
+
+              // join private game
+              handleMultiplayerAction("joinPrivateGame")
+              // set the code
+              setMultiplayerState((prev) => ({
+                ...prev,
+                joinOptions: {
+                  ...prev.joinOptions,
+                  gameCode: code,
+                  progress: true
+                }
+              }))
+              // press go
+              setTimeout(() => {
+                handleMultiplayerAction("joinPrivateGame", code)
+              }, 1000)
+
+            }
+
+            } catch(e) {}
+
+    }
+  }, [multiplayerState?.connected, inCrazyGames])
 
   useEffect(() => {
     if (multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
@@ -579,6 +712,16 @@ export default function Home({ locale }) {
       } else if (data.type === "game") {
         setScreen("multiplayer")
         setMultiplayerState((prev) => {
+
+
+          try {
+          if(data.state === "waiting" && inCrazyGames && data.host) {
+            const link = window.CrazyGames.SDK.game.showInviteButton({ code: data.code });
+          } else {
+            window.CrazyGames.SDK.game.hideInviteButton();
+          }
+        } catch(e) {}
+
 
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
@@ -845,7 +988,7 @@ export default function Home({ locale }) {
 
   useEffect(() => {
     try {
-    const streak = localStorage.getItem("countryStreak");
+    const streak = gameStorage.getItem("countryStreak");
     if (streak) {
       setCountryStreak(parseInt(streak))
     }
@@ -877,10 +1020,8 @@ export default function Home({ locale }) {
       setScreen("home")
       setOnboarding(null)
       setOnboardingCompleted(true)
-      try {
-        window.localStorage.setItem("onboarding", 'done')
-} catch(e) {
-}
+        gameStorage.setItem("onboarding", 'done')
+
       return;
     }
 
@@ -890,6 +1031,12 @@ export default function Home({ locale }) {
       ws.send(JSON.stringify({
         type: 'leaveGame'
       }))
+
+      if(inCrazyGames) {
+        try {
+          window.CrazyGames.SDK.game.hideInviteButton();
+        } catch(e) {}
+      }
 
       setMultiplayerState((prev) => {
         return {
@@ -927,7 +1074,8 @@ export default function Home({ locale }) {
     } else if(screen === "onboarding") {
       setOnboarding(null)
       setScreen("home")
-      window.localStorage.setItem("onboarding", "done")
+      console.log("onboarding is done")
+      gameStorage.setItem("onboarding", "done")
       setOnboardingCompleted(true)
     } else {
       setScreen("home");
@@ -1213,7 +1361,7 @@ export default function Home({ locale }) {
     <>
       <HeadContent text={text}/>
 
-      <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
+      <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
 
@@ -1235,10 +1383,16 @@ export default function Home({ locale }) {
           <div className="footer_btns">
         { !isApp && (
                   <>
+                  { !inCrazyGames && (
+                    <>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="home__squarebtn gameBtn youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
-                <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                </>
+                )}
+                <Link href={"/leaderboard"+(inCrazyGames ? "?crazygames": "")}>
+
+                <button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
                 </>
                 )}
 
@@ -1277,10 +1431,12 @@ export default function Home({ locale }) {
 
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
+{!loading && (
+  <>
         {process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
           <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
         }
-        <Navbar loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+        <Navbar inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
 
 
 
@@ -1333,8 +1489,10 @@ export default function Home({ locale }) {
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
  */}
+ { !inCrazyGames && (
                 <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>
-              </div>
+ )}
+                </div>
 
               </>
             )}
@@ -1342,8 +1500,8 @@ export default function Home({ locale }) {
 
           <div style={{ marginTop: "20px" }}>
             <center>
-              { !loading && screen === "home" && !inCrazyGames && (
-    <Ad screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} />
+              { !loading && screen === "home"  && (
+    <Ad inCrazyGames={inCrazyGames} screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} />
               )}
     </center>
             </div>
@@ -1354,6 +1512,8 @@ export default function Home({ locale }) {
 
 
         </div>
+</>
+)}
         <InfoModal shown={false} />
         <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
             customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
@@ -1386,7 +1546,7 @@ export default function Home({ locale }) {
                 text("onboarding1")
               ]} pageDone={() => {
                 try {
-                  window.localStorage.setItem("onboarding", 'done')
+                  gameStorage.setItem("onboarding", 'done')
                 } catch(e) {}
                 setOnboarding((prev)=>{
                   return {
@@ -1399,7 +1559,7 @@ export default function Home({ locale }) {
                 if(onboarding) sendEvent("tutorial_end");
 
                 setOnboarding(null)
-                if(!window.location.search.includes("app=true")) {
+                if(!window.location.search.includes("app=true") && !inCrazyGames) {
       setShowSuggestLoginModal(true)
     }
                 setScreen("home")
@@ -1478,6 +1638,12 @@ export default function Home({ locale }) {
 });
 
 window.show_videoad = function(callback) {
+// if in crazygame (window.inCrazyGames) dont show ads
+if(window.inCrazyGames) {
+  console.log("In crazygames, not showing ads")
+  callback("DISABLED");
+  return;
+}
 
           if(window.disableVideoAds) {
           console.log("Video ads disabled")

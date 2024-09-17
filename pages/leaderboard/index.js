@@ -8,7 +8,13 @@ const Leaderboard = ({ }) => {
 
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [pastDay, setPastDay] = useState(false);
+  const [inCrazyGames, setInCrazyGames] = useState(false);
   const { data: session, status } = useSession();
+
+  useEffect(() => {
+    const inCrazyGames = window.location.search.includes("crazygames");
+    setInCrazyGames(inCrazyGames);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -296,7 +302,7 @@ const Leaderboard = ({ }) => {
           {text("pastDay")}
 
           </button>
-          <button className="share" onClick={() => window.location.replace('/')}>
+          <button className="share" onClick={() => window.location.replace('/'+(inCrazyGames ? '?crazygames=true' : ''))}>
             <b>{text("back")}
             </b>
           </button>
@@ -344,6 +350,7 @@ const Leaderboard = ({ }) => {
 
 export default Leaderboard;
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import { use } from 'i18next';
 
 
 export async function getStaticProps({ locale }) {

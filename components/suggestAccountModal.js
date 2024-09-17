@@ -1,6 +1,7 @@
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from 'next-i18next';
 import { signIn } from "next-auth/react";
+import gameStorage from "./utils/localStorage";
 
 export default function SuggestAccountModal({ shown, setOpen }) {
   const { t: text } = useTranslation("common");
@@ -18,10 +19,8 @@ export default function SuggestAccountModal({ shown, setOpen }) {
             textAlign: 'center',
         }
     }} open={shown} center onClose={() => {
-      try {
-        window.localStorage.setItem("onboarding", 'done')
-      } catch (e) {
-      }
+        gameStorage.setItem("onboarding", 'done')
+
 
       setOpen(false)
     }}>
@@ -41,10 +40,8 @@ export default function SuggestAccountModal({ shown, setOpen }) {
         {text("loginWithGoogle1")}
       </button>
       <button onClick={() => {
-        try {
-          window.localStorage.setItem("onboarding", 'done')
-        } catch (e) {
-        }
+          gameStorage.setItem("onboarding", 'done')
+
         setOpen(false)
       }} style={{
           background: 'transparent',

@@ -18,6 +18,7 @@ import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAd";
 import fixBranding from "./utils/fixBranding";
+import gameStorage from "./utils/localStorage";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -38,7 +39,7 @@ export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnRe
         })
         setShowAnswer(false)
         setStreetViewShown(false)
-      } else
+      } else {
       setOnboarding((prev) => {
         return {
           ...prev,
@@ -46,6 +47,7 @@ export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnRe
           nextRoundTime: 0
         }
       })
+    }
     } else
       loadLocation()
   }
@@ -134,7 +136,6 @@ export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnRe
   useEffect(() => {
     if(onboarding?.nextRoundTime) {
       const interval = setInterval(() => {
-      console.log("setting timetonextroun")
       const val = Math.max(0,Math.floor(((onboarding.nextRoundTime - Date.now())) / 100)/10)
         setTimeToNextRound(val)
 
@@ -171,7 +172,7 @@ export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnRe
 
   useEffect(() => {
     try {
-    window.localStorage.setItem("countryStreak", countryStreak);
+    gameStorage.setItem("countryStreak", countryStreak);
     } catch(e) {
       console.log("error setting countryStreak in localstorage")
     }
@@ -292,7 +293,7 @@ export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnRe
         setCountryStreak(0);
         setLostCountryStreak(countryStreak);
 
-        if(countryStreak > 0 && window.adBreak) {
+        if(countryStreak > 0 && window.adBreak && !inCrazyGames) {
         console.log("requesting reward ad")
         window.adBreak({
           type: 'reward',  // rewarded ad
@@ -350,7 +351,7 @@ export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnRe
 
 { !onboarding && !inCrazyGames && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown)?'moreDown':''}`}>
-    <Ad showAdvertisementText={false} screenH={height} types={[[320, 50],[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[320, 50],[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
 

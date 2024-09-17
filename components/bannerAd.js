@@ -22,6 +22,7 @@ function findAdType(screenW, screenH, types, vertThresh) {
 export default function Ad({
   types,
   centerOnOverflow,
+  inCrazyGames,
   vertThresh = 0.3,
   screenW,
   screenH,
@@ -48,21 +49,24 @@ export default function Ad({
   }, [type]);
 
   useEffect(() => {
+
+
     const windowAny = window;
+
     const displayNewAd = () => {
       if (type === -1) return;
       setTimeout(() => {
         const isAdDivVisible =
+        adDivRef.current &&
           adDivRef.current.getBoundingClientRect().top < window.innerHeight &&
           adDivRef.current.getBoundingClientRect().bottom > 0;
         if (
-          windowAny.aiptag &&
-          windowAny.aiptag.cmd &&
-          windowAny.aiptag.cmd.display &&
+          (inCrazyGames || ( windowAny.aiptag && windowAny.aiptag.cmd && windowAny.aiptag.cmd.display)) &&
           isAdDivVisible &&
           Date.now() - lastRefresh.current > AD_REFRESH_MS
         ) {
           console.log("clearing and displaying ad");
+          if(!inCrazyGames) {
           try {
             if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
               for (const type of types) {
@@ -74,16 +78,53 @@ export default function Ad({
           } catch (e) {
             alert("error clearing ad");
           }
+        } else {
+          // clear everything inside the div
+          document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = "";
+        }
 
           lastRefresh.current = Date.now();
           sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`);
           console.log("requesting ad", types[type]);
           setTimeout(() => {
+            if(!inCrazyGames) {
           windowAny.aiptag.cmd.display.push(function () {
             windowAny.aipDisplayTag.display(
               `worldguessr-com_${types[type][0]}x${types[type][1]}`
             );
           });
+        } else {
+            // await is not mandatory when requesting banners, but it will allow you to catch errors
+
+            // check if
+            function requestCrazyGamesBanner() {
+          try {
+
+            window.CrazyGames.SDK.banner.requestBanner({
+              id: `worldguessr-com_${types[type][0]}x${types[type][1]}`,
+              width: types[type][0],
+              height: types[type][1],
+            }).then((e) => {
+              console.log("Banner request success", e);
+
+            }).catch((e) => {
+              console.log("Banner request error", e);
+
+            });
+
+          } catch (e) {
+            console.log("Banner request error", e);
+            if(e.code === "sdkNotInitialized") {
+              console.log("SDK not initialized, retrying in 1s");
+              setTimeout(() => {
+                requestCrazyGamesBanner();
+              }, 1000);
+            }
+          }
+          }
+          requestCrazyGamesBanner();
+
+        }
         }, 50);
         }
       }, 100);
@@ -94,7 +135,7 @@ export default function Ad({
     }, 1000);
     displayNewAd();
     return () => clearInterval(timerId);
-  }, [type]);
+  }, [type, inCrazyGames]);
 
   if (type === -1) return null;
   if (!isClient) return null;
