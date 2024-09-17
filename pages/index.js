@@ -600,6 +600,21 @@ setShowCountryButtons(false)
   }, [multiplayerState, ws, screen])
 
   useEffect(() => {
+
+    if(inCrazyGames) {
+      if(screen === "home") {
+        try {
+          window.CrazyGames.SDK.game.gameplayStop();
+        } catch(e) {}
+      } else {
+        try {
+          window.CrazyGames.SDK.game.gameplayStart();
+        } catch(e) {}
+      }
+    }
+  }, [screen, inCrazyGames])
+
+  useEffect(() => {
     if(multiplayerState?.connected && inCrazyGames) {
 
           // check if joined via invite link
