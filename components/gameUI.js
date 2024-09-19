@@ -22,7 +22,7 @@ import gameStorage from "./utils/localStorage";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -64,6 +64,14 @@ export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnRe
     } else {
       loadLocationFuncRaw()
     }
+
+    if(!setShowDiscordModal || showDiscordModal) return;
+    const loadTime = window.gameOpen;
+    const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
+    if(lastDiscordShown) return console.log("Discord modal already shown");
+    if(Date.now() - loadTime > 60000) {
+      setShowDiscordModal(true)
+    } else console.log("Not showing discord modal, waiting for "+(60000 - (Date.now() - loadTime))+"ms")
   }
 
   const { width, height } = useWindowDimensions();
@@ -514,6 +522,7 @@ export default function GameUI({ inCrazyGames, showPanoOnResult, setShowPanoOnRe
 
 <EndBanner onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
   loadLocationFunc()
+
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {
     setShowPanoOnResult(!showPanoOnResult)
   }} panoShown={showPanoOnResult} />

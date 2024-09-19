@@ -51,6 +51,7 @@ import countries from "@/public/countries.json";
 import fixBranding from "@/components/utils/fixBranding";
 import PrivacyPolicyLink from "@/components/privacyPolicyLink";
 import gameStorage from "@/components/utils/localStorage";
+import DiscordModal from "@/components/discordModal";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -200,7 +201,10 @@ export default function Home({ locale }) {
   const [otherOptions, setOtherOptions] = useState([]); // for country guesser
   const [showCountryButtons, setShowCountryButtons] = useState(true);
   const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
+
   const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
+  const [showDiscordModal, setShowDiscordModal] = useState(false);
+
   const [allLocsArray, setAllLocsArray] = useState([]);
   function startOnboarding() {
 
@@ -1379,6 +1383,7 @@ setShowCountryButtons(false)
       <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
+      <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
 
       {ChatboxMemo}
     <ToastContainer/>
@@ -1546,7 +1551,7 @@ setShowCountryButtons(false)
         } sendInvite={sendInvite} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI showDiscordModal={showDiscordModal}  setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
         {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
@@ -1595,6 +1600,7 @@ setShowCountryButtons(false)
           {`
 
             window.lastAdShown = Date.now();
+            window.gameOpen = Date.now();
           //   try {
           //   if(window.localStorage.getItem("lastAdShown")) {
           //     window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
