@@ -69,7 +69,7 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
     const loadTime = window.gameOpen;
     const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
     if(lastDiscordShown) return console.log("Discord modal already shown");
-    if(Date.now() - loadTime > 60000) {
+    if(Date.now() - loadTime > 600000) {
       setShowDiscordModal(true)
     } else console.log("Not showing discord modal, waiting for "+(60000 - (Date.now() - loadTime))+"ms")
   }
