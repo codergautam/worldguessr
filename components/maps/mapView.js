@@ -123,7 +123,7 @@ export default function MapView({ gameOptions, setGameOptions, singleplayer, clo
         try {
           json = await res.json();
         } catch (e) {
-          toast.error("Unexpected Error - 1");
+          toast.error("Unexpected Error - 1 (This can happen if your map file is too big, please contact us for a manual upload)");
           setMakeMap({ ...makeMap, progress: false });
           return;
         }
