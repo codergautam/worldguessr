@@ -169,7 +169,9 @@ export default function MapPage({ mapData }) {
             <p>{mapData.description_short}</p>
           </div>
         </div>
-
+        <button className={styles.playButton} onClick={handlePlayButtonClick}>
+          PLAY
+        </button>
         <div className={styles.mapStats}>
           {typeof mapData.plays !== "undefined" && (
             <div className={styles.stat}>
@@ -192,10 +194,6 @@ export default function MapPage({ mapData }) {
             </div>
           )}
         </div>
-
-        <button className={styles.playButton} onClick={handlePlayButtonClick}>
-          PLAY
-        </button>
 
         <div className={styles.mapDescription}>
           <h2>About this map</h2>
