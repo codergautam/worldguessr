@@ -314,6 +314,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
         </div>
     )}
 
+    {!makeMap.open&& (
       <div className="mapSearch">
         <input
           type="text"
@@ -323,6 +324,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
+    )}
 
       {!makeMap.open && (
         <div>
