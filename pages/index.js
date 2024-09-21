@@ -109,6 +109,8 @@ export default function Home({ locale }) {
   const [isApp, setIsApp] = useState(false);
   const [inCrazyGames, setInCrazyGames] = useState(false);
 
+  const [legacyMapLoader, setLegacyMapLoader] = useState(false);
+
   useEffect(() => {
     if (mainSession && !inCrazyGames) {
       setSession(mainSession)
@@ -1260,6 +1262,15 @@ setShowCountryButtons(false)
     //   center: fenway,
     //   zoom: 14,
     // });
+    if(legacyMapLoader) {
+        setLoading(false)
+
+        // kill the element that has div[dir="ltr"]
+        const elem = document.querySelector('div[dir="ltr"]');
+        console.log("elem", elem)
+
+      return;
+    }
     if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
     if(!document.getElementById("googlemaps")) return;
 
@@ -1343,7 +1354,7 @@ setShowCountryButtons(false)
     }
 
 
-  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
+  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName, legacyMapLoader])
 
 //   useEffect(() => {
 // //!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
@@ -1444,11 +1455,32 @@ setShowCountryButtons(false)
 
 
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">
-      {/* // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
+        { latLong && latLong?.lat && latLong?.long && legacyMapLoader ? (
+<>
+    <iframe className={`streetview ${(loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
-      // }}></iframe> */}
-      <div id="googlemaps" className={`streetview inverted ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
+       }}></iframe>
 
+
+{/* put something in the top left to cover the address */}
+<div style={{
+  position: 'fixed',
+  top: '7px',
+  left: 0,
+  width: '200px',
+  height: '62px',
+  backgroundColor: 'rgba(0,0,0,0)',
+  // blur the address
+  backdropFilter: 'blur(10px)',
+  zIndex: 100
+}}></div>
+
+
+       </>
+
+      ) : (
+       <div id="googlemaps" className={`streetview inverted ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
+      )}
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
 
@@ -1533,7 +1565,7 @@ setShowCountryButtons(false)
         </div>
 
         <InfoModal shown={false} />
-        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
+        <MapsModal inLegacy={legacyMapLoader} shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
             customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
               console.log("map", map)
               openMap(map.countryMap||map.slug);

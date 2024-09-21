@@ -2093,6 +2093,9 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   }
 
 }
+div[dir="ltr"] {
+  display: none;
+}
 
 .mainBody {
   overflow: hidden;
