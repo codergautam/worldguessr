@@ -273,6 +273,7 @@ setShowCountryButtons(false)
       location: mapSlug,
       official: country ? true : false,
       countryMap: country,
+      maxDist: country ? countryMaxDists[country] : 20000,
       extent: null
     }))
   }
