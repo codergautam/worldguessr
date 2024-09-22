@@ -16,6 +16,11 @@ let mapCache = {
     data: [],
     timeStamp: 0,
     persist: 2400000
+  },
+  spotlight: {
+    data: [],
+    timeStamp: 0,
+    persist: 4800000
   }
 }
 
@@ -113,7 +118,7 @@ export default async function handler(req, res) {
     description_short: map.shortDescription,
   })).sort((b,a)=>a.maxDist - b.maxDist);
 
-  const discovery =  ["popular","recent"];
+  const discovery =  ["spotlight","popular","recent"];
   for(const method of discovery) {
     if(mapCache[method].data.length > 0 && Date.now() - mapCache[method].timeStamp < mapCache[method].persist) {
       // retrieve from cache
@@ -123,6 +128,11 @@ export default async function handler(req, res) {
         map.hearted = hearted_maps?hearted_maps.has(map.id.toString()):false;
         return map;
       });
+
+      // for spotlight randomize the order
+      if(method === "spotlight") {
+        response[method] = response[method].sort(() => Math.random() - 0.5);
+      }
     } else {
       // retrieve from db
       let maps = [];
@@ -130,6 +140,9 @@ export default async function handler(req, res) {
         maps = await Map.find({ accepted: true }).sort({ created_at: -1 }).limit(20);
       } else if(method === "popular") {
         maps = await Map.find({ accepted: true }).sort({ hearts: -1 }).limit(100);
+      } else if(method === "spotlight") {
+        maps = await Map.find({ accepted: true, spotlight: true });
+        console.log('spotlight maps', maps.length);
       }
 
       let sendableMaps = await Promise.all(maps.map(async (map) => {
@@ -147,6 +160,11 @@ export default async function handler(req, res) {
       }));
 
       response[method] = sendableMaps;
+      // if spotlight, randomize the order
+      if(method === "spotlight") {
+        response[method] = response[method].sort(() => Math.random() - 0.5);
+      }
+
       mapCache[method].data = sendableMaps;
       // dont store hearted maps in cache
       mapCache[method].data = sendableMaps.map((map) => {

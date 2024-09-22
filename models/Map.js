@@ -70,7 +70,11 @@ const mapSchema = new mongoose.Schema({
     type: Number,
     required: true,
     default: 20000
-  }
+  },
+  spotlight: {
+    type: Boolean,
+    default: false
+  },
 });
 
 const Map = mongoose.models.Map || mongoose.model('Map', mapSchema);

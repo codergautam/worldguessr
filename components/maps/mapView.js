@@ -355,75 +355,90 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
                       );
 
                 return mapsArray.length > 0 ? (
-                  <div className={`mapSection ${section==="recent"?"recent":""}`} key={si}>
+                  <div className={`mapSection section-${section}`} key={si}>
                     <h2 className="mapSectionTitle">{text(section)}{["myMaps", "likedMaps", "reviewQueue"].includes(section) && ` (${mapsArray.length})`}</h2>
 
                     <div className={`mapSectionMaps`}>
-                      <ScrollMenu drag>
-                        {section === "countryMaps" ? (
-                          mapsArray.map((map, i) => {
-                            if (i % 3 === 0) {
-                              return (
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    flexDirection: "column",
-                                  }}
-                                  key={i}
-                                >
-                                  {mapsArray
-                                    .slice(i, i + 3)
-                                    .map((tileMap, index) => (
-                                      <MapTile
-                                        key={i + index}
-                                        map={tileMap}
-                                        onClick={() => onMapClick(tileMap)}
-                                        country={tileMap.countryMap}
-                                        searchTerm={searchTerm}
-                                      />
-                                    ))}
-                                </div>
-                              );
-                            } else return null;
-                          })
-                        ) : (
-                          mapsArray.map((map, i) => (
-                            <MapTile
-                              key={i}
-                              map={map}
-                              canHeart={session?.token?.secret && heartingMap !== map.id}
-                              onClick={() => onMapClick(map)}
-                              country={map.countryMap}
-                              searchTerm={searchTerm}
-                              secret={session?.token?.secret}
-                              refreshHome={refreshHome}
-                              showEditControls={(map.yours && section==="myMaps") || session?.token?.staff}
-                              showReviewOptions={session?.token?.staff && section === "reviewQueue"}
+  <ScrollMenu drag>
+    {section === "countryMaps" ? (
+      mapsArray.map((map, i) => {
+        if (i % 3 === 0) {
+          return (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+              }}
+              key={i}
+            >
+              {mapsArray.slice(i, i + 3).map((tileMap, index) => (
+                <MapTile
+                  key={i + index}
+                  map={tileMap}
+                  onClick={() => onMapClick(tileMap)}
+                  country={tileMap.countryMap}
+                  searchTerm={searchTerm}
+                />
+              ))}
+            </div>
+          );
+        } else return null;
+      })
+    ) : (
+      mapsArray.map((map, i) => {
+        if (i % (section === "popular" ? 3 : 1) === 0) {
+          return (
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+              }}
+              key={i}
+            >
+              {mapsArray.slice(i, i + (section === "popular" ? 3 : 1)).map((tileMap, index) => (
+                <MapTile
+                  key={i + index}
+                  map={tileMap}
+                  canHeart={session?.token?.secret && heartingMap !== map.id}
+                  onClick={() => onMapClick(tileMap)}
+                  country={tileMap.countryMap}
+                  searchTerm={searchTerm}
+                  secret={session?.token?.secret}
+                  refreshHome={refreshHome}
+                  showEditControls={
+                    (map.yours && section === "myMaps") ||
+                    session?.token?.staff
+                  }
+                  showReviewOptions={
+                    session?.token?.staff && section === "reviewQueue"
+                  }
+                  onPencilClick={(map) => {
+                    setMakeMap({
+                      ...initMakeMap,
+                      open: true,
+                      edit: true,
+                      mapId: map.id,
+                      name: map.name,
+                      description_short: map.description_short,
+                      description_long: map.description_long,
+                      data: map.data.map((loc) => {
+                        return JSON.stringify(loc);
+                      }),
+                    });
+                  }}
+                  onHeart={() => {
+                    heartMap(map);
+                  }}
+                />
+              ))}
+            </div>
+          );
+        } else return null;
+      })
+    )}
+  </ScrollMenu>
+</div>
 
-                              onPencilClick={(map) => {
-                                // go back to editscreen
-                                setMakeMap({
-                                  ...initMakeMap,
-                                  open: true,
-                                  edit: true,
-                                  mapId: map.id,
-                                  name: map.name,
-                                  description_short: map.description_short,
-                                  description_long: map.description_long,
-                                  data: map.data.map((loc) => {
-                                    return JSON.stringify(loc);
-                                  }),
-                                });
-
-                              }}
-                              onHeart={() => {
-                                heartMap(map);
-                              }}
-                            />
-                          ))
-                        )}
-                      </ScrollMenu>
-                    </div>
                   </div>
                 ) : null;
               })

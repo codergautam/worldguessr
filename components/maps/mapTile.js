@@ -149,10 +149,20 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
               by {highlightMatch(map.created_by_name, searchTerm)}
 
               {map.accepted && (
-                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}>&nbsp; &middot; {formatNumber(map.plays, 3)} plays</span>
+                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}>&nbsp; &middot; {formatNumber(map.locations, 2)} locations</span>
               )}
+
             </div>
           )}
+
+{map.locations && (
+            <div className="map-tile__author">
+
+                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}>
+
+                 </span>
+                </div>
+              )}
         </div>
         {!country && map.created_by_name && !map.in_review && !map.reject_reason && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -179,11 +189,11 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
         )}
       </div>
 
-      {!country && (
+      {/* {!country && (
         <div className="map-tile__description">
           {highlightMatch(map.description_short, searchTerm)}
         </div>
-      )}
+      )} */}
       {map.yours && map.reject_reason && (
         <div className="map-tile__reject-reason">
           <p>Reject Reason: {map.reject_reason}</p>

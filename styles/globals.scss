@@ -1878,6 +1878,8 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   border-radius: 10px;
   padding: 10px;
 }
+
+
 .mapSectionTitle {
   text-align: center;
 }
@@ -2126,6 +2128,13 @@ div[dir="ltr"] {
   text-align: center;
 }
 
+@media screen and (max-width: 900px) {
+  .mapSection {
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+
+}
 // mobile map section
 @media screen and (max-width: 600px) {
   .mapSection {
@@ -2146,15 +2155,18 @@ div[dir="ltr"] {
   }
 }
 
-.mapSection.recent {
+.mapSection.section-recent {
   background-color: rgba(0,0,0,0);
 }
-.recent .react-horizontal-scrolling-menu--scroll-container {
+.section-recent .react-horizontal-scrolling-menu--scroll-container {
   display: grid;
   justify-content: center;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   /* gap: 10px; */
   justify-items: center;
+}
+.section-spotlight {
+  background-color: rgba(75,0,130,0.2);
 }
 
 .linkButton {
