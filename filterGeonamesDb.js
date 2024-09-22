@@ -4,8 +4,8 @@ console.log('cities-initial', geonames.length)
 // filter out cities that aren't in countries
 let cities = geonames.filter(city => countries.includes(city.country_code))
 console.log('cities-supported countries', cities.length)
-// filter out cities with under 50000 population
-cities = cities.filter(city => city.population > 50000)
+// filter out cities with under 30000 population
+cities = cities.filter(city => city.population > 30000)
 console.log('cities-population', cities.length)
 // log number of cities in each country
 const countryCounts = {}
