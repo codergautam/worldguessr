@@ -1469,7 +1469,9 @@ window.ramp.passiveMode = true;
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
                 </div>
         </div>
+
         )}
+        <PrivacyPolicyLink />
 
 <div style={{
         top: 0,
