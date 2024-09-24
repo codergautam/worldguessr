@@ -357,12 +357,12 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
   const onboardingTimerShown = !((loading||showAnswer||!onboarding));
   return (
     <div className="gameUI">
-
+{/* 
 { !onboarding && !inCrazyGames && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown)?'moreDown':''}`}>
     <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[320, 50],[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
-)}
+)} */}
 
 {/*
 
