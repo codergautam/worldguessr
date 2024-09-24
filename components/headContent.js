@@ -26,11 +26,11 @@ export default function HeadContent({text}) {
 {/* <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/> */}
 <link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet"/>
-
 <script
       src="https://maps.googleapis.com/maps/api/js?v=weekly"
       defer
     ></script>
+    <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 {/* <script src="https://greggman.github.io/webgl-helpers/webgl-force-preservedrawingbuffer.js"></script> */}
 <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" defer></script>
 <script src="https://greggman.github.io/webgl-helpers/webgl-force-preservedrawingbuffer.js" defer></script>
@@ -44,7 +44,7 @@ export default function HeadContent({text}) {
     <meta property="og:image" content="/icon_144x144.png" />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />
-
+	  <script async src="https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js"></script>
 </Head>
   )
 }

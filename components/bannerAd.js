@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import useWindowDimensions from "./useWindowDimensions";
 import sendEvent from "./utils/sendEvent";
+import NextImage from "next/image";
 
-const AD_REFRESH_MS = 60000; // refresh ad every 60 seconds
+const AD_REFRESH_MS = 30000; // refresh ad every 60 seconds
 
 function findAdType(screenW, screenH, types, vertThresh) {
   let type = 0;
@@ -17,12 +18,15 @@ function findAdType(screenW, screenH, types, vertThresh) {
 
   return type;
 }
+
 export default function Ad({
   types,
   centerOnOverflow,
+  inCrazyGames,
   vertThresh = 0.3,
   screenW,
-  screenH
+  screenH,
+  showAdvertisementText = true,
 }) {
   const [type, setType] = useState(
     findAdType(screenW, screenH, types, vertThresh)
@@ -45,74 +49,87 @@ export default function Ad({
   }, [type]);
 
   useEffect(() => {
+
+
     const windowAny = window;
+
     const displayNewAd = () => {
       if (type === -1) return;
       setTimeout(() => {
         const isAdDivVisible =
+        adDivRef.current &&
           adDivRef.current.getBoundingClientRect().top < window.innerHeight &&
           adDivRef.current.getBoundingClientRect().bottom > 0;
         if (
-          // windowAny.aiptag &&
-          // windowAny.aiptag.cmd &&
-          // windowAny.aiptag.cmd.display &&
-          window.ramp &&
+          (inCrazyGames || ( windowAny.aiptag && windowAny.aiptag.cmd && windowAny.aiptag.cmd.display)) &&
           isAdDivVisible &&
-          Date.now() - lastRefresh.current > AD_REFRESH_MS
+          Date.now() - lastRefresh.current > (AD_REFRESH_MS*(inCrazyGames?2:1))
         ) {
-          // adinplay
-          // try {
-          //   if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
-          //     for (const type of types) {
-          //       windowAny.aipDisplayTag.clear(
-          //         `worldguessr-com_${type[0]}x${type[1]}`
-          //       );
-          //     }
-          //   }
-          // } catch (e) {
-          //   alert("error clearing ad");
-          // }
-
-
+          console.log("clearing and displaying ad");
+          if(!inCrazyGames) {
+          try {
+            if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
+              for (const type of types) {
+                windowAny.aipDisplayTag.clear(
+                  `worldguessr-com_${type[0]}x${type[1]}`
+                );
+              }
+            }
+          } catch (e) {
+            alert("error clearing ad");
+          }
+        } else {
+          // clear everything inside the div
+          document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = "";
+        }
 
           lastRefresh.current = Date.now();
           sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`);
- // playwire
- try {
-  var pwUnits = [
-    {
-      // You can define the selectorId however you want, but the type must match to the ad unit's type
-      // type:
-    },
-  ]
+          console.log("requesting ad", types[type]);
+          setTimeout(() => {
+            if(!inCrazyGames) {
+          windowAny.aiptag.cmd.display.push(function () {
+            windowAny.aipDisplayTag.display(
+              `worldguessr-com_${types[type][0]}x${types[type][1]}`
+            );
+          });
+        } else {
+            // await is not mandatory when requesting banners, but it will allow you to catch errors
 
-//   console.log("pwUnits",pwUnits)
-//     // Define the init function
-//     var init = function () {
-//       window.ramp
-//       // pass in the array 'pwUnits' defined right above
-//       .addUnits(pwUnits)
-//       .then((r) => {
-//         console.log(r)
-//           console.log(window.ramp.displayUnits())
-//       }).catch( (e) =>{
-//           // catch errors
-//           window.ramp.displayUnits()
-//           console.log(e)
-//       })
-// }
-// window.ramp.que.push(init);
+            // check if
+            function requestCrazyGamesBanner() {
+          try {
 
+            window.CrazyGames.SDK.banner.requestBanner({
+              id: `worldguessr-com_${types[type][0]}x${types[type][1]}`,
+              width: types[type][0],
+              height: types[type][1],
+            }).then((e) => {
+              console.log("Banner request success", e);
+                  // clear everything inside the div
+          // document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = "";
 
-} catch (e) {
-  console.error("error clearing ad",e);
-}
+            }).catch((e) => {
+              console.log("Banner request error", e);
+              document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = `
+              <img src='/ad_${types[type][0]}x${types[type][1]}.png' width='${types[type][0]}' height='${types[type][1]}' alt='Advertisement' />`;
 
-          // windowAny.aiptag.cmd.display.push(function () {
-          //   windowAny.aipDisplayTag.display(
-          //     `worldguessr-com_${types[type][0]}x${types[type][1]}`
-          //   );
-          // });
+            });
+
+          } catch (e) {
+            console.log("Banner request error", e);
+            if(e.code === "sdkNotInitialized") {
+              console.log("SDK not initialized, retrying in 1s");
+              setTimeout(() => {
+                requestCrazyGamesBanner();
+              }, 1000);
+            }
+          }
+          }
+          requestCrazyGamesBanner();
+
+        }
+        }, 50);
         }
       }, 100);
     };
@@ -122,7 +139,7 @@ export default function Ad({
     }, 1000);
     displayNewAd();
     return () => clearInterval(timerId);
-  }, [type]);
+  }, [type, inCrazyGames]);
 
   if (type === -1) return null;
   if (!isClient) return null;
@@ -134,37 +151,70 @@ export default function Ad({
         display: "inline-block",
       }}
     >
-      <span
-        style={{
-          position: "absolute",
-          top: "-24px",
-          left: "0px",
-          padding: "0 5px",
-          fontSize: "18px",
-          fontWeight: "bold",
-        }}
-      >
-        Advertisement
-      </span>
+      {showAdvertisementText && (
+        <span
+          style={{
+            position: "absolute",
+            top: "-24px",
+            left: "0px",
+            padding: "0 5px",
+            fontSize: "18px",
+            fontWeight: "bold",
+          }}
+        >
+          Advertisement
+        </span>
+      )}
       <div
         style={{
           backgroundColor: "rgba(0,0,0,0.5)",
           height: types[type][1],
           width: types[type][0],
           textAlign: "center",
-          border: "2px solid black", // Outline around the banner
           position: "relative",
         }}
         id={`worldguessr-com_${types[type][0]}x${types[type][1]}`}
         ref={adDivRef}
       >
-
-        {isClient === "debug" && (
+        {isClient === "debug" ? (
           <>
-            <h3>Banner Ad Here</h3>
-            <p style={{ fontSize: "0.8em", color: "white" }}>
-              Ad size: {types[type][0]} x {types[type][1]}
-            </p>
+            <div style={{ position: "relative", zIndex: 1 }}>
+              <NextImage.default
+                alt="Advertisement"
+                src={`/ad_${types[type][0]}x${types[type][1]}.png`}
+                width={types[type][0]}
+                height={types[type][1]}
+              />
+            </div>
+
+            <div
+              style={{
+                position: "absolute",
+                bottom: "10px",
+                left: "0",
+                width: "100%",
+                color: "white",
+                zIndex: 2,
+                backgroundColor: "rgba(0, 0, 0, 0.5)",
+              }}
+            >
+              <h3>Banner Ad Here</h3>
+              <p style={{ fontSize: "0.8em" }}>
+                Ad size: {types[type][0]} x {types[type][1]}
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ position: "relative", zIndex: 1 }}>
+            <NextImage.default
+              alt="Advertisement"
+              src={`/ad_${types[type][0]}x${types[type][1]}.png`}
+              width={types[type][0]}
+              height={types[type][1]}
+            />
+            </div>
+
           </>
         )}
       </div>

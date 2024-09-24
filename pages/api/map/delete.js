@@ -8,10 +8,17 @@ export default async function handler(req, res) {
   }
 
   const { secret, mapId } = req.body;
+  // make sure string for mapId and secret
+  if (typeof mapId !== 'string' || typeof secret !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
 
   // Validate input
   if (!secret || !mapId) {
     return res.status(400).json({ message: 'Missing required fields' });
+  }
+  if (typeof secret !== 'string' || typeof mapId !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
   }
 
   let user = await User.findOne({ secret: secret });
@@ -35,6 +42,6 @@ export default async function handler(req, res) {
 
   // Delete the map
   await Map.deleteOne({ _id: mapId });
-  
+
   return res.status(200).json({ message: 'Map deleted successfully' });
 }

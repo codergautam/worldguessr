@@ -3,7 +3,7 @@ import { useTranslation } from 'next-i18next';
 import { signIn } from "next-auth/react";
 import gameStorage from "./utils/localStorage";
 
-export default function SuggestAccountModal({ shown, setOpen }) {
+export default function DiscordModal({ shown, setOpen }) {
   const { t: text } = useTranslation("common");
 
   return (
@@ -19,28 +19,21 @@ export default function SuggestAccountModal({ shown, setOpen }) {
             textAlign: 'center',
         }
     }} open={shown} center onClose={() => {
-        gameStorage.setItem("onboarding", 'done')
-
-
+        gameStorage.setItem("shownDiscordModal", Date.now().toString())
       setOpen(false)
     }}>
-      <h2>{text("trackYourProgress")}</h2>
-      <p>{text("trackYourProgress1")}</p>
-      <button onClick={() => signIn('google')} style={{
-          background: '#4285F4', // Google blue
-          color: 'white',
-          padding: '10px 20px',
-          borderRadius: '5px',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: '16px',
-          fontWeight: 'bold',
-          marginTop: '20px'
-      }}>
-        {text("loginWithGoogle1")}
-      </button>
+
+<h2>{text("joinDiscord")}</h2>
+      <p>{text("joinDiscordDesc")}</p>
+
+<iframe src="https://discord.com/widget?id=1229957469116301412&theme=dark" width="350"
+height="350"
+allowtransparency="true" frameborder="0" sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"></iframe>
+
+<br/>
+
       <button onClick={() => {
-          gameStorage.setItem("onboarding", 'done')
+          gameStorage.setItem("shownDiscordModal", Date.now().toString())
 
         setOpen(false)
       }} style={{
@@ -55,7 +48,7 @@ export default function SuggestAccountModal({ shown, setOpen }) {
           marginTop: '20px',
           marginLeft: '20px'
       }}>
-        {text("playAsGuest")}
+        {text("notNow")}
       </button>
     </Modal>
   );

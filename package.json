@@ -12,6 +12,8 @@
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
     "@smastrom/react-rating": "^1.5.0",
+    "axios": "^1.7.7",
+    "bad-words": "^4.0.0",
     "cesium": "^1.117.0",
     "colors": "^1.4.0",
     "coordinate_to_country": "^1.1.0",
@@ -22,6 +24,7 @@
     "dotenv": "^16.4.5",
     "formidable": "^3.5.1",
     "i18next": "^23.11.5",
+    "jsonwebtoken": "^9.0.2",
     "moment": "^2.30.1",
     "moment-timezone": "^0.5.45",
     "mongoose": "^8.3.3",
@@ -40,6 +43,7 @@
     "react-simple-typewriter": "^5.0.1",
     "react-toastify": "^10.0.5",
     "sass": "^1.77.2",
+    "sharp": "^0.33.5",
     "uuid": "^9.0.1",
     "ws": "^8.17.0"
   },

@@ -200,5 +200,10 @@
   "disableVideoAds": "Disable Video Ads",
   "maps": "Maps",
   "videoAdThanks": "Thanks for helping us keep WorldGuessr free by watching video ads!",
-  "enjoyGameplay": "Enjoy 30 minutes of uninterrupted gameplay after this ad break"
+  "enjoyGameplay": "Enjoy 30 minutes of uninterrupted gameplay after this ad break",
+  "communityMaps": "Community Maps",
+  "joinDiscord": "Join our Discord!",
+  "joinDiscordDesc": "Join our community and improve your WorldGuessr skills!",
+  "notNow": "Not now",
+  "spotlight": "Spotlight"
 }

@@ -1,9 +1,9 @@
 import HeadContent from "@/components/headContent";
-import CesiumWrapper from "../components/cesium/CesiumWrapper";
+// import CesiumWrapper from "../components/cesium/CesiumWrapper";
 import { Jockey_One, Roboto } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
 import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
-import { FaBook, FaGear, FaMap, FaNewspaper, FaRankingStar } from "react-icons/fa6";
+import { FaBook, FaGear, FaMap, FaNewspaper, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signIn, signOut, useSession } from "next-auth/react";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState, useRef } from "react";
@@ -50,6 +50,8 @@ import { boundingExtent } from "ol/extent";
 import countries from "@/public/countries.json";
 import fixBranding from "@/components/utils/fixBranding";
 import PrivacyPolicyLink from "@/components/privacyPolicyLink";
+import gameStorage from "@/components/utils/localStorage";
+import DiscordModal from "@/components/discordModal";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -80,7 +82,8 @@ export default function Home({ locale }) {
   const { width, height } = useWindowDimensions();
 
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const [session, setSession] = useState(null);
+  const { data: mainSession, status } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
   const [loading, setLoading] = useState(false);
@@ -102,7 +105,17 @@ export default function Home({ locale }) {
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
   });
+
   const [isApp, setIsApp] = useState(false);
+  const [inCrazyGames, setInCrazyGames] = useState(false);
+
+  const [legacyMapLoader, setLegacyMapLoader] = useState(false);
+
+  useEffect(() => {
+    if (mainSession && !inCrazyGames) {
+      setSession(mainSession)
+    }
+  }, [mainSession, inCrazyGames])
 
 
 
@@ -110,7 +123,78 @@ export default function Home({ locale }) {
     if(window.location.search.includes("app=true")) {
       setIsApp(true);
     }
+    if(window.location.search.includes("instantJoin=true")) {
+      // crazygames
+    }
+
+
+    async function crazyAuthListener() {
+      const user = await window.CrazyGames.SDK.user.getUser();
+      if(user) {
+        const token = await window.CrazyGames.SDK.user.getUserToken();
+        if(token && user.username) {
+          // /api/crazyAuth
+          fetch("/api/crazyAuth", {
+            method: "POST",
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ token, username: user.username })
+          }).then((res) => res.json()).then((data) => {
+            try {
+            window.CrazyGames.SDK.game.loadingStop();
+            } catch(e) {}
+            if(data.secret && data.username) {
+              setSession({ token: { secret: data.secret, username: data.username } })
+            } else {
+              toast.error("CrazyGames auth failed")
+            }
+          }).catch((e) => {
+            try {
+            window.CrazyGames.SDK.game.loadingStop();
+            } catch(e) {}
+            console.error("crazygames auth failed", e)
+          });
+
+        }
+      }
+    }
+
+    if(window.location.search.includes("crazygames")) {
+      setInCrazyGames(true);
+      window.inCrazyGames = true;
+      // initialize the sdk
+      try {
+        console.log("init crazygames sdk")
+        setLoading(true)
+
+         window.CrazyGames.SDK.init().then(async () => {
+          console.log("sdk initialized")
+          setLoading(false)
+          try {
+          window.CrazyGames.SDK.game.loadingStart();
+          } catch(e) {}
+
+          crazyAuthListener().then(() => {
+            // check if onboarding is done
+            const onboardingCompletedd = gameStorage.getItem("onboarding");
+            console.log("onboarding", onboardingCompletedd)
+            if(onboardingCompletedd !== "done") startOnboarding();
+            else setOnboardingCompleted(true)
+          })
+
+
+
+         })
+      } catch(e) {}
+    }
     initialMultiplayerState.createOptions.displayLocation = text("allCountries")
+
+    return () => {
+      try {
+        window.CrazyGames.SDK.user.removeAuthListener(crazyAuthListener);
+      } catch(e){}
+    }
 
   }, []);
 
@@ -119,9 +203,56 @@ export default function Home({ locale }) {
   const [otherOptions, setOtherOptions] = useState([]); // for country guesser
   const [showCountryButtons, setShowCountryButtons] = useState(true);
   const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
-  const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
-  const [allLocsArray, setAllLocsArray] = useState([]);
 
+  const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
+  const [showDiscordModal, setShowDiscordModal] = useState(false);
+
+  const [allLocsArray, setAllLocsArray] = useState([]);
+  function startOnboarding() {
+
+    if(inCrazyGames) {
+      // make sure its not an invite link
+      const code = window.CrazyGames.SDK.game.getInviteParam("code")
+      if(code && code.length === 6) {
+        return;
+      }
+    }
+
+setScreen("onboarding")
+
+let onboardingLocations = [
+  { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
+{ lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
+{ lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
+  { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
+  // pyramid of giza 29.9773337,31.1321796
+  { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
+  // eiffel tower 48.8592946,2.2927855
+  { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
+  // statue of liberty 40.6909253,-74.0552998
+  { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
+  // brandenburg gate 52.5161999,13.3756414
+  { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
+
+]
+
+// pick 5 random locations no repeats
+const locations = [];
+while (locations.length < 5) {
+  const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
+  if (!locations.find((l) => l.country === loc.country)) {
+    locations.push(loc)
+  }
+}
+
+setOnboarding({
+  round: 1,
+  locations: locations,
+  startTime: Date.now(),
+})
+sendEvent("tutorial_begin")
+setShowCountryButtons(false)
+}
   function openMap(mapSlug) {
     const country = countries.find((c) => c === mapSlug.toUpperCase());
     setAllLocsArray([])
@@ -142,6 +273,7 @@ export default function Home({ locale }) {
       location: mapSlug,
       official: country ? true : false,
       countryMap: country,
+      maxDist: country ? countryMaxDists[country] : 20000,
       extent: null
     }))
   }
@@ -159,15 +291,20 @@ export default function Home({ locale }) {
   }, [onboarding?.completed])
   useEffect(() => {
     try {
-    const onboarding = window.localStorage.getItem("onboarding");
+    const onboarding = gameStorage.getItem("onboarding");
     // check url
     const specifiedMapSlug = window.location.search.includes("map=");
+    console.log("onboarding", onboarding, specifiedMapSlug)
+    // make it false just for testing
+    // gameStorage.setItem("onboarding", null)
     if(onboarding && onboarding === "done") setOnboardingCompleted(true)
       else if(specifiedMapSlug) setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
   } catch(e) {
+    console.error(e, "onboard");
     setOnboardingCompleted(true);
   }
+  // setOnboardingCompleted(false)
   }, [])
 
   useEffect(() => {
@@ -201,6 +338,7 @@ export default function Home({ locale }) {
   }, [])
 
   useEffect(() => {
+    console.log("HI df", onboardingCompleted)
 
 // check if learn mode
     if(window.location.search.includes("learn=true")) {
@@ -211,45 +349,10 @@ export default function Home({ locale }) {
     if(onboardingCompleted === false) {
       if(onboardingCompleted===null)return;
       if (!loading) {
-        function start() {
-        setScreen("onboarding")
 
-        let onboardingLocations = [
-          { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
-        { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
-        { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
-          { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
-          // pyramid of giza 29.9773337,31.1321796
-          { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
-          // eiffel tower 48.8592946,2.2927855
-          { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
-          // statue of liberty 40.6909253,-74.0552998
-          { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
-          // brandenburg gate 52.5161999,13.3756414
-          { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
-
-        ]
-
-        // pick 5 random locations no repeats
-        const locations = [];
-        while (locations.length < 5) {
-          const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
-          if (!locations.find((l) => l.country === loc.country)) {
-            locations.push(loc)
-          }
-        }
-
-        setOnboarding({
-          round: 1,
-          locations: locations,
-          startTime: Date.now(),
-        })
-        sendEvent("tutorial_begin")
-        setShowCountryButtons(false)
-      }
 
       // const isPPC = window.location.search.includes("cpc=true");
-        if(inIframe() && window.adBreak) {
+        if(inIframe() && window.adBreak && !inCrazyGames) {
           console.log("trying to show preroll")
           window.onboardPrerollEnd = false;
           setLoading(true)
@@ -260,7 +363,7 @@ export default function Home({ locale }) {
               setLoading(false)
               window.onboardPrerollEnd = true;
               sendEvent("interstitial", { type: "preroll", ...e })
-              start()
+              startOnboarding()
             }
           })
 
@@ -269,69 +372,31 @@ export default function Home({ locale }) {
               window.onboardPrerollEnd = true;
               console.log("preroll timeout")
               setLoading(false)
-              start()
+              startOnboarding()
             }
           }, 3000)
-        } else {
-        start()
+        } else if(!inCrazyGames) {
+
+          startOnboarding()
         }
       }
     }
   }, [onboardingCompleted])
 
   useEffect(() => {
-    if(session && session.token && session.token.username) {
+    if(session && session.token && session.token.username && !inCrazyGames) {
       setOnboardingCompleted(true)
       try {
-        window.localStorage.setItem("onboarding", 'done')
+        gameStorage.setItem("onboarding", 'done')
       } catch(e) {}
     }
   }, [session])
-  // playwire bottom rail & corner video
-  // only on home page
-  useEffect(() => {
-    console.log("screen", screen, onboardingCompleted)
-    if(onboardingCompleted !== true) return;
-    console.log("need to make playwire units")
-    try {
-    if(screen === "home") {
-    console.log("need to make playwire units")
-
-      if(!window.ramp || !window.ramp.que) {
-        console.log("Defining ramp")
-        window.ramp = window.ramp || {};
-window.ramp.que = window.ramp.que || [];
-window.ramp.passiveMode = true;
-      }
-      const addUnits = () => {
-        // ramp.que.push ensures that the functions called are executed when Ramp has finished loading.
-        window.ramp.que.push(() => {
-            window.ramp.spaNewPage().then(() => {
-              console.log("Loaded playwire ads")
-    }).catch((e) => {
-      console.error(e)
-    })
-        })
-    };
-
-    addUnits();
-    } else {
-      if(!window.ramp || !window.ramp.destroyUnits || typeof window.ramp.destroyUnits !== "function") return;
-      console.log("DESTROYING PLAYWIRE UNITS")
-      window.playWireUnitsDisplayed = false;
-
-      window.ramp.destroyUnits("all") // clear all units when not on home page
-    }
-  } catch(e) {
-    console.error(e)
-  }
-  }, [screen, onboardingCompleted])
 
   const loadOptions =async () => {
 
     // try to fetch options from localstorage
     try {
-    const options = localStorage.getItem("options");
+    const options = gameStorage.getItem("options");
 
 
     if (options) {
@@ -362,7 +427,7 @@ window.ramp.passiveMode = true;
   useEffect(() => {
     if(options && options.units && options.mapType) {
       try {
-      localStorage.setItem("options", JSON.stringify(options))
+      gameStorage.setItem("options", JSON.stringify(options))
       } catch(e) {}
     }
   }, [options])
@@ -487,7 +552,7 @@ window.ramp.passiveMode = true;
           // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
           ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist }))
           sendEvent("multiplayer_create_private_game", { rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist })
-        // })()
+          // })()
       }
     }
 
@@ -508,7 +573,10 @@ window.ramp.passiveMode = true;
 
 
     if (!ws && !multiplayerState.connecting && !multiplayerState.connected && !window?.dontReconnect) {
-      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/wg`
+      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${
+        process.env.NEXT_PUBLIC_WS_HOST ||
+        window.location.host
+      }/wg`
       setMultiplayerState((prev) => ({
         ...prev,
         connecting: true,
@@ -537,6 +605,65 @@ window.ramp.passiveMode = true;
     }
   })();
   }, [multiplayerState, ws, screen])
+
+  useEffect(() => {
+
+    if(inCrazyGames) {
+      if(screen === "home") {
+        try {
+          window.CrazyGames.SDK.game.gameplayStop();
+        } catch(e) {}
+      } else {
+        try {
+          window.CrazyGames.SDK.game.gameplayStart();
+        } catch(e) {}
+      }
+    }
+  }, [screen, inCrazyGames])
+
+  useEffect(() => {
+    if(multiplayerState?.connected && inCrazyGames) {
+
+          // check if joined via invite link
+          try {
+            let code = window.CrazyGames.SDK.game.getInviteParam("code")
+
+            if(code) {
+
+              if(typeof code === "string") {
+                try {
+                  code = parseInt(code)
+                } catch(e) {
+                }
+              }
+
+            setOnboardingCompleted(true)
+            setOnboarding(null)
+            setLoading(false)
+            setScreen("home")
+
+              // join private game
+              handleMultiplayerAction("joinPrivateGame")
+              // set the code
+              setMultiplayerState((prev) => ({
+                ...prev,
+                joinOptions: {
+                  ...prev.joinOptions,
+                  gameCode: code,
+                  progress: true
+                }
+              }))
+              // press go
+              setTimeout(() => {
+                handleMultiplayerAction("joinPrivateGame", code)
+              }, 1000)
+
+            }
+
+            } catch(e) {}
+
+    }
+  }, [multiplayerState?.connected, inCrazyGames])
 
   useEffect(() => {
     if (multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
@@ -607,6 +734,16 @@ window.ramp.passiveMode = true;
       } else if (data.type === "game") {
         setScreen("multiplayer")
         setMultiplayerState((prev) => {
+
+
+          try {
+          if(data.state === "waiting" && inCrazyGames && data.host) {
+            const link = window.CrazyGames.SDK.game.showInviteButton({ code: data.code });
+          } else {
+            window.CrazyGames.SDK.game.hideInviteButton();
+          }
+        } catch(e) {}
+
 
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
@@ -873,7 +1010,7 @@ window.ramp.passiveMode = true;
 
   useEffect(() => {
     try {
-    const streak = localStorage.getItem("countryStreak");
+    const streak = gameStorage.getItem("countryStreak");
     if (streak) {
       setCountryStreak(parseInt(streak))
     }
@@ -905,10 +1042,8 @@ window.ramp.passiveMode = true;
       setScreen("home")
       setOnboarding(null)
       setOnboardingCompleted(true)
-      try {
-        window.localStorage.setItem("onboarding", 'done')
-} catch(e) {
-}
+        gameStorage.setItem("onboarding", 'done')
+
       return;
     }
 
@@ -918,6 +1053,12 @@ window.ramp.passiveMode = true;
       ws.send(JSON.stringify({
         type: 'leaveGame'
       }))
+
+      if(inCrazyGames) {
+        try {
+          window.CrazyGames.SDK.game.hideInviteButton();
+        } catch(e) {}
+      }
 
       setMultiplayerState((prev) => {
         return {
@@ -955,7 +1096,8 @@ window.ramp.passiveMode = true;
     } else if(screen === "onboarding") {
       setOnboarding(null)
       setScreen("home")
-      window.localStorage.setItem("onboarding", "done")
+      console.log("onboarding is done")
+      gameStorage.setItem("onboarding", "done")
       setOnboardingCompleted(true)
     } else {
       setScreen("home");
@@ -1121,6 +1263,15 @@ window.ramp.passiveMode = true;
     //   center: fenway,
     //   zoom: 14,
     // });
+    if(legacyMapLoader) {
+        setLoading(false)
+
+        // kill the element that has div[dir="ltr"]
+        const elem = document.querySelector('div[dir="ltr"]');
+        console.log("elem", elem)
+
+      return;
+    }
     if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
     if(!document.getElementById("googlemaps")) return;
 
@@ -1153,7 +1304,7 @@ window.ramp.passiveMode = true;
     window.panorama = panoramaRef.current;
   } else {
 
-    console.log("setting position", latLong)
+    console.log("setting position")
     panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
 
     window.reloadLoc = () => {
@@ -1204,7 +1355,7 @@ window.ramp.passiveMode = true;
     }
 
 
-  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
+  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName, legacyMapLoader])
 
 //   useEffect(() => {
 // //!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
@@ -1241,9 +1392,10 @@ window.ramp.passiveMode = true;
     <>
       <HeadContent text={text}/>
 
-      <AccountModal shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
+      <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
+      <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
 
       {ChatboxMemo}
     <ToastContainer/>
@@ -1258,9 +1410,28 @@ window.ramp.passiveMode = true;
 </div>
 
 
-    {screen === "home" && (
-      <PrivacyPolicyLink />
-    )}
+{screen === "home" && !mapModal && (
+        <div className="home__footer">
+          <div className="footer_btns">
+        { !isApp && (
+                  <>
+                  { !inCrazyGames && (
+                    <>
+                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="home__squarebtn gameBtn youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
+                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                </>
+                )}
+                <Link href={"/leaderboard"+(inCrazyGames ? "?crazygames": "")}>
+
+                <button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                </>
+                )}
+
+                <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
+                </div>
+        </div>
+        )}
 
 <div style={{
         top: 0,
@@ -1285,17 +1456,38 @@ window.ramp.passiveMode = true;
 
 
       <main className={`home ${jockey.className} ${roboto.className}`} id="main">
-      {/* // <iframe className={`streetview ${(!streetViewShown || loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
+        { latLong && latLong?.lat && latLong?.long && legacyMapLoader ? (
+<>
+    <iframe className={`streetview ${(loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
-      // }}></iframe> */}
-      <div id="googlemaps" className={`streetview inverted ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
+       }}></iframe>
 
+
+{/* put something in the top left to cover the address */}
+<div style={{
+  position: 'fixed',
+  top: '7px',
+  left: 0,
+  width: '200px',
+  height: '62px',
+  backgroundColor: 'rgba(0,0,0,0)',
+  // blur the address
+  backdropFilter: 'blur(10px)',
+  zIndex: 100
+}}></div>
+
+
+       </>
+
+      ) : (
+       <div id="googlemaps" className={`streetview inverted ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
+      )}
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
-        {process.env.NEXT_PUBLIC_CESIUM_TOKEN &&
-          <CesiumWrapper className={`cesium_${screen} ${(screen === "singleplayer" || (multiplayerState?.gameData?.state && multiplayerState?.gameData?.state !== 'waiting')) && !loading ? "cesium_hidden" : ""}`} />
-        }
-        <Navbar loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+
+       
+        <Navbar inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+
 
 
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
@@ -1317,7 +1509,7 @@ window.ramp.passiveMode = true;
               { onboardingCompleted && (
 
               <>
-      <div className="mainHomeBtns">
+      <div className={`mainHomeBtns ${roboto.className}`}>
 
                {/* <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
@@ -1328,6 +1520,8 @@ window.ramp.passiveMode = true;
         {/* <span className="bigSpan">{text("playOnline")}</span> */}
         <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
           disabled={!multiplayerState.connected}>{text("findDuel")}</button>
+
+
         {/* <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span> */}
         <div className="multiplayerPrivBtns">
         <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
@@ -1336,16 +1530,19 @@ window.ramp.passiveMode = true;
       </div>
 
               <div className="home__squarebtns">
-                { !isApp && (
+{/*                 { !isApp && (
                   <>
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
                 <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
                 </>
                 )}
-                <button className="home__squarebtn gameBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}><FaMap className="home__squarebtnicon" /></button>
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
-              </div>
+ */}
+ { !inCrazyGames && (
+                <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>
+ )}
+                </div>
 
               </>
             )}
@@ -1353,16 +1550,21 @@ window.ramp.passiveMode = true;
 
           <div style={{ marginTop: "20px" }}>
             <center>
-    {/* <Ad screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} /> */}
-            </center>
+              { !loading && screen === "home"  && (
+    <Ad inCrazyGames={inCrazyGames} screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} />
+              )}
+    </center>
             </div>
           </div>
           </>
         )}
           <br />
+
+
         </div>
+
         <InfoModal shown={false} />
-        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
+        <MapsModal inLegacy={legacyMapLoader} shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
             customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
               console.log("map", map)
               openMap(map.countryMap||map.slug);
@@ -1380,11 +1582,11 @@ window.ramp.passiveMode = true;
         } sendInvite={sendInvite} />
 
         {screen === "singleplayer" && <div className="home__singleplayer">
-          <GameUI showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI showDiscordModal={showDiscordModal}  setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
         {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
-          <GameUI showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+          <GameUI inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
           </div>}
 
           {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
@@ -1393,7 +1595,7 @@ window.ramp.passiveMode = true;
                 text("onboarding1")
               ]} pageDone={() => {
                 try {
-                  window.localStorage.setItem("onboarding", 'done')
+                  gameStorage.setItem("onboarding", 'done')
                 } catch(e) {}
                 setOnboarding((prev)=>{
                   return {
@@ -1406,7 +1608,7 @@ window.ramp.passiveMode = true;
                 if(onboarding) sendEvent("tutorial_end");
 
                 setOnboarding(null)
-                if(!window.location.search.includes("app=true")) {
+                if(!window.location.search.includes("app=true") && !inCrazyGames) {
       setShowSuggestLoginModal(true)
     }
                 setScreen("home")
@@ -1420,44 +1622,16 @@ window.ramp.passiveMode = true;
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
-          <GameUI showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          <GameUI inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
+
 
 
         <Script>
           {`
-console.log("ramp script");
-
-window.ramp = window.ramp || {};
-window.ramp.que = window.ramp.que || [];
-window.ramp.passiveMode = true;
-
-const addUnits = () => {
-    // ramp.que.push ensures that the functions called are executed when Ramp has finished loading.
-//     window.ramp.que.push(() => {
-//         window.ramp.spaNewPage().then(() => {
-//           console.log("Loaded playwire ads")
-// }).catch((e) => {
-//   console.error(e)
-// })
-//     })
-};
-
-// Create a new script element
-var script = document.createElement("script");
-script.type = "text/javascript";
-script.async = true;
-script.setAttribute("data-cfasync", "false");
-script.src = "//cdn.intergient.com/1025355/75156/ramp.js";
-
-// Append the script to the head of the document
-document.head.appendChild(script);
-
-
-console.log("ramp script added to head");
-addUnits();
 
             window.lastAdShown = Date.now();
+            window.gameOpen = Date.now();
           //   try {
           //   if(window.localStorage.getItem("lastAdShown")) {
           //     window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
@@ -1471,7 +1645,55 @@ addUnits();
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     })(window, document, "clarity", "script", "ndud94nvsg");
 
+  console.log("Ads by adinplay!")
+  	window.aiptag = window.aiptag || {cmd: []};
+	aiptag.cmd.display = aiptag.cmd.display || [];
+	aiptag.cmd.player = aiptag.cmd.player || [];
+
+	//CMP tool settings
+	aiptag.cmp = {
+		show: true,
+		position: "centered",  //centered, bottom
+		button: true,
+		buttonText: "Privacy settings",
+		buttonPosition: "bottom-left" //bottom-left, bottom-right, bottom-center, top-left, top-right
+	}
+   window.adsbygoogle = window.adsbygoogle || [];
+  window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
+   adConfig({preloadAdBreaks: 'on'});
+
+   aiptag.cmd.player.push(function() {
+	aiptag.adplayer = new aipPlayer({
+		AD_WIDTH: Math.min(Math.max(window.innerWidth, 300), 1066),
+		AD_HEIGHT: Math.min(Math.max(window.innerHeight, 150), 600),
+		AD_DISPLAY: 'modal-center', //default, fullscreen, fill, center, modal-center
+		LOADING_TEXT: 'loading advertisement',
+		PREROLL_ELEM: function(){ return document.getElementById('videoad'); },
+		AIP_COMPLETE: function (state) {
+  document.querySelector('.videoAdParent').classList.add('hidden');
+
+    console.log("Ad complete", state)
+			// The callback will be executed once the video ad is completed.
+      window.lastAdShown = Date.now();
+      try {
+      window.localStorage.setItem("lastAdShown", window.lastAdShown)
+    } catch(e) {}
+
+
+			if (typeof aiptag.adplayer.adCompleteCallback === 'function') {
+				aiptag.adplayer.adCompleteCallback(state);
+			}
+		}
+	});
+});
+
 window.show_videoad = function(callback) {
+// if in crazygame (window.inCrazyGames) dont show ads
+if(window.inCrazyGames) {
+  console.log("In crazygames, not showing ads")
+  callback("DISABLED");
+  return;
+}
 
           if(window.disableVideoAds) {
           console.log("Video ads disabled")
@@ -1484,12 +1706,25 @@ window.show_videoad = function(callback) {
             return;
           }
 
-          return callback("DISABLED")
+	// Assign the callback to be executed when the ad is done
+	aiptag.adplayer.adCompleteCallback = callback;
+
+	// Check if the adslib is loaded correctly or blocked by adblockers etc.
+	if (typeof aiptag.adplayer !== 'undefined') {
+  console.log("Showing ad")
+  // remove 'hidden' class from the parent div
+  document.querySelector('.videoAdParent').classList.remove('hidden');
+		aiptag.cmd.player.push(function() { aiptag.adplayer.startVideoAd(); });
+	} else {
+   console.log("Adlib not loaded")
+		// Adlib didn't load; this could be due to an ad blocker, timeout, etc.
+		// Please add your script here that starts the content, this usually is the same script as added in AIP_COMPLETE.
+		aiptag.adplayer.aipConfig.AIP_COMPLETE();
+	}
 }
 
   `}
         </Script>
-
       </main>
     </>
   )

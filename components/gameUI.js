@@ -18,10 +18,11 @@ import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAd";
 import fixBranding from "./utils/fixBranding";
+import gameStorage from "./utils/localStorage";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -38,7 +39,7 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
         })
         setShowAnswer(false)
         setStreetViewShown(false)
-      } else
+      } else {
       setOnboarding((prev) => {
         return {
           ...prev,
@@ -46,6 +47,7 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
           nextRoundTime: 0
         }
       })
+    }
     } else
       loadLocation()
   }
@@ -62,6 +64,15 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
     } else {
       loadLocationFuncRaw()
     }
+
+    if(!setShowDiscordModal || showDiscordModal) return;
+    const loadTime = window.gameOpen;
+    const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
+    if(lastDiscordShown) return console.log("Discord modal already shown");
+    if(Date.now() - loadTime > 600000) {
+      setShowDiscordModal(true)
+      sendEvent('discord_modal_shown')
+    } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
   }
 
   const { width, height } = useWindowDimensions();
@@ -113,6 +124,10 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
     // fetch clue (if any)
     setExplanations([])
 
+    // only if learn mode
+    if(window.location.search.includes("learn=true")) {
+
+      console.log("fetching clue")
     fetch('/api/clues/getClue'+(latLong ? `?lat=${latLong.lat}&lng=${latLong.long}` : '')).then(res => res.json()).then(data => {
 
       if(data.error) {
@@ -123,13 +138,13 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
       setShowClueBanner(true);
       setExplanations(data)
     });
+  }
 
   }, [latLong]);
 
   useEffect(() => {
     if(onboarding?.nextRoundTime) {
       const interval = setInterval(() => {
-      console.log("setting timetonextroun")
       const val = Math.max(0,Math.floor(((onboarding.nextRoundTime - Date.now())) / 100)/10)
         setTimeToNextRound(val)
 
@@ -166,7 +181,7 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
 
   useEffect(() => {
     try {
-    window.localStorage.setItem("countryStreak", countryStreak);
+    gameStorage.setItem("countryStreak", countryStreak);
     } catch(e) {
       console.log("error setting countryStreak in localstorage")
     }
@@ -287,7 +302,7 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
         setCountryStreak(0);
         setLostCountryStreak(countryStreak);
 
-        if(countryStreak > 0 && window.adBreak) {
+        if(countryStreak > 0 && window.adBreak && !inCrazyGames) {
         console.log("requesting reward ad")
         window.adBreak({
           type: 'reward',  // rewarded ad
@@ -343,11 +358,11 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
   return (
     <div className="gameUI">
 
-{/* { !onboarding && (
+{ !onboarding && !inCrazyGames && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown)?'moreDown':''}`}>
-    <Ad screenH={height} types={[[320, 50],[728,90],[970,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[320, 50],[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
-)} */}
+)}
 
 {/*
 
@@ -508,6 +523,7 @@ export default function GameUI({ showPanoOnResult, setShowPanoOnResult, countryG
 
 <EndBanner onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
   loadLocationFunc()
+
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {
     setShowPanoOnResult(!showPanoOnResult)
   }} panoShown={showPanoOnResult} />

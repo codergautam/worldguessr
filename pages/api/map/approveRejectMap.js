@@ -8,7 +8,10 @@ export default async function handler(req, res) {
   }
 
   let { secret, mapId, action, rejectReason, resubmittable } = req.body;
-
+  // secret must be string
+  if (typeof secret !== 'string' || typeof mapId !== 'string' || typeof action !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
   // Validate input
   if (!secret || !mapId || !action) {
     return res.status(400).json({ message: 'Missing required fields' });

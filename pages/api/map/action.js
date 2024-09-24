@@ -109,6 +109,10 @@ export default async function handler(req, res) {
 
   let { action, secret, name, data, description_short, description_long, mapId } = req.body;
 
+  //secret must be string
+  if(typeof secret !== 'string') {
+    return res.status(400).json({ message: 'Invalid input' });
+  }
   if(!action || !secret) {
     return res.status(400).json({ message: 'Missing action or secret' });
   }
@@ -136,6 +140,9 @@ export default async function handler(req, res) {
       description_short,
       description_long,
       maxDist: validation.maxDist,
+      in_review: user.instant_accept_maps ? false : true,
+      accepted: user.instant_accept_maps ? true : false,
+      map_creator_name: user.username
     });
 
     return res.status(200).json({ message: 'Map created', map });
@@ -165,9 +172,9 @@ export default async function handler(req, res) {
     map.data = validation.locationsData;
     map.description_short = description_short;
     map.description_long = description_long;
-    map.in_review= true;
+    map.in_review= user.instant_accept_maps ? false : true;
     map.reject_reason = "";
-    map.accepted = false;
+    map.accepted = !map.in_review;
 
     map.maxDist = validation.maxDist;
 

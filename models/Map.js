@@ -19,6 +19,10 @@ const mapSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  map_creator_name: {
+    type: String,
+    required: true
+  },
   plays: {
     type: Number,
     default: 0
@@ -66,7 +70,11 @@ const mapSchema = new mongoose.Schema({
     type: Number,
     required: true,
     default: 20000
-  }
+  },
+  spotlight: {
+    type: Boolean,
+    default: false
+  },
 });
 
 const Map = mongoose.models.Map || mongoose.model('Map', mapSchema);

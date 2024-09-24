@@ -14,7 +14,7 @@ export default async function storeGame(secret, xp, timeTaken, latLong) {
   if(!secret || !xp || !timeTaken || !latLong) {
     return { success: false, message: 'Missing required fields' };
   }
-  if(typeof xp !== 'number' || typeof timeTaken !== 'number' || typeof latLong !== 'object') {
+  if(typeof secret !== 'string' || typeof xp !== 'number' || typeof timeTaken !== 'number' || typeof latLong !== 'object') {
     return { success: false, message: 'Invalid input types' };
   }
   if(latLong.length !== 2 || typeof latLong[0] !== 'number' || typeof latLong[1] !== 'number') {
@@ -31,19 +31,18 @@ export default async function storeGame(secret, xp, timeTaken, latLong) {
 
   // Store the game data
   try {
-  user.games.push({
-    xp,
-    timeTaken,
-    latLong,
-    time: new Date(),
-  });
-  user.totalGamesPlayed += 1;
-  user.totalXp += xp;
-} catch (error) {
-  return { success: false, message: 'An error occurred', error: error.message };
-}
+    user.games.push({
+      xp,
+      timeTaken,
+      latLong,
+      time: new Date(),
+    });
+    user.totalGamesPlayed += 1;
+    user.totalXp += xp;
+  } catch (error) {
+    return { success: false, message: 'An error occurred', error: error.message };
+  }
+
   await user.save();
   return { success: true };
-
-
 }

@@ -10,8 +10,7 @@ A game by Gautam
 https://github.com/codergautam/worldguessr
 */
 
-
-import { createServer } from 'http';
+import fs from 'fs';
 import { parse } from 'url';
 import next from 'next';
 import { v4 as makeId } from 'uuid';
@@ -42,16 +41,22 @@ import countries from './public/countries.json' with { type: "json" };
 import cities from './public/cities.json' with { type: "json" };
 import moment from 'moment-timezone';
 import MapModel from './models/Map.js';
+import { createServer } from 'http';
+import { createServer as createHttpsServer } from 'https';
+import { Filter } from 'bad-words';
+const filter = new Filter();
 
 function isValidTimezone(tz) {
   return !!moment.tz.zone(tz);
 }
 
 let multiplayerEnabled = true;
+let dbEnabled = true;
+let httpEnabled = true;
 
 if (!process.env.MONGODB) {
   console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
-  multiplayerEnabled = false;
+  dbEnabled = false;
 } else {
   // Connect to MongoDB
   if (mongoose.connection.readyState !== 1) {
@@ -60,7 +65,7 @@ if (!process.env.MONGODB) {
       console.log('[INFO] Database Connected');
     } catch (error) {
       console.error('[ERROR] Database connection failed!'.red, error.message);
-      multiplayerEnabled = false;
+      dbEnabled = false;
     }
   }
 }
@@ -71,7 +76,7 @@ if(!process.env.I18NEXT_DEFAULT_CONFIG_PATH) {
 }
 if (!process.env.NEXTAUTH_SECRET) {
   console.log("[MISSING-ENV WARN] NEXTAUTH_SECRET env variable not set, please set it to a random string otherwise multi-player will not work".yellow);
-  multiplayerEnabled = false;
+  dbEnabled = false;
 }
 if (!process.env.NEXTAUTH_URL) {
   console.log("[MISSING-ENV WARN] NEXTAUTH_URL env variable not set, please set it!".yellow);
@@ -81,14 +86,27 @@ if(process.env.DISCORD_WEBHOOK) {
 }
 if(!process.env.GOOGLE_CLIENT_ID) {
   console.log("[MISSING-ENV WARN] GOOGLE_CLIENT_ID env variable not set, please set it for multiplayer/auth!".yellow);
-  multiplayerEnabled = false;
+  dbEnabled = false;
 }
 if(!process.env.GOOGLE_CLIENT_SECRET) {
   console.log("[MISSING-ENV WARN] GOOGLE_CLIENT_SECRET env variable not set, please set it for multiplayer/auth!".yellow);
-  multiplayerEnabled = false;
+  dbEnabled = false;
 }
 if(process.env.NEXT_PUBLIC_CESIUM_TOKEN) {
   console.log("[INFO] NEXT_PUBLIC_CESIUM_TOKEN env variable set, showing home animation".yellow);
+}
+if(process.env.NO_HTTP && process.env.NO_HTTP === 'true') {
+  console.log("[INFO] NO_HTTP env variable set, disabling HTTP server".yellow);
+  httpEnabled = false;
+}
+if(process.env.NO_WS && process.env.NO_WS === 'true') {
+  console.log("[INFO] NO_WS env variable set, disabling WebSocket server".yellow);
+  multiplayerEnabled = false;
+}
+// both?
+if(!httpEnabled && !multiplayerEnabled) {
+  console.log("[ERROR] Both WS_ONLY and NO_WS env variables are set, exiting".red);
+  throw new Error("Both WS_ONLY and NO_WS env variables are set, exiting");
 }
 
 
@@ -116,6 +134,7 @@ const __dirname = import.meta.dirname;
 let recentPlays = {}; // track the recent plays gains of maps
 
 async function updateRecentPlays() {
+  if(!dbEnabled) return;
   for(const mapSlug of Object.keys(recentPlays)) {
     if(recentPlays[mapSlug] > 0) {
 
@@ -707,8 +726,26 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
 //   res.end(JSON.stringify(playerData));
 // })
 
+/* Successfully received certificate.
+Certificate is saved at: /etc/letsencrypt/live/www.worldguessr.com/fullchain.pem
+Key is saved at:         /etc/letsencrypt/live/www.worldguessr.com/privkey.pem
+*/
 app.prepare().then(() => {
-  const server = createServer(async (req, res) => {
+
+  const useHttps = process.env.SSL_KEY_PATH && process.env.SSL_KEY_PATH.length > 0 && process.env.SSL_CERT_PATH && process.env.SSL_CERT_PATH.length > 0;
+  const sslOptions = useHttps ? {
+    key: fs.readFileSync(process.env.SSL_KEY_PATH),
+    cert: fs.readFileSync(process.env.SSL_CERT_PATH),
+    ca: process.env.SSL_CA_PATH ? fs.readFileSync(process.env.SSL_CA_PATH) : undefined,
+  } : null;
+
+  if(useHttps) {
+    console.log(`Using SSL`.green);
+  } else {
+    console.log(`Not using SSL`.yellow);
+  }
+
+  const callback = async (req, res) => {
     try {
       const parsedUrl = parse(req.url, true)
       const { pathname, query } = parsedUrl
@@ -735,6 +772,11 @@ app.prepare().then(() => {
         return;
       }
 
+      if(!httpEnabled) {
+        // send 404
+        return app.render(req, res, '/404', query);
+      }
+
       const mapPlayMatch = pathname.includes('/mapPlay/');
       if (mapPlayMatch && req.method === 'POST') {
         // make suere POST
@@ -749,14 +791,32 @@ app.prepare().then(() => {
       res.statusCode = 500
       res.end('internal server error')
     }
-  })
+  };
+  let createServerFunction = sslOptions ? createHttpsServer : createServer;
+
+  // if https enabled, create a http that redirects to https
+  if (useHttps) {
+    createServerFunction(
+      (req, res) => {
+        res.writeHead(301, {
+          Location: `https://${req.headers.host}${req.url}`
+        });
+        res.end();
+      }
+    )
+      .listen(80, () => {
+        console.log(`> Forwarder on http://${hostname}:80`);
+      });
+  }
+
+  const server = createServerFunction(sslOptions ? sslOptions : callback, !sslOptions ? callback : null)
     .once('error', (err) => {
       console.error(err)
       process.exit(1)
     })
     .listen(port, () => {
       setTimeout(() => {
-      console.log(`> Ready on http://${hostname}:${port}`)
+      console.log(`> Ready on http${useHttps ? 's' : ''}://${hostname}:${port}`)
       }, 100);
     })
 
@@ -771,6 +831,13 @@ app.prepare().then(() => {
 
   // Handle WebSocket connections
   server.on('upgrade', (request, socket, head) => {
+
+    if(!multiplayerEnabled) {
+      // close the connection
+      socket.destroy();
+      return;
+    }
+
     const { pathname } = parse(request.url, true);
     if(pathname === '/wg') {
       wss.handleUpgrade(request, socket, head, (ws) => {
@@ -963,12 +1030,13 @@ app.prepare().then(() => {
       }
 
       if(json.type === 'chat' && player.gameId && games.has(player.gameId)) {
-        const message = json.message;
+        let message = json.message;
         const lastMessage = player.lastMessage || 0;
         if (typeof message !== 'string' || message.length < 1 || message.length > 200 || Date.now() - lastMessage < 500) {
           return;
         }
         const game = games.get(player.gameId);
+        message = filter.clean(message);
         player.lastMessage = Date.now();
         game.sendAllPlayers({
           type: 'chat',
@@ -1231,7 +1299,7 @@ app.prepare().then(() => {
       if(!player.accountId) {
         return;
       }
-      if(!json.name) {
+      if(!json.name || typeof json.name !== "string" || json.name.length < 3 || json.name.length > 30 || !/^[a-zA-Z0-9_]+$/.test(json.name)) {
         player.send({type:'friendReqState',state: 0})
         return;
       }
@@ -1299,6 +1367,10 @@ app.prepare().then(() => {
     }
 
     if(json.type === 'cancelRequest' && player.accountId && json.id) {
+      if(typeof json.id !== "string") {
+        return;
+      }
+
       // check if the request exists (player side)
       const exists = player.sentReq.findIndex((f) => f.id === json.id);
       if(exists === -1) {
@@ -1423,7 +1495,7 @@ app.prepare().then(() => {
 
 // update player count
 setInterval(() => {
-console.log("Number of games", games.size,"\nNumber of players in queue", playersInQueue.size, "\nNumber of players", players.size, "\n\n");
+// console.log("Number of games", games.size,"\nNumber of players in queue", playersInQueue.size, "\nNumber of players", players.size, "\n\n");
 
   for (const player of players.values()) {
     if (player.verified && !player.gameId) {
@@ -1553,7 +1625,7 @@ setInterval(() => {
     }
   }
 }, 500);
-if(!dev && multiplayerEnabled) {
+if(!dev && dbEnabled && multiplayerEnabled) {
   setInterval(() => {
     const memUsage = process.memoryUsage().heapUsed;
     const gameCnt = games.size;

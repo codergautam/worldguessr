@@ -2,7 +2,7 @@ import React from "react";
 import MapView from "./mapView";
 import { useRouter } from "next/router";
 
-export default function MapsModal({ gameOptions, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, singleplayer }) {
+export default function MapsModal({ inLegacy, gameOptions, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, singleplayer }) {
     if (!shown) {
         return null;
     }
@@ -26,6 +26,7 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
                         close={onClose}
                         session={session}
                         text={text}
+                        inLegacy={inLegacy||false}
                         onMapClick={handleMapClick}
                         gameOptions={gameOptions}
                         setGameOptions={setGameOptions}

@@ -4,7 +4,7 @@ import AccountView from "./accountView";
 import { signOut } from "next-auth/react";
 import { useTranslation } from 'next-i18next'
 
-export default function AccountModal({ session, shown, setAccountModalOpen }) {
+export default function AccountModal({ session, shown, setAccountModalOpen, inCrazyGames }) {
   const { t: text } = useTranslation("common");
 
     const [accountData, setAccountData] = useState({});
@@ -45,6 +45,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen }) {
 
           <AccountView accountData={accountData} />
 
+{!inCrazyGames && (
             <button onClick={()=>signOut()} style={{
                 background: 'red',
                 color: 'white',
@@ -58,6 +59,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen }) {
             }}>
               {text("logOut")}
             </button>
+          )}
 
         </Modal>
     )
