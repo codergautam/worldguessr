@@ -149,7 +149,7 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
               by {highlightMatch(map.created_by_name, searchTerm)}
 
               {map.accepted && (
-                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}>&nbsp; &middot; {formatNumber(map.locations, 2)} locations</span>
+                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}>&nbsp; &middot; {formatNumber(map.locations, 3)} locations</span>
               )}
 
             </div>
