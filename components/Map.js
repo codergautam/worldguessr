@@ -29,6 +29,11 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
   const vectorSource = useRef(new VectorSource());
   const { t: text } = useTranslation("common");
 
+  useEffect(() => {
+    console.log("loading map");
+    sendEvent('mapLoad');
+  }, []);
+
   function placeExtent(extent) {
     if(!map) return;
     const newView = new View({
