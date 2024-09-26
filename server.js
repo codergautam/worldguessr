@@ -268,6 +268,7 @@ generateMainLocations();
 // clue locations
 // get all clues
 const generateClueLocations = async () => {
+  if(!dbEnabled) return;
   const clues = await Clue.find({});
   // remove duplicate latlong
   const uniqueClues = [];
