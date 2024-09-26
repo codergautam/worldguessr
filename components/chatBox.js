@@ -4,6 +4,9 @@ import { createChatBotMessage } from 'react-chatbot-kit';
 import React, { useEffect, useState } from 'react';
 import { FaXmark } from 'react-icons/fa6';
 import { useTranslation } from 'next-i18next';
+import { Filter } from 'bad-words';
+import { toast } from 'react-toastify';
+const filter = new Filter();
 
 const config = {
   initialMessages: [],
@@ -143,6 +146,10 @@ export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame }) {
             if (input.length < 1) return false;
             if (input.length > 200) return false;
             if (Date.now() - lastSend < 1000) return false;
+            if (filter.isProfane(input)) {
+              toast.error('Be nice!');
+              return false;
+            }
             lastSend = Date.now();
             return true;
           }}

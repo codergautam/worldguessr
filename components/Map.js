@@ -140,7 +140,13 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
       if (!answerShown && !guessing  &&  (!multiplayerState?.inGame || (multiplayerState?.inGame && !multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final))) {
         const clickedCoord = initialMap.getEventCoordinate(e.originalEvent);
         const clickedLatLong = toLonLat(clickedCoord);
-        console.log(clickedCoord, clickedLatLong);
+        if(clickedCoord[0] < -40784895) {
+          alert("The map failed to load properly. Refreshing the page...");
+           window.location.reload();
+           return;
+        }
+
+        console.log(clickedCoord[0]);
         setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
 
         if(multiplayerState?.inGame && multiplayerState.gameData?.state === "guess" && ws) {
