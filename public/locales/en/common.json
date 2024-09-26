@@ -205,5 +205,7 @@
   "joinDiscord": "Join our Discord!",
   "joinDiscordDesc": "Join our community and improve your WorldGuessr skills!",
   "notNow": "Not now",
-  "spotlight": "Spotlight"
+  "spotlight": "Spotlight",
+  "history": "History",
+  "points": "Points"
 }

@@ -309,6 +309,10 @@ h1, h2, h3, span {
   font-weight: 500;
   color: white;
 }
+.historyContainer h3,
+.historyContainer span {
+  color: black !important;
+}
 
 /* hide cesium elements */
 .cesium-viewer-animationContainer, .cesium-viewer-timelineContainer, .cesium-viewer-bottom, .cesium-viewer-fullscreenContainer, .cesium-viewer-toolbar {
@@ -2188,4 +2192,7 @@ div[dir="ltr"] {
 .map-tile__edit {
   background-color: black;
   cursor: pointer;
+}
+.mobile_minimap__btns {
+  z-index: 10000;
 }

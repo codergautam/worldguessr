@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaTrophy, FaClock, FaStar } from 'react-icons/fa';
 
-export default function RoundOverScreen({ points, time, maxPoints, onHomePress }) {
+export default function RoundOverScreen({ history, points, time, maxPoints, onHomePress,buttonText }) {
   const [animatedPoints, setAnimatedPoints] = useState(0);
   const [stars, setStars] = useState(0);
   const { t: text } = useTranslation("common");
@@ -58,12 +58,31 @@ export default function RoundOverScreen({ points, time, maxPoints, onHomePress }
             <FaTrophy className="detail-icon" />
             <span className="detail-text">{text("pointsEarnedTemplate", {p:  `${animatedPoints.toFixed(0)} / ${maxPoints}`})}</span>
           </div>
+          { time > 0 && (
           <div className="detail-item">
             <FaClock className="detail-icon" />
             <span className="detail-text">{text("timeTakenTemplate", {t: time})}</span>
           </div>
+          )}
+
+{ history && history.length > 0 && (
+        <div className="historyContainer">
+          <h3>{text("history")}</h3>
+          {/* eah has  {lat: latLong.lat, long: latLong.long, guessLat: pinPoint.lat, guessLong: pinPoint.lng,
+            points
+            make it a link that goes to https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=lat,lng
+            */}
+          {history.map((h, index) => (
+            <div key={index} className="historyItem">
+              <a href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${h.lat},${h.long}`} target="_blank" rel="noreferrer">
+              <span>#{index + 1} - {text("pointsEarnedTemplate", {p: h.points})}</span>
+              </a>
+            </div>
+          ))}
+          </div>
+      )}
         </div>
-        <button className="play-again-btn" onClick={() => onHomePress()}>{text("home")}</button>
+        <button className="play-again-btn" onClick={() => onHomePress()}>{buttonText??text("home")}</button>
       </div>
     </div>
   );

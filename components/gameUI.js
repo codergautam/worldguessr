@@ -19,10 +19,11 @@ import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAd";
 import fixBranding from "./utils/fixBranding";
 import gameStorage from "./utils/localStorage";
+import RoundOverScreen from "./roundOverScreen";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -48,8 +49,42 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
         }
       })
     }
-    } else
+    } else if(singlePlayerRound && singlePlayerRound.round === singlePlayerRound.totalRounds && !singlePlayerRound?.done) {
+
+
+      // display the results
+      setShowAnswer(false)
+        setStreetViewShown(false)
+
+        setSinglePlayerRound((prev) => {
+          return {
+            ...prev,
+            done: true
+          }
+        })
+
+    } else {
+
+
       loadLocation()
+
+      if(singlePlayerRound && !singlePlayerRound?.done) {
+        setSinglePlayerRound((prev) => {
+          return {
+            ...prev,
+            round: prev.round + 1
+          }
+        })
+      } else {
+        // reset to default
+        setSinglePlayerRound({
+          round: 1,
+          totalRounds: 5,
+          locations: []
+        })
+      }
+    }
+
   }
 
   function loadLocationFunc() {
@@ -221,7 +256,12 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
 
   useEffect(() => {
     function keydown(e) {
+
       if(explanationModalShown) return;
+      if(singlePlayerRound?.done) {
+        loadLocationFunc()
+        return;
+      }
       if(pinPoint && e.key === ' ' && !showAnswer) {
         guess();
       } else if(showAnswer && e.key === ' ') {
@@ -233,7 +273,7 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, showAnswer, onboarding, xpEarned, explanationModalShown]);
+  }, [pinPoint, showAnswer, onboarding, xpEarned, explanationModalShown, singlePlayerRound])
 
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
@@ -248,6 +288,13 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
   }
   useEffect(() => {
     loadLocation()
+    if(singlePlayerRound) {
+      setSinglePlayerRound({
+        round: 1,
+        totalRounds: 5,
+        locations: []
+      })
+    }
   }, [gameOptions?.location])
   function guess() {
     setShowAnswer(true)
@@ -263,6 +310,20 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
       })
       setTimeToNextRound(0)
     }
+
+    if(singlePlayerRound) {
+      setSinglePlayerRound((prev) => {
+        return {
+          ...prev,
+          locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, guessLat: pinPoint.lat, guessLong: pinPoint.lng,
+            points: calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist })
+
+          }],
+          lastPoint: calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist })
+        }
+      })
+    }
+
     if(multiplayerState?.inGame) return;
 
     if(xpEarned > 0 && session?.token?.secret && gameOptions.official) {
@@ -359,7 +420,7 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
     <div className="gameUI">
 
 { !onboarding && !inCrazyGames && (
-    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown)?'moreDown':''}`}>
+    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
     <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[320, 50],[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
@@ -372,7 +433,16 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
 */}
 
 
+{ singlePlayerRound?.done && (
+<RoundOverScreen points={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)
 
+} maxPoints={25000}
+history={singlePlayerRound.locations}
+buttonText={text("playAgain")}
+onHomePress={() =>{
+  loadLocationFunc()
+              }}/>
+)}
       {(!countryGuesser || (countryGuesser && showAnswer)) && (!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (
         <>
 
@@ -382,7 +452,7 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
       }} onMouseLeave={() => {
         if(mapPinned) return;
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${(miniMapShown||showAnswer)&&((!showPanoOnResult && showAnswer) || (!showAnswer)) ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!showPanoOnResult && showAnswer) || (!showAnswer))) ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 
 {!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
@@ -417,7 +487,7 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
         </div>
       </div>
 
-      <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${showAnswer ? 'answerShownBtns' : ''}`}>
+      <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${(showAnswer||singlePlayerRound?.done) ? 'answerShownBtns' : ''}`}>
         {miniMapShown && (
           <>
             {/* guess and hint  */}
@@ -486,6 +556,15 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
 
         </span>
 
+        {
+          singlePlayerRound && !singlePlayerRound?.done && (
+            <span className="timer shown">
+              {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} -  {singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} {text("points")}
+
+            </span>
+          )
+        }
+
         {multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
           <BannerText text={
             text("gameStartingIn", {t:timeToNextMultiplayerEvt})
@@ -521,7 +600,7 @@ export default function GameUI({ showDiscordModal, setShowDiscordModal, inCrazyG
           setShowStreakAdBanner(false)
         }} lostCountryStreak={lostCountryStreak} playAd={()=>{window.showRewardedAdFn()}} setLostCountryStreak={setLostCountryStreak} countryStreak={countryStreak} setCountryStreak={setCountryStreak} />
 
-<EndBanner onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
+<EndBanner singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
   loadLocationFunc()
 
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {

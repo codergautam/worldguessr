@@ -5,7 +5,7 @@ import { useTranslation } from 'next-i18next'
 import Ad from "./bannerAd";
 import useWindowDimensions from "./useWindowDimensions";
 
-export default function EndBanner({ onboarding, countryGuesser, countryGuesserCorrect, options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
+export default function EndBanner({ singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
   const { t: text } = useTranslation("common");
   const { height, width } = useWindowDimensions();
 
@@ -36,14 +36,15 @@ export default function EndBanner({ onboarding, countryGuesser, countryGuesserCo
         `${text('gotPoints', {p:2500})}!`
       }
 
-
+{/*
       { latLong && pinPoint && !multiplayerState?.inGame && (
         km <  100 ? text("motivation1")+"!" :
         km <  300 ? text("motivation2")+"!" :
          km < 1000 ? text("motivation3")+"!" :
          km < 3000 ? text("motivation4") :
          text("motivation5")
-        )}
+        )} */}
+
 
 
 
@@ -56,12 +57,20 @@ export default function EndBanner({ onboarding, countryGuesser, countryGuesserCo
       {countryStreak > 0 ? text("onCountryStreak",{streak:countryStreak}) : ''}
       {lostCountryStreak > 0 ? `${text("lostCountryStreak",{streak:lostCountryStreak})}!` : ''}
       </p>
+      <p className="motivation">
+      {singlePlayerRound &&
+
+        text("gotPoints", {p: singlePlayerRound.lastPoint })}
+
+      </p>
   </div>
   { !multiplayerState && (
 
   <div className="endButtonContainer">
   <button className="playAgain" onClick={fullReset}>
-    {onboarding&&onboarding.round === 5 ? text("viewResults") : text("nextRound")}
+    {(onboarding&&onboarding.round === 5)
+      || (singlePlayerRound && singlePlayerRound.round === singlePlayerRound.totalRounds)
+    ? text("viewResults") : text("nextRound")}
   </button>
   {/* { !onboarding && (
   <button className="openInMaps" onClick={() => {
