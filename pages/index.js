@@ -319,13 +319,85 @@ setShowCountryButtons(false)
   // setOnboardingCompleted(false)
   }, [])
 
+
+
   useEffect(() => {
 
     // check if pirated
     if(isForbiddenIframe() && !window.blocked) {
       // display a message
       window.blocked = true;
-      document.write("Your request has been blocked as this website is not authorized to embed WorldGuessr.<br><br><h3><a href='https://worldguessr.com' target=\"_blank\">Click here to play WorldGuessr on the official site, for free!</a></h3><br>- Gautam, developer of WorldGuessr")
+      document.write(`
+        <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Play WorldGuessr</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: url('https://www.worldguessr.com/street1.jpg') no-repeat center center/cover;
+      font-family: 'Arial', sans-serif;
+    }
+
+    .container {
+      text-align: center;
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 30px;
+      border-radius: 10px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 20px;
+    }
+
+    a {
+      text-decoration: none;
+    }
+
+    .play-button {
+      background-color: #2563eb;
+      color: white;
+      padding: 15px 30px;
+      font-size: 1.5rem;
+      border-radius: 50px;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    .play-button:hover {
+      background-color: #1d4ed8;
+      transform: scale(1.05);
+    }
+
+    .play-button:active {
+      background-color: #1e40af;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome to WorldGuessr!</h1>
+    <a href="https://worldguessr.com" target="_blank">
+      <button class="play-button">Open in New Tab ↗</button>
+    </a>
+  </div>
+</body>
+</html>
+`)
       sendEvent("blocked_iframe")
     }
     // check if learn mode
@@ -350,7 +422,6 @@ setShowCountryButtons(false)
   }, [])
 
   useEffect(() => {
-    console.log("HI df", onboardingCompleted)
 
 // check if learn mode
     if(window.location.search.includes("learn=true")) {
@@ -1113,6 +1184,10 @@ setShowCountryButtons(false)
       setOnboardingCompleted(true)
     } else {
       setScreen("home");
+      setGameOptions((prev) => ({
+        ...prev,
+        extent: null
+      }))
       clearLocation();
     }
   }
@@ -1223,7 +1298,6 @@ setShowCountryButtons(false)
              const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
 
 
-             console.log("newArr", newArr)
              // community maps are randomized
              const loc = newArr[Math.floor(Math.random() * newArr.length)];
 
@@ -1316,7 +1390,6 @@ setShowCountryButtons(false)
     window.panorama = panoramaRef.current;
   } else {
 
-    console.log("setting position")
     panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
 
     window.reloadLoc = () => {
@@ -1497,7 +1570,7 @@ setShowCountryButtons(false)
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
 
-       
+
         <Navbar inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
 
 

@@ -65,7 +65,6 @@ export default function Ad({
           isAdDivVisible &&
           Date.now() - lastRefresh.current > (AD_REFRESH_MS*(inCrazyGames?2:1))
         ) {
-          console.log("clearing and displaying ad");
           if(!inCrazyGames) {
           try {
             if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
@@ -85,7 +84,6 @@ export default function Ad({
 
           lastRefresh.current = Date.now();
           sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`);
-          console.log("requesting ad", types[type]);
           setTimeout(() => {
             if(!inCrazyGames) {
           windowAny.aiptag.cmd.display.push(function () {

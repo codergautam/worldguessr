@@ -26,7 +26,6 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
               existingWebsocket.close();
           }
           var websocket = new WebSocket(url);
-          console.info('opening websocket: ' + url);
           websocket.onopen = function () {
               if(hasReturned) {
                   websocket.close();

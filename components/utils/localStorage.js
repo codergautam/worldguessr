@@ -5,7 +5,6 @@ export default class gameStorage {
   }
 
   static setItem(key, value) {
-    console.log("setItem", key, value);
     try {
       if(gameStorage.isCrazyGames()) {
         window.CrazyGames.SDK.data.setItem(key, value);
@@ -15,7 +14,6 @@ export default class gameStorage {
     } catch (e) {}
   }
   static getItem(key) {
-    console.log("getItem", key);
     try {
       if(gameStorage.isCrazyGames()) {
         return window.CrazyGames.SDK.data.getItem(key);

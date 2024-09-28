@@ -1,5 +1,6 @@
 const forbiddenIframe = [
-  "openguessr.io" // request from openguessr.com owner to prevent embedding on this unauthorized website
+  "openguessr.io", // request from openguessr.com owner to prevent embedding on this unauthorized website
+  "geoguessrfree.com"
 ];
 export function inIframe() {
   try {

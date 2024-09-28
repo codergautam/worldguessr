@@ -20,7 +20,7 @@ import sendEvent from './utils/sendEvent';
 import { boundingExtent } from 'ol/extent';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
-const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions, focused, extent }) => {
+const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions, focused, extent }) => {
   const mapRef = useRef();
   const [map, setMap] = useState(null);
   const [mapInitialized, setMapInitialized] = useState(false);
@@ -86,6 +86,11 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
   useEffect(() => {
     let extent = gameOptions?.extent;
+    // destroy old map if it exists
+    if (map) {
+      map.setTarget(undefined);
+    }
+    if(mapRef.current) mapRef.current.innerHTML = '';
 
 
     const initialMap = new Map({
@@ -109,6 +114,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
         extent: transformExtent([-180, -85, 180, 85], 'EPSG:4326', 'EPSG:3857'),
       }),
     });
+    console.log("initializing map", setPinPoint, multiplayerState?.gameData?.state, multiplayerState?.inGame, ws, gameOptions?.extent);
 
     var duration = 400;
     initialMap.addControl(new Zoom({
@@ -129,23 +135,24 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
     }
 
 
-    // const mouseDown = (e) => {
-    //   if (!guessed && !guessing) {
-    //     e.preventDefault();
-    //     const pixel = initialMap.getEventPixel(e);
-    //     const clickedCoord = initialMap.getCoordinateFromPixel(pixel);
-    //     const clickedLatLong = toLonLat(clickedCoord);
-    //     setPinPoint({ lat: clickedLatLong[1], lng: clickedLatLong[0] });
-    //   }
-    // };
-    // mapRef.current.addEventListener('mousedown', mouseDown);
+    setMap(initialMap);
+    setMapInitialized(true);
 
-    // use map click event to set pin point
+    return () => {
+      console.log("destroying map");
+      initialMap.setTarget(undefined);
+    };
+  }, [setPinPoint, gameOptions?.extent]);
+
+
+  useEffect(() => {
+    if(!map) return;
     function onMapClick(e) {
       if (!answerShown && !guessing  &&  (!multiplayerState?.inGame || (multiplayerState?.inGame && !multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final))) {
-        const clickedCoord = initialMap.getEventCoordinate(e.originalEvent);
+        const clickedCoord = map.getEventCoordinate(e.originalEvent);
         const clickedLatLong = toLonLat(clickedCoord);
         if(clickedCoord[0] < -40784895) {
+          sendEvent('mapFatalError');
           alert("The map failed to load properly. Refreshing the page...");
            window.location.reload();
            return;
@@ -169,18 +176,56 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
         if(plopSound.current) plopSound.current.play();
       }
     }
-    initialMap.on('click', onMapClick);
-
-    setMap(initialMap);
-    setMapInitialized(true);
+    map.on('click', onMapClick);
 
     return () => {
-      initialMap.setTarget(undefined);
-      // if(mapRef.current) mapRef.current.removeEventListener('mousedown', mouseDown);
+      if(!map) return;
+      map.un('click', onMapClick);
+    }
+  }, [map, setPinPoint, answerShown, guessing, multiplayerState, ws]);
 
-      initialMap.un('click', onMapClick);
-    };
-  }, [answerShown, setPinPoint, guessing, multiplayerState?.gameData?.state, multiplayerState?.inGame, ws]);
+
+  useEffect(() => {
+    // reset the map zoom to extent
+    if (!map || !location) return;
+    if(gameOptions?.extent) {
+      function reset() {
+      placeExtent(gameOptions.extent);
+      }
+      setTimeout(() => {
+      reset();
+      }, 500);
+    } else {
+      // stop any old zooms
+      function reset() {
+      // world map
+      // snap to lat long
+      // map.getView().setZoom(1);
+      // map.getView().fit(transformExtent([-180, -85, 180, 85], 'EPSG:4326', 'EPSG:3857'));
+      // animate to world map
+      map.getView().animate({ center:
+        fromLonLat([2, 35]),
+        zoom: 1,
+        duration: 1000,
+      });
+
+      }
+      reset();
+    }
+  }, [location, gameOptions?.extent]);
+
+  useEffect(() => {
+    if (!map ) return;
+    if(gameOptions?.extent) {
+    placeExtent(gameOptions.extent);
+    } else {
+      map.getView().animate({ center:
+        fromLonLat([2, 35]),
+        zoom: 1,
+        duration: 1000,
+      });
+    }
+  }, [map, gameOptions?.extent]);
 
   // Update pin point and add line
   useEffect(() => {
@@ -458,7 +503,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
           }
     setTimeout(() => {
 
-      map.getView().animate({ center: fromLonLat([location.long, location.lat]), duration: 3000, zoom: map.getView().getZoom()+2 });
+      map.getView().animate({ center: fromLonLat([location.long, location.lat]), duration: 600, zoom: map.getView().getZoom()+0.2 });
     }, 200);
   }catch(e) {
 
@@ -483,7 +528,7 @@ const MapComponent = ({ options, ws, session, pinPoint, setPinPoint, answerShown
 
   return (
     <>
-    <div ref={mapRef} id='miniMapContent'>
+    <div ref={mapRef} id='miniMapContent' style={{ display: '' }}>
       <div className='mapAttr'>
         <img width="60" src='https://lh3.googleusercontent.com/d_S5gxu_S1P6NR1gXeMthZeBzkrQMHdI5uvXrpn3nfJuXpCjlqhLQKH_hbOxTHxFhp5WugVOEcl4WDrv9rmKBDOMExhKU5KmmLFQVg'/>
       </div>
