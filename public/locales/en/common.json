@@ -207,5 +207,8 @@
   "notNow": "Not now",
   "spotlight": "Spotlight",
   "history": "History",
-  "points": "Points"
+  "points": "Points",
+  "maintenanceMode": "Maintenance Mode",
+  "maintenanceModeStarted": "WorldGuessr is currently in maintenance mode. Some multiplayer features may be disabled.",
+  "maintenanceModeEnded": "Maintenance mode has ended. Enjoy a full WorldGuessr experience!"
 }

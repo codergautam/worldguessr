@@ -54,6 +54,8 @@ let multiplayerEnabled = true;
 let dbEnabled = true;
 let httpEnabled = true;
 
+let restartQueued = false;
+
 if (!process.env.MONGODB) {
   console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
   dbEnabled = false;
@@ -177,6 +179,33 @@ registerHandler('/wiki', 'GET', (req,res,query)=>{
   });
   res.end();
 });
+
+const maintenanceSecret=  process.env.MAINTENANCE_SECRET;
+if(maintenanceSecret && maintenanceSecret.length > 0) {
+registerHandler('/setmaintenance/'+maintenanceSecret+'/true', 'GET', (req,res,query)=>{
+  restartQueued = true;
+  // notify all players
+  for(const player of players.values()) {
+    player.send({
+      type: 'restartQueued',
+      value: true
+    });
+  }
+  res.end('ok');
+});
+registerHandler('/setmaintenance/'+maintenanceSecret+'/false', 'GET', (req,res,query)=>{
+  restartQueued = false;
+  // notify all players
+  for(const player of players.values()) {
+    player.send({
+      type: 'restartQueued',
+      value: false
+    });
+  }
+  res.end('ok');
+});
+}
+
 
 registerHandler('/memdump', 'GET', (req, res, query) => {
   const filename = writeHeapSnapshot();
@@ -858,6 +887,18 @@ app.prepare().then(() => {
     })
     players.set(id, player);
 
+    if(restartQueued) {
+      player.send({
+        type: 'restartQueued',
+        value: true
+      });
+    } else {
+      player.send({
+        type: 'restartQueued',
+        value: false
+      });
+    }
+
     // Set up a message listener on the client
     ws.on('message', async (message) => {
       const json = JSON.parse(message);
@@ -1509,6 +1550,22 @@ setInterval(() => {
       type: 't',
       t: Date.now()
     });
+  }
+
+  if(restartQueued) {
+    // log count of players in active games
+    let playerCnt = 0;
+    let unstartedGames = 0;
+    for(const game of games.values()) {
+      if(game.state === 'waiting') {
+        unstartedGames++;
+      } else {
+        playerCnt += Object.keys(game.players).length;
+      }
+    }
+    console.log('Players in active games', playerCnt);
+    console.log('Unstarted games', unstartedGames);
+
   }
 }, 5000);
 

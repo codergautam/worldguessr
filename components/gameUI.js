@@ -451,6 +451,7 @@ onHomePress={() =>{
         setMiniMapExpanded(true)
       }} onMouseLeave={() => {
         if(mapPinned) return;
+        // todo: if mouse down, don't collapse
         setMiniMapExpanded(false)
       }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!showPanoOnResult && showAnswer) || (!showAnswer))) ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 

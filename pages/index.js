@@ -108,6 +108,7 @@ export default function Home({ locale }) {
 
   const [isApp, setIsApp] = useState(false);
   const [inCrazyGames, setInCrazyGames] = useState(false);
+  const [maintenance, setMaintenance] = useState(false);
 
   const [legacyMapLoader, setLegacyMapLoader] = useState(false);
 
@@ -772,6 +773,16 @@ setShowCountryButtons(false)
     ws.onmessage = (msg) => {
       const data = JSON.parse(msg.data);
 
+      if(data.type === "restartQueued") {
+        setMaintenance(data.value ? true : false)
+        if(data.value) {
+          toast.info(text("maintenanceModeStarted"))
+        } else if(!data.value && window.maintenance) {
+          toast.info(text("maintenanceModeEnded"))
+        }
+        window.maintenance = data.value ? true : false;
+
+      }
       if (data.type === "t") {
         const offset = data.t - Date.now();
         if (Math.abs(offset) > 1000 && ((Math.abs(offset) < Math.abs(timeOffset)) || !timeOffset)) {
@@ -1571,7 +1582,7 @@ setShowCountryButtons(false)
 
 
 
-        <Navbar inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
+        <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
 
 
 
@@ -1604,13 +1615,13 @@ setShowCountryButtons(false)
               }} >{text("singleplayer")}</button>
         {/* <span className="bigSpan">{text("playOnline")}</span> */}
         <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
-          disabled={!multiplayerState.connected}>{text("findDuel")}</button>
+          disabled={!multiplayerState.connected || maintenance}>{text("findDuel")}</button>
 
 
         {/* <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span> */}
         <div className="multiplayerPrivBtns">
-        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
-        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
+        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
+        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
         </div>
       </div>
 

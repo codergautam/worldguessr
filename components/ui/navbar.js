@@ -6,7 +6,7 @@ import { useTranslation } from 'next-i18next'
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
-export default function Navbar({ inCrazyGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading }) {
+export default function Navbar({ maintenance, inCrazyGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading }) {
   const { t: text } = useTranslation("common");
 
   const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer'))) && (!loading);
@@ -37,7 +37,7 @@ export default function Navbar({ inCrazyGames, inGame, openAccountModal, shown, 
 
       {multiplayerState?.playerCount &&  (
         <span className={`desktop bigSpan onlineText ${screen !== 'home' ? 'notHome':''} ${(screen==='singleplayer'||screen==='onboarding'||multiplayerState?.inGame||!multiplayerState?.connected)?'hide':''}`}>
-          {text("onlineCnt", {cnt:multiplayerState.playerCount})}
+          {maintenance ? text("maintenanceMode") : text("onlineCnt", {cnt:multiplayerState.playerCount})}
         </span>
       )}
       {!multiplayerState?.connected && (
