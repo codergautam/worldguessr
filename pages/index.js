@@ -1475,7 +1475,7 @@ setShowCountryButtons(false)
         linksControl: gameOptions?.nm ? false:true,
         clickToGo: gameOptions?.nm ? false:true,
 
-        panControl: gameOptions?.npz ? false:true,
+        panControl: true,
 
         zoomControl: gameOptions?.npz ? false:true,
         showRoadLabels: gameOptions?.showRoadName===true?true:false,
