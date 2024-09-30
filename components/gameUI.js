@@ -88,26 +88,35 @@ export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDi
   }
 
   function loadLocationFunc() {
+
+    function afterAd() {
+
+      if(!setShowDiscordModal || showDiscordModal) return;
+      const loadTime = window.gameOpen;
+      const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
+      if(lastDiscordShown) return console.log("Discord modal already shown");
+      if(Date.now() - loadTime > 600000) {
+        setShowDiscordModal(true)
+        sendEvent('discord_modal_shown')
+      } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
+    }
+
     if(window.show_videoad) {
       window.show_videoad((state) =>{
         if(!['DISABLED', 'COOLDOWN'].includes(state)) {
       toast.info(text("watchingAdsSupport"))
         }
 
+        afterAd()
+
         loadLocationFuncRaw()
       });
     } else {
+      afterAd()
       loadLocationFuncRaw()
     }
 
-    if(!setShowDiscordModal || showDiscordModal) return;
-    const loadTime = window.gameOpen;
-    const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
-    if(lastDiscordShown) return console.log("Discord modal already shown");
-    if(Date.now() - loadTime > 600000) {
-      setShowDiscordModal(true)
-      sendEvent('discord_modal_shown')
-    } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
+
   }
 
   const { width, height } = useWindowDimensions();
