@@ -41,7 +41,10 @@ export async function getServerSideProps(context) {
   const session = await getSession(context);
   const staff = session?.token?.staff;
 
-  const map = await Map.findOne({ slug }).lean();
+  const map = await Map.findOne({ slug })
+  .select({ 'data': { $slice: 10 } })
+  .lean();
+
   if (!map) {
     // 404
     return {
@@ -138,7 +141,6 @@ export default function MapPage({ mapData }) {
 
         <div className={styles.branding}>
           <h1>WorldGuessr</h1>
-          <p>{text('freeGeoguessrAlt')}</p>
           <center>
             <button onClick={() => window.location.href="/"} className={styles.backButton}>
               ← {text('backToGame')}
@@ -181,11 +183,11 @@ export default function MapPage({ mapData }) {
             </div>
           )}
 
-          <div className={styles.stat}>
+          {/* <div className={styles.stat}>
             <span className={styles.statIcon}>📍</span>
             <span className={styles.statValue}>{mapData.data ? formatNumber(mapData.data.length, 3) : <FaInfinity />}</span>
             <span className={styles.statLabel}>Locations</span>
-          </div>
+          </div> */}
           {typeof mapData.hearts !== "undefined" && (
             <div className={styles.stat}>
               <span className={styles.statIcon}>❤️</span>
