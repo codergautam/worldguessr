@@ -261,7 +261,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
         </h1>
 
         <div className="mapViewRight">
-          {!makeMap.open && session?.token?.secret && (
+          {false&& !makeMap.open && session?.token?.secret && (
             <button
               onClick={() => {
                 if(makeMap.edit) {
