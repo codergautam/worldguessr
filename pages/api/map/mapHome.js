@@ -55,7 +55,8 @@ export default async function handler(req, res) {
   if(user?.staff) {
     // reviewQueue
     console.time('findReviewQueue');
-    let queueMaps = await Map.find({ in_review: true });
+    // let queueMaps = await Map.find({ in_review: true });
+    let queueMaps = [];
     console.timeEnd('findReviewQueue');
 
     console.time('findReviewQueueOwner');
