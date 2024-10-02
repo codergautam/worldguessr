@@ -123,7 +123,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
         try {
           json = await res.json();
         } catch (e) {
-          toast.error("Unexpected Error - 1 (This can happen if your map file is too big, please contact us for a manual upload)");
+          toast.error("Max file limit 4mb");
           setMakeMap({ ...makeMap, progress: false });
           return;
         }

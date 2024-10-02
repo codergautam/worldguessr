@@ -207,30 +207,30 @@ registerHandler('/setmaintenance/'+maintenanceSecret+'/false', 'GET', (req,res,q
 }
 
 
-registerHandler('/memdump', 'GET', (req, res, query) => {
-  const filename = writeHeapSnapshot();
+// registerHandler('/memdump', 'GET', (req, res, query) => {
+//   const filename = writeHeapSnapshot();
 
-console.log('a memdump requested')
-  // Ensure cleanup in case of request abortion
-  // res.onAborted(() => {
-  //   fs.unlinkSync(filename); // Clean up the file if the client aborts the connection
-  // });
+// console.log('a memdump requested')
+//   // Ensure cleanup in case of request abortion
+//   // res.onAborted(() => {
+//   //   fs.unlinkSync(filename); // Clean up the file if the client aborts the connection
+//   // });
 
-  try {
-    // Read the file into memory - be cautious with large files
-    readFileAsync(filename).then((data) => {
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', 'attachment; filename=memdump.heapsnapshot');
-      res.end(data);
+//   try {
+//     // Read the file into memory - be cautious with large files
+//     readFileAsync(filename).then((data) => {
+//       res.setHeader('Content-Type', 'application/octet-stream');
+//       res.setHeader('Content-Disposition', 'attachment; filename=memdump.heapsnapshot');
+//       res.end(data);
 
-      // Clean up the file after sending
-      unlinkSync(filename);
-    });
-  } catch (error) {
-    unlinkSync(filename);
-    res.end("e")
-  }
-});
+//       // Clean up the file after sending
+//       unlinkSync(filename);
+//     });
+//   } catch (error) {
+//     unlinkSync(filename);
+//     res.end("e")
+//   }
+// });
 let allLocations = [];
 let clueLocations = [];
 const locationCnt = 2000;

@@ -540,6 +540,7 @@ setShowCountryButtons(false)
 
   }, [multiplayerState?.joinOptions?.error]);
 
+
   function handleMultiplayerAction(action, ...args) {
     if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
 
@@ -1053,11 +1054,23 @@ setShowCountryButtons(false)
     // ws on disconnect
     ws.onclose = () => {
       setWs(null)
+      console.log("ws closed")
       sendEvent("multiplayer_disconnect")
 
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
-        error: prev.error ?? text("connectionLost")
+        error: text("connectionLost")
+      }));
+    }
+
+    ws.onerror = () => {
+      setWs(null)
+      console.log("ws error")
+      sendEvent("multiplayer_disconnect")
+
+      setMultiplayerState((prev) => ({
+        ...initialMultiplayerState,
+        error: text("connectionLost")
       }));
     }
 
