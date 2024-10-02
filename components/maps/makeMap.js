@@ -90,7 +90,6 @@ export default function MakeMapForm({ map, setMap, createMap }) {
         <li>Add at least {mapConst.MIN_LOCATIONS} locations</li>
         <li>You can make 1 map an hour</li>
         <li>Keep all details in English (no NSFW)</li>
-        <li>All maps will be reviewed before being published</li>
         {/*  no bullet */}
         <li style={{marginTop: '10px',fontSize: '1.4em', listStyleType: 'none'}}
         >Need help? <a style={{color: 'cyan'}} href="https://discord.gg/ubdJHjKtrC" target="_blank" rel="noreferrer">Join our Discord</a></li>

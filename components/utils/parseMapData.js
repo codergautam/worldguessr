@@ -86,6 +86,7 @@ export default function parseMapData(obj) {
     let data = {};
 
     // fix misspelled keys
+    try {
     for(const key of misspelled) {
       for(const k of key) {
         if(loc[k] !== undefined) {
@@ -94,6 +95,11 @@ export default function parseMapData(obj) {
         }
       }
     }
+  } catch(e) {
+    // probably an invalid url
+    // send back feedback
+    return;
+  }
 
     // only keep the keys we want
     for(const key of params) {

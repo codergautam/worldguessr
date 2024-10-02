@@ -85,7 +85,24 @@ export default async function handler(req, res) {
   // owned maps
   // find maps made by user
   if(user) {
-    let myMaps = await Map.find({ created_by: user._id.toString() });
+    // created_at, slug, name, hearts,plays, description_short, map_creator_name, _id, in_review, official, accepted, reject_reason, resubmittable, locationsCnt
+    console.time('findMyMaps');
+    let myMaps = await Map.find({ created_by: user._id.toString() }).select({
+      created_at: 1,
+      slug: 1,
+      name: 1,
+      hearts: 1,
+      plays: 1,
+      description_short: 1,
+      map_creator_name: 1,
+      in_review: 1,
+      official: 1,
+      accepted: 1,
+      reject_reason: 1,
+      resubmittable: 1,
+      // count # of data to get locations
+      locationsCnt:  { $size: "$data" }
+    }).lean();
     myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps?hearted_maps.has(map._id.toString()):false, user.staff, true));
     myMaps.sort((a,b) => a.created_at - b.created_at);
     if(myMaps.length > 0) response.myMaps = myMaps;

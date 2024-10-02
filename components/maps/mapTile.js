@@ -178,8 +178,39 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
             )}
             {showEditControls && map.yours && (
               <button className="map-tile__edit" onClick={(e) => {
+                // need to retrieve the map data
                 e.stopPropagation()
-                onPencilClick(map)
+                fetch(`/api/map/action`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    secret,
+                    action: 'get',
+                    mapId: map.id
+                  })
+                }).then(res => {
+                  res.json().then(data => {
+                    if(res.ok) {
+                      const fullMap = data.map;
+
+                      onPencilClick({
+                        ...map,
+                        data: fullMap.data,
+                        description_long: fullMap.description_long
+                      });
+                    } else {
+                      toast.error(data.message);
+                    }
+                  }).catch(err => {
+                    console.error(err);
+                    toast.error("An error occurred while trying to retrieve the map data. Please try again later.");
+                  });
+                }).catch(err => {
+                  console.error(err);
+                  toast.error("An error occurred while trying to retrieve the map data. Please try again later.");
+                });
               }}>
                 <FaPencil color="white" size={10} />
               </button>

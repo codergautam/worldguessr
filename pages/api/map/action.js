@@ -140,8 +140,10 @@ export default async function handler(req, res) {
       description_short,
       description_long,
       maxDist: validation.maxDist,
-      in_review: user.instant_accept_maps ? false : true,
-      accepted: user.instant_accept_maps ? true : false,
+      // in_review: user.instant_accept_maps ? false : true,
+      // accepted: user.instant_accept_maps ? true : false,
+      in_review: false,
+      accepted: true,
       map_creator_name: user.username
     });
 
@@ -172,15 +174,30 @@ export default async function handler(req, res) {
     map.data = validation.locationsData;
     map.description_short = description_short;
     map.description_long = description_long;
-    map.in_review= user.instant_accept_maps ? false : true;
+    // map.in_review= user.instant_accept_maps ? false : true;
     map.reject_reason = "";
-    map.accepted = !map.in_review;
+    // map.accepted = !map.in_review;
 
     map.maxDist = validation.maxDist;
 
     await map.save();
 
     return res.status(200).json({ message: 'Map edited', map });
+  } else if(action === 'get') {
+    if(!mapId) {
+      return res.status(400).json({ message: 'Missing mapId' });
+    }
+
+
+    const map = await Map.findById(mapId);
+
+    // make sure staff or owner
+    if(!map || (!user.staff && map.created_by.toString() !== user._id.toString())) {
+      return res.status(404).json({ message: 'Map not found' });
+    }
+
+    return res.status(200).json({ map });
+    
   }
 
   return res.status(400).json({ message: 'Invalid action' });
@@ -189,7 +206,7 @@ export default async function handler(req, res) {
 export const config = {
   api: {
       bodyParser: {
-          sizeLimit: '4mb' 
+          sizeLimit: '4mb'
       }
   }
 }
