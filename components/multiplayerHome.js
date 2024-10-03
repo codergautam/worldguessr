@@ -16,7 +16,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultip
   return (
     <div className="multiplayerHome">
         <BannerText text={multiplayerState.error} shown={multiplayerState.error} hideCompass={true} />
-        <BannerText text={text("connecting")+JSON.stringify(multiplayerState)} shown={multiplayerState.connecting && !multiplayerState?.error} />
+        <BannerText text={text("connectionLost")} shown={multiplayerState.connecting && !multiplayerState?.error} />
 
        { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && multiplayerState.enteringGameCode && !multiplayerState.creatingGame && (
       <div style={{ pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center' }}>

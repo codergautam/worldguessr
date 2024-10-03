@@ -30,9 +30,6 @@ const loader = new Loader({
         const latO = latLng.lat();
         const longO = latLng.lng();
         findCountry({ lat, lon: long }).then((country) => {
-          if(country === "Unknown") {
-            resolve(null);
-          } else {
 
             // prevent trekkers v1
             // usually trekkers dont have location.description
@@ -45,9 +42,12 @@ const loader = new Loader({
             }
 
         resolve({ lat: latO, long: longO, country });
-          }
+        }).catch((e) => {
+          console.log("Failed to get country", e);
+          resolve({ lat: latO, long: longO, country: "Unknown" });
         });
       } else {
+        console.log("Failed to get panorama", status, data);
         resolve(null);
       }
     });

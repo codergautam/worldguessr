@@ -362,45 +362,52 @@ export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDi
     }
 
     if(gameOptions.location === 'all' && pinPoint) {
+
+      function afterGuess(country) {
+        setLostCountryStreak(0);
+        if(country === latLong.country) {
+          setCountryStreak(countryStreak + 1);
+          setShowStreakAdBanner(false);
+        } else if(country !== "Unknown") {
+          setCountryStreak(0);
+          setLostCountryStreak(countryStreak);
+
+          if(countryStreak > 0 && window.adBreak && !inCrazyGames) {
+          console.log("requesting reward ad")
+          window.adBreak({
+            type: 'reward',  // rewarded ad
+            name: 'reward-continue',
+            beforeReward: (showAdFn) => {
+              window.showRewardedAdFn = () => { showAdFn();
+                sendEvent('reward_ad_play', { countryStreak });
+                };
+              // Rewarded ad available - prompt user for a rewarded ad
+              setShowStreakAdBanner(true);
+              sendEvent('reward_ad_available', { countryStreak });
+              console.log("reward ad available")
+            },
+            beforeAd: () => { },     // You may also want to mute the game's sound.
+            adDismissed: () => {
+              toast.error(text("adDismissed"));
+              sendEvent('reward_ad_dismissed', { countryStreak });
+            },
+            adViewed: () => {
+              setCountryStreak(countryStreak);
+              setLostCountryStreak(0);
+              toast.success(text("streakRestored"));
+              sendEvent('reward_ad_viewed', { countryStreak });
+            },       // Reward granted - continue game at current score.
+            afterAd: () => { setShowStreakAdBanner(false) },       // Resume the game flow.
+          });
+        }
+        }
+      }
     findCountry({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
+      afterGuess(country)
 
-      setLostCountryStreak(0);
-      if(country === latLong.country) {
-        setCountryStreak(countryStreak + 1);
-        setShowStreakAdBanner(false);
-      } else {
-        setCountryStreak(0);
-        setLostCountryStreak(countryStreak);
-
-        if(countryStreak > 0 && window.adBreak && !inCrazyGames) {
-        console.log("requesting reward ad")
-        window.adBreak({
-          type: 'reward',  // rewarded ad
-          name: 'reward-continue',
-          beforeReward: (showAdFn) => {
-            window.showRewardedAdFn = () => { showAdFn();
-              sendEvent('reward_ad_play', { countryStreak });
-              };
-            // Rewarded ad available - prompt user for a rewarded ad
-            setShowStreakAdBanner(true);
-            sendEvent('reward_ad_available', { countryStreak });
-            console.log("reward ad available")
-          },
-          beforeAd: () => { },     // You may also want to mute the game's sound.
-          adDismissed: () => {
-            toast.error(text("adDismissed"));
-            sendEvent('reward_ad_dismissed', { countryStreak });
-          },
-          adViewed: () => {
-            setCountryStreak(countryStreak);
-            setLostCountryStreak(0);
-            toast.success(text("streakRestored"));
-            sendEvent('reward_ad_viewed', { countryStreak });
-          },       // Reward granted - continue game at current score.
-          afterAd: () => { setShowStreakAdBanner(false) },       // Resume the game flow.
-        });
-      }
-      }
+    }).catch((e) => {
+      console.error(e);
+      afterGuess("Unknown")
     });
     }
   }

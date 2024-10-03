@@ -114,7 +114,6 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         extent: transformExtent([-180, -85, 180, 85], 'EPSG:4326', 'EPSG:3857'),
       }),
     });
-    console.log("initializing map", setPinPoint, multiplayerState?.gameData?.state, multiplayerState?.inGame, ws, gameOptions?.extent);
 
     var duration = 400;
     initialMap.addControl(new Zoom({
