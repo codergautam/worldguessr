@@ -48,6 +48,8 @@ import { fromLonLat, transformExtent } from "ol/proj";
 import { boundingExtent } from "ol/extent";
 
 import countries from "@/public/countries.json";
+import officialCountryMaps from "@/public/officialCountryMaps.json";
+
 import fixBranding from "@/components/utils/fixBranding";
 import PrivacyPolicyLink from "@/components/privacyPolicyLink";
 import gameStorage from "@/components/utils/localStorage";
@@ -268,6 +270,10 @@ setShowCountryButtons(false)
 }
   function openMap(mapSlug) {
     const country = countries.find((c) => c === mapSlug.toUpperCase());
+    let officialCountryMap = null;
+    if(country) {
+    officialCountryMap = officialCountryMaps.find((c) => c.countryCode === mapSlug);
+    }
     setAllLocsArray([])
 
     if(!country && mapSlug !== gameOptions.location) {
@@ -287,7 +293,7 @@ setShowCountryButtons(false)
       official: country ? true : false,
       countryMap: country,
       maxDist: country ? countryMaxDists[country] : 20000,
-      extent: null
+      extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
     }))
   }
 
