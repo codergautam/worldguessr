@@ -28,7 +28,7 @@ export default function Navbar({ maintenance, inCrazyGames, inGame, openAccountM
       <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
 
       <button className="gameBtn navBtn backBtn desktop" onClick={backBtnPressed}>{text("back")}</button>
-      <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed} style={{width: "50px"}}><FaArrowLeft /></button>
+      <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed}><FaArrowLeft /></button>
       </div>
       {reloadBtn && (
       <button className="gameBtn navBtn backBtn" style={{backgroundColor: '#000099'}} onClick={reloadBtnPressed}><FaArrowRotateRight /></button>

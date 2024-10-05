@@ -288,6 +288,7 @@ button {
   font-size: 1.5em;
   width: auto;
   pointer-events: all;
+
 }
 @media screen and (max-width: 600px) {
   .navBtn {
@@ -300,6 +301,7 @@ button {
   // width: 100px;
 
   margin-left: 10px;
+
   pointer-events: all;
 }
 .backBtn:hover {
@@ -2203,6 +2205,11 @@ div[dir="ltr"] {
   height: 60px;
   right: 10px;
   animation: bounce 0.5s;
+  z-index: 1000;
+  width: fit-content;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 @keyframes bounce {
