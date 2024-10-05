@@ -3,7 +3,7 @@ import HeadContent from "@/components/headContent";
 import { Jockey_One, Roboto } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
 import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
-import { FaBook, FaGear, FaMap, FaNewspaper, FaRankingStar, FaYoutube } from "react-icons/fa6";
+import { FaBook, FaGear, FaMap, FaNewspaper, FaRankingStar, FaShirt, FaYoutube } from "react-icons/fa6";
 import { signIn, signOut, useSession } from "next-auth/react";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState, useRef } from "react";
@@ -54,6 +54,7 @@ import fixBranding from "@/components/utils/fixBranding";
 import PrivacyPolicyLink from "@/components/privacyPolicyLink";
 import gameStorage from "@/components/utils/localStorage";
 import DiscordModal from "@/components/discordModal";
+import MerchModal from "@/components/merchModal";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -103,6 +104,7 @@ export default function Home({ locale }) {
   const [settingsModal, setSettingsModal] = useState(false)
   const [mapModal, setMapModal] = useState(false)
   const [friendsModal, setFriendsModal] = useState(false)
+  const [merchModal, setMerchModal] = useState(false)
   const [timeOffset, setTimeOffset] = useState(0)
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
@@ -1511,6 +1513,7 @@ setShowCountryButtons(false)
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
       <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
+      <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} />
 
       {ChatboxMemo}
     <ToastContainer/>
@@ -1524,8 +1527,7 @@ setShowCountryButtons(false)
   </div>
 </div>
 
-
-{screen === "home" && !mapModal && (
+{screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && (
         <div className="home__footer">
           <div className="footer_btns">
         { !isApp && (
@@ -1603,9 +1605,15 @@ setShowCountryButtons(false)
 
         <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
 
-
+{/* merch button */}
+{screen === "home" && !mapModal && session && session?.token?.secret && (
+  <button className="gameBtn merchBtn" onClick={()=>{setMerchModal(true)}}>
+  <FaShirt size={60}/>
+   </button>
+)}
 
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
+
 
         { onboardingCompleted===null ? (
           <>

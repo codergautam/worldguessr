@@ -2196,3 +2196,24 @@ div[dir="ltr"] {
 .mobile_minimap__btns {
   z-index: 10000;
 }
+.merchBtn {
+  position: fixed;
+  top: 50px;
+  width: 70px;
+  height: 60px;
+  right: 10px;
+  animation: bounce 0.5s;
+}
+
+@keyframes bounce {
+  0% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.1;
+  }
+  100% {
+    scale: 1;
+  }
+
+}
