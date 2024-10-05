@@ -51,22 +51,6 @@ export default function MerchModal({ shown, onClose }) {
       }}>
          Let's Go!
       </button>
-      &nbsp;
-      &nbsp;
-      <button className="toggleMap" style={{
-          fontSize: '16px',
-          fontWeight: 'bold',
-          color: 'white',
-          background: 'gray',
-          border: 'none',
-          borderRadius: '5px',
-          padding: '10px 20px',
-          cursor: 'pointer'
-      }} onClick={() => {
-          onClose();
-      }}>
-          Not Now
-      </button>
 </center>
 
       </    Modal>
