@@ -1,8 +1,23 @@
 import Head from "next/head";
 import Script from "next/script";
+import { useEffect } from "react";
 // import { useTranslation } from "react-i18next";
 
 export default function HeadContent({text}) {
+  useEffect(() => {
+    if (!window.location.search.includes("crazygames")) {
+      const script = document.createElement('script');
+      script.src = "https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js";
+      script.async = true;
+      document.body.appendChild(script);
+
+      return () => {
+        document.body.removeChild(script);
+      };
+    } else {
+      console.log("CrazyGames detected");
+    }
+  }, []);
 
   return (
           <Head>
@@ -44,7 +59,6 @@ export default function HeadContent({text}) {
     <meta property="og:image" content="/icon_144x144.png" />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />
-	  <script async src="https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js"></script>
 </Head>
   )
 }

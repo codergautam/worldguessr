@@ -45,6 +45,11 @@ import { createServer } from 'http';
 import { createServer as createHttpsServer } from 'https';
 import { Filter } from 'bad-words';
 const filter = new Filter();
+filter.removeWords('damn')
+
+fs.readFileSync('public/Crazygames_profanity_filter.txt', 'utf8').split('\n').forEach((word) => {
+  filter.addWords(word);
+});
 
 function isValidTimezone(tz) {
   return !!moment.tz.zone(tz);
@@ -910,7 +915,7 @@ app.prepare().then(() => {
       }
       if (json.type === 'verify' && !player.verified) {
         // account verification
-        if(!json.jwt || json.jwt === 'not_logged_in') {
+        if((!json.jwt && !json.secret) || json.jwt === 'not_logged_in') {
 
           // guest mode
           player.username = 'Guest #' + make6DigitCode().toString().substring(0, 4);
@@ -927,7 +932,16 @@ app.prepare().then(() => {
           console.log('Guest joined', id, player.username);
 
         } else {
-        const valid = await validateJWT(json.jwt, User, decrypt);
+
+        let valid;
+        console.log('Verifying user', id, json);
+        if(json.jwt) {
+        valid =  await validateJWT(json.jwt, User, decrypt);
+        } else if(json.secret && json.username) {
+          valid = await User.findOne({username: json.username, secret: json.secret});
+          console.log('User verified by secret');
+
+        }
         if (valid) {
           // make sure the user is not already logged in (only on prod)
             for (const p of players.values()) {
@@ -1338,7 +1352,9 @@ app.prepare().then(() => {
     }
 
     if(json.type === 'sendFriendRequest') {
+      console.log('Friend request', player.accountId, player.username, json.name);
       if(!player.accountId) {
+        player.send({type:'friendReqState',state: 0})
         return;
       }
       if(!json.name || typeof json.name !== "string" || json.name.length < 3 || json.name.length > 30 || !/^[a-zA-Z0-9_]+$/.test(json.name)) {

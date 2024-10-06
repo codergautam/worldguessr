@@ -146,11 +146,20 @@ export default function Home({ locale }) {
             },
             body: JSON.stringify({ token, username: user.username })
           }).then((res) => res.json()).then((data) => {
+        console.log("crazygames auth", token, user, data)
             try {
             window.CrazyGames.SDK.game.loadingStop();
             } catch(e) {}
             if(data.secret && data.username) {
               setSession({ token: { secret: data.secret, username: data.username } })
+              // verify the ws
+              console.log("sending verify", ws)
+              setWs((prev) => {
+                if(prev) {
+                  prev.send(JSON.stringify({ type: "verify", secret: data.secret, username: data.username }))
+                }
+                return prev;
+              });
             } else {
               toast.error("CrazyGames auth failed")
             }
@@ -684,13 +693,19 @@ setShowCountryButtons(false)
       }))
 
 
+      if(!inCrazyGames && !window.location.search.includes("crazygames")) {
+
         fetch("/api/getJWT").then((res) => res.json()).then((data) => {
           const JWT = data.jwt;
           const tz = moment.tz.guess();
-          console.log("tz", tz)
+          console.log("tz", tz, data)
 
           ws.send(JSON.stringify({ type: "verify", jwt: JWT, tz}))
         });
+      } else {
+
+
+      }
       } else {
         alert("could not connect to server")
       }
@@ -1145,6 +1160,18 @@ setShowCountryButtons(false)
     }
   }
   function backBtnPressed(queueNextGame = false) {
+
+    if(window.inCrazyGames) {
+      try {
+    const callbacks = {
+      adFinished: () => console.log("End midgame ad"),
+      adError: (error) => console.log("Error midgame ad", error),
+      adStarted: () => console.log("Start midgame ad"),
+    };
+    window.CrazyGames.SDK.ad.requestAd("midgame", callbacks);
+  } catch(e) {}
+  }
+
     if (loading) setLoading(false);
 
     if(window.learnMode) {
@@ -1606,7 +1633,7 @@ setShowCountryButtons(false)
         <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
 
 {/* merch button */}
-{screen === "home" && !mapModal && session && session?.token?.secret && (
+{screen === "home" && !mapModal && session && session?.token?.secret && !inCrazyGames && (
   <button className="gameBtn merchBtn" onClick={()=>{setMerchModal(true)}}>
   <FaShirt size={60}/>
    </button>
@@ -1673,7 +1700,7 @@ setShowCountryButtons(false)
 
           <div style={{ marginTop: "20px" }}>
             <center>
-              { !loading && screen === "home"  && (
+              { !loading && screen === "home"  && !inCrazyGames && (
     <Ad inCrazyGames={inCrazyGames} screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} />
               )}
     </center>

@@ -1108,6 +1108,9 @@ screen and (pointer:coarse) {
 .react-chatbot-kit-chat-input-container {
   border-radius: 10px;
 }
+.react-chatbot-kit-chat-input {
+  font-size: 16px !important;
+}
 .react-chatbot-kit-user-chat-message,
 .react-chatbot-kit-chat-bot-message {
   // make it look like a chat bubble overflow on new linw wrap
@@ -1119,6 +1122,17 @@ screen and (pointer:coarse) {
 .react-chatbot-kit-chat-bot-message {
   margin-left: 0 !important;
 }
+
+@media screen and (max-height: 600px) {
+
+  .react-chatbot-kit-chat-message-container {
+    height: 244px !important;
+  }
+  .react-chatbot-kit-chat-inner-container {
+    height: 300px !important;
+  }
+}
+
 .authorName {
   color: blue;
 }
