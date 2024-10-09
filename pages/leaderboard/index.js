@@ -338,7 +338,7 @@ const Leaderboard = ({ }) => {
             </tbody>
           </table>
           <div id="buttons">
-            <button className="exit" onClick={() => window.location.replace('/')}>
+            <button className="exit" onClick={() => window.location.replace('/'+(inCrazyGames ? '?crazygames=true' : ''))}>
             {text("exit")}
             </button>
           </div>

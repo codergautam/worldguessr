@@ -1,7 +1,7 @@
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from 'next-i18next';
 
-export default function SettingsModal({ shown, onClose, options, setOptions }) {
+export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames }) {
     const { t: text } = useTranslation("common");
 
     const handleUnitsChange = (event) => {
@@ -55,10 +55,12 @@ export default function SettingsModal({ shown, onClose, options, setOptions }) {
             </div>
 
             {/* disableVideoAds checkbox */}
+            { !inCrazyGames && (
             <div style={{ marginTop: '20px' }}>
                 <input type="checkbox" id="disableVideoAds" checked={options.disableVideoAds} onChange={() => setOptions((prevOptions) => ({ ...prevOptions, disableVideoAds: !prevOptions.disableVideoAds }))} />
                 <label htmlFor="disableVideoAds" style={{ marginLeft: '10px' }}>{text("disableVideoAds")}</label>
             </div>
+            )}
 
         </Modal>
     );

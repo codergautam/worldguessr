@@ -695,6 +695,15 @@ class Player {
     this.ws.send(JSON.stringify(json));
   }
   setScreen(screen) {
+            // send toast if maintenance
+            if(restartQueued) {
+              this.send({
+                type: 'toast',
+                key: 'maintenanceModeStarted',
+                toastType: 'error'
+              });
+            }
+
     const validScreens = ["home", "singleplayer", "multiplayer"];
     if(validScreens.includes(screen)) {
       this.screen = screen;
@@ -1061,6 +1070,16 @@ app.prepare().then(() => {
 
       if (json.type === 'publicDuel' && !player.gameId) {
         console.log('Public duel requested', id, player.username);
+                // send toast if maintenance
+                if(restartQueued) {
+                  player.send({
+                    type: 'toast',
+                    key: 'maintenanceModeStarted',
+                    toastType: 'error'
+                  });
+                  return;
+                }
+
         player.inQueue = true;
         playersInQueue.add(player.id);
       }
@@ -1237,6 +1256,17 @@ app.prepare().then(() => {
 
       if(json.type === 'createPrivateGame' && !player.gameId) {
         console.log('Private game requested', id, player.username);
+
+        // send toast if maintenance
+        if(restartQueued) {
+          player.send({
+            type: 'toast',
+            key: 'maintenanceModeStarted',
+            toastType: 'error'
+          });
+          return;
+        }
+
         const gameId = makeId();
         // options
         let {rounds, timePerRound, locations, maxDist, location} = json;

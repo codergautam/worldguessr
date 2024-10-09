@@ -1159,18 +1159,25 @@ setShowCountryButtons(false)
       window.reloadLoc()
     }
   }
-  function backBtnPressed(queueNextGame = false) {
 
+  function crazyMidgame(adFinished = () => {}) {
     if(window.inCrazyGames) {
       try {
     const callbacks = {
-      adFinished: () => console.log("End midgame ad"),
-      adError: (error) => console.log("Error midgame ad", error),
+      adFinished: () => adFinished(),
+      adError: (error) => adFinished(),
       adStarted: () => console.log("Start midgame ad"),
     };
     window.CrazyGames.SDK.ad.requestAd("midgame", callbacks);
   } catch(e) {}
+  } else {
+    adFinished()
   }
+  }
+
+  function backBtnPressed(queueNextGame = false) {
+
+
 
     if (loading) setLoading(false);
 
@@ -1185,6 +1192,8 @@ setShowCountryButtons(false)
       setOnboarding(null)
       setOnboardingCompleted(true)
         gameStorage.setItem("onboarding", 'done')
+
+      crazyMidgame()
 
       return;
     }
@@ -1209,6 +1218,10 @@ setShowCountryButtons(false)
         }
       })
       setScreen("home")
+
+      if(["getready", "guess"].includes(multiplayerState?.gameData?.state)) {
+        crazyMidgame()
+      }
 
     } else if ((multiplayerState?.creatingGame || multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
 
@@ -1235,12 +1248,6 @@ setShowCountryButtons(false)
       });
       setScreen("home")
 
-    } else if(screen === "onboarding") {
-      setOnboarding(null)
-      setScreen("home")
-      console.log("onboarding is done")
-      gameStorage.setItem("onboarding", "done")
-      setOnboardingCompleted(true)
     } else {
       setScreen("home");
       setGameOptions((prev) => ({
@@ -1248,6 +1255,11 @@ setShowCountryButtons(false)
         extent: null
       }))
       clearLocation();
+
+      if(screen === "singleplayer") {
+        crazyMidgame()
+
+      }
     }
   }
 
@@ -1665,7 +1677,10 @@ setShowCountryButtons(false)
                 if (!loading) setScreen("singleplayer")
               }} /> */}
               <button className="homeBtn" onClick={() => {
-                if (!loading) setScreen("singleplayer")
+                if (!loading) {
+                  // setScreen("singleplayer")
+                  crazyMidgame(() => setScreen("singleplayer"))
+                }
               }} >{text("singleplayer")}</button>
         {/* <span className="bigSpan">{text("playOnline")}</span> */}
         <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
@@ -1724,7 +1739,7 @@ setShowCountryButtons(false)
             singleplayer={screen==="singleplayer"}
             gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
-        <SettingsModal options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
+        <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
 
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
           // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game
