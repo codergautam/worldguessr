@@ -198,8 +198,12 @@ export default function Home({ locale }) {
           })
 
 
+          window.CrazyGames.SDK.user.addAuthListener(crazyAuthListener);
 
-         })
+         }).catch((e) => {
+          console.error("crazygames sdk init failed", e)
+          setLoading(false)
+        })
       } catch(e) {}
     }
     initialMultiplayerState.createOptions.displayLocation = text("allCountries")
@@ -735,8 +739,11 @@ setShowCountryButtons(false)
           // check if joined via invite link
           try {
             let code = window.CrazyGames.SDK.game.getInviteParam("code")
+            let instantJoin = window.location.search.includes("instantJoin");
 
-            if(code) {
+
+
+            if(code || instantJoin) {
 
               if(typeof code === "string") {
                 try {
@@ -749,6 +756,7 @@ setShowCountryButtons(false)
             setOnboarding(null)
             setLoading(false)
             setScreen("home")
+            if(code) {
 
               // join private game
               handleMultiplayerAction("joinPrivateGame")
@@ -765,6 +773,10 @@ setShowCountryButtons(false)
               setTimeout(() => {
                 handleMultiplayerAction("joinPrivateGame", code)
               }, 1000)
+            } else {
+              // create private game
+              handleMultiplayerAction("createPrivateGame")
+            }
 
             }
 
