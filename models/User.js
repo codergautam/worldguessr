@@ -83,6 +83,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  supporter: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

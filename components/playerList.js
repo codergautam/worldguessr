@@ -56,13 +56,18 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
               <div className="multiplayerLeaderboard__player__username">
 
                 {player.username}
+                {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
                 {player.host && <span style={{color: "red"}}> ({text("host")})</span>}
 
               </div>
 
             ) : (
               <>
-            <div className="multiplayerLeaderboard__player__username">#{i + 1} - {player.username}</div>
+            <div className="multiplayerLeaderboard__player__username">#{i + 1} - {player.username}
+
+            {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
+
+            </div>
             <div className="multiplayerLeaderboard__player__score">{player.score}</div>
             </>
             )}

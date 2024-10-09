@@ -199,7 +199,9 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                           <div key={friend.id} className="friend-card">
                             <div className="friend-details">
                             <span className="friend-name">
-                              {friend?.name}</span>
+                              {friend?.name}
+                            {friend?.supporter && <span className="badge">{text("supporter")}</span>}
+                              </span>
 
                               {viewShown==='list'&&(
                                 <span className="friend-state">{friend?.online?text("online"):text("offline")}</span>

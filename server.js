@@ -393,6 +393,7 @@ class Game {
       id: player.id,
       score: 0,
       host: host && !this.public,
+      supporter: player.supporter,
       lastPong: Date.now() // Track the last pong received time
     };
     this.sendAllPlayers({
@@ -681,6 +682,7 @@ class Player {
     this.lastMessage = 0;
     this.lastPong = Date.now(); // Track the last pong received time
     this.verified = false;
+    this.supporter = false;
     this.screen = "home";
 
     this.friends = []; // { id (accountId), online, socketId (id), name }
@@ -956,6 +958,7 @@ app.prepare().then(() => {
               }
             }
           player.verified = true;
+          player.supporter = valid.supporter;
           player.username = valid.username;
           player.accountId = valid._id.toString();
           player.send({
@@ -1011,7 +1014,7 @@ app.prepare().then(() => {
             id = id.toString();
             const user = await User.findById(id);
             if(user && user.username) {
-              friendsWithNames.push({name: user.username, id});
+              friendsWithNames.push({name: user.username, id, supporter: user.supporter});
             }
           }
           player.friends = friendsWithNames;
@@ -1021,7 +1024,7 @@ app.prepare().then(() => {
             id = id.toString();
             const user = await User.findById(id);
             if(user && user.username) {
-              sentReqWithNames.push({name: user.username, id});
+              sentReqWithNames.push({name: user.username, id, supporter: user.supporter});
             }
           }
           player.sentReq = sentReqWithNames;
@@ -1031,7 +1034,7 @@ app.prepare().then(() => {
             id = id.toString();
             const user = await User.findById(id);
             if(user && user.username) {
-              receivedReqWithNames.push({name: user.username, id});
+              receivedReqWithNames.push({name: user.username, id, supporter: user.supporter});
             }
           }
           player.receivedReq = receivedReqWithNames;
@@ -1408,7 +1411,7 @@ app.prepare().then(() => {
       await User.updateOne({_id: friend._id}, {$push: {receivedReq: player.accountId}});
 
       // update player
-      player.sentReq.push({id: friend._id.toString(), name: friend.username});
+      player.sentReq.push({id: friend._id.toString(), name: friend.username, supporter: friend.supporter});
       player.sendFriendData();
       player.send({type:'friendReqState',state: 1})
 
@@ -1417,7 +1420,7 @@ app.prepare().then(() => {
       if(friendPlayer) {
         friendPlayer.send({type:'friendReq',id: player.accountId, name: player.username});
 
-        friendPlayer.receivedReq.push({id: player.accountId, name: player.username});
+        friendPlayer.receivedReq.push({id: player.accountId, name: player.username, supporter: player.supporter});
         friendPlayer.sendFriendData();
       }
 
@@ -1467,7 +1470,7 @@ app.prepare().then(() => {
         const exists = friendPlayer.sentReq.findIndex((f) => f.id === player.accountId);
         if(exists > -1) {
           friendPlayer.sentReq.splice(exists, 1);
-          friendPlayer.friends.push({id: player.accountId, name: player.username});
+          friendPlayer.friends.push({id: player.accountId, name: player.username.toString(), supporter: player.supporter});
           friendPlayer.sendFriendData();
           // friendPlayer.send({type:'newFriend', id: player.accountId, name: player.username});
           friendPlayer.send({type:'toast', key: 'newFriend', name: player.username, toastType: 'success'});

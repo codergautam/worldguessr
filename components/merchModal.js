@@ -1,7 +1,7 @@
 import {Modal} from "react-responsive-modal";
 import { useTranslation } from 'next-i18next'
 
-export default function MerchModal({ shown, onClose }) {
+export default function MerchModal({ shown, onClose, session }) {
     const { t: text } = useTranslation("common");
 
     return (
@@ -28,7 +28,7 @@ export default function MerchModal({ shown, onClose }) {
       }}>
          Get our <i>limited time</i> T-shirt for $15!
          <br/>
-         Also comes with a shiny <span style={{background: 'gold', color: 'black', padding: '3px', borderRadius: '10px'}}>supporter</span> badge in-game!
+         Also comes with a shiny <span className="badge">supporter</span> badge in-game!
         <br/>
         Free shipping within the United States, <a href="https://discord.gg/ubdJHjKtrC" target="_blank" style={{color:"cyan"}}>contact us</a> for international orders.
       </p>
@@ -36,6 +36,14 @@ export default function MerchModal({ shown, onClose }) {
       <img src="/merch.png" style={{width: '100%', maxWidth: '400px', margin: '20px 0'}} />
 
 <br/>
+
+{ session && session.token && session.token.supporter ? <p style={{
+          fontSize: '16px',
+          marginBottom: '10px',
+          color: 'white',
+      }}>
+         You are already a supporter!
+      </p> : (
 <button className="toggleMap" style={{
           fontSize: '16px',
           fontWeight: 'bold',
@@ -51,6 +59,7 @@ export default function MerchModal({ shown, onClose }) {
       }}>
          Let's Go!
       </button>
+      )}
 </center>
 
       </    Modal>

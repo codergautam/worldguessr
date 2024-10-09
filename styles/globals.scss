@@ -2238,3 +2238,21 @@ div[dir="ltr"] {
   }
 
 }
+
+.badge {
+  // style={{background: 'gold', color: 'black', padding: '3px', borderRadius: '10px'}}
+  background: gold;
+  padding: 3px;
+  border-radius: 10px;
+  margin-left: 5px;
+  color: black;
+  font-size: 0.8em;
+
+}
+
+.supporterBtn {
+  background: gold;
+}
+.supporterBtn:hover {
+  background: #d4af37;
+}

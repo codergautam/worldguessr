@@ -38,9 +38,9 @@ export default NextAuth.default({
       if(email) {
         const userDb = await User.findOne({
           email,
-        });
+        }).select("secret username email staff canMakeClues supporter");
         if (userDb) {
-          output = { secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues };
+          output = { secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter };
         }
       }
       return output;

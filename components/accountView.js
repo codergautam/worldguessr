@@ -1,7 +1,7 @@
 import msToTime from "./msToTime";
 import { useTranslation } from 'next-i18next'
 
-export default function AccountView({ accountData }) {
+export default function AccountView({ accountData, supporter }) {
   const { t: text } = useTranslation("common");
 
   const containerStyle = {
@@ -39,6 +39,7 @@ export default function AccountView({ accountData }) {
       <span style={titleStyle}>
         <i className="fas fa-user" style={iconStyle}></i>
         {accountData.username}
+        {supporter && <span className="badge" style={{marginLeft: '10px', color: 'black', fontSize: '0.8rem'}}>{text("supporter")}</span>}
       </span>
       <p style={textStyle}>
         <i className="fas fa-clock" style={iconStyle}></i>

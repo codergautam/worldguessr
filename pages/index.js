@@ -1540,7 +1540,7 @@ setShowCountryButtons(false)
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
       <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
-      <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} />
+      <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} />
 
       {ChatboxMemo}
     <ToastContainer/>
