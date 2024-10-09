@@ -101,7 +101,7 @@ export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDi
       } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
     }
 
-    if(window.show_videoad) {
+    if(window.show_videoad && !session?.token?.supporter) {
       window.show_videoad((state) =>{
         if(!['DISABLED', 'COOLDOWN'].includes(state)) {
       toast.info(text("watchingAdsSupport"))
@@ -435,7 +435,7 @@ export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDi
   return (
     <div className="gameUI">
 
-{ !onboarding && !inCrazyGames && (
+{ !onboarding && !inCrazyGames && (!session?.token?.supporter) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
     <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[320, 50],[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>

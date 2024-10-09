@@ -20,17 +20,15 @@ export default function MerchModal({ shown, onClose, session }) {
           marginBottom: '20px',
           fontSize: '24px',
           fontWeight: 'bold',
-      }}>Support WorldGuessr by buying merch!</h1>
+      }}>Help us keep WorldGuessr free!</h1>
       <p style={{
           fontSize: '16px',
           marginBottom: '10px',
           color: 'white',
       }}>
-         Get our <i>limited time</i> T-shirt for $15!
+         Get our <i>limited time</i> T-shirt for $20 and remove all ads!
          <br/>
          Also comes with a shiny <span className="badge">supporter</span> badge in-game!
-        <br/>
-        Free shipping within the United States, <a href="https://discord.gg/ubdJHjKtrC" target="_blank" style={{color:"cyan"}}>contact us</a> for international orders.
       </p>
 
       <img src="/merch.png" style={{width: '100%', maxWidth: '400px', margin: '20px 0'}} />
@@ -55,7 +53,7 @@ export default function MerchModal({ shown, onClose, session }) {
           cursor: 'pointer'
       }} onClick={() => {
         // open https://tshirt.worldguessr.com
-        window.open("https://tshirt.worldguessr.com", "_blank");
+        window.open("https://ko-fi.com/s/d3adc78497", "_blank");
       }}>
          Let's Go!
       </button>

@@ -12,12 +12,11 @@ import LineString from 'ol/geom/LineString';
 import { Icon, Style, Stroke, Fill, Text } from 'ol/style';
 import { fromLonLat, get, toLonLat, transformExtent } from 'ol/proj';
 import { getDistance } from 'ol/sphere';
-import ol, { DoubleClickZoom, KeyboardZoom, MouseWheelZoom } from 'ol/interaction';
+import { DoubleClickZoom, KeyboardZoom, MouseWheelZoom } from 'ol/interaction';
 import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
 import { useTranslation } from 'react-i18next';
 import sendEvent from './utils/sendEvent';
-import { boundingExtent } from 'ol/extent';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
 const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, currentId, round, gameOptions, focused, extent }) => {
@@ -358,37 +357,6 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
       });
 
       map.addLayer(lineLayer);
-
-
-
-
-      // if (playingMultiplayer) {
-      //   // Add other players' guesses
-      //   multiplayerGameData.players.forEach((player) => {
-      //     if (player.g.findIndex((g) => g.r === round) !== -1) {
-      //       const playerGuess = player.g.find((g) => g.r === round);
-      //       if (playerGuess.lat === pinPoint.lat && playerGuess.long === pinPoint.lng) return;
-      //       const playerFeature = new Feature({
-      //         geometry: new Point(fromLonLat([playerGuess.long, playerGuess.lat])),
-      //       });
-      //       const playerLayer = new VectorLayer({
-      //         source: new VectorSource({
-      //           features: [playerFeature]
-      //         }),
-      //         style: new Style({
-      //           image: new Icon({
-      //             anchor: [0.5, 1],
-      //             anchorXUnits: 'fraction',
-      //             anchorYUnits: 'fraction',
-      //             scale: 0.45,
-      //             src: '/src2.png'
-      //           })
-      //         })
-      //       });
-      //       map.addLayer(playerLayer);
-      //     }
-      //   });
-      // }
 
       if(multiplayerState?.inGame) {
         // Add other players' guesses
