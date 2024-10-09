@@ -53,7 +53,7 @@ export default function MerchModal({ shown, onClose, session }) {
           cursor: 'pointer'
       }} onClick={() => {
         // open https://tshirt.worldguessr.com
-        window.open("https://ko-fi.com/s/d3adc78497", "_blank");
+        window.open("https://tshirt.worldguessr.com", "_blank");
       }}>
          Let's Go!
       </button>

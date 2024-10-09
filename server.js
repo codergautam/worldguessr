@@ -368,7 +368,7 @@ class Game {
     this.players = {};
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
-    this.timePerRound = 120000;
+    this.timePerRound = 60000;
     this.waitBetweenRounds = 10000;
     this.maxDist = 20000;
     this.startTime = null;
@@ -1592,7 +1592,7 @@ setInterval(() => {
 setInterval(() => {
 
 
-  const minRoundsRemaining = 2;
+  const minRoundsRemaining = 3;
   for (const game of games.values()) {
 
     const playerCnt = Object.keys(game.players).length;
