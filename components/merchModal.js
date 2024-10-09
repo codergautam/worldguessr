@@ -20,7 +20,7 @@ export default function MerchModal({ shown, onClose, session }) {
           marginBottom: '20px',
           fontSize: '24px',
           fontWeight: 'bold',
-      }}>Help us keep WorldGuessr free!</h1>
+      }}>Play WorldGuessr ad-free!</h1>
       <p style={{
           fontSize: '16px',
           marginBottom: '10px',

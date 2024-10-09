@@ -2,7 +2,7 @@ import HeadContent from "@/components/headContent";
 // import CesiumWrapper from "../components/cesium/CesiumWrapper";
 import { Jockey_One, Roboto } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
-import { FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
+import { FaAd, FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
 import { FaBook, FaGear, FaMap, FaNewspaper, FaRankingStar, FaShirt, FaYoutube } from "react-icons/fa6";
 import { signIn, signOut, useSession } from "next-auth/react";
 import 'react-responsive-modal/styles.css';
@@ -1645,11 +1645,12 @@ setShowCountryButtons(false)
         <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
 
 {/* merch button */}
-{screen === "home" && !mapModal && session && session?.token?.secret && !inCrazyGames && (
+{screen === "home" && !mapModal && session && session?.token?.secret && !inCrazyGames &&  !session?.token?.supporter && (
   <button className="gameBtn merchBtn" onClick={()=>{setMerchModal(true)}}>
-  <FaShirt size={60}/>
-   </button>
+    Remove Ads
+  </button>
 )}
+
 
         <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
 

@@ -2216,7 +2216,7 @@ div[dir="ltr"] {
   position: fixed;
   top: 50px;
   width: 70px;
-  height: 60px;
+  height: 50px;
   right: 10px;
   animation: bounce 0.5s;
   z-index: 1000;
@@ -2224,6 +2224,10 @@ div[dir="ltr"] {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1.5em;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  background-color: rgb(132, 125, 84);
 }
 
 @keyframes bounce {
