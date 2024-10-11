@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     const resp = await axios.get("https://sdk.crazygames.com/publicKey.json");
     const publicKey = resp.data["publicKey"];
     decodedToken = jwt.verify(token, publicKey, { algorithms: ["RS256"] });
+    console.log(decodedToken);
   } catch (error) {
     return res.status(400).json({ error: 'Invalid token' });
   }

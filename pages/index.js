@@ -174,6 +174,12 @@ export default function Home({ locale }) {
       }
     }
 
+    function finish() {
+      const onboardingCompletedd = gameStorage.getItem("onboarding");
+      console.log("onboarding", onboardingCompletedd)
+      if(onboardingCompletedd !== "done") startOnboarding();
+      else setOnboardingCompleted(true)
+    }
     if(window.location.search.includes("crazygames")) {
       setInCrazyGames(true);
       window.inCrazyGames = true;
@@ -191,16 +197,14 @@ export default function Home({ locale }) {
 
           crazyAuthListener().then(() => {
             // check if onboarding is done
-            const onboardingCompletedd = gameStorage.getItem("onboarding");
-            console.log("onboarding", onboardingCompletedd)
-            if(onboardingCompletedd !== "done") startOnboarding();
-            else setOnboardingCompleted(true)
+            finish()
           })
 
 
           window.CrazyGames.SDK.user.addAuthListener(crazyAuthListener);
 
          }).catch((e) => {
+          finish()
           console.error("crazygames sdk init failed", e)
           setLoading(false)
         })
@@ -1173,7 +1177,7 @@ setShowCountryButtons(false)
   }
 
   function crazyMidgame(adFinished = () => {}) {
-    if(window.inCrazyGames) {
+    if(window.inCrazyGames && window.CrazyGames.SDK.environment !== "disabled") {
       try {
     const callbacks = {
       adFinished: () => adFinished(),

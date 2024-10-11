@@ -670,6 +670,11 @@ h1, h2, h3, span {
 }
 #miniMapArea.answerShown .ol-zoom {
   display: none;
+
+}
+
+#miniMapArea.answerShown .leaflet-control-zoom {
+  display: none;
 }
 
 .mapCornerBtns {
@@ -1578,11 +1583,19 @@ screen and (pointer:coarse) {
 }
 .mapAttr {
   position: absolute;
-  z-index: 100;
+  z-index: 1000;
   bottom: -10px;
   left: 5px;
   pointer-events: none;
   user-select: none;
+}
+
+.leaflet-control-attribution {
+  display: none;
+}
+.leaflet-control-zoom-in span,
+.leaflet-control-zoom-out span {
+  color: black !important;
 }
 .react-responsive-modal-closeButton {
   background-color: white !important;
@@ -2259,4 +2272,9 @@ div[dir="ltr"] {
 }
 .supporterBtn:hover {
   background: #d4af37;
+}
+.leaflet-zoom-anim
+.leaflet-zoom-animated {
+  transition-timing-function: linear;
+  transition-duration: 100ms;
 }
