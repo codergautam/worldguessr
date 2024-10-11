@@ -2,7 +2,7 @@
 import React from "react";
 import { useRouter } from "next/router";
 import MapView from "@/components/maps/mapView";
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 
 export default function MapsPage({  }) {
     const router = useRouter();
@@ -57,18 +57,5 @@ const styles = {
 };
 
 
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import { useSession } from "next-auth/react";
 import Head from "next/head";
-
-
-export async function getStaticProps({ locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, [
-        'common',
-      ])),
-      // Will be passed to the page component as props
-    },
-  }
-}

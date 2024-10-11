@@ -4,7 +4,6 @@ import { SessionProvider } from "next-auth/react";
 
 import { GoogleAnalytics } from "nextjs-google-analytics";
 import { useEffect } from "react";
-import { appWithTranslation } from 'next-i18next'
 
 import '@smastrom/react-rating/style.css'
 
@@ -22,4 +21,4 @@ function App({ Component, pageProps }) {
   );
 }
 
-export default appWithTranslation(App);
+export default App;

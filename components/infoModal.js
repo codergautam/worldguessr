@@ -1,5 +1,5 @@
 import {Modal} from "react-responsive-modal";
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 
 export default function InfoModal({ shown, onClose }) {
     const { t: text } = useTranslation("common");

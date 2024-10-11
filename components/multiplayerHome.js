@@ -3,7 +3,7 @@ import BannerText from "./bannerText"
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa"
 import enforceMinMax from "./utils/enforceMinMax"
 import PlayerList from "./playerList";
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "./utils/sendEvent";
 import MapsModal from "./maps/mapsModal";
 

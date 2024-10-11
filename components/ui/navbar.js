@@ -2,7 +2,7 @@ import { FaArrowLeft, FaUser, FaUserFriends } from "react-icons/fa";
 import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
 import { FaArrowRotateRight } from "react-icons/fa6";
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 

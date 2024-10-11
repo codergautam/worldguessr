@@ -64,7 +64,7 @@ React.useEffect(() => {
             >(Beta)</span></h2>
 
             <p className="home__subtitle" style={{fontSize: '1.5em', color: 'white', textShadow: 'none'}}>
-             Inspired by a Reddit post - Improve your Geoguessr skills by guessing & learning with community explanations of strategies you could've used to pinpoint each location.
+             Inspired by a Reddit post - Improve your Geoguessr skills by guessing & learning with community explanations of strategies you could&apos;ve used to pinpoint each location.
             </p>
 
             <p className="home__subtitle" style={{fontSize: '1.5em', color: 'white', textShadow: 'none'}}>

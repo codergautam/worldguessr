@@ -1,5 +1,5 @@
 import { Modal } from "react-responsive-modal";
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from '@/components/useTranslations';
 import { signIn } from "next-auth/react";
 import gameStorage from "./utils/localStorage";
 

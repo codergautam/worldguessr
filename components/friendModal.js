@@ -1,6 +1,6 @@
 import { Modal } from "react-responsive-modal";
 import { useState, useEffect } from "react";
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from '@/components/useTranslations';
 
 export default function FriendsModal({ shown, onClose, session, ws, canSendInvite, sendInvite }) {
     const [friends, setFriends] = useState([

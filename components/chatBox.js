@@ -3,7 +3,7 @@ import 'react-chatbot-kit/build/main.css';
 import { createChatBotMessage } from 'react-chatbot-kit';
 import React, { useEffect, useState } from 'react';
 import { FaXmark } from 'react-icons/fa6';
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from '@/components/useTranslations';
 import { Filter } from 'bad-words';
 import { toast } from 'react-toastify';
 const filter = new Filter();

@@ -1,4 +1,4 @@
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 
 export default function SaveStreakBanner({ shown, close, playAd, countryStreak, setCountryStreak, lostCountryStreak, setLostCountryStreak }) {
   const { t: text } = useTranslation("common");

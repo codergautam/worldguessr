@@ -1,6 +1,6 @@
 import { Modal } from "react-responsive-modal";
 import { useState } from "react";
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from '@/components/useTranslations';
 import { toast } from "react-toastify";
 
 export default function ExplanationModal({ lat, long, session, shown, onClose }) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
+import { useTranslation } from '@/components/useTranslations';
 import { FaTrophy, FaClock, FaStar } from "react-icons/fa";
 
 export default function RoundOverScreen({

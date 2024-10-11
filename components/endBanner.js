@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import calcPoints from "./calcPoints";
 import { signIn } from "next-auth/react";
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 import Ad from "./bannerAd";
 import useWindowDimensions from "./useWindowDimensions";
 

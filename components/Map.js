@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Popup, Tooltip, useMapEvents } from "react-leaflet";
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/components/useTranslations';
 import 'leaflet/dist/leaflet.css';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 

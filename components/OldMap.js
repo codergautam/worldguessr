@@ -15,7 +15,8 @@ import { getDistance } from 'ol/sphere';
 import { DoubleClickZoom, KeyboardZoom, MouseWheelZoom } from 'ol/interaction';
 import { Zoom } from 'ol/control';
 import { Circle } from 'ol/geom';
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from '@/components/useTranslations';
+
 import sendEvent from './utils/sendEvent';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 

@@ -1,5 +1,5 @@
 import { Modal } from "react-responsive-modal";
-import { useTranslation } from 'next-i18next';
+import { useTranslation } from '@/components/useTranslations';
 
 export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames }) {
     const { t: text } = useTranslation("common");

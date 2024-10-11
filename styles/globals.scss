@@ -17,30 +17,7 @@ button {
   height: 100vh;
   display: flex;
 }
-.cesium-container {
-  height: 100vh;
-  width: 70vw;
-  transform: translateX(-12vw);
-  z-index: 100;
-  position: fixed;
-  opacity: 0;
-  animation: fadeIn 1s ease-in-out forwards;
-  transition: transform 1s;
-}
-.cesium-container.cesium_singleplayer,
-.cesium-container.cesium_multiplayer {
-  width: 100vw;
-  transform: translateX(0vw);
-  animation: none;
-  opacity: 1;
-}
-.cesium-container.cesium_hidden {
-  opacity: 0;
-  animation: fadeOut 0.5s ease-in-out forwards;
-}
-.cesium-container.cesium_multiplayer {
-  opacity: 0.5;
-}
+
 
 .home__content {
   position: fixed;
@@ -58,9 +35,7 @@ button {
   transition: left 0.5s, opacity 0.5s;
   overflow-y: auto;
 }
-.home__content.cesium_shown {
-  left: 66%;
-}
+
 .home__content.hidden {
   left: 100%;
   opacity: 0;
@@ -205,10 +180,7 @@ button {
 
 /* media query if height larger than width */
 @media (max-aspect-ratio: 1/1) {
-  .cesium-container {
-    width: 100vw;
-    transform: translateX(0);
-  }
+
   .home__content {
     left: 50%;
   }
@@ -316,10 +288,7 @@ h1, h2, h3, span {
   color: black !important;
 }
 
-/* hide cesium elements */
-.cesium-viewer-animationContainer, .cesium-viewer-timelineContainer, .cesium-viewer-bottom, .cesium-viewer-fullscreenContainer, .cesium-viewer-toolbar {
-  display: none !important;
-}
+
 
 .navbar {
   position: fixed;

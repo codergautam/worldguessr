@@ -9,81 +9,85 @@ import Navbar from '@/components/ui/navbar';
 import Link from 'next/link';
 import User from '@/models/User';
 import msToTime from '@/components/msToTime';
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import officialCountryMaps from '@/public/officialCountryMaps.json';
 import { FaInfinity } from 'react-icons/fa6';
 import { getSession } from 'next-auth/react';
 
-export async function getServerSideProps(context) {
-  const { slug } = context.params;
-  const locale = context.locale;
+// export async function getServerSideProps(context) {
+//   const { slug } = context.params;
+//   const locale = context.locale;
 
-  const cntryMap = Object.values(officialCountryMaps).find(map => map.slug === slug);
-  if(cntryMap) {
-    return {
-      props: {
-        mapData: {...JSON.parse(JSON.stringify(cntryMap)),
-          description_short: cntryMap.shortDescription,
-          description_long: cntryMap.longDescription,
-          created_by: "WorldGuessr",
-          in_review: false,
-          rejected: false
-        },
-        ...(await serverSideTranslations(locale, [
-          'common',
-        ]))
-      }
-    };
-  }
+//   const cntryMap = Object.values(officialCountryMaps).find(map => map.slug === slug);
+//   if(cntryMap) {
+//     return {
+//       props: {
+//         mapData: {...JSON.parse(JSON.stringify(cntryMap)),
+//           description_short: cntryMap.shortDescription,
+//           description_long: cntryMap.longDescription,
+//           created_by: "WorldGuessr",
+//           in_review: false,
+//           rejected: false
+//         }
+//       }
+//     };
+//   }
 
-  const session = await getSession(context);
-  const staff = session?.token?.staff;
+//   const session = await getSession(context);
+//   const staff = session?.token?.staff;
 
-  const map = await Map.findOne({ slug })
-  .select({ 'data': { $slice: 10 } })
-  .lean();
+//   const map = await Map.findOne({ slug })
+//   .select({ 'data': { $slice: 10 } })
+//   .lean();
 
-  if (!map) {
-    // 404
-    return {
-      notFound: true,
-    };
-  }
+//   if (!map) {
+//     // 404
+//     return {
+//       notFound: true,
+//     };
+//   }
 
-  const authorId = map.created_by;
-  const authorUser = await User.findById(authorId).lean();
-  const authorSecret = authorUser?.secret;
+//   const authorId = map.created_by;
+//   const authorUser = await User.findById(authorId).lean();
+//   const authorSecret = authorUser?.secret;
 
 
-  const isCreatorOrStaff = session && (authorSecret === session?.token?.secret || staff);
+//   const isCreatorOrStaff = session && (authorSecret === session?.token?.secret || staff);
 
-  if (!map.accepted && !isCreatorOrStaff) {
-    return {
-      notFound: true,
-    };
-  }
+//   if (!map.accepted && !isCreatorOrStaff) {
+//     return {
+//       notFound: true,
+//     };
+//   }
 
-  map.created_by = authorUser?.username;
-  map.created_at = msToTime(Date.now() - map.created_at);
+//   map.created_by = authorUser?.username;
+//   map.created_at = msToTime(Date.now() - map.created_at);
 
-  return {
-    props: {
-      mapData: JSON.parse(JSON.stringify(map)),
-      ...(await serverSideTranslations(locale, [
-        'common',
-      ]))
-    }
-  };
-}
+//   return {
+//     props: {
+//       mapData: JSON.parse(JSON.stringify(map))
+//     }
+//   };
+// }
 
-export default function MapPage({ mapData }) {
+export default function MapPage({ }) {
   const router = useRouter();
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [locationUrls, setLocationUrls] = useState([]);
   const [fadeClass, setFadeClass] = useState(styles.iframe);
   const { t: text } = useTranslation('common');
+
+  const mapData = {
+    name: "United States",
+    description_short: "Explore the United States of America",
+    description_long: "Explore the United States of America on WorldGuessr, a free GeoGuessr clone. This map features locations from all 50 states, including landmarks, cities, and natural wonders.",
+    created_by: "WorldGuessr",
+    created_at: "1 year",
+    in_review: false,
+    rejected: false,
+    countryCode: "US",
+  };
 
   useEffect(() => {
     if (!mapData.data) return;

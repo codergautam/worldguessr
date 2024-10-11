@@ -1,4 +1,4 @@
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 import msToTime from './msToTime';
 import { useState, useEffect } from 'react';
 import { Rating } from '@smastrom/react-rating';

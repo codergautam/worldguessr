@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useSession } from 'next-auth/react';
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 
 const Leaderboard = ({ }) => {
   const { t: text } = useTranslation("common");
@@ -349,17 +349,3 @@ const Leaderboard = ({ }) => {
 };
 
 export default Leaderboard;
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
-import { use } from 'i18next';
-
-
-export async function getStaticProps({ locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, [
-        'common',
-      ])),
-      // Will be passed to the page component as props
-    },
-  }
-}

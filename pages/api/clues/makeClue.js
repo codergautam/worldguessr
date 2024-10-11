@@ -25,7 +25,7 @@ async function handler(req, res) {
         if(typeof secret !== 'string') {
           return res.status(400).json({ message: 'Invalid input' });
         }
-        
+
         // get user from secret
         const user = await User.findOne({
           secret: secret
@@ -124,53 +124,3 @@ export const config = {
     bodyParser: false,
   },
 };
-
-/*
-// Function to capture the entire screen, download it, and then send it as a blob via fetch API
-function sendScreenScreenshot() {
-  // Select the element you want to capture, e.g., <body> or a specific element
-  const captureElement = document.querySelector('#googlemaps'); // Adjust selector as needed
-
-  // Use html2canvas to capture the selected element
-  html2canvas(captureElement, { allowTaint: true }).then(canvas => {
-    // Convert canvas to a blob
-    canvas.toBlob(blob => {
-      // Create a download link and simulate a click to download the image
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'screenshot.png';
-      a.click();
-
-      // Clean up the URL object
-      URL.revokeObjectURL(url);
-
-      // Create a new FormData object
-      let formData = new FormData();
-      // Append the captured image file to the FormData object
-      formData.append('screenImage', blob, 'screenshot.png');
-      formData.append('country', 'United States');
-      formData.append('latLong', '37.7749° N, 122.4194° W');
-      // Define the URL to send data to
-      const apiUrl = '/api/makeClue';
-
-      // Use fetch API to send the FormData to the server
-      fetch(apiUrl, {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => response.json())
-      .then(result => {
-        console.log('Success:', result);
-      })
-      .catch(error => {
-        console.error('Error:', error);
-      });
-    }, 'image/png');
-  });
-}
-
-// Call the function to execute
-sendScreenScreenshot();
-
-*/

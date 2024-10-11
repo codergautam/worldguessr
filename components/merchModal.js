@@ -1,5 +1,5 @@
 import {Modal} from "react-responsive-modal";
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 
 export default function MerchModal({ shown, onClose, session }) {
     const { t: text } = useTranslation("common");
@@ -55,7 +55,7 @@ export default function MerchModal({ shown, onClose, session }) {
         // open https://tshirt.worldguessr.com
         window.open("https://tshirt.worldguessr.com", "_blank");
       }}>
-         Let's Go!
+         Let&apos;s Go!
       </button>
       )}
 </center>

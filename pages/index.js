@@ -1,5 +1,4 @@
 import HeadContent from "@/components/headContent";
-// import CesiumWrapper from "../components/cesium/CesiumWrapper";
 import { Jockey_One, Roboto } from 'next/font/google';
 import GameBtn from "@/components/ui/gameBtn";
 import { FaAd, FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
@@ -19,8 +18,7 @@ import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
 // import text from "@/languages/lang";
-import { useTranslation } from 'next-i18next'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import { useTranslation } from '@/components/useTranslations'
 import useWindowDimensions from "@/components/useWindowDimensions";
 import dynamic from "next/dynamic";
 import Ad from "@/components/bannerAd";
@@ -1668,7 +1666,7 @@ setShowCountryButtons(false)
 )}
 
 
-        <div className={`home__content ${screen !== "home" ? "hidden" : ""} ${process.env.NEXT_PUBLIC_CESIUM_TOKEN ? 'cesium_shown' : ''}`}>
+        <div className={`home__content ${screen !== "home" ? "hidden" : ""} `}>
 
 
         { onboardingCompleted===null ? (
@@ -1809,7 +1807,7 @@ setShowCountryButtons(false)
 
 
 
-        <Script>
+        <Script id="clarity">
           {`
 
             window.lastAdShown = Date.now();
@@ -1912,13 +1910,3 @@ if(window.inCrazyGames) {
   )
 }
 
-export async function getStaticProps({ locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, [
-        'common',
-      ])),
-      // Will be passed to the page component as props
-    },
-  }
-}

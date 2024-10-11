@@ -1,5 +1,5 @@
 import msToTime from "./msToTime";
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 
 export default function AccountView({ accountData, supporter }) {
   const { t: text } = useTranslation("common");

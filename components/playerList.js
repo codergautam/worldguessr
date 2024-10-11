@@ -1,4 +1,4 @@
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 import { FaCopy } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 
@@ -22,6 +22,8 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
         {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})})</span>}
       </span>
 
+
+
       { waitingForStart && (
 
         <div style={{display: "flex", flexDirection: "row", alignItems: "center"}}>
@@ -44,6 +46,25 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
 
           <FaCopy />
         </button>
+        <br />
+        { host && (
+        <button onClick={() => {
+
+        }} style={{
+          marginLeft: "10px",
+          padding: "5px",
+          backgroundColor: "green",
+          color: "white",
+          border: "none",
+          cursor: "pointer",
+          pointerEvents: "all",
+          borderRadius: "5px"
+        }}>
+          {/* copy icon */}
+
+          Edit Options
+        </button>
+        )}
 
         </div>
       )}

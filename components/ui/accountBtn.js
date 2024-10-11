@@ -1,6 +1,6 @@
 import { signIn } from "next-auth/react";
 import { FaGoogle } from "react-icons/fa";
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "../utils/sendEvent";
 
 export default function AccountBtn({ session, openAccountModal, navbarMode, inCrazyGames }) {

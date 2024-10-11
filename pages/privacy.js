@@ -62,7 +62,7 @@ const PrivacyPolicy = () => {
       <h2>Changes to This Privacy Policy</h2>
       <p>
         We may update this Privacy Policy from time to time. Any changes will be posted on this page,
-        and we will update the "Effective Date" at the top of the policy.
+        and we will update the &apos;Effective Date&apos; at the top of the policy.
       </p>
 
       <h2>Contact Us</h2>

@@ -8,7 +8,7 @@ import findCountry from "./findCountry";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
 import { FaExpand, FaMinimize, FaThumbtack } from "react-icons/fa6";
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
 import OnboardingText from "./onboardingText";
 import ClueBanner from "./clueBanner";

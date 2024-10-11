@@ -99,9 +99,7 @@ if(!process.env.GOOGLE_CLIENT_SECRET) {
   console.log("[MISSING-ENV WARN] GOOGLE_CLIENT_SECRET env variable not set, please set it for multiplayer/auth!".yellow);
   dbEnabled = false;
 }
-if(process.env.NEXT_PUBLIC_CESIUM_TOKEN) {
-  console.log("[INFO] NEXT_PUBLIC_CESIUM_TOKEN env variable set, showing home animation".yellow);
-}
+
 if(process.env.NO_HTTP && process.env.NO_HTTP === 'true') {
   console.log("[INFO] NO_HTTP env variable set, disabling HTTP server".yellow);
   httpEnabled = false;
