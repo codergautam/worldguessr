@@ -5,8 +5,6 @@
 import path from 'path';
 import process from 'process';
 const pathBuilder = (subpath) => path.join(process.cwd(), subpath);
-// const { i18n } = require('./next-i18next.config')
-// import i18n from './next-i18next.config.js';
 
 const __dirname = path.resolve();
 /** @type {import('next').NextConfig} */

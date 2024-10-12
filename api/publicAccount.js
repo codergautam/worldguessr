@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import User from '../../models/User';
+import User from '../models/User.js';
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
   if ((id && typeof id !== 'string') || (secret && typeof secret !== 'string')) {
     return res.status(400).json({ message: 'Invalid input' });
   }
-  
+
   if (!id && !secret) {
     return res.status(400).json({ message: 'Provide at least one of the following: id or secret' });
   }

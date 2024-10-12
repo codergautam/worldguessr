@@ -1,6 +1,6 @@
 // inspiration from https://github.com/tzhf/map-generator
 
-import borders from '../../public/genBorders.json' with { type: "json" };
+import borders from '../public/genBorders.json' with { type: "json" };
 
 export function getRandomPointInCountry(countryCode=true) {
   const features = borders.features.filter(feature => countryCode === true ? true : feature.properties.code == countryCode);
@@ -108,8 +108,4 @@ export function getRandomPointInCountry(countryCode=true) {
       return randomPoint.reverse();
     }
   }
-}
-
-export default function handler(req, res) {
-  return res.status(200).json(getRandomPointInCountry(req.query.country??true));
 }

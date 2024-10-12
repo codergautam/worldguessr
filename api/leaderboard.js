@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import User from '../../models/User';
+import User from '../models/User.js';
 const cache = { data: null, timestamp: null };
 const pastDayCache = { data: null, timestamp: null };
 

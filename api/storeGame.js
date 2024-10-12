@@ -1,6 +1,9 @@
-import calcPoints from '@/components/calcPoints';
-import storeGame from '@/components/storeGame';
-import ratelimiter from '@/components/utils/ratelimitMiddleware'
+// import calcPoints from '@/components/calcPoints';
+// import storeGame from '@/components/storeGame';
+// import ratelimiter from '@/components/utils/ratelimitMiddleware'
+import calcPoints from '../components/calcPoints.js';
+import storeGame from '../components/storeGame.js';
+import ratelimiter from '../components/utils/ratelimitMiddleware.js';
 
 // multiplayer after guess
 async function guess(req, res) {
@@ -15,7 +18,7 @@ async function guess(req, res) {
   if(lat === actualLat || long === actualLong || roundTime < 0 || maxDist < 10) {
     return res.status(400).json({ message: 'Invalid input' });
   }
-  
+
   if(secret) {
     try {
       const calcXp = Math.round(calcPoints({ guessLat: lat, guessLon: long, lat: actualLat, lon: actualLong, usedHint, maxDist }) / 50);

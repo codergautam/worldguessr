@@ -1,7 +1,9 @@
 import * as jwt from "jsonwebtoken";
 import axios from "axios";
-import { createUUID } from "@/components/createUUID";
-import User from "@/models/User";
+// import { createUUID } from "@/components/createUUID";
+// import User from "@/models/User";
+import { createUUID } from "../components/createUUID.js";
+import User from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
 
 export default async function handler(req, res) {

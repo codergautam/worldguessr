@@ -2,7 +2,6 @@ import {Modal} from "react-responsive-modal";
 import { useState } from "react";
 import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "./utils/sendEvent";
-import { signOut } from "next-auth/react";
 
 export default function SetUsernameModal({ shown, onClose, session }) {
     const [username, setUsername] = useState("");

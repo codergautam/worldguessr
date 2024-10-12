@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
-import { useSession } from 'next-auth/react';
+import { useSession } from '@/components/auth/auth';
 import { useTranslation } from '@/components/useTranslations'
 
 const Leaderboard = ({ }) => {

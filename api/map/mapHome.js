@@ -36,9 +36,8 @@ export default async function handler(req, res) {
   let user;
 
   if(secret) {
-    console.time('findUser');
+    console.log('secret', secret);
     user = await User.findOne({ secret: secret });
-    console.timeEnd('findUser');
     if(typeof secret !== 'string') {
       return res.status(400).json({ message: 'Invalid input' });
     }

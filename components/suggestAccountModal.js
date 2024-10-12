@@ -1,6 +1,6 @@
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
-import { signIn } from "next-auth/react";
+import { signIn } from "@/components/auth/auth";
 import gameStorage from "./utils/localStorage";
 
 export default function SuggestAccountModal({ shown, setOpen }) {

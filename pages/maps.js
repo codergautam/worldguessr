@@ -57,5 +57,5 @@ const styles = {
 };
 
 
-import { useSession } from "next-auth/react";
+import { useSession } from "@/components/auth/auth";
 import Head from "next/head";

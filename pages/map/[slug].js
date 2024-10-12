@@ -1,19 +1,10 @@
 import { useEffect, useState } from 'react';
-import mongoose from 'mongoose';
-import Map from '@/models/Map';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import styles from '@/styles/MapPage.module.css'; // Import CSS module for styling
-import formatNumber from '@/components/utils/fmtNumber';
 import Navbar from '@/components/ui/navbar';
-import Link from 'next/link';
-import User from '@/models/User';
-import msToTime from '@/components/msToTime';
 import { useTranslation } from '@/components/useTranslations'
 
-import officialCountryMaps from '@/public/officialCountryMaps.json';
-import { FaInfinity } from 'react-icons/fa6';
-import { getSession } from 'next-auth/react';
 
 // export async function getServerSideProps(context) {
 //   const { slug } = context.params;

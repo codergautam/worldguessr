@@ -1,9 +1,8 @@
 import HeadContent from "@/components/headContent";
 import { Jockey_One, Roboto } from 'next/font/google';
-import GameBtn from "@/components/ui/gameBtn";
-import { FaAd, FaDiscord, FaGithub, FaGoogle, FaInfo } from "react-icons/fa";
-import { FaBook, FaGear, FaMap, FaNewspaper, FaRankingStar, FaShirt, FaYoutube } from "react-icons/fa6";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { FaDiscord, FaGithub } from "react-icons/fa";
+import { FaGear,FaRankingStar, FaYoutube } from "react-icons/fa6";
+import { signOut, useSession } from "@/components/auth/auth";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState, useRef } from "react";
 import Navbar from "@/components/ui/navbar";
@@ -17,24 +16,20 @@ import SetUsernameModal from "@/components/setUsernameModal";
 import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
-// import text from "@/languages/lang";
 import { useTranslation } from '@/components/useTranslations'
 import useWindowDimensions from "@/components/useWindowDimensions";
-import dynamic from "next/dynamic";
 import Ad from "@/components/bannerAd";
 import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
 import sendEvent from "@/components/utils/sendEvent";
 import initWebsocket from "@/components/utils/initWebsocket";
 import 'react-toastify/dist/ReactToastify.css';
-// const Ad = dynamic(() => import('@/components/bannerAd'), { ssr: false });
 
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
 import RoundOverScreen from "@/components/roundOverScreen";
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
-import WsIcon from "@/components/wsIcon";
 import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
@@ -42,17 +37,17 @@ import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
 import moment from 'moment-timezone';
 import MapsModal from "@/components/maps/mapsModal";
 import { useRouter } from "next/router";
-import { fromLonLat, transformExtent } from "ol/proj";
+import { fromLonLat } from "ol/proj";
 import { boundingExtent } from "ol/extent";
 
 import countries from "@/public/countries.json";
 import officialCountryMaps from "@/public/officialCountryMaps.json";
 
 import fixBranding from "@/components/utils/fixBranding";
-import PrivacyPolicyLink from "@/components/privacyPolicyLink";
 import gameStorage from "@/components/utils/localStorage";
 import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";
+import clientConfig from "@/clientConfig";
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -82,9 +77,8 @@ const initialMultiplayerState = {
 export default function Home({ locale }) {
   const { width, height } = useWindowDimensions();
 
-  const router = useRouter();
   const [session, setSession] = useState(null);
-  const { data: mainSession, status } = useSession();
+  const { data: mainSession } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
   const [loading, setLoading] = useState(false);
@@ -118,11 +112,14 @@ export default function Home({ locale }) {
     if (mainSession && !inCrazyGames) {
       setSession(mainSession)
     }
-  }, [mainSession, inCrazyGames])
+  }, [JSON.stringify(mainSession), inCrazyGames])
 
-
+  const [config, setConfig] = useState(null);
 
   useEffect(() => {
+    const clientConfigData = clientConfig();
+    setConfig(clientConfigData);
+
     if(window.location.search.includes("app=true")) {
       setIsApp(true);
     }
@@ -137,7 +134,7 @@ export default function Home({ locale }) {
         const token = await window.CrazyGames.SDK.user.getUserToken();
         if(token && user.username) {
           // /api/crazyAuth
-          fetch("/api/crazyAuth", {
+          fetch(clientConfigData+"/api/crazyAuth", {
             method: "POST",
             headers: {
               'Content-Type': 'application/json'
@@ -296,7 +293,7 @@ setShowCountryButtons(false)
     if(!country && mapSlug !== gameOptions.location) {
       if( ((window?.lastPlayTrack||0) + 20000 < Date.now())) {
 
-      fetch(`/mapPlay/${mapSlug}`, {method: "POST"})
+      fetch(config.apiUrl+`/mapPlay/${mapSlug}`, {method: "POST"})
     }
 
     try {
@@ -681,16 +678,13 @@ setShowCountryButtons(false)
 
 
     if (!ws && !multiplayerState.connecting && !multiplayerState.connected && !window?.dontReconnect) {
-      const wsPath = `${window.location.protocol === "https:" ? "wss" : "ws"}://${
-        process.env.NEXT_PUBLIC_WS_HOST ||
-        window.location.host
-      }/wg`
+
       setMultiplayerState((prev) => ({
         ...prev,
         connecting: true,
         shouldConnect: false
       }))
-      const ws = await initWebsocket(wsPath, null, 5000, 20)
+      const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 20)
       if(ws && ws.readyState === 1) {
       setWs(ws)
       setMultiplayerState((prev)=>({
@@ -701,13 +695,14 @@ setShowCountryButtons(false)
 
       if(!inCrazyGames && !window.location.search.includes("crazygames")) {
 
-        fetch("/api/getJWT").then((res) => res.json()).then((data) => {
-          const JWT = data.jwt;
           const tz = moment.tz.guess();
-          console.log("tz", tz, data)
+          let secret = "not_logged_in";
+          if(session?.token?.secret) {
+            secret = session.token.secret;
+          }
 
-          ws.send(JSON.stringify({ type: "verify", jwt: JWT, tz}))
-        });
+          console.log("sending verify with secret", secret)
+          ws.send(JSON.stringify({ type: "verify", secret, tz}))
       } else {
 
 

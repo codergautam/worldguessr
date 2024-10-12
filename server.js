@@ -11,28 +11,28 @@ https://github.com/codergautam/worldguessr
 */
 
 import fs from 'fs';
-import { parse } from 'url';
-import next from 'next';
+import { fileURLToPath, parse } from 'url';
 import { v4 as makeId } from 'uuid';
 import { config } from 'dotenv';
 import colors from 'colors';
 import lookup from "coordinate_to_country"
+
 // const { writeHeapSnapshot } = require('node:v8');
 import { writeHeapSnapshot } from 'v8';
+const __dirname = import.meta.dirname;
+
 
 config();
 
 // ws server
 import { WebSocketServer } from 'ws';
 
-import { decrypt } from './components/utils/encryptDecrypt.js';
 import mongoose, { mongo } from 'mongoose';
 import User from './models/User.js';
 import Clue from './models/Clue.js';
 import Memsave from './models/Memsave.js';
-import validateJWT from './components/utils/validateJWT.js';
 import findLatLongRandom from './components/findLatLongServer.js';
-import { getRandomPointInCountry } from './pages/api/randomLoc.js';
+import { getRandomPointInCountry } from './components/randomLoc.js';
 import calcPoints from './components/calcPoints.js';
 import { promisify } from 'util';
 import { readFile, unlinkSync } from 'fs';
@@ -44,6 +44,31 @@ import MapModel from './models/Map.js';
 import { createServer } from 'http';
 import { createServer as createHttpsServer } from 'https';
 import { Filter } from 'bad-words';
+import validateSecret from './components/utils/validateSecret.js';
+
+
+// express
+import express from 'express';
+var app = express();
+
+app.use(express.json());
+
+// Setup your /api routes
+const apiFolder = path.join(__dirname, 'api');
+fs.readdirSync(apiFolder).forEach(file => {
+  // make sure tis not a directory
+  if(fs.lstatSync(path.join(apiFolder, file)).isDirectory()) {
+    return;
+  }
+  console.log('Loading API route', file);
+
+  const routePath = './api/' + file.split('.')[0]+'.js';
+  const webPath = '/api/' + file.split('.')[0];
+  import(routePath).then(module => {
+    app.all(webPath, module.default); // Use .default because ES module exports default
+  });
+});
+
 const filter = new Filter();
 filter.removeWords('damn')
 
@@ -78,15 +103,8 @@ if (!process.env.MONGODB) {
 }
 
 
-if(!process.env.I18NEXT_DEFAULT_CONFIG_PATH) {
-  throw new Error("I18NEXT_DEFAULT_CONFIG_PATH env variable not set, please set it to the path of the i18next config file");
-}
-if (!process.env.NEXTAUTH_SECRET) {
-  console.log("[MISSING-ENV WARN] NEXTAUTH_SECRET env variable not set, please set it to a random string otherwise multi-player will not work".yellow);
-  dbEnabled = false;
-}
-if (!process.env.NEXTAUTH_URL) {
-  console.log("[MISSING-ENV WARN] NEXTAUTH_URL env variable not set, please set it!".yellow);
+if (!process.env.CLIENT_URL) {
+  console.log("[MISSING-ENV WARN] CLIENT_URL env variable not set, please set it for auth to work properly!".yellow);
 }
 if(process.env.DISCORD_WEBHOOK) {
   console.log("[INFO] Discord Webhook Enabled");
@@ -118,23 +136,12 @@ if(!httpEnabled && !multiplayerEnabled) {
 const dev = process.env.NODE_ENV !== 'production'
 
 const hostname = 'localhost'
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 
-const app = next({ dev, hostname, port })
-const handle = app.getRequestHandler()
-
-const handlers = {};
-function registerHandler(path, method, handler) {
-  handlers[path] = {
-    method,
-    handler
-  }
-}
 const readFileAsync = promisify(readFile);
 
 
 const publicFilesToServe = ["ads.txt","manifest.json"];
-const __dirname = import.meta.dirname;
 
 let recentPlays = {}; // track the recent plays gains of maps
 
@@ -156,58 +163,51 @@ async function updateRecentPlays() {
 }
 
 setInterval(updateRecentPlays, 60000);
-
-for(const file of publicFilesToServe) {
-  registerHandler(`/${file}`, 'GET', (req,res,query)=>{
-    try{
+for (const file of publicFilesToServe) {
+  app.get(`/${file}`, async (req, res) => {
+    try {
       const filePath = path.join(__dirname, 'public', file);
-      readFileAsync(filePath).then((data) => {
-        res.setHeader('Content-Type', 'text/plain');
-        res.end(data);
-      }).catch((error) => {
-        console.log(error)
-        res.end('Error reading file');
-      });
-    }catch(e){
-      console.log(e)
-      res.end('Error');
+      const data = await fs.readFile(filePath);
+      res.setHeader('Content-Type', 'text/plain');
+      res.send(data);
+    } catch (error) {
+      res.status(500).send('Error reading file');
     }
   });
 }
 
 // redirect /wiki to /wiki/index.html
-registerHandler('/wiki', 'GET', (req,res,query)=>{
-  res.writeHead(301, {
-    Location: '/wiki/index.html'
-  });
-  res.end();
+app.get('/wiki', (req, res) => {
+  res.redirect(301, '/wiki/index.html');
 });
 
-const maintenanceSecret=  process.env.MAINTENANCE_SECRET;
-if(maintenanceSecret && maintenanceSecret.length > 0) {
-registerHandler('/setmaintenance/'+maintenanceSecret+'/true', 'GET', (req,res,query)=>{
-  restartQueued = true;
-  // notify all players
-  for(const player of players.values()) {
-    player.send({
-      type: 'restartQueued',
-      value: true
-    });
-  }
-  res.end('ok');
-});
-registerHandler('/setmaintenance/'+maintenanceSecret+'/false', 'GET', (req,res,query)=>{
-  restartQueued = false;
-  // notify all players
-  for(const player of players.values()) {
-    player.send({
-      type: 'restartQueued',
-      value: false
-    });
-  }
-  res.end('ok');
-});
+const maintenanceSecret = process.env.MAINTENANCE_SECRET;
+if (maintenanceSecret && maintenanceSecret.length > 0) {
+  app.get(`/setmaintenance/${maintenanceSecret}/true`, (req, res) => {
+    restartQueued = true;
+    // notify all players
+    for (const player of players.values()) {
+      player.send({
+        type: 'restartQueued',
+        value: true
+      });
+    }
+    res.send('ok');
+  });
+
+  app.get(`/setmaintenance/${maintenanceSecret}/false`, (req, res) => {
+    restartQueued = false;
+    // notify all players
+    for (const player of players.values()) {
+      player.send({
+        type: 'restartQueued',
+        value: false
+      });
+    }
+    res.send('ok');
+  });
 }
+
 
 
 // registerHandler('/memdump', 'GET', (req, res, query) => {
@@ -335,21 +335,23 @@ setTimeout(() => {
 }, 20000);
 
 
-registerHandler('/allCountries.json', 'GET', (req, res, query) => {
-  if(allLocations.length !== locationCnt) {
+// Endpoint for /allCountries.json
+app.get('/allCountries.json', (req, res) => {
+  if (allLocations.length !== locationCnt) {
     // send json {ready: false}
-    res.end(JSON.stringify({ ready: false }));
+    return res.json({ ready: false });
   } else {
-    res.end(JSON.stringify({ ready: true, locations: allLocations }));
+    return res.json({ ready: true, locations: allLocations });
   }
 });
 
-registerHandler('/clueCountries.json', 'GET', (req, res, query) => {
-  if(clueLocations.length === 0) {
+// Endpoint for /clueCountries.json
+app.get('/clueCountries.json', (req, res) => {
+  if (clueLocations.length === 0) {
     // send json {ready: false}
-    res.end(JSON.stringify({ ready: false }));
+    return res.json({ ready: false });
   } else {
-    res.end(JSON.stringify({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) }));
+    return res.json({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) });
   }
 });
 
@@ -774,7 +776,6 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
 Certificate is saved at: /etc/letsencrypt/live/www.worldguessr.com/fullchain.pem
 Key is saved at:         /etc/letsencrypt/live/www.worldguessr.com/privkey.pem
 */
-app.prepare().then(() => {
 
   const useHttps = process.env.SSL_KEY_PATH && process.env.SSL_KEY_PATH.length > 0 && process.env.SSL_CERT_PATH && process.env.SSL_CERT_PATH.length > 0;
   const sslOptions = useHttps ? {
@@ -789,53 +790,53 @@ app.prepare().then(() => {
     console.log(`Not using SSL`.yellow);
   }
 
-  const callback = async (req, res) => {
-    try {
-      const parsedUrl = parse(req.url, true)
-      const { pathname, query } = parsedUrl
+  // const callback = async (req, res) => {
+  //   try {
+  //     const parsedUrl = parse(req.url, true)
+  //     const { pathname, query } = parsedUrl
 
-      if (handlers[pathname] && req.method === handlers[pathname].method) {
-        return handlers[pathname].handler(req, res, query);
-      }
+  //     if (handlers[pathname] && req.method === handlers[pathname].method) {
+  //       return handlers[pathname].handler(req, res, query);
+  //     }
 
-      // check if in format /mapLocations/:slug
-      const mapLocMatch = pathname.includes('/mapLocations/');
-      if (mapLocMatch) {
-        const slug = pathname.split('/mapLocations/')[1].split('?')[0];
-        const map = await MapModel.findOne({ slug });
-        if (!map) {
-          return app.render(req, res, '/404', query);
-        }
-        res.end(JSON.stringify({
-          ready: true,
-          locations: map.data,
-          name: map.name,
-          official: map.official,
-          maxDist: map.maxDist
-      }));
-        return;
-      }
+  //     // check if in format /mapLocations/:slug
+  //     const mapLocMatch = pathname.includes('/mapLocations/');
+  //     if (mapLocMatch) {
+  //       const slug = pathname.split('/mapLocations/')[1].split('?')[0];
+  //       const map = await MapModel.findOne({ slug });
+  //       if (!map) {
+  //         return app.render(req, res, '/404', query);
+  //       }
+  //       res.end(JSON.stringify({
+  //         ready: true,
+  //         locations: map.data,
+  //         name: map.name,
+  //         official: map.official,
+  //         maxDist: map.maxDist
+  //     }));
+  //       return;
+  //     }
 
-      if(!httpEnabled) {
-        // send 404
-        return app.render(req, res, '/404', query);
-      }
+  //     if(!httpEnabled) {
+  //       // send 404
+  //       return app.render(req, res, '/404', query);
+  //     }
 
-      const mapPlayMatch = pathname.includes('/mapPlay/');
-      if (mapPlayMatch && req.method === 'POST') {
-        // make suere POST
-        const slug = pathname.split('/mapPlay/')[1].split('?')[0];
-        recentPlays[slug] = (recentPlays[slug] || 0) + 1;
-        res.end('ok');
-      }
+  //     const mapPlayMatch = pathname.includes('/mapPlay/');
+  //     if (mapPlayMatch && req.method === 'POST') {
+  //       // make suere POST
+  //       const slug = pathname.split('/mapPlay/')[1].split('?')[0];
+  //       recentPlays[slug] = (recentPlays[slug] || 0) + 1;
+  //       res.end('ok');
+  //     }
 
-      await handle(req, res, parsedUrl)
-    } catch (err) {
-      console.error('Error occurred handling', req.url, err)
-      res.statusCode = 500
-      res.end('internal server error')
-    }
-  };
+  //     await handle(req, res, parsedUrl)
+  //   } catch (err) {
+  //     console.error('Error occurred handling', req.url, err)
+  //     res.statusCode = 500
+  //     res.end('internal server error')
+  //   }
+  // };
   let createServerFunction = sslOptions ? createHttpsServer : createServer;
 
   // if https enabled, create a http that redirects to https
@@ -853,7 +854,7 @@ app.prepare().then(() => {
       });
   }
 
-  const server = createServerFunction(sslOptions ? sslOptions : callback, !sslOptions ? callback : null)
+  const server = createServerFunction(sslOptions ? sslOptions : app, !sslOptions ? app : null)
     .once('error', (err) => {
       console.error(err)
       process.exit(1)
@@ -861,6 +862,7 @@ app.prepare().then(() => {
     .listen(port, () => {
       setTimeout(() => {
       console.log(`> Ready on http${useHttps ? 's' : ''}://${hostname}:${port}`)
+
       }, 100);
     })
 
@@ -924,7 +926,7 @@ app.prepare().then(() => {
       }
       if (json.type === 'verify' && !player.verified) {
         // account verification
-        if((!json.jwt && !json.secret) || json.jwt === 'not_logged_in') {
+        if((!json.secret) || json.secret === 'not_logged_in') {
 
           // guest mode
           player.username = 'Guest #' + make6DigitCode().toString().substring(0, 4);
@@ -944,12 +946,8 @@ app.prepare().then(() => {
 
         let valid;
         console.log('Verifying user', id, json);
-        if(json.jwt) {
-        valid =  await validateJWT(json.jwt, User, decrypt);
-        } else if(json.secret && json.username) {
-          valid = await User.findOne({username: json.username, secret: json.secret});
-          console.log('User verified by secret');
-
+        if(json.secret) {
+        valid =  await validateSecret(json.secret, User);
         }
         if (valid) {
           // make sure the user is not already logged in (only on prod)
@@ -1580,7 +1578,6 @@ app.prepare().then(() => {
       players.delete(id);
     });
   });
-});
 
 // update player count
 setInterval(() => {

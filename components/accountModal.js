@@ -1,7 +1,7 @@
 import { Modal } from "react-responsive-modal";
 import { useEffect, useState } from "react";
 import AccountView from "./accountView";
-import { signOut } from "next-auth/react";
+import { signOut } from "@/components/auth/auth";
 import { useTranslation } from '@/components/useTranslations';
 
 export default function AccountModal({ session, shown, setAccountModalOpen, inCrazyGames }) {

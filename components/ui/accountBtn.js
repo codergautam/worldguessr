@@ -1,4 +1,4 @@
-import { signIn } from "next-auth/react";
+import { signIn } from "@/components/auth/auth";
 import { FaGoogle } from "react-icons/fa";
 import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "../utils/sendEvent";

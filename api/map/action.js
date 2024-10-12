@@ -1,11 +1,19 @@
-import mapConst from "@/components/maps/mapConst";
-import parseMapData from "@/components/utils/parseMapData";
-import generateSlug from "@/components/utils/slugGenerator";
-import Map from "@/models/Map";
-import User from "@/models/User";
+// import mapConst from "@/components/maps/mapConst";
+// import parseMapData from "@/components/utils/parseMapData";
+// import generateSlug from "@/components/utils/slugGenerator";
+// import Map from "@/models/Map";
+// import User from "@/models/User";
 
-import countries from '@/public/countries.json';
-import officialCountryMaps from '@/public/officialCountryMaps.json';
+// import countries from '@/public/countries.json';
+// import officialCountryMaps from '@/public/officialCountryMaps.json';
+import mapConst from '../../components/maps/mapConst.js';
+import parseMapData from '../../components/utils/parseMapData.js';
+import generateSlug from '../../components/utils/slugGenerator.js';
+import Map from '../../models/Map.js';
+import User from '../../models/User.js';
+
+import countries from '../../public/countries.json' with { type: "json" };
+import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
 
 // Function to convert latitude and longitude to Cartesian coordinates
 function latLngToCartesian(lat, lng) {
@@ -197,7 +205,7 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({ map });
-    
+
   }
 
   return res.status(400).json({ message: 'Invalid action' });

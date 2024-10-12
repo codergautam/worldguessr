@@ -1,6 +1,6 @@
 // pages/api/setName.js
 import mongoose from 'mongoose';
-import User from '../../models/User';
+import User from '../models/User.js';
 import { Webhook } from "discord-webhook-node";
 
 export default async function handler(req, res) {

@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: false
+      NEXT_PUBLIC_SERVER: staging.worldguessr.com
       # add more env vars here
 
     steps:

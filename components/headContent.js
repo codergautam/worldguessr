@@ -1,7 +1,6 @@
 import Head from "next/head";
 import Script from "next/script";
 import { useEffect } from "react";
-// import { useTranslation } from "react-i18next";
 
 export default function HeadContent({text}) {
   useEffect(() => {

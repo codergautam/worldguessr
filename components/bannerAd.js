@@ -42,7 +42,7 @@ export default function Ad({
 
   useEffect(() => {
     setType(findAdType(screenW, screenH, types, vertThresh));
-  }, [screenW, screenH, types, vertThresh]);
+  }, [screenW, screenH, JSON.stringify(types), vertThresh]);
 
   useEffect(() => {
     lastRefresh.current = 0;
@@ -54,6 +54,9 @@ export default function Ad({
     const windowAny = window;
 
     const displayNewAd = () => {
+    if(isClient === "debug" || !isClient) return;
+    console.log("Displaying new ad", type, isClient);
+
       if (type === -1) return;
       setTimeout(() => {
         const isAdDivVisible =
@@ -137,7 +140,7 @@ export default function Ad({
     }, 1000);
     displayNewAd();
     return () => clearInterval(timerId);
-  }, [type, inCrazyGames]);
+  }, [type, inCrazyGames, isClient]);
 
   if (type === -1) return null;
   if (!isClient) return null;
