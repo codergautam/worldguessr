@@ -1,0 +1,238 @@
+<!DOCTYPE html><html lang="en"><head><title>leaderboard</title><style>
+          * {
+            font-size: 62, 5%;
+            box-sizing: border-box;
+            margin: 0;
+        }
+
+        body {
+            height: 100%;
+            width: 100%;
+            min-height: 100vh;
+            background-color: #141a39; /* Dark background */
+            display: flex;
+            justify-content: center;
+        }
+
+        .mainBody {
+            user-select: auto !important;
+            overflow: auto !important;
+        }
+        main {
+            width: 40rem;
+            background-color: #1f2747; /* Darker background */
+            box-shadow: 0px 5px 15px 8px #050c2b; /* Darker shadow */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 5rem !important;
+            border-radius: 0.5rem;
+        }
+
+        #header {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2.5rem 2rem;
+        }
+
+        .share {
+            width: 4.5rem;
+            height: 3rem;
+            background-color: #ff7b9d; /* Darker pink */
+            border: 0;
+            border-bottom: 0.2rem solid #c0506a;
+            border-radius: 2rem;
+            cursor: pointer;
+        }
+
+        .share:active {
+            border-bottom: 0;
+        }
+
+        .share i {
+            color: #fff;
+            font-size: 2rem;
+        }
+
+        .gold {
+            background-color: #ffd700;
+        }
+        .gray {
+            background-color: #a5a6ad;
+        }
+
+        h1 {
+            font-family: &quot;Rubik&quot;, sans-serif;
+            font-size: 1.7rem;
+            color: #fbfaff; /* Light text */
+            text-transform: uppercase;
+            cursor: default;
+        }
+
+        #leaderboard {
+            width: 100%;
+            position: relative;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            color: #fbfaff; /* Light text */
+            cursor: default;
+        }
+
+        tr {
+            transition: all 0.2s ease-in-out;
+            border-radius: 0.2rem;
+        }
+
+        tr:not(:first-child):hover {
+            background-color: #1f2747; /* Darker background */
+            transform: scale(1.1);
+            box-shadow: 0px 5px 15px 8px #050c2b; /* Darker shadow */
+        }
+
+        tr:nth-child(odd) {
+            background-color: #2e345f; /* Darker background */
+        }
+
+        .first {
+            color: #fff;
+        }
+
+        td {
+            height: 5rem;
+            font-family: &quot;Rubik&quot;, sans-serif;
+            font-size: 1.4rem;
+            padding: 1rem 2rem;
+            position: relative;
+        }
+
+        .number {
+            width: 1rem;
+            font-size: 2.2rem;
+            font-weight: bold;
+            text-align: left;
+        }
+
+        .name {
+            text-align: left;
+            font-size: 1.2rem;
+        }
+
+        .points {
+            font-weight: bold;
+            font-size: 1.3rem;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        .points:first-child {
+            width: 10rem;
+        }
+
+        .gold-medal {
+            height: 3rem;
+            margin-left: 1.5rem;
+        }
+
+        .ribbon {
+            width: 42rem;
+            height: 5.5rem;
+            top: -0.5rem;
+            background-color: #7c7bf4; /* Darker purple */
+            position: absolute;
+            left: -1rem;
+            box-shadow: 0px 15px 11px -6px #292858; /* Darker shadow */
+        }
+
+        .ribbon::before {
+            content: &quot;&quot;;
+            height: 1.5rem;
+            width: 1.5rem;
+            bottom: -0.8rem;
+            left: 0.35rem;
+            transform: rotate(45deg);
+            background-color: #7c7bf4; /* Darker purple */
+            position: absolute;
+            z-index: -1;
+        }
+
+        .ribbon::after {
+            content: &quot;&quot;;
+            height: 1.5rem;
+            width: 1.5rem;
+            bottom: -0.8rem;
+            right: 0.35rem;
+            transform: rotate(45deg);
+            background-color: #7c7bf4; /* Darker purple */
+            position: absolute;
+            z-index: -1;
+        }
+
+        #buttons {
+            width: 100%;
+            margin-top: 3rem;
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+        }
+
+        .exit {
+            width: 11rem;
+            height: 3rem;
+            font-family: &quot;Rubik&quot;, sans-serif;
+            font-size: 1.3rem;
+            text-transform: uppercase;
+            color: #a5a6ad; /* Light gray */
+            border: 0;
+            background-color: #1f2747; /* Darker background */
+            border-radius: 2rem;
+            cursor: pointer;
+        }
+
+        .exit:hover {
+            border: 0.1rem solid #7c7bf4; /* Darker purple */
+        }
+
+        .continue {
+            width: 11rem;
+            height: 3rem;
+            font-family: &quot;Rubik&quot;, sans-serif;
+            font-size: 1.3rem;
+            color: #fff;
+            text-transform: uppercase;
+            background-color: #7c7bf4; /* Darker purple */
+            border: 0;
+            border-bottom: 0.2rem solid #3838b8;
+            border-radius: 2rem;
+            cursor: pointer;
+        }
+
+        .continue:active {
+            border-bottom: 0;
+        }
+
+        @media (max-width: 740px) {
+            * {
+                font-size: 70%;
+            }
+        }
+
+        @media (max-width: 500px) {
+            * {
+                font-size: 55%;
+            }
+        }
+
+        @media (max-width: 390px) {
+            * {
+                font-size: 45%;
+            }
+        }
+
+          </style><link rel="preconnect" href="https://fonts.googleapis.com"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="true"/><meta charSet="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><script src="https://unpkg.com/@phosphor/icons"></script><meta name="next-head-count" content="8"/><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link rel="preload" href="/_next/static/css/270caf8fff955e7a.css" as="style"/><link rel="stylesheet" href="/_next/static/css/270caf8fff955e7a.css" data-n-g=""/><noscript data-n-css=""></noscript><script defer="" nomodule="" src="/_next/static/chunks/polyfills-78c92fac7aa8fdd8.js"></script><script src="/_next/static/chunks/webpack-d6e739e4b37067ad.js" defer=""></script><script src="/_next/static/chunks/framework-ecc4130bc7a58a64.js" defer=""></script><script src="/_next/static/chunks/main-01711285a1796b88.js" defer=""></script><script src="/_next/static/chunks/pages/_app-cad97930a0e937cd.js" defer=""></script><script src="/_next/static/chunks/pages/leaderboard-be7bd24ef9895aaa.js" defer=""></script><script src="/_next/static/_Rv3Zt7LGartoA1ZHebPJ/_buildManifest.js" defer=""></script><script src="/_next/static/_Rv3Zt7LGartoA1ZHebPJ/_ssgManifest.js" defer=""></script><style data-href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500&display=swap">@font-face{font-family:'Rubik';font-style:normal;font-weight:400;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-B4i1Uw.woff) format('woff')}@font-face{font-family:'Rubik';font-style:normal;font-weight:500;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWZBXyIfDnIV5PNhY1KTN7Z-Yh-NYi1Uw.woff) format('woff')}@font-face{font-family:'Rubik';font-style:normal;font-weight:400;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nErXyw023e1Ik.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0898-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EFD-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1}@font-face{font-family:'Rubik';font-style:normal;font-weight:400;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nMrXyw023e1Ik.woff2) format('woff2');unicode-range:U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F}@font-face{font-family:'Rubik';font-style:normal;font-weight:400;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nFrXyw023e1Ik.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}@font-face{font-family:'Rubik';font-style:normal;font-weight:400;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nDrXyw023e1Ik.woff2) format('woff2');unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}@font-face{font-family:'Rubik';font-style:normal;font-weight:400;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nPrXyw023e1Ik.woff2) format('woff2');unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}@font-face{font-family:'Rubik';font-style:normal;font-weight:400;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nBrXyw023e.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}@font-face{font-family:'Rubik';font-style:normal;font-weight:500;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nErXyw023e1Ik.woff2) format('woff2');unicode-range:U+0600-06FF,U+0750-077F,U+0870-088E,U+0890-0891,U+0898-08E1,U+08E3-08FF,U+200C-200E,U+2010-2011,U+204F,U+2E41,U+FB50-FDFF,U+FE70-FE74,U+FE76-FEFC,U+102E0-102FB,U+10E60-10E7E,U+10EFD-10EFF,U+1EE00-1EE03,U+1EE05-1EE1F,U+1EE21-1EE22,U+1EE24,U+1EE27,U+1EE29-1EE32,U+1EE34-1EE37,U+1EE39,U+1EE3B,U+1EE42,U+1EE47,U+1EE49,U+1EE4B,U+1EE4D-1EE4F,U+1EE51-1EE52,U+1EE54,U+1EE57,U+1EE59,U+1EE5B,U+1EE5D,U+1EE5F,U+1EE61-1EE62,U+1EE64,U+1EE67-1EE6A,U+1EE6C-1EE72,U+1EE74-1EE77,U+1EE79-1EE7C,U+1EE7E,U+1EE80-1EE89,U+1EE8B-1EE9B,U+1EEA1-1EEA3,U+1EEA5-1EEA9,U+1EEAB-1EEBB,U+1EEF0-1EEF1}@font-face{font-family:'Rubik';font-style:normal;font-weight:500;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nMrXyw023e1Ik.woff2) format('woff2');unicode-range:U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F}@font-face{font-family:'Rubik';font-style:normal;font-weight:500;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nFrXyw023e1Ik.woff2) format('woff2');unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116}@font-face{font-family:'Rubik';font-style:normal;font-weight:500;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nDrXyw023e1Ik.woff2) format('woff2');unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}@font-face{font-family:'Rubik';font-style:normal;font-weight:500;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nPrXyw023e1Ik.woff2) format('woff2');unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}@font-face{font-family:'Rubik';font-style:normal;font-weight:500;font-display:swap;src:url(https://fonts.gstatic.com/s/rubik/v28/iJWKBXyIfDnIV7nBrXyw023e.woff2) format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}</style></head><body class="mainBody"><div id="__next"><div><main class="main"><div class="header" id="header"><h1>leaderboard</h1><button class="share gold">allTime</button><button class="share gray">pastDay</button><button class="share"><b>back</b></button></div><div class="leaderboard" id="leaderboard"><div class="ribbon"></div><table class="table" id="table"><tbody></tbody></table><div id="buttons"><button class="exit">exit</button></div></div></main></div></div><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{}},"page":"/leaderboard","query":{},"buildId":"_Rv3Zt7LGartoA1ZHebPJ","nextExport":true,"autoExport":true,"isFallback":false,"scriptLoader":[]}</script></body></html>
