@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ ".github/workflows", "master" ]
+    branches: [ "standalone-dev", "master" ]
   workflow_dispatch:
 
 jobs:
