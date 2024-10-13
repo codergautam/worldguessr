@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import styles from '@/styles/MapPage.module.css'; // Import CSS module for styling
 import Navbar from '@/components/ui/navbar';
 import { useTranslation } from '@/components/useTranslations'
+import config from '@/clientConfig';
 
 
 // export async function getServerSideProps(context) {
@@ -68,17 +69,45 @@ export default function MapPage({ }) {
   const [locationUrls, setLocationUrls] = useState([]);
   const [fadeClass, setFadeClass] = useState(styles.iframe);
   const { t: text } = useTranslation('common');
+  const [mapData, setMapData] = useState({});
 
-  const mapData = {
-    name: "United States",
-    description_short: "Explore the United States of America",
-    description_long: "Explore the United States of America on WorldGuessr, a free GeoGuessr clone. This map features locations from all 50 states, including landmarks, cities, and natural wonders.",
-    created_by: "WorldGuessr",
-    created_at: "1 year",
-    in_review: false,
-    rejected: false,
-    countryCode: "US",
-  };
+  // const mapData = {
+  //   name: "United States",
+  //   description_short: "Explore the United States of America",
+  //   description_long: "Explore the United States of America on WorldGuessr, a free GeoGuessr clone. This map features locations from all 50 states, including landmarks, cities, and natural wonders.",
+  //   created_by: "WorldGuessr",
+  //   created_at: "1 year",
+  //   in_review: false,
+  //   rejected: false,
+  //   countryCode: "US",
+  // };
+
+  useEffect(() => {
+    const {apiUrl} = config()
+    // slug can either be in two forms
+    // /map/:slug (path param)
+    // /map?s=slug (query param)
+
+    const queryParams = new URLSearchParams(window.location.search);
+    const slug = router.query.s || router.query.slug || queryParams.get('s') || queryParams.get('slug');
+
+    if (!slug) return;
+
+    console.log('fetching map data for', slug);
+    fetch(apiUrl+`/api/map/publicData?slug=${slug}`).then(async res => {
+      if (res.ok) {
+        const data = await res.json();
+        console.log('fetched map data:', data);
+        setMapData(data.mapData);
+      } else {
+        console.error('Failed to fetch map data:', res);
+        if(res.status === 404) {
+          router.push('/404');
+        }
+      }
+    });
+  }, []);
+
 
   useEffect(() => {
     if (!mapData.data) return;
@@ -106,8 +135,8 @@ export default function MapPage({ }) {
   return (
     <div className={styles.container}>
       <Head>
-        <title>{mapData.name + " - Play Free on WorldGuessr"}</title>
-        <meta name="description" content={`Explore ${mapData.name} on WorldGuessr, a free GeoGuessr clone. ${mapData.description_short}`} />
+        <title>{mapData?.name + " - Play Free on WorldGuessr"}</title>
+        <meta name="description" content={`Explore ${mapData?.name} on WorldGuessr, a free GeoGuessr clone. ${mapData?.description_short}`} />
     <link rel="icon" type="image/x-icon" href="/icon.ico" />
 
       </Head>
@@ -122,6 +151,9 @@ export default function MapPage({ }) {
       <main className={styles.main}>
         <Navbar />
 
+          {mapData?.name && (
+            <>
+
         {mapData.in_review && (
           <div className={styles.statusMessage}>
             <p>⏳ This map is currently under review.</p>
@@ -134,6 +166,9 @@ export default function MapPage({ }) {
           </div>
         )}
 
+</>
+          )}
+
         <div className={styles.branding}>
           <h1>WorldGuessr</h1>
           <center>
@@ -143,6 +178,16 @@ export default function MapPage({ }) {
           </center>
         </div>
 
+        {!mapData.name && (
+          <div className={styles.statusMessage} style={{backgroundColor: 'green', color: 'white'}}>
+            <center>
+            <p>Loading map...</p>
+            </center>
+          </div>
+        )}
+
+
+          { mapData.name && (
         <div className={styles.mapHeader}>
           <div className={styles.mapImage}>
             {locationUrls.length > 0 && (
@@ -166,6 +211,10 @@ export default function MapPage({ }) {
             <p>{mapData.description_short}</p>
           </div>
         </div>
+          )}
+
+{ mapData?.name && (
+  <>
         <button className={styles.playButton} onClick={handlePlayButtonClick}>
           PLAY
         </button>
@@ -202,6 +251,8 @@ export default function MapPage({ }) {
             )}
           </p>
         </div>
+        </>
+)}
       </main>
     </div>
   );

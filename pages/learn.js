@@ -7,13 +7,15 @@ const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' })
 import NextImage from "next/image";
 import Link from 'next/link';
 import Head from 'next/head';
+import config from '@/clientConfig';
 
 export default function Learn({ locale }) {
 const [clueCnt, setClueCnt] = React.useState(0);
 const [displayCount, setDisplayCount] = React.useState(0);
 
 React.useEffect(() => {
-  fetch('/api/clues/getCluesCount').then(res => res.json()).then(data => {
+  const configData = config();
+  fetch(configData.apiUrl+'/api/clues/getCluesCount').then(res => res.json()).then(data => {
     setClueCnt(data.count);
   });
 }, []);

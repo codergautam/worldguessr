@@ -1,13 +1,21 @@
 // pages/maps.js
-import React from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/router";
 import MapView from "@/components/maps/mapView";
 import { useTranslation } from '@/components/useTranslations'
+import config from "@/clientConfig";
+
+import { useSession } from "@/components/auth/auth";
+import Head from "next/head";
 
 export default function MapsPage({  }) {
     const router = useRouter();
     const { t: text } = useTranslation("common");
     const { data: session, status } = useSession();
+
+    useEffect(() => {
+        window.cConfig = config();
+    }, []);
 
     const handleMapClick = (map) => {
             router.push(`/map/${map.slug}`);
@@ -56,6 +64,3 @@ const styles = {
     },
 };
 
-
-import { useSession } from "@/components/auth/auth";
-import Head from "next/head";

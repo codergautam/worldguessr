@@ -37,7 +37,7 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
       if(reject_reason === null) return;
     }
 
-    fetch(`/api/map/approveRejectMap`, {
+    fetch(window.cConfig.apiUrl+`/api/map/approveRejectMap`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -72,7 +72,7 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
     e.stopPropagation();
 
     if (confirm("Are you sure you want to delete this map?")) {
-      fetch(`/api/map/delete`, {
+      fetch(window.cConfig.apiUrl+`/api/map/delete`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json'
@@ -180,7 +180,7 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
               <button className="map-tile__edit" onClick={(e) => {
                 // need to retrieve the map data
                 e.stopPropagation()
-                fetch(`/api/map/action`, {
+                fetch(window.cConfig.apiUrl+`/api/map/action`, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json'

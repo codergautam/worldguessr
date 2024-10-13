@@ -1,5 +1,5 @@
-import Map from '@/models/Map';
-import User from '@/models/User';
+import Map from '../../models/Map.js';
+import User from '../../models/User.js';
 
 const HEART_COOLDOWN = 500;
 let recentHearts = {}
@@ -16,7 +16,7 @@ async function handler(req, res) {
       if (typeof secret !== 'string') {
         return res.status(400).json({ message: 'Invalid input' });
       }
-      
+
 
       if (!mapId || !secret) {
         return res.status(400).json({ message: 'Missing values' });

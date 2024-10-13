@@ -27,9 +27,3 @@ export function useSession() {
     data: session
   }
 }
-
-export function getServerSession(req, res, authOptions) {
-  console.log("Getting server session", req, res, authOptions);
-
-  return null;
-}

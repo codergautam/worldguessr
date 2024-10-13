@@ -73,7 +73,7 @@ halfFillMode='svg'
       ...ratedIndexes,
       [`rate${index}`]: value
     });
-    fetch('/api/clues/rateClue', {
+    fetch(window.cConfig.apiUrl+'/api/clues/rateClue', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

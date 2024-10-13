@@ -1,7 +1,7 @@
 export default async function findCountry({lat, lon}) {
   let data = null;
   try {
-  const resp = await fetch(`/api/country?lat=${lat}&lon=${lon}`); // fetch data from OSM
+  const resp = await fetch(window.cConfig.apiUrl+`/api/country?lat=${lat}&lon=${lon}`); // fetch data from OSM
   data = await resp.json();
   } catch (e) {
     data = { address: { country: "Unknown" }}; // default to unknown

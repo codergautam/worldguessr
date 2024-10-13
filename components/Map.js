@@ -43,8 +43,12 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         }
         // play sound
         playSound();
+        // if point is outside bounds, pan back
         const bounds = L.latLngBounds([-90, -180], [90, 180]);
+
+        if(!bounds.contains(e.latlng)) {
         const center = e.target.panInsideBounds(bounds, { animate: true });
+        }
       }
     },
   });

@@ -11,7 +11,7 @@ export default function SetUsernameModal({ shown, onClose, session }) {
         if(window.settingName) return;
         const secret = session.token.secret;
         window.settingName = true;
-        const response = await fetch('/api/setName', {
+        const response = await fetch(window.cConfig.apiUrl+'/api/setName', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

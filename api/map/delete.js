@@ -1,5 +1,5 @@
-import Map from "@/models/Map";
-import User from "@/models/User";
+import Map from "../../models/Map.js";
+import User from "../../models/User.js";
 
 export default async function handler(req, res) {
   // only allow DELETE

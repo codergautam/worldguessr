@@ -27,7 +27,7 @@ export default function ExplanationModal({ lat, long, session, shown, onClose })
       setSending(true);
 
 
-      const response = await fetch('/api/clues/makeClue', {
+      const response = await fetch(window.cConfig.apiUrl+'/api/clues/makeClue', {
         method: 'POST',
         headers: {
           // 'Content-Type': 'application/json',

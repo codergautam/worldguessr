@@ -1,10 +1,7 @@
-import mapConst from "@/components/maps/mapConst";
-import parseMapData from "@/components/utils/parseMapData";
-import sendableMap from "@/components/utils/sendableMap";
-import generateSlug from "@/components/utils/slugGenerator";
-import Map from "@/models/Map";
-import User from "@/models/User";
-import officialCountryMaps from '@/public/officialCountryMaps.json';
+import sendableMap from "../../components/utils/sendableMap.js";
+import Map from "../../models/Map.js";
+import User from "../../models/User.js";
+import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
 
 let mapCache = {
   popular: {

@@ -172,7 +172,7 @@ export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDi
     if(window.location.search.includes("learn=true")) {
 
       console.log("fetching clue")
-    fetch('/api/clues/getClue'+(latLong ? `?lat=${latLong.lat}&lng=${latLong.long}` : '')).then(res => res.json()).then(data => {
+    fetch(window.cConfig.apiUrl+'/api/clues/getClue'+(latLong ? `?lat=${latLong.lat}&lng=${latLong.long}` : '')).then(res => res.json()).then(data => {
 
       if(data.error) {
         console.error(data.error);
@@ -336,7 +336,7 @@ export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDi
     if(multiplayerState?.inGame) return;
 
     if(xpEarned > 0 && session?.token?.secret && gameOptions.official) {
-      fetch('/api/storeGame', {
+      fetch(window.cConfig.apiUrl+'/api/storeGame', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

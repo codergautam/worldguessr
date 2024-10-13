@@ -11,7 +11,7 @@ export default function MapsModal({ inLegacy, gameOptions, setGameOptions, shown
         if (customChooseMapCallback) {
             customChooseMapCallback(map);
         } else {
-            window.location.href = `/map/${map.slug}`;
+            window.location.href = `/map?s=${map.slug}`;
         }
     };
 

@@ -12,6 +12,10 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
         setOptions((prevOptions) => ({ ...prevOptions, mapType: event.target.value }));
     };
 
+    const handleLanguageChange = (event) => {
+        setOptions((prevOptions) => ({ ...prevOptions, language: event.target.value }));
+    };
+
     if(!options) return null;
 
     return (
@@ -51,6 +55,17 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                     <option value="s">{text("satellite")}</option>
                     <option value="p">{text("terrain")}</option>
                     <option value="y">{text("hybrid")}</option>
+                </select>
+            </div>
+
+            <div>
+                <label htmlFor="mapType">{text("language")}: </label>
+                <select id="mapType" value={options.language} onChange={handleLanguageChange}>
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="ru">Русский</option>
                 </select>
             </div>
 

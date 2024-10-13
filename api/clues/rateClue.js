@@ -1,6 +1,5 @@
-import { NextApiRequest, NextApiResponse } from 'next';
-import Clue from '@/models/Clue';
-import User from '@/models/User';
+import Clue from '../../models/Clue.js';
+import User from '../../models/User.js';
 
 async function handler(req, res) {
   if (req.method === 'POST') {
@@ -11,7 +10,7 @@ async function handler(req, res) {
       if (typeof secret !== 'string') {
         return res.status(400).json({ message: 'Invalid input' });
       }
-      
+
       if (!clueId || !rating || !secret) {
         return res.status(400).json({ message: 'Missing clueId, rating, or secret' });
       }

@@ -1,5 +1,5 @@
-import Clue from '@/models/Clue';
-import User from '@/models/User';
+import Clue from '../../models/Clue.js';
+import User from '../../models/User.js';
 
 async function handler(req, res) {
   if (req.method === 'GET') {

@@ -4,6 +4,7 @@ import MakeMapForm from "./makeMap";
 import MapTile from "./mapTile";
 import { ScrollMenu } from "react-horizontal-scrolling-menu";
 import "react-horizontal-scrolling-menu/dist/styles.css";
+import config from "@/clientConfig";
 
 const initMakeMap = {
   open: false,
@@ -40,7 +41,9 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
       return;
     }
 
-    fetch("/api/map/mapHome", {
+    window.cConfig = config();
+
+    fetch(window.cConfig.apiUrl+"/api/map/mapHome", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -72,7 +75,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
   const handleSearch = useCallback(
     debounce((term) => {
       if (term.length > 3) {
-        fetch("/api/map/searchMap", {
+        fetch(window.cConfig.apiUrl+"/api/map/searchMap", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

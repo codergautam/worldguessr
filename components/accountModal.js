@@ -11,7 +11,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, inCr
     useEffect(() => {
       if(shown) {
         const fetchData = async () => {
-          const response = await fetch('/api/publicAccount', {
+          const response = await fetch(window.cConfig.apiUrl+'/api/publicAccount', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

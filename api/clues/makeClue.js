@@ -1,9 +1,8 @@
-import { NextApiRequest, NextApiResponse } from 'next';
 import formidable from 'formidable';
 // import { OpenAI } from 'openai';
 import fs from 'fs';
-import User from '@/models/User';
-import Clue from '@/models/Clue';
+import User from '../../models/User.js';
+import Clue from '../../models/Clue.js';
 
 // const openai = new OpenAI({
 //   apiKey: process.env.OPENAI_API_KEY,

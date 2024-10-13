@@ -51,23 +51,58 @@ import validateSecret from './components/utils/validateSecret.js';
 import express from 'express';
 var app = express();
 
+// disable cors
+import cors from 'cors';
+app.use(cors());
+
 app.use(express.json());
 
 // Setup your /api routes
 const apiFolder = path.join(__dirname, 'api');
-fs.readdirSync(apiFolder).forEach(file => {
-  // make sure tis not a directory
-  if(fs.lstatSync(path.join(apiFolder, file)).isDirectory()) {
-    return;
-  }
-  console.log('Loading API route', file);
+let directories = [];
 
-  const routePath = './api/' + file.split('.')[0]+'.js';
-  const webPath = '/api/' + file.split('.')[0];
-  import(routePath).then(module => {
-    app.all(webPath, module.default); // Use .default because ES module exports default
+// fs.readdirSync(apiFolder).forEach(file => {
+//   // make sure tis not a directory
+//   if(fs.lstatSync(path.join(apiFolder, file)).isDirectory()) {
+//     directories.push(file);
+//     return;
+//   }
+//   console.log('Loading API route', file);
+
+//   const routePath = './api/' + file.split('.')[0]+'.js';
+//   const webPath = '/api/' + file.split('.')[0];
+//   console.log('Loading', routePath, 'at', webPath);
+//   import(routePath).then(module => {
+//     app.all(webPath, module.default); // Use .default because ES module exports default
+//   });
+// });
+
+function loadFolder(folder, subdir = '') {
+  fs.readdirSync(folder).forEach(file => {
+    const filePath = path.join(folder, file);
+    if(fs.lstatSync(filePath).isDirectory()) {
+      loadFolder(filePath, subdir + file + '/');
+      return;
+    }
+    if(!file.endsWith('.js')) {
+      return;
+    }
+
+    const routePath = './api/' + subdir + file.split('.')[0]+'.js';
+    const webPath = '/api/' + subdir + file.split('.')[0];
+    import(routePath).then(module => {
+      app.all(webPath, ( req, res ) => {
+        console.log('Handling', webPath, req.method);
+        const handlerResponse = module.default(req, res);
+        // console.log('Handler response', handlerResponse);
+        // return res.status(400).json({ message: 'Invalid input' });
+      });
+
+    });
   });
-});
+}
+
+loadFolder(apiFolder);
 
 const filter = new Filter();
 filter.removeWords('damn')
@@ -268,7 +303,7 @@ const generateMainLocations = async () => {
     try {
       const batchResults = await Promise.all(batchPromises);
       allLocations.push(...batchResults);
-      console.log('Generated', allLocations.length, '/', locationCnt);
+      if(allLocations.length % 100 === 0) console.log('Generated', allLocations.length, '/', locationCnt);
       if(allLocations.length === locationCnt) {
         console.log('Finished generating all locations');
         while (true) {
@@ -354,6 +389,60 @@ app.get('/clueCountries.json', (req, res) => {
     return res.json({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) });
   }
 });
+
+  //     // check if in format /mapLocations/:slug
+  //     const mapLocMatch = pathname.includes('/mapLocations/');
+  //     if (mapLocMatch) {
+  //       const slug = pathname.split('/mapLocations/')[1].split('?')[0];
+  //       const map = await MapModel.findOne({ slug });
+  //       if (!map) {
+  //         return app.render(req, res, '/404', query);
+  //       }
+  //       res.end(JSON.stringify({
+  //         ready: true,
+  //         locations: map.data,
+  //         name: map.name,
+  //         official: map.official,
+  //         maxDist: map.maxDist
+  //     }));
+  //       return;
+  //     }
+
+  //     if(!httpEnabled) {
+  //       // send 404
+  //       return app.render(req, res, '/404', query);
+  //     }
+
+  //     const mapPlayMatch = pathname.includes('/mapPlay/');
+  //     if (mapPlayMatch && req.method === 'POST') {
+  //       // make suere POST
+  //       const slug = pathname.split('/mapPlay/')[1].split('?')[0];
+  //       recentPlays[slug] = (recentPlays[slug] || 0) + 1;
+  //       res.end('ok');
+  //     }
+
+  app.get('/mapLocations/:slug', async (req, res) => {
+    const slug = req.params.slug;
+    const map = await MapModel.findOne({ slug });
+    if (!map) {
+      return res.status(404).json({ message: 'Map not found' });
+    }
+    res.json({
+      ready: true,
+      locations: map.data,
+      name: map.name,
+      official: map.official,
+      maxDist: map.maxDist
+    });
+  });
+
+  app.post('/mapPlay/:slug', async (req, res) => {
+    const slug = req.params.slug;
+    recentPlays[slug] = (recentPlays[slug] || 0) + 1;
+    res.send('ok');
+  });
+
+
 
 
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useSession } from '@/components/auth/auth';
 import { useTranslation } from '@/components/useTranslations'
+import config from '@/clientConfig';
 
 const Leaderboard = ({ }) => {
   const { t: text } = useTranslation("common");
@@ -17,6 +18,7 @@ const Leaderboard = ({ }) => {
   }, []);
 
   useEffect(() => {
+    const configData = config();
     const fetchData = async () => {
       try {
       const params = {
@@ -24,7 +26,7 @@ const Leaderboard = ({ }) => {
         pastDay: pastDay ? true : undefined
       };
       const queryParams = new URLSearchParams(params).toString();
-      const response = await fetch(`/api/leaderboard${queryParams ? `?${queryParams}` : ''}`);
+      const response = await fetch(configData.apiUrl+`/api/leaderboard${queryParams ? `?${queryParams}` : ''}`);
       const data = await response.json();
       setLeaderboardData(data);
       } catch (error) {

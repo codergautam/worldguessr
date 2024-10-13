@@ -1,5 +1,5 @@
 import LocalizedHome from "@/components/localizedHome";
 
 export default function IndexPage() {
-  return <LocalizedHome path="auto" />;
+  return <LocalizedHome path="ru" />;
 }
