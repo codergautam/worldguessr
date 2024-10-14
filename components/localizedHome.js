@@ -23,21 +23,24 @@ export default function LocalizedHome({ path }) {
 
       try{
         let lang = window.localStorage.getItem("lang");
+        console.log("in localstorage", lang);
         if(lang && langs.includes(lang)) {
           language = lang;
         }
       } catch(e) {
         console.error(e);
       }
+      const currentQueryParams = new URLSearchParams(window.location.search);
+      const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
 
       if(path === "auto") {
         if(language !== "en") {
           console.log("Redirecting to", language);
-          window.location.href = `/${language}`;
+          window.location.href = `/${language}${qPsuffix}`;
         }
       } else {
         if(path !== language) {
-          window.location.href = `/${language}`;
+          window.location.href = `/${language}${qPsuffix}`;
         }
       }
     }

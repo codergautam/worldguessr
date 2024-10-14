@@ -57,7 +57,8 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                     <option value="y">{text("hybrid")}</option>
                 </select>
             </div>
-
+            { !inCrazyGames && (
+                        <>
             <div>
                 <label htmlFor="mapType">{text("language")}: </label>
                 <select id="mapType" value={options.language} onChange={handleLanguageChange}>
@@ -70,11 +71,11 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
             </div>
 
             {/* disableVideoAds checkbox */}
-            { !inCrazyGames && (
             <div style={{ marginTop: '20px' }}>
                 <input type="checkbox" id="disableVideoAds" checked={options.disableVideoAds} onChange={() => setOptions((prevOptions) => ({ ...prevOptions, disableVideoAds: !prevOptions.disableVideoAds }))} />
                 <label htmlFor="disableVideoAds" style={{ marginLeft: '10px' }}>{text("disableVideoAds")}</label>
             </div>
+            </>
             )}
 
         </Modal>

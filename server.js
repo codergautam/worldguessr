@@ -144,8 +144,8 @@ if (!process.env.CLIENT_URL) {
 if(process.env.DISCORD_WEBHOOK) {
   console.log("[INFO] Discord Webhook Enabled");
 }
-if(!process.env.GOOGLE_CLIENT_ID) {
-  console.log("[MISSING-ENV WARN] GOOGLE_CLIENT_ID env variable not set, please set it for multiplayer/auth!".yellow);
+if(!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+  console.log("[MISSING-ENV WARN] NEXT_PUBLIC_GOOGLE_CLIENT_ID env variable not set, please set it for multiplayer/auth!".yellow);
   dbEnabled = false;
 }
 if(!process.env.GOOGLE_CLIENT_SECRET) {

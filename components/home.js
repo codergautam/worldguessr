@@ -48,6 +48,8 @@ import gameStorage from "@/components/utils/localStorage";
 import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";
 import clientConfig from "@/clientConfig";
+import { useGoogleLogin } from "@react-oauth/google";
+
 
 const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
 const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
@@ -101,6 +103,31 @@ export default function Home({ }) {
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
   });
+
+  const login = useGoogleLogin({
+    onSuccess: tokenResponse => {
+      console.log("login success", tokenResponse);
+      fetch(clientConfig().apiUrl+"/api/googleAuth", {
+        body: JSON.stringify({ token: tokenResponse.access_token }),
+        method: "POST",
+      }).then((res) => res.json()).then((data) => {
+        console.log("google auth response", data)
+
+      })
+    },
+    onError: error => {
+      toast.error("Login error, contact support if this persists")
+      console.log("login error", error);
+    },
+    onNonOAuthError: error => {
+      console.log("login non oauth error", error);
+      toast.error("Login error, contact support if this persists (1)")
+
+    }
+
+  });
+  if(typeof window !== "undefined") window.login = login;
+
 
   const [isApp, setIsApp] = useState(false);
   const [inCrazyGames, setInCrazyGames] = useState(false);
@@ -503,13 +530,15 @@ setShowCountryButtons(false)
       window.localStorage.setItem("lang", options?.language)
       window.language = options?.language;
       console.log("set lang", options?.language)
+      const currentQueryParams = new URLSearchParams(window.location.search);
+      const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
 
       const location = `/${options?.language !== "en" ? options?.language : ""}`
       if(!window.location.pathname.includes(location)) {
-        window.location.href = location;
+        window.location.href = location+qPsuffix;
       }
       if(options?.language === "en" && ["es", "fr", "de", "ru"].includes(window.location.pathname.split("/")[1])) {
-        window.location.href = "/";
+        window.location.href = "/"+qPsuffix;
       }
     } catch(e) {}
   }, [options?.language]);
@@ -519,6 +548,7 @@ setShowCountryButtons(false)
     // try to fetch options from localstorage
     try {
     const options = gameStorage.getItem("options");
+    console.log("options", options)
 
 
     if (options) {
@@ -538,7 +568,6 @@ setShowCountryButtons(false)
 
       setOptions({
         units: system,
-        lang: "en",
         mapType: "m" //m for normal
       })
     }

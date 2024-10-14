@@ -1,3 +1,4 @@
+import { useGoogleLogin } from "@react-oauth/google";
 import { inIframe } from "../utils/inIframe";
 
 // secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter
@@ -12,12 +13,15 @@ export function signOut() {
 export function signIn() {
   console.log("Signing in");
 
+
   if(inIframe()) {
     console.log("In iframe");
     // open site in new window
     const url = window.location.href;
     window.open(url, '_blank');
   }
+    window.login();
+
 }
 
 export function useSession() {
