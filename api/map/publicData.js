@@ -1,4 +1,4 @@
-import { getServerSession } from "../../components/auth/serverAuth.js";
+import { getServerSecret } from "../../components/auth/serverAuth.js";
 import officialCountryMaps from "../../public/officialCountryMaps.json" with { type: "json" };
 import Map from "../../models/Map.js";
 import User from "../../models/User.js";
@@ -7,7 +7,13 @@ import msToTime from "../../components/msToTime.js";
 export default async function handler(req, res) {
   const slug = req.query.slug;
   console.log("Getting map data for", slug);
-  const session = await getServerSession(req);
+  const secret = await getServerSecret(req);
+  const session = {};
+  if(secret) {
+    await User.findOne({ secret }).select("secret staff").then((user) => {
+      session.token = { secret, staff: user.staff };
+    });
+  }
 
   // Check if map is an official country map
   const cntryMap = Object.values(officialCountryMaps).find(map => map.slug === slug);

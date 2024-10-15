@@ -155,12 +155,24 @@ export default function Home({ }) {
   const [legacyMapLoader, setLegacyMapLoader] = useState(false);
 
   useEffect(() => {
-    console.log("setting session", mainSession)
 
     if (!inCrazyGames) {
       setSession(mainSession)
     }
   }, [JSON.stringify(mainSession), inCrazyGames])
+
+  useEffect(() => {
+    window.onbeforeunload = function(e) {
+      if(screen === "home") {
+
+      } else  {
+        e.preventDefault();
+        return e.returnValue = 'Are you sure you want to leave?';
+      }
+    }
+  }, [screen])
+
+
 
   const [config, setConfig] = useState(null);
 
@@ -617,6 +629,16 @@ setShowCountryButtons(false)
   const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
   const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
 
+  useEffect(() => {
+    if(!session?.token?.secret) return;
+
+    // verify the ws
+    if(ws && !window.verified) {
+      console.log("sending verify", ws)
+      ws.send(JSON.stringify({ type: "verify", secret: session.token.secret, username: session.token.username }))
+    }
+  }, [session?.token?.secret, ws])
+
   const { t: text } = useTranslation("common");
 
   useEffect(( ) => {
@@ -767,7 +789,10 @@ setShowCountryButtons(false)
           const tz = moment.tz.guess();
           let secret = "not_logged_in";
           try {
-            secret = window.localStorage.getItem("wg_secret");
+            const s = window.localStorage.getItem("wg_secret");
+            if(s) {
+              secret = s;
+            }
           } catch(e) {
           }
           if(session?.token?.secret) {
@@ -775,7 +800,9 @@ setShowCountryButtons(false)
           }
 
 
-          console.log("sending verify with secret", secret)
+          if(secret !== "not_logged_in") {
+            window.verified = true;
+          }
           ws.send(JSON.stringify({ type: "verify", secret, tz}))
       } else {
 

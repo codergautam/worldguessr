@@ -1014,9 +1014,10 @@ Key is saved at:         /etc/letsencrypt/live/www.worldguessr.com/privkey.pem
       if (json.type === "pong") {
         player.lastPong = Date.now();
       }
-      if (json.type === 'verify' && !player.verified) {
+      if (json.type === 'verify') {
         // account verification
         if((!json.secret) || json.secret === 'not_logged_in') {
+          if(!player.verified) {
 
           // guest mode
           player.username = 'Guest #' + make6DigitCode().toString().substring(0, 4);
@@ -1031,6 +1032,7 @@ Key is saved at:         /etc/letsencrypt/live/www.worldguessr.com/privkey.pem
             c: players.size
           })
           console.log('Guest joined', id, player.username);
+        }
 
         } else {
 

@@ -1,4 +1,3 @@
-import { useGoogleLogin } from "@react-oauth/google";
 import { inIframe } from "../utils/inIframe";
 import { toast } from "react-toastify";
 
@@ -28,7 +27,7 @@ export function signIn() {
     toast.error("Google client ID not set");
     return;
   }
-  
+
     window.login();
 
 }
@@ -87,5 +86,24 @@ export function useSession() {
 
   return {
     data: session
+  }
+}
+
+export function getHeaders() {
+  let secret = null;
+  if(session && session?.token?.secret) {
+    secret = session.secret;
+  } else {
+    try {
+      secret = window.localStorage.getItem("wg_secret");
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  if(!secret) {
+    return {};
+  }
+  return {
+    Authorization: "Bearer "+secret
   }
 }

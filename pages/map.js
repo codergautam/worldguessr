@@ -5,6 +5,8 @@ import styles from '@/styles/MapPage.module.css'; // Import CSS module for styli
 import Navbar from '@/components/ui/navbar';
 import { useTranslation } from '@/components/useTranslations'
 import config from '@/clientConfig';
+import { getHeaders } from '@/components/auth/auth';
+import { toast } from 'react-toastify';
 
 
 // export async function getServerSideProps(context) {
@@ -93,8 +95,12 @@ export default function MapPage({ }) {
 
     if (!slug) return;
 
-    console.log('fetching map data for', slug);
-    fetch(apiUrl+`/api/map/publicData?slug=${slug}`).then(async res => {
+    console.log('fetching map data for', slug, getHeaders());
+    fetch(apiUrl+`/api/map/publicData?slug=${slug}`,{
+      headers: {
+        authorization: getHeaders()?.authorization
+      }
+    }).then(async res => {
       if (res.ok) {
         const data = await res.json();
         console.log('fetched map data:', data);
@@ -105,6 +111,9 @@ export default function MapPage({ }) {
           router.push('/404');
         }
       }
+    }).catch(err => {
+      alert('An error occurred while fetching map data');
+      // router.push('/404');
     });
   }, []);
 
