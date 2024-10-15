@@ -254,6 +254,7 @@ export default function Home({ locale }) {
 
 setScreen("onboarding")
 
+
 let onboardingLocations = [
   { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
 { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
@@ -501,6 +502,12 @@ setShowCountryButtons(false)
     }
   }, [session])
 
+  useEffect(() => {
+
+    if(session?.token?.secret && typeof session?.token?.secret === "string") {
+      window.localStorage.setItem("wg_secret", session.token.secret)
+    }
+  }, [session])
   const loadOptions =async () => {
 
     // try to fetch options from localstorage
