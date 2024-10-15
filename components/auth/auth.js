@@ -1,5 +1,6 @@
 import { useGoogleLogin } from "@react-oauth/google";
 import { inIframe } from "../utils/inIframe";
+import { toast } from "react-toastify";
 
 // secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter
 let session = false;
@@ -22,6 +23,12 @@ export function signIn() {
     const url = window.location.href;
     window.open(url, '_blank');
   }
+
+  if(!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+    toast.error("Google client ID not set");
+    return;
+  }
+  
     window.login();
 
 }
