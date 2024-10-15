@@ -357,7 +357,7 @@ setShowCountryButtons(false)
         try {
       fetch(clientConfig()?.apiUrl+`/mapPlay/${mapSlug}`, {method: "POST"})
         } catch(e) {}
-        
+
     }
 
     try {
@@ -1832,7 +1832,7 @@ setShowCountryButtons(false)
           <div style={{ marginTop: "20px" }}>
             <center>
               { !loading && screen === "home"  && !inCrazyGames &&(!session?.token?.supporter) && (
-    <Ad inCrazyGames={inCrazyGames} screenH={height} types={[[320, 50],[728,90],[970,90],[970,250]]} screenW={width} />
+    <Ad inCrazyGames={inCrazyGames} screenH={height} types={[[728,90],[970,90],[970,250]]} screenW={width} />
               )}
     </center>
             </div>
