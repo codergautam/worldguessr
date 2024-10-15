@@ -1016,6 +1016,7 @@ Key is saved at:         /etc/letsencrypt/live/www.worldguessr.com/privkey.pem
       }
       if (json.type === 'verify') {
         // account verification
+        console.log(json.secret);
         if((!json.secret) ||(json.secret === 'not_logged_in')) {
           if(!player.verified) {
 
