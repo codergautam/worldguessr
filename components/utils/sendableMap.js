@@ -17,6 +17,6 @@ export default function sendableMap(map, creator, hearted=false, staff=false, is
     reject_reason: map.reject_reason,
     resubmittable: map.resubmittable,
     yours: isCreator||staff,
-    locations: map?.locationsCnt ?? map.data?.length,
+    locations: map?.locationsCnt ?? map.data?.length ?? JSON.parse(JSON.stringify(map))?.locationsCnt
   }
 }

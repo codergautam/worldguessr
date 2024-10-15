@@ -39,7 +39,7 @@ export function useSession() {
     }
   }
 
-  if(session === false && !window.fetchingSession) {
+  if(session === false && !window.fetchingSession && window.cConfig?.apiUrl) {
     let secret = null;
     try {
 
