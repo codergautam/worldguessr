@@ -9,6 +9,9 @@ let session = false;
 export function signOut() {
   window.localStorage.removeItem("wg_secret");
   session = null;
+  if(window.dontReconnect) {
+    return;
+  }
   window.location.reload();
 }
 
