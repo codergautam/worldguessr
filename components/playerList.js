@@ -47,7 +47,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
           <FaCopy />
         </button>
         <br />
-        { host && (
+        { host && false && (
         <button onClick={() => {
 
         }} style={{

@@ -45,7 +45,7 @@ import { createServer } from 'http';
 import { createServer as createHttpsServer } from 'https';
 import { Filter } from 'bad-words';
 import validateSecret from './components/utils/validateSecret.js';
-
+import bodyParser from 'body-parser';
 
 // express
 import express from 'express';
@@ -54,6 +54,7 @@ var app = express();
 // disable cors
 import cors from 'cors';
 app.use(cors());
+app.use(bodyParser.json());
 
 app.use(express.json());
 

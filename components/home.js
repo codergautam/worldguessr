@@ -79,7 +79,7 @@ const initialMultiplayerState = {
 export default function Home({ }) {
   const { width, height } = useWindowDimensions();
 
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(false);
   const { data: mainSession } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [screen, setScreen] = useState("home");
@@ -106,13 +106,25 @@ export default function Home({ }) {
 
   const login = useGoogleLogin({
     onSuccess: tokenResponse => {
-      console.log("login success", tokenResponse);
       fetch(clientConfig().apiUrl+"/api/googleAuth", {
-        body: JSON.stringify({ token: tokenResponse.access_token }),
+        body: JSON.stringify({ code: tokenResponse.code }),
         method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        }
       }).then((res) => res.json()).then((data) => {
-        console.log("google auth response", data)
+        if(data.secret) {
 
+          setSession({ token: data })
+          window.localStorage.setItem("wg_secret", data.secret)
+
+        } else {
+          toast.error("Login error, contact support if this persists (2)")
+        }
+
+      }).catch((e) => {
+        console.error("google auth error", e)
+        toast.error("Login error, contact support if this persists (3)")
       })
     },
     onError: error => {
@@ -123,7 +135,8 @@ export default function Home({ }) {
       console.log("login non oauth error", error);
       toast.error("Login error, contact support if this persists (1)")
 
-    }
+    },
+    flow: "auth-code",
 
   });
   if(typeof window !== "undefined") window.login = login;
@@ -136,7 +149,9 @@ export default function Home({ }) {
   const [legacyMapLoader, setLegacyMapLoader] = useState(false);
 
   useEffect(() => {
-    if (mainSession && !inCrazyGames) {
+    console.log("setting session", mainSession)
+
+    if (!inCrazyGames) {
       setSession(mainSession)
     }
   }, [JSON.stringify(mainSession), inCrazyGames])
@@ -745,9 +760,14 @@ setShowCountryButtons(false)
 
           const tz = moment.tz.guess();
           let secret = "not_logged_in";
+          try {
+            secret = window.localStorage.getItem("wg_secret");
+          } catch(e) {
+          }
           if(session?.token?.secret) {
             secret = session.token.secret;
           }
+
 
           console.log("sending verify with secret", secret)
           ws.send(JSON.stringify({ type: "verify", secret, tz}))
