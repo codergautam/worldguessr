@@ -354,7 +354,10 @@ setShowCountryButtons(false)
     if(!country && mapSlug !== gameOptions.location) {
       if( ((window?.lastPlayTrack||0) + 20000 < Date.now())) {
 
-      fetch(config.apiUrl+`/mapPlay/${mapSlug}`, {method: "POST"})
+        try {
+      fetch(clientConfig()?.apiUrl+`/mapPlay/${mapSlug}`, {method: "POST"})
+        } catch(e) {}
+        
     }
 
     try {
