@@ -40,6 +40,7 @@ export default function LocalizedHome({ path }) {
         }
       } else {
         if(path !== language) {
+          console.log("Redirecting to", language);
           window.location.href = `/${language}${qPsuffix}`;
         }
       }

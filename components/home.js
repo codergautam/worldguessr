@@ -568,9 +568,11 @@ setShowCountryButtons(false)
 
       const location = `/${options?.language !== "en" ? options?.language : ""}`
       if(!window.location.pathname.includes(location)) {
+        console.log("changing lang", location)
         window.location.href = location+qPsuffix;
       }
       if(options?.language === "en" && ["es", "fr", "de", "ru"].includes(window.location.pathname.split("/")[1])) {
+        console.log("changing lang", location)
         window.location.href = "/"+qPsuffix;
       }
     } catch(e) {}
