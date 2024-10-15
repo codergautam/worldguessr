@@ -104,7 +104,10 @@ export default function Home({ }) {
   const [options, setOptions] = useState({
   });
 
-  const login = useGoogleLogin({
+  let login = null;
+  if(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+   // eslint-disable-next-line react-hooks/rules-of-hooks
+   login = useGoogleLogin({
     onSuccess: tokenResponse => {
       fetch(clientConfig().apiUrl+"/api/googleAuth", {
         body: JSON.stringify({ code: tokenResponse.code }),
@@ -139,7 +142,10 @@ export default function Home({ }) {
     flow: "auth-code",
 
   });
+
   if(typeof window !== "undefined") window.login = login;
+}
+
 
 
   const [isApp, setIsApp] = useState(false);
