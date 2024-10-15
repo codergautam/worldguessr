@@ -13,7 +13,6 @@ export default async function handler(req, res) {
   }
 
   const { code, secret } = req.body;
-  console.log(code);
   if (!code) {
     if(!secret) {
       return res.status(400).json({ error: 'Invalid' });
@@ -54,7 +53,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid' });
   }
 
-  console.log(email);
   const existingUser = await User.findOne({ email });
   let secret = null;
   if (!existingUser) {

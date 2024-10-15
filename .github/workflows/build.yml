@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CI: false
-      NEXT_PUBLIC_API_URL: staging.worldguessr.com
+      NEXT_PUBLIC_API_URL: server.worldguessr.com
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: 471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com
       # add more env vars here
 
