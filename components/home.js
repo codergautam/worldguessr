@@ -161,16 +161,17 @@ export default function Home({ }) {
     }
   }, [JSON.stringify(mainSession), inCrazyGames])
 
-  useEffect(() => {
-    window.onbeforeunload = function(e) {
-      if(screen === "home") {
+  // this breaks stuff like logout and set username reloads
+  // useEffect(() => {
+  //   window.onbeforeunload = function(e) {
+  //     if(screen === "home") {
 
-      } else  {
-        e.preventDefault();
-        return e.returnValue = 'Are you sure you want to leave?';
-      }
-    }
-  }, [screen])
+  //     } else  {
+  //       e.preventDefault();
+  //       return e.returnValue = 'Are you sure you want to leave?';
+  //     }
+  //   }
+  // }, [screen])
 
 
 
