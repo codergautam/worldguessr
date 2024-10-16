@@ -62,7 +62,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
     }
   useEffect(() => {
     refreshHome();
-  }, [session?.token?.secret, text]);
+  }, [session?.token?.secret]);
 
   const debounce = (func, delay) => {
     let timer;
@@ -106,7 +106,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
       return;
     }
 
-    fetch("/api/map/action", {
+    fetch(window.cConfig?.apiUrl+"/api/map/action", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -153,7 +153,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
 
     setHeartingMap(map.id);
 
-    fetch("/api/map/heartMap", {
+    fetch(window.cConfig?.apiUrl+"/api/map/heartMap", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

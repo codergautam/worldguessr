@@ -54,9 +54,8 @@ var app = express();
 // disable cors
 import cors from 'cors';
 app.use(cors());
-app.use(bodyParser.json());
-
-app.use(express.json());
+app.use(bodyParser.json({limit: '5mb'}));
+app.use(bodyParser.urlencoded({limit: '5mb', extended: true, parameterLimit:50000}));
 
 // Setup your /api routes
 const apiFolder = path.join(__dirname, 'api');
