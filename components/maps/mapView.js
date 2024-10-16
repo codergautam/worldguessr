@@ -267,6 +267,11 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
           {!makeMap.open && session?.token?.secret && (
             <button
               onClick={() => {
+
+                // temporarily disabled
+                toast.error("Feature disabled temporarily due to maintenance");
+                return;
+
                 if(makeMap.edit) {
                   setMakeMap({
                     ...initMakeMap,
