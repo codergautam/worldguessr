@@ -18,7 +18,7 @@ export default function MapsPage({  }) {
     }, []);
 
     const handleMapClick = (map) => {
-            router.push(`/map/${map.slug}`);
+            router.push(`/map?s=${map.slug}`);
     };
 
     return (
