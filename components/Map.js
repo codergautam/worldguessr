@@ -223,7 +223,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         url={`https://mt2.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}`}
       />
 
-    <audio ref={plopSound} src="https://codergautam.dev/plop.mp3" preload="auto"></audio>
+    <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
 
     </MapContainer>
   );

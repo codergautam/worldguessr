@@ -102,7 +102,6 @@ function loadFolder(folder, subdir = '') {
   });
 }
 
-loadFolder(apiFolder);
 
 const filter = new Filter();
 filter.removeWords('damn')
@@ -369,8 +368,20 @@ setTimeout(() => {
   generateClueLocations();
 }, 20000);
 
+if(!httpEnabled) {
+  app.get('*', (req, res) => {
+    res.status(200).send('WorldGuessr - by Gautam');
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.status(200).send('WorldGuessr API - by Gautam');
+  });
+}
 
 // Endpoint for /allCountries.json
+if(httpEnabled) {
+loadFolder(apiFolder);
+
 app.get('/allCountries.json', (req, res) => {
   if (allLocations.length !== locationCnt) {
     // send json {ready: false}
@@ -389,7 +400,6 @@ app.get('/clueCountries.json', (req, res) => {
     return res.json({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) });
   }
 });
-
   //     // check if in format /mapLocations/:slug
   //     const mapLocMatch = pathname.includes('/mapLocations/');
   //     if (mapLocMatch) {
@@ -441,6 +451,7 @@ app.get('/clueCountries.json', (req, res) => {
     recentPlays[slug] = (recentPlays[slug] || 0) + 1;
     res.send('ok');
   });
+}
 
 
 
