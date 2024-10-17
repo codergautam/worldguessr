@@ -210,9 +210,10 @@ export default function Home({ }) {
             if(data.secret && data.username) {
               setSession({ token: { secret: data.secret, username: data.username } })
               // verify the ws
-              console.log("sending verify", ws)
               setWs((prev) => {
                 if(prev) {
+              console.log("sending verify", { type: "verify", secret: data.secret, username: data.username })
+
                   prev.send(JSON.stringify({ type: "verify", secret: data.secret, username: data.username }))
                 }
                 return prev;
@@ -639,7 +640,7 @@ setShowCountryButtons(false)
     if(!session?.token?.secret) return;
 
     // verify the ws
-    if(ws && !window.verified) {
+    if(ws && !window.verified && !window.location.search.includes("crazygames")) {
       console.log("sending verify", ws)
       ws.send(JSON.stringify({ type: "verify", secret: session.token.secret, username: session.token.username }))
     }

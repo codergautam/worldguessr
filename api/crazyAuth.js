@@ -1,4 +1,5 @@
-import * as jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
+const { verify } = jwt;
 import axios from "axios";
 // import { createUUID } from "@/components/createUUID";
 // import User from "@/models/User";
@@ -26,8 +27,7 @@ export default async function handler(req, res) {
   try {
     const resp = await axios.get("https://sdk.crazygames.com/publicKey.json");
     const publicKey = resp.data["publicKey"];
-    decodedToken = jwt.verify(token, publicKey, { algorithms: ["RS256"] });
-    console.log(decodedToken);
+    decodedToken = verify(token, publicKey, { algorithms: ["RS256"] });
   } catch (error) {
     return res.status(400).json({ error: 'Invalid token' });
   }
