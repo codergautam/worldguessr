@@ -144,8 +144,11 @@ export default function MapPage({ }) {
   return (
     <div className={styles.container}>
       <Head>
-        <title>{mapData?.name + " - Play Free on WorldGuessr"}</title>
-        <meta name="description" content={`Explore ${mapData?.name} on WorldGuessr, a free GeoGuessr clone. ${mapData?.description_short}`} />
+        <title>{
+          mapData?.name ? `${mapData.name} - WorldGuessr` :
+        "Play this Custom Map on WorldGuessr"
+        }</title>
+        <meta name="description" content={`Explore the world on WorldGuessr, a free GeoGuessr clone. `} />
     <link rel="icon" type="image/x-icon" href="/icon.ico" />
 
       </Head>

@@ -182,7 +182,7 @@ export default function Ad({
             <div style={{ position: "relative", zIndex: 1 }}>
               <NextImage.default
                 alt="Advertisement"
-                src={`/ad_${types[type][0]}x${types[type][1]}.png`}
+                src={`./ad_${types[type][0]}x${types[type][1]}.png`}
                 width={types[type][0]}
                 height={types[type][1]}
               />
@@ -210,7 +210,7 @@ export default function Ad({
             <div style={{ position: "relative", zIndex: 1 }}>
             <NextImage.default
               alt="Advertisement"
-              src={`/ad_${types[type][0]}x${types[type][1]}.png`}
+              src={`./ad_${types[type][0]}x${types[type][1]}.png`}
               width={types[type][0]}
               height={types[type][1]}
             />

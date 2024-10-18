@@ -18,7 +18,8 @@ const nextConfig = {
     images: {
         unoptimized: true,
     },
-    output: 'export'
+    output: 'export',
+    assetPrefix: './',
 };
 
 // module.exports = nextConfig;

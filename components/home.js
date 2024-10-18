@@ -1,5 +1,4 @@
 import HeadContent from "@/components/headContent";
-import { Jockey_One, Roboto } from 'next/font/google';
 import { FaDiscord, FaGithub } from "react-icons/fa";
 import { FaGear,FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
@@ -51,8 +50,6 @@ import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
 
 
-const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
-const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 const initialMultiplayerState = {
   connected: false,
   connecting: false,
@@ -1695,7 +1692,7 @@ setShowCountryButtons(false)
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                 </>
                 )}
-                <Link href={"/leaderboard"+(inCrazyGames ? "?crazygames": "")}>
+                <Link href={"./leaderboard"+(inCrazyGames ? "?crazygames": "")}>
 
                 <button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
                 </>
@@ -1720,7 +1717,7 @@ setShowCountryButtons(false)
         msUserSelect: 'none',
         pointerEvents: 'none',
       }}>
-      <NextImage.default src={'/street1.jpg'}
+      <NextImage.default src={'./street1.jpg'}
       draggable={false}
       fill   alt="Game Background" style={{objectFit: "cover",userSelect:'none'}}
       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -1728,7 +1725,7 @@ setShowCountryButtons(false)
       </div>
 
 
-      <main className={`home ${jockey.className} ${roboto.className}`} id="main">
+      <main className={`home`} id="main">
         { latLong && latLong?.lat && latLong?.long && legacyMapLoader ? (
 <>
     <iframe className={`streetview ${(loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
@@ -1789,7 +1786,7 @@ setShowCountryButtons(false)
               { onboardingCompleted && (
 
               <>
-      <div className={`mainHomeBtns ${roboto.className}`}>
+      <div className={`mainHomeBtns `}>
 
                {/* <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
@@ -1817,7 +1814,7 @@ setShowCountryButtons(false)
                   <>
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
-                <Link href={"/leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                <Link href={"./leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
                 </>
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>

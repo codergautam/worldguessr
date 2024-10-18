@@ -1,8 +1,5 @@
-import { Jockey_One, Roboto } from 'next/font/google';
 import React from "react";
 
-const jockey = Jockey_One({ subsets: ['latin'], weight: "400", style: 'normal' });
-const roboto = Roboto({ subsets: ['cyrillic'], weight: "400", style: 'normal' });
 
 import NextImage from "next/image";
 import Link from 'next/link';
@@ -50,12 +47,12 @@ React.useEffect(() => {
         opacity: 0.4,
         userSelect: 'none',
       }}>
-      <NextImage.default src={'/street1.jpg'}
+      <NextImage.default src={'./street1.jpg'}
       fill   alt="Game Background" style={{objectFit: "cover",userSelect:'none'}}
       sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
       />
       </div>
-      <main className={`home ${jockey.className} ${roboto.className}`} id="main">
+      <main className={`home `} id="main">
 
         <div className={`home__content`} >
 
