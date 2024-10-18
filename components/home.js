@@ -226,6 +226,15 @@ export default function Home({ }) {
           });
 
         }
+      } else {
+        // user not logged in
+        // verify with not_logged_in
+        setWs((prev) => {
+          if(prev) {
+            prev.send(JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in" }))
+          }
+          return prev;
+        });
       }
     }
 
@@ -1291,6 +1300,11 @@ setShowCountryButtons(false)
   }
   }
 
+
+  useEffect(() => {
+  window.crazyMidgame = crazyMidgame;
+
+  }, []);
   function backBtnPressed(queueNextGame = false) {
 
 
@@ -1308,8 +1322,6 @@ setShowCountryButtons(false)
       setOnboarding(null)
       setOnboardingCompleted(true)
         gameStorage.setItem("onboarding", 'done')
-
-      crazyMidgame()
 
       return;
     }
@@ -1371,11 +1383,6 @@ setShowCountryButtons(false)
         extent: null
       }))
       clearLocation();
-
-      if(screen === "singleplayer") {
-        crazyMidgame()
-
-      }
     }
   }
 

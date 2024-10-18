@@ -78,6 +78,11 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
             </>
             )}
 
+            {inCrazyGames && (
+                <a href="/privacy-crazygames" target="_blank" rel="noreferrer" style={{ marginTop: '20px', display: 'block', color: "white" }}>Privacy Policy</a>
+            )}
+
+
         </Modal>
     );
 }
