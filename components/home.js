@@ -190,6 +190,7 @@ export default function Home({ }) {
     async function crazyAuthListener() {
       const user = await window.CrazyGames.SDK.user.getUser();
       if(user) {
+        console.log("crazygames user", user)
         const token = await window.CrazyGames.SDK.user.getUserToken();
         if(token && user.username) {
           // /api/crazyAuth
@@ -227,6 +228,7 @@ export default function Home({ }) {
 
         }
       } else {
+        console.log("crazygames user not logged in")
         // user not logged in
         // verify with not_logged_in
         setWs((prev) => {
