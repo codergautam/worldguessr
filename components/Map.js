@@ -91,19 +91,19 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
 
   const { t: text } = useTranslation("common");
   const destIcon = L.icon({
-    iconUrl: '/dest.png',
+    iconUrl: './dest.png',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
   });
   const srcIcon = L.icon({
-    iconUrl: '/src.png',
+    iconUrl: './src.png',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
   });
   const src2Icon = L.icon({
-    iconUrl: '/src2.png',
+    iconUrl: './src2.png',
     iconSize: [25, 41],
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],

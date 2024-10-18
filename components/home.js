@@ -1259,11 +1259,13 @@ setShowCountryButtons(false)
       setCountryStreak(parseInt(streak))
     }
 
-    // preload/cache src.png and dest.png
+    // preload/cache src.png and dest.png and src2.png
     const img = new Image();
-    img.src = "/src.png";
+    img.src = "./src.png";
     const img2 = new Image();
-    img2.src = "/dest.png";
+    img2.src = "./dest.png";
+    const img3 = new Image();
+    img3.src = "./src2.png";
   } catch(e) {}
 
   }, [])
