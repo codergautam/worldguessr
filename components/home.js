@@ -305,6 +305,12 @@ export default function Home({ }) {
       if(code && code.length === 6) {
         return;
       }
+
+      // make sure tis not already completed
+      const onboarding = gameStorage.getItem("onboarding");
+      if(onboarding === "done") {
+        return;
+      }
     }
 
 setScreen("onboarding")
