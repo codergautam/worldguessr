@@ -826,6 +826,7 @@ setShowCountryButtons(false)
           }
           ws.send(JSON.stringify({ type: "verify", secret, tz}))
       } else if(inCrazyGames && window.verifyPayload) {
+        console.log("sending verify from verifyPayload")
         ws.send(window.verifyPayload)
 
 
