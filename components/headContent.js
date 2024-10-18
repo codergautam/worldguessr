@@ -46,8 +46,6 @@ export default function HeadContent({text}) {
     ></script>
     <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 {/* <script src="https://greggman.github.io/webgl-helpers/webgl-force-preservedrawingbuffer.js"></script> */}
-<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js" defer></script>
-<script src="https://greggman.github.io/webgl-helpers/webgl-force-preservedrawingbuffer.js" defer></script>
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972"
       crossorigin="anonymous">
 </script>

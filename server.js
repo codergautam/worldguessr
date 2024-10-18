@@ -131,6 +131,7 @@ if (!process.env.MONGODB) {
       console.log('[INFO] Database Connected');
     } catch (error) {
       console.error('[ERROR] Database connection failed!'.red, error.message);
+      console.log(error);
       dbEnabled = false;
     }
   }
