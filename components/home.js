@@ -805,6 +805,7 @@ setShowCountryButtons(false)
       }))
 
 
+      console.log("connected to ws", window.verifyPayload)
       if(!inCrazyGames && !window.location.search.includes("crazygames")) {
 
           const tz = moment.tz.guess();
