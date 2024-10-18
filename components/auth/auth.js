@@ -42,6 +42,17 @@ export function useSession() {
     }
   }
 
+  // check if crazygames
+  if(window.location.hostname.includes("crazygames")) {
+
+    if(window.verifyPayload && JSON.parse(window.verifyPayload).secret === "not_logged_in") {
+      // not loading
+      return {
+        data: null
+      }
+    }
+  }
+
   if(session === false && !window.fetchingSession && window.cConfig?.apiUrl) {
     let secret = null;
     try {

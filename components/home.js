@@ -190,6 +190,7 @@ export default function Home({ }) {
     async function crazyAuthListener() {
       const user = await window.CrazyGames.SDK.user.getUser();
       if(user) {
+        console.log("crazygames user", user)
         const token = await window.CrazyGames.SDK.user.getUserToken();
         if(token && user.username) {
           // /api/crazyAuth
@@ -207,11 +208,14 @@ export default function Home({ }) {
             if(data.secret && data.username) {
               setSession({ token: { secret: data.secret, username: data.username } })
               // verify the ws
-              setWs((prev) => {
-                if(prev) {
-              console.log("sending verify", { type: "verify", secret: data.secret, username: data.username })
+              window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username });
 
-                  prev.send(JSON.stringify({ type: "verify", secret: data.secret, username: data.username }))
+              setWs((prev) => {
+
+                if(prev) {
+                  console.log("sending verify")
+
+                  prev.send(window.verifyPayload)
                 }
                 return prev;
               });
@@ -226,6 +230,19 @@ export default function Home({ }) {
           });
 
         }
+      } else {
+        console.log("crazygames user not logged in")
+        // user not logged in
+        // verify with not_logged_in
+        window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in" });
+        setWs((prev) => {
+          if(prev) {
+            prev.send(window.verifyPayload)
+          } else {
+            console.log("no ws, waiting for connection")
+          }
+          return prev;
+        });
       }
     }
 
@@ -794,6 +811,7 @@ setShowCountryButtons(false)
       }))
 
 
+      console.log("connected to ws", window.verifyPayload)
       if(!inCrazyGames && !window.location.search.includes("crazygames")) {
 
           const tz = moment.tz.guess();
@@ -814,7 +832,9 @@ setShowCountryButtons(false)
             window.verified = true;
           }
           ws.send(JSON.stringify({ type: "verify", secret, tz}))
-      } else {
+      } else if(window.verifyPayload) {
+        console.log("sending verify from verifyPayload")
+        ws.send(window.verifyPayload)
 
 
       }
@@ -1297,6 +1317,11 @@ setShowCountryButtons(false)
   }
   }
 
+
+  useEffect(() => {
+  window.crazyMidgame = crazyMidgame;
+
+  }, []);
   function backBtnPressed(queueNextGame = false) {
 
 
@@ -1314,8 +1339,6 @@ setShowCountryButtons(false)
       setOnboarding(null)
       setOnboardingCompleted(true)
         gameStorage.setItem("onboarding", 'done')
-
-      crazyMidgame()
 
       return;
     }
@@ -1377,11 +1400,6 @@ setShowCountryButtons(false)
         extent: null
       }))
       clearLocation();
-
-      if(screen === "singleplayer") {
-        crazyMidgame()
-
-      }
     }
   }
 

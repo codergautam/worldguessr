@@ -456,7 +456,10 @@ export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDi
 history={singlePlayerRound.locations}
 buttonText={text("playAgain")}
 onHomePress={() =>{
+  window.crazyMidgame(() =>
+
   loadLocationFunc()
+  )
               }}/>
 )}
       {(!countryGuesser || (countryGuesser && showAnswer)) && (!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (
