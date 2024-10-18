@@ -1692,7 +1692,7 @@ setShowCountryButtons(false)
                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                 </>
                 )}
-                <Link href={"./leaderboard"+(inCrazyGames ? "?crazygames": "")}>
+                <Link href={"/leaderboard"+(inCrazyGames ? "?crazygames": "")}>
 
                 <button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
                 </>
