@@ -208,11 +208,14 @@ export default function Home({ }) {
             if(data.secret && data.username) {
               setSession({ token: { secret: data.secret, username: data.username } })
               // verify the ws
-              setWs((prev) => {
-                if(prev) {
-              console.log("sending verify", { type: "verify", secret: data.secret, username: data.username })
+              window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username });
 
-                  prev.send(JSON.stringify({ type: "verify", secret: data.secret, username: data.username }))
+              setWs((prev) => {
+
+                if(prev) {
+                  console.log("sending verify")
+
+                  prev.send(window.verifyPayload)
                 }
                 return prev;
               });
@@ -231,9 +234,12 @@ export default function Home({ }) {
         console.log("crazygames user not logged in")
         // user not logged in
         // verify with not_logged_in
+        window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in" });
         setWs((prev) => {
           if(prev) {
-            prev.send(JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in" }))
+            prev.send(window.verifyPayload)
+          } else {
+            console.log("no ws, waiting for connection")
           }
           return prev;
         });
@@ -819,7 +825,8 @@ setShowCountryButtons(false)
             window.verified = true;
           }
           ws.send(JSON.stringify({ type: "verify", secret, tz}))
-      } else {
+      } else if(inCrazyGames && window.verifyPayload) {
+        ws.send(window.verifyPayload)
 
 
       }
