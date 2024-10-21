@@ -1970,6 +1970,7 @@ setShowCountryButtons(false)
     console.log("Poki SDK successfully initialized");
     window.poki = true;
     // fire your function to continue to game
+    window.PokiSDK.gameLoadingFinished();
 }).catch(() => {
     console.log("Initialized, something went wrong, load you game anyway");
     // fire your function to continue to game
