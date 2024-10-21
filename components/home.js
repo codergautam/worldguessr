@@ -100,6 +100,7 @@ export default function Home({ }) {
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
   });
+  const [multiplayerError, setMultiplayerError] = useState(null);
 
   let login = null;
   if(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
@@ -1006,24 +1007,25 @@ setShowCountryButtons(false)
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
 
-            if(data.map !== "all" && !countries.map((c) => c?.toLowerCase()).includes(data.map?.toLowerCase())  && !gameOptions?.extent) {
-              // calculate extent
+            // calculate extent on client
+            // if(data.map !== "all" && !countries.map((c) => c?.toLowerCase()).includes(data.map?.toLowerCase())  && !gameOptions?.extent) {
+            //   // calculate extent
 
-              fetch(`/mapLocations/${data.map}`).then((res) => res.json()).then((data) => {
-                if(data.ready) {
+            //   fetch(`/mapLocations/${data.map}`).then((res) => res.json()).then((data) => {
+            //     if(data.ready) {
 
-                  const mappedLatLongs = data.locations.map((l) => fromLonLat([l.lng, l.lat], "EPSG:4326"));
-                  let extent = boundingExtent(mappedLatLongs);
-                  console.log("extent", extent)
+            //       const mappedLatLongs = data.locations.map((l) => fromLonLat([l.lng, l.lat], "EPSG:4326"));
+            //       let extent = boundingExtent(mappedLatLongs);
+            //       console.log("extent", extent)
 
-                  setGameOptions((prev) => ({
-                    ...prev,
-                    extent
-                  }))
+            //       setGameOptions((prev) => ({
+            //         ...prev,
+            //         extent
+            //       }))
 
-                }
-              })
-            }
+            //     }
+            //   })
+            // }
 
           } else if (data.state === "guess") {
             const didIguess = (data.players ?? prev.gameData?.players)?.find((p) => p.id === prev.gameData?.myId)?.final;
@@ -1222,8 +1224,11 @@ setShowCountryButtons(false)
 
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
-        error: text("connectionLost")
       }));
+      if(window.screen !== "home")
+      setMultiplayerError(true)
+
+
     }
 
     ws.onerror = () => {
@@ -1233,8 +1238,9 @@ setShowCountryButtons(false)
 
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
-        error: text("connectionLost")
       }));
+      if(window.screen !== "home")
+      setMultiplayerError(true)
     }
 
 
@@ -1242,6 +1248,10 @@ setShowCountryButtons(false)
       ws.onmessage = null;
     }
   }, [ws, multiplayerState, timeOffset, gameOptions?.extent]);
+
+  useEffect(() => {
+    window.screen = screen;
+  }, [screen])
 
   useEffect(() => {
     if (multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
@@ -1327,6 +1337,7 @@ setShowCountryButtons(false)
 
 
     if (loading) setLoading(false);
+    if(multiplayerError) setMultiplayerError(false)
 
     if(window.learnMode) {
       // redirect to home
@@ -1924,11 +1935,11 @@ setShowCountryButtons(false)
 }
 
         {screen === "multiplayer" && <div className="home__multiplayer">
-          <MultiplayerHome handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
+          <MultiplayerHome multiplayerError={multiplayerError} handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
-          <GameUI inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          <GameUI inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
 
 

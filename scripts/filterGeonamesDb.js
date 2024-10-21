@@ -1,5 +1,5 @@
-import geonames from './geonames-all-cities-with-a-population-1000.json' with { type: 'json' }
-import countries from './public/countries.json' with { type: 'json' }
+import geonames from '../geonames-all-cities-with-a-population-1000.json' with { type: 'json' }
+import countries from '../public/countries.json' with { type: 'json' }
 console.log('cities-initial', geonames.length)
 // filter out cities that aren't in countries
 let cities = geonames.filter(city => countries.includes(city.country_code))

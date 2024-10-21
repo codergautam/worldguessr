@@ -8,15 +8,22 @@ import sendEvent from "./utils/sendEvent";
 import MapsModal from "./maps/mapsModal";
 
 
-export default function MultiplayerHome({ ws, setWs, multiplayerState, setMultiplayerState, session, handleAction }) {
+export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction }) {
   const { t: text } = useTranslation("common");
 
   const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
 
+  if(multiplayerError) {
+    return (
+      <div className="multiplayerHome">
+        <BannerText text={text("connectionLost")} shown={true} hideCompass={true} />
+      </div>
+    )
+  }
+
   return (
     <div className="multiplayerHome">
-        <BannerText text={multiplayerState.error} shown={multiplayerState.error} hideCompass={true} />
-        <BannerText text={text("connectionLost")} shown={multiplayerState.connecting && !multiplayerState?.error} />
+        {/* <BannerText text={multiplayerState.error} shown={multiplayerState.error} hideCompass={true} /> */}
 
        { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && multiplayerState.enteringGameCode && !multiplayerState.creatingGame && (
       <div style={{ pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center' }}>

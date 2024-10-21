@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 
 const langs = ["en","fr","de","ru","es"];
-const paths = langs.map(lang => path.join(__dirname, `./public/locales/${lang}/common.json`));
+const paths = langs.map(lang => path.join(__dirname, `../public/locales/${lang}/common.json`));
 const jsons = paths.map(path => JSON.parse(fs.readFileSync(path)));
 
 

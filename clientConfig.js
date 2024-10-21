@@ -7,6 +7,6 @@ const prefixWs = (isHttps ? "wss" : "ws")+"://";
 
   return {
   "apiUrl": prefixHttp+(process.env.NEXT_PUBLIC_API_URL ??  "localhost:3001"),
-  "websocketUrl": prefixWs+(process.env.NEXT_PUBLIC_WS_HOST ?? process.env.NEXT_PUBLIC_API_URL ?? "localhost:3001")+'/wg',
+  "websocketUrl": prefixWs+(process.env.NEXT_PUBLIC_WS_HOST ?? process.env.NEXT_PUBLIC_API_URL ?? "localhost:3002")+'/wg',
   }
 }
