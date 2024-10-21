@@ -849,8 +849,9 @@ setShowCountryButtons(false)
 
   useEffect(() => {
 
-    if(inCrazyGames) {
+    if(inCrazyGames || window.poki) {
       if(screen === "home") {
+        console.log("gameplay stop")
         try {
           window.CrazyGames.SDK.game.gameplayStop();
         } catch(e) {}
@@ -858,6 +859,7 @@ setShowCountryButtons(false)
           if(window.poki) window.PokiSDK.gameplayStop();
         } catch(e) {}
       } else {
+        console.log("gameplay start")
         try {
           window.CrazyGames.SDK.game.gameplayStart();
         } catch(e) {}
@@ -1971,6 +1973,10 @@ setShowCountryButtons(false)
     window.poki = true;
     // fire your function to continue to game
     window.PokiSDK.gameLoadingFinished();
+    setTimeout(()=>{
+      console.log("Gameplay start")
+window.PokiSDK.gameplayStart();
+}, 5000);
 }).catch(() => {
     console.log("Initialized, something went wrong, load you game anyway");
     // fire your function to continue to game
