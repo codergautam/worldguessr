@@ -1973,10 +1973,7 @@ setShowCountryButtons(false)
     window.poki = true;
     // fire your function to continue to game
     window.PokiSDK.gameLoadingFinished();
-    setTimeout(()=>{
-      console.log("Gameplay start")
-window.PokiSDK.gameplayStart();
-}, 5000);
+
 }).catch(() => {
     console.log("Initialized, something went wrong, load you game anyway");
     // fire your function to continue to game
