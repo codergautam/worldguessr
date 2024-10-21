@@ -4,17 +4,45 @@ import { useEffect } from "react";
 
 export default function HeadContent({text}) {
   useEffect(() => {
-    if (!window.location.search.includes("crazygames")) {
+    if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI) {
       const script = document.createElement('script');
       script.src = "https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js";
       script.async = true;
       document.body.appendChild(script);
+      //  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972" crossorigin="anonymous">
+      const script2 = document.createElement('script');
+      script2.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972";
+      script2.async = true;
+      script2.crossorigin = "anonymous";
+      document.body.appendChild(script2);
 
       return () => {
         document.body.removeChild(script);
+        document.body.removeChild(script2);
       };
-    } else {
+    } else if(window.location.search.includes("crazygames")) {
       console.log("CrazyGames detected");
+    //<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
+    const script = document.createElement('script');
+    script.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    }
+    } else if(process.env.NEXT_PUBLIC_POKI === "true") {
+      //
+      const script = document.createElement('script');
+      script.src = "https://game-cdn.poki.com/scripts/v2/poki-sdk.js";
+      script.async = true;
+      document.body.appendChild(script);
+
+
+
+      return () => {
+        document.body.removeChild(script);
+      }
+
     }
   }, []);
 
@@ -44,11 +72,7 @@ export default function HeadContent({text}) {
       src="https://maps.googleapis.com/maps/api/js?v=weekly"
       defer
     ></script>
-    <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
-{/* <script src="https://greggman.github.io/webgl-helpers/webgl-force-preservedrawingbuffer.js"></script> */}
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972"
-      crossorigin="anonymous">
-</script>
+
 {/* data-adbreak-test="on" */}
 {/*  */}
 
