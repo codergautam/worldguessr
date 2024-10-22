@@ -1945,7 +1945,12 @@ setShowCountryButtons(false)
                 })
               }} shown={!onboarding?.finalOnboardingShown} />
               <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} onHomePress={() =>{
-                if(onboarding) sendEvent("tutorial_end");
+                if(onboarding) {
+                  sendEvent("tutorial_end");
+                  try {
+                  gameStorage.setItem("onboarding", 'done')
+                  } catch(e) {}
+                }
 
                 setOnboarding(null)
                 if(!window.location.search.includes("app=true") && !inCrazyGames) {
