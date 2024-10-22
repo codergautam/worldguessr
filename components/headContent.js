@@ -25,7 +25,15 @@ export default function HeadContent({text}) {
     //<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
     const script = document.createElement('script');
     script.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
-    script.async = true;
+    script.async = false;
+    console.log(window.CrazyGames)
+    // on script load
+    script.onload=() => {
+      console.log("sdk loaded", window.CrazyGames)
+      if(window.onCrazyload) {
+        window.onCrazyload();
+      }
+    }
     document.body.appendChild(script);
     return () => {
       document.body.removeChild(script);

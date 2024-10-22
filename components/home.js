@@ -189,6 +189,7 @@ export default function Home({ }) {
 
 
     async function crazyAuthListener() {
+      console.log("crazygames auth listener")
       const user = await window.CrazyGames.SDK.user.getUser();
       if(user) {
         console.log("crazygames user", user)
@@ -256,10 +257,13 @@ export default function Home({ }) {
     if(window.location.search.includes("crazygames")) {
       setInCrazyGames(true);
       window.inCrazyGames = true;
+      setLoading(true)
+
+      window.onCrazyload = () => {
+
       // initialize the sdk
       try {
-        console.log("init crazygames sdk")
-        setLoading(true)
+        console.log("init crazygames sdk", window.CrazyGames)
 
          window.CrazyGames.SDK.init().then(async () => {
           console.log("sdk initialized")
@@ -281,14 +285,25 @@ export default function Home({ }) {
           console.error("crazygames sdk init failed", e)
           setLoading(false)
         })
-      } catch(e) {}
+      } catch(e) {
+        console.error("crazygames sdk init failed", e)
+        finish()
+        setLoading(false)
+      }
+    }
+
+    if(window.CrazyGames) {
+      window.onCrazyload();
+    }
     }
     initialMultiplayerState.createOptions.displayLocation = text("allCountries")
 
     return () => {
       try {
         window.CrazyGames.SDK.user.removeAuthListener(crazyAuthListener);
-      } catch(e){}
+      } catch(e){
+        console.error("crazygames remove auth listener error", e)
+      }
     }
 
   }, []);
