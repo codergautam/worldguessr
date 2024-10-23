@@ -40,13 +40,11 @@ export default class Player {
             type: 'cnt',
             c: players.size
           })
-          console.log('Guest joined', this.id, this.username);
         }
 
         } else {
 
         let valid;
-        console.log('Verifying user', this.id, json);
         if(json.secret) {
         valid =  await validateSecret(json.secret, User);
         }
@@ -59,7 +57,6 @@ export default class Player {
                   message: 'uac'
                 });
                 this.ws.close();
-                console.log('User already connected', this.id, valid.username);
                 return;
               }
             }
@@ -84,14 +81,12 @@ export default class Player {
             const lastLoginUserTimezone = moment.tz(lastLoginUTC, existingTimeZone).startOf('day');
 
             if (userTimezoneDay.diff(lastLoginUserTimezone, 'days') === 1) {
-              console.log(`User ${this.accountId} has logged in after a day.`);
               streak++;
               this.send({
                 type: 'streak',
                 streak
               })
             } else if(userTimezoneDay.diff(lastLoginUserTimezone, 'days') > 1) {
-              console.log(`User ${this.accountId} lost their streak`);
               streak = 0;
               this.send({
                 type: 'streak',
@@ -113,7 +108,6 @@ export default class Player {
           this.sentReq = valid.sentReq.map((id)=>({id}));
           this.receivedReq = valid.receivedReq.map((id)=>({id}));
 
-          console.time("friendsNames")
           const friendsWithNames = [];
           // player.friends = valid.friends;
           for(let id of valid.friends) {
@@ -144,11 +138,9 @@ export default class Player {
             }
           }
           this.receivedReq = receivedReqWithNames;
-          console.timeEnd("friendsNames")
 
           this.allowFriendReq = valid.allowFriendReq;
 
-          console.log('User verified', this.id, valid.username, this.sentReq, json?.tz);
         } else {
           this.send({
             type: 'error',
@@ -173,7 +165,6 @@ export default class Player {
     this.ws.send(buffer);
   }
   setScreen(screen) {
-    console.log('Setting screen', screen, this.username, this.id);
     const validScreens = ["home", "singleplayer", "multiplayer"];
     if(validScreens.includes(screen)) {
       this.screen = screen;

@@ -9,11 +9,13 @@ import { Filter } from 'bad-words';
 import Game from './classes/Game.js';
 import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
 import findLatLongRandom from '../components/findLatLongServer.js';
+import { Webhook } from "discord-webhook-node";
 
 import cityGen from '../serverUtils/cityGen.js';
 import lookup from "coordinate_to_country"
 import { players, games } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
+import blockedAt from 'blocked-at';
 
 config();
 
@@ -115,11 +117,78 @@ if (!process.env.MONGODB) {
   }
 }
 
+
+// update console log
+console.log = function () {
+  if (dev) {
+    return;
+  }
+  if(process.env.DISCORD_WEBHOOK_WS) {
+
+  const args = Array.from(arguments);
+  const timeInCST = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
+  args.unshift(timeInCST);
+  const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
+  hook.setUsername("Logs");
+  hook.send(args.join(' '));
+
+
+  }
+
+}
+
+console.error = function () {
+  // if (dev) {
+  //   return;
+  // }
+  if(process.env.DISCORD_WEBHOOK_WS) {
+
+  const args = Array.from(arguments);
+  const timeInCST = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
+  args.unshift(timeInCST);
+  args.unshift('**ERROR!**');
+  const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
+  hook.setUsername("Logs");
+  hook.send(args.join(' '));
+  }
+}
+
+blockedAt((time, stack) => {
+  console.log(`Blocked for ${time}ms, operation started here:`, JSON.stringify(stack, null, 2));
+})
+function stop(reason) {
+  console.error('Stopping server', reason);
+}
+
+process.on('SIGTERM', () => {
+  stop('SIGTERM');
+});
+
+process.on('SIGINT', () => {
+  stop('SIGINT');
+});
+
+/// other stop codes
+
+process.on('exit', (code) => {
+
+  stop('exit');
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception', err);
+  stop('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled rejection', reason, promise);
+  stop('unhandledRejection');
+});
 // uWebSockets.js
 let app = uws.App();
 app.listen('0.0.0.0', port, (ws) => {
   if (ws) {
-    console.log('WS Server started on port ' + port);
+    console.log('**WS Server started on port** ' + port);
   }
 });
 
@@ -146,6 +215,7 @@ if (process.env.MAINTENANCE_SECRET) {
     setCorsHeaders(res);
     res.writeHeader('Content-Type', 'text/plain');
     res.end('ok');
+    console.log('Maintenance mode started');
 
   });
 
@@ -162,6 +232,7 @@ if (process.env.MAINTENANCE_SECRET) {
     setCorsHeaders(res);
     res.writeHeader('Content-Type', 'text/plain');
     res.end('ok');
+    console.log('Maintenance mode ended');
   });
 }
 
@@ -206,7 +277,6 @@ app.ws('/wg', {
       });
     }
 
-    console.log('Client connected with ID: ' + id + ' IP: ' + ws.ip);
   },
   message: (ws, message, isBinary) => {
     try {
@@ -239,7 +309,6 @@ app.ws('/wg', {
       }
 
       if ((json.type === 'publicDuel') && !player.gameId) {
-        console.log('Public duel requested', player.username);
         player.inQueue = true;
         playersInQueue.add(player.id);
       }
@@ -285,7 +354,6 @@ app.ws('/wg', {
       }
 
       if (json.type === 'leaveGame' && player.gameId && games.has(player.gameId)) {
-        console.log('Player left game', player.id, player.gameId, player.username);
         const game = games.get(player.gameId);
         game.removePlayer(player);
       }
@@ -418,7 +486,6 @@ app.ws('/wg', {
       }
 
       if (json.type === 'createPrivateGame' && !player.gameId) {
-        console.log('Private game requested', player.username);
 
         // send toast if maintenance
         if (maintenanceMode) {
@@ -453,7 +520,6 @@ app.ws('/wg', {
         games.set(gameId, game);
 
         game.addPlayer(player, true);
-        console.log('Private game created', gameId, player.username);
       }
 
       if (json.type === 'joinPrivateGame' && !player.gameId) {
@@ -465,16 +531,13 @@ app.ws('/wg', {
             type: 'gameJoinError',
             error: 'Game is full'
           });
-          console.log('Game is full', code);
         }, () => {
           player.send({
             type: 'gameJoinError',
             error: 'Invalid game code'
           });
-          console.log('Invalid game code', code);
         }, (game) => {
           game.addPlayer(player);
-          console.log('Player added to private game', game.id, player.username);
         });
       }
 
@@ -482,7 +545,6 @@ app.ws('/wg', {
         const game = games.get(player.gameId);
         if (game.players[player.id].host) {
 
-          console.log('Host started game', game.id);
 
           game.start();
         }
@@ -493,7 +555,6 @@ app.ws('/wg', {
       }
 
       if (json.type === 'sendFriendRequest') {
-        console.log('Friend request', player.accountId, player.username, json.name);
         if (!player.accountId) {
           player.send({ type: 'friendReqState', state: 0 })
           return;
@@ -706,7 +767,6 @@ app.ws('/wg', {
     console.log('WebSocket backpressure: ' + ws.getBufferedAmount());
   },
   close: (ws, code, message) => {
-    console.log('Client left "' + ws.id + '" with code ' + code);
 
     if (players.has(ws.id)) {
       const player = players.get(ws.id);
@@ -770,16 +830,13 @@ app.ws('/wg', {
       // start games that have at least 2 players
       if (game.state === 'waiting' && playerCnt > 1 && game.public && game.rounds === game.locations.length) {
         game.start();
-        console.log('public Game started', game.id);
       } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
         if(game.curRound > game.rounds) {
           game.end();
-          console.log('Game ended', game.id);
           // game over
 
         } else {
         game.state = 'guess';
-        console.log('State changed to guess', game.id);
         game.nextEvtTime = Date.now() + game.timePerRound;
         game.clearGuesses();
 
@@ -787,7 +844,6 @@ app.ws('/wg', {
         }
 
       } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
-        console.log('Round', game.curRound, 'ended for game', game.id);
         game.givePoints();
         if(game.curRound <= game.rounds) {
           game.curRound++;
@@ -797,14 +853,12 @@ app.ws('/wg', {
 
 
         } else {
-          console.log('Game ended', game.id);
           // game over
           game.end()
         }
       }
 
       if(game.state === 'end' && Date.now() > game.nextEvtTime) {
-        console.log('Game shutdown', game.id);
         // remove game
         game.shutdown()
       }
@@ -827,12 +881,9 @@ app.ws('/wg', {
 
       const multiplayerMax = Math.min(10, game.maxPlayers)
       let playersCanJoin = multiplayerMax - playerCnt;
-      console.log('Players can join', playersCanJoin, 'for game', game.id);
-      console.log(playersInQueue, playersInQueue.size);
       for (const playerId of playersInQueue) {
         const player = players.get(playerId);
         if(!player) {
-          console.log('Player not found', playerId, 'in queue');
           playersInQueue.delete(playerId);
           continue;
         }
@@ -842,7 +893,6 @@ app.ws('/wg', {
         if (playersCanJoin < 1) {
           break;
         }
-        console.log('Player added to game', player.id, 'gameid', game.id);
         game.addPlayer(player);
         playersInQueue.delete(playerId);
         playersCanJoin--;
@@ -852,7 +902,6 @@ app.ws('/wg', {
 
     if (playersInQueue.size > 1) {
       // create a new public game
-      console.log('Creating new public game');
       const gameId = uuidv4();
       const game = new Game(gameId, true, undefined, undefined, allLocations);
       games.set(gameId, game);
@@ -867,7 +916,6 @@ app.ws('/wg', {
           break;
         }
         game.addPlayer(player);
-        console.log('Player added to new public game', player.id);
         playersInQueue.delete(playerId);
         playersCanJoin--;
       }

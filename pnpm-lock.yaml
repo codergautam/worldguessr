@@ -20,6 +20,9 @@ dependencies:
   bad-words:
     specifier: ^4.0.0
     version: 4.0.0
+  blocked-at:
+    specifier: ^1.2.0
+    version: 1.2.0
   body-parser:
     specifier: ^1.20.3
     version: 1.20.3
@@ -1103,6 +1106,10 @@ packages:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
     engines: {node: '>=8'}
     dev: true
+
+  /blocked-at@1.2.0:
+    resolution: {integrity: sha512-Ba9yhK4KcFrgqEPgsU0qVGiMimf+VrD9QJo9pgwjg4yl0GXwgOJS8IRx2rPepQjalrmUdGTqX47bSuJLUMLX7w==}
+    dev: false
 
   /body-parser@1.20.3:
     resolution: {integrity: sha512-7rAxByjUMqQ3/bHJy7D6OGXvx/MMc4IqBn/X0fcM1QUcAItpZrBEYhWGem+tzXH90c+G01ypMcYJBO9Y30203g==}

@@ -53,7 +53,6 @@ function loadFolder(folder, subdir = '') {
     const webPath = '/api/' + subdir + file.split('.')[0];
     import(routePath).then(module => {
       app.all(webPath, ( req, res ) => {
-        console.log('Handling', webPath, req.method);
         module.default(req, res);
       });
     });

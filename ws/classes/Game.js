@@ -153,7 +153,6 @@ export default class Game {
   }
 
   start() {
-    console.log('state', this.state, 'players', Object.keys(this.players).length, 'rounds', this.rounds, 'locations', this.locations.length)
     if (this.state !== 'waiting' || Object.keys(this.players).length < 2 || this.rounds !== this.locations.length) {
       return;
     }
@@ -221,7 +220,6 @@ export default class Game {
 
             // send last player a toast
             const pObj = players.get(finalPlayer.id);
-            console.log('Sending toast to last player', pObj.username);
             pObj.send({
               type: 'toast',
               key: 'lastGuesser',
@@ -240,7 +238,6 @@ export default class Game {
 
     if(this.location !== "all" && !countries.includes(this.location)) {
       // community map
-      console.log('Community map', this.location);
       const slug = this.location;
       const map = await MapModel.findOne({ slug });
       if (!map) {
@@ -298,7 +295,6 @@ export default class Game {
       loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
       }
       this.locations.push(loc);
-      console.log('Generated', this.locations.length,'/',this.rounds, 'for game',this.id, this.location);
       if(!this.maxDist) this.maxDist = 20000;
       this.sendAllPlayers({
         type: 'generating',
