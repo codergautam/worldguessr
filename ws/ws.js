@@ -138,9 +138,9 @@ console.log = function () {
 }
 
 console.error = function () {
-  // if (dev) {
-  //   return;
-  // }
+  if (dev) {
+    return;
+  }
   if(process.env.DISCORD_WEBHOOK_WS) {
 
   const args = Array.from(arguments);
@@ -162,22 +162,19 @@ function stop(reason) {
 
 process.on('SIGTERM', () => {
   stop('SIGTERM');
+  process.exit(0);
 });
 
 process.on('SIGINT', () => {
   stop('SIGINT');
+  process.exit(0);
 });
 
-/// other stop codes
-
-process.on('exit', (code) => {
-
-  stop('exit');
-});
 
 process.on('uncaughtException', (err) => {
   console.error('Uncaught exception', err);
   stop('uncaughtException');
+  process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {

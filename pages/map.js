@@ -138,7 +138,7 @@ export default function MapPage({ }) {
   }, [mapData.data]);
 
   const handlePlayButtonClick = () => {
-    window.location.href = `/?map=${mapData.countryCode || mapData.slug}`;
+    window.location.href = `/?map=${mapData.countryCode || mapData.slug}${window.location.search.includes('crazygames') ? '&crazygames=true' : ''}`;
   };
 
   return (
@@ -184,7 +184,9 @@ export default function MapPage({ }) {
         <div className={styles.branding}>
           <h1>WorldGuessr</h1>
           <center>
-            <button onClick={() => window.location.href="/"} className={styles.backButton}>
+            <button onClick={() => window.location.href=`/${
+              window.location.search.includes('crazygames') ? '?crazygames=true' : ''
+            }`} className={styles.backButton}>
               ← {text('backToGame')}
             </button>
           </center>

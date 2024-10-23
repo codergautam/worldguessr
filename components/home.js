@@ -253,7 +253,16 @@ export default function Home({ }) {
       console.log("onboarding", onboardingCompletedd)
       if(onboardingCompletedd !== "done") startOnboarding();
       else setOnboardingCompleted(true)
-    }
+
+      if(window.location.search.includes("map=")) {
+            // get map slug map=slug from url
+            const params = new URLSearchParams(window.location.search);
+            const mapSlug = params.get("map");
+            setScreen("singleplayer")
+
+            openMap(mapSlug)
+      }
+          }
     if(window.location.search.includes("crazygames")) {
       setInCrazyGames(true);
       window.inCrazyGames = true;
@@ -428,12 +437,13 @@ setShowCountryButtons(false)
     try {
     const onboarding = gameStorage.getItem("onboarding");
     // check url
+    const cg = window.location.search.includes("crazygames");
     const specifiedMapSlug = window.location.search.includes("map=");
     console.log("onboarding", onboarding, specifiedMapSlug)
     // make it false just for testing
     // gameStorage.setItem("onboarding", null)
     if(onboarding && onboarding === "done") setOnboardingCompleted(true)
-      else if(specifiedMapSlug) setOnboardingCompleted(true)
+      else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
   } catch(e) {
     console.error(e, "onboard");
@@ -531,7 +541,7 @@ setShowCountryButtons(false)
       setScreen("singleplayer")
     }
     // check if from map screen
-    if(window.location.search.includes("map=")) {
+    if(window.location.search.includes("map=") && !window.location.search.includes("crazygames")) {
       // get map slug map=slug from url
       const params = new URLSearchParams(window.location.search);
       const mapSlug = params.get("map");
@@ -1880,9 +1890,7 @@ setShowCountryButtons(false)
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
  */}
- { !inCrazyGames && (
                 <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>
- )}
                 </div>
 
               </>
