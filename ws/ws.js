@@ -154,7 +154,7 @@ console.error = function () {
 }
 
 blockedAt((time, stack) => {
-  console.log(`Blocked for ${time}ms, operation started here:`, JSON.stringify(stack, null, 2));
+  if(time > 1000) console.log(`Blocked for ${time}ms, operation started here:`, JSON.stringify(stack, null, 2));
 })
 function stop(reason) {
   console.error('Stopping server', reason);
