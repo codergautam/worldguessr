@@ -196,7 +196,7 @@ export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDi
           setOnboarding((prev) => {
             return {
               ...prev,
-              nextRoundTime: Date.now() + 20000
+              nextRoundTime: Date.now() + (window.location.search.includes("crazygames") ? 60000 : 20000),
             }
           });
           setOnboardingWords([
@@ -242,10 +242,16 @@ export default function GameUI({ singlePlayerRound, setSinglePlayerRound, showDi
         text("onboarding4"),
       ])
     } else if(onboarding.round === 2) {
+      if(window.location.search.includes("crazygames")) {
+        setOnboardingWords([
+          text("greatJob"),
+        ])
+      } else {
       setOnboardingWords([
         text("greatJob"),
         text("onboarding5"),
       ])
+    }
     } else if(onboarding.round === 3) {
       setOnboardingWords([
         text("astounding"),
@@ -551,7 +557,7 @@ onHomePress={() =>{
         words={onboardingWords} pageDone={()=>{
           setShowCountryButtons(true)
           setOnboardingTextShown(false)
-          if(onboarding?.round >= 2) {
+          if(onboarding?.round >= 2 && !window.location.search.includes("crazygames")) {
           setOnboarding((prev) => {
             return {
               ...prev,
