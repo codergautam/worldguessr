@@ -35,7 +35,7 @@ const port = process.env.WS_PORT || 3002;
 
 const playersInQueue = new Set();
 
-let maintenanceMode = true;
+let maintenanceMode = false;
 let dbEnabled = true;
 
 // location generator
