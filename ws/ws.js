@@ -234,11 +234,11 @@ app.get('/', (res, req) => {
   if (ip instanceof ArrayBuffer) {
     ip = new TextDecoder().decode(ip);
   }
-  if (!isCloudflareIp(ip)) {
-    res.close(); // Disconnect if not from Cloudflare
-    console.log("Blocked non-Cloudflare IP:", ip);
-    return;
-  }
+  // if (!isCloudflareIp(ip)) {
+  //   res.close(); // Disconnect if not from Cloudflare
+  //   console.log("Blocked non-Cloudflare IP:", ip);
+  //   return;
+  // }
 
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'text/plain');
@@ -301,11 +301,11 @@ app.ws('/wg', {
 
   open: (ws, req) => {
     const ip = ws.ip;
-    if (!isCloudflareIp(ip)) {
-      ws.close(); // Disconnefct if not from Cloudflare
-      console.log("Blocked non-Cloudflare IP:", ip);
-      return;
-    }
+    // if (!isCloudflareIp(ip)) {
+    //   ws.close(); // Disconnefct if not from Cloudflare
+    //   console.log("Blocked non-Cloudflare IP:", ip);
+    //   return;
+    // }
 
     const id = ws.id;
     const player = new Player(ws, id);
