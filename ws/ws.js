@@ -121,41 +121,41 @@ if (!process.env.MONGODB) {
 
 
 // update console log
-if(!dev) {
-console.log = function () {
-  if (dev) {
-    return;
-  }
-  if(process.env.DISCORD_WEBHOOK_WS) {
+// if(!dev) {
+// console.log = function () {
+//   if (dev) {
+//     return;
+//   }
+//   if(process.env.DISCORD_WEBHOOK_WS) {
 
-  const args = Array.from(arguments);
-  const timeInCST = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
-  args.unshift(timeInCST);
-  const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
-  hook.setUsername("Logs");
-  hook.send(args.join(' '));
+//   const args = Array.from(arguments);
+//   const timeInCST = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
+//   args.unshift(timeInCST);
+//   const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
+//   hook.setUsername("Logs");
+//   hook.send(args.join(' '));
 
 
-  }
+//   }
 
-}
+// }
 
-console.error = function () {
-  if (dev) {
-    return;
-  }
-  if(process.env.DISCORD_WEBHOOK_WS) {
+// console.error = function () {
+//   if (dev) {
+//     return;
+//   }
+//   if(process.env.DISCORD_WEBHOOK_WS) {
 
-  const args = Array.from(arguments);
-  const timeInCST = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
-  args.unshift(timeInCST);
-  args.unshift('**ERROR!**');
-  const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
-  hook.setUsername("Logs");
-  hook.send(args.join(' '));
-  }
-}
-}
+//   const args = Array.from(arguments);
+//   const timeInCST = new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
+//   args.unshift(timeInCST);
+//   args.unshift('**ERROR!**');
+//   const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
+//   hook.setUsername("Logs");
+//   hook.send(args.join(' '));
+//   }
+// }
+// }
 
 let cloudflareIps = [];
 
