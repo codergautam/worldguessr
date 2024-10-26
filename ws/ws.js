@@ -118,6 +118,17 @@ if (!process.env.MONGODB) {
     }
   }
 }
+function log(...args) {
+  console.log(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }), ...args);
+
+  if(!dev) {
+    if(process.env.DISCORD_WEBHOOK_WS) {
+      const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
+      hook.setUsername("Logs");
+      hook.send(args.join(' '));
+    }
+  }
+}
 
 
 // update console log
@@ -223,7 +234,7 @@ process.on('unhandledRejection', (reason, promise) => {
 let app = uws.App();
 app.listen('0.0.0.0', port, (ws) => {
   if (ws) {
-    console.log('**WS Server started on port** ' + port);
+    log('**WS Server started on port** ' + port);
   }
 });
 

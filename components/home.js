@@ -134,7 +134,7 @@ export default function Home({ }) {
     },
     onNonOAuthError: error => {
       console.log("login non oauth error", error);
-      toast.error("Login error, contact support if this persists (1)")
+      toast.error("Login error, contact support if this persists (1)\n\nMake sure popups are enabled (needed for google window)")
 
     },
     flow: "auth-code",
