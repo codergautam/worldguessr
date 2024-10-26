@@ -17,6 +17,8 @@ import { players, games } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
 
+import axios from 'axios';
+
 config();
 
 // Load the profanity filter
@@ -33,7 +35,7 @@ const port = process.env.WS_PORT || 3002;
 
 const playersInQueue = new Set();
 
-let maintenanceMode = false;
+let maintenanceMode = true;
 let dbEnabled = true;
 
 // location generator
@@ -119,6 +121,7 @@ if (!process.env.MONGODB) {
 
 
 // update console log
+if(!dev) {
 console.log = function () {
   if (dev) {
     return;
@@ -152,6 +155,41 @@ console.error = function () {
   hook.send(args.join(' '));
   }
 }
+}
+
+let cloudflareIps = [];
+
+// Load Cloudflare IP ranges
+const loadCloudflareIps = async () => {
+  try {
+    const ipv4Res = await axios.get('https://www.cloudflare.com/ips-v4');
+    const ipv6Res = await axios.get('https://www.cloudflare.com/ips-v6');
+    cloudflareIps = [...ipv4Res.data.split('\n'), ...ipv6Res.data.split('\n')].filter(Boolean);
+    console.log("Cloudflare IP ranges loaded", JSON.stringify(cloudflareIps));
+  } catch (error) {
+    console.error("Failed to load Cloudflare IP ranges", error);
+  }
+};
+
+// Check if IP is within range
+const ipInRange = (ip, range) => {
+  const [rangeIp, rangeCidr] = range.split('/');
+  const rangeSize = 1 << (32 - rangeCidr);
+  const ipInt = ip.split('.').reduce((acc, octet, i) => acc + (octet << (24 - 8 * i)), 0);
+  const rangeIpInt = rangeIp.split('.').reduce((acc, octet, i) => acc + (octet << (24 - 8 * i)), 0);
+  return (ipInt & (0xFFFFFFFF << (32 - rangeCidr))) === rangeIpInt;
+}
+
+
+// Check if IP is within Cloudflare ranges
+const isCloudflareIp = (ip) => {
+  // Logic to check if `ip` is within `cloudflareIps`
+  return cloudflareIps.some((range) => ipInRange(ip, range)); // Implement `ipInRange` or use a library
+};
+
+// Reload Cloudflare IPs every hour
+loadCloudflareIps();
+setInterval(loadCloudflareIps, 60 * 60 * 1000);
 
 blockedAt((time, stack) => {
   if(time > 1000) console.log(`Blocked for ${time}ms, operation started here:`, JSON.stringify(stack, null, 2));
@@ -189,7 +227,19 @@ app.listen('0.0.0.0', port, (ws) => {
   }
 });
 
-app.get('/', (res) => {
+app.get('/', (res, req) => {
+  // make sureonly cf can access
+  let ip = req.getHeader('cf-connecting-ip') || res.getRemoteAddressAsText();
+  // cjeck if ip isarraybuffer
+  if (ip instanceof ArrayBuffer) {
+    ip = new TextDecoder().decode(ip);
+  }
+  if (!isCloudflareIp(ip)) {
+    res.close(); // Disconnect if not from Cloudflare
+    console.log("Blocked non-Cloudflare IP:", ip);
+    return;
+  }
+
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'text/plain');
   res.writeStatus('200 OK');
@@ -250,7 +300,12 @@ app.ws('/wg', {
   },
 
   open: (ws, req) => {
-
+    const ip = ws.ip;
+    if (!isCloudflareIp(ip)) {
+      ws.close(); // Disconnefct if not from Cloudflare
+      console.log("Blocked non-Cloudflare IP:", ip);
+      return;
+    }
 
     const id = ws.id;
     const player = new Player(ws, id);
