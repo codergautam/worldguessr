@@ -134,7 +134,7 @@ export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame }) {
 
   return (
     <div className={`chatboxParent ${enabled ? 'enabled' : ''}`}>
-      <button style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer' }} onClick={onToggle}>
+      <button className={`chatboxBtn ${open ? 'open' : ''}`} style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer' }} onClick={onToggle}>
         {open ? <FaXmark onClick={onToggle} /> : `${text("chat")}${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
       </button>
       <div className={`chatbox ${open ? 'open' : ''}`}>
