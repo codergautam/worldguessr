@@ -297,6 +297,13 @@ if (process.env.MAINTENANCE_SECRET) {
     res.end('ok');
     console.log('Unbanned ip', ip);
   });
+  app.get(`/getIpCounts/${maintenanceSecret}`, (res) => {
+    const ipCounts = [...ipConnectionCount.entries()].map(([ip, cnt]) => ({ ip, cnt }));
+    setCorsHeaders(res);
+    res.writeHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(ipCounts));
+  });
+
 }
 
 const bannedIps = new Set();
@@ -843,6 +850,9 @@ app.ws('/wg', {
   },
   close: (ws, code, message) => {
     ipConnectionCount.set(ws.ip, ipConnectionCount.get(ws.ip) - 1);
+    if(ipConnectionCount.get(ws.ip) < 1) {
+      ipConnectionCount.delete(ws.ip);
+    }
 
     if (players.has(ws.id)) {
       const player = players.get(ws.id);
@@ -1003,9 +1013,7 @@ app.ws('/wg', {
 
   if(!dev && dbEnabled) {
     setInterval(() => {
-      try {
-    console.log(ipConnectionCount, players.size);
-      } catch(e) {}
+
       const memUsage = process.memoryUsage().heapUsed;
       const gameCnt = games.size;
       const playerCnt = players.size;
