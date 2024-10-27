@@ -316,7 +316,10 @@ app.ws('/wg', {
   idleTimeout: 60,
   /* Handlers */
   upgrade: (res, req, context) => {
-    const ip =  req.getHeader('x-forwarded-for') || req.getHeader('cf-connecting-ip') || 'unknown';
+    let ip =  req.getHeader('x-forwarded-for') || req.getHeader('cf-connecting-ip') || 'unknown';
+    if(ip.includes(',')) {
+      ip = ip.split(',')[0];
+    }
     if([...bannedIps].some((bannedIp) => ip.includes(bannedIp))
        || ipConnectionCount.get(ip) && ipConnectionCount.get(ip) > 100) {
       console.log('Banned ip tried to connect', ip);
