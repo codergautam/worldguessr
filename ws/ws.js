@@ -277,15 +277,15 @@ if (process.env.MAINTENANCE_SECRET) {
     let cnt = 0;
     // kick all players with this ip
     for (const player of players.values()) {
-      if (player.ip === ip) {
+      if (player.ip.includes(ip)) {
         player.ws.close();
         cnt++;
       }
     }
 
     setCorsHeaders(res);
-    res.writeHeader('Content-Type', 'text/plain');
-    res.end('kick count: ' + cnt);
+    res.writeHeader('Content-Type', 'text/htmk');
+    res.end('kick count: ' + cnt+'<br>banned ip: '+ip+'<br> all ips: '+[...bannedIps].join('<br>'));
     console.log('Banned ip', ip);
   });
   app.get(`/unbanIp/${maintenanceSecret}/:ip`, (res, req) => {
@@ -317,7 +317,9 @@ app.ws('/wg', {
   /* Handlers */
   upgrade: (res, req, context) => {
     const ip =  req.getHeader('x-forwarded-for') || req.getHeader('cf-connecting-ip') || 'unknown';
-    if(bannedIps.has(ip) || ipConnectionCount.get(ip) && ipConnectionCount.get(ip) > 100) {
+    if([...bannedIps].some((bannedIp) => ip.includes(bannedIp))
+       || ipConnectionCount.get(ip) && ipConnectionCount.get(ip) > 100) {
+      console.log('Banned ip tried to connect', ip);
       res.writeStatus('403 Forbidden');
       res.end();
       return;
