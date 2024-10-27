@@ -381,7 +381,7 @@ app.ws('/wg', {
       }
 
       if ((json.type === 'publicDuel') && !player.gameId) {
-        console.log('public duel requested by', player.username);
+        console.log('public duel requested by', player.username, player.ip);
         player.inQueue = true;
         playersInQueue.add(player.id);
       }
