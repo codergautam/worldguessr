@@ -168,39 +168,6 @@ function log(...args) {
 // }
 // }
 
-let cloudflareIps = [];
-
-// Load Cloudflare IP ranges
-const loadCloudflareIps = async () => {
-  try {
-    const ipv4Res = await axios.get('https://www.cloudflare.com/ips-v4');
-    const ipv6Res = await axios.get('https://www.cloudflare.com/ips-v6');
-    cloudflareIps = [...ipv4Res.data.split('\n'), ...ipv6Res.data.split('\n')].filter(Boolean);
-    console.log("Cloudflare IP ranges loaded", JSON.stringify(cloudflareIps));
-  } catch (error) {
-    console.error("Failed to load Cloudflare IP ranges", error);
-  }
-};
-
-// Check if IP is within range
-const ipInRange = (ip, range) => {
-  const [rangeIp, rangeCidr] = range.split('/');
-  const rangeSize = 1 << (32 - rangeCidr);
-  const ipInt = ip.split('.').reduce((acc, octet, i) => acc + (octet << (24 - 8 * i)), 0);
-  const rangeIpInt = rangeIp.split('.').reduce((acc, octet, i) => acc + (octet << (24 - 8 * i)), 0);
-  return (ipInt & (0xFFFFFFFF << (32 - rangeCidr))) === rangeIpInt;
-}
-
-
-// Check if IP is within Cloudflare ranges
-const isCloudflareIp = (ip) => {
-  // Logic to check if `ip` is within `cloudflareIps`
-  return cloudflareIps.some((range) => ipInRange(ip, range)); // Implement `ipInRange` or use a library
-};
-
-// Reload Cloudflare IPs every hour
-loadCloudflareIps();
-setInterval(loadCloudflareIps, 60 * 60 * 1000);
 
 blockedAt((time, stack) => {
   if(time > 1000) console.log(`Blocked for ${time}ms, operation started here:`, JSON.stringify(stack, null, 2));
@@ -245,11 +212,7 @@ app.get('/', (res, req) => {
   if (ip instanceof ArrayBuffer) {
     ip = new TextDecoder().decode(ip);
   }
-  // if (!isCloudflareIp(ip)) {
-  //   res.close(); // Disconnect if not from Cloudflare
-  //   console.log("Blocked non-Cloudflare IP:", ip);
-  //   return;
-  // }
+
 
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'text/plain');
@@ -292,9 +255,52 @@ if (process.env.MAINTENANCE_SECRET) {
     res.end('ok');
     console.log('Maintenance mode ended');
   });
+
+  // get all players & ips
+  app.get(`/getips/${maintenanceSecret}`, (res) => {
+    const playerData = [];
+    for (const player of players.values()) {
+      playerData.push({
+        id: player.id,
+        username: player.username,
+        ip: player.ip
+      });
+    }
+
+    setCorsHeaders(res);
+    res.writeHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(playerData));
+  });
+  app.get(`/banIp/${maintenanceSecret}/:ip`, (res, req) => {
+    const ip = req.getParameter(0);
+    bannedIps.add(ip);
+    let cnt = 0;
+    // kick all players with this ip
+    for (const player of players.values()) {
+      if (player.ip === ip) {
+        player.ws.close();
+        cnt++;
+      }
+    }
+
+    setCorsHeaders(res);
+    res.writeHeader('Content-Type', 'text/plain');
+    res.end('kick count: ' + cnt);
+    console.log('Banned ip', ip);
+  });
+  app.get(`/unbanIp/${maintenanceSecret}/:ip`, (res, req) => {
+    const ip = req.getParameter(0);
+    bannedIps.delete(ip);
+
+    setCorsHeaders(res);
+    res.writeHeader('Content-Type', 'text/plain');
+    res.end('ok');
+    console.log('Unbanned ip', ip);
+  });
 }
 
-
+const bannedIps = new Set();
+const ipConnectionCount = new Map();
 
 app.ws('/wg', {
   /* Options */
@@ -303,7 +309,13 @@ app.ws('/wg', {
   idleTimeout: 60,
   /* Handlers */
   upgrade: (res, req, context) => {
-    res.upgrade({ id: uuidv4(), ip: req.getHeader('x-forwarded-for') || req.getHeader('cf-connecting-ip') || '' },
+    const ip =  req.getHeader('x-forwarded-for') || req.getHeader('cf-connecting-ip') || 'unknown';
+    if(bannedIps.has(ip) || ipConnectionCount.get(ip) && ipConnectionCount.get(ip) > 100) {
+      res.writeStatus('403 Forbidden');
+      res.end();
+      return;
+    }
+    res.upgrade({ id: uuidv4(), ip },
       req.getHeader('sec-websocket-key'),
       req.getHeader('sec-websocket-protocol'),
       req.getHeader('sec-websocket-extensions'), context,
@@ -312,14 +324,11 @@ app.ws('/wg', {
 
   open: (ws, req) => {
     const ip = ws.ip;
-    // if (!isCloudflareIp(ip)) {
-    //   ws.close(); // Disconnefct if not from Cloudflare
-    //   console.log("Blocked non-Cloudflare IP:", ip);
-    //   return;
-    // }
-
     const id = ws.id;
-    const player = new Player(ws, id);
+    const player = new Player(ws, id, ip);
+    if(ip !== 'unknown') ipConnectionCount.set(ip, (ipConnectionCount.get(ip) || 0) + 1);
+
+    console.log('New connection', id, ip);
 
     player.send({
       type: 't',
@@ -372,12 +381,15 @@ app.ws('/wg', {
       }
 
       if ((json.type === 'publicDuel') && !player.gameId) {
+        console.log('public duel requested by', player.username);
         player.inQueue = true;
         playersInQueue.add(player.id);
       }
 
       if (json.type === 'leaveQueue' && player.inQueue) {
         player.inQueue = false;
+        console.log('public duel leave by', player.username);
+
         playersInQueue.delete(player.id);
       }
 
@@ -830,6 +842,7 @@ app.ws('/wg', {
     console.log('WebSocket backpressure: ' + ws.getBufferedAmount());
   },
   close: (ws, code, message) => {
+    ipConnectionCount.set(ws.ip, ipConnectionCount.get(ws.ip) - 1);
 
     if (players.has(ws.id)) {
       const player = players.get(ws.id);
@@ -990,6 +1003,9 @@ app.ws('/wg', {
 
   if(!dev && dbEnabled) {
     setInterval(() => {
+      try {
+    console.log(ipConnectionCount, players.size);
+      } catch(e) {}
       const memUsage = process.memoryUsage().heapUsed;
       const gameCnt = games.size;
       const playerCnt = players.size;

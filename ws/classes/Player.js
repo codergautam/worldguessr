@@ -5,8 +5,9 @@ import moment from "moment";
 import { players } from "../../serverUtils/states.js";
 import User from "../../models/User.js";
 export default class Player {
-  constructor(ws, id) {
+  constructor(ws, id, ip) {
     this.id = id;
+    this.ip = ip;
     this.ws = ws;
     this.username = null;
     this.accountId = null;
