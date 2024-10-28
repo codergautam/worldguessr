@@ -404,11 +404,12 @@ app.ws('/wg', {
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
         const ipOctets = player.ip.split('.').slice(0, 3).join('.');
-        log('Duel requests from ip', ipOctets, ipDuelRequestsLast10.get(ipOctets));
 
         if (!ipDuelRequestsLast10.has(ipOctets)) {
           ipDuelRequestsLast10.set(ipOctets, 1);
         } else {
+        log('Duel requests from ip', ipOctets, ipDuelRequestsLast10.get(ipOctets));
+
           ipDuelRequestsLast10.set(ipOctets, ipDuelRequestsLast10.get(ipOctets) + 1);
         }
 
@@ -424,7 +425,6 @@ app.ws('/wg', {
           }
         }
       } else {
-        log('Unknown ip req duel', player.ip, player.id, player.username);
       }
       }
 
