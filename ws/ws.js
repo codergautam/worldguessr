@@ -124,7 +124,7 @@ function log(...args) {
   // if(!dev) {
     if(process.env.DISCORD_WEBHOOK_WS) {
       const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
-      hook.setUsername("Logs");
+      hook.setUsername("Logs"+(dev ? ' - Dev' : ''));
       hook.send(args.join(' '));
     }
   // }
