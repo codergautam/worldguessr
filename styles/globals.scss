@@ -607,14 +607,32 @@ h1, h2, h3, span {
   flex-flow: column;
 
 
-  bottom: 40px;
+  bottom: 10px;
   margin-top: auto;
   margin-left: auto;
-  margin-right: 100px;
+  margin-right: 5px;
+  z-index: 1000;
 
   transform: translateY(105%);
   opacity: 0;
 }
+
+.gm-bundled-control-on-bottom {
+ right: auto !important;
+ left: 0 !important;
+ bottom: calc(161px + 50px) !important;
+}
+.gm-style-cc {
+  display: none;
+}
+// less than 460px
+// @media screen and (max-width: 460px) {
+//   .gm-bundled-control-on-bottom {
+//     bottom: calc(161px + 100px) !important;
+//   }
+
+
+// }
 
 
 
@@ -663,6 +681,11 @@ screen and (pointer:coarse) {
     transform: translateY(0%);
     margin-right: 0;
     width: 100%;
+
+
+  }
+  #miniMapArea.miniMap.shown .chatboxBtn {
+    transform: translate(0, 0) !important;
   }
   // #miniMapArea.answerShown {
   //   transform: none;
@@ -678,8 +701,6 @@ screen and (pointer:coarse) {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  gap: 10px;
-  margin-top: 10px;
 
 }
 
@@ -691,7 +712,7 @@ screen and (pointer:coarse) {
   font-size: 1.5em;
   cursor: pointer;
   transition: background-color 0.3s;
-  border-radius: 15px;
+  border-radius: 5px;
   // box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
   // background-image: radial-gradient(150% 160% at 50% 15%,hsla(0,0%,100%,.6) 0,transparent 30%);
 }
@@ -712,10 +733,12 @@ screen and (pointer:coarse) {
     margin-top: 10px;
     position: absolute;
     border-radius: 10px;
-    right: 65px;
+    right: 15px;
     bottom: 30px;
     animation: fadeIn 1s ease-in-out forwards;
   }
+
+
   .mobile_minimap__btns.miniMapShown {
     bottom: calc(70% + 5px);
     width: 100%;
@@ -725,6 +748,34 @@ screen and (pointer:coarse) {
     width: 20%;
   }
 }
+// @media screen and (max-width: 460px) {
+//   .mobile_minimap__btns {
+//     bottom: calc(20px + 50px);
+//   }
+
+// }
+
+.chatboxBtn {
+  transform: translate(60px, 5px);
+}
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+  .chatboxBtn.minimap {
+    transform: translate(5px, 0px);
+  }
+
+}
+
+// @media screen and (max-width: 580px) {
+//   .chatboxBtn {
+//     transform: translate(60px, -45px);
+//   }
+
+// }
+.chatboxBtn.open {
+  transform: translate(0, 0);
+}
+
+
 
 .answerShownBtns {
   display: none;
@@ -896,6 +947,7 @@ screen and (pointer:coarse) {
   left: 50%;
   padding: 20px;
   margin-bottom: 10px;
+  z-index: 1001;
   pointer-events: all;
 }
 
@@ -912,6 +964,7 @@ screen and (pointer:coarse) {
   justify-content: center;
   align-items: center;
   gap: 10px;
+  z-index: 1001;
 }
 
 @media screen and (max-width: 600px) {
@@ -1045,7 +1098,6 @@ screen and (pointer:coarse) {
 .chatboxParent {
   position: fixed;
   bottom: 20px;
-  left: 10px;
   opacity: 0;
   transition: all 0.5s;
   border-radius: 10px;
@@ -1096,14 +1148,22 @@ screen and (pointer:coarse) {
 .react-chatbot-kit-chat-bot-message {
   margin-left: 0 !important;
 }
+@media screen and (max-height: 6000px) {
 
+  .react-chatbot-kit-chat-message-container {
+    height: 448px !important;
+  }
+  .react-chatbot-kit-chat-inner-container {
+    height: 496px !important;
+  }
+}
 @media screen and (max-height: 600px) {
 
   .react-chatbot-kit-chat-message-container {
     height: 244px !important;
   }
   .react-chatbot-kit-chat-inner-container {
-    height: 300px !important;
+    height: 292px !important;
   }
 }
 
@@ -1202,6 +1262,16 @@ screen and (pointer:coarse)  {
   -moz-filter: invert(100%);
   -o-filter: invert(100%);
   -ms-filter: invert(100%);
+}
+.gm-control-active[title="Zoom in"],
+.gm-control-active[title="Zoom out"] {
+  -webkit-filter: invert(100%);
+  -moz-filter: invert(100%);
+  -o-filter: invert(100%);
+  -ms-filter: invert(100%);
+}
+.gm-compass {
+  transform: translateY(350%);
 }
 #playerCnt{
 }
@@ -2097,6 +2167,13 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   }
 
 }
+// .topAdFixed {
+//     position: fixed;
+//   bottom: 5px;
+//   z-index: 100;
+//   left: 50%;
+//   transform: translateX(-50%);
+// }
 div[dir="ltr"] {
   // invert the colors
   filter: invert(1);
