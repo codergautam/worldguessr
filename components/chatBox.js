@@ -107,7 +107,7 @@ const MessageParser = ({ children, actions }) => {
   );
 };
 
-export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame }) {
+export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame, miniMapShown }) {
   const { t: text } = useTranslation("common");
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -134,7 +134,7 @@ export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame }) {
 
   return (
     <div className={`chatboxParent ${enabled ? 'enabled' : ''}`}>
-      <button className={`chatboxBtn ${open ? 'open' : ''}`} style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer' }} onClick={onToggle}>
+      <button className={`chatboxBtn ${open ? 'open' : ''} ${miniMapShown ? 'minimap' : ''}`} style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer' }} onClick={onToggle}>
         {open ? <FaXmark onClick={onToggle} /> : `${text("chat")}${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
       </button>
       <div className={`chatbox ${open ? 'open' : ''}`}>

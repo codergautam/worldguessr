@@ -626,13 +626,13 @@ h1, h2, h3, span {
   display: none;
 }
 // less than 460px
-@media screen and (max-width: 460px) {
-  .gm-bundled-control-on-bottom {
-    bottom: calc(161px + 100px) !important;
-  }
+// @media screen and (max-width: 460px) {
+//   .gm-bundled-control-on-bottom {
+//     bottom: calc(161px + 100px) !important;
+//   }
 
 
-}
+// }
 
 
 
@@ -748,22 +748,29 @@ screen and (pointer:coarse) {
     width: 20%;
   }
 }
-@media screen and (max-width: 460px) {
-  .mobile_minimap__btns {
-    bottom: calc(20px + 50px);
-  }
+// @media screen and (max-width: 460px) {
+//   .mobile_minimap__btns {
+//     bottom: calc(20px + 50px);
+//   }
 
-}
+// }
 
 .chatboxBtn {
   transform: translate(60px, 5px);
 }
-@media screen and (max-width: 580px) {
-  .chatboxBtn {
-    transform: translate(60px, -45px);
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+  .chatboxBtn.minimap {
+    transform: translate(5px, 0px);
   }
 
 }
+
+// @media screen and (max-width: 580px) {
+//   .chatboxBtn {
+//     transform: translate(60px, -45px);
+//   }
+
+// }
 .chatboxBtn.open {
   transform: translate(0, 0);
 }
@@ -2144,29 +2151,29 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
     /* This can be used for future validation styling */
   }
 }
-// .topAdFixed {
-//   position: fixed;
-//   top: 5px;
-//   z-index: 1000;
-//   left: 50%;
-//   transform: translateX(-50%);
-// }
-// @media screen and (max-width: 700px) {
-//   .topAdFixed {
-//     top: 50px;
-//   }
-//   .topAdFixed.moreDown {
-//     top: 100px;
-//   }
-
-// }
 .topAdFixed {
-    position: fixed;
-  bottom: 5px;
-  z-index: 100;
+  position: fixed;
+  top: 5px;
+  z-index: 1000;
   left: 50%;
   transform: translateX(-50%);
 }
+@media screen and (max-width: 700px) {
+  .topAdFixed {
+    top: 50px;
+  }
+  .topAdFixed.moreDown {
+    top: 100px;
+  }
+
+}
+// .topAdFixed {
+//     position: fixed;
+//   bottom: 5px;
+//   z-index: 100;
+//   left: 50%;
+//   transform: translateX(-50%);
+// }
 div[dir="ltr"] {
   // invert the colors
   filter: invert(1);
