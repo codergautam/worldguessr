@@ -423,6 +423,8 @@ app.ws('/wg', {
             }
           }
         }
+      } else {
+        log('Unknown ip req duel', player.ip, player.id, player.username);
       }
       }
 
