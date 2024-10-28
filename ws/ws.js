@@ -401,7 +401,7 @@ app.ws('/wg', {
         console.log('public duel requested by', player.username, player.ip);
         player.inQueue = true;
         playersInQueue.add(player.id);
-        if(!player.ip === 'unknown' && player.ip.includes('.')) {
+        if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
         const ipOctets = player.ip.split('.').slice(0, 3).join('.');
         log('Duel requests from ip', ipOctets, ipDuelRequestsLast10.get(ipOctets));
@@ -412,7 +412,7 @@ app.ws('/wg', {
           ipDuelRequestsLast10.set(ipOctets, ipDuelRequestsLast10.get(ipOctets) + 1);
         }
 
-        if (ipDuelRequestsLast10.get(ipOctets) > 100) {
+        if (ipDuelRequestsLast10.get(ipOctets) > 50) {
           log('Banned IP due to spam', ipOctets);
           bannedIps.add(ipOctets);
           ws.close();
