@@ -121,13 +121,13 @@ if (!process.env.MONGODB) {
 function log(...args) {
   console.log(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }), ...args);
 
-  if(!dev) {
+  // if(!dev) {
     if(process.env.DISCORD_WEBHOOK_WS) {
       const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
       hook.setUsername("Logs");
       hook.send(args.join(' '));
     }
-  }
+  // }
 }
 
 
@@ -308,6 +308,11 @@ if (process.env.MAINTENANCE_SECRET) {
 
 const bannedIps = new Set();
 const ipConnectionCount = new Map();
+const ipDuelRequestsLast10 = new Map();
+
+setInterval(() => {
+  ipDuelRequestsLast10.clear();
+}, 10000);
 
 app.ws('/wg', {
   /* Options */
@@ -396,6 +401,29 @@ app.ws('/wg', {
         console.log('public duel requested by', player.username, player.ip);
         player.inQueue = true;
         playersInQueue.add(player.id);
+        if(!player.ip === 'unknown' && player.ip.includes('.')) {
+
+        const ipOctets = player.ip.split('.').slice(0, 3).join('.');
+        log('Duel requests from ip', ipOctets, ipDuelRequestsLast10.get(ipOctets));
+
+        if (!ipDuelRequestsLast10.has(ipOctets)) {
+          ipDuelRequestsLast10.set(ipOctets, 1);
+        } else {
+          ipDuelRequestsLast10.set(ipOctets, ipDuelRequestsLast10.get(ipOctets) + 1);
+        }
+
+        if (ipDuelRequestsLast10.get(ipOctets) > 100) {
+          log('Banned IP due to spam', ipOctets);
+          bannedIps.add(ipOctets);
+          ws.close();
+
+          for(const player of players.values()) {
+            if(player.ip.includes(ipOctets)) {
+              player.ws.close();
+            }
+          }
+        }
+      }
       }
 
       if (json.type === 'leaveQueue' && player.inQueue) {
