@@ -407,7 +407,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
                 <MapTile
                   key={i + index}
                   map={tileMap}
-                  canHeart={session?.token?.secret && heartingMap !== map.id}
+                  canHeart={session?.token?.secret && heartingMap !== mapsArray[i + index].id}
                   onClick={() => onMapClick(tileMap)}
                   country={tileMap.countryMap}
                   searchTerm={searchTerm}
@@ -435,7 +435,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
                     });
                   }}
                   onHeart={() => {
-                    heartMap(map);
+                    heartMap(mapsArray[i + index]);
                   }}
                 />
               ))}
