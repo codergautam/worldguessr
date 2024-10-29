@@ -620,12 +620,13 @@ h1, h2, h3, span {
 .gm-bundled-control-on-bottom {
  right: auto !important;
  left: 0 !important;
-transform: translateY(-50px) !important;
 }
+// obnly on ios
 @supports (-webkit-touch-callout: none) {
-.gm-bundled-control-on-bottom {
+  .gm-bundled-control-on-bottom {
 
-  transform: translateY(-140px) !important;
+  transform: translateY(-100px) !important;
+
 }
 }
 .gm-style-cc {
@@ -1277,7 +1278,7 @@ screen and (pointer:coarse)  {
   -ms-filter: invert(100%);
 }
 .gm-compass {
-  transform: translateY(350%);
+  transform: translateY(50%);
 }
 #playerCnt{
 }
