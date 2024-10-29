@@ -620,7 +620,13 @@ h1, h2, h3, span {
 .gm-bundled-control-on-bottom {
  right: auto !important;
  left: 0 !important;
- bottom: calc(161px + 50px) !important;
+transform: translateY(-50px) !important;
+}
+@supports (-webkit-touch-callout: none) {
+.gm-bundled-control-on-bottom {
+
+  transform: translateY(-140px) !important;
+}
 }
 .gm-style-cc {
   display: none;
