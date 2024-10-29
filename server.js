@@ -31,6 +31,7 @@ var app = express();
 // disable cors
 import cors from 'cors';
 import cityGen from './serverUtils/cityGen.js';
+import User from './models/User.js';
 
 app.use(cors());
 app.use(bodyParser.json({limit: '5mb'}));
@@ -254,3 +255,51 @@ app.post('/mapPlay/:slug', async (req, res) => {
 app.listen(port, () => {
   console.log(`[INFO] API Server running on port ${port}`);
 });
+
+async function calculateRanks() {
+  if (!dbEnabled) return;
+  console.log('Calculating ranks');
+  console.time('Updated ranks');
+
+  const users = await User.find({ banned: false }).select('elo totalXp').sort({ elo: -1, totalXp: -1 });
+
+  // Prepare bulk operations
+  const bulkOps = [];
+  let currentRank = 1;
+  let previousElo = null;
+  let previousTotalXp = null;
+
+  for (let i = 0; i < users.length; i++) {
+    const user = users[i];
+
+    // If the elo or totalXp changes, update the rank
+    if (user.elo !== previousElo || user.totalXp !== previousTotalXp) {
+      currentRank = i + 1; // 1-based rank
+      previousElo = user.elo;
+      previousTotalXp = user.totalXp;
+    }
+
+    // Prepare the update operation for the current user
+    bulkOps.push({
+      updateOne: {
+        filter: { _id: user._id },
+        update: { $set: { rank: currentRank } },
+      },
+    });
+  }
+
+  // Execute bulk operations
+  if (bulkOps.length > 0) {
+    await User.bulkWrite(bulkOps);
+  }
+
+  console.timeEnd('Updated ranks');
+}
+
+// Calculate ranks every 200 seconds
+function recursiveCalculateRanks() {
+  calculateRanks().then(() => {
+    setTimeout(recursiveCalculateRanks, 200000);
+  });
+}
+recursiveCalculateRanks();

@@ -48,6 +48,7 @@ import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
+import LeagueModal from "./leagueModal";
 
 
 const initialMultiplayerState = {
@@ -150,6 +151,7 @@ export default function Home({ }) {
   const [isApp, setIsApp] = useState(false);
   const [inCrazyGames, setInCrazyGames] = useState(false);
   const [maintenance, setMaintenance] = useState(false);
+  const [leagueModal, setLeagueModal] = useState(false);
 
   const [legacyMapLoader, setLegacyMapLoader] = useState(false);
 
@@ -175,7 +177,39 @@ export default function Home({ }) {
 
 
   const [config, setConfig] = useState(null);
+  const [eloData, setEloData] = useState(null);
+  const [animatedEloDisplay, setAnimatedEloDisplay] = useState(0);
+  useEffect(() => {
+    if(!session?.token?.username) return;
 
+    fetch(clientConfig().apiUrl+"/api/eloRank?username="+session?.token?.username).then((res) => res.json()).then((data) => {
+      setEloData(data)
+    }).catch((e) => {
+    });
+
+
+
+  }, [session?.token?.username])
+  useEffect(() => {
+    if (!eloData?.elo) return;
+
+    const interval = setInterval(() => {
+      setAnimatedEloDisplay((prev) => {
+        prev = parseInt(prev.toString().replace(/,/g, ""));
+        const diff = eloData.elo - prev;
+
+        // Determine the step based on the difference
+        const step = Math.ceil(Math.abs(diff) / 10) || 1; // Minimum step is 1
+
+        // Smooth animation
+        if (diff > 0) return Math.min(prev + step, eloData.elo);
+        if (diff < 0) return Math.max(prev - step, eloData.elo);
+        return prev;
+      });
+    }, 10);
+
+    return () => clearInterval(interval);
+  }, [eloData?.elo]);
   useEffect(() => {
     const clientConfigData = clientConfig();
     setConfig(clientConfigData);
@@ -1739,8 +1773,8 @@ setShowCountryButtons(false)
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
       <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
-      <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} />
-
+      {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
+      <LeagueModal shown={leagueModal} onClose={() => setLeagueModal(false)} session={session} eloData={eloData} />
       {ChatboxMemo}
     <ToastContainer/>
 
@@ -1832,10 +1866,10 @@ setShowCountryButtons(false)
 
         <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
 
-{/* merch button */}
+{/* ELO/League button */}
 {screen === "home" && !mapModal && session && session?.token?.secret && !inCrazyGames &&  !session?.token?.supporter && (
-  <button className="gameBtn merchBtn" onClick={()=>{setMerchModal(true)}}>
-    Remove Ads
+  <button className="gameBtn leagueBtn" onClick={()=>{setLeagueModal(true)}} style={{backgroundColor: eloData?.league?.color }}>
+    { !eloData ? '...' : animatedEloDisplay } ELO {eloData?.league?.emoji}
   </button>
 )}
 

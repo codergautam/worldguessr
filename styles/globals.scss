@@ -2271,7 +2271,7 @@ div[dir="ltr"] {
 .mobile_minimap__btns {
   z-index: 10000;
 }
-.merchBtn {
+.leagueBtn {
   position: fixed;
   top: 50px;
   width: 70px;
@@ -2286,7 +2286,9 @@ div[dir="ltr"] {
   font-size: 1.5em;
   padding-top: 5px;
   padding-bottom: 5px;
-  background-color: rgb(132, 125, 84);
+}
+.leagueBtn:hover {
+  filter: brightness(1.2);
 }
 
 @keyframes bounce {

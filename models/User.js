@@ -87,6 +87,25 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  elo: {
+    type: Number,
+    default: 1000,
+  },
+  elo_history: {
+    type: Array,
+    default: [],
+  },
+  duels_wins: {
+    type: Number,
+    default: 0,
+  },
+  duels_losses: {
+    type: Number,
+    default: 0,
+  },
+  rank: {
+    type: Number,
+  },
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
