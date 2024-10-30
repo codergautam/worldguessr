@@ -36,7 +36,7 @@ export default function Navbar({ maintenance, inCrazyGames, inGame, openAccountM
 
 
       {multiplayerState?.playerCount &&  (
-        <span className={`desktop bigSpan onlineText ${screen !== 'home' ? 'notHome':''} ${(screen==='singleplayer'||screen==='onboarding'||multiplayerState?.inGame||!multiplayerState?.connected)?'hide':''}`}>
+        <span className={`bigSpan onlineText ${screen !== 'home' ? 'notHome':''} ${(screen==='singleplayer'||screen==='onboarding'||multiplayerState?.inGame||!multiplayerState?.connected)?'hide':''}`}>
           {maintenance ? text("maintenanceMode") : text("onlineCnt", {cnt:multiplayerState.playerCount})}
         </span>
       )}
