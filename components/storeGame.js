@@ -6,6 +6,7 @@ const pendingUpdates = []; // Queue to store pending updates
 async function processPendingUpdates() {
   if (pendingUpdates.length === 0) return;
 
+  let cnt = 0;
   // Group updates by user secret
   const updatesByUser = {};
   pendingUpdates.forEach(({ secret, xp, timeTaken, latLong }) => {
@@ -35,15 +36,15 @@ async function processPendingUpdates() {
         });
         user.totalGamesPlayed += 1;
         user.totalXp += xp;
+        cnt++;
       });
-      console.log(`Processed ${userUpdates.length} updates for user ${secret}`);
 
       await user.save();
     } catch (error) {
       console.error(`Error saving user ${secret}:`, error.message);
     }
   }
-
+  console.log('Processed', cnt, 'updates');
   // Clear the pending updates queue after processing
   pendingUpdates.length = 0;
 }
