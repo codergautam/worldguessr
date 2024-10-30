@@ -419,7 +419,7 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
   useEffect(() => {
     if(!latLong || !pinPoint || multiplayerState?.inGame || !gameOptions?.official) return;
     setXpEarned(Math.round(calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist }) / 50))
-  }, [km, latLong, pinPoint])
+  }, [km, latLong, pinPoint, gameOptions?.official  ])
 
 
   useEffect(() => {

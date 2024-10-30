@@ -44,6 +44,7 @@
     "react-responsive-modal": "^6.4.2",
     "react-simple-typewriter": "^5.0.1",
     "react-toastify": "^10.0.5",
+    "recachegoose": "^11.0.2",
     "sass": "^1.77.2",
     "sharp": "^0.33.5",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.48.0",

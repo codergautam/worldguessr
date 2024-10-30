@@ -35,7 +35,7 @@ export default async function handler(req, res) {
   const { userId } = decodedToken;
 
   // check if userId exists
-  const user = await User.findOne({ crazyGamesId: userId });
+  const user = await User.findOne({ crazyGamesId: userId }).cache(120);
   if (user) {
     return res.status(200).json({ secret: user.secret, username: user.username });
   }

@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import User from '../models/User.js';
 const cache = { data: null, timestamp: null };
 const pastDayCache = { data: null, timestamp: null };
@@ -21,15 +20,6 @@ export default async function handler(req, res) {
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
-  }
-
-  // Connect to MongoDB
-  if (mongoose.connection.readyState !== 1) {
-    try {
-      await mongoose.connect(process.env.MONGODB);
-    } catch (error) {
-      return res.status(500).json({ message: 'Database connection failed', error: error.message });
-    }
   }
 
   try {

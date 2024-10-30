@@ -1,5 +1,4 @@
 // pages/api/setName.js
-import mongoose from 'mongoose';
 import User from '../models/User.js';
 import { Webhook } from "discord-webhook-node";
 
@@ -9,14 +8,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  // Connect to MongoDB
-  if (mongoose.connection.readyState !== 1) {
-    try {
-      await mongoose.connect(process.env.MONGODB);
-    } catch (error) {
-      return res.status(500).json({ message: 'Database connection failed', error: error.message });
-    }
-  }
 
   // Extract the token and username from the request body
   const { token, username } = req.body;

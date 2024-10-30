@@ -416,7 +416,7 @@ setShowCountryButtons(false)
     setGameOptions((prev) => ({
       ...prev,
       location: mapSlug,
-      official: country ? true : false,
+      official: (country||mapSlug==='all') ? true : false,
       countryMap: country,
       maxDist: country ? countryMaxDists[country] : 20000,
       extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
@@ -1495,6 +1495,7 @@ setShowCountryButtons(false)
         if(gameOptions.location === "all") {
         const loc = data.locations[0]
         setLatLong(loc)
+
         } else {
           let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 

@@ -33,7 +33,7 @@ export default async function handler(req, res) {
   // If map is not official, check user-created maps
   const map = await Map.findOne({ slug })
     .select({ 'data': { $slice: 10 } }) // Slice the data to limit to 10 items
-    .lean();
+    .lean().cache(10000);
 
   if (!map) {
     return res.status(404).json({ message: 'Map not found' });
