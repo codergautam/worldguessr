@@ -1803,16 +1803,22 @@ setShowCountryButtons(false)
       <main className={`home`} id="main">
         { latLong && latLong?.lat && latLong?.long && legacyMapLoader ? (
 <>
-    <iframe className={`streetview ${(loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
+    <iframe className={`streetview ${(loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
-       }}></iframe>
+       }}
+       style={{
+        width: '100vw',
+        height: 'calc(100vh + 300px)',
+        zIndex: 100,
+        transform: 'translateY(-285px)',
+        }}></iframe>
 
 
 {/* put something in the top left to cover the address */}
-<div style={{
+{/* <div style={{
   position: 'fixed',
   top: '7px',
-  left: 0,
+  right: 0,
   width: '200px',
   height: '62px',
   backgroundColor: 'rgba(0,0,0,0)',
@@ -1820,7 +1826,17 @@ setShowCountryButtons(false)
   backdropFilter: 'blur(10px)',
   zIndex: 100
 }}></div>
-
+<div style={{
+  position: 'fixed',
+  bottom: '7px',
+  left: 0,
+  width: '200px',
+  height: '10px',
+  backgroundColor: 'rgba(0,0,0,0)',
+  // blur the address
+  backdropFilter: 'blur(10px)',
+  zIndex: 100
+}}></div> */}
 
        </>
 
