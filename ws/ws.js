@@ -17,10 +17,7 @@ import { players, games } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
 
-import axios from 'axios';
-
 config();
-
 // Load the profanity filter
 const filter = new Filter();
 filter.removeWords('damn')
@@ -198,7 +195,9 @@ process.on('unhandledRejection', (reason, promise) => {
   stop('unhandledRejection');
 });
 // uWebSockets.js
-let app = uws.App();
+let app = uws.App({
+
+});
 app.listen('0.0.0.0', port, (ws) => {
   if (ws) {
     log('**WS Server started on port** ' + port);
@@ -206,18 +205,21 @@ app.listen('0.0.0.0', port, (ws) => {
 });
 
 app.get('/', (res, req) => {
-  // make sureonly cf can access
-  let ip = req.getHeader('cf-connecting-ip') || res.getRemoteAddressAsText();
-  // cjeck if ip isarraybuffer
-  if (ip instanceof ArrayBuffer) {
-    ip = new TextDecoder().decode(ip);
-  }
+
+      // count all the headers
+      let headerKb = 0;
+      req.forEach((key, value) => {
+
+        headerKb += key.length + value.length;
+
+      });
+      headerKb = headerKb / 1024;
 
 
   setCorsHeaders(res);
-  res.writeHeader('Content-Type', 'text/plain');
+  res.writeHeader('Content-Type', 'text/html');
   res.writeStatus('200 OK');
-  res.end("WorldGuessr - Powered by uWebSockets.js");
+  res.end("WorldGuessr - Powered by uWebSockets.js<br>Headers: "+headerKb.toFixed(2)+'kb');
 });
 
 // maintenance mode
