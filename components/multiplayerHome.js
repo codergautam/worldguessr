@@ -4,7 +4,6 @@ import { FaArrowLeft, FaArrowRight } from "react-icons/fa"
 import enforceMinMax from "./utils/enforceMinMax"
 import PlayerList from "./playerList";
 import { useTranslation } from '@/components/useTranslations'
-import sendEvent from "./utils/sendEvent";
 import MapsModal from "./maps/mapsModal";
 
 
@@ -12,6 +11,15 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
   const { t: text } = useTranslation("common");
 
   const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
+  const [gameOptions, setGameOptions] = useState({
+    showRoadName: true,
+    nm:false,
+    npz:false
+  });
+
+  useEffect(() => {
+    setMultiplayerState((prev) => ({ ...prev, createOptions: { ...prev.createOptions, ...gameOptions } }));
+  }, [gameOptions]);
 
   if(multiplayerError) {
     return (
@@ -61,7 +69,16 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
 <FaArrowRight onClick={() => !(multiplayerState?.createOptions?.progress !== false) && setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(1, Math.min(300, Number(multiplayerState.createOptions.timePerRound) + 10)) }}))} />
 </div>
 
-<label>{text("map")}: {multiplayerState?.createOptions?.displayLocation || multiplayerState?.createOptions?.location }</label>
+<label>{text("map")}: {multiplayerState?.createOptions?.displayLocation || multiplayerState?.createOptions?.location }
+
+<br/>
+    { (gameOptions?.nm && gameOptions?.npz) ? (
+
+      "NMPZ Mode"
+    ) : (
+      gameOptions?.nm ? text("nm") : gameOptions?.npz ? text("npz") : ""
+    )}
+</label>
 <button className="goBtn" onClick={() => setSelectCountryModalShown(true)} disabled={(multiplayerState?.createOptions?.progress !== false)}>{text("change")}</button>
 
 <br/>
@@ -83,9 +100,15 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
         )}
 
         <MapsModal showAllCountriesOption={true} shown={selectCountryModalShown} onClose={() => setSelectCountryModalShown(false)} session={session} text={text} customChooseMapCallback={(map) => {
-          setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, location: map.countryMap || map.slug, displayLocation: map.name } }));
+          console.log(map, gameOptions)
+          setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, location: map.countryMap || map.slug, displayLocation: map.name,
+
+            nm: gameOptions?.nm,
+            npz: gameOptions?.npz,
+            showRoadName: gameOptions?.showRoadName,
+           } }));
           setSelectCountryModalShown(false);
-        }} chosenMap={multiplayerState?.createOptions?.location} />
+        }} chosenMap={multiplayerState?.createOptions?.location} showOptions={true} gameOptions={gameOptions} setGameOptions={setGameOptions} />
     </div>
   )
 }

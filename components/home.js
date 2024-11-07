@@ -86,7 +86,7 @@ export default function Home({ }) {
   const [streetViewShown, setStreetViewShown] = useState(false)
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
   // location aka map slug
-  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null });
+  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true })
   const [showAnswer, setShowAnswer] = useState(false)
   const [pinPoint, setPinPoint] = useState(null)
   const [hintShown, setHintShown] = useState(false)
@@ -151,7 +151,21 @@ export default function Home({ }) {
   const [inCrazyGames, setInCrazyGames] = useState(false);
   const [maintenance, setMaintenance] = useState(false);
 
-  const [legacyMapLoader, setLegacyMapLoader] = useState(false);
+  const [legacyMapLoader, setLegacyMapLoader] = useState(true);
+
+  useEffect(() => {
+
+    console.log("game options",(gameOptions?.showRoadName===true))
+    if((gameOptions?.showRoadName===true) && !gameOptions?.nm &&  !gameOptions?.npz) {
+
+      console.log("showing road name")
+      setLegacyMapLoader(true);
+    } else {
+
+      console.log("hiding road name")
+      setLegacyMapLoader(false);
+    }
+  }, [gameOptions?.nm, gameOptions?.npz,gameOptions?.showRoadName])
 
   useEffect(() => {
 
@@ -800,7 +814,12 @@ setShowCountryButtons(false)
 
           // send ws
           // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
-          ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist }))
+          ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist,
+            nm: args[0].nm,
+            npz: args[0].npz,
+            showRoadName: args[0].showRoadName
+
+           }))
           sendEvent("multiplayer_create_private_game", { rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist })
           // })()
       }
@@ -1037,6 +1056,13 @@ setShowCountryButtons(false)
           }
         } catch(e) {}
 
+        console.log("game", data)
+        setGameOptions((prev) => ({
+          ...prev,
+          nm: data.nm,
+          npz: data.npz,
+          showRoadName: data.showRoadName
+        }))
 
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
@@ -1604,26 +1630,27 @@ setShowCountryButtons(false)
   const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 
   useEffect(() => {
+    console.log("panorama ref", panoramaRef.current)
     // const map =  new google.maps.Map(document.getElementById("map"), {
     //   center: fenway,
     //   zoom: 14,
     // });
     if(legacyMapLoader) {
-        setLoading(false)
-
-        // kill the element that has div[dir="ltr"]
-        const elem = document.querySelector('div[dir="ltr"]');
-        console.log("elem", elem)
-
+      if  (panoramaRef.current) {
+        // destroy the old panorama
+        panoramaRef.current.setVisible(false);
+        panoramaRef.current = null;
+      }
       return;
     }
-    if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
-    if(!document.getElementById("googlemaps")) return;
+    if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return console.log("latLong not found");
+    if(!document.getElementById("googlemaps")) return console.log("googlemaps not found");
 
     if(!panoramaRef.current) {
 
 
 
+      console.log("panorama not found");
     panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById("googlemaps"),
       {
@@ -1764,7 +1791,7 @@ setShowCountryButtons(false)
                   { !inCrazyGames && (
                     <>
                 <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="home__squarebtn gameBtn youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                {/* <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link> */}
                 </>
                 )}
                 <Link href={"/leaderboard"+(inCrazyGames ? "?crazygames": "")}>
@@ -1805,13 +1832,18 @@ setShowCountryButtons(false)
 <>
     <iframe className={`streetview ${(loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
+setTimeout(() => {
+  setLoading(false)
+
+}, 500)
        }}
        style={{
         width: '100vw',
         height: 'calc(100vh + 300px)',
         zIndex: 100,
         transform: 'translateY(-285px)',
-        }}></iframe>
+        }}
+        ></iframe>
 
 
 {/* put something in the top left to cover the address */}
@@ -1940,7 +1972,7 @@ setShowCountryButtons(false)
               setGameOptionsModalShown(false)
             }:null}
             showAllCountriesOption={(gameOptionsModalShown&&screen==="singleplayer")}
-            singleplayer={screen==="singleplayer"}
+            showOptions={screen==="singleplayer"}
             gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
         <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
@@ -2002,7 +2034,11 @@ setShowCountryButtons(false)
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
           <GameUI
           miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-          inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent,
+            nm: multiplayerState?.gameData?.nm,
+            npz: multiplayerState?.gameData?.npz,
+            showRoadName: multiplayerState?.gameData?.showRoadName
+           }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
 
 

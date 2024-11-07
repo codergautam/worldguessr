@@ -29,7 +29,7 @@ export default function MapsPage({  }) {
           </Head>
             <div style={styles.pageContent}>
                 <MapView
-                    singleplayer={false}
+                    showOptions={false}
                     showAllCountriesOption={false}
                     chosenMap={undefined}
                     close={() => router.back()} // Use router.back() to go back on close

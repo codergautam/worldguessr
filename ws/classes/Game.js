@@ -115,7 +115,10 @@ export default class Game {
       players: Object.values(this.players),
       generated: this.locations.length,
       map: this.location,
-      extent: this.extent
+      extent: this.extent,
+      showRoadName: !!this.showRoadName,
+      nm: !!this.nm,
+      npz: !!this.npz
     };
     if (includeLocations) {
       state.locations = this.locations;

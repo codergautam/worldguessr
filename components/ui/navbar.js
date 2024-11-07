@@ -1,7 +1,7 @@
 import { FaArrowLeft, FaUser, FaUserFriends } from "react-icons/fa";
 import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
-import { FaArrowRotateRight } from "react-icons/fa6";
+import { FaArrowRotateRight, FaPencil } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
@@ -36,7 +36,7 @@ export default function Navbar({ maintenance, inCrazyGames, inGame, openAccountM
 
 
       {multiplayerState?.playerCount &&  (
-        <span className={`bigSpan onlineText ${screen !== 'home' ? 'notHome':''} ${(screen==='singleplayer'||screen==='onboarding'||multiplayerState?.inGame||!multiplayerState?.connected)?'hide':''}`}>
+        <span className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome':''} ${(screen==='singleplayer'||screen==='onboarding'||multiplayerState?.inGame||!multiplayerState?.connected)?'hide':''}`}>
           {maintenance ? text("maintenanceMode") : text("onlineCnt", {cnt:multiplayerState.playerCount})}
         </span>
       )}
@@ -64,6 +64,10 @@ export default function Navbar({ maintenance, inCrazyGames, inGame, openAccountM
           gameOptions.nm? ', NM' :
           gameOptions.npz? ', NPZ' :
           ''}
+
+          &nbsp;
+
+          <FaPencil size={20}/>
           </button>
         )}
         {!inGame && showAccBtn && (<AccountBtn inCrazyGames={inCrazyGames} session={session} navbarMode={true} openAccountModal={openAccountModal} />)}

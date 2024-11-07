@@ -618,7 +618,7 @@ app.ws('/wg', {
 
         const gameId = uuidv4();
         // options
-        let { rounds, timePerRound, locations, maxDist, location } = json;
+        let { rounds, timePerRound, locations, maxDist, location, nm, npz, showRoadName } = json;
         rounds = Number(rounds);
         // maxDist no longer required-> can be pulled from community map
         if (!location) return;
@@ -630,8 +630,18 @@ app.ws('/wg', {
           return;
         }
 
+        if(!nm) nm = false;
+        if(!npz) npz = false;
+        if(!showRoadName) showRoadName = false;
+
+        console.log("Creating game", gameId, "Nm", nm, "Npz", npz, "ShowRoadName", showRoadName);
+
         const game = new Game(gameId, false, location, rounds, allLocations);
         game.timePerRound = timePerRound * 1000;
+        game.nm = !!nm;
+        game.npz = !!npz;
+        game.showRoadName = !!showRoadName;
+
         // game.locations = locations;
         // game.location = location;
         if (maxDist) game.maxDist = maxDist;

@@ -17,7 +17,7 @@ const initMakeMap = {
   mapId: "",
 };
 
-export default function MapView({ inLegacy, gameOptions, setGameOptions, singleplayer, close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
+export default function MapView({ inLegacy, gameOptions, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
   const [makeMap, setMakeMap] = useState(initMakeMap);
   const [mapHome, setMapHome] = useState({
     message: text("loading") + "...",
@@ -287,7 +287,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
         </div>
       </div>
 
-      {singleplayer && !inLegacy && (
+      {showOptions && (
     <div style={{display: "flex", flexDirection: 'column', alignItems: 'center', marginBottom: '5px', marginTop: '5px'}}>
         <div>
             <span>{text('nm')}</span>
