@@ -81,7 +81,7 @@ export default async function handler(req, res) {
 
   // owned maps
   // find maps made by user
-  if(user && !inCG) {
+  if(user) {
     // created_at, slug, name, hearts,plays, description_short, map_creator_name, _id, in_review, official, accepted, reject_reason, resubmittable, locationsCnt
     console.time('findMyMaps');
     let myMaps = await Map.find({ created_by: user._id.toString() }).select({
