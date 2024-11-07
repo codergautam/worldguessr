@@ -49,7 +49,9 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, showOpt
         "Content-Type": "application/json",
       },
       body: JSON.stringify(
-        session?.token?.secret ? { secret: session?.token?.secret } : {}
+        session?.token?.secret ? { secret: session?.token?.secret,
+          inCG: window.inCrazyGames
+         } : {}
       ),
     })
       .then((res) => res.json())
@@ -268,6 +270,11 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, showOpt
             <button
               onClick={() => {
 
+                // disable for crazygames users
+                if(inCrazyGames) {
+                  toast.error("Please play on WorldGuessr.com to use this feature");
+                  return;
+                }
                 // temporarily disabled
                 // toast.error("Feature disabled temporarily due to maintenance");
                 // return;

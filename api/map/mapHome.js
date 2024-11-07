@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  let { secret } = req.body;
+  let { secret, inCG } = req.body;
 
   let user;
 
@@ -81,7 +81,7 @@ export default async function handler(req, res) {
 
   // owned maps
   // find maps made by user
-  if(user ) {
+  if(user && !inCG) {
     // created_at, slug, name, hearts,plays, description_short, map_creator_name, _id, in_review, official, accepted, reject_reason, resubmittable, locationsCnt
     console.time('findMyMaps');
     let myMaps = await Map.find({ created_by: user._id.toString() }).select({
@@ -122,7 +122,7 @@ export default async function handler(req, res) {
     }));
     likedMapsSendable.sort((a,b) => b.created_at - a.created_at);
     if(likedMapsSendable.length > 0) response.likedMaps = likedMapsSendable;
-
+    console.timeEnd('findMyMaps');
   }
 
   response.countryMaps = Object.values(officialCountryMaps).map((map) => ({
