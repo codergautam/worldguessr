@@ -271,10 +271,10 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, showOpt
               onClick={() => {
 
                 // disable for crazygames users
-                if(inCrazyGames) {
-                  toast.error("Please play on WorldGuessr.com to use this feature");
-                  return;
-                }
+                // if(inCrazyGames) {
+                //   toast.error("Please play on WorldGuessr.com to use this feature");
+                //   return;
+                // }
                 // temporarily disabled
                 // toast.error("Feature disabled temporarily due to maintenance");
                 // return;
