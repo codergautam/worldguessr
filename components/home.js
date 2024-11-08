@@ -1830,10 +1830,18 @@ setShowCountryButtons(false)
       <main className={`home`} id="main">
         { latLong && latLong?.lat && latLong?.long && legacyMapLoader ? (
 <>
-    <iframe className={`streetview ${(loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
+    <iframe className={`streetview ${(loading) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
 setTimeout(() => {
   setLoading(false)
+
+  window.reloadLoc = () => {
+    const iframe = document.getElementById('streetview');
+    if (iframe) {
+        iframe.src = iframe.src; // Reload the iframe by resetting its src attribute
+    }
+    //
+  }
 
 }, 500)
        }}
