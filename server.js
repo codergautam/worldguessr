@@ -30,6 +30,9 @@ import path from 'path';
 import MapModel from './models/Map.js';
 import bodyParser from 'body-parser';
 
+// colors
+import colors from 'colors';
+
 // express
 import express from 'express';
 var app = express();

@@ -1791,7 +1791,7 @@ setShowCountryButtons(false)
                   { !inCrazyGames && (
                     <>
                 <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="home__squarebtn gameBtn youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                {/* <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link> */}
+                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                 </>
                 )}
                 <Link href={"/leaderboard"+(inCrazyGames ? "?crazygames": "")}>
