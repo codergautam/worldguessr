@@ -107,7 +107,7 @@ const MessageParser = ({ children, actions }) => {
   );
 };
 
-export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame, miniMapShown }) {
+export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame, miniMapShown, isGuest }) {
   const { t: text } = useTranslation("common");
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -133,16 +133,18 @@ export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame, min
   }, [ws, open]);
 
   return (
-    <div className={`chatboxParent ${enabled ? 'enabled' : ''}`}>
+    <div className={`chatboxParent ${enabled ? 'enabled' : ''} ${isGuest ? 'guest' : ''}`}>
       <button className={`chatboxBtn ${open ? 'open' : ''} ${miniMapShown ? 'minimap' : ''}`} style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer' }} onClick={onToggle}>
         {open ? <FaXmark onClick={onToggle} /> : `${text("chat")}${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
       </button>
       <div className={`chatbox ${open ? 'open' : ''}`}>
         <Chatbot
           config={config}
+          placeholderText={isGuest ? "Please login to chat" : undefined}
           messageParser={(props) => <MessageParser {...props} />}
           actionProvider={(props) => <ActionProvider {...props} ws={ws} myId={myId} inGame={inGame} />}
           validator={(input) => {
+            if(isGuest) return false;
             if (input.length < 1) return false;
             if (input.length > 200) return false;
             if (Date.now() - lastSend < 1000) return false;

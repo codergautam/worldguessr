@@ -455,7 +455,8 @@ app.ws('/wg', {
         game.setGuess(player.id, latLong, final);
       }
 
-      if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {
+      if (json.type === 'chat' && player.gameId && games.has(player.gameId) && player.accountId) {
+
         let message = json.message;
         const lastMessage = player.lastMessage || 0;
         if (typeof message !== 'string' || message.length < 1 || message.length > 200 || Date.now() - lastMessage < 500) {
