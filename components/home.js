@@ -1614,7 +1614,9 @@ setShowCountryButtons(false)
 
   const ChatboxMemo = React.useMemo(() => <ChatBox miniMapShown={miniMapShown} ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={
     multiplayerChatEnabled
-  } myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, miniMapShown])
+  }
+  isGuest={session?.token?.secret ? false : true}
+  myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, miniMapShown, session?.token?.secret])
 
   // Send pong every 10 seconds if websocket is connected
   useEffect(() => {
@@ -1830,7 +1832,7 @@ setShowCountryButtons(false)
       <main className={`home`} id="main">
         { latLong && latLong?.lat && latLong?.long && legacyMapLoader ? (
 <>
-    <iframe className={`streetview ${(loading) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
+    <iframe className={`streetview ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
 setTimeout(() => {
   setLoading(false)
@@ -1881,7 +1883,7 @@ setTimeout(() => {
        </>
 
       ) : (
-       <div id="googlemaps" className={`streetview inverted ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
+       <div id="googlemaps" className={`streetview inverted ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
       )}
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 

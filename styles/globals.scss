@@ -1140,6 +1140,14 @@ screen and (pointer:coarse) {
   border-radius: 10px;
   height: calc(100% - 65px);
 }
+input[placeholder="Please login to chat"] {
+  // disable the div
+  cursor: not-allowed;
+  pointer-events: none;
+  background-color: rgba(225, 225, 225, 1) !important;
+}
+
+
 .react-chatbot-kit-chat-input-container {
   border-radius: 10px;
 }
