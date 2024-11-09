@@ -87,7 +87,7 @@ export default function Home({ }) {
   const [streetViewShown, setStreetViewShown] = useState(false)
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
   // location aka map slug
-  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null });
+  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true })
   const [showAnswer, setShowAnswer] = useState(false)
   const [pinPoint, setPinPoint] = useState(null)
   const [hintShown, setHintShown] = useState(false)
@@ -153,7 +153,21 @@ export default function Home({ }) {
   const [maintenance, setMaintenance] = useState(false);
   const [leagueModal, setLeagueModal] = useState(false);
 
-  const [legacyMapLoader, setLegacyMapLoader] = useState(false);
+  const [legacyMapLoader, setLegacyMapLoader] = useState(true);
+
+  useEffect(() => {
+
+    console.log("game options",(gameOptions?.showRoadName===true))
+    if((gameOptions?.showRoadName===true) && !gameOptions?.nm &&  !gameOptions?.npz) {
+
+      console.log("showing road name")
+      setLegacyMapLoader(true);
+    } else {
+
+      console.log("hiding road name")
+      setLegacyMapLoader(false);
+    }
+  }, [gameOptions?.nm, gameOptions?.npz,gameOptions?.showRoadName])
 
   useEffect(() => {
 
@@ -450,7 +464,7 @@ setShowCountryButtons(false)
     setGameOptions((prev) => ({
       ...prev,
       location: mapSlug,
-      official: country ? true : false,
+      official: (country||mapSlug==='all') ? true : false,
       countryMap: country,
       maxDist: country ? countryMaxDists[country] : 20000,
       extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
@@ -834,7 +848,12 @@ setShowCountryButtons(false)
 
           // send ws
           // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
-          ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist }))
+          ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist,
+            nm: args[0].nm,
+            npz: args[0].npz,
+            showRoadName: args[0].showRoadName
+
+           }))
           sendEvent("multiplayer_create_private_game", { rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist })
           // })()
       }
@@ -1071,6 +1090,13 @@ setShowCountryButtons(false)
           }
         } catch(e) {}
 
+        console.log("game", data)
+        setGameOptions((prev) => ({
+          ...prev,
+          nm: data.nm,
+          npz: data.npz,
+          showRoadName: data.showRoadName
+        }))
 
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
@@ -1529,6 +1555,7 @@ setShowCountryButtons(false)
         if(gameOptions.location === "all") {
         const loc = data.locations[0]
         setLatLong(loc)
+
         } else {
           let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
@@ -1621,7 +1648,9 @@ setShowCountryButtons(false)
 
   const ChatboxMemo = React.useMemo(() => <ChatBox miniMapShown={miniMapShown} ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={
     multiplayerChatEnabled
-  } myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, miniMapShown])
+  }
+  isGuest={session?.token?.secret ? false : true}
+  myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, miniMapShown, session?.token?.secret])
 
   // Send pong every 10 seconds if websocket is connected
   useEffect(() => {
@@ -1637,26 +1666,27 @@ setShowCountryButtons(false)
   const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 
   useEffect(() => {
+    console.log("panorama ref", panoramaRef.current)
     // const map =  new google.maps.Map(document.getElementById("map"), {
     //   center: fenway,
     //   zoom: 14,
     // });
     if(legacyMapLoader) {
-        setLoading(false)
-
-        // kill the element that has div[dir="ltr"]
-        const elem = document.querySelector('div[dir="ltr"]');
-        console.log("elem", elem)
-
+      if  (panoramaRef.current) {
+        // destroy the old panorama
+        panoramaRef.current.setVisible(false);
+        panoramaRef.current = null;
+      }
       return;
     }
-    if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return;
-    if(!document.getElementById("googlemaps")) return;
+    if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return console.log("latLong not found");
+    if(!document.getElementById("googlemaps")) return console.log("googlemaps not found");
 
     if(!panoramaRef.current) {
 
 
 
+      console.log("panorama not found");
     panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById("googlemaps"),
       {
@@ -1836,16 +1866,35 @@ setShowCountryButtons(false)
       <main className={`home`} id="main">
         { latLong && latLong?.lat && latLong?.long && legacyMapLoader ? (
 <>
-    <iframe className={`streetview ${(loading || showAnswer) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
+    <iframe className={`streetview ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
-       }}></iframe>
+setTimeout(() => {
+  setLoading(false)
+
+  window.reloadLoc = () => {
+    const iframe = document.getElementById('streetview');
+    if (iframe) {
+        iframe.src = iframe.src; // Reload the iframe by resetting its src attribute
+    }
+    //
+  }
+
+}, 500)
+       }}
+       style={{
+        width: '100vw',
+        height: 'calc(100vh + 300px)',
+        zIndex: 100,
+        transform: 'translateY(-285px)',
+        }}
+        ></iframe>
 
 
 {/* put something in the top left to cover the address */}
-<div style={{
+{/* <div style={{
   position: 'fixed',
   top: '7px',
-  left: 0,
+  right: 0,
   width: '200px',
   height: '62px',
   backgroundColor: 'rgba(0,0,0,0)',
@@ -1853,12 +1902,22 @@ setShowCountryButtons(false)
   backdropFilter: 'blur(10px)',
   zIndex: 100
 }}></div>
-
+<div style={{
+  position: 'fixed',
+  bottom: '7px',
+  left: 0,
+  width: '200px',
+  height: '10px',
+  backgroundColor: 'rgba(0,0,0,0)',
+  // blur the address
+  backdropFilter: 'blur(10px)',
+  zIndex: 100
+}}></div> */}
 
        </>
 
       ) : (
-       <div id="googlemaps" className={`streetview inverted ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
+       <div id="googlemaps" className={`streetview inverted ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
       )}
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
@@ -1957,7 +2016,7 @@ setShowCountryButtons(false)
               setGameOptionsModalShown(false)
             }:null}
             showAllCountriesOption={(gameOptionsModalShown&&screen==="singleplayer")}
-            singleplayer={screen==="singleplayer"}
+            showOptions={screen==="singleplayer"}
             gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
         <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
@@ -2019,7 +2078,11 @@ setShowCountryButtons(false)
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
           <GameUI
           miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-          inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+          inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent,
+            nm: multiplayerState?.gameData?.nm,
+            npz: multiplayerState?.gameData?.npz,
+            showRoadName: multiplayerState?.gameData?.showRoadName
+           }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
 
 

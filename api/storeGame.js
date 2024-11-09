@@ -31,4 +31,6 @@ async function guess(req, res) {
 }
 
 // Limit to 1 request per 5 seconds over a minute, generous limit but better than nothing
-export default ratelimiter(guess, 12, 60000)
+// export default ratelimiter(guess, 12, 60000)
+// no rate limit
+export default guess;

@@ -18,9 +18,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid' });
     }
 
+    console.time('findUser');
             const userDb = await User.findOne({
           secret,
-        }).select("secret username email staff canMakeClues supporter");
+        }).select("secret username email staff canMakeClues supporter").cache(120);
+        console.timeEnd('findUser');
         if (userDb) {
           output = { secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter };
           return res.status(200).json(output);

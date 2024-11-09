@@ -71,8 +71,10 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
   useEffect(() => {
     if (pinPoint) {
       setTimeout(() => {
+        try {
         const bounds = L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5);
         map.flyToBounds(bounds, { duration: 0.5 });
+        } catch(e) {}
       }, 300);
     }
   }, [answerShown]);

@@ -18,11 +18,20 @@ const __dirname = import.meta.dirname;
 config();
 
 import mongoose from 'mongoose';
+import cachegoose from 'recachegoose';
+
+cachegoose(mongoose, {
+  engine: "memory"
+});
+
 import Clue from './models/Clue.js';
 import findLatLongRandom from './components/findLatLongServer.js';
 import path from 'path';
 import MapModel from './models/Map.js';
 import bodyParser from 'body-parser';
+
+// colors
+import colors from 'colors';
 
 // express
 import express from 'express';
@@ -232,7 +241,9 @@ app.get('/clueCountries.json', (req, res) => {
 
 app.get('/mapLocations/:slug', async (req, res) => {
   const slug = req.params.slug;
-  const map = await MapModel.findOne({ slug });
+  console.time('mapLocations '+slug);
+  const map = await MapModel.findOne({ slug }).cache(10000)
+  console.timeEnd('mapLocations '+slug);
   if (!map) {
     return res.status(404).json({ message: 'Map not found' });
   }

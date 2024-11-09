@@ -36,6 +36,7 @@ export default async function searchMaps(req, res) {
   query = query.replace(/[^a-zA-Z0-9\s]/g, '');
 
   try {
+  console.time('searchMaps');
     // Find maps that match the search query in either name, short description, or author name
     let maps = await Map.find({
       accepted: true,
@@ -44,7 +45,7 @@ export default async function searchMaps(req, res) {
         { description_short: { $regex: query, $options: 'i' } },
         { created_by_name: { $regex: query, $options: 'i' } }
       ]
-    }).sort({ hearts: -1 }).limit(50);
+    }).sort({ hearts: -1 }).limit(50).cache(10000);
 
     // Convert maps to sendable format
     let sendableMaps = await Promise.all(maps.map(async (map) => {
@@ -66,6 +67,7 @@ export default async function searchMaps(req, res) {
 
       return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false, user?.staff, map.created_by === user?._id.toString());
     }));
+    console.timeEnd('searchMaps');
 
     res.status(200).json(sendableMaps);
   } catch (error) {

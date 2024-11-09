@@ -180,12 +180,12 @@ export default function Ad({
         {isClient === "debug" ? (
           <>
             <div style={{ position: "relative", zIndex: 1 }}>
-              <NextImage.default
+              {/* <NextImage.default
                 alt="Advertisement"
                 src={`./ad_${types[type][0]}x${types[type][1]}.png`}
                 width={types[type][0]}
                 height={types[type][1]}
-              />
+              /> */}
             </div>
 
             <div
@@ -208,12 +208,12 @@ export default function Ad({
         ) : (
           <>
             <div style={{ position: "relative", zIndex: 1 }}>
-            <NextImage.default
+            {/* <NextImage.default
               alt="Advertisement"
               src={`./ad_${types[type][0]}x${types[type][1]}.png`}
               width={types[type][0]}
               height={types[type][1]}
-            />
+            /> */}
             </div>
 
           </>

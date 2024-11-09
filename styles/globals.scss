@@ -36,6 +36,8 @@ button {
   overflow-y: auto;
 }
 
+/// ccar
+
 .home__content.hidden {
   left: 100%;
   opacity: 0;
@@ -620,7 +622,14 @@ h1, h2, h3, span {
 .gm-bundled-control-on-bottom {
  right: auto !important;
  left: 0 !important;
- bottom: calc(161px + 50px) !important;
+}
+// obnly on ios
+@supports (-webkit-touch-callout: none) {
+  .gm-bundled-control-on-bottom {
+
+  transform: translateY(-100px) !important;
+
+}
 }
 .gm-style-cc {
   display: none;
@@ -1131,6 +1140,14 @@ screen and (pointer:coarse) {
   border-radius: 10px;
   height: calc(100% - 65px);
 }
+input[placeholder="Please login to chat"] {
+  // disable the div
+  cursor: not-allowed;
+  pointer-events: none;
+  background-color: rgba(225, 225, 225, 1) !important;
+}
+
+
 .react-chatbot-kit-chat-input-container {
   border-radius: 10px;
 }
@@ -1271,7 +1288,7 @@ screen and (pointer:coarse)  {
   -ms-filter: invert(100%);
 }
 .gm-compass {
-  transform: translateY(350%);
+  transform: translateY(50%);
 }
 #playerCnt{
 }

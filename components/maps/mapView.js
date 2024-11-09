@@ -17,7 +17,7 @@ const initMakeMap = {
   mapId: "",
 };
 
-export default function MapView({ inLegacy, gameOptions, setGameOptions, singleplayer, close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
+export default function MapView({ inLegacy, gameOptions, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
   const [makeMap, setMakeMap] = useState(initMakeMap);
   const [mapHome, setMapHome] = useState({
     message: text("loading") + "...",
@@ -49,7 +49,9 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
         "Content-Type": "application/json",
       },
       body: JSON.stringify(
-        session?.token?.secret ? { secret: session?.token?.secret } : {}
+        session?.token?.secret ? { secret: session?.token?.secret,
+          inCG: window.inCrazyGames
+         } : {}
       ),
     })
       .then((res) => res.json())
@@ -268,6 +270,11 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
             <button
               onClick={() => {
 
+                // disable for crazygames users
+                // if(inCrazyGames) {
+                //   toast.error("Please play on WorldGuessr.com to use this feature");
+                //   return;
+                // }
                 // temporarily disabled
                 // toast.error("Feature disabled temporarily due to maintenance");
                 // return;
@@ -287,7 +294,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
         </div>
       </div>
 
-      {singleplayer && !inLegacy && (
+      {showOptions && (
     <div style={{display: "flex", flexDirection: 'column', alignItems: 'center', marginBottom: '5px', marginTop: '5px'}}>
         <div>
             <span>{text('nm')}</span>
@@ -407,7 +414,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
                 <MapTile
                   key={i + index}
                   map={tileMap}
-                  canHeart={session?.token?.secret && heartingMap !== map.id}
+                  canHeart={session?.token?.secret && heartingMap !== mapsArray[i + index].id}
                   onClick={() => onMapClick(tileMap)}
                   country={tileMap.countryMap}
                   searchTerm={searchTerm}
@@ -435,7 +442,7 @@ export default function MapView({ inLegacy, gameOptions, setGameOptions, singlep
                     });
                   }}
                   onHeart={() => {
-                    heartMap(map);
+                    heartMap(mapsArray[i + index]);
                   }}
                 />
               ))}

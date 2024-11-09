@@ -1,48 +1,74 @@
-import mongoose from 'mongoose';
 import User from '../models/User.js';
 
-export default async function storeGame(secret, xp, timeTaken, latLong) {
+const pendingUpdates = []; // Queue to store pending updates
 
-  // Connect to MongoDB
-  if (mongoose.connection.readyState !== 1) {
+// Function to process pending updates
+async function processPendingUpdates() {
+  if (pendingUpdates.length === 0) return;
+
+  let cnt = 0;
+  // Group updates by user secret
+  const updatesByUser = {};
+  pendingUpdates.forEach(({ secret, xp, timeTaken, latLong }) => {
+    if (!updatesByUser[secret]) {
+      updatesByUser[secret] = [];
+    }
+    updatesByUser[secret].push({ xp, timeTaken, latLong });
+  });
+
+  for (const secret in updatesByUser) {
+    const userUpdates = updatesByUser[secret];
+    const user = await User.findOne({ secret });
+
+    if (!user) continue; // Skip if user is not found
+
+    if (user.banned) {
+      continue; // Skip banned users
+    }
+
     try {
-      await mongoose.connect(process.env.MONGODB);
+      userUpdates.forEach(({ xp, timeTaken, latLong }) => {
+        user.games.push({
+          xp,
+          timeTaken,
+          latLong,
+          time: new Date(),
+        });
+        user.totalGamesPlayed += 1;
+        user.totalXp += xp;
+        cnt++;
+      });
+
+      await user.save();
     } catch (error) {
-      return { success: false, message: 'Database connection failed' };
+      console.error(`Error saving user ${secret}:`, error.message);
     }
   }
-  if(!secret || !xp || !timeTaken || !latLong) {
+  console.log('Processed', cnt, 'updates');
+  // Clear the pending updates queue after processing
+  pendingUpdates.length = 0;
+}
+
+// Set an interval to process updates every 30 seconds
+setInterval(processPendingUpdates, 30000);
+
+export default async function storeGame(secret, xp, timeTaken, latLong) {
+  if (!secret || !xp || !timeTaken || !latLong) {
     return { success: false, message: 'Missing required fields' };
   }
-  if(typeof secret !== 'string' || typeof xp !== 'number' || typeof timeTaken !== 'number' || typeof latLong !== 'object') {
-    return { success: false, message: 'Invalid input types' };
-  }
-  if(latLong.length !== 2 || typeof latLong[0] !== 'number' || typeof latLong[1] !== 'number') {
-    return { success: false, message: 'Invalid latLong format' };
-  }
-
-  const user = await User.findOne({ secret });
-  if(user.banned) {
-    return { success: false, message: 'User is banned' };
-  }
-  if (!user) {
-    return { success: false, message: 'User not found' };
+  if (
+    typeof secret !== 'string' ||
+    typeof xp !== 'number' ||
+    typeof timeTaken !== 'number' ||
+    !Array.isArray(latLong) ||
+    latLong.length !== 2 ||
+    typeof latLong[0] !== 'number' ||
+    typeof latLong[1] !== 'number'
+  ) {
+    return { success: false, message: 'Invalid input types or latLong format' };
   }
 
-  // Store the game data
-  try {
-    user.games.push({
-      xp,
-      timeTaken,
-      latLong,
-      time: new Date(),
-    });
-    user.totalGamesPlayed += 1;
-    user.totalXp += xp;
-  } catch (error) {
-    return { success: false, message: 'An error occurred', error: error.message };
-  }
-
-  await user.save();
+  // Push the game data to the pending updates queue
+  pendingUpdates.push({ secret, xp, timeTaken, latLong });
   return { success: true };
 }
