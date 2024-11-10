@@ -302,7 +302,7 @@ h1, h2, h3, span {
   align-items: center;
   // background-color: #0d0d32;
   // backdrop-filter: blur(10px);
-  z-index: 102;
+  z-index: 1120;
   padding-left: 10px;
   padding-right: 10px;
   overflow-x: hidden;
@@ -1072,7 +1072,7 @@ screen and (pointer:coarse) {
 
 
 .multiplayerHome {
-  height: calc(100vh - 83px);
+  height: calc(100vh);
   width: 100vw;
   display: flex;
   flex-direction: column;
@@ -1082,9 +1082,12 @@ screen and (pointer:coarse) {
   position: fixed;
   bottom: 0;
   z-index: 101;
-  pointer-events: none;
+  pointer-events: all;
 
   animation: fadeIn 1s ease-in-out forwards;
+}
+.multiplayerHome.inGame {
+  pointer-events: none;
 }
 
 .multiplayerFinalBtns {
@@ -1201,18 +1204,18 @@ input[placeholder="Please login to chat"] {
   position: fixed;
   width: 100vw;
   height: 100vh;
-  top: 50px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: safe center;
   align-items: center;
-  pointer-events: none;
   transition: all 0.5s;
   animation: fadeInLb 1s ease-in-out forwards;
-
   box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
   z-index: 1100;
+  overflow-y: auto;
+  padding-top: 50px;
 }
+
 
 
 .multiplayerLeaderboard__player {

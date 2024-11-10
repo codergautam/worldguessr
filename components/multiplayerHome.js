@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react"
 import BannerText from "./bannerText"
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa"
-import enforceMinMax from "./utils/enforceMinMax"
 import PlayerList from "./playerList";
 import { useTranslation } from '@/components/useTranslations'
 import MapsModal from "./maps/mapsModal";
+import PartyModal from "./partyModal";
 
 
-export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction }) {
+export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, partyModalShown, setPartyModalShown }) {
+
   const { t: text } = useTranslation("common");
 
   const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
@@ -16,6 +17,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
     nm:false,
     npz:false
   });
+
 
   useEffect(() => {
     setMultiplayerState((prev) => ({ ...prev, createOptions: { ...prev.createOptions, ...gameOptions } }));
@@ -30,10 +32,10 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
   }
 
   return (
-    <div className="multiplayerHome">
+    <div className={`multiplayerHome ${!["waiting","end"].includes(multiplayerState?.gameData?.state) ? "inGame" : ""}`}>
         {/* <BannerText text={multiplayerState.error} shown={multiplayerState.error} hideCompass={true} /> */}
 
-       { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && multiplayerState.enteringGameCode && !multiplayerState.creatingGame && (
+       { multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && multiplayerState.enteringGameCode && (
       <div style={{ pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center' }}>
         <span className="bigSpan">{text("joinGame")}</span>
 
@@ -48,67 +50,17 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
       </div>
       )}
 
-{ multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && !multiplayerState.enteringGameCode && multiplayerState.creatingGame && (
-      <div style={{ pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center' }}>
-        <span className="bigSpan">{text("createGame")}</span>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <div className="inputContainer">
-
-<label>{text("numOfRounds")}:</label>
-<div className="numberInput rounds">
-<FaArrowLeft onClick={() => !(multiplayerState?.createOptions?.progress !== false) && setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, rounds: Math.max(1, Math.min(20, Number(multiplayerState.createOptions.rounds) - 1)) }}))} />
-<input type="number" disabled={multiplayerState?.createOptions?.progress !== false} className='numberIn' placeholder={text("numOfRounds")}  max={20} onChange={(e) => enforceMinMax(e.target, ()=>setMultiplayerState(prev=>({...prev, createOptions: {...prev.createOptions, rounds: e.target.value}})))} value={multiplayerState.createOptions.rounds} />
-<FaArrowRight onClick={() => !(multiplayerState?.createOptions?.progress !== false) && setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, rounds: Math.max(1, Math.min(20, Number(multiplayerState.createOptions.rounds) + 1)) }}))} />
-</div>
-
-<label>{text("timePerRoundSecs")}:</label>
-<div className="timePerRound numberInput">
-<FaArrowLeft onClick={() => !(multiplayerState?.createOptions?.progress !== false) && setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(1, Math.min(300, Number(multiplayerState.createOptions.timePerRound) - 10)) }}))} />
-<input type="number" className='numberIn' disabled={multiplayerState?.createOptions?.progress !== false} placeholder={text("timePerRoundSecs")} max={300} onChange={(e) => enforceMinMax(e.target, ()=>setMultiplayerState(prev=>({...prev, createOptions: {...prev.createOptions, timePerRound: e.target.value}})))} value={multiplayerState.createOptions.timePerRound} />
-<FaArrowRight onClick={() => !(multiplayerState?.createOptions?.progress !== false) && setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(1, Math.min(300, Number(multiplayerState.createOptions.timePerRound) + 10)) }}))} />
-</div>
-
-<label>{text("map")}: {multiplayerState?.createOptions?.displayLocation || multiplayerState?.createOptions?.location }
-
-<br/>
-    { (gameOptions?.nm && gameOptions?.npz) ? (
-
-      "NMPZ Mode"
-    ) : (
-      gameOptions?.nm ? text("nm") : gameOptions?.npz ? text("npz") : ""
-    )}
-</label>
-<button className="goBtn" onClick={() => setSelectCountryModalShown(true)} disabled={(multiplayerState?.createOptions?.progress !== false)}>{text("change")}</button>
-
-<br/>
-
-</div>
-        <button className="gameBtn goBtn" style={{width: "auto"}} onClick={() => handleAction("createPrivateGame", multiplayerState.createOptions)} disabled={multiplayerState?.createOptions?.progress !== false}>
-          { multiplayerState?.createOptions?.progress === false ? text("go") :
-          multiplayerState?.createOptions?.progress === true ? `${text("creating")}...` :
-           `${multiplayerState?.createOptions?.progress} / ${multiplayerState?.createOptions?.rounds}` }
-          </button>
-        </div>
-      </div>
-      )}
         <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued} />
         <BannerText text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />
 
         { multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && !multiplayerState.gameData?.public && (
-          <PlayerList multiplayerState={multiplayerState} startGameHost={() => handleAction("startGameHost")} />
+          <PlayerList multiplayerState={multiplayerState} startGameHost={() => handleAction("startGameHost")} onEditClick={() => setPartyModalShown(true)} />
         )}
 
-        <MapsModal showAllCountriesOption={true} shown={selectCountryModalShown} onClose={() => setSelectCountryModalShown(false)} session={session} text={text} customChooseMapCallback={(map) => {
-          console.log(map, gameOptions)
-          setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, location: map.countryMap || map.slug, displayLocation: map.name,
+          <PartyModal selectCountryModalShown={selectCountryModalShown} setSelectCountryModalShown={setSelectCountryModalShown} ws={ws} setWs={setWs} multiplayerError={multiplayerError} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} session={session} handleAction={handleAction} gameOptions={gameOptions} setGameOptions={setGameOptions} onClose={() => setPartyModalShown(false)} shown={partyModalShown}/>
 
-            nm: gameOptions?.nm,
-            npz: gameOptions?.npz,
-            showRoadName: gameOptions?.showRoadName,
-           } }));
-          setSelectCountryModalShown(false);
-        }} chosenMap={multiplayerState?.createOptions?.location} showOptions={true} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+
     </div>
   )
 }

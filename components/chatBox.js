@@ -107,9 +107,11 @@ const MessageParser = ({ children, actions }) => {
   );
 };
 
-export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame, miniMapShown, isGuest }) {
+export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame, miniMapShown, isGuest, publicGame }) {
   const { t: text } = useTranslation("common");
   const [unreadCount, setUnreadCount] = useState(0);
+
+  const notGuestChatDisabled = !(!isGuest || (isGuest && !publicGame));
 
   useEffect(() => {
     if (open) {
@@ -133,18 +135,18 @@ export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame, min
   }, [ws, open]);
 
   return (
-    <div className={`chatboxParent ${enabled ? 'enabled' : ''} ${isGuest ? 'guest' : ''}`}>
+    <div className={`chatboxParent ${enabled ? 'enabled' : ''} ${notGuestChatDisabled ? 'guest' : ''}`}>
       <button className={`chatboxBtn ${open ? 'open' : ''} ${miniMapShown ? 'minimap' : ''}`} style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer' }} onClick={onToggle}>
         {open ? <FaXmark onClick={onToggle} /> : `${text("chat")}${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
       </button>
       <div className={`chatbox ${open ? 'open' : ''}`}>
         <Chatbot
           config={config}
-          placeholderText={isGuest ? "Please login to chat" : undefined}
+          placeholderText={notGuestChatDisabled ? "Please login to chat" : undefined}
           messageParser={(props) => <MessageParser {...props} />}
           actionProvider={(props) => <ActionProvider {...props} ws={ws} myId={myId} inGame={inGame} />}
           validator={(input) => {
-            if(isGuest) return false;
+            if(notGuestChatDisabled) return false;
             if (input.length < 1) return false;
             if (input.length > 200) return false;
             if (Date.now() - lastSend < 1000) return false;

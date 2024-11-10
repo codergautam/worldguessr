@@ -28,8 +28,9 @@ export default class Game {
     this.curRound = 0; // 1 = 1st round
     this.maxPlayers = 100;
     this.extent = null;
+    this.displayLocation = null;
 
-    this.generateLocations(allLocations);
+    if(allLocations) this.generateLocations(allLocations);
   }
 
   addPlayer(player, host=false) {
@@ -55,6 +56,7 @@ export default class Game {
     player.gameId = this.id;
     player.inQueue = false;
 
+    console.log(this.rounds);
     player.send({
       type: 'game',
       state: this.state,
@@ -73,9 +75,20 @@ export default class Game {
       maxDist: this.maxDist,
       code: this.code,
       extent: this.extent,
-      generated: this.locations.length
+      generated: this.locations.length,
+      displayLocation: this.displayLocation
     });
   }
+
+  resetGame(allLocations) {
+    this.state = 'waiting';
+    // clear locations
+    this.locations = [];
+    // start generating new locations
+    this.generateLocations(allLocations);
+    this.sendStateUpdate();
+  }
+
 
   givePoints() {
     for (const playerId of Object.keys(this.players)) {
@@ -113,7 +126,7 @@ export default class Game {
       maxPlayers: this.maxPlayers,
       nextEvtTime: this.nextEvtTime,
       players: Object.values(this.players),
-      generated: this.locations.length,
+      generated: this.locations?.length || 0,
       map: this.location,
       extent: this.extent,
       showRoadName: !!this.showRoadName,
@@ -122,6 +135,14 @@ export default class Game {
     };
     if (includeLocations) {
       state.locations = this.locations;
+      state.rounds = this.rounds;
+      state.timePerRound = this.timePerRound;
+      state.nm = this.nm;
+      state.npz = this.npz;
+      state.showRoadName = this.showRoadName;
+      state.rounds = this.rounds;
+      state.displayLocation = this.displayLocation;
+      // timePerround, nm,npz,showRoadName,rounds
     }
     this.sendAllPlayers(state);
   }
@@ -148,7 +169,7 @@ export default class Game {
 
     this.checkRemaining();
 
-    // self destruct if no players or it is a private game and host left
+    // self destruct if no players or it is a Party and host left
     if (Object.keys(this.players).length < 1 || (!this.public && isPlayerHost)) {
       this.shutdown();
       games.delete(this.id);

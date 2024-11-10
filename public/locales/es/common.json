@@ -205,5 +205,12 @@
   "communityMaps": "Mapas de la comunidad",
   "joinDiscord": "Unete a nuestro Discord!",
   "joinDiscordDesc": "Mejorar tus habilidades de WorldGuessr!",
-  "notNow": "Ahora no"
+  "notNow": "Ahora no",
+  "spotlight": "Destacados",
+  "history": "Historial",
+  "points": "Puntos",
+  "maintenanceMode": "Modo de mantenimiento",
+  "maintenanceModeStarted": "Modo de mantenimiento iniciado",
+  "maintenanceModeEnded": "Modo de mantenimiento finalizado",
+  "editOptions": "Editar opciones"
 }

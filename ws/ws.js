@@ -455,7 +455,7 @@ app.ws('/wg', {
         game.setGuess(player.id, latLong, final);
       }
 
-      if (json.type === 'chat' && player.gameId && games.has(player.gameId) && player.accountId) {
+      if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {
 
         let message = json.message;
         const lastMessage = player.lastMessage || 0;
@@ -618,38 +618,96 @@ app.ws('/wg', {
         }
 
         const gameId = uuidv4();
-        // options
-        let { rounds, timePerRound, locations, maxDist, location, nm, npz, showRoadName } = json;
-        rounds = Number(rounds);
-        // maxDist no longer required-> can be pulled from community map
-        if (!location) return;
-        if (!rounds || !timePerRound) {
-          return;
-        }
-        // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
-        if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
-          return;
-        }
+        // // options
+        // let { rounds, timePerRound, locations, maxDist, location, nm, npz, showRoadName } = json;
+        // rounds = Number(rounds);
+        // // maxDist no longer required-> can be pulled from community map
+        // if (!location) return;
+        // if (!rounds || !timePerRound) {
+        //   return;
+        // }
+        // // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
+        // if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
+        //   return;
+        // }
 
-        if(!nm) nm = false;
-        if(!npz) npz = false;
-        if(!showRoadName) showRoadName = false;
+        // if(!nm) nm = false;
+        // if(!npz) npz = false;
+        // if(!showRoadName) showRoadName = false;
 
-        console.log("Creating game", gameId, "Nm", nm, "Npz", npz, "ShowRoadName", showRoadName);
+        console.log("Creating game", gameId);
 
-        const game = new Game(gameId, false, location, rounds, allLocations);
-        game.timePerRound = timePerRound * 1000;
-        game.nm = !!nm;
-        game.npz = !!npz;
-        game.showRoadName = !!showRoadName;
+        const game = new Game(gameId, false);
+        // game.timePerRound = timePerRound * 1000;
+        // game.nm = !!nm;
+        // game.npz = !!npz;
+        // game.showRoadName = !!showRoadName;
 
         // game.locations = locations;
         // game.location = location;
-        if (maxDist) game.maxDist = maxDist;
+        // if (maxDist) game.maxDist = maxDist;
 
         games.set(gameId, game);
 
         game.addPlayer(player, true);
+      }
+
+      if(json.type === "resetGame" && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        // make sure player is host
+        if(game.players[player.id].host) {
+          game.resetGame(allLocations);
+        }
+      }
+
+
+      if(json.type === "setPrivateGameOptions" && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        // make sure player is host
+        if(game.players[player.id].host) {
+          let { rounds, timePerRound, location, nm, npz, showRoadName, displayLocation } = json;
+          console.log("setPrivateGameOptions", rounds, timePerRound, location, nm, npz, showRoadName);
+          rounds = Number(rounds);
+
+          // maxDist no longer required-> can be pulled from community map
+          if (!location) return;
+          if (!rounds || !timePerRound) {
+            return;
+          }
+          // make sure displayLocation isa string
+          if (typeof displayLocation !== 'string') {
+            displayLocation = null;
+          }
+          if(displayLocation) {
+            // trim to 30 characters
+            displayLocation = displayLocation.substring(0, 30);
+            
+          }
+          // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
+          if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
+            return;
+          }
+
+          if(!nm) nm = false;
+          if(!npz) npz = false;
+          if(!showRoadName) showRoadName = false;
+
+          game.timePerRound = timePerRound * 1000;
+          game.nm = !!nm;
+          game.npz = !!npz;
+          game.showRoadName = !!showRoadName;
+          game.location = location;
+          // clear current locations
+          game.locations = [];
+          game.rounds = rounds;
+          game.displayLocation = displayLocation;
+
+          // generate locations
+          game.generateLocations(allLocations);
+
+          game.sendStateUpdate(true);
+
+        }
       }
 
       if (json.type === 'joinPrivateGame' && !player.gameId) {
@@ -993,8 +1051,12 @@ app.ws('/wg', {
       }
 
       if(game.state === 'end' && Date.now() > game.nextEvtTime) {
-        // remove game
+        // remove game if public
+        if(game.public) {
         game.shutdown()
+        } else {
+          game.resetGame(allLocations);
+        }
       }
 
 

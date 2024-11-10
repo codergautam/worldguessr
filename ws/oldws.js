@@ -435,7 +435,7 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
 
 
       if(json.type === 'createPrivateGame' && !player.gameId) {
-        console.log('Private game requested', id, player.username);
+        console.log('Party requested', id, player.username);
 
         // send toast if maintenance
         if(restartQueued) {
@@ -506,11 +506,11 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
         games.set(gameId, game);
 
         game.addPlayer(player, true);
-        console.log('Private game created', gameId, player.username);
+        console.log('Party created', gameId, player.username);
       }
 
       if(json.type === 'joinPrivateGame' && !player.gameId) {
-        console.log('Join private game requested', id, player.username);
+        console.log('Join Party requested', id, player.username);
         let code = json.gameCode;
 
         // find game by code
@@ -528,7 +528,7 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
           console.log('Invalid game code', code);
         }, (game) => {
           game.addPlayer(player);
-          console.log('Player added to private game', game.id, player.username);
+          console.log('Player added to Party', game.id, player.username);
         });
       }
 

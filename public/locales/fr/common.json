@@ -201,5 +201,15 @@
   "maps": "Cartes",
   "videoAdThanks": "Merci de nous aider à maintenir WorldGuessr gratuit en regardant des publicités vidéo !",
   "enjoyGameplay": "Profitez de 30 minutes de jeu ininterrompu après cette pause publicitaire",
-  "communityMaps": "Cartes de la communauté"
+  "communityMaps": "Cartes de la communauté",
+  "joinDiscord": "Rejoignez notre Discord",
+  "joinDiscordDesc": "Rejoignez notre communauté et améliorez vos compétences sur WorldGuessr !",
+  "notNow": "Pas maintenant",
+  "spotlight": "Projecteur",
+  "history": "Historique",
+  "points": "Points",
+  "maintenanceMode": "Mode de maintenance",
+  "maintenanceModeStarted": "Le mode de maintenance a commencé",
+  "maintenanceModeEnded": "Le mode de maintenance est terminé",
+  "editOptions": "Modifier les options"
 }

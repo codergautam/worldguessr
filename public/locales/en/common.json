@@ -13,8 +13,8 @@
   "playFriends": "Play with Friends",
   "guestMultiplayer": "Playing as {{name}}",
   "findDuel": "Find a Duel",
-  "createGame": "Create Private Game",
-  "joinGame": "Join Private Game",
+  "createGame": "Create Party",
+  "joinGame": "Join Party",
   "join": "Join",
   "go": "Go",
   "numOfRounds": "Number of rounds",
@@ -25,8 +25,8 @@
   "findingGame": "Finding a game",
   "waiting": "Waiting",
   "gameOver": "Game Over",
-  "yourPrivateGame": "Your Private Game",
-  "privateGame": "Private Game",
+  "yourPrivateGame": "Your Party",
+  "privateGame": "Party",
   "leaderboard": "Leaderboard",
   "roundsCount": "{{rounds}} rounds",
   "gameCode": "Game Code",
@@ -210,5 +210,6 @@
   "points": "Points",
   "maintenanceMode": "Maintenance Mode",
   "maintenanceModeStarted": "WorldGuessr is currently in maintenance mode. Some features may be disabled.",
-  "maintenanceModeEnded": "Maintenance mode has ended. Enjoy a full WorldGuessr experience!"
+  "maintenanceModeEnded": "Maintenance mode has ended. Enjoy a full WorldGuessr experience!",
+  "editOptions": "Edit Options"
 }

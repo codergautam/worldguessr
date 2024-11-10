@@ -58,7 +58,6 @@ const initialMultiplayerState = {
   gameQueued: false,
   inGame: false,
   nextGameQueued: false,
-  creatingGame: false,
   enteringGameCode: false,
   createOptions: {
     rounds: 5,
@@ -375,7 +374,7 @@ export default function Home({ }) {
   const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
   const [showDiscordModal, setShowDiscordModal] = useState(false);
   const [singlePlayerRound, setSinglePlayerRound] = useState(null);
-
+  const [partyModalShown, setPartyModalShown] = useState(false);
   useEffect(() => {
     if(screen === "singleplayer") {
       // start the single player game
@@ -781,7 +780,7 @@ setShowCountryButtons(false)
             progress: true
           }
         }));
-        // join private game
+        // join Party
         ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0] }))
       sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
 
@@ -801,21 +800,8 @@ setShowCountryButtons(false)
     }
 
     if (action === "createPrivateGame") {
-      if (!args[0]) {
-      setScreen("multiplayer")
 
-        setMultiplayerState((prev) => {
-          return {
-            ...initialMultiplayerState,
-            connected: true,
-            creatingGame: true,
-            playerCount: prev.playerCount,
-            guestName: prev.guestName
-          }
-        })
-      } else {
-
-        const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
+        // const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
         // setMultiplayerState((prev) => ({
         //   ...prev,
         //   createOptions: {
@@ -848,15 +834,20 @@ setShowCountryButtons(false)
 
           // send ws
           // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
-          ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist,
-            nm: args[0].nm,
-            npz: args[0].npz,
-            showRoadName: args[0].showRoadName
+          ws.send(JSON.stringify({ type: "createPrivateGame"
 
-           }))
-          sendEvent("multiplayer_create_private_game", { rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist })
+          }));
+          setPartyModalShown(true)
+          sendEvent("multiplayer_create_private_game")
           // })()
-      }
+    }
+
+    if(action === "setPrivateGameOptions" && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
+    setMultiplayerState((prev) => {
+      console.log(prev.createOptions)
+      ws.send(JSON.stringify({ type: "setPrivateGameOptions", rounds: prev.createOptions.rounds, timePerRound: prev.createOptions.timePerRound, nm: prev.createOptions.nm, npz: prev.createOptions.npz, showRoadName: prev.createOptions.showRoadName, location: prev.createOptions.location, displayLocation: prev.createOptions.displayLocation }))
+      return prev;
+    })
     }
 
     if (action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
@@ -974,7 +965,7 @@ setShowCountryButtons(false)
             setScreen("home")
             if(code) {
 
-              // join private game
+              // join Party
               handleMultiplayerAction("joinPrivateGame")
               // set the code
               setMultiplayerState((prev) => ({
@@ -990,7 +981,7 @@ setShowCountryButtons(false)
                 handleMultiplayerAction("joinPrivateGame", code)
               }, 1000)
             } else {
-              // create private game
+              // create Party
               handleMultiplayerAction("createPrivateGame")
             }
 
@@ -1012,14 +1003,22 @@ setShowCountryButtons(false)
         }
       }))
     }
+
+      if (multiplayerState?.gameData?.state === "waiting") {
+        // remove gameData.finalPlayers
+        setMultiplayerState((prev) => ({ ...prev, gameData: { ...prev.gameData, finalPlayers: undefined } }));
+      }
   }, [multiplayerState?.gameData?.state])
 
+
   useEffect(() => {
-    if (!multiplayerState?.inGame) {
+    if (!multiplayerState?.inGame && multiplayerState?.gameData?.public) {
+
       setMultiplayerChatEnabled(false)
       setMultiplayerChatOpen(false)
     }
     if (!ws) return;
+
 
 
     ws.onmessage = (msg) => {
@@ -1081,6 +1080,10 @@ setShowCountryButtons(false)
         setScreen("multiplayer")
         setMultiplayerState((prev) => {
 
+          console.log("game data", data)
+          if(!data.public) {
+            setMultiplayerChatEnabled(true)
+          }
 
           try {
           if(data.state === "waiting" && inCrazyGames && data.host) {
@@ -1097,6 +1100,8 @@ setShowCountryButtons(false)
           npz: data.npz,
           showRoadName: data.showRoadName
         }))
+
+
 
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
@@ -1126,7 +1131,7 @@ setShowCountryButtons(false)
             if (didIguess) {
               setMultiplayerChatEnabled(true)
             } else {
-              setMultiplayerChatEnabled(false)
+              if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
             }
           }
 
@@ -1150,9 +1155,7 @@ setShowCountryButtons(false)
               type: undefined
             },
             enteringGameCode: false,
-            creatingGame: false,
             joinOptions: initialMultiplayerState.joinOptions,
-            createOptions: initialMultiplayerState.createOptions,
           }
         })
 
@@ -1210,6 +1213,8 @@ setShowCountryButtons(false)
 
       } else if (data.type === "gameShutdown") {
         setScreen("home")
+      setMultiplayerChatEnabled(false)
+
         setMultiplayerState((prev) => {
           return {
             ...initialMultiplayerState,
@@ -1451,6 +1456,7 @@ setShowCountryButtons(false)
     setStreetViewShown(false)
 
     if (multiplayerState?.inGame) {
+      if(!multiplayerState?.gameData?.host || multiplayerState?.gameData?.state === "waiting") {
       ws.send(JSON.stringify({
         type: 'leaveGame'
       }))
@@ -1468,12 +1474,15 @@ setShowCountryButtons(false)
         }
       })
       setScreen("home")
+      setMultiplayerChatEnabled(false)
 
       if(["getready", "guess"].includes(multiplayerState?.gameData?.state)) {
         crazyMidgame()
       }
-
-    } else if ((multiplayerState?.creatingGame || multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
+    } else {
+      ws.send(JSON.stringify({ type: "resetGame" }))
+    }
+    } else if ((multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
 
       setMultiplayerState((prev) => {
         return {
@@ -1499,6 +1508,8 @@ setShowCountryButtons(false)
       setScreen("home")
 
     } else {
+      setMultiplayerChatEnabled(false)
+
       setScreen("home");
       setGameOptions((prev) => ({
         ...prev,
@@ -1650,7 +1661,8 @@ setShowCountryButtons(false)
     multiplayerChatEnabled
   }
   isGuest={session?.token?.secret ? false : true}
-  myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, miniMapShown, session?.token?.secret])
+  publicGame={multiplayerState?.gameData?.public}
+  myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, miniMapShown, session?.token?.secret])
 
   // Send pong every 10 seconds if websocket is connected
   useEffect(() => {
@@ -2022,7 +2034,7 @@ setTimeout(() => {
         <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
 
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
-          // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game
+          // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a Party
           multiplayerState?.inGame && !multiplayerState?.gameData?.public
         } sendInvite={sendInvite} />
 
@@ -2072,7 +2084,7 @@ setTimeout(() => {
 }
 
         {screen === "multiplayer" && <div className="home__multiplayer">
-          <MultiplayerHome multiplayerError={multiplayerError} handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
+          <MultiplayerHome partyModalShown={partyModalShown} setPartyModalShown={setPartyModalShown} multiplayerError={multiplayerError} handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (

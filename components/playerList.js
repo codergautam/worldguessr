@@ -1,11 +1,10 @@
 import { useTranslation } from '@/components/useTranslations'
+import { useEffect } from 'react';
 import { FaCopy } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 
-export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost }) {
+export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick }) {
   const { t: text } = useTranslation("common");
-
-  const N = 5; // Number of top players to show
 
   const players = (multiplayerState?.gameData?.finalPlayers ?? multiplayerState?.gameData?.players).sort((a, b) => b.score - a.score);
   const myId = multiplayerState?.gameData?.myId;
@@ -14,13 +13,25 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
   const waitingForStart = multiplayerState.gameData?.state === "waiting";
   const gameOver = multiplayerState.gameData?.state === "end";
   const host = multiplayerState.gameData?.host;
+  const N = waitingForStart ? 200 : 5; // Number of top players to show
 
   return (
     <div className="multiplayerLeaderboard">
       <span className="bigSpan">
         {gameOver?text("gameOver"):waitingForStart?host?text("yourPrivateGame"):text("privateGame"):text("leaderboard")}
-        {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})})</span>}
+        {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})}
+      {multiplayerState?.gameData?.nm && multiplayerState?.gameData?.npz && ", NMPZ"}
+      {multiplayerState?.gameData?.nm && !multiplayerState?.gameData?.npz && ", NM"}
+      {multiplayerState?.gameData?.npz && !multiplayerState?.gameData?.nm && ", NPZ"}
+
+          )</span>}
       </span>
+      {waitingForStart &&multiplayerState?.gameData?.displayLocation &&
+      <span>
+        {text("map")}: {multiplayerState?.gameData?.displayLocation ?? ""}
+      </span>
+      }
+
 
 
 
@@ -47,22 +58,25 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
           <FaCopy />
         </button>
         <br />
-        { host && false && (
+        { host && (
         <button onClick={() => {
-
+            onEditClick();
         }} style={{
           marginLeft: "10px",
           padding: "5px",
-          backgroundColor: "green",
+          backgroundColor: (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) ? "gray": "green",
           color: "white",
           border: "none",
-          cursor: "pointer",
+          cursor: (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) ? "not-allowed": "pointer",
           pointerEvents: "all",
-          borderRadius: "5px"
-        }}>
+          borderRadius: "5px",
+
+        }}
+        disabled={ (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) }
+        >
           {/* copy icon */}
 
-          Edit Options
+          {text("editOptions")}
         </button>
         )}
 
@@ -115,7 +129,10 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
           { multiplayerState.gameData?.public && (
             <button className="gameBtn" onClick={playAgain}>{text("playAgain")}</button>
           )}
+          { multiplayerState.gameData?.public || host && (
+
             <button className="gameBtn" onClick={backBtn}>{text("back")}</button>
+          )}
             </div>
 
         )

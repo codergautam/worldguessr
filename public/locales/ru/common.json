@@ -202,5 +202,15 @@
   "maps": "Карты",
   "videoAdThanks": "Спасибо за помощь в поддержании WorldGuessr бесплатным, просматривая видеорекламу!",
   "enjoyGameplay": "Наслаждайтесь 30 минутами непрерывной игры после этой рекламной паузы",
-  "communityMaps": "Карты сообщества"
+  "communityMaps": "Карты сообщества",
+  "joinDiscord": "Присоединяйтесь к нашему Discord",
+  "joinDiscordDesc": "Присоединяйтесь к нашему сообществу и улучшайте свои навыки в WorldGuessr!",
+  "notNow": "Не сейчас",
+  "spotlight": "В центре внимания",
+  "history": "История",
+  "points": "Очки",
+  "maintenanceMode": "Режим обслуживания",
+  "maintenanceModeStarted": "Режим обслуживания начат",
+  "maintenanceModeEnded": "Режим обслуживания завершен",
+  "editOptions": "Редактировать параметры"
 }
