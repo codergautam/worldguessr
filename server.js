@@ -29,6 +29,7 @@ import findLatLongRandom from './components/findLatLongServer.js';
 import path from 'path';
 import MapModel from './models/Map.js';
 import bodyParser from 'body-parser';
+// import countries from './public/countries.json' with { type: "json" };
 
 // colors
 import colors from 'colors';
@@ -128,6 +129,12 @@ setInterval(updateRecentPlays, 60000);
 
 let allLocations = [];
 let clueLocations = [];
+let countryLocations = {};
+
+// for(const country of countries) {
+//   console.log(country);
+// }
+
 const locationCnt = 2000;
 const batchSize = 20;
 
