@@ -14,6 +14,7 @@ button {
 .home {
   background-color: black;
   width: 100vw;
+  box-sizing: border-box;
   height: 100vh;
   display: flex;
 }
@@ -34,6 +35,8 @@ button {
   // slowly move to right while fading out when is hidden
   transition: left 0.5s, opacity 0.5s;
   overflow-y: auto;
+  box-sizing: border-box;
+
 }
 
 /// ccar
@@ -831,6 +834,8 @@ screen and (pointer:coarse) {
   transition: all 100ms ease;
   width: 100vw;
   height: calc(100vh - 5px);
+  box-sizing: border-box;
+
   border: 3px;
     box-sizing: border-box;
     opacity: 1;
@@ -873,6 +878,7 @@ screen and (pointer:coarse) {
 
 #miniMapArea.answerShown {
   width: 100%;
+  box-sizing: border-box;
   height: 100vh;
   opacity: 100%;
   right: 0;
@@ -1080,6 +1086,8 @@ screen and (pointer:coarse) {
 
 .multiplayerHome {
   height: calc(100vh);
+  box-sizing: border-box;
+
   width: 100vw;
   display: flex;
   flex-direction: column;
@@ -1211,6 +1219,8 @@ input[placeholder="Please login to chat"] {
   position: fixed;
   width: 100vw;
   height: 100vh;
+  box-sizing: border-box;
+
   display: flex;
   flex-direction: column;
   justify-content: safe center;
@@ -1887,6 +1897,8 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   background-color: rgba(0, 0, 0, 0.5);
   width: 100vw;
   height: 100vh;
+  box-sizing: border-box;
+
   display: flex;
   justify-content: center;
   align-items: center;

@@ -100,7 +100,10 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
         sendEvent('discord_modal_shown')
       } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
     }
+<<<<<<< HEAD
 
+=======
+>>>>>>> d270907fe1174b0fe804c0d9a4f80d4b3bee9ebb
     // this is now disabled due to issues with afterAd() not being called / next round button not working
     if(false && window.show_videoad && !session?.token?.supporter) {
       window.show_videoad((state) =>{
@@ -377,7 +380,8 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
           setCountryStreak(0);
           setLostCountryStreak(countryStreak);
 
-          if(countryStreak > 0 && window.adBreak && !inCrazyGames) {
+          // remove rewarded ads temporarily
+          if(false && countryStreak > 0 && window.adBreak && !inCrazyGames) {
           console.log("requesting reward ad")
           window.adBreak({
             type: 'reward',  // rewarded ad

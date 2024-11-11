@@ -86,7 +86,7 @@ export default function Home({ }) {
   const [streetViewShown, setStreetViewShown] = useState(false)
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
   // location aka map slug
-  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true })
+  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: false })
   const [showAnswer, setShowAnswer] = useState(false)
   const [pinPoint, setPinPoint] = useState(null)
   const [hintShown, setHintShown] = useState(false)
@@ -160,7 +160,8 @@ export default function Home({ }) {
     if((gameOptions?.showRoadName===true) && !gameOptions?.nm &&  !gameOptions?.npz) {
 
       console.log("showing road name")
-      setLegacyMapLoader(true);
+      // setLegacyMapLoader(true);s
+      setLegacyMapLoader(false);
     } else {
 
       console.log("hiding road name")
