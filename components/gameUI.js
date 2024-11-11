@@ -376,7 +376,8 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
           setCountryStreak(0);
           setLostCountryStreak(countryStreak);
 
-          if(countryStreak > 0 && window.adBreak && !inCrazyGames) {
+          // remove rewarded ads temporarily
+          if(false && countryStreak > 0 && window.adBreak && !inCrazyGames) {
           console.log("requesting reward ad")
           window.adBreak({
             type: 'reward',  // rewarded ad
