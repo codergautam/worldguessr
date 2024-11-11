@@ -31,7 +31,7 @@ fs.readFileSync('public/Crazygames_profanity_filter.txt', 'utf8').split('\n').fo
 const dev = process.env.NODE_ENV !== 'production'
 const port = process.env.WS_PORT || 3002;
 
-const playersInQueue = new Set();
+const playersInQueue = new Map();
 
 let maintenanceMode = false;
 let dbEnabled = true;
@@ -403,16 +403,32 @@ app.ws('/wg', {
       if ((json.type === 'publicDuel') && !player.gameId) {
         console.log('public duel requested by', player.username, player.ip);
         // get range of league
-        const range = getLeagueRange(player.league);
-
         player.inQueue = true;
-        playersInQueue.add(player.id);
+
+        if(!player.league) {
+
+          const queueDetails = {
+            guest: true
+          }
+          playersInQueue.set(player.id, queueDetails);
+
+        } else {
+          const range = getLeagueRange(player.league);
+
+
+        const queueDetails = {
+          min: range[0],
+          max: range[1],
+          guest: false
+        }
+        playersInQueue.set(player.id, queueDetails);
 
         // send the range to the player
         player.send({
           type: 'publicDuelRange',
           range
         });
+      }
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
         const ipOctets = player.ip.split('.').slice(0, 3).join('.');

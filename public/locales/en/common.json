@@ -12,7 +12,7 @@
   "playOnline": "Play Online",
   "playFriends": "Play with Friends",
   "guestMultiplayer": "Playing as {{name}}",
-  "findDuel": "Ranked Duel",
+  "rankedDuel": "Ranked Duel",
   "createGame": "Create Party",
   "joinGame": "Join Party",
   "join": "Join",
@@ -220,5 +220,6 @@
   "duels_tied": "Duels Tied",
   "win_rate": "Win Rate",
   "findingOpponent": "Finding an opponent",
-  "eloRange": "Elo Range"
+  "eloRange": "Elo Range",
+  "findDuel": "Find a Duel"
 }
