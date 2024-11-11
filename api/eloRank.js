@@ -28,7 +28,11 @@ export default async function handler(req, res) {
 
 
     // Return the user's elo and rank
-    return res.status(200).json({ elo: user.elo, rank: user.rank, league: getLeague(user.elo) });
+    return res.status(200).json({ elo: user.elo, rank: user.rank, league: getLeague(user.elo),
+      duels_wins: user.duels_wins, duels_losses: user.duels_losses,
+        duels_tied: user.duels_tied,
+      win_rate: user.duels_wins / (user.duels_wins + user.duels_losses + user.duels_tied)
+     });
   } catch (error) {
     return res.status(500).json({ message: 'An error occurred', error: error.message });
   }

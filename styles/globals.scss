@@ -235,6 +235,10 @@ button {
   box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
   height: 100%;
 }
+
+.homeBtn.singleplayer {
+  background-color: #547a32;
+}
 // mobile homebtn has smaller font size and is less bold
 @media screen and (max-width: 600px) {
   .homeBtn {
@@ -249,6 +253,9 @@ button {
 }
 .homeBtn:hover {
   background-color: #225541;
+}
+.homeBtn.singleplayer:hover {
+  background-color: #485522;
 }
 .accountBtn {
   position: fixed;

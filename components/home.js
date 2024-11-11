@@ -1164,7 +1164,12 @@ setShowCountryButtons(false)
         } else if (data.state === "guess") {
           setStreetViewShown(true)
         }
-      } else if(data.type === "maxDist") {
+      } else if(data.type === "publicDuelRange") {
+        setMultiplayerState((prev) => ({
+          ...prev,
+            publicDuelRange: data.range
+        }))
+      }else if(data.type === "maxDist") {
         const maxDist = data.maxDist;
         console.log("got new max dist", maxDist)
         setMultiplayerState((prev) => ({
@@ -1829,7 +1834,7 @@ setShowCountryButtons(false)
   </div>
 </div>
 
-{screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && (
+{screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal && (
         <div className="home__footer">
           <div className="footer_btns">
         { !isApp && (
@@ -1970,16 +1975,19 @@ setTimeout(() => {
                {/* <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
               }} /> */}
-              <button className="homeBtn" onClick={() => {
+              <button className="homeBtn singleplayer"
+
+                onClick={() => {
                 if (!loading) {
                   // setScreen("singleplayer")
                   crazyMidgame(() => setScreen("singleplayer"))
                 }
               }} >{text("singleplayer")}</button>
         {/* <span className="bigSpan">{text("playOnline")}</span> */}
+
+
         <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
           disabled={!multiplayerState.connected || maintenance}>{text("findDuel")}</button>
-
 
         {/* <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span> */}
         <div className="multiplayerPrivBtns">

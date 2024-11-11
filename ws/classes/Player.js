@@ -4,6 +4,7 @@ import isValidTimezone from "../../serverUtils/isValidTimezone.js";
 import moment from "moment";
 import { players } from "../../serverUtils/states.js";
 import User from "../../models/User.js";
+import { getLeague } from "../../components/utils/leagues.js";
 export default class Player {
   constructor(ws, id, ip) {
     this.id = id;
@@ -65,6 +66,9 @@ export default class Player {
             this.supporter = valid.supporter;
             this.username = valid.username;
             this.accountId = valid._id.toString();
+            this.elo = valid.elo;
+            this.league = getLeague(this.elo).name;
+            console.log('User joined', this.id, this.username, this.elo);
             this.send({
             type: 'verify'
           });

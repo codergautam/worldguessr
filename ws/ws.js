@@ -16,6 +16,7 @@ import lookup from "coordinate_to_country"
 import { players, games } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
+import { getLeagueRange } from '../components/utils/leagues.js';
 
 config();
 // Load the profanity filter
@@ -401,8 +402,17 @@ app.ws('/wg', {
 
       if ((json.type === 'publicDuel') && !player.gameId) {
         console.log('public duel requested by', player.username, player.ip);
+        // get range of league
+        const range = getLeagueRange(player.league);
+
         player.inQueue = true;
         playersInQueue.add(player.id);
+
+        // send the range to the player
+        player.send({
+          type: 'publicDuelRange',
+          range
+        });
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
         const ipOctets = player.ip.split('.').slice(0, 3).join('.');
@@ -429,6 +439,7 @@ app.ws('/wg', {
       } else {
       }
       }
+
 
       if (json.type === 'leaveQueue' && player.inQueue) {
         player.inQueue = false;
@@ -681,7 +692,7 @@ app.ws('/wg', {
           if(displayLocation) {
             // trim to 30 characters
             displayLocation = displayLocation.substring(0, 30);
-            
+
           }
           // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
           if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {

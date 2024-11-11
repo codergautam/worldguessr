@@ -51,7 +51,10 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
       )}
 
 
-        <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued} />
+        <BannerText text={text("findingOpponent")} shown={multiplayerState.gameQueued} subText={
+          multiplayerState?.publicDuelRange? `${text("eloRange")}: ${multiplayerState?.publicDuelRange[0]} - ${multiplayerState?.publicDuelRange[1]}` : undefined
+        } />
+
         <BannerText text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />
 
         { multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && !multiplayerState.gameData?.public && (

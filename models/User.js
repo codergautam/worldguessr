@@ -103,6 +103,10 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  duels_tied: {
+    type: Number,
+    default: 0
+  },
   rank: {
     type: Number,
   },

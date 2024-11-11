@@ -1,45 +1,45 @@
 export const leagues = {
-  'beginner': {
+  'explorer': {
     min: 0,
     max: 1999,
-    name: 'Beginner',
-    emoji: '🎯',
+    name: 'Trekker',
+    emoji: '🥾',
     color: '#808080' // grey
   },
-  'bronze': {
+  'trekker': {
     min: 2000,
-    max: 3999,
-    name: 'Bronze',
-    emoji: '📙',
+    max: 4999,
+    name: 'Explorer',
+    emoji: '🧭',
     color: '#cd7f32' // bronze
   },
-  'silver': {
-    min: 4000,
-    max: 5999,
-    name: 'Silver',
-    emoji: '🥈',
-    color: '#c0c0c0'  // silver
-  },
-  'gold': {
-    min: 6000,
+  'voyager': {
+    min: 5000,
     max: 7999,
-    name: 'Gold',
-    emoji: '🏅',
+    name: 'Voyager',
+    emoji: '🚢',
     color: '#ffd700' // gold
   },
-  'diamond': {
+  'nomad': {
     min: 8000,
     max: 10000,
-    name: 'Platinum',
-    emoji: '💎',
+    name: 'Nomad',
+    emoji: '🌍',
     color: '#b9f2ff' // diamond
   },
 }
 
+
 export const getLeague = (elo) => {
   for (const league in leagues) {
     if (elo >= leagues[league].min && elo <= leagues[league].max) {
+
       return leagues[league];
     }
   }
+}
+
+export const getLeagueRange = (name) => {
+  const league = Object.values(leagues).find(league => league.name === name);
+  return [league.min, league.max];
 }

@@ -12,7 +12,7 @@
   "playOnline": "Play Online",
   "playFriends": "Play with Friends",
   "guestMultiplayer": "Playing as {{name}}",
-  "findDuel": "Find a Duel",
+  "findDuel": "Ranked Duel",
   "createGame": "Create Party",
   "joinGame": "Join Party",
   "join": "Join",
@@ -211,5 +211,14 @@
   "maintenanceMode": "Maintenance Mode",
   "maintenanceModeStarted": "WorldGuessr is currently in maintenance mode. Some features may be disabled.",
   "maintenanceModeEnded": "Maintenance mode has ended. Enjoy a full WorldGuessr experience!",
-  "editOptions": "Edit Options"
+  "editOptions": "Edit Options",
+  "leagues": "Leagues",
+  "yourElo": "Your Elo",
+  "yourGlobalRank": "Your Global Rank",
+  "duels_won": "Duels Won",
+  "duels_lost": "Duels Lost",
+  "duels_tied": "Duels Tied",
+  "win_rate": "Win Rate",
+  "findingOpponent": "Finding an opponent",
+  "eloRange": "Elo Range"
 }

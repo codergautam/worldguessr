@@ -101,7 +101,8 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
       } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
     }
 
-    if(window.show_videoad && !session?.token?.supporter) {
+    // this is now disabled due to issues with afterAd() not being called / next round button not working
+    if(false && window.show_videoad && !session?.token?.supporter) {
       window.show_videoad((state) =>{
         if(!['DISABLED', 'COOLDOWN'].includes(state)) {
       toast.info(text("watchingAdsSupport"))
