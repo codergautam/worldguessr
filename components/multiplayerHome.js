@@ -13,7 +13,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
 
   const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
   const [gameOptions, setGameOptions] = useState({
-    showRoadName: false,
+    showRoadName: false, // rate limit fix: showRoadName true
     nm:false,
     npz:false
   });

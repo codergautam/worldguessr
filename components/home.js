@@ -86,7 +86,7 @@ export default function Home({ }) {
   const [streetViewShown, setStreetViewShown] = useState(false)
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
   // location aka map slug
-  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: false })
+  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: false }) // rate limit fix: showRoadName true
   const [showAnswer, setShowAnswer] = useState(false)
   const [pinPoint, setPinPoint] = useState(null)
   const [hintShown, setHintShown] = useState(false)
@@ -160,7 +160,7 @@ export default function Home({ }) {
     if((gameOptions?.showRoadName===true) && !gameOptions?.nm &&  !gameOptions?.npz) {
 
       console.log("showing road name")
-      // setLegacyMapLoader(true);s
+      // setLegacyMapLoader(true); // rate limit fix: uselegacymaploader
       setLegacyMapLoader(false);
     } else {
 
@@ -1714,11 +1714,11 @@ setShowCountryButtons(false)
           pitch: 0,
         },
         motionTracking: false,
-        linksControl: gameOptions?.nm ? false:true,
-        clickToGo: gameOptions?.nm ? false:true,
+        linksControl: (gameOptions?.nm&&!showAnswer) ? false:true,
+        clickToGo: (gameOptions?.nm&&!showAnswer) ? false:true,
 
-        panControl: gameOptions?.npz ? false:true,
-        zoomControl: gameOptions?.npz ? false:true,
+        panControl: (gameOptions?.npz&&!showAnswer) ? false:true,
+        zoomControl: (gameOptions?.npz&&!showAnswer) ? false:true,
         showRoadLabels: gameOptions?.showRoadName===true?true:false,
         disableDefaultUI: true,
       },
@@ -1735,6 +1735,16 @@ setShowCountryButtons(false)
     window.reloadLoc = () => {
       panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
     }
+
+    // make sure linksControl,clickToGo,panControl,zoomControl are correct
+    panoramaRef.current.setOptions({
+      linksControl: (gameOptions?.nm&&!showAnswer) ? false:true,
+      clickToGo: (gameOptions?.nm&&!showAnswer) ? false:true,
+      panControl: (gameOptions?.npz&&!showAnswer) ? false:true,
+      zoomControl: (gameOptions?.npz&&!showAnswer) ? false:true,
+      showRoadLabels: gameOptions?.showRoadName===true?true:false,
+    });
+
   }
 
 
@@ -1780,7 +1790,7 @@ setShowCountryButtons(false)
     }
 
 
-  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName, legacyMapLoader])
+  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName, legacyMapLoader, showAnswer])
 
 //   useEffect(() => {
 // //!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
@@ -1884,7 +1894,7 @@ setShowCountryButtons(false)
       <main className={`home`} id="main">
         { latLong && latLong?.lat && latLong?.long && legacyMapLoader ? (
 <>
-    <iframe className={`streetview ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
+    <iframe className={`streetview ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz&&!showAnswer ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
 setTimeout(() => {
   setLoading(false)
@@ -1935,7 +1945,7 @@ setTimeout(() => {
        </>
 
       ) : (
-       <div id="googlemaps" className={`streetview inverted ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz) ? 'nmpz' : ''}`}></div>
+       <div id="googlemaps" className={`streetview inverted ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz&&!showAnswer) ? 'nmpz' : ''}`}></div>
       )}
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
