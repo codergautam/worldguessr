@@ -20,6 +20,7 @@ import Ad from "./bannerAd";
 import fixBranding from "./utils/fixBranding";
 import gameStorage from "./utils/localStorage";
 import RoundOverScreen from "./roundOverScreen";
+import HealthBar from "./duelHealthbar";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -377,7 +378,7 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
           setLostCountryStreak(countryStreak);
 
           // remove rewarded ads temporarily
-          if(false && countryStreak > 0 && window.adBreak && !inCrazyGames) {
+          if(countryStreak > 0 && window.adBreak && !inCrazyGames) {
           console.log("requesting reward ad")
           window.adBreak({
             type: 'reward',  // rewarded ad
@@ -446,6 +447,13 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
     </div>
 )}
 
+
+  <div style={{zIndex: 1000, position: "fixed", top: 0, left: 0}}>
+<HealthBar health={100} maxHealth={100} name={text("you")} elo={session?.token?.elo} />
+</div>
+<div style={{zIndex: 1000, position: "fixed", top: 0, right: 0}}>
+<HealthBar health={100} maxHealth={100} name={text("you")} elo={session?.token?.elo} />
+</div>
 {/*
 
 
@@ -566,13 +574,13 @@ onHomePress={() =>{
         }
         }} />
       )}
-      <span className={`timer ${!multiplayerTimerShown ? '' : 'shown'}`}>
+      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
         </span>
 
-        <span className={`timer ${!onboardingTimerShown ? '' : 'shown'}`}>
+        <span className={`timer duel ${!onboardingTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {timeToNextRound ?
@@ -583,7 +591,7 @@ onHomePress={() =>{
 
         {
           singlePlayerRound && !singlePlayerRound?.done && (
-            <span className="timer shown">
+            <span className="timer shown duel">
               {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} -  {singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} {text("points")}
 
             </span>
