@@ -448,12 +448,32 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
 )}
 
 
-  <div style={{zIndex: 1000, position: "fixed", top: 0, left: 0}}>
-<HealthBar health={100} maxHealth={100} name={text("you")} elo={session?.token?.elo} />
+{ multiplayerState?.gameData?.public && (
+  <>
+  <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
+  className={true || (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1) ? 'hb-start1' : ''}>
+<HealthBar health={
+// get your points from the game state
+multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.score
+
+} maxHealth={5000} name={
+// get your name from the game state
+text("you")
+} elo={session?.token?.elo} start={true || (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)} />
 </div>
-<div style={{zIndex: 1000, position: "fixed", top: 0, right: 0}}>
-<HealthBar health={100} maxHealth={100} name={text("you")} elo={session?.token?.elo} />
+<div style={{zIndex: 1001, position: "fixed", top: 0, right: 0, pointerEvents: 'none'}}
+className={true || (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1) ? 'hb-start2' : ''}>
+<HealthBar health={
+// get your points from the game state
+multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.score
+
+} maxHealth={5000} name={
+// get your name from the game state
+multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.username
+} elo={session?.token?.elo} start={true || (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)} />
 </div>
+</>
+)}
 {/*
 
 
@@ -574,13 +594,13 @@ onHomePress={() =>{
         }
         }} />
       )}
-      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'}`}>
+      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'}  ${multiplayerState?.gameData?.public ? 'duel' : ''}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
         </span>
 
-        <span className={`timer duel ${!onboardingTimerShown ? '' : 'shown'}`}>
+        <span className={`timer ${!onboardingTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {timeToNextRound ?
@@ -591,21 +611,21 @@ onHomePress={() =>{
 
         {
           singlePlayerRound && !singlePlayerRound?.done && (
-            <span className="timer shown duel">
+            <span className="timer shown">
               {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} -  {singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} {text("points")}
 
             </span>
           )
         }
 
-        {multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.public && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
           <BannerText text={
             text("gameStartingIn", {t:timeToNextMultiplayerEvt})
           } shown={true} />
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.public && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
           <PlayerList multiplayerState={multiplayerState} playAgain={() => {
 
 

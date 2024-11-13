@@ -1102,7 +1102,7 @@ app.ws('/wg', {
       if (game.state === 'waiting' && playerCnt > 1 && game.public && game.rounds === game.locations.length) {
         game.start();
       } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
-        if(game.curRound > game.rounds) {
+        if(game.curRound > game.rounds || game.readyToEnd) {
           game.end();
           // game over
 
@@ -1119,6 +1119,7 @@ app.ws('/wg', {
         if(game.curRound <= game.rounds) {
           game.curRound++;
           game.state = 'getready';
+          console.log(game.curRound);
           game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 5000: 0);
           game.sendStateUpdate();
 
@@ -1199,11 +1200,21 @@ app.ws('/wg', {
     if (playersInQueue.size > 1) {
       const pairs = findDuelPairs(playersInQueue);
       for(const pair of pairs) {
-        // const [id1, id2] = pair;
+        const [id1, id2] = pair;
 
-        // const gameId = uuidv4();
-        // const game = new Game(gameId, false, id1, id2, allLocations);
-        // games.set(gameId, game);
+        const gameId = uuidv4();
+        const game = new Game(gameId, true, undefined, undefined, allLocations);
+        games.set(gameId, game);
+
+        game.addPlayer(players.get(id1));
+        game.addPlayer(players.get(id2));
+
+        playersInQueue.delete(id1);
+        playersInQueue.delete(id2);
+
+        // start the game
+        game.start();
+
       }
     }
   }, 500);

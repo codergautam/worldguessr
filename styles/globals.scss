@@ -2392,9 +2392,25 @@ div[dir="ltr"] {
   position: relative;
   width: 100%;
   height: 20px;
-  background-color: #ddd;
+  background-color: #c7c7c7;
   border-radius: 10px;
   overflow: hidden;
+}
+
+.hb-start1,
+.hb-start2 {
+  top: 50% !important;
+  right: 50% !important;
+}
+
+.hb-start1 {
+  transform: translate(calc(50% - 100px), -50%);
+  width: 30%;
+}
+.hb-start2 {
+  transform: translate(calc(50% + 100px), -50%);
+  width: 30%;
+
 }
 
 .health-bar-fill {

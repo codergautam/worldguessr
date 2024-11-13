@@ -18,6 +18,9 @@ export default class Game {
     this.public = publicLobby;
     this.timePerRound = 60000;
     this.waitBetweenRounds = 10000;
+    if(publicLobby) {
+      this.waitBetweenRounds = 6000;
+    }
     this.maxDist = 20000;
     this.startTime = null;
     this.endTime = null;
@@ -29,6 +32,7 @@ export default class Game {
     this.maxPlayers = 100;
     this.extent = null;
     this.displayLocation = null;
+    this.readyToEnd = false;
 
     if(allLocations) this.generateLocations(allLocations);
   }
@@ -41,7 +45,7 @@ export default class Game {
       username: player.username,
       // accountId: player.accountId,
       id: player.id,
-      score: 0,
+      score: this.public ? 5000 : 0,
       host: host && !this.public,
       supporter: player.supporter,
       lastPong: Date.now() // Track the last pong received time
@@ -91,6 +95,7 @@ export default class Game {
 
 
   givePoints() {
+    if(!this.public) {
     for (const playerId of Object.keys(this.players)) {
       const player = this.players[playerId];
       if(!player.guess) {
@@ -108,6 +113,67 @@ export default class Game {
       })
 
     }
+  } else {
+    // subtract the difference of the score from the lower scored player
+
+    const loc = this.locations[this.curRound - 1];
+    const p1= this.players[Object.keys(this.players)[0]];
+    const p2 = this.players[Object.keys(this.players)[1]];
+    if(!p1 || !p2) {
+      return;
+    }
+    let p1score = 0;
+    let p2score = 0;
+
+    const mult = 5;
+    if(p1.guess ) {
+    p1score = calcPoints({
+      lat: loc.lat,
+      lon: loc.long,
+      guessLat: p1.guess[0],
+      guessLon: p1.guess[1],
+      usedHint: false,
+      maxDist: this.maxDist
+    })*mult;
+  }
+
+  if(p2.guess) {
+    p2score = calcPoints({
+      lat: loc.lat,
+      lon: loc.long,
+      guessLat: p2.guess[0],
+      guessLon: p2.guess[1],
+      usedHint: false,
+      maxDist: this.maxDist
+    })*mult;
+
+  }
+    console.log(p1score, p2score);
+
+    const diff = Math.abs(p1score - p2score);
+
+    if(p1score > p2score) {
+      this.players[Object.keys(this.players)[1]].score -= diff;
+      if(this.players[Object.keys(this.players)[1]].score <= 0) {
+        this.players[Object.keys(this.players)[1]].score = 0;
+        console.log('end game');
+        // end game
+        this.readyToEnd = true;
+
+      }
+
+    } else {
+      this.players[Object.keys(this.players)[0]].score -= diff;
+      if(this.players[Object.keys(this.players)[0]].score <= 0) {
+        this.players[Object.keys(this.players)[0]].score = 0;
+        console.log('end game');
+        // end game
+        this.readyToEnd = true;
+      }
+
+    }
+
+  }
   }
 
   clearGuesses() {
@@ -334,6 +400,7 @@ export default class Game {
     }
   }
   end() {
+    console.log('game end');
     this.state = 'end';
     this.endTime = Date.now();
     this.nextEvtTime = this.endTime + 60000;
