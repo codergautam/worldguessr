@@ -153,7 +153,6 @@ export default class Game {
     })*mult;
 
   }
-    console.log(p1score, p2score);
 
     const diff = Math.abs(p1score - p2score);
 
@@ -161,7 +160,6 @@ export default class Game {
       this.players[Object.keys(this.players)[1]].score -= diff;
       if(this.players[Object.keys(this.players)[1]].score <= 0) {
         this.players[Object.keys(this.players)[1]].score = 0;
-        console.log('end game');
         // end game
         this.readyToEnd = true;
 
@@ -171,7 +169,6 @@ export default class Game {
       this.players[Object.keys(this.players)[0]].score -= diff;
       if(this.players[Object.keys(this.players)[0]].score <= 0) {
         this.players[Object.keys(this.players)[0]].score = 0;
-        console.log('end game');
         // end game
         this.readyToEnd = true;
       }
@@ -410,7 +407,6 @@ export default class Game {
     }
   }
   end(leftUser) {
-    console.log('game end', leftUser);
     this.state = 'end';
     this.endTime = Date.now();
     this.nextEvtTime = this.endTime + 60000;
@@ -443,10 +439,12 @@ export default class Game {
         draw = true;
       }
 
-      console.log(winner, draw);
 
       let p1NewElo = null;
       let p2NewElo = null;
+
+      let p1OldElo = p1obj?.elo || null;
+      let p2OldElo = p2obj?.elo || null;
 
       // elo changes
       if(this.eloChanges) {
@@ -460,15 +458,15 @@ export default class Game {
 
           if(p1obj) {
 
-          p1obj.setElo(p1NewElo);
+          p1obj.setElo(p1NewElo, { draw: true });
           } else {
-            setElo(this.accountIds.p1, p1NewElo);
+            setElo(this.accountIds.p1, p1NewElo, { draw: true });
           }
 
           if(p2obj) {
-          p2obj.setElo(changes.newRating2);
+          p2obj.setElo(changes.newRating2, { draw: true });
         } else {
-          setElo(this.accountIds.p2, changes.newRating2);
+          setElo(this.accountIds.p2, changes.newRating2, { draw: true });
         }
         } else {
 
@@ -478,22 +476,21 @@ export default class Game {
           p2NewElo = changes.newRating2;
 
           if(p1obj) {
-          p1obj.setElo(changes.newRating1);
+          p1obj.setElo(changes.newRating1, { winner: winner.tag === 'p1' });
           } else {
-            setElo(this.accountIds.p1, changes.newRating1);
+            setElo(this.accountIds.p1, changes.newRating1, { winner: winner.tag === 'p1' });
           }
 
           if(p2obj) {
-          p2obj.setElo(changes.newRating2);
+          p2obj.setElo(changes.newRating2, { winner: winner.tag === 'p2' });
           } else {
-            setElo(this.accountIds.p2, changes.newRating2);
+            setElo(this.accountIds.p2, changes.newRating2, { winner: winner.tag === 'p2' });
           }
 
         }
 
     }
 
-    console.log(leftUser);
       if(p1obj && leftUser !== 'p1') {
       p1obj.send({
         type: 'duelEnd',
@@ -501,6 +498,7 @@ export default class Game {
         draw,
         newElo: p1NewElo,
         timeElapsed: this.endTime - this.startTime,
+        oldElo: p1OldElo
       });
     }
 
@@ -511,6 +509,7 @@ export default class Game {
         draw,
         newElo: p2NewElo,
         timeElapsed: this.endTime - this.startTime,
+        oldElo: p2OldElo
       });
     }
 

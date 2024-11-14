@@ -1167,6 +1167,15 @@ setShowCountryButtons(false)
         }
       } else if(data.type === "duelEnd") {
         console.log("duel end", data)
+        // { draw: boolean, newElo: number, oldElo: number, winner: boolean, timeElapsed: number }
+
+        setMultiplayerState((prev) => ({
+          ...prev,
+          gameData: {
+            ...prev.gameData,
+            duelEnd: data
+          }
+        }));
       }else if(data.type === "publicDuelRange") {
         setMultiplayerState((prev) => ({
           ...prev,

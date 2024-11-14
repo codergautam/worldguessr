@@ -5,6 +5,7 @@ import moment from "moment";
 import { players } from "../../serverUtils/states.js";
 import User from "../../models/User.js";
 import { getLeague } from "../../components/utils/leagues.js";
+import { setElo } from "../../api/eloRank.js";
 export default class Player {
   constructor(ws, id, ip) {
     this.id = id;
@@ -26,10 +27,11 @@ export default class Player {
     this.allowFriendReq = true;
   }
 
-  setElo(newElo) {
+  setElo(newElo, gameData) {
+    if(!this.accountId) return;
     console.log('Setting elo', this.id, this.username, newElo, 'old elo', this.elo);
     this.elo = newElo;
-    User.updateOne({_id: this.accountId}, {elo: newElo}).catch((e) => console.log('Error setting elo:', e.message));
+    setElo(this.accountId, newElo, gameData);
 
     console.log('Elo set', this.id, this.username, newElo);
   }
