@@ -25,6 +25,14 @@ export default class Player {
     this.receivedReq = [];
     this.allowFriendReq = true;
   }
+
+  setElo(newElo) {
+    console.log('Setting elo', this.id, this.username, newElo, 'old elo', this.elo);
+    this.elo = newElo;
+    User.updateOne({_id: this.accountId}, {elo: newElo}).catch((e) => console.log('Error setting elo:', e.message));
+
+    console.log('Elo set', this.id, this.username, newElo);
+  }
   async verify(json) {
         // account verification
         if((!json.secret) ||(json.secret === 'not_logged_in')) {
@@ -162,12 +170,16 @@ export default class Player {
     // this.ws.send(JSON.stringify(json));
     // uws send
 
+    try {
     // convert json to string
     const str = JSON.stringify(json);
     // convert string to array buffer
     const buffer = new TextEncoder().encode(str);
     // send array buffer
     this.ws.send(buffer);
+    } catch(e) {
+      console.log('Error sending message to player', this.id, e.message, json);
+    }
   }
   setScreen(screen) {
     const validScreens = ["home", "singleplayer", "multiplayer"];

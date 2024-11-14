@@ -37,3 +37,12 @@ export default async function handler(req, res) {
     return res.status(500).json({ message: 'An error occurred', error: error.message });
   }
 }
+
+export async function setElo(accountId, newElo) {
+  try {
+    await User.updateOne({ _id: accountId }, { elo: newElo });
+  } catch (error) {
+    console.error('Error setting elo:', error.message);
+  }
+  
+}

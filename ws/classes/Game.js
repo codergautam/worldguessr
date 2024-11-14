@@ -8,6 +8,7 @@ import lookup from "coordinate_to_country";
 import calcPoints from "../../components/calcPoints.js";
 import { boundingExtent } from "ol/extent.js";
 import { fromLonLat } from "ol/proj.js";
+import { setElo } from "../../api/eloRank.js";
 
 export default class Game {
   constructor(id, publicLobby, location="all", rounds=5, allLocations) {
@@ -20,6 +21,8 @@ export default class Game {
     this.waitBetweenRounds = 10000;
     if(publicLobby) {
       this.waitBetweenRounds = 6000;
+
+
     }
     this.maxDist = 20000;
     this.startTime = null;
@@ -37,17 +40,19 @@ export default class Game {
     if(allLocations) this.generateLocations(allLocations);
   }
 
-  addPlayer(player, host=false) {
+  addPlayer(player, host=false, tag) {
     if(Object.keys(this.players).length >= this.maxPlayers) {
       return;
     }
+    console.log('add player', player.username, tag);
     const playerObj = {
       username: player.username,
-      // accountId: player.accountId,
+      accountId: player.accountId,
       id: player.id,
       score: this.public ? 5000 : 0,
       host: host && !this.public,
       supporter: player.supporter,
+      tag,
       lastPong: Date.now() // Track the last pong received time
     };
     this.sendAllPlayers({
@@ -125,7 +130,7 @@ export default class Game {
     let p1score = 0;
     let p2score = 0;
 
-    const mult = 5;
+    const mult = 1;
     if(p1.guess ) {
     p1score = calcPoints({
       lat: loc.lat,
@@ -223,6 +228,7 @@ export default class Game {
     });
   }
     const isPlayerHost = this.players[player.id].host;
+    const tag = this.players[player.id].tag;
     delete this.players[player.id];
     player.gameId = null;
     player.inQueue = false;
@@ -239,6 +245,10 @@ export default class Game {
     if (Object.keys(this.players).length < 1 || (!this.public && isPlayerHost)) {
       this.shutdown();
       games.delete(this.id);
+    }
+
+    if(this.public && Object.keys(this.players).length < 2) {
+      this.end(tag);
     }
   }
 
@@ -399,13 +409,117 @@ export default class Game {
       p.send(json);
     }
   }
-  end() {
-    console.log('game end');
+  end(leftUser) {
+    console.log('game end', leftUser);
     this.state = 'end';
     this.endTime = Date.now();
     this.nextEvtTime = this.endTime + 60000;
+
+
+    if(this.public) {
+      // find the winner
+      // winner is the one with most points
+      // or if only 1 player, they win
+
+      let winner = null;
+      let draw = false;
+
+
+      const p1 = Object.values(this.players).find((p) => p.tag === 'p1');
+      const p2 = Object.values(this.players).find((p) => p.tag === 'p2');
+
+      const p1obj = players.get(this.pIds.p1);
+      const p2obj = players.get(this.pIds.p2);
+
+      if(leftUser === "p1") {
+        winner = p2;
+      } else if(leftUser === "p2") {
+        winner = p1;
+      }else if(p1.score > p2.score) {
+        winner = p1;
+      } else if(p2.score > p1.score) {
+        winner = p2;
+      } else if(p1.score === p2.score) {
+        draw = true;
+      }
+
+      console.log(winner, draw);
+
+      let p1NewElo = null;
+      let p2NewElo = null;
+
+      // elo changes
+      if(this.eloChanges) {
+        if(draw) {
+
+          const changes = this.eloChanges.draw;
+          // { newRating1, newRating2 }
+
+          p1NewElo = changes.newRating1;
+          p2NewElo = changes.newRating2;
+
+          if(p1obj) {
+
+          p1obj.setElo(p1NewElo);
+          } else {
+            setElo(this.accountIds.p1, p1NewElo);
+          }
+
+          if(p2obj) {
+          p2obj.setElo(changes.newRating2);
+        } else {
+          setElo(this.accountIds.p2, changes.newRating2);
+        }
+        } else {
+
+          const changes = this.eloChanges[winner.id];
+          // { newRating1, newRating2 }
+          p1NewElo = changes.newRating1;
+          p2NewElo = changes.newRating2;
+
+          if(p1obj) {
+          p1obj.setElo(changes.newRating1);
+          } else {
+            setElo(this.accountIds.p1, changes.newRating1);
+          }
+
+          if(p2obj) {
+          p2obj.setElo(changes.newRating2);
+          } else {
+            setElo(this.accountIds.p2, changes.newRating2);
+          }
+
+        }
+
+    }
+
+    console.log(leftUser);
+      if(p1obj && leftUser !== 'p1') {
+      p1obj.send({
+        type: 'duelEnd',
+        winner:  winner?.tag === 'p1',
+        draw,
+        newElo: p1NewElo,
+        timeElapsed: this.endTime - this.startTime,
+      });
+    }
+
+    if(p2obj && leftUser !== 'p2') {
+      p2obj.send({
+        type: 'duelEnd',
+        winner: winner?.tag === 'p2',
+        draw,
+        newElo: p2NewElo,
+        timeElapsed: this.endTime - this.startTime,
+      });
+    }
+
+    }
+
+
     this.sendStateUpdate();
-}
+  }
+
   shutdown() {
     for(const playerId of Object.keys(this.players)) {
       const p = players.get(playerId);

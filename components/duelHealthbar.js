@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 const easeOutQuad = (t) => t * (2 - t);
 
-const HealthBar = ({ health, maxHealth, name, elo, start }) => {
+const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel }) => {
   const [displayHealth, setDisplayHealth] = useState(health);
 
   const barColor = displayHealth / maxHealth > 0.2 ? 'green' : 'red';
@@ -33,6 +33,7 @@ const HealthBar = ({ health, maxHealth, name, elo, start }) => {
 
   return (
     <div className={`health-bar-container ${start ? 'start' : ''}`}>
+      { !isStartingDuel && (
       <div className="health-bar">
         <div
           className="health-bar-fill"
@@ -44,9 +45,16 @@ const HealthBar = ({ health, maxHealth, name, elo, start }) => {
           <span className="health-text">{Math.round(displayHealth)}</span>
         </div>
       </div>
-      <div className="player-info">
-        <span className="player-name">{name}</span>
-        <span className="player-elo">{`(${elo})`}</span>
+      )}
+      <div className={`player-info ${isStartingDuel && 'starting'}`}>
+        <span className="player-name">{name}
+
+{elo && (
+<span style={{color: 'red'}}> ({elo})</span>
+)}
+
+          </span>
+
       </div>
     </div>
   );

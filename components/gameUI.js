@@ -141,6 +141,10 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
+
+
+   const isStartingDuel = (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)
+
   useEffect(() => {
     if(showAnswer) {
       setShowPanoOnResult(false)
@@ -449,9 +453,10 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
 
 
 { multiplayerState?.gameData?.public && (
-  <>
+  <div className={`hbparent ${isStartingDuel ? 'hb-parent' : ''}`}>
+    <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
   <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
-  className={true || (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1) ? 'hb-start1' : ''}>
+  className={(multiplayerState && isStartingDuel) ? 'hb-start1' : ''}>
 <HealthBar health={
 // get your points from the game state
 multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.score
@@ -459,20 +464,38 @@ multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameDat
 } maxHealth={5000} name={
 // get your name from the game state
 text("you")
-} elo={session?.token?.elo} start={true || (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)} />
+}
+isStartingDuel={isStartingDuel}
+elo={session?.token?.elo} start={isStartingDuel} />
 </div>
+
+
+{ isStartingDuel && (
+  <p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 50, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none' }}>
+    VS
+  </p>
+) }
+
 <div style={{zIndex: 1001, position: "fixed", top: 0, right: 0, pointerEvents: 'none'}}
-className={true || (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1) ? 'hb-start2' : ''}>
+className={isStartingDuel ? 'hb-start2' : ''}>
 <HealthBar health={
 // get your points from the game state
 multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.score
 
-} maxHealth={5000} name={
+} maxHealth={5000}
+isStartingDuel={isStartingDuel}
+name={
 // get your name from the game state
 multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.username
-} elo={session?.token?.elo} start={true || (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)} />
+} elo={session?.token?.elo} start={true || isStartingDuel} />
 </div>
-</>
+</div>
+
+<p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none', marginTop: "10px" }}>
+{timeToNextMultiplayerEvt}
+
+</p>
+</div>
 )}
 {/*
 

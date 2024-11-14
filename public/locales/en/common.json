@@ -221,5 +221,6 @@
   "win_rate": "Win Rate",
   "findingOpponent": "Finding an opponent",
   "eloRange": "Elo Range",
-  "findDuel": "Find a Duel"
+  "findDuel": "Find a Duel",
+  "you": "You"
 }

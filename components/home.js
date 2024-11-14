@@ -1165,7 +1165,9 @@ setShowCountryButtons(false)
         } else if (data.state === "guess") {
           setStreetViewShown(true)
         }
-      } else if(data.type === "publicDuelRange") {
+      } else if(data.type === "duelEnd") {
+        console.log("duel end", data)
+      }else if(data.type === "publicDuelRange") {
         setMultiplayerState((prev) => ({
           ...prev,
             publicDuelRange: data.range

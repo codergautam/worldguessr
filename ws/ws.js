@@ -17,6 +17,7 @@ import { players, games } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
 import { getLeagueRange } from '../components/utils/leagues.js';
+import calculateOutcomes from '../components/utils/eloSystem.js';
 
 config();
 // Load the profanity filter
@@ -1201,16 +1202,46 @@ app.ws('/wg', {
       const pairs = findDuelPairs(playersInQueue);
       for(const pair of pairs) {
         const [id1, id2] = pair;
+        const p1 = players.get(id1);
+        const p2 = players.get(id2);
 
         const gameId = uuidv4();
         const game = new Game(gameId, true, undefined, undefined, allLocations);
         games.set(gameId, game);
 
-        game.addPlayer(players.get(id1));
-        game.addPlayer(players.get(id2));
-
+        game.addPlayer(p1, undefined, "p1");
+        game.addPlayer(p2, undefined, "p2");
         playersInQueue.delete(id1);
         playersInQueue.delete(id2);
+
+        // check if both have elo
+        if(p1.elo && p2.elo) {
+          // calculate elo change if p1 wins,loses,draws
+          // calculate elo change if p2 wins,loses,draws
+
+          const eloP1Win = calculateOutcomes(p1.elo, p2.elo, 1);
+          const eloDraw = calculateOutcomes(p1.elo, p2.elo, 0.5);
+          const eloP2Win = calculateOutcomes(p1.elo, p2.elo, 0);
+
+          game.eloChanges = {
+            [p1.id]: eloP1Win,
+            [p2.id]: eloP2Win,
+            draw: eloDraw
+          }
+
+
+          game.accountIds = {
+            p1: p1.accountId,
+            p2: p2.accountId
+          }
+
+
+        }
+
+        game.pIds = {
+          p1: p1.id,
+          p2: p2.id
+        }
 
         // start the game
         game.start();
