@@ -130,7 +130,7 @@ export default class Game {
     let p1score = 0;
     let p2score = 0;
 
-    const mult = 1;
+    const mult = 100;
     if(p1.guess ) {
     p1score = calcPoints({
       lat: loc.lat,
@@ -412,10 +412,11 @@ export default class Game {
     this.nextEvtTime = this.endTime + 60000;
 
 
-    if(this.public) {
+    if(this.public && !this.calculationDone) {
       // find the winner
       // winner is the one with most points
       // or if only 1 player, they win
+      this.calculationDone = true;
 
       let winner = null;
       let draw = false;
@@ -468,7 +469,7 @@ export default class Game {
         } else {
           setElo(this.accountIds.p2, changes.newRating2, { draw: true });
         }
-        } else {
+        } else if(winner) {
 
           const changes = this.eloChanges[winner.id];
           // { newRating1, newRating2 }

@@ -1464,6 +1464,12 @@ screen and (pointer:coarse) {
   align-items: center;
 }
 
+.elo-label,
+.elo-value,
+.elo-change {
+  color: black;
+}
+
 .detail-item {
   display: flex;
   align-items: center;

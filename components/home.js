@@ -2094,7 +2094,7 @@ setTimeout(() => {
                   }
                 })
               }} shown={!onboarding?.finalOnboardingShown} />
-              <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} onHomePress={() =>{
+              <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} button1Press={() =>{
                 if(onboarding) {
                   sendEvent("tutorial_end");
                   try {
@@ -2111,6 +2111,22 @@ setTimeout(() => {
               </div>
               </div>
 }
+
+
+{multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd && (
+  <RoundOverScreen duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")}
+
+  button1Press={() => {
+    alert("play again")
+  }}
+
+  button2Text={text("home")}
+  button2Press={() => {
+    alert("home")
+  }}
+  />
+)}
+
 
         {screen === "multiplayer" && <div className="home__multiplayer">
           <MultiplayerHome partyModalShown={partyModalShown} setPartyModalShown={setPartyModalShown} multiplayerError={multiplayerError} handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
