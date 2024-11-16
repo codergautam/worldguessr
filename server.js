@@ -129,75 +129,6 @@ setInterval(updateRecentPlays, 60000);
 
 let clueLocations = [];
 
-let countryLocations = {};
-
-const locationCnt = 2000;
-const batchSize = 10;
-
-for (const country of countries) {
-  countryLocations[country] = [];
-}
-
-const generateBalancedLocations = async () => {
-  while (true) {
-    const batchPromises = [];
-
-    // Loop through each country and start generating one batch for each
-    for (const country of countries) {
-      for (let i = 0; i < batchSize; i++) {
-      const startTime = Date.now(); // Start time for each country
-      const locationPromise = new Promise((resolve, reject) => {
-        findLatLongRandom({ location: country }, cityGen, lookup)
-          .then((latLong) => {
-            const endTime = Date.now(); // End time after fetching location
-            const duration = endTime - startTime; // Duration calculation
-
-            resolve({ country: latLong.country, latLong });
-
-          })
-          .catch(reject);
-      });
-
-      batchPromises.push(locationPromise);
-    }
-    }
-
-    try {
-      // Await the results of generating locations for all countries in parallel
-      const batchResults = await Promise.all(batchPromises);
-
-      for (const { country, latLong } of batchResults) {
-        // Update country-specific locations, ensuring a max of locationCnt
-        try {
-          if(countryLocations[country]) {
-        countryLocations[country].unshift(latLong);
-        if (countryLocations[country].length > locationCnt) {
-          countryLocations[country].pop();
-        }
-      }
-      } catch (error) {
-        console.error('Error updating country locations', error, country, latLong);
-      }
-      }
-
-
-        // log average number of locatiosn per country
-        const total = Object.values(countryLocations).reduce((acc, val) => acc + val.length, 0);
-        console.log('Average locations per country:', total / countries.length);
-
-    } catch (error) {
-      console.error('Error generating locations', error);
-    }
-
-    // Delay before starting the next round of generation
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-  }
-};
-
-// Start generating balanced locations for all countries
-generateBalancedLocations();
-
-
 
 // clue locations
 // get all clues
@@ -242,6 +173,9 @@ setTimeout(() => {
 
 loadFolder(apiFolder);
 
+let allCountriesCache = [];
+let lastAllCountriesCacheUpdate = 0;
+
 app.get('/allCountries.json', (req, res) => {
   // if (allLocations.length !== locationCnt) {
   //   // send json {ready: false}
@@ -250,36 +184,73 @@ app.get('/allCountries.json', (req, res) => {
   //   return res.json({ ready: true, locations: allLocations });
   // }
   // send 2000 random locations, evenly distributed across countries
-  const locations = [];
-  const totalCountries = countries.length;
-  const locsPerCountry = locationCnt / totalCountries;
-  for (const country of countries) {
-    const locs = countryLocations[country];
-    const randomLocations = locs.sort(() => Math.random() - 0.5).slice(0, locsPerCountry);
-    locations.push(...randomLocations);
+  // const locations = [];
+  // const totalCountries = countries.length;
+  // const locsPerCountry = locationCnt / totalCountries;
+  // for (const country of countries) {
+  //   const locs = countryLocations[country];
+  //   const randomLocations = locs.sort(() => Math.random() - 0.5).slice(0, locsPerCountry);
+  //   locations.push(...randomLocations);
+  // }
+  // locations = locations.sort(() => Math.random() - 0.5);
+  // return res.json({ ready: locations.length>0, locations });
+
+  // Fetch this from cron localhost:3003/allCountries.json
+  if(Date.now() - lastAllCountriesCacheUpdate < 60 * 1000 && allCountriesCache.length > 0) {
+    res.json({ ready: true, locations: allCountriesCache });
+    console.log('Serving allCountries.json from cache');
+
+  } else {
+  fetch('http://localhost:3003/allCountries.json')
+    .then(response => response.json())
+    .then(data => {
+      if(data.ready && data.locations.length > 0) {
+        allCountriesCache = data.locations;
+        lastAllCountriesCacheUpdate = Date.now();
+      }
+      res.json(data);
+    })
+    .catch(error => {
+      console.error('Error fetching allCountries.json', error);
+      res.status(500).json({ ready: false, message: 'Error fetching allCountries.json' });
+    });
   }
-  return res.json({ ready: locations.length>0, locations });
 
 });
 
+
+let countryLocations = {};
+
+for (const country of countries) {
+  countryLocations[country] = [];
+}
 app.get('/countryLocations/:country', (req, res) => {
-  const country = req.params.country;
-  if (!countryLocations[country]) {
+
+
+  if(!countryLocations[req.params.country]) {
     return res.status(404).json({ message: 'Country not found' });
   }
-  return res.json({ ready:
-    countryLocations[country].length > 0,
-     locations: countryLocations[country] });
-});
 
-// Endpoint for /clueCountries.json
-app.get('/clueCountries.json', (req, res) => {
-  if (clueLocations.length === 0) {
-    // send json {ready: false}
-    return res.json({ ready: false });
+  if(countryLocations[req.params.country].cacheUpdate && Date.now() - countryLocations[req.params.country].cacheUpdate < 60 * 1000) {
+    console.log('Serving countryLocations from cache');
+    
+    return res.json({ ready: countryLocations[req.params.country].locations>0, locations: countryLocations[req.params.country].locations });
   } else {
-    return res.json({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) });
-  }
+
+fetch('http://localhost:3003/countryLocations/'+req.params.country)
+  .then(response => response.json())
+  .then(data => {
+    if(data.ready && data.locations.length > 0) {
+      countryLocations[req.params.country].locations = data.locations;
+      countryLocations[req.params.country].cacheUpdate = Date.now();
+    }
+    res.json(data);
+  })
+  .catch(error => {
+    console.error('Error fetching countryLocations', error);
+    res.status(500).json({ ready: false, message: 'Error fetching countryLocations' });
+  });
+}
 });
 
 app.get('/mapLocations/:slug', async (req, res) => {
@@ -309,62 +280,3 @@ app.post('/mapPlay/:slug', async (req, res) => {
 app.listen(port, () => {
   console.log(`[INFO] API Server running on port ${port}`);
 });
-
-async function calculateRanks() {
-  if (!dbEnabled) return;
-  console.log('Calculating ranks');
-  console.time('Updated ranks');
-
-  const users = await User.find({ banned: false }).select('elo totalXp lastEloHistoryUpdate').sort({ elo: -1, totalXp: -1 });
-
-  // Prepare bulk operations
-  const bulkOps = [];
-  let currentRank = 1;
-  let previousElo = null;
-  let previousTotalXp = null;
-
-  for (let i = 0; i < users.length; i++) {
-    const user = users[i];
-
-
-    // If the elo or totalXp changes, update the rank
-    if (user.elo !== previousElo || user.totalXp !== previousTotalXp) {
-      currentRank = i + 1; // 1-based rank
-      previousElo = user.elo;
-      previousTotalXp = user.totalXp;
-    }
-
-    // Prepare the update operation for the current user
-    bulkOps.push({
-      updateOne: {
-        filter: { _id: user._id },
-        update: {
-
-          $set: { rank: currentRank },
-        ...(Date.now() - user.lastEloHistoryUpdate > 24 * 60 * 60 * 1000 && {
-          $push: { elo_history: { elo: user.elo, time: Date.now() } },
-          $set: { lastEloHistoryUpdate: Date.now() },
-          $set: { elo_today: 0 },
-        })
-
-      },
-      },
-    });
-  }
-
-  // Execute bulk operations
-  if (bulkOps.length > 0) {
-    await User.bulkWrite(bulkOps);
-  }
-
-  console.timeEnd('Updated ranks');
-}
-
-// Calculate ranks every 3 hours
-// setInterval(calculateRanks, 60 * 60 * 1000 * 3);
-function recursiveCalculateRanks() {
-  calculateRanks().then(() => {
-    setTimeout(recursiveCalculateRanks, 3 * 60 * 60 * 1000);
-  });
-}
-recursiveCalculateRanks();

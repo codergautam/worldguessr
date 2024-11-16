@@ -38,51 +38,21 @@ let maintenanceMode = false;
 let dbEnabled = true;
 
 // location generator
-const locationCnt = 2000;
-const batchSize = 20;
 let allLocations = [];
 const generateMainLocations = async () => {
-  for (let i = 0; i < locationCnt; i += batchSize) {
-    const batchPromises = [];
+  // fetch cron job localhost:3003/allCountries.json
+  fetch('http://localhost:3003/allCountries.json').then(async (res) => {
+    const data = await res.json();
+    allLocations = data.locations??[];
+  }).catch((e) => {
+    console.log('Failed to load locations', e);
+  });
 
-    for (let j = 0; j < batchSize && i + j < locationCnt; j++) {
-      const locationPromise = new Promise((resolve, reject) => {
-        findLatLongRandom({ location: 'all' }, cityGen, lookup).then(resolve).catch(reject)
-      });
 
-      batchPromises.push(locationPromise);
-    }
-
-    try {
-      const batchResults = await Promise.all(batchPromises);
-      allLocations.push(...batchResults);
-      if(allLocations.length % 100 === 0) console.log('Generated', allLocations.length, '/', locationCnt);
-      if(allLocations.length === locationCnt) {
-        console.log('Finished generating all locations');
-        while (true) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          let latLong;
-          try {
-          latLong = await findLatLongRandom({ location: 'all' }, cityGen, lookup);
-          }catch(e){}
-          // console.log('Generated', latLong);
-          if(!latLong) {
-            continue;
-          }
-          // put in first allLocations and remove the last
-          allLocations.unshift(latLong);
-          allLocations.pop();
-
-        }
-      }
-    } catch (error) {
-      console.error('Error generating batch', i / batchSize, error);
-      generateMainLocations();
-    }
-  }
 };
 
 generateMainLocations();
+setInterval(generateMainLocations, 1000 * 10);
 
 // helpers
 function joinGameByCode(code, onFull, onInvalid, onSuccess) {
