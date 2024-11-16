@@ -10,7 +10,10 @@ const Leaderboard = ({ }) => {
   const [leaderboardData, setLeaderboardData] = useState([]);
   const [pastDay, setPastDay] = useState(false);
   const [inCrazyGames, setInCrazyGames] = useState(false);
+  const [useElo, setUseElo] = useState(true);
   const { data: session, status } = useSession();
+  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const inCrazyGames = window.location.search.includes("crazygames");
@@ -20,22 +23,27 @@ const Leaderboard = ({ }) => {
   useEffect(() => {
     const configData = config();
     const fetchData = async () => {
+      setLoading(true);
       try {
       const params = {
         username: session ? session.token.username : undefined,
-        pastDay: pastDay ? true : undefined
+        pastDay: pastDay ? true : undefined,
+        mode: useElo ? "elo" : "xp"
       };
       const queryParams = new URLSearchParams(params).toString();
       const response = await fetch(configData.apiUrl+`/api/leaderboard${queryParams ? `?${queryParams}` : ''}`);
       const data = await response.json();
+      setLoading(false);
       setLeaderboardData(data);
       } catch (error) {
+        setLoading(false);
+        setError(true);
       console.error('Error fetching leaderboard data:', error);
       }
     };
 
     fetchData();
-  }, [session, pastDay]);
+  }, [session, pastDay, useElo]);
 
   return (
     <div>
@@ -296,37 +304,71 @@ const Leaderboard = ({ }) => {
           <h1>{text("leaderboard")}</h1>
 
 
-
           <button className={`share ${!pastDay ? 'gold' : 'gray'}`} onClick={() => setPastDay(false)}>
             {text("allTime")}
           </button>
           <button className={`share ${pastDay ? 'gold' : 'gray'}`} onClick={() => setPastDay(true)}>
-          {text("pastDay")}
-
+            {text("pastDay")}
           </button>
-          <button className="share" onClick={() => window.location.replace('/'+(inCrazyGames ? '?crazygames=true' : ''))}>
-            <b>{text("back")}
-            </b>
+
+          {/* Toggle button for switching between XP and Elo */}
+          <button
+            className="leaderboard-button"
+            style={{ backgroundColor: useElo ? 'gold' : 'gray',
+              height: '3rem',
+              width: '6rem',
+              fontSize: '1.3rem',
+             }}
+            onClick={() => setUseElo(prev => !prev)}
+          >
+            {useElo ? text("elo") : text("xp")}
+          </button>
+
+          <button className="share" onClick={() => window.location.replace('/' + (inCrazyGames ? '?crazygames=true' : ''))}>
+            <b>{text("back")}</b>
           </button>
         </div>
+
+        { error && (
+            <h2 style={{ color: 'red' }}>
+              {text("error")}
+              <br/>
+
+            </h2>
+          )}
+
+          { loading && (
+            <h2 style={{marginBottom: '2rem'}}>
+              {text("loading")}...
+              <br/>
+            </h2>
+          )}
         <div className="leaderboard" id="leaderboard">
+
+
           <div className="ribbon"></div>
           <table className="table" id="table">
             <tbody>
               {session && leaderboardData.myRank && (
                 <tr>
                   <td className="number">#{leaderboardData.myRank}</td>
-                  <td className="name" style={{transform: `translateX(${((leaderboardData.myRank).toString().length - 2) * 1.25}rem)`}}>{session.token.username}</td>
-                  <td className="points">{leaderboardData.myXp.toFixed(0)} XP</td>
+                  <td className="name" style={{ transform: `translateX(${((leaderboardData.myRank).toString().length - 2) * 1.25}rem)` }}>
+                    {session.token.username}
+                  </td>
+                  <td className="points">
+                    {useElo ? leaderboardData?.myElo?.toFixed(0) : leaderboardData?.myXp?.toFixed(0)} {useElo ? 'Elo' : 'XP'}
+                  </td>
                 </tr>
               )}
 
               {leaderboardData && leaderboardData.leaderboard && leaderboardData.leaderboard.map((user, index) => (
                 <tr key={index} className={index === 0 ? 'first' : ''}>
                   <td className="number">#{index + 1}</td>
-                  <td className="name" style={{transform: `translateX(${((index+1).toString().length - 2) * 1.25}rem)`}}>{user.username}</td>
+                  <td className="name" style={{ transform: `translateX(${((index + 1).toString().length - 2) * 1.25}rem)` }}>
+                    {user.username}
+                  </td>
                   <td className="points">
-                    {user.totalXp.toFixed(0)} XP
+                    {useElo ? user?.elo?.toFixed(0) : user?.totalXp?.toFixed(0)} {useElo ? 'Elo' : 'XP'}
                     {index === 0 && (
                       <img
                         className="gold-medal"
@@ -340,8 +382,8 @@ const Leaderboard = ({ }) => {
             </tbody>
           </table>
           <div id="buttons">
-            <button className="exit" onClick={() => window.location.replace('/'+(inCrazyGames ? '?crazygames=true' : ''))}>
-            {text("exit")}
+            <button className="exit" onClick={() => window.location.replace('/' + (inCrazyGames ? '?crazygames=true' : ''))}>
+              {text("exit")}
             </button>
           </div>
         </div>

@@ -21,7 +21,6 @@ export default function Navbar({ maintenance, inCrazyGames, inGame, openAccountM
 
   return (
     <>
-    { true && (
     <div className={`navbar ${shown ? "" : "hidden"}`}>
       <div className={`nonHome ${screen==='home'?'':'shown'}`}>
       <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
@@ -73,7 +72,6 @@ export default function Navbar({ maintenance, inCrazyGames, inGame, openAccountM
         {!inGame && showAccBtn && (<AccountBtn inCrazyGames={inCrazyGames} session={session} navbarMode={true} openAccountModal={openAccountModal} />)}
         </div>
     </div>
-)}
     </>
   )
 }

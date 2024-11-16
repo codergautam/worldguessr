@@ -16,6 +16,8 @@ import lookup from "coordinate_to_country"
 import { players, games } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
+import { getLeagueRange } from '../components/utils/leagues.js';
+import calculateOutcomes from '../components/utils/eloSystem.js';
 
 config();
 // Load the profanity filter
@@ -30,7 +32,7 @@ fs.readFileSync('public/Crazygames_profanity_filter.txt', 'utf8').split('\n').fo
 const dev = process.env.NODE_ENV !== 'production'
 const port = process.env.WS_PORT || 3002;
 
-const playersInQueue = new Set();
+const playersInQueue = new Map();
 
 let maintenanceMode = false;
 let dbEnabled = true;
@@ -401,16 +403,45 @@ app.ws('/wg', {
 
       if ((json.type === 'publicDuel') && !player.gameId) {
         console.log('public duel requested by', player.username, player.ip);
+        // get range of league
         player.inQueue = true;
-        playersInQueue.add(player.id);
+
+        if(!player.league) {
+
+          const queueDetails = {
+            guest: true,
+            queueTime: Date.now()
+          }
+          playersInQueue.set(player.id, queueDetails);
+
+        } else {
+          const range = getLeagueRange(player.league);
+
+
+        const queueDetails = {
+          min: range[0],
+          max: range[1],
+          elo: player.elo,
+          guest: false,
+          queueTime: Date.now()
+        }
+        playersInQueue.set(player.id, queueDetails);
+
+        // send the range to the player
+        player.send({
+          type: 'publicDuelRange',
+          range
+        });
+      }
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
         const ipOctets = player.ip.split('.').slice(0, 3).join('.');
-        log('Duel requests from ip', ipOctets, ipDuelRequestsLast10.get(ipOctets));
 
         if (!ipDuelRequestsLast10.has(ipOctets)) {
           ipDuelRequestsLast10.set(ipOctets, 1);
         } else {
+        log('Duel requests from ip', ipOctets, ipDuelRequestsLast10.get(ipOctets));
+
           ipDuelRequestsLast10.set(ipOctets, ipDuelRequestsLast10.get(ipOctets) + 1);
         }
 
@@ -426,9 +457,9 @@ app.ws('/wg', {
           }
         }
       } else {
-        log('Unknown ip req duel', player.ip, player.id, player.username);
       }
       }
+
 
       if (json.type === 'leaveQueue' && player.inQueue) {
         player.inQueue = false;
@@ -455,7 +486,7 @@ app.ws('/wg', {
         game.setGuess(player.id, latLong, final);
       }
 
-      if (json.type === 'chat' && player.gameId && games.has(player.gameId) && player.accountId) {
+      if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {
 
         let message = json.message;
         const lastMessage = player.lastMessage || 0;
@@ -618,38 +649,96 @@ app.ws('/wg', {
         }
 
         const gameId = uuidv4();
-        // options
-        let { rounds, timePerRound, locations, maxDist, location, nm, npz, showRoadName } = json;
-        rounds = Number(rounds);
-        // maxDist no longer required-> can be pulled from community map
-        if (!location) return;
-        if (!rounds || !timePerRound) {
-          return;
-        }
-        // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
-        if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
-          return;
-        }
+        // // options
+        // let { rounds, timePerRound, locations, maxDist, location, nm, npz, showRoadName } = json;
+        // rounds = Number(rounds);
+        // // maxDist no longer required-> can be pulled from community map
+        // if (!location) return;
+        // if (!rounds || !timePerRound) {
+        //   return;
+        // }
+        // // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
+        // if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
+        //   return;
+        // }
 
-        if(!nm) nm = false;
-        if(!npz) npz = false;
-        if(!showRoadName) showRoadName = false;
+        // if(!nm) nm = false;
+        // if(!npz) npz = false;
+        // if(!showRoadName) showRoadName = false;
 
-        console.log("Creating game", gameId, "Nm", nm, "Npz", npz, "ShowRoadName", showRoadName);
+        console.log("Creating game", gameId);
 
-        const game = new Game(gameId, false, location, rounds, allLocations);
-        game.timePerRound = timePerRound * 1000;
-        game.nm = !!nm;
-        game.npz = !!npz;
-        game.showRoadName = !!showRoadName;
+        const game = new Game(gameId, false);
+        // game.timePerRound = timePerRound * 1000;
+        // game.nm = !!nm;
+        // game.npz = !!npz;
+        // game.showRoadName = !!showRoadName;
 
         // game.locations = locations;
         // game.location = location;
-        if (maxDist) game.maxDist = maxDist;
+        // if (maxDist) game.maxDist = maxDist;
 
         games.set(gameId, game);
 
         game.addPlayer(player, true);
+      }
+
+      if(json.type === "resetGame" && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        // make sure player is host
+        if(game.players[player.id].host) {
+          game.resetGame(allLocations);
+        }
+      }
+
+
+      if(json.type === "setPrivateGameOptions" && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        // make sure player is host
+        if(game.players[player.id].host) {
+          let { rounds, timePerRound, location, nm, npz, showRoadName, displayLocation } = json;
+          console.log("setPrivateGameOptions", rounds, timePerRound, location, nm, npz, showRoadName);
+          rounds = Number(rounds);
+
+          // maxDist no longer required-> can be pulled from community map
+          if (!location) return;
+          if (!rounds || !timePerRound) {
+            return;
+          }
+          // make sure displayLocation isa string
+          if (typeof displayLocation !== 'string') {
+            displayLocation = null;
+          }
+          if(displayLocation) {
+            // trim to 30 characters
+            displayLocation = displayLocation.substring(0, 30);
+
+          }
+          // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
+          if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
+            return;
+          }
+
+          if(!nm) nm = false;
+          if(!npz) npz = false;
+          if(!showRoadName) showRoadName = false;
+
+          game.timePerRound = timePerRound * 1000;
+          game.nm = !!nm;
+          game.npz = !!npz;
+          game.showRoadName = !!showRoadName;
+          game.location = location;
+          // clear current locations
+          game.locations = [];
+          game.rounds = rounds;
+          game.displayLocation = displayLocation;
+
+          // generate locations
+          game.generateLocations(allLocations);
+
+          game.sendStateUpdate(true);
+
+        }
       }
 
       if (json.type === 'joinPrivateGame' && !player.gameId) {
@@ -953,11 +1042,62 @@ app.ws('/wg', {
     }
   }, 5000);
 
+  function findDuelPairs(duelQueue) {
+    const pairs = [];
+    const matchedPlayers = new Set();
+
+    // Convert Map to an array for efficient iteration
+    const entries = Array.from(duelQueue.entries());
+
+    // Loop through each player in the queue
+    for (let i = 0; i < entries.length; i++) {
+      const [id1, { min, max, elo, guest }] = entries[i];
+
+      // Skip this player if already matched
+      if (matchedPlayers.has(id1)) continue;
+
+      // Check if player1 is a guest
+      if (guest) {
+        // Look for another guest to pair with
+        for (let j = i + 1; j < entries.length; j++) {
+          const [id2, { min: min2, max: max2, elo: elo2, guest: guest2 }] = entries[j];
+
+          if (guest2 && !matchedPlayers.has(id2)) {
+            pairs.push([id1, id2]);
+            matchedPlayers.add(id1);
+            matchedPlayers.add(id2);
+            break;
+          }
+        }
+      } else {
+        // Find a suitable ELO-based pair for non-guest player1
+        for (let j = i + 1; j < entries.length; j++) {
+          const [id2, { min: min2, max: max2, elo: elo2, guest: guest2 }] = entries[j];
+
+          // Skip if already matched or if player2 is a guest
+          if (matchedPlayers.has(id2) || guest2) continue;
+
+          // Check if each player falls within the other's acceptable ELO range
+          if (elo >= min2 && elo <= max2 && elo2 >= min && elo2 <= max) {
+            pairs.push([id1, id2]);
+            matchedPlayers.add(id1);
+            matchedPlayers.add(id2);
+            break;
+          }
+        }
+      }
+    }
+
+    return pairs;
+  }
+
+
+
   // queue handler
   setInterval(() => {
 
 
-    const minRoundsRemaining = 3;
+    // const minRoundsRemaining = 3;
     for (const game of games.values()) {
 
       const playerCnt = Object.keys(game.players).length;
@@ -965,7 +1105,7 @@ app.ws('/wg', {
       if (game.state === 'waiting' && playerCnt > 1 && game.public && game.rounds === game.locations.length) {
         game.start();
       } else if (game.state === 'getready' && Date.now() > game.nextEvtTime) {
-        if(game.curRound > game.rounds) {
+        if(game.curRound > game.rounds || game.readyToEnd) {
           game.end();
           // game over
 
@@ -982,6 +1122,7 @@ app.ws('/wg', {
         if(game.curRound <= game.rounds) {
           game.curRound++;
           game.state = 'getready';
+          console.log(game.curRound);
           game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 5000: 0);
           game.sendStateUpdate();
 
@@ -993,65 +1134,134 @@ app.ws('/wg', {
       }
 
       if(game.state === 'end' && Date.now() > game.nextEvtTime) {
-        // remove game
+        // remove game if public
+        if(game.public) {
         game.shutdown()
-      }
-
-
-      // find games that can be joined
-      if (playersInQueue.size < 1) {
-        continue;
-      }
-      if (!game.public) {
-        continue;
-      }
-      if (game.rounds - game.curRound < minRoundsRemaining) {
-        continue;
-      }
-      if (playerCnt >= game.maxPlayers) {
-        continue;
-      }
-
-
-      const multiplayerMax = Math.min(10, game.maxPlayers)
-      let playersCanJoin = multiplayerMax - playerCnt;
-      for (const playerId of playersInQueue) {
-        const player = players.get(playerId);
-        if(!player) {
-          playersInQueue.delete(playerId);
-          continue;
+        } else {
+          game.resetGame(allLocations);
         }
-        if (player.gameId) {
-          continue;
-        }
-        if (playersCanJoin < 1) {
-          break;
-        }
-        game.addPlayer(player);
-        playersInQueue.delete(playerId);
-        playersCanJoin--;
       }
+
+
+      // // find games that can be joined
+      // if (playersInQueue.size < 1) {
+      //   continue;
+      // }
+      // if (!game.public) {
+      //   continue;
+      // }
+      // if (game.rounds - game.curRound < minRoundsRemaining) {
+      //   continue;
+      // }
+      // if (playerCnt >= game.maxPlayers) {
+      //   continue;
+      // }
+
+
+      // const multiplayerMax = Math.min(10, game.maxPlayers)
+      // let playersCanJoin = multiplayerMax - playerCnt;
+      // for (const playerId of playersInQueue) {
+      //   const player = players.get(playerId);
+      //   if(!player) {
+      //     playersInQueue.delete(playerId);
+      //     continue;
+      //   }
+      //   if (player.gameId) {
+      //     continue;
+      //   }
+      //   if (playersCanJoin < 1) {
+      //     break;
+      //   }
+      //   game.addPlayer(player);
+      //   playersInQueue.delete(playerId);
+      //   playersCanJoin--;
+      // }
 
     }
 
-    if (playersInQueue.size > 1) {
-      // create a new public game
-      const gameId = uuidv4();
-      const game = new Game(gameId, true, undefined, undefined, allLocations);
-      games.set(gameId, game);
+    // if (playersInQueue.size > 1) {
+    //   // create a new public game
+    //   const gameId = uuidv4();
+    //   const game = new Game(gameId, true, undefined, undefined, allLocations);
+    //   games.set(gameId, game);
 
-      let playersCanJoin = game.maxPlayers;
-      for (const playerId of playersInQueue) {
-        const player = players.get(playerId);
-        if (player.gameId) {
-          continue;
+    //   let playersCanJoin = game.maxPlayers;
+    //   for (const playerId of playersInQueue) {
+    //     const player = players.get(playerId);
+    //     if (player.gameId) {
+    //       continue;
+    //     }
+    //     if (playersCanJoin < 1) {
+    //       break;
+    //     }
+    //     game.addPlayer(player);
+    //     playersInQueue.delete(playerId);
+    //     playersCanJoin--;
+    //   }
+    // }
+
+    if (playersInQueue.size >= 1) {
+      const pairs = findDuelPairs(playersInQueue);
+      for(const pair of pairs) {
+        const [id1, id2] = pair;
+        const p1 = players.get(id1);
+        const p2 = players.get(id2);
+
+        const gameId = uuidv4();
+        const game = new Game(gameId, true, undefined, undefined, allLocations);
+        games.set(gameId, game);
+
+        game.addPlayer(p1, undefined, "p1");
+        game.addPlayer(p2, undefined, "p2");
+        playersInQueue.delete(id1);
+        playersInQueue.delete(id2);
+
+        // check if both have elo
+        if(p1.elo && p2.elo) {
+          // calculate elo change if p1 wins,loses,draws
+          // calculate elo change if p2 wins,loses,draws
+
+          const eloP1Win = calculateOutcomes(p1.elo, p2.elo, 1);
+          const eloDraw = calculateOutcomes(p1.elo, p2.elo, 0.5);
+          const eloP2Win = calculateOutcomes(p1.elo, p2.elo, 0);
+
+          game.eloChanges = {
+            [p1.id]: eloP1Win,
+            [p2.id]: eloP2Win,
+            draw: eloDraw
+          }
+
+
+          game.accountIds = {
+            p1: p1.accountId,
+            p2: p2.accountId
+          }
+
+
         }
-        if (playersCanJoin < 1) {
-          break;
+
+        game.pIds = {
+          p1: p1.id,
+          p2: p2.id
         }
-        game.addPlayer(player);
-        playersInQueue.delete(playerId);
-        playersCanJoin--;
+
+        // start the game
+        game.start();
+
+      }
+
+      // remaining players in queue check if wait was longer than 30 seconds, in that case set their elo range to infinity
+      for(const playerId of playersInQueue) {
+        const player = players.get(playerId[0]);
+        const queueData = playerId[1];
+        if(!queueData.guest && Date.now() - queueData.queueTime > 30000) {
+          playersInQueue.set(playerId[0], { ...queueData, min: 0, max: 10000, queueTime: Date.now() });
+
+          player.send({
+            type: 'publicDuelRange',
+            range: [0, 10000]
+          });
+        }
       }
     }
   }, 500);

@@ -1,7 +1,13 @@
 import cities from '../public/cities.json' with { type: "json" };
 
-export default function cityGen(_) {
-  const city = cities[Math.floor(Math.random() * cities.length)];
+export default function cityGen(location) {
+  let city = null;
+  if(location && location !== true) {
+    city=  cities.filter(c => c.country_code === location);
+  } else {
+    city = cities;
+  }
+  city = city[Math.floor(Math.random() * city.length)];
   const coord = city.coordinates;
   const lat = coord.lat;
   const long = coord.lon;

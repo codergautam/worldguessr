@@ -20,6 +20,7 @@ import Ad from "./bannerAd";
 import fixBranding from "./utils/fixBranding";
 import gameStorage from "./utils/localStorage";
 import RoundOverScreen from "./roundOverScreen";
+import HealthBar from "./duelHealthbar";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
@@ -140,6 +141,10 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
+
+
+   const isStartingDuel = (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)
+
   useEffect(() => {
     if(showAnswer) {
       setShowPanoOnResult(false)
@@ -377,7 +382,7 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
           setLostCountryStreak(countryStreak);
 
           // remove rewarded ads temporarily
-          if(false && countryStreak > 0 && window.adBreak && !inCrazyGames) {
+          if(countryStreak > 0 && window.adBreak && !inCrazyGames) {
           console.log("requesting reward ad")
           window.adBreak({
             type: 'reward',  // rewarded ad
@@ -446,6 +451,52 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
     </div>
 )}
 
+
+{ multiplayerState?.gameData?.public && (
+  <div className={`hbparent ${isStartingDuel ? 'hb-parent' : ''}`}>
+    <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
+  <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
+  className={(multiplayerState && isStartingDuel) ? 'hb-start1' : ''}>
+<HealthBar health={
+// get your points from the game state
+multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.score
+
+} maxHealth={5000} name={
+// get your name from the game state
+text("you")
+}
+isStartingDuel={isStartingDuel}
+elo={multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.elo} start={isStartingDuel} />
+</div>
+
+
+{ isStartingDuel && (
+  <p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 50, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none' }}>
+    VS
+  </p>
+) }
+
+<div style={{zIndex: 1001, position: "fixed", top: 0, right: 0, pointerEvents: 'none'}}
+className={isStartingDuel ? 'hb-start2' : ''}>
+<HealthBar health={
+// get your points from the game state
+multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.score
+
+} maxHealth={5000}
+isStartingDuel={isStartingDuel}
+name={
+// get your name from the game state
+multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.username
+} elo={multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.elo} start={true || isStartingDuel} />
+</div>
+</div>
+
+<p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none', marginTop: "10px" }}>
+{timeToNextMultiplayerEvt}
+
+</p>
+</div>
+)}
 {/*
 
 
@@ -459,14 +510,15 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
 
 } maxPoints={25000}
 history={singlePlayerRound.locations}
-buttonText={text("playAgain")}
-onHomePress={() =>{
+button1Text={text("playAgain")}
+button1Press={() =>{
   window.crazyMidgame(() =>
 
   loadLocationFunc()
   )
               }}/>
 )}
+
       {(!countryGuesser || (countryGuesser && showAnswer)) && (!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (
         <>
 
@@ -566,7 +618,7 @@ onHomePress={() =>{
         }
         }} />
       )}
-      <span className={`timer ${!multiplayerTimerShown ? '' : 'shown'}`}>
+      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'}  ${multiplayerState?.gameData?.public ? 'duel' : ''}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
@@ -590,14 +642,14 @@ onHomePress={() =>{
           )
         }
 
-        {multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.public && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
           <BannerText text={
             text("gameStartingIn", {t:timeToNextMultiplayerEvt})
           } shown={true} />
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.public && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
           <PlayerList multiplayerState={multiplayerState} playAgain={() => {
 
 
@@ -625,7 +677,9 @@ onHomePress={() =>{
           setShowStreakAdBanner(false)
         }} lostCountryStreak={lostCountryStreak} playAd={()=>{window.showRewardedAdFn()}} setLostCountryStreak={setLostCountryStreak} countryStreak={countryStreak} setCountryStreak={setCountryStreak} />
 
-<EndBanner singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
+<EndBanner
+countryStreaksEnabled={gameOptions?.location === "all"}
+singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
   loadLocationFunc()
 
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {

@@ -48,6 +48,7 @@ import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
+import LeagueModal from "./leagueModal";
 
 
 const initialMultiplayerState = {
@@ -57,7 +58,6 @@ const initialMultiplayerState = {
   gameQueued: false,
   inGame: false,
   nextGameQueued: false,
-  creatingGame: false,
   enteringGameCode: false,
   createOptions: {
     rounds: 5,
@@ -150,6 +150,7 @@ export default function Home({ }) {
   const [isApp, setIsApp] = useState(false);
   const [inCrazyGames, setInCrazyGames] = useState(false);
   const [maintenance, setMaintenance] = useState(false);
+  const [leagueModal, setLeagueModal] = useState(false);
 
   const [legacyMapLoader, setLegacyMapLoader] = useState(true);
 
@@ -190,7 +191,42 @@ export default function Home({ }) {
 
 
   const [config, setConfig] = useState(null);
+  const [eloData, setEloData] = useState(null);
+  const [animatedEloDisplay, setAnimatedEloDisplay] = useState(0);
+  useEffect(() => {
+    if(!session?.token?.username) return;
+    if(!leagueModal && window.firstFetchElo) return;
 
+    fetch(clientConfig().apiUrl+"/api/eloRank?username="+session?.token?.username).then((res) => res.json()).then((data) => {
+      setEloData(data)
+      window.firstFetchElo = true;
+    }).catch((e) => {
+      window.firstFetchElo = true;
+    });
+
+
+
+  }, [session?.token?.username, leagueModal])
+  useEffect(() => {
+    if (!eloData?.elo) return;
+
+    const interval = setInterval(() => {
+      setAnimatedEloDisplay((prev) => {
+        prev = parseInt(prev.toString().replace(/,/g, ""));
+        const diff = eloData.elo - prev;
+
+        // Determine the step based on the difference
+        const step = Math.ceil(Math.abs(diff) / 10) || 1; // Minimum step is 1
+
+        // Smooth animation
+        if (diff > 0) return Math.min(prev + step, eloData.elo);
+        if (diff < 0) return Math.max(prev - step, eloData.elo);
+        return prev;
+      });
+    }, 10);
+
+    return () => clearInterval(interval);
+  }, [eloData?.elo]);
   useEffect(() => {
     const clientConfigData = clientConfig();
     setConfig(clientConfigData);
@@ -342,7 +378,7 @@ export default function Home({ }) {
   const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
   const [showDiscordModal, setShowDiscordModal] = useState(false);
   const [singlePlayerRound, setSinglePlayerRound] = useState(null);
-
+  const [partyModalShown, setPartyModalShown] = useState(false);
   useEffect(() => {
     if(screen === "singleplayer") {
       // start the single player game
@@ -458,7 +494,11 @@ setShowCountryButtons(false)
     console.log("onboarding", onboarding, specifiedMapSlug)
     // make it false just for testing
     // gameStorage.setItem("onboarding", null)
-    if(onboarding && onboarding === "done") setOnboardingCompleted(true)
+    if(onboarding && onboarding === "done") {
+      setOnboardingCompleted(true)
+
+
+    }
       else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
   } catch(e) {
@@ -748,7 +788,7 @@ setShowCountryButtons(false)
             progress: true
           }
         }));
-        // join private game
+        // join Party
         ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0] }))
       sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
 
@@ -768,21 +808,8 @@ setShowCountryButtons(false)
     }
 
     if (action === "createPrivateGame") {
-      if (!args[0]) {
-      setScreen("multiplayer")
 
-        setMultiplayerState((prev) => {
-          return {
-            ...initialMultiplayerState,
-            connected: true,
-            creatingGame: true,
-            playerCount: prev.playerCount,
-            guestName: prev.guestName
-          }
-        })
-      } else {
-
-        const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
+        // const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
         // setMultiplayerState((prev) => ({
         //   ...prev,
         //   createOptions: {
@@ -815,15 +842,20 @@ setShowCountryButtons(false)
 
           // send ws
           // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
-          ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist,
-            nm: args[0].nm,
-            npz: args[0].npz,
-            showRoadName: args[0].showRoadName
+          ws.send(JSON.stringify({ type: "createPrivateGame"
 
-           }))
-          sendEvent("multiplayer_create_private_game", { rounds: args[0].rounds, timePerRound: args[0].timePerRound, location: args[0].location, maxDist })
+          }));
+          setPartyModalShown(true)
+          sendEvent("multiplayer_create_private_game")
           // })()
-      }
+    }
+
+    if(action === "setPrivateGameOptions" && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
+    setMultiplayerState((prev) => {
+      console.log(prev.createOptions)
+      ws.send(JSON.stringify({ type: "setPrivateGameOptions", rounds: prev.createOptions.rounds, timePerRound: prev.createOptions.timePerRound, nm: prev.createOptions.nm, npz: prev.createOptions.npz, showRoadName: prev.createOptions.showRoadName, location: prev.createOptions.location, displayLocation: prev.createOptions.displayLocation }))
+      return prev;
+    })
     }
 
     if (action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
@@ -941,7 +973,7 @@ setShowCountryButtons(false)
             setScreen("home")
             if(code) {
 
-              // join private game
+              // join Party
               handleMultiplayerAction("joinPrivateGame")
               // set the code
               setMultiplayerState((prev) => ({
@@ -957,7 +989,7 @@ setShowCountryButtons(false)
                 handleMultiplayerAction("joinPrivateGame", code)
               }, 1000)
             } else {
-              // create private game
+              // create Party
               handleMultiplayerAction("createPrivateGame")
             }
 
@@ -979,14 +1011,22 @@ setShowCountryButtons(false)
         }
       }))
     }
+
+      if (multiplayerState?.gameData?.state === "waiting") {
+        // remove gameData.finalPlayers
+        setMultiplayerState((prev) => ({ ...prev, gameData: { ...prev.gameData, finalPlayers: undefined } }));
+      }
   }, [multiplayerState?.gameData?.state])
 
+
   useEffect(() => {
-    if (!multiplayerState?.inGame) {
+    if (!multiplayerState?.inGame && multiplayerState?.gameData?.public) {
+
       setMultiplayerChatEnabled(false)
       setMultiplayerChatOpen(false)
     }
     if (!ws) return;
+
 
 
     ws.onmessage = (msg) => {
@@ -1007,6 +1047,14 @@ setShowCountryButtons(false)
         if (Math.abs(offset) > 1000 && ((Math.abs(offset) < Math.abs(timeOffset)) || !timeOffset)) {
           setTimeOffset(offset)
         }
+      }
+
+      if (data.type === "elo") {
+        setEloData((prev) => ({
+          ...prev,
+          league: data.league,
+          elo: data.elo,
+        }))
       }
 
       if (data.type === "cnt") {
@@ -1048,6 +1096,9 @@ setShowCountryButtons(false)
         setScreen("multiplayer")
         setMultiplayerState((prev) => {
 
+          if(!data.public) {
+            setMultiplayerChatEnabled(true)
+          }
 
           try {
           if(data.state === "waiting" && inCrazyGames && data.host) {
@@ -1057,13 +1108,14 @@ setShowCountryButtons(false)
           }
         } catch(e) {}
 
-        console.log("game", data)
         setGameOptions((prev) => ({
           ...prev,
           nm: data.nm,
           npz: data.npz,
           showRoadName: data.showRoadName
         }))
+
+
 
           if (data.state === "getready") {
             setMultiplayerChatEnabled(true)
@@ -1093,7 +1145,7 @@ setShowCountryButtons(false)
             if (didIguess) {
               setMultiplayerChatEnabled(true)
             } else {
-              setMultiplayerChatEnabled(false)
+              if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
             }
           }
 
@@ -1117,9 +1169,7 @@ setShowCountryButtons(false)
               type: undefined
             },
             enteringGameCode: false,
-            creatingGame: false,
             joinOptions: initialMultiplayerState.joinOptions,
-            createOptions: initialMultiplayerState.createOptions,
           }
         })
 
@@ -1128,7 +1178,23 @@ setShowCountryButtons(false)
         } else if (data.state === "guess") {
           setStreetViewShown(true)
         }
-      } else if(data.type === "maxDist") {
+      } else if(data.type === "duelEnd") {
+        console.log("duel end", data)
+        // { draw: boolean, newElo: number, oldElo: number, winner: boolean, timeElapsed: number }
+
+        setMultiplayerState((prev) => ({
+          ...prev,
+          gameData: {
+            ...prev.gameData,
+            duelEnd: data
+          }
+        }));
+      }else if(data.type === "publicDuelRange") {
+        setMultiplayerState((prev) => ({
+          ...prev,
+            publicDuelRange: data.range
+        }))
+      }else if(data.type === "maxDist") {
         const maxDist = data.maxDist;
         console.log("got new max dist", maxDist)
         setMultiplayerState((prev) => ({
@@ -1177,6 +1243,8 @@ setShowCountryButtons(false)
 
       } else if (data.type === "gameShutdown") {
         setScreen("home")
+      setMultiplayerChatEnabled(false)
+
         setMultiplayerState((prev) => {
           return {
             ...initialMultiplayerState,
@@ -1400,6 +1468,8 @@ setShowCountryButtons(false)
     if (loading) setLoading(false);
     if(multiplayerError) setMultiplayerError(false)
 
+      setPartyModalShown(false)
+
     if(window.learnMode) {
       // redirect to home
       window.location.href = "/"
@@ -1418,6 +1488,7 @@ setShowCountryButtons(false)
     setStreetViewShown(false)
 
     if (multiplayerState?.inGame) {
+      if(!multiplayerState?.gameData?.host || multiplayerState?.gameData?.state === "waiting") {
       ws.send(JSON.stringify({
         type: 'leaveGame'
       }))
@@ -1435,12 +1506,15 @@ setShowCountryButtons(false)
         }
       })
       setScreen("home")
+      setMultiplayerChatEnabled(false)
 
       if(["getready", "guess"].includes(multiplayerState?.gameData?.state)) {
         crazyMidgame()
       }
-
-    } else if ((multiplayerState?.creatingGame || multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
+    } else {
+      ws.send(JSON.stringify({ type: "resetGame" }))
+    }
+    } else if ((multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
 
       setMultiplayerState((prev) => {
         return {
@@ -1466,6 +1540,8 @@ setShowCountryButtons(false)
       setScreen("home")
 
     } else {
+      setMultiplayerChatEnabled(false)
+
       setScreen("home");
       setGameOptions((prev) => ({
         ...prev,
@@ -1506,8 +1582,11 @@ setShowCountryButtons(false)
     });
   }
   function fetchMethod() {
+    //gameOptions.countryMap && gameOptions.offical
     console.log("fetching")
-    fetch(window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:`/mapLocations/${gameOptions.location}`)).then((res) => res.json()).then((data) => {
+    fetch(window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:
+    gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
+    `/mapLocations/${gameOptions.location}`)).then((res) => res.json()).then((data) => {
       if(data.ready) {
         // this uses long for lng
         for(let i = 0; i < data.locations.length; i++) {
@@ -1562,9 +1641,7 @@ setShowCountryButtons(false)
       defaultMethod()
     });
   }
-  if(gameOptions.countryMap && gameOptions.official) {
-    defaultMethod()
-  } else {
+
     if(allLocsArray.length===0) {
       fetchMethod()
     } else if(allLocsArray.length>0) {
@@ -1594,7 +1671,6 @@ setShowCountryButtons(false)
       }
 
   }
-}
     }
 
   }
@@ -1614,10 +1690,11 @@ setShowCountryButtons(false)
   }
 
   const ChatboxMemo = React.useMemo(() => <ChatBox miniMapShown={miniMapShown} ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={
-    multiplayerChatEnabled
+    session?.token?.secret && multiplayerChatEnabled
   }
   isGuest={session?.token?.secret ? false : true}
-  myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, miniMapShown, session?.token?.secret])
+  publicGame={multiplayerState?.gameData?.public}
+  myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, miniMapShown, session?.token?.secret])
 
   // Send pong every 10 seconds if websocket is connected
   useEffect(() => {
@@ -1633,7 +1710,6 @@ setShowCountryButtons(false)
   const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 
   useEffect(() => {
-    console.log("panorama ref", panoramaRef.current)
     // const map =  new google.maps.Map(document.getElementById("map"), {
     //   center: fenway,
     //   zoom: 14,
@@ -1780,8 +1856,8 @@ setShowCountryButtons(false)
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
       <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
-      <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} />
-
+      {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
+      <LeagueModal shown={leagueModal} onClose={() => setLeagueModal(false)} session={session} eloData={eloData} />
       {ChatboxMemo}
     <ToastContainer/>
 
@@ -1794,7 +1870,7 @@ setShowCountryButtons(false)
   </div>
 </div>
 
-{screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && (
+{screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal && (
         <div className="home__footer">
           <div className="footer_btns">
         { !isApp && (
@@ -1900,12 +1976,11 @@ setTimeout(() => {
 
 
 
-        <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} shown={true} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} />
-
-{/* merch button */}
+      <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.public} />
+{/* ELO/League button */}
 {screen === "home" && !mapModal && session && session?.token?.secret && !inCrazyGames &&  !session?.token?.supporter && (
-  <button className="gameBtn merchBtn" onClick={()=>{setMerchModal(true)}}>
-    Remove Ads
+  <button className="gameBtn leagueBtn" onClick={()=>{setLeagueModal(true)}} style={{backgroundColor: eloData?.league?.color }}>
+    { !eloData ? '...' : animatedEloDisplay } ELO {eloData?.league?.emoji}
   </button>
 )}
 
@@ -1935,16 +2010,19 @@ setTimeout(() => {
                {/* <GameBtn text={text("singleplayer")} onClick={() => {
                 if (!loading) setScreen("singleplayer")
               }} /> */}
-              <button className="homeBtn" onClick={() => {
+              <button className="homeBtn singleplayer"
+
+                onClick={() => {
                 if (!loading) {
                   // setScreen("singleplayer")
                   crazyMidgame(() => setScreen("singleplayer"))
                 }
               }} >{text("singleplayer")}</button>
         {/* <span className="bigSpan">{text("playOnline")}</span> */}
-        <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
-          disabled={!multiplayerState.connected || maintenance}>{text("findDuel")}</button>
 
+
+        <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
+          disabled={!multiplayerState.connected || maintenance}>{session?.token?.secret ? text("rankedDuel") : text("findDuel")}</button>
 
         {/* <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span> */}
         <div className="multiplayerPrivBtns">
@@ -1999,7 +2077,7 @@ setTimeout(() => {
         <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
 
         <FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
-          // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a private game
+          // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a Party
           multiplayerState?.inGame && !multiplayerState?.gameData?.public
         } sendInvite={sendInvite} />
 
@@ -2030,7 +2108,7 @@ setTimeout(() => {
                   }
                 })
               }} shown={!onboarding?.finalOnboardingShown} />
-              <RoundOverScreen onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} onHomePress={() =>{
+              <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} button1Press={() =>{
                 if(onboarding) {
                   sendEvent("tutorial_end");
                   try {
@@ -2048,8 +2126,26 @@ setTimeout(() => {
               </div>
 }
 
+
+  <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")}
+
+  button1Press={() => {
+    backBtnPressed(true)
+
+  }}
+
+  button2Text={text("home")}
+  button2Press={() => {
+
+    backBtnPressed()
+
+
+  }}
+  />
+
+
         {screen === "multiplayer" && <div className="home__multiplayer">
-          <MultiplayerHome multiplayerError={multiplayerError} handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
+          <MultiplayerHome partyModalShown={partyModalShown} setPartyModalShown={setPartyModalShown} multiplayerError={multiplayerError} handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (

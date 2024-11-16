@@ -4,6 +4,8 @@ import isValidTimezone from "../../serverUtils/isValidTimezone.js";
 import moment from "moment";
 import { players } from "../../serverUtils/states.js";
 import User from "../../models/User.js";
+import { getLeague } from "../../components/utils/leagues.js";
+import { setElo } from "../../api/eloRank.js";
 export default class Player {
   constructor(ws, id, ip) {
     this.id = id;
@@ -23,6 +25,20 @@ export default class Player {
     this.sentReq = [];
     this.receivedReq = [];
     this.allowFriendReq = true;
+  }
+
+  setElo(newElo, gameData) {
+    if(!this.accountId) return;
+    console.log('Setting elo', this.id, this.username, newElo, 'old elo', this.elo);
+    this.elo = newElo;
+    setElo(this.accountId, newElo, gameData);
+
+    console.log('Elo set', this.id, this.username, newElo);
+    this.send({
+      type: 'elo',
+      elo: newElo,
+      league: getLeague(newElo)
+        });
   }
   async verify(json) {
         // account verification
@@ -65,6 +81,9 @@ export default class Player {
             this.supporter = valid.supporter;
             this.username = valid.username;
             this.accountId = valid._id.toString();
+            this.elo = valid.elo;
+            this.league = getLeague(this.elo).name;
+            console.log('User joined', this.id, this.username, this.elo);
             this.send({
             type: 'verify'
           });
@@ -158,12 +177,16 @@ export default class Player {
     // this.ws.send(JSON.stringify(json));
     // uws send
 
+    try {
     // convert json to string
     const str = JSON.stringify(json);
     // convert string to array buffer
     const buffer = new TextEncoder().encode(str);
     // send array buffer
     this.ws.send(buffer);
+    } catch(e) {
+      console.log('Error sending message to player', this.id, e.message, json);
+    }
   }
   setScreen(screen) {
     const validScreens = ["home", "singleplayer", "multiplayer"];

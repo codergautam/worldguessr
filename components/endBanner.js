@@ -1,7 +1,7 @@
 import calcPoints from "./calcPoints";
 import { useTranslation } from '@/components/useTranslations'
 
-export default function EndBanner({ singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
+export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
   const { t: text } = useTranslation("common");
 
   return (
@@ -37,10 +37,12 @@ export default function EndBanner({ singlePlayerRound, onboarding, countryGuesse
           {xpEarned > 0 && session?.token?.secret ? text("earnedXP", { xp: xpEarned }) : ''}
 
         </p>
+        {countryStreaksEnabled && (
         <p className="motivation">
           {countryStreak > 0 ? text("onCountryStreak", { streak: countryStreak }) : ''}
           {lostCountryStreak > 0 ? `${text("lostCountryStreak", { streak: lostCountryStreak })}!` : ''}
         </p>
+        )}
         <p className="motivation">
           {singlePlayerRound &&
 

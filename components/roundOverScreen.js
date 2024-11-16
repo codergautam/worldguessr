@@ -1,23 +1,34 @@
 import React, { useState, useEffect } from "react";
-import { useTranslation } from '@/components/useTranslations';
+import { useTranslation } from "@/components/useTranslations";
 import { FaTrophy, FaClock, FaStar } from "react-icons/fa";
+import msToTime from "./msToTime";
 
 export default function RoundOverScreen({
   history,
   points,
   time,
   maxPoints,
-  onHomePress,
-  buttonText,
+  button1Press,
+  button1Text,
+  button2Press,
+  button2Text,
+  duel,
+  data,
+  hidden
 }) {
+
+    // duel: true if the game is a duel
+  // data: {winner: boolean (true if you won), draw: boolean (true if it was a draw), oldElo, newElo, timeElapsed}
+
   const [animatedPoints, setAnimatedPoints] = useState(0);
+  const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
   const { t: text } = useTranslation("common");
 
   useEffect(() => {
     let start = 0;
     const end = points;
-    const duration = 1000; // Duration of the animation in milliseconds
+    const duration = 1000;
     const stepTime = duration / end ** 0.5;
 
     const interval = setInterval(() => {
@@ -31,8 +42,25 @@ export default function RoundOverScreen({
       }
     }, stepTime);
 
-    return () => clearInterval(interval); // Cleanup interval on component unmount
+    return () => clearInterval(interval);
   }, [points]);
+
+  useEffect(() => {
+    if (duel && data && typeof data.oldElo === "number" && typeof data.newElo === "number") {
+      const { oldElo, newElo } = data;
+      const duration = 1500;
+      const stepTime = duration / Math.abs(newElo - oldElo);
+
+      let currentElo = oldElo;
+      const interval = setInterval(() => {
+        currentElo += currentElo < newElo ? 1 : -1;
+        setAnimatedElo(currentElo);
+        if (currentElo === newElo) clearInterval(interval);
+      }, stepTime);
+
+      return () => clearInterval(interval);
+    }
+  }, [duel, data]);
 
   useEffect(() => {
     let newStars = [];
@@ -65,8 +93,60 @@ export default function RoundOverScreen({
     setStars(newStars);
   }, [animatedPoints]);
 
+  if (duel && data) {
+    const { winner, draw, oldElo, newElo } = data;
+    const eloChange = newElo - oldElo;
+
+    return (
+      <div className={`round-over-screen ${hidden?'hidden':''}`}>
+        <div className="round-over-content">
+        <span className="round-over-title bigSpan">{draw ? text("draw") : winner ? text("victory") : text("defeat")}</span>
+
+        <div className="round-over-details">
+  {typeof data.oldElo === "number" && typeof data.newElo === "number" && (
+    <>
+    <span className="elo-title" style={{ color: "black" }}
+    >{text("yourElo")}:</span>
+    <div className="elo-container">
+      <span className="elo-value">{animatedElo}</span>
+      <span
+        className="elo-change"
+        style={{ color: eloChange >= 0 ? "green" : "red" }}
+      >
+        {eloChange > 0 ? `+${eloChange}` : eloChange}
+      </span>
+    </div>
+    </>
+  )}
+
+  {data.timeElapsed > 0 && (
+    <div className="time-elapsed">
+      <FaClock /> {text("timeTakenTemplate", { t: msToTime(data.timeElapsed) })}
+    </div>
+  )}
+</div>
+
+
+
+
+        {button1Press && button1Text && (
+          <button className="play-again-btn" onClick={button1Press}>
+            {button1Text ?? text("home")}
+          </button>
+        )}
+        &nbsp;
+        {button2Press && button2Text && (
+          <button className="play-again-btn" onClick={button2Press}>
+            {button2Text ?? text("home")}
+          </button>
+        )}
+      </div>
+    </div>
+    );
+  }
+
   return (
-    <div className="round-over-screen">
+    <div className={`round-over-screen ${hidden?'hidden':''} ${duel?'duel':''}`}>
       <div className="round-over-content">
         <span className="round-over-title bigSpan">{text("roundOver")}!</span>
         <div className="star-container">
@@ -96,7 +176,7 @@ export default function RoundOverScreen({
             <FaTrophy className="detail-icon" />
             <span className="detail-text">
               {text("pointsEarnedTemplate", {
-                p: `${animatedPoints.toFixed(0)} / ${maxPoints}`,
+                p: `${animatedPoints?.toFixed(0)} / ${maxPoints}`,
               })}
             </span>
           </div>
@@ -128,9 +208,16 @@ export default function RoundOverScreen({
             </div>
           )}
         </div>
-        <button className="play-again-btn" onClick={onHomePress}>
-          {buttonText ?? text("home")}
-        </button>
+        {button1Press && button1Text && (
+          <button className="play-again-btn" onClick={button1Press}>
+            {button1Text ?? text("home")}
+          </button>
+        )}
+        {button2Press && button2Text && (
+          <button className="play-again-btn" onClick={button2Press}>
+            {button2Text ?? text("home")}
+          </button>
+        )}
       </div>
     </div>
   );
