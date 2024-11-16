@@ -4,7 +4,8 @@ export const leagues = {
     max: 1999,
     name: 'Trekker',
     emoji: '🥾',
-    color: '#808080' // grey
+    color: '#808080', // grey
+    light: '#d3d3d3' // light grey
   },
   'trekker': {
     min: 2000,

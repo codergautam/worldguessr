@@ -14,6 +14,7 @@ export default function RoundOverScreen({
   button2Text,
   duel,
   data,
+  hidden
 }) {
 
     // duel: true if the game is a duel
@@ -97,32 +98,34 @@ export default function RoundOverScreen({
     const eloChange = newElo - oldElo;
 
     return (
-      <div className="round-over-screen">
+      <div className={`round-over-screen ${hidden?'hidden':''}`}>
         <div className="round-over-content">
         <span className="round-over-title bigSpan">{draw ? text("draw") : winner ? text("victory") : text("defeat")}</span>
 
         <div className="round-over-details">
-          { typeof data.oldElo === "number" && typeof data.newElo === "number" && (
-            <>
-          <span className="elo-label">{text("elo")}:</span>
-          <span className="elo-value">{animatedElo}</span>
-          <span
-            className="elo-change"
-            style={{ color: eloChange >= 0 ? "green" : "red" }}
-          >
-            {eloChange > 0 ? `+${eloChange}` : eloChange}
-          </span>
-          </>
-        )}
+  {typeof data.oldElo === "number" && typeof data.newElo === "number" && (
+    <>
+    <span className="elo-title" style={{ color: "black" }}
+    >{text("yourElo")}:</span>
+    <div className="elo-container">
+      <span className="elo-value">{animatedElo}</span>
+      <span
+        className="elo-change"
+        style={{ color: eloChange >= 0 ? "green" : "red" }}
+      >
+        {eloChange > 0 ? `+${eloChange}` : eloChange}
+      </span>
+    </div>
+    </>
+  )}
 
-{ data.timeElapsed > 0 && (
-          <div className="time-elapsed">
-          <FaClock /> {text("timeTakenTemplate", { t:
+  {data.timeElapsed > 0 && (
+    <div className="time-elapsed">
+      <FaClock /> {text("timeTakenTemplate", { t: msToTime(data.timeElapsed) })}
+    </div>
+  )}
+</div>
 
-            msToTime(data.timeElapsed) })}
-        </div>
-        )}
-        </div>
 
 
 
@@ -143,7 +146,7 @@ export default function RoundOverScreen({
   }
 
   return (
-    <div className="round-over-screen">
+    <div className={`round-over-screen ${hidden?'hidden':''} ${duel?'duel':''}`}>
       <div className="round-over-content">
         <span className="round-over-title bigSpan">{text("roundOver")}!</span>
         <div className="star-container">
@@ -173,7 +176,7 @@ export default function RoundOverScreen({
             <FaTrophy className="detail-icon" />
             <span className="detail-text">
               {text("pointsEarnedTemplate", {
-                p: `${animatedPoints.toFixed(0)} / ${maxPoints}`,
+                p: `${animatedPoints?.toFixed(0)} / ${maxPoints}`,
               })}
             </span>
           </div>

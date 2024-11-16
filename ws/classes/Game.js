@@ -52,6 +52,7 @@ export default class Game {
       score: this.public ? 5000 : 0,
       host: host && !this.public,
       supporter: player.supporter,
+      elo: player.elo,
       tag,
       lastPong: Date.now() // Track the last pong received time
     };

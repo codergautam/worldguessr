@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getLeague } from './utils/leagues';
 
 const easeOutQuad = (t) => t * (2 - t);
 
@@ -50,7 +51,7 @@ const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel }) => {
         <span className="player-name">{name}
 
 {elo && (
-<span style={{color: 'red'}}> ({elo})</span>
+<span style={{color: getLeague(elo)?.light ?? getLeague(elo)?.color ?? "blue"}}> ({elo})</span>
 )}
 
           </span>

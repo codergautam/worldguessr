@@ -195,15 +195,18 @@ export default function Home({ }) {
   const [animatedEloDisplay, setAnimatedEloDisplay] = useState(0);
   useEffect(() => {
     if(!session?.token?.username) return;
+    if(!leagueModal && window.firstFetchElo) return;
 
     fetch(clientConfig().apiUrl+"/api/eloRank?username="+session?.token?.username).then((res) => res.json()).then((data) => {
       setEloData(data)
+      window.firstFetchElo = true;
     }).catch((e) => {
+      window.firstFetchElo = true;
     });
 
 
 
-  }, [session?.token?.username])
+  }, [session?.token?.username, leagueModal])
   useEffect(() => {
     if (!eloData?.elo) return;
 
@@ -1455,6 +1458,8 @@ setShowCountryButtons(false)
     if (loading) setLoading(false);
     if(multiplayerError) setMultiplayerError(false)
 
+      setPartyModalShown(false)
+
     if(window.learnMode) {
       // redirect to home
       window.location.href = "/"
@@ -1675,7 +1680,7 @@ setShowCountryButtons(false)
   }
 
   const ChatboxMemo = React.useMemo(() => <ChatBox miniMapShown={miniMapShown} ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={
-    multiplayerChatEnabled
+    session?.token?.secret && multiplayerChatEnabled
   }
   isGuest={session?.token?.secret ? false : true}
   publicGame={multiplayerState?.gameData?.public}
@@ -2113,19 +2118,21 @@ setTimeout(() => {
 }
 
 
-{multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd && (
-  <RoundOverScreen duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")}
+  <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")}
 
   button1Press={() => {
-    alert("play again")
+    backBtnPressed(true)
+
   }}
 
   button2Text={text("home")}
   button2Press={() => {
-    alert("home")
+
+    backBtnPressed()
+
+
   }}
   />
-)}
 
 
         {screen === "multiplayer" && <div className="home__multiplayer">

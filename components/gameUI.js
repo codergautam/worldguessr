@@ -466,7 +466,7 @@ multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameDat
 text("you")
 }
 isStartingDuel={isStartingDuel}
-elo={session?.token?.elo} start={isStartingDuel} />
+elo={multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.elo} start={isStartingDuel} />
 </div>
 
 
@@ -487,7 +487,7 @@ isStartingDuel={isStartingDuel}
 name={
 // get your name from the game state
 multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.username
-} elo={session?.token?.elo} start={true || isStartingDuel} />
+} elo={multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.elo} start={true || isStartingDuel} />
 </div>
 </div>
 

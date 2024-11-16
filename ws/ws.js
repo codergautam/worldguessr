@@ -409,7 +409,8 @@ app.ws('/wg', {
         if(!player.league) {
 
           const queueDetails = {
-            guest: true
+            guest: true,
+            queueTime: Date.now()
           }
           playersInQueue.set(player.id, queueDetails);
 
@@ -421,7 +422,8 @@ app.ws('/wg', {
           min: range[0],
           max: range[1],
           elo: player.elo,
-          guest: false
+          guest: false,
+          queueTime: Date.now()
         }
         playersInQueue.set(player.id, queueDetails);
 
@@ -1198,7 +1200,7 @@ app.ws('/wg', {
     //   }
     // }
 
-    if (playersInQueue.size > 1) {
+    if (playersInQueue.size >= 1) {
       const pairs = findDuelPairs(playersInQueue);
       for(const pair of pairs) {
         const [id1, id2] = pair;
@@ -1246,6 +1248,20 @@ app.ws('/wg', {
         // start the game
         game.start();
 
+      }
+
+      // remaining players in queue check if wait was longer than 30 seconds, in that case set their elo range to infinity
+      for(const playerId of playersInQueue) {
+        const player = players.get(playerId[0]);
+        const queueData = playerId[1];
+        if(!queueData.guest && Date.now() - queueData.queueTime > 30000) {
+          playersInQueue.set(playerId[0], { ...queueData, min: 0, max: 10000, queueTime: Date.now() });
+
+          player.send({
+            type: 'publicDuelRange',
+            range: [0, 10000]
+          });
+        }
       }
     }
   }, 500);

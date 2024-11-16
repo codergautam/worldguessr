@@ -222,5 +222,7 @@
   "findingOpponent": "Finding an opponent",
   "eloRange": "Elo Range",
   "findDuel": "Find a Duel",
-  "you": "You"
+  "you": "You",
+  "victory": "Victory",
+  "defeat": "Defeat"
 }

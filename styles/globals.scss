@@ -1438,6 +1438,17 @@ screen and (pointer:coarse) {
   align-items: center;
   background: rgba(0, 0, 0, 0.4);
   z-index: 1000;
+  transition: all 0.5s;
+  opacity: 1;
+  scale: 1;
+}
+.round-over-screen.duel {
+  background: rgba(0, 0, 0, 0);
+}
+.round-over-screen.hidden {
+  opacity: 0;
+  scale: 0;
+  pointer-events: none;
 }
 
 .round-over-content {
@@ -1464,9 +1475,29 @@ screen and (pointer:coarse) {
   align-items: center;
 }
 
-.elo-label,
-.elo-value,
+.elo-container {
+  display: flex;
+  align-items: baseline; /* Align smaller text with larger text */
+  gap: 8px; /* Add some space between Elo value and change */
+}
+
+.elo-value {
+  font-size: 2rem; /* Make Elo value larger */
+  font-weight: bold;
+  color: black;
+}
+
 .elo-change {
+  font-size: 1rem; /* Make Elo change smaller */
+  font-weight: normal;
+  color: green; /* Default color */
+}
+
+.time-elapsed {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 1rem;
   color: black;
 }
 
