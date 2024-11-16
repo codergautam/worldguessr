@@ -256,6 +256,14 @@ export default class Game {
     this.startTime = Date.now();
     this.nextEvtTime = this.startTime + 5000;
     this.curRound = 1;
+
+
+    // reset everyones score to 0
+    for (const playerId of Object.keys(this.players)) {
+      this.players[playerId].score = 0;
+    }
+    
+
     this.sendStateUpdate(true);
   }
   setGuess(playerId, latLong, final) {
