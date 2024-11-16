@@ -33,7 +33,6 @@ export default class Player {
     this.elo = newElo;
     setElo(this.accountId, newElo, gameData);
 
-    console.log('Elo set', this.id, this.username, newElo);
     this.send({
       type: 'elo',
       elo: newElo,
@@ -83,7 +82,6 @@ export default class Player {
             this.accountId = valid._id.toString();
             this.elo = valid.elo;
             this.league = getLeague(this.elo).name;
-            console.log('User joined', this.id, this.username, this.elo);
             this.send({
             type: 'verify'
           });

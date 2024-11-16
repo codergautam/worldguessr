@@ -253,7 +253,6 @@ app.get('/allCountries.json', (req, res) => {
   const locations = [];
   const totalCountries = countries.length;
   const locsPerCountry = locationCnt / totalCountries;
-  console.log(locsPerCountry);
   for (const country of countries) {
     const locs = countryLocations[country];
     const randomLocations = locs.sort(() => Math.random() - 0.5).slice(0, locsPerCountry);
@@ -361,10 +360,11 @@ async function calculateRanks() {
   console.timeEnd('Updated ranks');
 }
 
-// Calculate ranks every 200 seconds
+// Calculate ranks every 3 hours
+// setInterval(calculateRanks, 60 * 60 * 1000 * 3);
 function recursiveCalculateRanks() {
   calculateRanks().then(() => {
-    setTimeout(recursiveCalculateRanks, 200000);
+    setTimeout(recursiveCalculateRanks, 3 * 60 * 60 * 1000);
   });
 }
 recursiveCalculateRanks();
