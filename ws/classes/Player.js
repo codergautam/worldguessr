@@ -81,6 +81,7 @@ export default class Player {
             this.username = valid.username;
             this.accountId = valid._id.toString();
             this.elo = valid.elo;
+            this.banned = valid.banned;
             this.league = getLeague(this.elo).name;
             this.send({
             type: 'verify'

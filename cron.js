@@ -37,41 +37,29 @@ async function calculateRanks() {
   console.log('Calculating ranks');
   console.time('Updated ranks');
 
-  const users = await User.find({ banned: false }).select('elo totalXp lastEloHistoryUpdate').sort({ elo: -1, totalXp: -1 });
+  const users = await User.find({ banned: false }).select('elo lastEloHistoryUpdate').sort({ elo: -1 });
 
   // Prepare bulk operations
   const bulkOps = [];
-  let currentRank = 1;
-  let previousElo = null;
-  let previousTotalXp = null;
 
   for (let i = 0; i < users.length; i++) {
     const user = users[i];
 
-
-    // If the elo or totalXp changes, update the rank
-    if (user.elo !== previousElo || user.totalXp !== previousTotalXp) {
-      currentRank = i + 1; // 1-based rank
-      previousElo = user.elo;
-      previousTotalXp = user.totalXp;
-    }
-
     // Prepare the update operation for the current user
+    if((Date.now() - user.lastEloHistoryUpdate > 24 * 60 * 60 * 1000)) {
     bulkOps.push({
       updateOne: {
         filter: { _id: user._id },
         update: {
 
-          $set: { rank: currentRank },
-        ...(Date.now() - user.lastEloHistoryUpdate > 24 * 60 * 60 * 1000 && {
           $push: { elo_history: { elo: user.elo, time: Date.now() } },
           $set: { lastEloHistoryUpdate: Date.now() },
           $set: { elo_today: 0 },
-        })
 
       },
       },
     });
+  }
   }
 
   // Execute bulk operations
@@ -80,13 +68,14 @@ async function calculateRanks() {
   }
 
   console.timeEnd('Updated ranks');
+  console.log('bulkOps', bulkOps.length);
 }
 
-// Calculate ranks every 3 hours
+// Calculate ranks every 12 hours
 // setInterval(calculateRanks, 60 * 60 * 1000 * 3);
 function recursiveCalculateRanks() {
   calculateRanks().then(() => {
-    setTimeout(recursiveCalculateRanks, 3 * 60 * 60 * 1000);
+    setTimeout(recursiveCalculateRanks, 12 * 60 * 60 * 1000);
   });
 }
 recursiveCalculateRanks();

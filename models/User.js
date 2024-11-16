@@ -114,10 +114,7 @@ const userSchema = new mongoose.Schema({
   duels_tied: {
     type: Number,
     default: 0
-  },
-  rank: {
-    type: Number,
-  },
+  }
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);

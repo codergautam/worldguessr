@@ -26,9 +26,14 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    console.time('get user rank', user.username);
+    const rank = (await User.countDocuments({ elo: { $gt: user.elo },
+      banned: false
+    }).cache(2000)) + 1;
+    console.timeEnd('get user rank', user.username);
 
     // Return the user's elo and rank
-    return res.status(200).json({ elo: user.elo, rank: user.rank, league: getLeague(user.elo),
+    return res.status(200).json({ elo: user.elo, rank, league: getLeague(user.elo),
       duels_wins: user.duels_wins, duels_losses: user.duels_losses,
         duels_tied: user.duels_tied,
       win_rate: user.duels_wins / (user.duels_wins + user.duels_losses + user.duels_tied)

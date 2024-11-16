@@ -373,6 +373,15 @@ app.ws('/wg', {
 
       if ((json.type === 'publicDuel') && !player.gameId) {
         console.log('public duel requested by', player.username, player.ip);
+        if(player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'unableToJoinDuel',
+            toastType: 'error'
+          });
+          return;
+
+        }
         // get range of league
         player.inQueue = true;
 
