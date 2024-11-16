@@ -67,13 +67,13 @@ export default function LeagueModal({ shown, onClose, session, eloData }) {
                     {text("yourElo")}: <span style={{ color: '#ffd700' }}>{eloData.elo}</span>
                 </p>
 
-                <p style={{
+                {/* <p style={{
                     fontSize: '18px',
                     color: '#b0b0b0',
                     marginBottom: '5px'
                 }}>
                     {text("yourGlobalRank")}: <span style={{ color: '#ffd700' }}>#{eloData.rank}</span>
-                </p>
+                </p> */}
                 <p style={{
                     fontSize: '18px',
                     color: '#b0b0b0',
