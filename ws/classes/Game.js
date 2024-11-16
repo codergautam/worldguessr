@@ -44,7 +44,6 @@ export default class Game {
     if(Object.keys(this.players).length >= this.maxPlayers) {
       return;
     }
-    console.log('add player', player.username, tag);
     const playerObj = {
       username: player.username,
       accountId: player.accountId,
@@ -66,7 +65,6 @@ export default class Game {
     player.gameId = this.id;
     player.inQueue = false;
 
-    console.log(this.rounds);
     player.send({
       type: 'game',
       state: this.state,
@@ -391,7 +389,6 @@ export default class Game {
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
       } else if(countries.includes(this.location)) {
         try {
-          console.log('http://localhost:3001/countryLocations/+this.location')
           let data = await fetch('http://localhost:3001/countryLocations/'+this.location, {
             headers: {
               'Content-Type': 'application/json'
@@ -399,7 +396,6 @@ export default class Game {
           });
          data = await data.json();
           if(data.ready && data.locations) {
-            console.log('Got country locations', data.locations.length);
             loc = data.locations[Math.floor(Math.random() * data.locations.length)];
           } else {
       loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);

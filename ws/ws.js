@@ -1122,7 +1122,6 @@ app.ws('/wg', {
         if(game.curRound <= game.rounds) {
           game.curRound++;
           game.state = 'getready';
-          console.log(game.curRound);
           game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 5000: 0);
           game.sendStateUpdate();
 
