@@ -233,8 +233,8 @@ app.get('/countryLocations/:country', (req, res) => {
 
   if(countryLocations[req.params.country].cacheUpdate && Date.now() - countryLocations[req.params.country].cacheUpdate < 60 * 1000) {
     console.log('Serving countryLocations from cache');
-    
-    return res.json({ ready: countryLocations[req.params.country].locations>0, locations: countryLocations[req.params.country].locations });
+
+    return res.json({ ready: countryLocations[req.params.country].locations.length>0, locations: countryLocations[req.params.country].locations });
   } else {
 
 fetch('http://localhost:3003/countryLocations/'+req.params.country)
