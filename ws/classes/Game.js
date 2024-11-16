@@ -131,7 +131,7 @@ export default class Game {
     let p1score = 0;
     let p2score = 0;
 
-    const mult = 100;
+    const mult = 1;
     if(p1.guess ) {
     p1score = calcPoints({
       lat: loc.lat,
@@ -390,7 +390,25 @@ export default class Game {
         // get n random from the list
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
       } else if(countries.includes(this.location)) {
+        try {
+          console.log('http://localhost:3001/countryLocations/+this.location')
+          let data = await fetch('http://localhost:3001/countryLocations/'+this.location, {
+            headers: {
+              'Content-Type': 'application/json'
+            },
+          });
+         data = await data.json();
+          if(data.ready && data.locations) {
+            console.log('Got country locations', data.locations.length);
+            loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+          } else {
       loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
+
+          }
+        } catch (e) {
+          console.error('Error getting country locations', e);
+        }
+
       }
       this.locations.push(loc);
       if(!this.maxDist) this.maxDist = 20000;

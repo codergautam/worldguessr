@@ -497,7 +497,7 @@ setShowCountryButtons(false)
     if(onboarding && onboarding === "done") {
       setOnboardingCompleted(true)
 
-      
+
     }
       else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
@@ -1582,8 +1582,11 @@ setShowCountryButtons(false)
     });
   }
   function fetchMethod() {
+    //gameOptions.countryMap && gameOptions.offical
     console.log("fetching")
-    fetch(window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:`/mapLocations/${gameOptions.location}`)).then((res) => res.json()).then((data) => {
+    fetch(window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:
+    gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
+    `/mapLocations/${gameOptions.location}`)).then((res) => res.json()).then((data) => {
       if(data.ready) {
         // this uses long for lng
         for(let i = 0; i < data.locations.length; i++) {
@@ -1638,9 +1641,7 @@ setShowCountryButtons(false)
       defaultMethod()
     });
   }
-  if(gameOptions.countryMap && gameOptions.official) {
-    defaultMethod()
-  } else {
+
     if(allLocsArray.length===0) {
       fetchMethod()
     } else if(allLocsArray.length>0) {
@@ -1670,7 +1671,6 @@ setShowCountryButtons(false)
       }
 
   }
-}
     }
 
   }

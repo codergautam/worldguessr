@@ -151,7 +151,9 @@ const generateBalancedLocations = async () => {
           .then((latLong) => {
             const endTime = Date.now(); // End time after fetching location
             const duration = endTime - startTime; // Duration calculation
-            resolve({ country, latLong });
+
+            resolve({ country: latLong.country, latLong });
+
           })
           .catch(reject);
       });
@@ -166,10 +168,16 @@ const generateBalancedLocations = async () => {
 
       for (const { country, latLong } of batchResults) {
         // Update country-specific locations, ensuring a max of locationCnt
+        try {
+          if(countryLocations[country]) {
         countryLocations[country].unshift(latLong);
         if (countryLocations[country].length > locationCnt) {
           countryLocations[country].pop();
         }
+      }
+      } catch (error) {
+        console.error('Error updating country locations', error, country, latLong);
+      }
       }
 
 
@@ -251,8 +259,18 @@ app.get('/allCountries.json', (req, res) => {
     const randomLocations = locs.sort(() => Math.random() - 0.5).slice(0, locsPerCountry);
     locations.push(...randomLocations);
   }
-  return res.json({ ready: true, locations });
+  return res.json({ ready: locations.length>0, locations });
 
+});
+
+app.get('/countryLocations/:country', (req, res) => {
+  const country = req.params.country;
+  if (!countryLocations[country]) {
+    return res.status(404).json({ message: 'Country not found' });
+  }
+  return res.json({ ready:
+    countryLocations[country].length > 0,
+     locations: countryLocations[country] });
 });
 
 // Endpoint for /clueCountries.json
