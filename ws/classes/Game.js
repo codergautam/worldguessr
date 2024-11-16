@@ -460,15 +460,15 @@ export default class Game {
 
           if(p1obj) {
 
-          p1obj.setElo(p1NewElo, { draw: true });
+          p1obj.setElo(p1NewElo, { draw: true, oldElo: p1OldElo });
           } else {
-            setElo(this.accountIds.p1, p1NewElo, { draw: true });
+            setElo(this.accountIds.p1, p1NewElo, { draw: true, oldElo: p1OldElo });
           }
 
           if(p2obj) {
-          p2obj.setElo(changes.newRating2, { draw: true });
+          p2obj.setElo(changes.newRating2, { draw: true, oldElo: p2OldElo });
         } else {
-          setElo(this.accountIds.p2, changes.newRating2, { draw: true });
+          setElo(this.accountIds.p2, changes.newRating2, { draw: true, oldElo: p2OldElo });
         }
         } else if(winner) {
 
@@ -478,15 +478,15 @@ export default class Game {
           p2NewElo = changes.newRating2;
 
           if(p1obj) {
-          p1obj.setElo(changes.newRating1, { winner: winner.tag === 'p1' });
+          p1obj.setElo(changes.newRating1, { winner: winner.tag === 'p1', oldElo: p1OldElo });
           } else {
-            setElo(this.accountIds.p1, changes.newRating1, { winner: winner.tag === 'p1' });
+            setElo(this.accountIds.p1, changes.newRating1, { winner: winner.tag === 'p1', oldElo: p1OldElo });
           }
 
           if(p2obj) {
-          p2obj.setElo(changes.newRating2, { winner: winner.tag === 'p2' });
+          p2obj.setElo(changes.newRating2, { winner: winner.tag === 'p2', oldElo: p2OldElo });
           } else {
-            setElo(this.accountIds.p2, changes.newRating2, { winner: winner.tag === 'p2' });
+            setElo(this.accountIds.p2, changes.newRating2, { winner: winner.tag === 'p2', oldElo: p2OldElo });
           }
 
         }

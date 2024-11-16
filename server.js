@@ -272,7 +272,7 @@ async function calculateRanks() {
   console.log('Calculating ranks');
   console.time('Updated ranks');
 
-  const users = await User.find({ banned: false }).select('elo totalXp').sort({ elo: -1, totalXp: -1 });
+  const users = await User.find({ banned: false }).select('elo totalXp lastEloHistoryUpdate').sort({ elo: -1, totalXp: -1 });
 
   // Prepare bulk operations
   const bulkOps = [];
@@ -282,6 +282,7 @@ async function calculateRanks() {
 
   for (let i = 0; i < users.length; i++) {
     const user = users[i];
+
 
     // If the elo or totalXp changes, update the rank
     if (user.elo !== previousElo || user.totalXp !== previousTotalXp) {
@@ -294,7 +295,16 @@ async function calculateRanks() {
     bulkOps.push({
       updateOne: {
         filter: { _id: user._id },
-        update: { $set: { rank: currentRank } },
+        update: {
+
+          $set: { rank: currentRank },
+        ...(Date.now() - user.lastEloHistoryUpdate > 24 * 60 * 60 * 1000 && {
+          $push: { elo_history: { elo: user.elo, time: Date.now() } },
+          $set: { lastEloHistoryUpdate: Date.now() },
+          $set: { elo_today: 0 },
+        })
+
+      },
       },
     });
   }

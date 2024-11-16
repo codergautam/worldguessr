@@ -2,6 +2,9 @@ import User from '../models/User.js';
 const cache = { data: null, timestamp: null };
 const pastDayCache = { data: null, timestamp: null };
 
+const cacheElo = { data: null, timestamp: null };
+const pastDayCacheElo = { data: null, timestamp: null };
+
 function sendableUser(user) {
   if (!user.username) {
     return null;
@@ -11,6 +14,8 @@ function sendableUser(user) {
     totalXp: user.totalXp ?? user.xpGained,
     createdAt: user.created_at,
     gamesLen: user.games?.length ?? 0,
+    elo: user.elo,
+    eloToday: user.elo_today,
   };
 }
 
@@ -22,6 +27,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
+  const xp = req.query.mode === 'xp';
+  console.log('leaderboard', myUsername, pastDay, xp);
+
+  if(xp) {
   try {
     // Fetch top 100 users by XP
 
@@ -180,4 +189,60 @@ export default async function handler(req, res) {
     console.log("lb error", error);
     return res.status(500).json({ message: 'An error occurred', error: error.message });
   }
+} else {
+  try {
+    let leaderboard;
+    if (pastDay) {
+      if (pastDayCacheElo.data && pastDayCacheElo.timestamp && Date.now() - pastDayCacheElo.timestamp < 60000) {
+        leaderboard = pastDayCacheElo.data;
+      } else {
+        const topUsers = await User.aggregate([
+          {
+            $match: {
+              banned: false,
+              "elo_today": { $gte: 0 } // Elo change for today
+            }
+          },
+          {
+            $sort: { elo_today: -1 } // Sort users by Elo change for today
+          },
+          {
+            $limit: 100
+          }
+        ]);
+
+        leaderboard = topUsers.map(sendableUser).filter(user => user !== null);
+        pastDayCacheElo.data = leaderboard;
+        pastDayCacheElo.timestamp = Date.now();
+      }
+    } else {
+      if (cacheElo.data && cacheElo.timestamp && Date.now() - cacheElo.timestamp < 60000) {
+        leaderboard = cacheElo.data;
+      } else {
+        const topUsers = await User.find({ banned: false }).sort({ elo: -1 }).limit(100); // Sort by Elo
+        leaderboard = topUsers.map(sendableUser).filter(user => user !== null);
+        cacheElo.data = leaderboard;
+        cacheElo.timestamp = Date.now();
+      }
+    }
+
+    let myRank = null;
+    let myElo = null;
+    if (myUsername) {
+      const user = await User.findOne({ username: myUsername });
+      if (user) {
+        myElo = user.elo;
+        if (myElo) {
+          const myRankQuery = await User.find({ elo: { $gt: myElo }, banned: false }).countDocuments();
+          myRank = myRankQuery + 1;
+        }
+      }
+    }
+
+    return res.status(200).json({ leaderboard, myRank, myElo });
+  } catch (error) {
+    console.log("elo error", error);
+    return res.status(500).json({ message: 'An error occurred', error: error.message });
+  }
+}
 }

@@ -213,16 +213,20 @@
   "maintenanceModeEnded": "Maintenance mode has ended. Enjoy a full WorldGuessr experience!",
   "editOptions": "Edit Options",
   "leagues": "Leagues",
-  "yourElo": "Your Elo",
+  "yourElo": "Your ELO",
   "yourGlobalRank": "Your Global Rank",
   "duels_won": "Duels Won",
   "duels_lost": "Duels Lost",
   "duels_tied": "Duels Tied",
   "win_rate": "Win Rate",
   "findingOpponent": "Finding an opponent",
-  "eloRange": "Elo Range",
+  "eloRange": "ELO Range",
   "findDuel": "Find a Duel",
   "you": "You",
   "victory": "Victory",
-  "defeat": "Defeat"
+  "defeat": "Defeat",
+  "elo": "ELO",
+  "xp": "XP",
+  "leagueModalDesc": "Play duels to gain ELO and climb the leaderboard.",
+  "leagueModalDesc2": "Stats may be delayed up to 1 hour"
 }

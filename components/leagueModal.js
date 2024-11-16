@@ -41,6 +41,24 @@ export default function LeagueModal({ shown, onClose, session, eloData }) {
                     textShadow: '0px 0px 8px #ffd700'
                 }}>{text("leagues")}</h1>
 
+                {/* leagueModalDesc and leagueModalDesc2 */}
+                <p style={{
+                    fontSize: '18px',
+                    color: 'white',
+                    marginBottom: '2px',
+                    textShadow: '0px 0px 8px #ffd700'
+
+                }}>
+                    {text("leagueModalDesc")}
+                </p>
+                <p style={{
+                    fontSize: '18px',
+                    color: 'white',
+                    marginBottom: '7px'
+                }}>
+                    {text("leagueModalDesc2")}
+                </p>
+
                 <p style={{
                     fontSize: '18px',
                     color: '#b0b0b0',

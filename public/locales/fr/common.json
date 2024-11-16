@@ -211,5 +211,20 @@
   "maintenanceMode": "Mode de maintenance",
   "maintenanceModeStarted": "Le mode de maintenance a commencé",
   "maintenanceModeEnded": "Le mode de maintenance est terminé",
-  "editOptions": "Modifier les options"
+  "editOptions": "Modifier les options",
+  "leagues": "Ligues",
+  "yourElo": "Votre ELO",
+  "yourGlobalRank": "Votre classement mondial",
+  "duels_won": "Duels gagnés",
+  "duels_lost": "Duels perdus",
+  "duels_tied": "Duels nuls",
+  "win_rate": "Taux de victoire",
+  "findingOpponent": "Recherche d'un adversaire",
+  "eloRange": "Plage ELO",
+  "findDuel": "Trouver un duel",
+  "you": "Vous",
+  "victory": "Victoire",
+  "defeat": "Défaite",
+  "elo": "ELO",
+  "xp": "XP"
 }

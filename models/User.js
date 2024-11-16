@@ -91,9 +91,17 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 1000,
   },
+  elo_today: {
+    type: Number,
+    default: 0,
+  },
   elo_history: {
     type: Array,
     default: [],
+  },
+  lastEloHistoryUpdate: {
+    type: Date,
+    default: 0,
   },
   duels_wins: {
     type: Number,

@@ -34,6 +34,11 @@ export default class Player {
     setElo(this.accountId, newElo, gameData);
 
     console.log('Elo set', this.id, this.username, newElo);
+    this.send({
+      type: 'elo',
+      elo: newElo,
+      league: getLeague(newElo)
+        });
   }
   async verify(json) {
         // account verification

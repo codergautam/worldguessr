@@ -2282,9 +2282,10 @@ div[dir="ltr"] {
 }
 .mapSearchInput {
   width: 50%;
-  background-color: #8c8c8c !important;
+  background-color: #e3e3e3 !important;
   // placehoder color
   color: #000000 !important;
+  font-size: 1.3em;
 }
 .mapSearchInput::placeholder {
   color: #454545 !important;

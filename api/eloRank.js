@@ -46,7 +46,10 @@ export async function setElo(accountId, newElo, gameData) {
     console.log('Setting elo', accountId, newElo, 'old elo', gameData.oldElo, 'gameData', gameData);
 
     await User.updateOne({ _id: accountId }, { elo: newElo,
-      $inc: { duels_played: 1, duels_wins: gameData.winner ? 1 : 0, duels_losses: gameData.winner ? 0 : 1, duels_tied: gameData.draw ? 1 : 0 }
+      $inc: { duels_played: 1, duels_wins: gameData.winner ? 1 : 0, duels_losses: gameData.winner ? 0 : 1, duels_tied: gameData.draw ? 1 : 0,
+        elo_today: newElo - gameData.oldElo,
+
+       }
 
      });
   } catch (error) {

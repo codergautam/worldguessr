@@ -494,7 +494,11 @@ setShowCountryButtons(false)
     console.log("onboarding", onboarding, specifiedMapSlug)
     // make it false just for testing
     // gameStorage.setItem("onboarding", null)
-    if(onboarding && onboarding === "done") setOnboardingCompleted(true)
+    if(onboarding && onboarding === "done") {
+      setOnboardingCompleted(true)
+
+      
+    }
       else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
   } catch(e) {
@@ -1045,6 +1049,14 @@ setShowCountryButtons(false)
         }
       }
 
+      if (data.type === "elo") {
+        setEloData((prev) => ({
+          ...prev,
+          league: data.league,
+          elo: data.elo,
+        }))
+      }
+
       if (data.type === "cnt") {
         setMultiplayerState((prev) => ({
           ...prev,
@@ -1084,7 +1096,6 @@ setShowCountryButtons(false)
         setScreen("multiplayer")
         setMultiplayerState((prev) => {
 
-          console.log("game data", data)
           if(!data.public) {
             setMultiplayerChatEnabled(true)
           }
@@ -1097,7 +1108,6 @@ setShowCountryButtons(false)
           }
         } catch(e) {}
 
-        console.log("game", data)
         setGameOptions((prev) => ({
           ...prev,
           nm: data.nm,
@@ -1700,7 +1710,6 @@ setShowCountryButtons(false)
   const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 
   useEffect(() => {
-    console.log("panorama ref", panoramaRef.current)
     // const map =  new google.maps.Map(document.getElementById("map"), {
     //   center: fenway,
     //   zoom: 14,
