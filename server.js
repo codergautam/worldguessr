@@ -42,8 +42,9 @@ var app = express();
 import cors from 'cors';
 import cityGen from './serverUtils/cityGen.js';
 import User from './models/User.js';
-import { currentDate } from './ws/ws.js';
-
+function currentDate() {
+  return new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
+}
 app.use(cors());
 app.use(bodyParser.json({limit: '5mb'}));
 app.use(bodyParser.urlencoded({limit: '5mb', extended: true, parameterLimit:50000}));

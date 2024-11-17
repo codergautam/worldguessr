@@ -116,6 +116,8 @@ export default class Game {
         usedHint: false,
         maxDist: this.maxDist
       })
+    } else {
+      console.error('No location found for round', this.curRound, this.locations);
     }
 
     }
@@ -123,6 +125,8 @@ export default class Game {
     // subtract the difference of the score from the lower scored player
 
     const loc = this.locations[this.curRound - 1];
+    if(loc) {
+
     const p1= this.players[Object.keys(this.players)[0]];
     const p2 = this.players[Object.keys(this.players)[1]];
     if(!p1 || !p2) {
@@ -175,7 +179,9 @@ export default class Game {
       }
 
     }
-
+  } else {
+    console.error('No location found for round', this.curRound, this.locations);
+  }
   }
   }
 

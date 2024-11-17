@@ -38,7 +38,7 @@ let maintenanceMode = false;
 let dbEnabled = true;
 
 //get current date &time in cst
-export function currentDate() {
+function currentDate() {
   return new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
 }
 
@@ -1266,6 +1266,14 @@ app.ws('/wg', {
     }, 10000);
   }
 
+
+  setInterval(() => {
+    // log player count, game count, memory usage
+    const memUsage = process.memoryUsage().heapUsed;
+    const gameCnt = games.size;
+    const playerCnt = players.size;
+    console.log('Players:', playerCnt, 'Games:', gameCnt, 'Memory:', memUsage);
+  }, 5000)
   // // Check for pong messages and disconnect inactive clients
   // setInterval(() => {
   //   const currentTime = Date.now();
