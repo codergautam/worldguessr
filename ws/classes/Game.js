@@ -259,10 +259,12 @@ export default class Game {
 
 
     // reset everyones score to 0
+    if(!this.public) {
     for (const playerId of Object.keys(this.players)) {
       this.players[playerId].score = 0;
     }
-    
+  }
+
 
     this.sendStateUpdate(true);
   }
