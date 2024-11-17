@@ -13,73 +13,24 @@ import cityGen from './serverUtils/cityGen.js';
 
 configDotenv();
 
-let dbEnabled = false;
-if (!process.env.MONGODB) {
-  console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
-  dbEnabled = false;
-} else {
-  // Connect to MongoDB
-  if (mongoose.connection.readyState !== 1) {
-    try {
-      await mongoose.connect(process.env.MONGODB);
-      console.log('[INFO] Database Connected');
-      dbEnabled = true;
-    } catch (error) {
-      console.error('[ERROR] Database connection failed!'.red, error.message);
-      console.log(error);
-      dbEnabled = false;
-    }
-  }
-}
-
-async function calculateRanks() {
-  if (!dbEnabled) return;
-  console.log('Calculating ranks');
-  console.time('Updated ranks');
-
-  const users = await User.find({ banned: false }).select('elo lastEloHistoryUpdate').sort({ elo: -1 });
-
-  // Prepare bulk operations
-  const bulkOps = [];
-
-  for (let i = 0; i < users.length; i++) {
-    const user = users[i];
-
-    // Prepare the update operation for the current user
-    if((Date.now() - user.lastEloHistoryUpdate > 24 * 60 * 60 * 1000)) {
-    bulkOps.push({
-      updateOne: {
-        filter: { _id: user._id },
-        update: {
-
-          $push: { elo_history: { elo: user.elo, time: Date.now() } },
-          $set: { lastEloHistoryUpdate: Date.now() },
-          $set: { elo_today: 0 },
-
-      },
-      },
-    });
-  }
-  }
-
-  // Execute bulk operations
-  if (bulkOps.length > 0) {
-    await User.bulkWrite(bulkOps);
-  }
-
-  console.timeEnd('Updated ranks');
-  console.log('bulkOps', bulkOps.length);
-}
-
-// Calculate ranks every 12 hours
-// setInterval(calculateRanks, 60 * 60 * 1000 * 3);
-function recursiveCalculateRanks() {
-  calculateRanks().then(() => {
-    setTimeout(recursiveCalculateRanks, 12 * 60 * 60 * 1000);
-  });
-}
-recursiveCalculateRanks();
-
+// let dbEnabled = false;
+// if (!process.env.MONGODB) {
+//   console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
+//   dbEnabled = false;
+// } else {
+//   // Connect to MongoDB
+//   if (mongoose.connection.readyState !== 1) {
+//     try {
+//       await mongoose.connect(process.env.MONGODB);
+//       console.log('[INFO] Database Connected');
+//       dbEnabled = true;
+//     } catch (error) {
+//       console.error('[ERROR] Database connection failed!'.red, error.message);
+//       console.log(error);
+//       dbEnabled = false;
+//     }
+//   }
+// }
 
 
 let countryLocations = {};
@@ -134,9 +85,6 @@ const generateBalancedLocations = async () => {
       }
 
 
-        // log average number of locatiosn per country
-        const total = Object.values(countryLocations).reduce((acc, val) => acc + val.length, 0);
-        console.log('Average locations per country:', total / countries.length);
 
     } catch (error) {
       console.error('Error generating locations', error);

@@ -22,9 +22,7 @@ export default async function handler(req, res) {
 
   try {
     // Find user by the provided token
-    console.time('findUser');
     const user = id ? await User.findById(id).cache(120) : await User.findOne({ secret }).cache(120);
-    console.timeEnd('findUser');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

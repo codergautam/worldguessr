@@ -33,9 +33,7 @@ export default async function handler(req, res) {
   let user;
 
   if(secret) {
-    console.time('findUser');
     user = await User.findOne({ secret: secret });
-    console.timeEnd('findUser');
     if(typeof secret !== 'string') {
       return res.status(400).json({ message: 'Invalid input' });
     }
@@ -83,7 +81,6 @@ export default async function handler(req, res) {
   // find maps made by user
   if(user) {
     // created_at, slug, name, hearts,plays, description_short, map_creator_name, _id, in_review, official, accepted, reject_reason, resubmittable, locationsCnt
-    console.time('findMyMaps');
     let myMaps = await Map.find({ created_by: user._id.toString() }).select({
       created_at: 1,
       slug: 1,
@@ -111,7 +108,6 @@ export default async function handler(req, res) {
       if(!map.map_creator_name) {
       owner = await User.findById(map.created_by);
       // save map creator name
-      console.log('updating map creator name', map._id, owner.username, map.name);
       map.map_creator_name = owner.username;
       await map.save();
 
@@ -122,7 +118,6 @@ export default async function handler(req, res) {
     }));
     likedMapsSendable.sort((a,b) => b.created_at - a.created_at);
     if(likedMapsSendable.length > 0) response.likedMaps = likedMapsSendable;
-    console.timeEnd('findMyMaps');
   }
 
   response.countryMaps = Object.values(officialCountryMaps).map((map) => ({
@@ -152,11 +147,8 @@ export default async function handler(req, res) {
       // retrieve from db
       let maps = [];
       if(method === "recent") {
-        console.time('findRecentMaps');
         maps = await Map.find({ accepted: true }).sort({ created_at: -1 }).limit(100);
-        console.timeEnd('findRecentMaps');
       } else if(method === "popular") {
-        console.time('findPopularMaps');
         maps = await Map.find({ accepted: true })        .select({
           locationsCnt: { $size: "$data" },
           created_at: 1,
@@ -176,10 +168,8 @@ export default async function handler(req, res) {
       // sort and limit to 100
       maps = maps.sort((a,b) => b.hearts - a.hearts).slice(0,100);
 
-        console.timeEnd('findPopularMaps');
       } else if(method === "spotlight") {
         maps = await Map.find({ accepted: true, spotlight: true }).limit(100).allowDiskUse(true);
-        console.log('spotlight maps', maps.length);
       }
 
       let sendableMaps = await Promise.all(maps.map(async (map) => {
@@ -187,7 +177,6 @@ export default async function handler(req, res) {
         if(!map.map_creator_name && map.data) {
          owner = await User.findById(map.created_by);
           // save map creator name
-          console.log('updating map creator name', map._id, owner.username, map.name);
           map.map_creator_name = owner.username;
           await map.save();
         } else {

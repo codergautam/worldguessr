@@ -343,6 +343,15 @@ const Leaderboard = ({ }) => {
               <br/>
             </h2>
           )}
+
+          {/* elo past day doesnt work, display message */}
+          {pastDay && useElo && (
+            <h2 style={{marginBottom: '2rem'}}>
+              ELO past day leaderboard is not working at the moment.
+              We are working on fixing it.
+              <br/>
+            </h2>
+          )}
         <div className="leaderboard" id="leaderboard">
 
 

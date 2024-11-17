@@ -60,15 +60,15 @@ export default async function handler(req, res) {
   const newUser = new User({ crazyGamesId: userId, username: finalUsername, secret });
   await newUser.save();
 
-  try {
-    if (process.env.DISCORD_WEBHOOK) {
-      const hook = new Webhook(process.env.DISCORD_WEBHOOK);
-      hook.setUsername("WorldGuessr");
-      hook.send(`🎮 **${finalUsername}** has joined WorldGuessr from CrazyGames!`);
-    }
-  } catch (error) {
-    console.error('Error sending discord webhook', error);
-  }
+  // try {
+  //   if (process.env.DISCORD_WEBHOOK) {
+  //     const hook = new Webhook(process.env.DISCORD_WEBHOOK);
+  //     hook.setUsername("WorldGuessr");
+  //     hook.send(`🎮 **${finalUsername}** has joined WorldGuessr from CrazyGames!`);
+  //   }
+  // } catch (error) {
+  //   console.error('Error sending discord webhook', error);
+  // }
 
   return res.status(200).json({ secret: newUser.secret, username: newUser.username });
 }

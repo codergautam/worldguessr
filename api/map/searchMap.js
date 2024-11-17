@@ -25,7 +25,6 @@ export default async function searchMaps(req, res) {
   }
 
   let hearted_maps = user ? user.hearted_maps : null;
-  console.log('searching maps for query:', query);
 
   // Validate the search query
   if (!query || query.length < 3) {
@@ -36,7 +35,6 @@ export default async function searchMaps(req, res) {
   query = query.replace(/[^a-zA-Z0-9\s]/g, '');
 
   try {
-  console.time('searchMaps');
     // Find maps that match the search query in either name, short description, or author name
     let maps = await Map.find({
       accepted: true,
@@ -58,7 +56,6 @@ export default async function searchMaps(req, res) {
         owner = null;
       }
       // save map creator name
-      console.log('updating map creator name', map._id, owner.username, map.name);
       map.map_creator_name = owner.username;
       await map.save();
       } else{
@@ -67,7 +64,6 @@ export default async function searchMaps(req, res) {
 
       return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false, user?.staff, map.created_by === user?._id.toString());
     }));
-    console.timeEnd('searchMaps');
 
     res.status(200).json(sendableMaps);
   } catch (error) {

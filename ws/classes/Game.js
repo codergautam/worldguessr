@@ -365,7 +365,6 @@ export default class Game {
       // get n random from the list
       let locs = map.data;
       if(locs.length < this.rounds) {
-        console.error('Not enough locations in map', this.location);
         // send error to all players
         this.sendAllPlayers({
           type: 'toast',

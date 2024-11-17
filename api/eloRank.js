@@ -26,11 +26,9 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    console.time('get user rank', user.username);
     const rank = (await User.countDocuments({ elo: { $gt: user.elo },
       banned: false
     }).cache(2000)) + 1;
-    console.timeEnd('get user rank', user.username);
 
     // Return the user's elo and rank
     return res.status(200).json({ elo: user.elo, rank, league: getLeague(user.elo),
@@ -48,7 +46,6 @@ export async function setElo(accountId, newElo, gameData) {
   // gamedata -> {draw:true|false, winner: true|false}
   try {
 
-    console.log('Setting elo', accountId, newElo, 'old elo', gameData.oldElo, 'gameData', gameData);
 
     await User.updateOne({ _id: accountId }, { elo: newElo,
       $inc: { duels_played: 1, duels_wins: gameData.winner ? 1 : 0, duels_losses: gameData.winner ? 0 : 1, duels_tied: gameData.draw ? 1 : 0,

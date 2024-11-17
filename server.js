@@ -42,6 +42,7 @@ var app = express();
 import cors from 'cors';
 import cityGen from './serverUtils/cityGen.js';
 import User from './models/User.js';
+import { currentDate } from './ws/ws.js';
 
 app.use(cors());
 app.use(bodyParser.json({limit: '5mb'}));
@@ -117,7 +118,6 @@ async function updateRecentPlays() {
       const map = await MapModel.findOne({ slug: mapSlug });
       if(map && map.accepted) {
         map.plays += recentPlays[mapSlug];
-        console.log('Updating plays for', mapSlug, 'by', recentPlays[mapSlug]);
         await map.save();
       }
     }
@@ -148,7 +148,6 @@ const generateClueLocations = async () => {
 
   // shuffle
   uniqueLatLongs = new Set([...uniqueLatLongs].sort(() => Math.random() - 0.5));
-  console.log('Generating clue locations', uniqueLatLongs.size);
   // populate clueLocations
   // ex format: {"lat":17.90240017665545,"long":102.7868538747363,"country":"TH"}
   clueLocations = [];
@@ -198,7 +197,6 @@ app.get('/allCountries.json', (req, res) => {
   // Fetch this from cron localhost:3003/allCountries.json
   if(Date.now() - lastAllCountriesCacheUpdate < 60 * 1000 && allCountriesCache.length > 0) {
     res.json({ ready: true, locations: allCountriesCache });
-    console.log('Serving allCountries.json from cache');
 
   } else {
   fetch('http://localhost:3003/allCountries.json')
@@ -211,7 +209,7 @@ app.get('/allCountries.json', (req, res) => {
       res.json(data);
     })
     .catch(error => {
-      console.error('Error fetching allCountries.json', error);
+      console.error('Error fetching allCountries.json', error, currentDate());
       res.status(500).json({ ready: false, message: 'Error fetching allCountries.json' });
     });
   }
@@ -232,7 +230,6 @@ app.get('/countryLocations/:country', (req, res) => {
   }
 
   if(countryLocations[req.params.country].cacheUpdate && Date.now() - countryLocations[req.params.country].cacheUpdate < 60 * 1000) {
-    console.log('Serving countryLocations from cache');
 
     return res.json({ ready: countryLocations[req.params.country].locations.length>0, locations: countryLocations[req.params.country].locations });
   } else {
@@ -247,7 +244,7 @@ fetch('http://localhost:3003/countryLocations/'+req.params.country)
     res.json(data);
   })
   .catch(error => {
-    console.error('Error fetching countryLocations', error);
+    console.error('Error fetching countryLocations', error, currentDate());
     res.status(500).json({ ready: false, message: 'Error fetching countryLocations' });
   });
 }
@@ -255,9 +252,7 @@ fetch('http://localhost:3003/countryLocations/'+req.params.country)
 
 app.get('/mapLocations/:slug', async (req, res) => {
   const slug = req.params.slug;
-  console.time('mapLocations '+slug);
   const map = await MapModel.findOne({ slug }).cache(10000)
-  console.timeEnd('mapLocations '+slug);
   if (!map) {
     return res.status(404).json({ message: 'Map not found' });
   }

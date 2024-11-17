@@ -29,7 +29,6 @@ export default class Player {
 
   setElo(newElo, gameData) {
     if(!this.accountId) return;
-    console.log('Setting elo', this.id, this.username, newElo, 'old elo', this.elo);
     this.elo = newElo;
     setElo(this.accountId, newElo, gameData);
 
@@ -166,7 +165,6 @@ export default class Player {
             message: 'Failed to login',
             failedToLogin: true
           });
-          console.log('Failed to verify user', this.id);
           this.ws.close();
         }
       }

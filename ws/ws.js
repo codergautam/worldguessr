@@ -37,6 +37,11 @@ const playersInQueue = new Map();
 let maintenanceMode = false;
 let dbEnabled = true;
 
+//get current date &time in cst
+export function currentDate() {
+  return new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
+}
+
 // location generator
 let allLocations = [];
 const generateMainLocations = async () => {
@@ -45,13 +50,13 @@ const generateMainLocations = async () => {
     const data = await res.json();
     allLocations = data.locations??[];
   }).catch((e) => {
-    console.log('Failed to load locations', e);
+    console.error('Failed to load locations', e, currentDate());
   });
 
 
 };
 
-generateMainLocations();
+setTimeout(generateMainLocations, 2000);
 setInterval(generateMainLocations, 1000 * 10);
 
 // helpers
@@ -91,11 +96,11 @@ function log(...args) {
   console.log(new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }), ...args);
 
   // if(!dev) {
-    if(process.env.DISCORD_WEBHOOK_WS) {
-      const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
-      hook.setUsername("Logs"+(dev ? ' - Dev' : ''));
-      hook.send(args.join(' '));
-    }
+    // if(process.env.DISCORD_WEBHOOK_WS) {
+    //   const hook = new Webhook(process.env.DISCORD_WEBHOOK_WS);
+    //   hook.setUsername("Logs"+(dev ? ' - Dev' : ''));
+    //   hook.send(args.join(' '));
+    // }
   // }
 }
 
@@ -139,10 +144,10 @@ function log(...args) {
 
 
 blockedAt((time, stack) => {
-  if(time > 1000) console.log(`Blocked for ${time}ms, operation started here:`, JSON.stringify(stack, null, 2));
+  if(time > 1000) console.log(`Blocked for ${time}ms, operation started here:`, JSON.stringify(stack, null, 2), currentDate());
 })
 function stop(reason) {
-  console.error('Stopping server', reason);
+  console.error('Stopping server', reason, currentDate());
 }
 
 process.on('SIGTERM', () => {
@@ -157,13 +162,13 @@ process.on('SIGINT', () => {
 
 
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught exception', err);
+  console.error('Uncaught exception', err, currentDate());
   stop('uncaughtException');
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled rejection', reason, promise);
+  console.error('Unhandled rejection', reason, promise, currentDate());
   stop('unhandledRejection');
 });
 // uWebSockets.js
@@ -260,7 +265,7 @@ if (process.env.MAINTENANCE_SECRET) {
     setCorsHeaders(res);
     res.writeHeader('Content-Type', 'text/htmk');
     res.end('kick count: ' + cnt+'<br>banned ip: '+ip+'<br> all ips: '+[...bannedIps].join('<br>'));
-    console.log('Banned ip', ip);
+    console.log('Banned ip', ip, 'kicked', cnt, currentDate());
   });
   app.get(`/unbanIp/${maintenanceSecret}/:ip`, (res, req) => {
     const ip = req.getParameter(0);
@@ -269,7 +274,7 @@ if (process.env.MAINTENANCE_SECRET) {
     setCorsHeaders(res);
     res.writeHeader('Content-Type', 'text/plain');
     res.end('ok');
-    console.log('Unbanned ip', ip);
+    console.log('Unbanned ip', ip, currentDate());
   });
   app.get(`/getIpCounts/${maintenanceSecret}`, (res) => {
     const ipCounts = [...ipConnectionCount.entries()].map(([ip, cnt]) => ({ ip, cnt }));
@@ -301,7 +306,7 @@ app.ws('/wg', {
     }
     if([...bannedIps].some((bannedIp) => ip.includes(bannedIp))
        || ipConnectionCount.get(ip) && ipConnectionCount.get(ip) > 100) {
-      console.log('Banned ip tried to connect', ip);
+      console.log('Banned ip tried to connect', ip, currentDate());
       res.writeStatus('403 Forbidden');
       res.end();
       return;
@@ -319,7 +324,6 @@ app.ws('/wg', {
     const player = new Player(ws, id, ip);
     if(ip !== 'unknown') ipConnectionCount.set(ip, (ipConnectionCount.get(ip) || 0) + 1);
 
-    console.log('New connection', id, ip);
 
     player.send({
       type: 't',
@@ -372,7 +376,6 @@ app.ws('/wg', {
       }
 
       if ((json.type === 'publicDuel') && !player.gameId) {
-        console.log('public duel requested by', player.username, player.ip);
         if(player.banned) {
           player.send({
             type: 'toast',
@@ -442,7 +445,6 @@ app.ws('/wg', {
 
       if (json.type === 'leaveQueue' && player.inQueue) {
         player.inQueue = false;
-        console.log('public duel leave by', player.username);
 
         playersInQueue.delete(player.id);
       }
@@ -645,7 +647,6 @@ app.ws('/wg', {
         // if(!npz) npz = false;
         // if(!showRoadName) showRoadName = false;
 
-        console.log("Creating game", gameId);
 
         const game = new Game(gameId, false);
         // game.timePerRound = timePerRound * 1000;
@@ -676,7 +677,6 @@ app.ws('/wg', {
         // make sure player is host
         if(game.players[player.id].host) {
           let { rounds, timePerRound, location, nm, npz, showRoadName, displayLocation } = json;
-          console.log("setPrivateGameOptions", rounds, timePerRound, location, nm, npz, showRoadName);
           rounds = Number(rounds);
 
           // maxDist no longer required-> can be pulled from community map
@@ -1228,11 +1228,11 @@ app.ws('/wg', {
 
       }
 
-      // remaining players in queue check if wait was longer than 30 seconds, in that case set their elo range to infinity
+      // remaining players in queue check if wait was longer than 10 seconds, in that case set their elo range to infinity
       for(const playerId of playersInQueue) {
         const player = players.get(playerId[0]);
         const queueData = playerId[1];
-        if(!queueData.guest && Date.now() - queueData.queueTime > 30000) {
+        if(!queueData.guest && Date.now() - queueData.queueTime > 10000) {
           playersInQueue.set(playerId[0], { ...queueData, min: 0, max: 10000, queueTime: Date.now() });
 
           player.send({

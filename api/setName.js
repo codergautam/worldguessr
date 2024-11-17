@@ -46,15 +46,15 @@ export default async function handler(req, res) {
     user.username = username;
     await user.save();
 
-    try {
-      if(process.env.DISCORD_WEBHOOK) {
-        const hook = new Webhook(process.env.DISCORD_WEBHOOK);
-        hook.setUsername("WorldGuessr");
-        hook.send(`🎉 **${username}** has joined WorldGuessr!`);
-      }
-    } catch (error) {
-      console.error('Discord webhook failed', error);
-    }
+    // try {
+    //   if(process.env.DISCORD_WEBHOOK) {
+    //     const hook = new Webhook(process.env.DISCORD_WEBHOOK);
+    //     hook.setUsername("WorldGuessr");
+    //     hook.send(`🎉 **${username}** has joined WorldGuessr!`);
+    //   }
+    // } catch (error) {
+    //   console.error('Discord webhook failed', error);
+    // }
 
     res.status(200).json({ success: true });
   } catch (error) {

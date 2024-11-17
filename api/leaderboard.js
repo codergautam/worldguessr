@@ -28,7 +28,6 @@ export default async function handler(req, res) {
   }
 
   const xp = req.query.mode === 'xp';
-  console.log('leaderboard', myUsername, pastDay, xp);
 
   if(xp) {
   try {

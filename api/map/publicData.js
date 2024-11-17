@@ -6,7 +6,6 @@ import msToTime from "../../components/msToTime.js";
 
 export default async function handler(req, res) {
   const slug = req.query.slug;
-  console.log("Getting map data for", slug);
   const secret = await getServerSecret(req);
   const session = {};
   if(secret) {

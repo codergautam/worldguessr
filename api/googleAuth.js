@@ -18,11 +18,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid' });
     }
 
-    console.time('findUser');
             const userDb = await User.findOne({
           secret,
         }).select("secret username email staff canMakeClues supporter").cache(120);
-        console.timeEnd('findUser');
         if (userDb) {
           output = { secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter };
           return res.status(200).json(output);
@@ -58,7 +56,6 @@ export default async function handler(req, res) {
   const existingUser = await User.findOne({ email });
   let secret = null;
   if (!existingUser) {
-    console.log("User does not exist, creating a new user", email);
     secret = createUUID();
     const newUser = new User({ email, secret });
     await newUser.save();
