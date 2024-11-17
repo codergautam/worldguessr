@@ -107,6 +107,7 @@ export default class Game {
       }
 
       const loc = this.locations[this.curRound - 1];
+      if(loc) {
       player.score += calcPoints({
         lat: loc.lat,
         lon: loc.long,
@@ -115,6 +116,7 @@ export default class Game {
         usedHint: false,
         maxDist: this.maxDist
       })
+    }
 
     }
   } else {
