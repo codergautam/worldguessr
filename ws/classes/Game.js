@@ -379,6 +379,10 @@ export default class Game {
         long: loc.lng,
         lng: undefined
       }));
+      while(locs.length < this.rounds) {
+        locs.push(locs[Math.floor(Math.random() * locs.length)]);
+      }
+
       this.locations = locs;
 
       this.sendAllPlayers({
