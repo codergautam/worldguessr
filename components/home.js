@@ -1816,6 +1816,25 @@ setShowCountryButtons(false)
 
   }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName, legacyMapLoader, showAnswer])
 
+
+  useEffect(() => {
+    function checkForCheats() {
+      if(document.getElementById("coordinates")) return true;
+      return false;
+    }
+    function banGame() {
+      document.write("<h1>You have been banned from playing this game.</h1> If you believe this is a mistake, please contact us at	support@worldguessr.com")
+    }
+    if(checkForCheats()) {
+      banGame();
+    }
+    const i = setInterval(() => {
+      if(checkForCheats()) {
+        banGame();
+      }
+    }, 10000);
+    return () => clearInterval(i);
+  }, [])
 //   useEffect(() => {
 // //!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
 //     // debug this condition:
