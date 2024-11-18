@@ -81,6 +81,9 @@ export default function HeadContent({text}) {
       defer
     ></script>
 
+<script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script>
+
+
 {/* data-adbreak-test="on" */}
 {/*  */}
 
