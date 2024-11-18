@@ -378,7 +378,6 @@ export default class Game {
           type: 'toast',
           key: 'notEnoughLocationsInMap'
         });
-        this.rounds = locs.length;
       }
       locs = locs.sort(() => Math.random() - 0.5).slice(0, this.rounds).map((loc) => ({
         // lng -> long
