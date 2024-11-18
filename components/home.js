@@ -1820,10 +1820,18 @@ setShowCountryButtons(false)
   useEffect(() => {
     function checkForCheats() {
       if(document.getElementById("coordinates")) return true;
+      try {
+      if(window.localStorage.getItem("banned")) return true;
+      } catch(e) {
+      }
       return false;
     }
     function banGame() {
+      if(window.banned) return;
+      sendEvent("cheat_detected")
+      window.banned = true;
       document.write("<h1>You have been banned from playing this game.</h1> If you believe this is a mistake, please contact us at	support@worldguessr.com")
+      window.localStorage.setItem("banned", "true")
     }
     if(checkForCheats()) {
       banGame();
