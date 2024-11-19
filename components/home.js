@@ -49,6 +49,7 @@ import MerchModal from "@/components/merchModal";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
 import LeagueModal from "./leagueModal";
+import haversineDistance from "./utils/haversineDistance";
 
 
 const initialMultiplayerState = {
@@ -1709,6 +1710,7 @@ setShowCountryButtons(false)
   const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 
   useEffect(() => {
+    let intt=null;
     // const map =  new google.maps.Map(document.getElementById("map"), {
     //   center: fenway,
     //   zoom: 14,
@@ -1755,6 +1757,25 @@ setShowCountryButtons(false)
   } else {
 
     panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
+let setTime = Date.now();
+    function snapBack() {
+      const panoramaPos = panoramaRef.current.getPosition();
+      const distance = haversineDistance(panoramaPos.lat(), panoramaPos.lng(), latLong.lat, latLong.long);
+      console.log("distance", distance)
+      if(distance > 10) {
+        panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
+      }
+    }
+    intt=setInterval(() => {
+      if(Date.now() - setTime > 3000) {
+        console.log("clearing interval")
+        return clearInterval(intt);
+      }
+      // if too far from latLong, reset to latLong
+      snapBack();
+    }, 200)
+
+
 
     window.reloadLoc = () => {
       panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
@@ -1809,6 +1830,7 @@ setShowCountryButtons(false)
 
 
     return () => {
+      if(intt) clearInterval(intt);
       if(!panoramaRef.current) return;
       google.maps.event.clearListeners(panoramaRef.current, 'pano_changed');
     }
