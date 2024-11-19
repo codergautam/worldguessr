@@ -1820,10 +1820,10 @@ setShowCountryButtons(false)
   useEffect(() => {
     function checkForCheats() {
       if(document.getElementById("coordinates")) return true;
-      try {
-      if(window.localStorage.getItem("banned")) return true;
-      } catch(e) {
-      }
+      // try {
+      // if(window.localStorage.getItem("banned")) return true;
+      // } catch(e) {
+      // }
       return false;
     }
     function banGame() {

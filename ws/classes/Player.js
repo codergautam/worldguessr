@@ -30,6 +30,7 @@ export default class Player {
   setElo(newElo, gameData) {
     if(!this.accountId) return;
     this.elo = newElo;
+    this.league = getLeague(newElo).name;
     setElo(this.accountId, newElo, gameData);
 
     this.send({
