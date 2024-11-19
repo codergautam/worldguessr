@@ -66,7 +66,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         map.setView([30, 0], 2);
       }
     }, 500);
-  }, [gameOptions?.extent, answerShown, map]);
+  }, [gameOptions?.extent ? JSON.stringify(gameOptions.extent) : null, map, answerShown]);
 
   useEffect(() => {
     if (pinPoint) {
