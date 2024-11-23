@@ -1,5 +1,8 @@
 import make6DigitCode from "../../serverUtils/make6DigitCode.js";
 import countries from '../../public/countries.json' with {type: "json"};
+import officialCountryMaps from '../../public/officialCountryMaps.json' with {type: "json"};
+import countryMaxDists from '../../public/countryMaxDists.json' with {type: "json"};
+
 import MapModel from "../../models/Map.js";
 import findLatLongRandom from '../../components/findLatLongServer.js';
 import {games, players } from '../../serverUtils/states.js';
@@ -407,6 +410,8 @@ export default class Game {
       if(this.location === "all") {
         // get n random from the list
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
+        this.maxDist = 20000;
+        this.extent = null;
       } else if(countries.includes(this.location)) {
         try {
           let data = await fetch('http://localhost:3001/countryLocations/'+this.location, {
@@ -427,12 +432,20 @@ export default class Game {
 
       }
       this.locations.push(loc);
-      if(!this.maxDist) this.maxDist = 20000;
+      this.maxDist = countryMaxDists[this.location] || 20000;
+      this.extent = officialCountryMaps.find((c) => c.countryCode === this.location)?.extent || null;
+      console.log('Extent', this.extent, this.location);
+
       this.sendAllPlayers({
         type: 'generating',
         generated: this.locations.length,
       })
     }
+
+    this.sendAllPlayers({
+      type: 'maxDist',
+      maxDist: this.maxDist
+    });
   }
   }
   sendAllPlayers(json) {
