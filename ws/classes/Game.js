@@ -434,7 +434,7 @@ export default class Game {
       this.locations.push(loc);
       this.maxDist = countryMaxDists[this.location] || 20000;
       this.extent = officialCountryMaps.find((c) => c.countryCode === this.location)?.extent || null;
-      console.log('Extent', this.extent, this.location);
+      // console.log('Extent', this.extent, this.location);
 
       this.sendAllPlayers({
         type: 'generating',
