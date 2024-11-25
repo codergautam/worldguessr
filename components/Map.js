@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Popup, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
 import 'leaflet/dist/leaflet.css';
+import customPins from '../public/customPins.json' with { type: "module" };
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
 // Dynamic import of react-leaflet components
@@ -110,8 +111,12 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
     iconAnchor: [12, 41],
     popupAnchor: [1, -34],
   });
-
-
+  const polandballIcon = L.icon({
+    iconUrl: './polandball.png',
+    iconSize: [50, 82],
+    iconAnchor: [25, 41],
+    popupAnchor: [1, 5],
+  });
 
 
   useEffect(() => {
@@ -155,7 +160,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
       )}
       {pinPoint && (
         <>
-          <Marker position={pinPoint} icon={srcIcon} >
+          <Marker position={pinPoint} icon={customPins[session?.token?.username] === "polandball" ? polandballIcon : srcIcon} >
           <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent  position={{ lat: pinPoint.lat, lng: pinPoint.lng }}>
 
               {text("yourGuess")}
@@ -177,11 +182,13 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         const name = player.username;
         const latLong = [player.guess[0], player.guess[1]];
 
+        const tIcon = customPins[name]==="polandball" ? polandballIcon : src2Icon;
+
         return (
           <>
-            <Marker key={(index*2)} position={{ lat: latLong[0], lng: latLong[1] }} icon={src2Icon}>
+            <Marker key={(index*2)} position={{ lat: latLong[0], lng: latLong[1] }} icon={tIcon}>
             <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent  position={{ lat: latLong[0], lng: latLong[1] }}>
-              <span style={{color: "black"}}>{player.username}</span>
+              <span style={{color: "black"}}>{name}</span>
             </Tooltip>
             </Marker>
             <Polyline key={(index*2)+1} positions={[{ lat: latLong[0], lng: latLong[1] }, { lat: location.lat, lng: location.long }]} color="green" />

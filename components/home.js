@@ -1431,6 +1431,9 @@ setShowCountryButtons(false)
     img2.src = "./dest.png";
     const img3 = new Image();
     img3.src = "./src2.png";
+    // easter eggs too
+    const polandball = new Image();
+    polandball.src = "./polandball.png";
   } catch(e) {}
 
   }, [])
