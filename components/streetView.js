@@ -17,7 +17,7 @@ const StreetView = ({
   const googleMapsDivId = "googlemaps";
 
   // Helper to determine whether to use iframe or SDK
-  const shouldUseEmbed = showAnswer || (showRoadLabels && ((!nm && !npz) || (nm && npz)));
+  const shouldUseEmbed = (showRoadLabels && ((!nm && !npz) || (nm && npz)));
 
   // Reload location logic
   const reloadLocation = () => {
@@ -103,7 +103,22 @@ const StreetView = ({
         panoramaRef.current = null;
       }
     };
-  }, [lat, long, nm, npz, showRoadLabels, showAnswer, shouldUseEmbed]);
+  }, [lat, long, nm, npz, showRoadLabels, shouldUseEmbed]);
+
+  useEffect(() => {
+    if(showAnswer) {
+    if(!shouldUseEmbed) {
+      // nm,npz off temporarily
+      console.log("temporarily disabling nm,npz");
+        panoramaRef.current.setOptions({
+          linksControl: true,
+          clickToGo: true,
+          panControl: false,
+          zoomControl: false,
+        });
+      }
+  }
+  }, [showAnswer]);
 
   return shouldUseEmbed ? (
     <iframe
