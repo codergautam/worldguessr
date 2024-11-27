@@ -79,9 +79,7 @@ export default function Home({ }) {
 
   const { width, height } = useWindowDimensions();
   const statsRef = useRef();
-  if(statsRef.current) {
-    statsRef.current.begin();
-  }
+
   const [session, setSession] = useState(false);
   const { data: mainSession } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -122,8 +120,7 @@ stats.dom.style.pointerEvents = "none";
 
 document.body.appendChild( stats.dom );
 statsRef.current = stats;
-return () => {
-}
+
       } else {
         statsRef.current.dom.style.display = "";
       }
@@ -132,6 +129,24 @@ return () => {
         statsRef.current.dom.style.display = "none";
       }
     }
+
+    let id = null;
+
+    function animate() {
+      statsRef.current.begin();
+      // monitored code goes here
+      statsRef.current.end();
+
+      id = requestAnimationFrame( animate );
+    }
+    if(statsRef.current)
+    animate();
+
+    return () => {
+
+      cancelAnimationFrame(id);
+    }
+
 
   },[ options?.ramUsage] )
 
@@ -1773,9 +1788,7 @@ setShowCountryButtons(false)
 
 //   }, [latLong, multiplayerState?.gameData?.state, streetViewShown, loading, showAnswer, showPanoOnResult])
 
-if(statsRef.current) {
-  statsRef.current.end();
-}
+
   return (
     <>
       <HeadContent text={text}/>
