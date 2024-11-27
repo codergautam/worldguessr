@@ -1844,7 +1844,7 @@ let setTime = Date.now();
 
   useEffect(() => {
     function checkForCheats() {
-      if(document.getElementById("coordinates")) return true;
+      if(document.getElementById("coo1rdinates")) return true;
       // try {
       // if(window.localStorage.getItem("banned")) return true;
       // } catch(e) {
