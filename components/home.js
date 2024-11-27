@@ -1855,7 +1855,7 @@ let setTime = Date.now();
       if(window.banned) return;
       sendEvent("cheat_detected")
       // redirect to banned page
-      alert("Cheat detected.")
+      alert("imagine cheating on a free geography game. L")
       window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
       window.banned = true;
       document.write("<h1>You have been banned from playing this game.</h1> If you believe this is a mistake, please contact us at	support@worldguessr.com")
