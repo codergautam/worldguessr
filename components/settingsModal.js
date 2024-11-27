@@ -75,6 +75,12 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 <input type="checkbox" id="disableVideoAds" checked={options.disableVideoAds} onChange={() => setOptions((prevOptions) => ({ ...prevOptions, disableVideoAds: !prevOptions.disableVideoAds }))} />
                 <label htmlFor="disableVideoAds" style={{ marginLeft: '10px' }}>{text("disableVideoAds")}</label>
             </div> */}
+
+                        {/* disableVideoAds checkbox */}
+            <div style={{ marginTop: '20px' }}>
+                <input type="checkbox" id="ramUsage" checked={options.ramUsage} onChange={() => setOptions((prevOptions) => ({ ...prevOptions, ramUsage: !prevOptions.ramUsage }))} />
+                <label htmlFor="ramUsage" style={{ marginLeft: '10px' }}>Show RAM Usage</label>
+            </div>
             </>
             )}
 

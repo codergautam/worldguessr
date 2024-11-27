@@ -17,7 +17,7 @@ const initMakeMap = {
   mapId: "",
 };
 
-export default function MapView({ inLegacy, gameOptions, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
+export default function MapView({ gameOptions, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
   const [makeMap, setMakeMap] = useState(initMakeMap);
   const [mapHome, setMapHome] = useState({
     message: text("loading") + "...",

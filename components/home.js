@@ -50,7 +50,8 @@ import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
 import LeagueModal from "./leagueModal";
 import haversineDistance from "./utils/haversineDistance";
-
+import StreetView from "./streetView";
+import Stats from "stats.js";
 
 const initialMultiplayerState = {
   connected: false,
@@ -75,8 +76,12 @@ const initialMultiplayerState = {
 }
 
 export default function Home({ }) {
-  const { width, height } = useWindowDimensions();
 
+  const { width, height } = useWindowDimensions();
+  const statsRef = useRef();
+  if(statsRef.current) {
+    statsRef.current.begin();
+  }
   const [session, setSession] = useState(false);
   const { data: mainSession } = useSession();
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -103,6 +108,32 @@ export default function Home({ }) {
   });
   const [multiplayerError, setMultiplayerError] = useState(null);
   const [miniMapShown, setMiniMapShown] = useState(false)
+
+  useEffect(() => {
+    const {ramUsage} = options;
+    if(ramUsage) {
+      if(!statsRef.current) {
+    var stats = new Stats();
+stats.showPanel( 2 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+
+// move a bit lower
+stats.dom.style.transform = "translate(10px, 150px)";
+stats.dom.style.pointerEvents = "none";
+
+document.body.appendChild( stats.dom );
+statsRef.current = stats;
+return () => {
+}
+      } else {
+        statsRef.current.dom.style.display = "";
+      }
+    } else {
+      if(statsRef.current) {
+        statsRef.current.dom.style.display = "none";
+      }
+    }
+
+  },[ options?.ramUsage] )
 
   let login = null;
   if(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
@@ -152,23 +183,6 @@ export default function Home({ }) {
   const [inCrazyGames, setInCrazyGames] = useState(false);
   const [maintenance, setMaintenance] = useState(false);
   const [leagueModal, setLeagueModal] = useState(false);
-
-  const [legacyMapLoader, setLegacyMapLoader] = useState(true);
-
-  useEffect(() => {
-
-    console.log("game options",(gameOptions?.showRoadName===true))
-    if((gameOptions?.showRoadName===true) && !gameOptions?.nm &&  !gameOptions?.npz) {
-
-      console.log("showing road name")
-      setLegacyMapLoader(true); // rate limit fix: uselegacymaploader
-      // setLegacyMapLoader(false);
-    } else {
-
-      console.log("hiding road name")
-      setLegacyMapLoader(false);
-    }
-  }, [gameOptions?.nm, gameOptions?.npz,gameOptions?.showRoadName])
 
   useEffect(() => {
 
@@ -711,6 +725,7 @@ setShowCountryButtons(false)
 
       setOptions({
         units: system,
+        ramUsage: false,
         mapType: "m" //m for normal
       })
     }
@@ -924,6 +939,7 @@ setShowCountryButtons(false)
     }
   })();
   }, [multiplayerState, ws, screen])
+
 
   useEffect(() => {
 
@@ -1571,6 +1587,7 @@ setShowCountryButtons(false)
     setPinPoint(null)
     setLatLong(null)
     setHintShown(false)
+
     if(screen === "onboarding") {
       setLatLong(onboarding.locations[onboarding.round - 1]);
       let options = JSON.parse(JSON.stringify(onboarding.locations[onboarding.round - 1].otherOptions));
@@ -1709,137 +1726,7 @@ setShowCountryButtons(false)
 
     return () => clearInterval(pongInterval);
   }, [ws]);
-  const panoramaRef = useRef(null);
   const [showPanoOnResult, setShowPanoOnResult] = useState(false);
-
-  useEffect(() => {
-    let intt=null;
-    // const map =  new google.maps.Map(document.getElementById("map"), {
-    //   center: fenway,
-    //   zoom: 14,
-    // });
-    if(legacyMapLoader) {
-      if  (panoramaRef.current) {
-        // destroy the old panorama
-        panoramaRef.current.setVisible(false);
-        panoramaRef.current = null;
-      }
-      return;
-    }
-    if(!latLong || (latLong.lat === 0 && latLong.long === 0)) return console.log("latLong not found");
-    if(!document.getElementById("googlemaps")) return console.log("googlemaps not found");
-
-    if(!panoramaRef.current) {
-
-
-
-      console.log("panorama not found");
-    panoramaRef.current = new google.maps.StreetViewPanorama(
-      document.getElementById("googlemaps"),
-      {
-        position: { lat: latLong.lat, lng: latLong.long },
-        pov: {
-          heading: 0,
-          pitch: 0,
-        },
-        motionTracking: false,
-        linksControl: (gameOptions?.nm&&!showAnswer) ? false:true,
-        clickToGo: (gameOptions?.nm&&!showAnswer) ? false:true,
-
-        panControl: (gameOptions?.npz&&!showAnswer) ? false:true,
-        zoomControl: (gameOptions?.npz&&!showAnswer) ? false:true,
-        showRoadLabels: gameOptions?.showRoadName===true?true:false,
-        disableDefaultUI: true,
-      },
-    );
-
-    window.reloadLoc = () => {
-      panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
-    }
-    window.panorama = panoramaRef.current;
-  } else {
-
-    panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
-let setTime = Date.now();
-    function snapBack() {
-      const panoramaPos = panoramaRef.current.getPosition();
-      const distance = haversineDistance(panoramaPos.lat(), panoramaPos.lng(), latLong.lat, latLong.long);
-      console.log("distance", distance)
-      if(distance > 10) {
-        panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
-      }
-    }
-    intt=setInterval(() => {
-      if(Date.now() - setTime > 3000) {
-        console.log("clearing interval")
-        return clearInterval(intt);
-      }
-      // if too far from latLong, reset to latLong
-      snapBack();
-    }, 200)
-
-
-
-    window.reloadLoc = () => {
-      panoramaRef.current.setPosition({ lat: latLong.lat, lng: latLong.long });
-    }
-
-    // make sure linksControl,clickToGo,panControl,zoomControl are correct
-    panoramaRef.current.setOptions({
-      linksControl: (gameOptions?.nm&&!showAnswer) ? false:true,
-      clickToGo: (gameOptions?.nm&&!showAnswer) ? false:true,
-      panControl: (gameOptions?.npz&&!showAnswer) ? false:true,
-      zoomControl: (gameOptions?.npz&&!showAnswer) ? false:true,
-      showRoadLabels: gameOptions?.showRoadName===true?true:false,
-    });
-
-  }
-
-
-    // pano onload
-
-    function fixPitch() {
-      // point towards road
-
-      panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
-      panoramaRef.current.setZoom(0);
-
-      // if localhost log the location
-      if(window.location.hostname === "localhost") {
-        console.log("[DEV] country:", latLong.country);
-      }
-    }
-
-
-    let loaded = false;
-    function onChangeListener(e) {
-      if(loaded) return;
-      loaded = true;
-
-        setTimeout(() => {
-        setLoading(false)
-        setStreetViewShown(true)
-            // Select all <meta> tags with the attribute http-equiv="origin-trial"
-    const metaTags = document.querySelectorAll('meta[http-equiv="origin-trial"]');
-
-    // Loop through the NodeList and remove each tag
-    metaTags.forEach(meta => meta.remove());
-        }, 500)
-        fixBranding();
-
-        fixPitch();
-    }
-    panoramaRef.current.addListener("pano_changed", onChangeListener);
-
-
-    return () => {
-      if(intt) clearInterval(intt);
-      if(!panoramaRef.current) return;
-      google.maps.event.clearListeners(panoramaRef.current, 'pano_changed');
-    }
-
-
-  }, [latLong, gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName, legacyMapLoader, showAnswer])
 
 
   useEffect(() => {
@@ -1886,22 +1773,9 @@ let setTime = Date.now();
 
 //   }, [latLong, multiplayerState?.gameData?.state, streetViewShown, loading, showAnswer, showPanoOnResult])
 
-  useEffect(() => {
-
-    if(panoramaRef.current) {
-      panoramaRef.current.setOptions({
-        linksControl: gameOptions?.nm ? false:true,
-        clickToGo: gameOptions?.nm ? false:true,
-
-        panControl: true,
-
-        zoomControl: gameOptions?.npz ? false:true,
-        showRoadLabels: gameOptions?.showRoadName===true?true:false,
-      })
-    }
-  }, [gameOptions?.nm, gameOptions?.npz, gameOptions?.showRoadName])
-
-
+if(statsRef.current) {
+  statsRef.current.end();
+}
   return (
     <>
       <HeadContent text={text}/>
@@ -1971,61 +1845,22 @@ let setTime = Date.now();
 
 
       <main className={`home`} id="main">
-        { latLong && latLong?.lat && latLong?.long && legacyMapLoader ? (
-<>
-    <iframe className={`streetview ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${gameOptions?.nmpz&&!showAnswer ? 'nmpz' : ''}`} src={`https://www.google.com/maps/embed/v1/streetview?location=${latLong.lat},${latLong.long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`} id="streetview" referrerPolicy='no-referrer-when-downgrade' allow='accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture' onLoad={() => {
 
-setTimeout(() => {
-  setLoading(false)
+        <StreetView
+          nm={gameOptions?.nm}
+          npz={gameOptions?.npz}
+          showAnswer={showAnswer}
+          lat={latLong?.lat}
+          long={latLong?.long}
+          showRoadLabels={gameOptions?.showRoadName}
+          loading={loading}
+          setLoading={setLoading}
+          hidden={(!latLong || !latLong.lat || !latLong.long)|| loading}
+          onLoad={() => {
+            setLoading(false)
+          }}
+          />
 
-  window.reloadLoc = () => {
-    const iframe = document.getElementById('streetview');
-    if (iframe) {
-        iframe.src = iframe.src; // Reload the iframe by resetting its src attribute
-    }
-    //
-  }
-
-}, 500)
-       }}
-       style={{
-        width: '100vw',
-        height: 'calc(100vh + 300px)',
-        zIndex: 100,
-        transform: 'translateY(-285px)',
-        }}
-        ></iframe>
-
-
-{/* put something in the top left to cover the address */}
-{/* <div style={{
-  position: 'fixed',
-  top: '7px',
-  right: 0,
-  width: '200px',
-  height: '62px',
-  backgroundColor: 'rgba(0,0,0,0)',
-  // blur the address
-  backdropFilter: 'blur(10px)',
-  zIndex: 100
-}}></div>
-<div style={{
-  position: 'fixed',
-  bottom: '7px',
-  left: 0,
-  width: '200px',
-  height: '10px',
-  backgroundColor: 'rgba(0,0,0,0)',
-  // blur the address
-  backdropFilter: 'blur(10px)',
-  zIndex: 100
-}}></div> */}
-
-       </>
-
-      ) : (
-       <div id="googlemaps" className={`streetview inverted ${(loading ||  (!((screen === "onboarding"&&!onboarding?.completed) || (screen === "singleplayer" && !singlePlayerRound?.done) || ["getready", "guess"].includes(multiplayerState?.gameData?.state)))) ? 'hidden' : ''} ${((!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)) ? 'hidden' : ''} ${false ? 'multiplayer' : ''} ${(gameOptions?.npz&&!showAnswer) ? 'nmpz' : ''}`}></div>
-      )}
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
 
@@ -2118,7 +1953,7 @@ setTimeout(() => {
         </div>
 
         <InfoModal shown={false} />
-        <MapsModal inLegacy={legacyMapLoader} shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
+        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
             customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
               console.log("map", map)
               openMap(map.countryMap||map.slug);
