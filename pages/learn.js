@@ -63,10 +63,10 @@ React.useEffect(() => {
             >(Beta)</span></h2>
 
             <p className="home__subtitle" style={{fontSize: '1.5em', color: 'white', textShadow: 'none'}}>
-             Inspired by a Reddit post - Improve your Geoguessr skills by guessing & learning with community explanations of strategies you could&apos;ve used to pinpoint each location.
+             Unfortunatly, Learn Mode is currently disabled. Please check back later.
             </p>
 
-            <p className="home__subtitle" style={{fontSize: '1.5em', color: 'white', textShadow: 'none'}}>
+            {/* <p className="home__subtitle" style={{fontSize: '1.5em', color: 'white', textShadow: 'none'}}>
               {Math.round(displayCount)} explanations contributed!
               <br/>
               <a style={{color: "cyan"}} target='_blank' href='https://discord.com/invite/ubdJHjKtrC'>Join our Discord</a> to become a contributor!
@@ -76,7 +76,7 @@ React.useEffect(() => {
               window.location.href = '/?learn=true';
             }}>
               Play!
-            </button>
+            </button> */}
 </div>
 </div>
       </main>
