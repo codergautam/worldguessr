@@ -76,10 +76,7 @@ export default function HeadContent({text}) {
 {/* <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/> */}
 <link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet"/>
-<script
-      src="https://maps.googleapis.com/maps/api/js?v=weekly"
-      defer
-    ></script>
+
 
 
 {/* <script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script> */}

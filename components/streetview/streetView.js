@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import fixBranding from "./utils/fixBranding";
+import fixBranding from "../utils/fixBranding";
 
 const StreetView = ({
   nm = false,
@@ -11,6 +11,41 @@ const StreetView = ({
   hidden = false,
   onLoad
 }) => {
+
+
+  useEffect(()=>{
+
+    const originalAppendChild = Element.prototype.appendChild;
+
+    // Override appendChild
+    Element.prototype.appendChild = function (element) {
+        if (element.tagName === 'SCRIPT' && element.src.includes('QuotaService.RecordEvent')) {
+            return element; // Do not append the script
+        }
+
+        return originalAppendChild.call(this, element);
+    };
+
+    const observer = new MutationObserver((mutationsList) => {
+      for (const mutation of mutationsList) {
+          for (const node of mutation.addedNodes) {
+              if (
+                  node.tagName === 'STYLE' &&
+                  (node.getAttribute('nonce') === 'undefined') || (node.innerText.includes('.mapsConsumerUiSceneCoreScene__root') || (node.innerText.includes('.dismissButton')))
+              ) {
+                  node.parentNode.removeChild(node);
+              }
+          }
+      }
+    });
+    // head
+    observer.observe(document.head, { childList: true });
+      return () => {
+        Element.prototype.appendChild = originalAppendChild;
+        observer.disconnect();
+      }
+
+      },[])
 
   const panoramaRef = useRef(null);
   const [loading, setLoading] = useState(true);
@@ -70,10 +105,7 @@ const StreetView = ({
       panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
       panoramaRef.current.setZoom(0);
     }, 100);
-    setTimeout(() => {
-      if(lat && long && onLoad)
       onLoad();
-    }, 500);
 
     panoramaRef.current.addListener("pano_changed", () => {
       setLoading(false);
@@ -128,11 +160,9 @@ const StreetView = ({
   allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
   onLoad={() => {
     setLoading(false);
-    setTimeout(() => {
       if (onLoad && lat && long) {
         onLoad(); // Ensure onLoad is called after 500ms delay
       }
-    }, 500); // 500ms delay
   }}
   style={{
     width: "100vw",

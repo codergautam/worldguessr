@@ -2547,3 +2547,14 @@ div[dir="ltr"] {
     font-size: 14px; /* Smaller font size */
   }
 }
+
+
+.svframe {
+  opacity: 1;
+  transition: opacity 0.5s ease-in-out; /* This will ensure smooth transition for non-hidden state */
+}
+.svhidden {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}

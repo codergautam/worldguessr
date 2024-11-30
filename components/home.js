@@ -50,8 +50,9 @@ import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
 import LeagueModal from "./leagueModal";
 import haversineDistance from "./utils/haversineDistance";
-import StreetView from "./streetView";
+import StreetView from "./streetview/streetView";
 import Stats from "stats.js";
+import SvEmbedIframe from "./streetview/svHandler";
 
 const initialMultiplayerState = {
   connected: false,
@@ -1859,7 +1860,7 @@ setShowCountryButtons(false)
 
       <main className={`home`} id="main">
 
-        <StreetView
+        <SvEmbedIframe
           nm={gameOptions?.nm}
           npz={gameOptions?.npz}
           showAnswer={showAnswer}
@@ -1870,7 +1871,11 @@ setShowCountryButtons(false)
           setLoading={setLoading}
           hidden={(!latLong || !latLong.lat || !latLong.long)|| loading}
           onLoad={() => {
+            console.log("loaded")
+            setTimeout(() => {
             setLoading(false)
+            }, 500)
+
           }}
           />
 
