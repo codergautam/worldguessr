@@ -152,6 +152,11 @@ const StreetView = ({
   }
   }, [showAnswer]);
 
+  if(!lat && !long) {
+    return null;
+  }
+
+
   return shouldUseEmbed ? (
     <iframe
   className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} streetview`}
