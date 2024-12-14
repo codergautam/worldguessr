@@ -45,6 +45,11 @@ async function validateMap(name, data, description_short, description_long, edit
   description_short = description_short.trim();
   description_long = description_long.trim();
 
+  // name cannot include crazygamesdue to a url detection bug
+  if(name.toLowerCase().includes('crazygames')) {
+    return 'Name cannot include "CrazyGames"';
+  }
+
   // validate name
   if(typeof name !== 'string' || name.length < mapConst.MIN_NAME_LENGTH  || name.length > mapConst.MAX_NAME_LENGTH) {
     // return res.status(400).json({ message: `Name must be between ${mapConst.MIN_NAME_LENGTH} and ${mapConst.MAX_NAME_LENGTH} characters` });
@@ -73,6 +78,9 @@ async function validateMap(name, data, description_short, description_long, edit
   if(slug === 'all' || countries.includes(slug.toUpperCase()) || Object.values(officialCountryMaps).find(map => map.slug === slug)) {
     // return res.status(400).json({ message: 'Please choose a different name' });
     return 'Please choose a different name';
+  }
+  if(slug.toLowerCase().includes('crazygames') ) {
+    return 'Name cannot include "CrazyGames"';
   }
 
   // validate data

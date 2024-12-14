@@ -24,7 +24,7 @@ import HealthBar from "./duelHealthbar";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -101,6 +101,15 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
         sendEvent('discord_modal_shown')
       } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
     }
+    if(process.env.NEXT_PUBLIC_COOLMATH === "true") {
+      try {
+        console.log("Sending start event to CoolMathGames")
+      window.parent.postMessage({'cm_game_event': true, 'cm_game_evt' : 'start', 'cm_game_lvl':
+         "singleplayer"}, '*');
+      }catch(e) {
+        console.log("Failed sending start event to CoolMathGames", e)
+      }
+      }
     // this is now disabled due to issues with afterAd() not being called / next round button not working
     if(false && window.show_videoad && !session?.token?.supporter) {
       window.show_videoad((state) =>{
@@ -382,7 +391,7 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
           setLostCountryStreak(countryStreak);
 
           // remove rewarded ads temporarily
-          if(countryStreak > 0 && window.adBreak && !inCrazyGames) {
+          if(countryStreak > 0 && window.adBreak && !inCrazyGames && !inCoolMathGames) {
           console.log("requesting reward ad")
           window.adBreak({
             type: 'reward',  // rewarded ad
@@ -445,7 +454,7 @@ export default function GameUI({ miniMapShown, setMiniMapShown, singlePlayerRoun
   return (
     <div className="gameUI">
 
-{ !onboarding && !inCrazyGames && (!session?.token?.supporter) && (
+{ !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
     <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
