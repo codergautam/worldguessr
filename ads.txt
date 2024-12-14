@@ -1,5 +1,18 @@
+#----------------------------------------------------------------------------
+#
+#   ___ ___   __| | ___ _ __    __ _  __ _ _   _| |_ __ _ _ __ ___
+#  / __/ _ \ / _` |/ _ \ '__|  / _` |/ _` | | | | __/ _` | '_ ` _ \
+# | (_| (_) | (_| |  __/ |    | (_| | (_| | |_| | || (_| | | | | | |
+#  \___\___/ \__,_|\___|_|     \__, |\__,_|\__,_|\__\__,_|_| |_| |_|
+#                              |___/
+#
+#    We make games
+#----------------------------------------------------------------------------
+
+google.com, pub-3340825671684972, DIRECT, f08c47fec0942fa0
+
 ##################################
-# AdinPlay.com ads.txt - 2024-06-24
+# AdinPlay.com ads.txt - 2024-12-13
 ##################################
 
 OWNERDOMAIN=swordbattle.io
@@ -8,7 +21,6 @@ adinplay.com, SWT, DIRECT
 
 #Google
 google.com, pub-3282547114800347, RESELLER, f08c47fec0942fa0
-google.com, pub-3340825671684972, DIRECT, f08c47fec0942fa0
 
 #Appnexus
 appnexus.com, 8631, RESELLER, f5ab79cb980f11d1
@@ -127,11 +139,11 @@ adyoulike.com,7463c359225e043c111036d7a29affa5,RESELLER
 minutemedia.com,01gya4708ddm,RESELLER
 visiblemeasures.com,1052,RESELLER
 undertone.com,4205,RESELLER,d954590d0cb265b9
-imds.tv,AM1601,RESELLER,ae6c32151e71f19d
+admedia.com,AM1601,RESELLER,ae6c32151e71f19d
 triplelift.com,8472,DIRECT,6c33edb13117fd86
 kargo.com,8824,RESELLER
 start.io,123111883,RESELLER
-
+connectad.io,455,RESELLER,85ac85a30c93b3e5
 
 # 33Across
 rubiconproject.com, 16414, RESELLER, 0bfd66d529a55807 #33Across #hb #tag
@@ -170,12 +182,7 @@ appnexus.com, 10617, RESELLER, f5ab79cb980f11d1
 appnexus.com, 9393, RESELLER, f5ab79cb980f11d1
 advertising.com, 25034, RESELLER
 sonobi.com, 783272317b, RESELLER, d1a215d9eb5aee9e
-spotxchange.com, 85519, RESELLER, 7842df1d2fe2db34
 indexexchange.com, 186684,RESELLER, 50b1c356f2c5c8fc
-
-#SpotX
-spotxchange.com, 267531, RESELLER, 7842df1d2fe2db34
-spotx.tv, 267531, RESELLER, 7842df1d2fe2db34
 
 #CPM
 appnexus.com, 9624, RESELLER, f5ab79cb980f11d1
@@ -208,10 +215,6 @@ openx.com, 539625136, RESELLER, 6a698e2ec38604c6
 smaato.com, 1100037086, RESELLER
 smaato.com, 1100000579, RESELLER
 sovrn.com, 249425, RESELLER, fafdf38b16bf6b2b
-spotx.tv, 173175, RESELLER, 7842df1d2fe2db34
-spotx.tv, 173177, RESELLER, 7842df1d2fe2db34
-spotxchange.com, 173177, RESELLER, 7842df1d2fe2db34
-spotxchange.com, 173175, RESELLER, 7842df1d2fe2db34
 openx.com, 541079309, RESELLER, 6a698e2ec38604c6
 openx.com, 541166421, RESELLER, 6a698e2ec38604c6
 contextweb.com, 562263, RESELLER, 89ff185a4c4e857c
@@ -229,15 +232,11 @@ openx.com, 540634629, RESELLER, 6a698e2ec38604c6
 pubmatic.com, 156715, RESELLER, 5d62403b186f2ace
 rubiconproject.com, 13762, RESELLER, 0bfd66d529a55807
 smartadserver.com, 3490, RESELLER
-spotx.tv, 141412, RESELLER, 7842df1d2fe2db34
-spotxchange.com, 141412, RESELLER, 7842df1d2fe2db34
 springserve.com, 550, RESELLER, a24eb641fc82e93d
 beachfront.com, 4969, RESELLER, e2541279e8e2ca4d
 advertising.com, 26282, RESELLER
 pubmatic.com, 157310, RESELLER, 5d62403b186f2ace
 rhythmone.com, 2968119028, RESELLER, a670c89d4a324e47
-spotxchange.com, 239904, RESELLER, 7842df1d2fe2db34
-spotx.tv, 239904, RESELLER, 7842df1d2fe2db34
 contextweb.com, 561910, RESELLER, 89ff185a4c4e857c
 openx.com, 540226160, RESELLER, 6a698e2ec38604c6
 openx.com, 540255318, RESELLER, 6a698e2ec38604c6
@@ -251,8 +250,6 @@ vidoomy.com, 51019, RESELLER
 aol.com, 22762, RESELLER
 freewheel.tv, 872257, RESELLER
 openx.com, 540804929, RESELLER, 6a698e2ec38604c6
-spotx.tv, 218443, RESELLER, 7842df1d2fe2db34
-spotxchange.com, 218443, RESELLER, 7842df1d2fe2db34
 emxdgt.com, 1495, RESELLER, 1e1d41537f7cad7f
 
 #Rubicon
@@ -271,6 +268,26 @@ sovrn.com, 260380, RESELLER, fafdf38b16bf6b2b
 pubmatic.com, 158355, RESELLER, 5d62403b186f2ace
 appnexus.com, 9393, RESELLER, f5ab79cb980f11d1  #Video #Display
 appnexus.com, 11924, RESELLER, f5ab79cb980f11d1
+
+#Kueez
+kueez.com, fe46d13305ce1b89f18a84c52275b7fe, direct
+appnexus.com,8826,RESELLER
+rubiconproject.com,16920,RESELLER
+openx.com,557564833,RESELLER
+lijit.com,407406,RESELLER
+media.net,8cu4jtrf9,RESELLER
+pubmatic.com,162110,RESELLER
+sharethrough.com,n98xdzel,RESELLER
+33across.com,0010b00002odu4haax,RESELLER
+yieldmo.com,3133660606033240149,RESELLER
+onetag.com,6e053d779444c00,RESELLER
+video.unrulymedia.com,3486482593,RESELLER
+sonobi.com,4c4fba1717,RESELLER
+smartadserver.com,4288,RESELLER
+zetaglobal.com,108,RESELLER
+improvedigital.com,2106,RESELLER
+loopme.com,11576,RESELLER
+themediagrid.com,uot45z,RESELLER
 
 
 #Aniview
@@ -519,10 +536,6 @@ pubmatic.com, 160552, RESELLER, 5d62403b186f2ace                              # 
 pubmatic.com, 159401, RESELLER, 5d62403b186f2ace                              # PubMatic_2_6&7
 pubmatic.com, 163598, RESELLER, 5d62403b186f2ace                              # Pubmatic_OW
 richaudience.com, 1XvIoD5o0S, DIRECT                                          # Rich Audience_0_6&7
-pubmatic.com, 81564, DIRECT, 5d62403b186f2ace                                 # Rich Audience_0_6&7
-pubmatic.com, 156538, DIRECT, 5d62403b186f2ace                                # Rich Audience_0_6&7
-appnexus.com, 8233, DIRECT                                                    # Rich Audience_0_6&7
-rubiconproject.com, 13510, DIRECT                                             # Rich Audience_0_6&7
 risecodes.com, 5fa94677b2db6a00015b22a9, DIRECT                               # Rise
 pubmatic.com, 160295, RESELLER, 5d62403b186f2ace                              # Rise
 xandr.com, 14082, RESELLER                                                    # Rise
@@ -651,6 +664,18 @@ betweendigital.com, 44808, RESELLER
 adyoulike.com, 53264963677efeda057eef7db2cb305f, RESELLER
 freewheel.tv,1577878,RESELLER
 freewheel.tv,1577888,RESELLER
+dxkulture.com, 9533, DIRECT, 259726033fc4df0c
+dxkulture.com, 0098, DIRECT, 259726033fc4df0c
+adswizz.com,dxkulture,DIRECT
+adswizz.com,651,DIRECT
+pubmatic.com,164751,RESELLER,5d62403b186f2ace
+rubiconproject.com,26094,DIRECT,0bfd66d529a55807
+zetaglobal.net,790,DIRECT
+ssp.disqus.com,790,DIRECT
+video.unrulymedia.com,946176315,RESELLER
+video.unrulymedia.com, 347774562, RESELLER
+rubiconproject.com, 15268, RESELLER, 0bfd66d529a55807
+pubmatic.com, 159277, RESELLER
 
 #AdaptMX
 
@@ -728,9 +753,9 @@ sonobi.com, 3ee2ca3952, RESELLER, d1a215d9eb5aee9e
 
 #Rich Audience
 
-richaudience.com, kWVs0vbyki, DIRECT
+richaudience.com, kWVs0vbyki, RESELLER
 appnexus.com, 2928, DIRECT, f5ab79cb980f11d1
-appnexus.com, 8233, DIRECT, f5ab79cb980f11d1
+smartadserver.com, 1999, RESELLER, 060d053dcf45cbf3
 
 #Ozone
 
@@ -742,6 +767,22 @@ pubmatic.com, 160557, RESELLER, 5d62403b186f2ace
 indexexchange.com, 206233, RESELLER, 50b1c356f2c5c8fc
 themediagrid.com, 1J3ZI6, DIRECT, 35d5010d7789b49d
 themediagrid.com, WF71T3, DIRECT, 35d5010d7789b49d
+
+# OptiDigital
+optidigital.com,p345,INTERMEDIATE
+pubmatic.com,158939,RESELLER,5d62403b186f2ace
+rubiconproject.com,20336,RESELLER,0bfd66d529a55807
+smartadserver.com,3379,RESELLER,060d053dcf45cbf3
+criteo.com,B-060926,RESELLER,9fac4a4a87c2a44f
+themediagrid.com,3ETIX5,RESELLER,35d5010d7789b49d
+triplelift.com,8183,RESELLER,6c33edb13117fd86
+appnexus.com,12190,RESELLER,f5ab79cb980f11d1
+onetag.com,806eabb849d0326,RESELLER
+rtbhouse.com,mSu1piUSmB9TF4AQDGk4,RESELLER
+33across.com,001Pg00000HMy0YIAT,RESELLER,bbea06d9c4d2853c
+e-planning.net,a76893b96338e7e9,RESELLER,c1ba615865ed87b2
+appnexus.com,15941,RESELLER,f5ab79cb980f11d1
+video.unrulymedia.com,731539260,RESELLER
 
 #Rise
 risecodes.com, 643813aab7212c00011c3f28, DIRECT
@@ -761,10 +802,10 @@ lijit.com, 405318, RESELLER, fafdf38b16bf6b2b
 themediagrid.com, 4DQHAP, RESELLER, 35d5010d7789b49d
 loopme.com, 11362, RESELLER, 6c8d5f95897a5a3b
 amxrtb.com, 105199691, RESELLER
-freewheel.tv, 1590601, RESELLER
-freewheel.tv, 1590606, RESELLER
 smartadserver.com, 4284, RESELLER
 adform.com, 3119, RESELLER, 9f5210a2f0999e32
+smaato.com, 1100057444, RESELLER, 07bcf65f187117b4
+adyoulike.com, 78afbc34fac571736717317117dfa247, RESELLER
 
 #Block
 blockthrough.com, 5130683165442048, DIRECT
@@ -795,5 +836,5 @@ vidazoo.com, 655c85dc63ceeb606a0f365f, DIRECT, b6ada874b4d7d0b2
 smartadserver.com, 3490, DIRECT
 
 ##################################
-# AdinPlay.com ads.txt - 2024-06-24
+# AdinPlay.com ads.txt - 2024-12-13
 ##################################
