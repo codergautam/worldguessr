@@ -1057,7 +1057,7 @@ setShowCountryButtons(false)
               }, 1000)
             } else {
               // create Party
-              handleMultiplayerAction("createPrivateGame")
+              // handleMultiplayerAction("createPrivateGame")
             }
 
             }
