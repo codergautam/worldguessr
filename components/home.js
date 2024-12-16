@@ -91,7 +91,7 @@ export default function Home({ }) {
   const [streetViewShown, setStreetViewShown] = useState(false)
   const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
   // location aka map slug
-  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: false }) // rate limit fix: showRoadName true
+  const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true }) // rate limit fix: showRoadName true
   const [showAnswer, setShowAnswer] = useState(false)
   const [pinPoint, setPinPoint] = useState(null)
   const [hintShown, setHintShown] = useState(false)
