@@ -1951,7 +1951,9 @@ setShowCountryButtons(false)
           showRoadLabels={gameOptions?.showRoadName}
           loading={loading}
           setLoading={setLoading}
-          hidden={(!latLong || !latLong.lat || !latLong.long)|| loading}
+          hidden={((!latLong || !latLong.lat || !latLong.long)|| loading)||(
+            screen==="home"||(screen==="multiplayer" && (multiplayerState?.gameData?.state === "waiting"||multiplayerState?.enteringGameCode))
+          )}
           onLoad={() => {
             console.log("loaded")
             setTimeout(() => {
@@ -1965,7 +1967,18 @@ setShowCountryButtons(false)
 
 
 
-      <Navbar inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.public && !leagueModal} />
+      <Navbar
+      joinCodePress={() => {
+        setOnboarding(null)
+        setOnboardingCompleted(true)
+          gameStorage.setItem("onboarding", 'done')
+        setScreen("multiplayer")
+        setMultiplayerState((prev) => ({
+        ...prev,
+        enteringGameCode: true
+      }))}}
+
+      inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.public && !leagueModal} />
 {/* ELO/League button */}
 {screen === "home" && !mapModal && session && session?.token?.secret && (
   <button className="gameBtn leagueBtn" onClick={()=>{setLeagueModal(true)}} style={{backgroundColor: eloData?.league?.color }}>

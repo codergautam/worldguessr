@@ -6,7 +6,7 @@ import { useTranslation } from '@/components/useTranslations'
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
-export default function Navbar({ maintenance, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading }) {
   const { t: text } = useTranslation("common");
 
   const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer'))) && (!loading);
@@ -69,6 +69,13 @@ export default function Navbar({ maintenance, inCrazyGames, inCoolMathGames, inG
           <FaPencil size={20}/>
           </button>
         )}
+
+          {screen === "onboarding" && (
+            <button className="gameBtn navBtn"
+            style={{backgroundColor: 'blue'}}
+            onClick={joinCodePress}>{text("joinGame")}</button>
+          )}
+
         {!inGame && showAccBtn && !inCoolMathGames && (<AccountBtn inCrazyGames={inCrazyGames} session={session} navbarMode={true} openAccountModal={openAccountModal} />)}
         </div>
     </div>
