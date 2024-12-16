@@ -31,6 +31,16 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
     )
   }
 
+  if(!((multiplayerState?.inGame) || (multiplayerState?.enteringGameCode) ||
+
+  (multiplayerState?.gameQueued) || (multiplayerState?.nextGameQueued))) {
+        return (
+      <div className="multiplayerHome">
+        <BannerText text={text("connectionLost")} shown={true} hideCompass={true} />
+      </div>
+    )
+  }
+
   return (
     <div className={`multiplayerHome ${!["waiting","end"].includes(multiplayerState?.gameData?.state) ? "inGame" : ""}`}>
         {/* <BannerText text={multiplayerState.error} shown={multiplayerState.error} hideCompass={true} /> */}

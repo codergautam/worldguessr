@@ -183,7 +183,7 @@ statsRef.current = stats;
     },
     onNonOAuthError: error => {
       console.log("login non oauth error", error);
-      toast.error("Login error, contact support if this persists (1)\n\nMake sure popups are enabled (needed for google window)")
+      toast.error("Login error, contact support if this persists (1)")
 
     },
     flow: "auth-code",
@@ -827,6 +827,11 @@ setShowCountryButtons(false)
 
   }, [multiplayerState?.joinOptions?.error]);
 
+  useEffect(() => {
+    if(multiplayerState?.connected && multiplayerError) {
+      setMultiplayerError(null)
+    }
+  }, [multiplayerState?.connected, multiplayerError])
 
   function handleMultiplayerAction(action, ...args) {
     if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
@@ -947,7 +952,7 @@ setShowCountryButtons(false)
         connecting: true,
         shouldConnect: false
       }))
-      const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 20)
+      const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 50)
       if(ws && ws.readyState === 1) {
       setWs(ws)
       setMultiplayerState((prev)=>({
@@ -1212,7 +1217,7 @@ setShowCountryButtons(false)
             if (didIguess) {
               setMultiplayerChatEnabled(true)
             } else {
-              if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
+              // if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
             }
           }
 
@@ -1421,8 +1426,13 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home")
+      if(window.screen !== "home") {
       setMultiplayerError(true)
+      toast.info(text("connectionLostRecov"))
+
+      }
+
+      setScreen("home")
 
 
     }
@@ -1435,8 +1445,12 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home")
+      if(window.screen !== "home") {
       setMultiplayerError(true)
+
+      toast.info(text("connectionLostRecov"))
+      }
+      setScreen("home")
     }
 
 

@@ -111,6 +111,8 @@
   "trackYourProgress1": "Link with Google to earn XP and track your progress",
   "playAsGuest": "Play as Guest",
   "connectionLost": "Connection Lost",
+  "connectionLostRecov": "Connection Lost. Reconnecting...",
+  "reconnected": "Reconnected!",
   "friends": "Friends ({{cnt}})",
   "friendsText": "Friends",
   "addFriendPlaceholder": "Friend's username",

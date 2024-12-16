@@ -13,11 +13,12 @@ import { Webhook } from "discord-webhook-node";
 
 import cityGen from '../serverUtils/cityGen.js';
 import lookup from "coordinate_to_country"
-import { players, games } from '../serverUtils/states.js';
+import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
 import { getLeagueRange } from '../components/utils/leagues.js';
 import calculateOutcomes from '../components/utils/eloSystem.js';
+import { tmpdir } from 'os';
 
 config();
 // Load the profanity filter
@@ -33,6 +34,7 @@ const dev = process.env.NODE_ENV !== 'production'
 const port = process.env.WS_PORT || 3002;
 
 const playersInQueue = new Map();
+
 
 let maintenanceMode = false;
 let dbEnabled = true;
@@ -148,6 +150,26 @@ blockedAt((time, stack) => {
 })
 function stop(reason) {
   console.error('Stopping server', reason, currentDate());
+
+  // store players and games in cache
+  let gamesArr = [];
+  let playersArr = [];
+  for (const game of games.values()) {
+    // store json
+    gamesArr.push(game.toJSON());
+  }
+  for (const player of players.values()) {
+    // store json
+    playersArr.push(player.toJSON());
+  }
+  try {
+  console.log('Saving gamestate before stopping',tmpdir() + `/gamestate.worldguessr`);
+  fs.writeFileSync(tmpdir() + `/gamestate.worldguessr`, JSON.stringify({ games: gamesArr, players: playersArr,
+    time: Date.now() }));
+    console.log("Stored ", gamesArr.length, " games and ", playersArr.length, " players");
+  } catch(e) {
+    console.error('Failed to save gamestate', e, currentDate());
+  }
 }
 
 process.on('SIGTERM', () => {
@@ -970,8 +992,12 @@ app.ws('/wg', {
       ipConnectionCount.delete(ws.ip);
     }
 
+    console.log(players.has(ws.id), ws.id, players.size);
     if (players.has(ws.id)) {
       const player = players.get(ws.id);
+      // only if not logged in, delete the session
+      // we want to wait up to 30 seconds for the player to reconnect if they are logged in
+      if(!player.accountId) {
       if (player.gameId) {
         const game = games.get(player.gameId);
         if (game) {
@@ -979,6 +1005,14 @@ app.ws('/wg', {
         }
       }
       players.delete(ws.id);
+    } else {
+      player.ws = null;
+      player.inQueue = false;
+      player.disconnectTime = Date.now();
+      player.disconnected = true;
+      disconnectedPlayers.set(player.accountId??player.rejoinCode, player.id);
+      console.log('Player disconnected', player.username, player.id, currentDate());
+    }
     }
     if (playersInQueue.has(ws.id)) {
       playersInQueue.delete(ws.id);
@@ -988,6 +1022,39 @@ app.ws('/wg', {
 });
 
 
+
+// check if gamestate can be recovered from os.tmpdir+gamestate.worldguessr
+try {
+  const gamestate = JSON.parse(fs.readFileSync(tmpdir() + `/gamestate.worldguessr`));
+  if (gamestate && Date.now() - gamestate.time < 1000 * 60) {
+    console.log('Recovered gamestate', gamestate.games.length, 'games', gamestate.players.length, 'players');
+
+    for (const player of gamestate.players) {
+      const newPlayer = Player.fromJSON(player);
+      newPlayer.disconnectTime = Date.now(); // important
+      newPlayer.disconnected = true;
+      if(newPlayer.inQueue) {
+        newPlayer.inQueue = false;
+      }
+      players.set(player.id, newPlayer);
+      disconnectedPlayers.set(player.accountId??player.rejoinCode, player.id);
+    }
+    for (const game of gamestate.games) {
+      console.log(game.id);
+      const newGame = Game.fromJSON(game);
+      games.set(game.id, newGame);
+    }
+
+    console.log('Recovered gamestate successfully');
+    // remove the file
+
+    fs.unlinkSync(tmpdir() + `/gamestate.worldguessr`);
+
+  }
+} catch(e) {
+}
+
+
   // update player count
   setInterval(() => {
 
@@ -995,7 +1062,7 @@ app.ws('/wg', {
       if (player.verified && !player.gameId) {
         player.send({
           type: 'cnt',
-          c: players.size
+          c: players.size-disconnectedPlayers.size
         });
       }
       player.send({
@@ -1242,6 +1309,27 @@ app.ws('/wg', {
         }
       }
     }
+
+    // loop through disconnected players and remove them if they have been disconnected for more than 30 seconds
+    for(const [accountId, playerId] of disconnectedPlayers) {
+      const player = players.get(playerId);
+      if(!player) {
+        disconnectedPlayers.delete(accountId);
+        continue;
+      }
+      if(Date.now() - player.disconnectTime > 30000) {
+        disconnectedPlayers.delete(accountId);
+        if (player.gameId) {
+          const game = games.get(player.gameId);
+          if (game) {
+            game.removePlayer(player, true);
+          }
+        }
+
+        players.delete(playerId);
+      }
+    }
+
   }, 500);
 
 

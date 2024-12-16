@@ -59,6 +59,8 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
     if (!map || answerShown) return;
 
     setTimeout(() => {
+      try {
+
       if (extent) {
         const bounds = L.latLngBounds([extent[1], extent[0]], [extent[3], extent[2]]);
         map.fitBounds(bounds);
@@ -66,6 +68,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         // reset to default
         map.setView([30, 0], 2);
       }
+    }catch(e) {}
     }, 500);
   }, [gameOptions?.extent ? JSON.stringify(gameOptions.extent) : null, map, answerShown]);
 

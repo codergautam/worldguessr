@@ -2,12 +2,13 @@ import validateSecret from "../../serverUtils/validateSecret.js";
 import make6DigitCode from "../../serverUtils/make6DigitCode.js";
 import isValidTimezone from "../../serverUtils/isValidTimezone.js";
 import moment from "moment";
-import { players } from "../../serverUtils/states.js";
+import { disconnectedPlayers, games, players } from "../../serverUtils/states.js";
 import User from "../../models/User.js";
 import { getLeague } from "../../components/utils/leagues.js";
 import { setElo } from "../../api/eloRank.js";
+import { createUUID } from "../../components/createUUID.js";
 export default class Player {
-  constructor(ws, id, ip) {
+  constructor(ws, id, ip, username=null, accountId=null, gameId=null) {
     this.id = id;
     this.ip = ip;
     this.ws = ws;
@@ -25,6 +26,42 @@ export default class Player {
     this.sentReq = [];
     this.receivedReq = [];
     this.allowFriendReq = true;
+
+    this.disconnected = false;
+    this.disconnectTime =0;
+
+    this.rejoinCode = createUUID();
+  }
+
+  toJSON() {
+    return {
+      id: this.id,
+      ip: this.ip,
+      ws: null,
+      username: this.username,
+      accountId: this.accountId,
+      gameId: this.gameId,
+      inQueue: false,
+      lastMessage: this.lastMessage,
+      verified: this.verified,
+      lastPong: this.lastPong,
+      supporter: this.supporter,
+      screen: this.screen,
+      friends: this.friends,
+      sentReq: this.sentReq,
+      receivedReq: this.receivedReq,
+      allowFriendReq: this.allowFriendReq,
+      disconnected: this.disconnected,
+      disconnectTime: this.disconnectTime,
+      rejoinCode: this.rejoinCode,
+
+    }
+  }
+
+  static fromJSON(json) {
+    const pObj = new Player(null, json.id, json.ip);
+    Object.assign(pObj, json);
+    return pObj;
   }
 
   setElo(newElo, gameData) {
@@ -54,7 +91,7 @@ export default class Player {
           });
           this.send({
             type: 'cnt',
-            c: players.size
+            c: players.size-disconnectedPlayers.size
           })
         }
 
@@ -65,14 +102,60 @@ export default class Player {
         valid =  await validateSecret(json.secret, User);
         }
         if (valid) {
+
+          // check if the user can be reconnected to previous session
+          const dcPlayerId = disconnectedPlayers.get(valid._id.toString());
+          if(dcPlayerId) {
+            const dcPlayer = players.get(dcPlayerId);
+            if(dcPlayer) {
+            console.log('Reconnecting player', valid.username);
+
+            // remove from disconnected players
+            disconnectedPlayers.delete(valid._id.toString());
+
+            // set the player's ws to this ws
+            this.ws.id = dcPlayerId;
+            dcPlayer.ws = this.ws;
+            dcPlayer.disconnected = false;
+            dcPlayer.disconnectTime = 0;
+            dcPlayer.ip = this.ip;
+
+
+            dcPlayer.send({
+              type: 'verify',
+            });
+
+
+            if(dcPlayer.gameId && games.has(dcPlayer.gameId)) {
+              // reconnect to game
+              const game = games.get(dcPlayer.gameId);
+              game.rejoinGame(dcPlayer);
+              dcPlayer.send({
+                type: 'toast',
+                toastType: 'success',
+                key: 'reconnected',
+
+              });
+            }
+
+            // destroy this player
+            players.delete(this.id);
+            return;
+            } else {
+              disconnectedPlayers.delete(valid._id.toString());
+            }
+          }
+
           // make sure the user is not already logged in (only on prod)
             for (const p of players.values()) {
+              console.log(p, p.accountId, valid._id.toString());
               if (p.accountId === valid._id.toString()) {
                 this.send({
                   type: 'error',
                   message: 'uac'
                 });
                 this.ws.close();
+                console.log('User already connected:', valid.username);
                 return;
               }
             }
@@ -88,7 +171,7 @@ export default class Player {
           });
           this.send({
             type: 'cnt',
-            c: players.size
+            c: players.size-disconnectedPlayers.size
           })
 
           if (json.tz && isValidTimezone(json.tz)) {
@@ -167,6 +250,7 @@ export default class Player {
             failedToLogin: true
           });
           this.ws.close();
+          console.log('Failed to login:', this.ip);
         }
       }
   }
