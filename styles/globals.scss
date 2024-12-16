@@ -19,6 +19,11 @@ button {
   display: flex;
 }
 
+body,
+html {
+  touch-action: manipulation !important;
+}
+
 
 .home__content {
   position: fixed;
