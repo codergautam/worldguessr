@@ -998,14 +998,7 @@ app.ws('/wg', {
       // only if not logged in, delete the session
       // we want to wait up to 30 seconds for the player to reconnect if they are logged in
       if(!player.accountId) {
-      if (player.gameId) {
-        const game = games.get(player.gameId);
-        if (game) {
-          game.removePlayer(player, true);
-        }
-      }
-      players.delete(ws.id);
-    } else {
+
       player.ws = null;
       player.inQueue = false;
       player.disconnectTime = Date.now();

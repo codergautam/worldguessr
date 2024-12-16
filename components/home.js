@@ -319,7 +319,11 @@ statsRef.current = stats;
         console.log("crazygames user not logged in")
         // user not logged in
         // verify with not_logged_in
-        window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in" });
+        let rc = gameStorage.getItem("rejoinCode");
+
+        window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in",
+          rejoinCode: rc
+         });
         setWs((prev) => {
           if(prev) {
             prev.send(window.verifyPayload)
@@ -981,7 +985,7 @@ setShowCountryButtons(false)
           if(secret !== "not_logged_in") {
             window.verified = true;
           }
-          ws.send(JSON.stringify({ type: "verify", secret, tz}))
+        ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode") }))
       } else if(window.verifyPayload) {
         console.log("sending verify from verifyPayload")
         ws.send(window.verifyPayload)
@@ -1140,7 +1144,12 @@ setShowCountryButtons(false)
           connected: true,
           connecting: false,
           guestName: data.guestName
-        }))
+      }))
+
+      if(data.rejoinCode) {
+          gameStorage.setItem("rejoinCode", data.rejoinCode)
+      }
+
       } else if (data.type === "error") {
         setMultiplayerState((prev) => ({
           ...prev,

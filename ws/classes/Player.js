@@ -77,9 +77,58 @@ export default class Player {
         });
   }
   async verify(json) {
+
+    const handleReconnect = (dcPlayerId, rejoinCode) => {
+      const dcPlayer = players.get(dcPlayerId);
+      if(dcPlayer) {
+      console.log('Reconnecting player', dcPlayer.username);
+
+      // remove from disconnected players
+      disconnectedPlayers.delete(rejoinCode);
+
+      // set the player's ws to this ws
+      this.ws.id = dcPlayerId;
+      dcPlayer.ws = this.ws;
+      dcPlayer.disconnected = false;
+      dcPlayer.disconnectTime = 0;
+      dcPlayer.ip = this.ip;
+
+
+      dcPlayer.send({
+        type: 'verify',
+      });
+
+
+      if(dcPlayer.gameId && games.has(dcPlayer.gameId)) {
+        // reconnect to game
+        const game = games.get(dcPlayer.gameId);
+        game.rejoinGame(dcPlayer);
+        dcPlayer.send({
+          type: 'toast',
+          toastType: 'success',
+          key: 'reconnected',
+
+        });
+      }
+
+      // destroy this player
+    players.delete(this.id);
+      return;
+      } else {
+        disconnectedPlayers.delete(rejoinCode);
+      }
+    }
+
         // account verification
         if((!json.secret) ||(json.secret === 'not_logged_in')) {
           if(!this.verified) {
+            if(json.rejoinCode) {
+              const dcPlayerId = disconnectedPlayers.get(json.rejoinCode);
+              if(dcPlayerId) {
+                handleReconnect(dcPlayerId, json.rejoinCode);
+                return;
+              }
+            }
 
           // guest mode
           this.username = 'Guest #' + make6DigitCode().toString().substring(0, 4);
@@ -87,7 +136,8 @@ export default class Player {
 
           this.send({
             type: 'verify',
-            guestName: this.username
+            guestName: this.username,
+            rejoinCode: this.rejoinCode
           });
           this.send({
             type: 'cnt',
@@ -106,44 +156,8 @@ export default class Player {
           // check if the user can be reconnected to previous session
           const dcPlayerId = disconnectedPlayers.get(valid._id.toString());
           if(dcPlayerId) {
-            const dcPlayer = players.get(dcPlayerId);
-            if(dcPlayer) {
-            console.log('Reconnecting player', valid.username);
-
-            // remove from disconnected players
-            disconnectedPlayers.delete(valid._id.toString());
-
-            // set the player's ws to this ws
-            this.ws.id = dcPlayerId;
-            dcPlayer.ws = this.ws;
-            dcPlayer.disconnected = false;
-            dcPlayer.disconnectTime = 0;
-            dcPlayer.ip = this.ip;
-
-
-            dcPlayer.send({
-              type: 'verify',
-            });
-
-
-            if(dcPlayer.gameId && games.has(dcPlayer.gameId)) {
-              // reconnect to game
-              const game = games.get(dcPlayer.gameId);
-              game.rejoinGame(dcPlayer);
-              dcPlayer.send({
-                type: 'toast',
-                toastType: 'success',
-                key: 'reconnected',
-
-              });
-            }
-
-            // destroy this player
-            players.delete(this.id);
+            handleReconnect(dcPlayerId, valid._id.toString());
             return;
-            } else {
-              disconnectedPlayers.delete(valid._id.toString());
-            }
           }
 
           // make sure the user is not already logged in (only on prod)
