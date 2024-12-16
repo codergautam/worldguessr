@@ -2170,6 +2170,15 @@ setShowCountryButtons(false)
         <Script id="clarity">
           {`
 
+document.addEventListener(
+  'wheel',
+  function touchHandler(e) {
+    if (e.ctrlKey) {
+      e.preventDefault();
+    }
+  },
+  { passive: false }
+);
             window.lastAdShown = Date.now();
             window.gameOpen = Date.now();
           //   try {
