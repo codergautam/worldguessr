@@ -296,6 +296,14 @@ html {
 .backBtn:hover {
   background-color: darkred;
 }
+
+.reloadBtn {
+  background-color: #000099;
+  // width: 100px;
+}
+.reloadBtn:hover {
+  background-color: #00005f;
+}
 h1, h2, h3, span {
   font-weight: 500;
   color: white;

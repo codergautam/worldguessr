@@ -30,7 +30,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
       <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed}><FaArrowLeft /></button>
       </div>
       {reloadBtn && (
-      <button className="gameBtn navBtn backBtn" style={{backgroundColor: '#000099'}} onClick={reloadBtnPressed}><FaArrowRotateRight /></button>
+      <button className="gameBtn navBtn backBtn reloadBtn" onClick={reloadBtnPressed}><FaArrowRotateRight /></button>
       )}
 
 

@@ -1,6 +1,6 @@
 import HeadContent from "@/components/headContent";
 import { FaDiscord, FaGithub } from "react-icons/fa";
-import { FaGear,FaRankingStar, FaYoutube } from "react-icons/fa6";
+import { FaArrowRotateRight, FaGear,FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState, useRef } from "react";
@@ -1979,6 +1979,15 @@ setShowCountryButtons(false)
       }))}}
 
       inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.public && !leagueModal} />
+
+{/* reload button for public game */}
+{ multiplayerState?.gameData?.public && multiplayerState?.gameData?.state === "guess" && (
+<div className="gameBtnContainer" style={{position: 'fixed',top: '60px', left: '10px', zIndex: 1000000}}>
+
+  <button className="gameBtn navBtn backBtn reloadBtn" onClick={()=>reloadBtnPressed()}><FaArrowRotateRight /></button>
+</div>
+)}
+
 {/* ELO/League button */}
 {screen === "home" && !mapModal && session && session?.token?.secret && (
   <button className="gameBtn leagueBtn" onClick={()=>{setLeagueModal(true)}} style={{backgroundColor: eloData?.league?.color }}>
