@@ -410,6 +410,41 @@ statsRef.current = stats;
   const [showDiscordModal, setShowDiscordModal] = useState(false);
   const [singlePlayerRound, setSinglePlayerRound] = useState(null);
   const [partyModalShown, setPartyModalShown] = useState(false);
+
+  const [inCoolMathGames, setInCoolMathGames] = useState(false);
+  const [coolmathSplash, setCoolmathSplash] = useState(null);
+
+  // check if ?coolmath=true
+  useEffect(() => {
+    if(process.env.NEXT_PUBLIC_COOLMATH === "true") {
+      setInCoolMathGames(true);
+      window.lastCoolmathAd =Date.now();
+
+      setCoolmathSplash(0);
+      let interval = setInterval(() => {
+        setCoolmathSplash((prev) => {
+          if(prev >= 1) {
+            clearInterval(interval);
+            interval = setInterval(() => {
+              setCoolmathSplash((prev) => {
+                if(prev <= 0) {
+                  clearInterval(interval);
+                  return null;
+                }
+                return prev - 0.1
+              })
+            }, 100)
+          }
+          return prev + 0.1
+        })
+      }, 100)
+
+      return () => {
+        clearInterval(interval);
+      }
+    }
+  }, [])
+
   useEffect(() => {
     if(screen === "singleplayer") {
       // start the single player game
@@ -1022,7 +1057,7 @@ setShowCountryButtons(false)
               }, 1000)
             } else {
               // create Party
-              handleMultiplayerAction("createPrivateGame")
+              // handleMultiplayerAction("createPrivateGame")
             }
 
             }
@@ -1485,7 +1520,29 @@ setShowCountryButtons(false)
       adStarted: () => console.log("Start midgame ad"),
     };
     window.CrazyGames.SDK.ad.requestAd("midgame", callbacks);
-  } catch(e) {}
+  } catch(e) {
+    console.log("error requesting midgame ad", e)
+    adFinished()
+  }
+  } else if(process.env.NEXT_PUBLIC_COOLMATH === "true" && Date.now() - window.lastCoolmathAd > 120000) {
+    try {
+      window.lastCoolmathAd = Date.now();
+      function onEnd() {
+        adFinished()
+        console.log("End midgame ad")
+        document.removeEventListener("adBreakComplete", onEnd);
+      }
+      function onStart() {
+        console.log("Start midgame ad")
+        document.removeEventListener("adBreakStart", onStart);
+      }
+      window.cmgAdBreak();
+      document.addEventListener("adBreakStart", onStart);
+      document.addEventListener("adBreakComplete", onEnd);
+  } catch(e) {
+    console.log("error requesting midgame ad", e)
+    adFinished()
+  }
   } else {
     adFinished()
   }
@@ -1792,7 +1849,7 @@ setShowCountryButtons(false)
 
   return (
     <>
-      <HeadContent text={text}/>
+      <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} />
 
       <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
@@ -1812,10 +1869,35 @@ setShowCountryButtons(false)
   </div>
 </div>
 
+{ typeof coolmathSplash === "number" && (
+  // black background
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    backgroundColor: 'rgb(36,36,36)',
+    zIndex: 100090,
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    color: 'white',
+    fontSize: '2em'
+  }}>
+    <div>
+    {/* image /coolmath-splash.png */}
+    <NextImage.default src={'/coolmath-splash.png'} draggable={false} fill alt="Coolmath Splash" style={{objectFit: "contain",userSelect:'none', opacity: coolmathSplash}} />
+
+    </div>
+  </div>
+
+)}
+
 {screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal && (
         <div className="home__footer">
           <div className="footer_btns">
-        { !isApp && (
+        { !isApp &&  !inCoolMathGames && (
                   <>
                 <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
 
@@ -1869,7 +1951,9 @@ setShowCountryButtons(false)
           showRoadLabels={gameOptions?.showRoadName}
           loading={loading}
           setLoading={setLoading}
-          hidden={(!latLong || !latLong.lat || !latLong.long)|| loading}
+          hidden={((!latLong || !latLong.lat || !latLong.long)|| loading)||(
+            screen==="home"||(screen==="multiplayer" && (multiplayerState?.gameData?.state === "waiting"||multiplayerState?.enteringGameCode))
+          )}
           onLoad={() => {
             console.log("loaded")
             setTimeout(() => {
@@ -1883,7 +1967,18 @@ setShowCountryButtons(false)
 
 
 
-      <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.public && !leagueModal} />
+      <Navbar
+      joinCodePress={() => {
+        setOnboarding(null)
+        setOnboardingCompleted(true)
+          gameStorage.setItem("onboarding", 'done')
+        setScreen("multiplayer")
+        setMultiplayerState((prev) => ({
+        ...prev,
+        enteringGameCode: true
+      }))}}
+
+      inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.public && !leagueModal} />
 {/* ELO/League button */}
 {screen === "home" && !mapModal && session && session?.token?.secret && (
   <button className="gameBtn leagueBtn" onClick={()=>{setLeagueModal(true)}} style={{backgroundColor: eloData?.league?.color }}>
@@ -1957,7 +2052,7 @@ setShowCountryButtons(false)
 
           <div style={{ marginTop: "20px" }}>
             <center>
-              { !loading && screen === "home"  && !inCrazyGames &&(!session?.token?.supporter) && (
+              { !loading && screen === "home"  && !inCrazyGames && !inCoolMathGames &&(!session?.token?.supporter) && (
     <Ad inCrazyGames={inCrazyGames} screenH={height} types={[[320,50],[728,90],[970,90],[970,250]]} screenW={width} />
               )}
     </center>
@@ -1990,12 +2085,15 @@ setShowCountryButtons(false)
 
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI
+          inCoolMathGames={inCoolMathGames}
           miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
             singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal}  setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
         {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
           <GameUI
+          inCoolMathGames={inCoolMathGames}
+
           miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
             inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
           </div>}
@@ -2057,6 +2155,8 @@ setShowCountryButtons(false)
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
           <GameUI
+          inCoolMathGames={inCoolMathGames}
+
           miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
           inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent,
             nm: multiplayerState?.gameData?.nm,

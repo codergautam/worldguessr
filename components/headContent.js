@@ -2,9 +2,10 @@ import Head from "next/head";
 import Script from "next/script";
 import { useEffect } from "react";
 
-export default function HeadContent({text}) {
+export default function HeadContent({text,inCoolMathGames}) {
   useEffect(() => {
-    if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI) {
+    if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
+  !process.env.NEXT_PUBLIC_COOLMATH) {
       const script = document.createElement('script');
       script.src = "https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js";
       script.async = true;
@@ -38,7 +39,31 @@ export default function HeadContent({text}) {
     return () => {
       document.body.removeChild(script);
     }
-    } else if(process.env.NEXT_PUBLIC_POKI === "true") {
+    } else if(process.env.NEXT_PUBLIC_COOLMATH === "true") {
+      /*<script
+src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js"></script>
+<script type="text/ja
+vascript"
+src="https://www.coolmathgames.com/sites/default/files/cmg
+-
+ads.js"></script>*/
+
+      const script = document.createElement('script');
+      script.src = "https://ajax.googleapis.com/ajax/libs/jquery/3.6.3/jquery.min.js";
+      script.async = false;
+      document.body.appendChild(script);
+
+      const script2 = document.createElement('script');
+      script2.src = "https://www.coolmathgames.com/sites/default/files/cmg-ads.js";
+      script2.async = false;
+      document.body.appendChild(script2);
+
+      return () => {
+        document.body.removeChild(script);
+        document.body.removeChild(script2);
+      }
+
+    }else if(process.env.NEXT_PUBLIC_POKI === "true") {
       //
       const script = document.createElement('script');
       script.src = "https://game-cdn.poki.com/scripts/v2/poki-sdk.js";
@@ -57,7 +82,8 @@ export default function HeadContent({text}) {
   return (
           <Head>
       <title>
-        {text("tabTitle")}
+        { inCoolMathGames ? "WorldGuessr - Play it now at CoolmathGames.com" :
+        text("tabTitle") }
         </title>
     <meta property="og:title" content={text("fullTitle")}/>
 
