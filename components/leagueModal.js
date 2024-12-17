@@ -11,27 +11,22 @@ export default function LeagueModal({ shown, onClose, session, eloData }) {
 
     const userLeague = getLeague(eloData.elo);
     return (
-        <Modal
-            open={shown}
-            onClose={onClose}
-            center
-            styles={{
-                modal: {
-                    backgroundColor: '#1b1b1b',
-                    borderRadius: '15px',
-                    padding: '20px',
-                    color: 'white',
-                    boxShadow: '0px 0px 20px rgba(255, 255, 255, 0.2)',
-                    maxWidth: '500px'
-                },
-                closeButton: {
-                    scale: 0.8,
-                    backgroundColor: 'white',
-                    color: 'black',
-                    borderRadius: '50%'
-                }
-            }}
-        >
+        <Modal open={shown} onClose={onClose} center styles={{
+            modal: {
+                backgroundColor: '#1b1b1b',
+                borderRadius: '15px',
+                padding: '20px',
+                color: 'white',
+                boxShadow: '0px 0px 20px rgba(255, 255, 255, 0.2)',
+                maxWidth: '500px'
+            },
+            closeButton: {
+                scale: 0.8,
+                backgroundColor: 'white',
+                color: 'black',
+                borderRadius: '50%'
+            }
+        }}>
             <center>
                 <h1 style={{
                     fontSize: '28px',
@@ -95,14 +90,14 @@ export default function LeagueModal({ shown, onClose, session, eloData }) {
                 }}>
                     {text("duels_tied")}: <span style={{ color: '#ffd700' }}>{eloData.duels_tied}</span>
                 </p>
-                { eloData.win_rate && (
-                <p style={{
-                    fontSize: '18px',
-                    color: '#b0b0b0',
-                    marginBottom: '5px'
-                }}>
-                    {text("win_rate")}: <span style={{ color: '#ffd700' }}>{(eloData.win_rate*100).toFixed(2)}%</span>
-                </p>
+                {eloData.win_rate && (
+                    <p style={{
+                        fontSize: '18px',
+                        color: '#b0b0b0',
+                        marginBottom: '5px'
+                    }}>
+                        {text("win_rate")}: <span style={{ color: '#ffd700' }}>{(eloData.win_rate * 100).toFixed(2)}%</span>
+                    </p>
                 )}
 
                 {/* League squares with names */}
@@ -129,8 +124,8 @@ export default function LeagueModal({ shown, onClose, session, eloData }) {
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.transform = isCurrentLeague ? 'scale(1.1)' : 'scale(1)';
-                                  setHoveredLeague(null)
-                                  }}
+                                    setHoveredLeague(null)
+                                }}
                             >
                                 {/* League Square with Shine Effect */}
                                 <div style={{

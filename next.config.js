@@ -10,7 +10,10 @@ const __dirname = path.resolve();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
     webpack: (config, { webpack }) => {
-        return config
+        config.devServer = {
+            hot: true, // Enable HMR
+        };
+        return config;
     },
     sassOptions: {
         includePaths: [path.join(__dirname, 'styles')],
@@ -18,8 +21,8 @@ const nextConfig = {
     images: {
         unoptimized: true,
     },
-    output: 'export',
-    assetPrefix: './',
+    output: process.env.ENV === "production" ? 'export': undefined,
+    assetPrefix: process.env.ENV==="production"?'./':"",
 };
 
 // module.exports = nextConfig;

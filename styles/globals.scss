@@ -1,3 +1,12 @@
+@use "tailwindcss/base";
+@use "tailwindcss/components";
+@use "tailwindcss/utilities";
+
+@layer utilities {
+  .btnField {
+    @apply rounded-full bg-purple-200 active:bg-purple-300 border-fuchsia-600 text-pink-700;
+  }
+}
 
 
 html * {
@@ -8,7 +17,6 @@ html * {
 .button,
 button {
   box-shadow: 0 0.275rem 1.125rem rgba(0,0,0,.25), inset 0 0.0625rem 0 hsla(0,0%,100%,.2), inset 0 -0.125rem 0 rgba(0,0,0,.3);
-  border: none;
 }
 
 .home {
@@ -39,7 +47,6 @@ button {
 
 }
 
-/// ccar
 
 .home__content.hidden {
   left: 100%;
@@ -69,11 +76,7 @@ button {
 
 }
 .home__footer{
-  left: 10px;
-  bottom: 5px;
-  position: fixed;
   pointer-events: all;
-  z-index: 10000;
 }
 .footer_btns {
   display: flex;
@@ -203,7 +206,7 @@ button {
   z-index: 101;
 }
 .gameBtn {
-  background-color: #327A60;
+  background-color: #207153;
   color: white;
   font-size: clamp(1.3em, 3vw, 5em);
   cursor: pointer;

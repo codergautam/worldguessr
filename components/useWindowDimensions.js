@@ -1,3 +1,5 @@
+// used to get the dimensions of the active window 
+
 import { useState, useEffect } from 'react';
 
 function getWindowDimensions() {

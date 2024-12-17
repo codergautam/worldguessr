@@ -1,6 +1,7 @@
+
 import HeadContent from "@/components/headContent";
 import { FaDiscord, FaGithub } from "react-icons/fa";
-import { FaGear,FaRankingStar, FaYoutube } from "react-icons/fa6";
+import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState, useRef } from "react";
@@ -53,6 +54,9 @@ import haversineDistance from "./utils/haversineDistance";
 import StreetView from "./streetview/streetView";
 import Stats from "stats.js";
 import SvEmbedIframe from "./streetview/svHandler";
+import Globe from "./3dHome.js/globe";
+import HomeContent from "./homeContent/homeContent";
+
 
 const initialMultiplayerState = {
   connected: false,
@@ -76,7 +80,8 @@ const initialMultiplayerState = {
   }
 }
 
-export default function Home({ }) {
+export default function Home() {
+  const [background, setBackground] = useState("/street1.jpg")
 
   const { width, height } = useWindowDimensions();
   const statsRef = useRef();
@@ -108,25 +113,36 @@ export default function Home({ }) {
   const [multiplayerError, setMultiplayerError] = useState(null);
   const [miniMapShown, setMiniMapShown] = useState(false)
 
+  // use if needed to switch between different static backgrounds
   useEffect(() => {
-    const {ramUsage} = options;
-    if(ramUsage) {
-      if(!statsRef.current) {
-    var stats = new Stats();
-stats.showPanel( 2 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+    // console.log(`I am inside the initial clg`);
+    // const interval = setInterval(() => {
+    //   setBackground((state) => (state === "/street1.jpg" ? "/street2.jpg" : "/street1.jpg"))
+    // }, 10000);
 
-// move a bit lower
-stats.dom.style.transform = "translate(10px, 150px)";
-stats.dom.style.pointerEvents = "none";
+    // return () => clearInterval(interval);
+  }, [])
 
-document.body.appendChild( stats.dom );
-statsRef.current = stats;
+
+  useEffect(() => {
+    const { ramUsage } = options;
+    if (ramUsage) {
+      if (!statsRef.current) {
+        var stats = new Stats();
+        stats.showPanel(2); // 0: fps, 1: ms, 2: mb, 3+: custom
+
+        // move a bit lower
+        stats.dom.style.transform = "translate(10px, 150px)";
+        stats.dom.style.pointerEvents = "none";
+
+        document.body.appendChild(stats.dom);
+        statsRef.current = stats;
 
       } else {
         statsRef.current.dom.style.display = "";
       }
     } else {
-      if(statsRef.current) {
+      if (statsRef.current) {
         statsRef.current.dom.style.display = "none";
       }
     }
@@ -138,60 +154,59 @@ statsRef.current = stats;
       // monitored code goes here
       statsRef.current.end();
 
-      id = requestAnimationFrame( animate );
+      id = requestAnimationFrame(animate);
     }
-    if(statsRef.current)
-    animate();
+    if (statsRef.current)
+      animate();
 
     return () => {
-
       cancelAnimationFrame(id);
     }
 
 
-  },[ options?.ramUsage] )
+  }, [options?.ramUsage])
 
   let login = null;
-  if(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
-   // eslint-disable-next-line react-hooks/rules-of-hooks
-   login = useGoogleLogin({
-    onSuccess: tokenResponse => {
-      fetch(clientConfig().apiUrl+"/api/googleAuth", {
-        body: JSON.stringify({ code: tokenResponse.code }),
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }).then((res) => res.json()).then((data) => {
-        if(data.secret) {
+  if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    login = useGoogleLogin({
+      onSuccess: tokenResponse => {
+        fetch(clientConfig().apiUrl + "/api/googleAuth", {
+          body: JSON.stringify({ code: tokenResponse.code }),
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }).then((res) => res.json()).then((data) => {
+          if (data.secret) {
 
-          setSession({ token: data })
-          window.localStorage.setItem("wg_secret", data.secret)
+            setSession({ token: data })
+            window.localStorage.setItem("wg_secret", data.secret)
 
-        } else {
-          toast.error("Login error, contact support if this persists (2)")
-        }
+          } else {
+            toast.error("Login error, contact support if this persists (2)")
+          }
 
-      }).catch((e) => {
-        console.error("google auth error", e)
-        toast.error("Login error, contact support if this persists (3)")
-      })
-    },
-    onError: error => {
-      toast.error("Login error, contact support if this persists")
-      console.log("login error", error);
-    },
-    onNonOAuthError: error => {
-      console.log("login non oauth error", error);
-      toast.error("Login error, contact support if this persists (1)\n\nMake sure popups are enabled (needed for google window)")
+        }).catch((e) => {
+          console.error("google auth error", e)
+          toast.error("Login error, contact support if this persists (3)")
+        })
+      },
+      onError: error => {
+        toast.error("Login error, contact support if this persists")
+        console.log("login error", error);
+      },
+      onNonOAuthError: error => {
+        console.log("login non oauth error", error);
+        toast.error("Login error, contact support if this persists (1)\n\nMake sure popups are enabled (needed for google window)")
 
-    },
-    flow: "auth-code",
+      },
+      flow: "auth-code",
 
-  });
+    });
 
-  if(typeof window !== "undefined") window.login = login;
-}
+    if (typeof window !== "undefined") window.login = login;
+  }
 
 
 
@@ -224,11 +239,12 @@ statsRef.current = stats;
   const [config, setConfig] = useState(null);
   const [eloData, setEloData] = useState(null);
   const [animatedEloDisplay, setAnimatedEloDisplay] = useState(0);
-  useEffect(() => {
-    if(!session?.token?.username) return;
-    if(!leagueModal && window.firstFetchElo) return;
 
-    fetch(clientConfig().apiUrl+"/api/eloRank?username="+session?.token?.username).then((res) => res.json()).then((data) => {
+  useEffect(() => {
+    if (!session?.token?.username) return;
+    if (!leagueModal && window.firstFetchElo) return;
+
+    fetch(clientConfig().apiUrl + "/api/eloRank?username=" + session?.token?.username).then((res) => res.json()).then((data) => {
       setEloData(data)
       window.firstFetchElo = true;
     }).catch((e) => {
@@ -258,145 +274,147 @@ statsRef.current = stats;
 
     return () => clearInterval(interval);
   }, [eloData?.elo]);
+
   useEffect(() => {
     const clientConfigData = clientConfig();
     setConfig(clientConfigData);
     window.cConfig = clientConfigData;
 
-    if(window.location.search.includes("app=true")) {
-      setIsApp(true);
-    }
-    if(window.location.search.includes("instantJoin=true")) {
-      // crazygames
-    }
+    // UNCOMMENT THIS FOR PRODUCTION, COMMENTED ONLY FOR DEVELOPMENT
+    // if (window.location.search.includes("app=true")) {
+    //   setIsApp(true);
+    // }
+    // if (window.location.search.includes("instantJoin=true")) {
+    //   // crazygames
+
+    // }
 
 
-    async function crazyAuthListener() {
-      console.log("crazygames auth listener")
-      const user = await window.CrazyGames.SDK.user.getUser();
-      if(user) {
-        console.log("crazygames user", user)
-        const token = await window.CrazyGames.SDK.user.getUserToken();
-        if(token && user.username) {
-          // /api/crazyAuth
-          fetch(clientConfigData.apiUrl+"/api/crazyAuth", {
-            method: "POST",
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ token, username: user.username })
-          }).then((res) => res.json()).then((data) => {
-        console.log("crazygames auth", token, user, data)
-            try {
-            window.CrazyGames.SDK.game.loadingStop();
-            } catch(e) {}
-            if(data.secret && data.username) {
-              setSession({ token: { secret: data.secret, username: data.username } })
-              // verify the ws
-              window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username });
+    // async function crazyAuthListener() {
+    //   console.log("crazygames auth listener")
+    //   const user = await window.CrazyGames.SDK.user.getUser();
+    //   if (user) {
+    //     console.log("crazygames user", user)
+    //     const token = await window.CrazyGames.SDK.user.getUserToken();
+    //     if (token && user.username) {
+    //       // /api/crazyAuth
+    //       fetch(clientConfigData.apiUrl + "/api/crazyAuth", {
+    //         method: "POST",
+    //         headers: {
+    //           'Content-Type': 'application/json'
+    //         },
+    //         body: JSON.stringify({ token, username: user.username })
+    //       }).then((res) => res.json()).then((data) => {
+    //         console.log("crazygames auth", token, user, data)
+    //         try {
+    //           window.CrazyGames.SDK.game.loadingStop();
+    //         } catch (e) { }
+    //         if (data.secret && data.username) {
+    //           setSession({ token: { secret: data.secret, username: data.username } })
+    //           // verify the ws
+    //           window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username });
 
-              setWs((prev) => {
+    //           setWs((prev) => {
 
-                if(prev) {
-                  console.log("sending verify")
+    //             if (prev) {
+    //               console.log("sending verify")
 
-                  prev.send(window.verifyPayload)
-                }
-                return prev;
-              });
-            } else {
-              toast.error("CrazyGames auth failed")
-            }
-          }).catch((e) => {
-            try {
-            window.CrazyGames.SDK.game.loadingStop();
-            } catch(e) {}
-            console.error("crazygames auth failed", e)
-          });
+    //               prev.send(window.verifyPayload)
+    //             }
+    //             return prev;
+    //           });
+    //         } else {
+    //           toast.error("CrazyGames auth failed")
+    //         }
+    //       }).catch((e) => {
+    //         try {
+    //           window.CrazyGames.SDK.game.loadingStop();
+    //         } catch (e) { }
+    //         console.error("crazygames auth failed", e)
+    //       });
 
-        }
-      } else {
-        console.log("crazygames user not logged in")
-        // user not logged in
-        // verify with not_logged_in
-        window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in" });
-        setWs((prev) => {
-          if(prev) {
-            prev.send(window.verifyPayload)
-          } else {
-            console.log("no ws, waiting for connection")
-          }
-          return prev;
-        });
-      }
-    }
+    //     }
+    //   } else {
+    //     console.log("crazygames user not logged in")
+    //     // user not logged in
+    //     // verify with not_logged_in
+    //     window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in" });
+    //     setWs((prev) => {
+    //       if (prev) {
+    //         prev.send(window.verifyPayload)
+    //       } else {
+    //         console.log("no ws, waiting for connection")
+    //       }
+    //       return prev;
+    //     });
+    //   }
+    // }
 
-    function finish() {
-      const onboardingCompletedd = gameStorage.getItem("onboarding");
-      console.log("onboarding", onboardingCompletedd)
-      if(onboardingCompletedd !== "done") startOnboarding();
-      else setOnboardingCompleted(true)
+    // function finish() {
+    //   const onboardingCompletedd = gameStorage.getItem("onboarding");
+    //   console.log("onboarding", onboardingCompletedd)
+    //   if (onboardingCompletedd !== "done") startOnboarding();
+    //   else setOnboardingCompleted(true)
 
-      if(window.location.search.includes("map=")) {
-            // get map slug map=slug from url
-            const params = new URLSearchParams(window.location.search);
-            const mapSlug = params.get("map");
-            setScreen("singleplayer")
+    //   if (window.location.search.includes("map=")) {
+    //     // get map slug map=slug from url
+    //     const params = new URLSearchParams(window.location.search);
+    //     const mapSlug = params.get("map");
+    //     setScreen("singleplayer")
 
-            openMap(mapSlug)
-      }
-          }
-    if(window.location.search.includes("crazygames")) {
-      setInCrazyGames(true);
-      window.inCrazyGames = true;
-      setLoading(true)
+    //     openMap(mapSlug)
+    //   }
+    // }
+    // if (window.location.search.includes("crazygames")) {
+    //   setInCrazyGames(true);
+    //   window.inCrazyGames = true;
+    //   setLoading(true)
 
-      window.onCrazyload = () => {
+    //   window.onCrazyload = async () => {
+    //     // initialize the sdk
+    //     try {
+    //       console.log("init crazygames sdk", window.CrazyGames)
 
-      // initialize the sdk
-      try {
-        console.log("init crazygames sdk", window.CrazyGames)
+    //       await window.CrazyGames?.SDK.init().then(async () => {
+    //         console.log("sdk initialized")
+    //         setLoading(false)
+    //         try {
+    //           window.CrazyGames.SDK.game.loadingStart();
+    //         } catch (e) { }
 
-         window.CrazyGames.SDK.init().then(async () => {
-          console.log("sdk initialized")
-          setLoading(false)
-          try {
-          window.CrazyGames.SDK.game.loadingStart();
-          } catch(e) {}
-
-          crazyAuthListener().then(() => {
-            // check if onboarding is done
-            finish()
-          })
+    //         crazyAuthListener().then(() => {
+    //           // check if onboarding is done
+    //           finish()
+    //         })
 
 
-          window.CrazyGames.SDK.user.addAuthListener(crazyAuthListener);
+    //         window.CrazyGames.SDK.user.addAuthListener(crazyAuthListener);
 
-         }).catch((e) => {
-          finish()
-          console.error("crazygames sdk init failed", e)
-          setLoading(false)
-        })
-      } catch(e) {
-        console.error("crazygames sdk init failed", e)
-        finish()
-        setLoading(false)
-      }
-    }
+    //       }).catch((e) => {
+    //         finish()
+    //         console.error("crazygames sdk init failed", e)
+    //         setLoading(false)
+    //       })
+    //     } catch (e) {
+    //       console.error("crazygames sdk init failed", e)
+    //       finish()
+    //       setLoading(false)
+    //     }
+    //   }
 
-    if(window.CrazyGames) {
-      window.onCrazyload();
-    }
-    }
-    initialMultiplayerState.createOptions.displayLocation = text("allCountries")
+    //   if (window.CrazyGames) {
+    //     window.onCrazyload();
+    //   }
+    // }
+    // initialMultiplayerState.createOptions.displayLocation = text("allCountries")
 
-    return () => {
-      try {
-        window.CrazyGames.SDK.user.removeAuthListener(crazyAuthListener);
-      } catch(e){
-        console.error("crazygames remove auth listener error", e)
-      }
-    }
+    // return () => {
+    //   try {
+    //     window.CrazyGames.SDK.user.removeAuthListener(crazyAuthListener);
+    //   } catch (e) {
+    //     console.error("crazygames remove auth listener error", e)
+    //   }
+    // }
 
   }, []);
 
@@ -411,7 +429,7 @@ statsRef.current = stats;
   const [singlePlayerRound, setSinglePlayerRound] = useState(null);
   const [partyModalShown, setPartyModalShown] = useState(false);
   useEffect(() => {
-    if(screen === "singleplayer") {
+    if (screen === "singleplayer") {
       // start the single player game
       setSinglePlayerRound({
         round: 1,
@@ -424,81 +442,81 @@ statsRef.current = stats;
   const [allLocsArray, setAllLocsArray] = useState([]);
   function startOnboarding() {
 
-    if(inCrazyGames) {
+    if (inCrazyGames) {
       // make sure its not an invite link
       const code = window.CrazyGames.SDK.game.getInviteParam("code")
-      if(code && code.length === 6) {
+      if (code && code.length === 6) {
         return;
       }
 
       // make sure tis not already completed
       const onboarding = gameStorage.getItem("onboarding");
-      if(onboarding === "done") {
+      if (onboarding === "done") {
         return;
       }
     }
 
-setScreen("onboarding")
+    setScreen("onboarding")
 
-let onboardingLocations = [
-  { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
-{ lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
-{ lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
-  { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
-  // pyramid of giza 29.9773337,31.1321796
-  { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
-  // eiffel tower 48.8592946,2.2927855
-  { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
-  // statue of liberty 40.6909253,-74.0552998
-  { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
-  // brandenburg gate 52.5161999,13.3756414
-  { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
+    let onboardingLocations = [
+      { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
+      { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
+      { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
+      { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
+      // pyramid of giza 29.9773337,31.1321796
+      { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
+      // eiffel tower 48.8592946,2.2927855
+      { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
+      // statue of liberty 40.6909253,-74.0552998
+      { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
+      // brandenburg gate 52.5161999,13.3756414
+      { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
 
-]
+    ]
 
-// pick 5 random locations no repeats
-const locations = [];
-while (locations.length < 5) {
-  const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
-  if (!locations.find((l) => l.country === loc.country)) {
-    locations.push(loc)
+    // pick 5 random locations no repeats
+    const locations = [];
+    while (locations.length < 5) {
+      const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
+      if (!locations.find((l) => l.country === loc.country)) {
+        locations.push(loc)
+      }
+    }
+
+    setOnboarding({
+      round: 1,
+      locations: locations,
+      startTime: Date.now(),
+    })
+    sendEvent("tutorial_begin")
+    setShowCountryButtons(false)
   }
-}
-
-setOnboarding({
-  round: 1,
-  locations: locations,
-  startTime: Date.now(),
-})
-sendEvent("tutorial_begin")
-setShowCountryButtons(false)
-}
   function openMap(mapSlug) {
     const country = countries.find((c) => c === mapSlug.toUpperCase());
     let officialCountryMap = null;
-    if(country) {
-    officialCountryMap = officialCountryMaps.find((c) => c.countryCode === mapSlug);
+    if (country) {
+      officialCountryMap = officialCountryMaps.find((c) => c.countryCode === mapSlug);
     }
     setAllLocsArray([])
 
-    if(!country && mapSlug !== gameOptions.location) {
-      if( ((window?.lastPlayTrack||0) + 20000 < Date.now())) {
+    if (!country && mapSlug !== gameOptions.location) {
+      if (((window?.lastPlayTrack || 0) + 20000 < Date.now())) {
 
         try {
-      fetch(clientConfig()?.apiUrl+`/mapPlay/${mapSlug}`, {method: "POST"})
-        } catch(e) {}
+          fetch(clientConfig()?.apiUrl + `/mapPlay/${mapSlug}`, { method: "POST" })
+        } catch (e) { }
 
-    }
+      }
 
-    try {
-      window.lastPlayTrack = Date.now();
-      } catch(e) {}
+      try {
+        window.lastPlayTrack = Date.now();
+      } catch (e) { }
     }
 
     setGameOptions((prev) => ({
       ...prev,
       location: mapSlug,
-      official: (country||mapSlug==='all') ? true : false,
+      official: (country || mapSlug === 'all') ? true : false,
       countryMap: country,
       maxDist: country ? countryMaxDists[country] : 20000,
       extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
@@ -506,37 +524,37 @@ setShowCountryButtons(false)
   }
 
   useEffect(() => {
-    if(onboarding?.round >1) {
+    if (onboarding?.round > 1) {
       loadLocation()
     }
   }, [onboarding?.round])
 
   useEffect(() => {
-    if(onboarding?.completed) {
+    if (onboarding?.completed) {
       setOnboardingCompleted(true)
     }
   }, [onboarding?.completed])
   useEffect(() => {
     try {
-    const onboarding = gameStorage.getItem("onboarding");
-    // check url
-    const cg = window.location.search.includes("crazygames");
-    const specifiedMapSlug = window.location.search.includes("map=");
-    console.log("onboarding", onboarding, specifiedMapSlug)
-    // make it false just for testing
-    // gameStorage.setItem("onboarding", null)
-    if(onboarding && onboarding === "done") {
-      setOnboardingCompleted(true)
+      const onboarding = gameStorage.getItem("onboarding");
+      // check url
+      const cg = window.location.search.includes("crazygames");
+      const specifiedMapSlug = window.location.search.includes("map=");
+      console.log("onboarding", onboarding, specifiedMapSlug)
+      // make it false just for testing
+      // gameStorage.setItem("onboarding", null)
+      if (onboarding && onboarding === "done") {
+        setOnboardingCompleted(true)
 
 
-    }
-      else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
+      }
+      else if (specifiedMapSlug && !cg) setOnboardingCompleted(true)
       else setOnboardingCompleted(false)
-  } catch(e) {
-    console.error(e, "onboard");
-    setOnboardingCompleted(true);
-  }
-  // setOnboardingCompleted(false)
+    } catch (e) {
+      console.error(e, "onboard");
+      setOnboardingCompleted(true);
+    }
+    // setOnboardingCompleted(false)
   }, [])
 
 
@@ -544,7 +562,7 @@ setShowCountryButtons(false)
   useEffect(() => {
 
     // check if pirated
-    if(isForbiddenIframe() && !window.blocked) {
+    if (isForbiddenIframe() && !window.blocked) {
       // display a message
       window.blocked = true;
       document.write(`
@@ -617,18 +635,18 @@ setShowCountryButtons(false)
   </div>
 </body>
 </html>
-`)
+      `)
       sendEvent("blocked_iframe")
     }
     // check if learn mode
-    if(window.location.search.includes("learn=true")) {
+    if (window.location.search.includes("learn=true")) {
       window.learnMode = true;
 
       // immediately open single player
       setScreen("singleplayer")
     }
     // check if from map screen
-    if(window.location.search.includes("map=") && !window.location.search.includes("crazygames")) {
+    if (window.location.search.includes("map=") && !window.location.search.includes("crazygames")) {
       // get map slug map=slug from url
       const params = new URLSearchParams(window.location.search);
       const mapSlug = params.get("map");
@@ -637,32 +655,32 @@ setShowCountryButtons(false)
       openMap(mapSlug)
     }
 
-    if(window.location.search.includes("createPrivateGame=true")) {
+    if (window.location.search.includes("createPrivateGame=true")) {
     }
   }, [])
 
   useEffect(() => {
 
-// check if learn mode
-    if(window.location.search.includes("learn=true")) {
+    // check if learn mode
+    if (window.location.search.includes("learn=true")) {
       setOnboardingCompleted(true)
     }
 
 
-    if(onboardingCompleted === false) {
-      if(onboardingCompleted===null)return;
+    if (onboardingCompleted === false) {
+      if (onboardingCompleted === null) return;
       if (!loading) {
 
 
-      // const isPPC = window.location.search.includes("cpc=true");
-        if(inIframe() && window.adBreak && !inCrazyGames) {
+        // const isPPC = window.location.search.includes("cpc=true");
+        if (inIframe() && window.adBreak && !inCrazyGames) {
           console.log("trying to show preroll")
           window.onboardPrerollEnd = false;
           setLoading(true)
           window.adBreak({
             type: "preroll",
-            adBreakDone: function(e) {
-              if(window.onboardPrerollEnd) return;
+            adBreakDone: function (e) {
+              if (window.onboardPrerollEnd) return;
               setLoading(false)
               window.onboardPrerollEnd = true;
               sendEvent("interstitial", { type: "preroll", ...e })
@@ -671,14 +689,14 @@ setShowCountryButtons(false)
           })
 
           setTimeout(() => {
-            if(!window.onboardPrerollEnd) {
+            if (!window.onboardPrerollEnd) {
               window.onboardPrerollEnd = true;
               console.log("preroll timeout")
               setLoading(false)
               startOnboarding()
             }
           }, 3000)
-        } else if(!inCrazyGames) {
+        } else if (!inCrazyGames) {
 
           startOnboarding()
         }
@@ -687,16 +705,16 @@ setShowCountryButtons(false)
   }, [onboardingCompleted])
 
   useEffect(() => {
-    if(session && session.token && session.token.username && !inCrazyGames) {
+    if (session && session.token && session.token.username && !inCrazyGames) {
       setOnboardingCompleted(true)
       try {
         gameStorage.setItem("onboarding", 'done')
-      } catch(e) {}
+      } catch (e) { }
     }
   }, [session])
 
   useEffect(() => {
-    if(!options?.language) return;
+    if (!options?.language) return;
     try {
       window.localStorage.setItem("lang", options?.language)
       window.language = options?.language;
@@ -705,56 +723,56 @@ setShowCountryButtons(false)
       const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
 
       const location = `/${options?.language !== "en" ? options?.language : ""}`
-      if(!window.location.pathname.includes(location)) {
+      if (!window.location.pathname.includes(location)) {
         console.log("changing lang", location)
-        window.location.href = location+qPsuffix;
+        window.location.href = location + qPsuffix;
       }
-      if(options?.language === "en" && ["es", "fr", "de", "ru"].includes(window.location.pathname.split("/")[1])) {
+      if (options?.language === "en" && ["es", "fr", "de", "ru"].includes(window.location.pathname.split("/")[1])) {
         console.log("changing lang", location)
-        window.location.href = "/"+qPsuffix;
+        window.location.href = "/" + qPsuffix;
       }
-    } catch(e) {}
+    } catch (e) { }
   }, [options?.language]);
 
-  const loadOptions =async () => {
+  const loadOptions = async () => {
 
     // try to fetch options from localstorage
     try {
-    const options = gameStorage.getItem("options");
-    console.log("options", options)
+      const options = gameStorage.getItem("options");
+      console.log("options", options)
 
 
-    if (options) {
-      setOptions(JSON.parse(options))
-    } else {
-      let json;
+      if (options) {
+        setOptions(JSON.parse(options))
+      } else {
+        let json;
 
-      try {
-      const res = await fetch("https://ipapi.co/json/");
-       json = await res.json();
-      }catch(e){}
+        try {
+          const res = await fetch("https://ipapi.co/json/");
+          json = await res.json();
+        } catch (e) { }
 
-      const countryCode = json?.country_code;
-      let system = "metric";
-      if(countryCode && ["US", "LR", "MM", "UK"].includes(countryCode)) system = "imperial";
+        const countryCode = json?.country_code;
+        let system = "metric";
+        if (countryCode && ["US", "LR", "MM", "UK"].includes(countryCode)) system = "imperial";
 
 
-      setOptions({
-        units: system,
-        ramUsage: false,
-        mapType: "m" //m for normal
-      })
-    }
-  } catch(e) {}
+        setOptions({
+          units: system,
+          ramUsage: false,
+          mapType: "m" //m for normal
+        })
+      }
+    } catch (e) { }
 
   }
-  useEffect(()=>{loadOptions()}, [])
+  useEffect(() => { loadOptions() }, [])
 
   useEffect(() => {
-    if(options && options.units && options.mapType) {
+    if (options && options.units && options.mapType) {
       try {
-      gameStorage.setItem("options", JSON.stringify(options))
-      } catch(e) {}
+        gameStorage.setItem("options", JSON.stringify(options))
+      } catch (e) { }
     }
   }, [options])
 
@@ -771,10 +789,10 @@ setShowCountryButtons(false)
   const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
 
   useEffect(() => {
-    if(!session?.token?.secret) return;
+    if (!session?.token?.secret) return;
 
     // verify the ws
-    if(ws && !window.verified && !window.location.search.includes("crazygames")) {
+    if (ws && !window.verified && !window.location.search.includes("crazygames")) {
       console.log("sending verify", ws)
       ws.send(JSON.stringify({ type: "verify", secret: session.token.secret, username: session.token.username }))
     }
@@ -782,9 +800,9 @@ setShowCountryButtons(false)
 
   const { t: text } = useTranslation("common");
 
-  useEffect(( ) => {
+  useEffect(() => {
 
-    if(multiplayerState?.joinOptions?.error) {
+    if (multiplayerState?.joinOptions?.error) {
       setTimeout(() => {
         setMultiplayerState((prev) => ({ ...prev, joinOptions: { ...prev.joinOptions, error: null } }))
       }, 1000)
@@ -822,7 +840,7 @@ setShowCountryButtons(false)
         }));
         // join Party
         ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0] }))
-      sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
+        sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
 
       } else {
         setScreen("multiplayer")
@@ -841,52 +859,53 @@ setShowCountryButtons(false)
 
     if (action === "createPrivateGame") {
 
-        // const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
-        // setMultiplayerState((prev) => ({
-        //   ...prev,
-        //   createOptions: {
-        //     ...prev.createOptions,
-        //     progress: 0
-        //   }
-        // }));
-        // (async () => {
-          // const locations = [];
-          // for (let i = 0; i < args[0].rounds; i++) {
+      // const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
+      // setMultiplayerState((prev) => ({
+      //   ...prev,
+      //   createOptions: {
+      //     ...prev.createOptions,
+      //     progress: 0
+      //   }
+      // }));
+      // (async () => {
+      // const locations = [];
+      // for (let i = 0; i < args[0].rounds; i++) {
 
-          //   const loc = await findLatLongRandom({ location: multiplayerState.createOptions.location });
-          //   locations.push(loc)
-          //   setMultiplayerState((prev) => ({
-          //     ...prev,
-          //     createOptions: {
-          //       ...prev.createOptions,
-          //       progress: i + 1
-          //     }
-          //   }))
-          // }
+      //   const loc = await findLatLongRandom({ location: multiplayerState.createOptions.location });
+      //   locations.push(loc)
+      //   setMultiplayerState((prev) => ({
+      //     ...prev,
+      //     createOptions: {
+      //       ...prev.createOptions,
+      //       progress: i + 1
+      //     }
+      //   }))
+      // }
 
-          setMultiplayerState((prev) => ({
-            ...prev,
-            createOptions: {
-              ...prev.createOptions,
-              progress: true
-            }
-          }));
+      setMultiplayerState((prev) => ({
+        ...prev,
+        createOptions: {
+          ...prev.createOptions,
+          progress: true
+        }
+      }));
 
-          // send ws
-          // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
-          ws.send(JSON.stringify({ type: "createPrivateGame"
+      // send ws
+      // ws.send(JSON.stringify({ type: "createPrivateGame", rounds: args[0].rounds, timePerRound: args[0].timePerRound, locations, maxDist }))
+      ws.send(JSON.stringify({
+        type: "createPrivateGame"
 
-          }));
-          setPartyModalShown(true)
-          sendEvent("multiplayer_create_private_game")
-          // })()
+      }));
+      setPartyModalShown(true)
+      sendEvent("multiplayer_create_private_game")
+      // })()
     }
 
-    if(action === "setPrivateGameOptions" && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
-    setMultiplayerState((prev) => {
-      ws.send(JSON.stringify({ type: "setPrivateGameOptions", rounds: prev.createOptions.rounds, timePerRound: prev.createOptions.timePerRound, nm: prev.createOptions.nm, npz: prev.createOptions.npz, showRoadName: prev.createOptions.showRoadName, location: prev.createOptions.location, displayLocation: prev.createOptions.displayLocation }))
-      return prev;
-    })
+    if (action === "setPrivateGameOptions" && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
+      setMultiplayerState((prev) => {
+        ws.send(JSON.stringify({ type: "setPrivateGameOptions", rounds: prev.createOptions.rounds, timePerRound: prev.createOptions.timePerRound, nm: prev.createOptions.nm, npz: prev.createOptions.npz, showRoadName: prev.createOptions.showRoadName, location: prev.createOptions.location, displayLocation: prev.createOptions.displayLocation }))
+        return prev;
+      })
     }
 
     if (action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
@@ -894,140 +913,140 @@ setShowCountryButtons(false)
       sendEvent("multiplayer_start_game_host")
     }
 
-    if(action === 'screen') {
-        ws.send(JSON.stringify({ type: "screen", screen: args[0] }))
+    if (action === 'screen') {
+      ws.send(JSON.stringify({ type: "screen", screen: args[0] }))
     }
 
 
   }
 
   useEffect(() => {
-    (async() => {
+    (async () => {
 
 
-    if (!ws && !multiplayerState.connecting && !multiplayerState.connected && !window?.dontReconnect) {
+      if (!ws && !multiplayerState.connecting && !multiplayerState.connected && !window?.dontReconnect) {
 
-      setMultiplayerState((prev) => ({
-        ...prev,
-        connecting: true,
-        shouldConnect: false
-      }))
-      const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 20)
-      if(ws && ws.readyState === 1) {
-      setWs(ws)
-      setMultiplayerState((prev)=>({
-        ...prev,
-        error: false
-      }))
+        setMultiplayerState((prev) => ({
+          ...prev,
+          connecting: true,
+          shouldConnect: false
+        }))
+        const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 20)
+        if (ws && ws.readyState === 1) {
+          setWs(ws)
+          setMultiplayerState((prev) => ({
+            ...prev,
+            error: false
+          }))
 
 
-      console.log("connected to ws", window.verifyPayload)
-      if(!inCrazyGames && !window.location.search.includes("crazygames")) {
+          console.log("connected to ws", window.verifyPayload)
+          if (!inCrazyGames && !window.location.search.includes("crazygames")) {
 
-          const tz = moment.tz.guess();
-          let secret = "not_logged_in";
-          try {
-            const s = window.localStorage.getItem("wg_secret");
-            if(s) {
-              secret = s;
+            const tz = moment.tz.guess();
+            let secret = "not_logged_in";
+            try {
+              const s = window.localStorage.getItem("wg_secret");
+              if (s) {
+                secret = s;
+              }
+            } catch (e) {
             }
-          } catch(e) {
-          }
-          if(session?.token?.secret) {
-            secret = session.token.secret;
-          }
+            if (session?.token?.secret) {
+              secret = session.token.secret;
+            }
 
 
-          if(secret !== "not_logged_in") {
-            window.verified = true;
-          }
-          ws.send(JSON.stringify({ type: "verify", secret, tz}))
-      } else if(window.verifyPayload) {
-        console.log("sending verify from verifyPayload")
-        ws.send(window.verifyPayload)
+            if (secret !== "not_logged_in") {
+              window.verified = true;
+            }
+            ws.send(JSON.stringify({ type: "verify", secret, tz }))
+          } else if (window.verifyPayload) {
+            console.log("sending verify from verifyPayload")
+            ws.send(window.verifyPayload)
 
+
+          }
+        } else {
+          alert("could not connect to server")
+        }
 
       }
-      } else {
-        alert("could not connect to server")
-      }
-
-    }
-  })();
+    })();
   }, [multiplayerState, ws, screen])
 
 
   useEffect(() => {
 
-    if(inCrazyGames || window.poki) {
-      if(screen === "home") {
+    if (inCrazyGames || window.poki) {
+      if (screen === "home") {
         console.log("gameplay stop")
         try {
           window.CrazyGames.SDK.game.gameplayStop();
-        } catch(e) {}
+        } catch (e) { }
         try {
-          if(window.poki) window.PokiSDK.gameplayStop();
-        } catch(e) {}
+          if (window.poki) window.PokiSDK.gameplayStop();
+        } catch (e) { }
       } else {
         console.log("gameplay start")
         try {
           window.CrazyGames.SDK.game.gameplayStart();
-        } catch(e) {}
+        } catch (e) { }
         try {
-          if(window.poki) window.PokiSDK.gameplayStart();
-        } catch(e) {}
+          if (window.poki) window.PokiSDK.gameplayStart();
+        } catch (e) { }
       }
     }
   }, [screen, inCrazyGames])
 
   useEffect(() => {
-    if(multiplayerState?.connected && inCrazyGames) {
+    if (multiplayerState?.connected && inCrazyGames) {
 
-          // check if joined via invite link
-          try {
-            let code = window.CrazyGames.SDK.game.getInviteParam("code")
-            let instantJoin = window.location.search.includes("instantJoin");
+      // check if joined via invite link
+      try {
+        let code = window.CrazyGames.SDK.game.getInviteParam("code")
+        let instantJoin = window.location.search.includes("instantJoin");
 
 
 
-            if(code || instantJoin) {
+        if (code || instantJoin) {
 
-              if(typeof code === "string") {
-                try {
-                  code = parseInt(code)
-                } catch(e) {
-                }
+          if (typeof code === "string") {
+            try {
+              code = parseInt(code)
+            } catch (e) {
+            }
+          }
+
+          setOnboardingCompleted(true)
+          setOnboarding(null)
+          setLoading(false)
+          setScreen("home")
+          if (code) {
+
+            // join Party
+            handleMultiplayerAction("joinPrivateGame")
+            // set the code
+            setMultiplayerState((prev) => ({
+              ...prev,
+              joinOptions: {
+                ...prev.joinOptions,
+                gameCode: code,
+                progress: true
               }
+            }))
+            // press go
+            setTimeout(() => {
+              handleMultiplayerAction("joinPrivateGame", code)
+            }, 1000)
+          } else {
+            // create Party
+            handleMultiplayerAction("createPrivateGame")
+          }
 
-            setOnboardingCompleted(true)
-            setOnboarding(null)
-            setLoading(false)
-            setScreen("home")
-            if(code) {
+        }
 
-              // join Party
-              handleMultiplayerAction("joinPrivateGame")
-              // set the code
-              setMultiplayerState((prev) => ({
-                ...prev,
-                joinOptions: {
-                  ...prev.joinOptions,
-                  gameCode: code,
-                  progress: true
-                }
-              }))
-              // press go
-              setTimeout(() => {
-                handleMultiplayerAction("joinPrivateGame", code)
-              }, 1000)
-            } else {
-              // create Party
-              handleMultiplayerAction("createPrivateGame")
-            }
-
-            }
-
-            } catch(e) {}
+      } catch (e) { }
 
     }
   }, [multiplayerState?.connected, inCrazyGames])
@@ -1044,10 +1063,10 @@ setShowCountryButtons(false)
       }))
     }
 
-      if (multiplayerState?.gameData?.state === "waiting") {
-        // remove gameData.finalPlayers
-        setMultiplayerState((prev) => ({ ...prev, gameData: { ...prev.gameData, finalPlayers: undefined } }));
-      }
+    if (multiplayerState?.gameData?.state === "waiting") {
+      // remove gameData.finalPlayers
+      setMultiplayerState((prev) => ({ ...prev, gameData: { ...prev.gameData, finalPlayers: undefined } }));
+    }
   }, [multiplayerState?.gameData?.state])
 
 
@@ -1064,11 +1083,11 @@ setShowCountryButtons(false)
     ws.onmessage = (msg) => {
       const data = JSON.parse(msg.data);
 
-      if(data.type === "restartQueued") {
+      if (data.type === "restartQueued") {
         setMaintenance(data.value ? true : false)
-        if(data.value) {
+        if (data.value) {
           toast.info(text("maintenanceModeStarted"))
-        } else if(!data.value && window.maintenance) {
+        } else if (!data.value && window.maintenance) {
           toast.info(text("maintenanceModeEnded"))
         }
         window.maintenance = data.value ? true : false;
@@ -1110,42 +1129,41 @@ setShowCountryButtons(false)
           error: data.message
         }))
         // disconnect
-        if(data.message === "uac")
-          {
-            window.dontReconnect = true;
-          }
-          if(data.failedToLogin) {
-            window.dontReconnect = true;
-            // logout
-            signOut()
+        if (data.message === "uac") {
+          window.dontReconnect = true;
+        }
+        if (data.failedToLogin) {
+          window.dontReconnect = true;
+          // logout
+          signOut()
 
-          }
-         ws.close();
+        }
+        ws.close();
 
-        toast(data.message==='uac'?text('userAlreadyConnected'):data.message, { type: 'error' });
+        toast(data.message === 'uac' ? text('userAlreadyConnected') : data.message, { type: 'error' });
 
       } else if (data.type === "game") {
         setScreen("multiplayer")
         setMultiplayerState((prev) => {
 
-          if(!data.public) {
+          if (!data.public) {
             setMultiplayerChatEnabled(true)
           }
 
           try {
-          if(data.state === "waiting" && inCrazyGames && data.host) {
-            const link = window.CrazyGames.SDK.game.showInviteButton({ code: data.code });
-          } else {
-            window.CrazyGames.SDK.game.hideInviteButton();
-          }
-        } catch(e) {}
+            if (data.state === "waiting" && inCrazyGames && data.host) {
+              const link = window.CrazyGames.SDK.game.showInviteButton({ code: data.code });
+            } else {
+              window.CrazyGames.SDK.game.hideInviteButton();
+            }
+          } catch (e) { }
 
-        setGameOptions((prev) => ({
-          ...prev,
-          nm: data.nm,
-          npz: data.npz,
-          showRoadName: data.showRoadName
-        }))
+          setGameOptions((prev) => ({
+            ...prev,
+            nm: data.nm,
+            npz: data.npz,
+            showRoadName: data.showRoadName
+          }))
 
 
 
@@ -1177,7 +1195,7 @@ setShowCountryButtons(false)
             if (didIguess) {
               setMultiplayerChatEnabled(true)
             } else {
-              if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
+              if (multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
             }
           }
 
@@ -1210,7 +1228,7 @@ setShowCountryButtons(false)
         } else if (data.state === "guess") {
           setStreetViewShown(true)
         }
-      } else if(data.type === "duelEnd") {
+      } else if (data.type === "duelEnd") {
         console.log("duel end", data)
         // { draw: boolean, newElo: number, oldElo: number, winner: boolean, timeElapsed: number }
 
@@ -1221,12 +1239,12 @@ setShowCountryButtons(false)
             duelEnd: data
           }
         }));
-      }else if(data.type === "publicDuelRange") {
+      } else if (data.type === "publicDuelRange") {
         setMultiplayerState((prev) => ({
           ...prev,
-            publicDuelRange: data.range
+          publicDuelRange: data.range
         }))
-      }else if(data.type === "maxDist") {
+      } else if (data.type === "maxDist") {
         const maxDist = data.maxDist;
         console.log("got new max dist", maxDist)
         setMultiplayerState((prev) => ({
@@ -1275,7 +1293,7 @@ setShowCountryButtons(false)
 
       } else if (data.type === "gameShutdown") {
         setScreen("home")
-      setMultiplayerChatEnabled(false)
+        setMultiplayerChatEnabled(false)
 
         setMultiplayerState((prev) => {
           return {
@@ -1301,7 +1319,7 @@ setShowCountryButtons(false)
             }
           }
         })
-      } else if(data.type === 'generating') {
+      } else if (data.type === 'generating') {
         // location generation before round
         setMultiplayerState((prev) => {
           return {
@@ -1312,7 +1330,7 @@ setShowCountryButtons(false)
             }
           }
         })
-      } else if(data.type === "friendReq") {
+      } else if (data.type === "friendReq") {
         const from = data.name;
         const id = data.id;
         const toAccept = (closeToast) => {
@@ -1323,24 +1341,24 @@ setShowCountryButtons(false)
           ws.send(JSON.stringify({ type: 'declineFriend', id }))
           closeToast()
         }
-        const toastComponent = function({closeToast}){
+        const toastComponent = function ({ closeToast }) {
           return (
-          <div>
-            <span>{text("youGotFriendReq", { from })}</span>
+            <div>
+              <span>{text("youGotFriendReq", { from })}</span>
 
-            <button onClick={() => toAccept(closeToast)} className={"accept-button"}>✔</button>
-            &nbsp;
-            <button onClick={() => toDecline(closeToast)} className={"decline-button"}>✖</button>
-          </div>
+              <button onClick={() => toAccept(closeToast)} className={"accept-button"}>✔</button>
+              &nbsp;
+              <button onClick={() => toDecline(closeToast)} className={"decline-button"}>✖</button>
+            </div>
           )
         }
 
         toast(toastComponent, { type: 'info', theme: "dark" })
 
 
-      } else if(data.type === 'toast') {
+      } else if (data.type === 'toast') {
         toast(text(data.key, data), { type: data.toastType ?? 'info', theme: "dark", closeOnClick: data.closeOnClick ?? false, autoClose: data.autoClose ?? 5000 })
-      } else if(data.type === 'invite') {
+      } else if (data.type === 'invite') {
         // code, invitedByName, invitedById
         const { code, invitedByName, invitedById } = data;
 
@@ -1351,25 +1369,25 @@ setShowCountryButtons(false)
         const toDecline = (closeToast) => {
           closeToast()
         }
-        const toastComponent = function({closeToast}){
+        const toastComponent = function ({ closeToast }) {
           return (
-          <div>
-            <span>{text("youGotInvite", { from: invitedByName })}</span>
+            <div>
+              <span>{text("youGotInvite", { from: invitedByName })}</span>
 
-            <button onClick={() => toAccept(closeToast)} className={"accept-button"}>{text("join")}</button>
-            &nbsp;
-            <button onClick={() => toDecline(closeToast)} className={"decline-button"}>{text("decline")}</button>
-          </div>
+              <button onClick={() => toAccept(closeToast)} className={"accept-button"}>{text("join")}</button>
+              &nbsp;
+              <button onClick={() => toDecline(closeToast)} className={"decline-button"}>{text("decline")}</button>
+            </div>
           )
         }
 
         toast(toastComponent, { type: 'info', theme: "dark", autoClose: 10000 })
-      } else if(data.type === 'streak') {
+      } else if (data.type === 'streak') {
         const streak = data.streak;
 
-        if(streak === 0) {
+        if (streak === 0) {
           toast(text("streakLost"), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
-        } else if(streak === 1) {
+        } else if (streak === 1) {
           toast(text("streakStarted"), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
         } else {
           toast(text("streakGained", { streak }), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
@@ -1386,8 +1404,8 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home")
-      setMultiplayerError(true)
+      if (window.screen !== "home")
+        setMultiplayerError(true)
 
 
     }
@@ -1400,8 +1418,8 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home")
-      setMultiplayerError(true)
+      if (window.screen !== "home")
+        setMultiplayerError(true)
     }
 
 
@@ -1445,77 +1463,78 @@ setShowCountryButtons(false)
   }
 
   function sendInvite(id) {
-    if(!ws || !multiplayerState?.connected) return;
+    if (!ws || !multiplayerState?.connected) return;
     ws.send(JSON.stringify({ type: 'inviteFriend', friendId: id }))
   }
 
   useEffect(() => {
     try {
-    const streak = gameStorage.getItem("countryStreak");
-    if (streak) {
-      setCountryStreak(parseInt(streak))
-    }
+      const streak = gameStorage.getItem("countryStreak");
+      if (streak) {
+        setCountryStreak(parseInt(streak))
+      }
 
-    // preload/cache src.png and dest.png and src2.png
-    const img = new Image();
-    img.src = "./src.png";
-    const img2 = new Image();
-    img2.src = "./dest.png";
-    const img3 = new Image();
-    img3.src = "./src2.png";
-    // easter eggs too
-    const polandball = new Image();
-    polandball.src = "./polandball.png";
-  } catch(e) {}
+      // preload/cache src.png and dest.png and src2.png
+      const img = new Image();
+      img.src = "./src.png";
+      const img2 = new Image();
+      img2.src = "./dest.png";
+      const img3 = new Image();
+      img3.src = "./src2.png";
+      // easter eggs too
+      const polandball = new Image();
+      polandball.src = "./polandball.png";
+    } catch (e) { }
 
   }, [])
 
   function reloadBtnPressed() {
-    if(window.reloadLoc) {
+    if (window.reloadLoc) {
       window.reloadLoc()
     }
   }
 
-  function crazyMidgame(adFinished = () => {}) {
-    if(window.inCrazyGames && window.CrazyGames.SDK.environment !== "disabled") {
+  function crazyMidgame(adFinished = () => { }) {
+    if (window.inCrazyGames && window.CrazyGames.SDK.environment !== "disabled") {
       try {
-    const callbacks = {
-      adFinished: () => adFinished(),
-      adError: (error) => adFinished(),
-      adStarted: () => console.log("Start midgame ad"),
-    };
-    window.CrazyGames.SDK.ad.requestAd("midgame", callbacks);
-  } catch(e) {}
-  } else {
-    adFinished()
-  }
+        const callbacks = {
+          adFinished: () => adFinished(),
+          adError: (error) => adFinished(),
+          adStarted: () => console.log("Start midgame ad"),
+        };
+        window.CrazyGames.SDK.ad.requestAd("midgame", callbacks);
+      } catch (e) { }
+    } else {
+      adFinished()
+    }
   }
 
 
   useEffect(() => {
-  window.crazyMidgame = crazyMidgame;
+    window.crazyMidgame = crazyMidgame;
 
   }, []);
+
   function backBtnPressed(queueNextGame = false) {
 
 
 
     if (loading) setLoading(false);
-    if(multiplayerError) setMultiplayerError(false)
+    if (multiplayerError) setMultiplayerError(false)
 
-      setPartyModalShown(false)
+    setPartyModalShown(false)
 
-    if(window.learnMode) {
+    if (window.learnMode) {
       // redirect to home
       window.location.href = "/"
       return;
     }
 
-    if(screen === "onboarding") {
+    if (screen === "onboarding") {
       setScreen("home")
       setOnboarding(null)
       setOnboardingCompleted(true)
-        gameStorage.setItem("onboarding", 'done')
+      gameStorage.setItem("onboarding", 'done')
 
       return;
     }
@@ -1523,32 +1542,32 @@ setShowCountryButtons(false)
     setStreetViewShown(false)
 
     if (multiplayerState?.inGame) {
-      if(!multiplayerState?.gameData?.host || multiplayerState?.gameData?.state === "waiting") {
-      ws.send(JSON.stringify({
-        type: 'leaveGame'
-      }))
+      if (!multiplayerState?.gameData?.host || multiplayerState?.gameData?.state === "waiting") {
+        ws.send(JSON.stringify({
+          type: 'leaveGame'
+        }))
 
-      if(inCrazyGames) {
-        try {
-          window.CrazyGames.SDK.game.hideInviteButton();
-        } catch(e) {}
-      }
-
-      setMultiplayerState((prev) => {
-        return {
-          ...prev,
-          nextGameQueued: queueNextGame === true
+        if (inCrazyGames) {
+          try {
+            window.CrazyGames.SDK.game.hideInviteButton();
+          } catch (e) { }
         }
-      })
-      setScreen("home")
-      setMultiplayerChatEnabled(false)
 
-      if(["getready", "guess"].includes(multiplayerState?.gameData?.state)) {
-        crazyMidgame()
+        setMultiplayerState((prev) => {
+          return {
+            ...prev,
+            nextGameQueued: queueNextGame === true
+          }
+        })
+        setScreen("home")
+        setMultiplayerChatEnabled(false)
+
+        if (["getready", "guess"].includes(multiplayerState?.gameData?.state)) {
+          crazyMidgame()
+        }
+      } else {
+        ws.send(JSON.stringify({ type: "resetGame" }))
       }
-    } else {
-      ws.send(JSON.stringify({ type: "resetGame" }))
-    }
     } else if ((multiplayerState?.enteringGameCode) && multiplayerState?.connected) {
 
       setMultiplayerState((prev) => {
@@ -1562,7 +1581,7 @@ setShowCountryButtons(false)
       })
       setScreen("home")
 
-    } else if(multiplayerState?.gameQueued) {
+    } else if (multiplayerState?.gameQueued) {
       console.log("gameQueued")
       ws.send(JSON.stringify({ type: "leaveQueue" }))
 
@@ -1604,7 +1623,7 @@ setShowCountryButtons(false)
     setLatLong(null)
     setHintShown(false)
 
-    if(screen === "onboarding") {
+    if (screen === "onboarding") {
       setLatLong(onboarding.locations[onboarding.round - 1]);
       let options = JSON.parse(JSON.stringify(onboarding.locations[onboarding.round - 1].otherOptions));
       options.push(onboarding.locations[onboarding.round - 1].country)
@@ -1612,110 +1631,110 @@ setShowCountryButtons(false)
       options = options.sort(() => Math.random() - 0.5)
       setOtherOptions(options)
     } else {
-    function defaultMethod() {
-    findLatLongRandom(gameOptions).then((latLong) => {
-      setLatLong(latLong)
-    });
-  }
-  function fetchMethod() {
-    //gameOptions.countryMap && gameOptions.offical
-    console.log("fetching")
-    fetch(window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:
-    gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
-    `/mapLocations/${gameOptions.location}`)).then((res) => res.json()).then((data) => {
-      if(data.ready) {
-        // this uses long for lng
-        for(let i = 0; i < data.locations.length; i++) {
-          if(data.locations[i].lng && !data.locations[i].long) {
-            data.locations[i].long = data.locations[i].lng;
-            delete data.locations[i].lng;
-          }
-        }
-
-        setAllLocsArray(data.locations)
-
-        if(gameOptions.location === "all") {
-        const loc = data.locations[0]
-        setLatLong(loc)
-
-        } else {
-          let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
-
-          while(loc.lat === latLong.lat && loc.long === latLong.long) {
-            loc = data.locations[Math.floor(Math.random() * data.locations.length)];
-          }
-
-          setLatLong(loc)
-          if(data.name) {
-
-            // calculate extent (for openlayers)
-             const mappedLatLongs = data.locations.map((l) => fromLonLat([l.long, l.lat], 'EPSG:4326'));
-             let extent = boundingExtent(mappedLatLongs);
-             console.log("extent", extent)
-             // convert extent from EPSG:4326 to EPSG:3857 (for openlayers)
-
-            setGameOptions((prev) => ({
-              ...prev,
-              communityMapName: data.name,
-              official: data.official ?? false,
-              maxDist: data.maxDist ?? 20000,
-              extent: extent
-            }))
-
-          }
-        }
-
-      } else {
-        if(gameOptions.location !== "all") {
-      toast(text("errorLoadingMap"), { type: 'error' })
-        }
-        defaultMethod()
+      function defaultMethod() {
+        findLatLongRandom(gameOptions).then((latLong) => {
+          setLatLong(latLong)
+        });
       }
-    }).catch((e) => {
-      console.error(e)
-      toast(text("errorLoadingMap"), { type: 'error' })
-      defaultMethod()
-    });
-  }
+      function fetchMethod() {
+        //gameOptions.countryMap && gameOptions.offical
+        console.log("fetching")
+        fetch(window.cConfig.apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
+          gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
+            `/mapLocations/${gameOptions.location}`)).then((res) => res.json()).then((data) => {
+              if (data.ready) {
+                // this uses long for lng
+                for (let i = 0; i < data.locations.length; i++) {
+                  if (data.locations[i].lng && !data.locations[i].long) {
+                    data.locations[i].long = data.locations[i].lng;
+                    delete data.locations[i].lng;
+                  }
+                }
 
-    if(allLocsArray.length===0) {
-      fetchMethod()
-    } else if(allLocsArray.length>0) {
-      const locIndex = allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long);
-      if((locIndex === -1) || allLocsArray.length === 1) {
-        console.log("could not find location in array", locIndex, allLocsArray)
-       fetchMethod()
-      } else {
-        if(gameOptions.location === "all") {
-        const loc = allLocsArray[locIndex+1] ?? allLocsArray[0];
-        setLatLong(loc)
+                setAllLocsArray(data.locations)
+
+                if (gameOptions.location === "all") {
+                  const loc = data.locations[0]
+                  setLatLong(loc)
+
+                } else {
+                  let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+
+                  while (loc.lat === latLong.lat && loc.long === latLong.long) {
+                    loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+                  }
+
+                  setLatLong(loc)
+                  if (data.name) {
+
+                    // calculate extent (for openlayers)
+                    const mappedLatLongs = data.locations.map((l) => fromLonLat([l.long, l.lat], 'EPSG:4326'));
+                    let extent = boundingExtent(mappedLatLongs);
+                    console.log("extent", extent)
+                    // convert extent from EPSG:4326 to EPSG:3857 (for openlayers)
+
+                    setGameOptions((prev) => ({
+                      ...prev,
+                      communityMapName: data.name,
+                      official: data.official ?? false,
+                      maxDist: data.maxDist ?? 20000,
+                      extent: extent
+                    }))
+
+                  }
+                }
+
+              } else {
+                if (gameOptions.location !== "all") {
+                  toast(text("errorLoadingMap"), { type: 'error' })
+                }
+                defaultMethod()
+              }
+            }).catch((e) => {
+              console.error(e)
+              toast(text("errorLoadingMap"), { type: 'error' })
+              defaultMethod()
+            });
+      }
+
+      if (allLocsArray.length === 0) {
+        fetchMethod()
+      } else if (allLocsArray.length > 0) {
+        const locIndex = allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long);
+        if ((locIndex === -1) || allLocsArray.length === 1) {
+          console.log("could not find location in array", locIndex, allLocsArray)
+          fetchMethod()
         } else {
-          // prevent repeats: remove the prev location from the array
-          setAllLocsArray((prev) => {
-             const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
+          if (gameOptions.location === "all") {
+            const loc = allLocsArray[locIndex + 1] ?? allLocsArray[0];
+            setLatLong(loc)
+          } else {
+            // prevent repeats: remove the prev location from the array
+            setAllLocsArray((prev) => {
+              const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
 
 
-             // community maps are randomized
-             const loc = newArr[Math.floor(Math.random() * newArr.length)];
+              // community maps are randomized
+              const loc = newArr[Math.floor(Math.random() * newArr.length)];
 
 
-             setLatLong(loc)
-             return newArr;
+              setLatLong(loc)
+              return newArr;
             })
 
+          }
         }
-      }
 
-  }
+      }
     }
 
   }
 
   function onNavbarLogoPress() {
-    if(screen === "onboarding") return;
+    if (screen === "onboarding") return;
 
     if (screen !== "home" && !loading) {
-      if (screen==="multiplayer" && multiplayerState?.connected && !multiplayerState?.inGame) {
+      if (screen === "multiplayer" && multiplayerState?.connected && !multiplayerState?.inGame) {
         return;
       }
       if (!multiplayerState?.inGame) loadLocation()
@@ -1728,9 +1747,9 @@ setShowCountryButtons(false)
   const ChatboxMemo = React.useMemo(() => <ChatBox miniMapShown={miniMapShown} ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={
     session?.token?.secret && multiplayerChatEnabled
   }
-  isGuest={session?.token?.secret ? false : true}
-  publicGame={multiplayerState?.gameData?.public}
-  myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, miniMapShown, session?.token?.secret])
+    isGuest={session?.token?.secret ? false : true}
+    publicGame={multiplayerState?.gameData?.public}
+    myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, miniMapShown, session?.token?.secret])
 
   // Send pong every 10 seconds if websocket is connected
   useEffect(() => {
@@ -1747,7 +1766,7 @@ setShowCountryButtons(false)
 
   useEffect(() => {
     function checkForCheats() {
-      if(document.getElementById("coo1rdinates")) return true;
+      if (document.getElementById("coo1rdinates")) return true;
       // try {
       // if(window.localStorage.getItem("banned")) return true;
       // } catch(e) {
@@ -1755,7 +1774,7 @@ setShowCountryButtons(false)
       return false;
     }
     function banGame() {
-      if(window.banned) return;
+      if (window.banned) return;
       sendEvent("cheat_detected")
       // redirect to banned page
       alert("imagine cheating on a free geography game. L")
@@ -1764,79 +1783,63 @@ setShowCountryButtons(false)
       document.write("<h1>You have been banned from playing this game.</h1> If you believe this is a mistake, please contact us at	support@worldguessr.com")
       window.localStorage.setItem("banned", "true")
     }
-    if(checkForCheats()) {
+    if (checkForCheats()) {
       banGame();
     }
     const i = setInterval(() => {
-      if(checkForCheats()) {
+      if (checkForCheats()) {
         banGame();
       }
     }, 10000);
     return () => clearInterval(i);
   }, [])
-//   useEffect(() => {
-// //!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
-//     // debug this condition:
-//     console.log("isHidden", !(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
+  //   useEffect(() => {
+  // //!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
+  //     // debug this condition:
+  //     console.log("isHidden", !(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
 
-//     console.log("latLong", latLong)
-//     console.log("multiplayerState?.gameData?.state", multiplayerState?.gameData?.state)
-//     console.log("streetViewShown", streetViewShown)
-//     console.log("loading", loading)
-//     console.log("showAnswer", showAnswer)
-//     console.log("showPanoOnResult", showPanoOnResult)
+  //     console.log("latLong", latLong)
+  //     console.log("multiplayerState?.gameData?.state", multiplayerState?.gameData?.state)
+  //     console.log("streetViewShown", streetViewShown)
+  //     console.log("loading", loading)
+  //     console.log("showAnswer", showAnswer)
+  //     console.log("showPanoOnResult", showPanoOnResult)
 
 
-//   }, [latLong, multiplayerState?.gameData?.state, streetViewShown, loading, showAnswer, showPanoOnResult])
+  //   }, [latLong, multiplayerState?.gameData?.state, streetViewShown, loading, showAnswer, showPanoOnResult])
 
 
   return (
     <>
-      <HeadContent text={text}/>
+      {/* DEALS WITH THE HTML STRUCTURE OF THE HOME PAGE , USES Next.js's SEO TOOLS */}
+      <HeadContent text={text} />
+
+      {/* Checks for the online status and deals with connectivity */}
+      <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={() => setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.public && !leagueModal} />
+
+
+      {/* ELO/League button (A FEATURE IN-GAME*/}
+      {screen === "home" && !mapModal && session && session?.token?.secret && (
+        <button className="gameBtn leagueBtn" onClick={() => { setLeagueModal(true) }} style={{ backgroundColor: eloData?.league?.color }}>
+          {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league?.emoji}
+        </button>
+      )}
 
       <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} />
+
       <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
+
       <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
-      <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
+
+      {/* <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} /> */}
       {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
+
       <LeagueModal shown={leagueModal} onClose={() => setLeagueModal(false)} session={session} eloData={eloData} />
       {ChatboxMemo}
-    <ToastContainer/>
+      <ToastContainer />
 
-    <div className="videoAdParent hidden">
-  <div className="videoAdPlayer">
-    <div className="messageContainer">
-      <p className="thankYouMessage">{text("videoAdThanks")}<br/>{text("enjoyGameplay")}</p>
-    </div>
-    <div id="videoad"></div>
-  </div>
-</div>
-
-{screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal && (
-        <div className="home__footer">
-          <div className="footer_btns">
-        { !isApp && (
-                  <>
-                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
-
-                  { !inCrazyGames && (
-                    <>
-                <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="home__squarebtn gameBtn youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
-                </>
-                )}
-                <Link href={"/leaderboard"+(inCrazyGames ? "?crazygames": "")}>
-
-                <button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                </>
-                )}
-
-                <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
-                </div>
-        </div>
-        )}
-
-<div style={{
+      {/* BACKGROUND IMAGE SETUP */}
+      <div style={{
         top: 0,
         left: 0,
         position: 'fixed',
@@ -1845,20 +1848,67 @@ setShowCountryButtons(false)
         transition: 'opacity 0.5s',
         opacity: 0.4,
         userSelect: 'none',
-       WebkitUserSelect: 'none',
+        WebkitUserSelect: 'none',
         MozUserSelect: 'none',
         msUserSelect: 'none',
         pointerEvents: 'none',
       }}>
-      <NextImage.default src={'./street1.jpg'}
-      draggable={false}
-      fill   alt="Game Background" style={{objectFit: "cover",userSelect:'none'}}
-      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-      />
+        {/* <NextImage.default src={background} 
+          draggable={false}
+          fill alt="Game Background" style={{ objectFit: "cover", userSelect: 'none' }}
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        /> */}
+
+        <Globe />
       </div>
 
 
+
+
+      {/* CONTAINS ALL THE LOGIC, UI AND COMPONENTS IN THE HOMEPAGE */}
       <main className={`home`} id="main">
+        {/* ALL THE UI IN THE HOMEPAGE,ALL THE TEXT AND THE BUTTONS IN THE CENTRE */}
+        <div className={`home__content ${screen !== "home" ? "hidden" : ""} `}>
+          <HomeContent />
+        </div>
+
+        {/* Ad BAR  */}
+        <div className="videoAdParent hidden">
+          <div className="videoAdPlayer">
+            <div className="messageContainer">
+              <p className="thankYouMessage">{text("videoAdThanks")}<br />{text("enjoyGameplay")}</p>
+            </div>
+            <div id="videoad"></div>
+          </div>
+        </div>
+
+        {/* FOOTER SECTION CONTAINING ALL THE LINKS  */}
+        {screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal && (
+          <div className="home__footer fixed bottom-10 left-[calc(35%)] cursor-crosshair " style={{ zIndex: "5000" }}>
+            <div className="footer_btns">
+              {/* The footer with the youtube, discord and github icons at the bottom left */}
+              {!isApp && (<>
+                <Link target="_blank" href={"https://discord.com/invite/ubdJHjKtrC"}>
+                  <button className="home__squarebtn gameBtn discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button>
+                </Link>
+
+                {!inCrazyGames && (
+                  <>
+                    <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="home__squarebtn gameBtn youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
+                    <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                  </>
+                )}
+                <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
+
+                  <button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button>
+                </Link>
+                <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
+              </>
+              )}
+            </div>
+          </div>
+        )}
+
 
         <SvEmbedIframe
           nm={gameOptions?.nm}
@@ -1869,117 +1919,26 @@ setShowCountryButtons(false)
           showRoadLabels={gameOptions?.showRoadName}
           loading={loading}
           setLoading={setLoading}
-          hidden={(!latLong || !latLong.lat || !latLong.long)|| loading}
+          hidden={(!latLong || !latLong.lat || !latLong.long) || loading}
           onLoad={() => {
             console.log("loaded")
             setTimeout(() => {
-            setLoading(false)
+              setLoading(false)
             }, 500)
 
-          }}
-          />
+          }} />
 
         <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
-
-
-
-      <Navbar maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.public && !leagueModal} />
-{/* ELO/League button */}
-{screen === "home" && !mapModal && session && session?.token?.secret && (
-  <button className="gameBtn leagueBtn" onClick={()=>{setLeagueModal(true)}} style={{backgroundColor: eloData?.league?.color }}>
-    { !eloData ? '...' : animatedEloDisplay } ELO {eloData?.league?.emoji}
-  </button>
-)}
-
-
-        <div className={`home__content ${screen !== "home" ? "hidden" : ""} `}>
-
-
-        { onboardingCompleted===null ? (
-          <>
-
-          </>
-        ) : (
-          <>
-
-          <div className="home__ui">
-            { onboardingCompleted && (
-            <h1 className="home__title">WorldGuessr</h1>
-            )}
-
-            <div className="home__btns">
-
-              { onboardingCompleted && (
-
-              <>
-      <div className={`mainHomeBtns `}>
-
-               {/* <GameBtn text={text("singleplayer")} onClick={() => {
-                if (!loading) setScreen("singleplayer")
-              }} /> */}
-              <button className="homeBtn singleplayer"
-
-                onClick={() => {
-                if (!loading) {
-                  // setScreen("singleplayer")
-                  crazyMidgame(() => setScreen("singleplayer"))
-                }
-              }} >{text("singleplayer")}</button>
-        {/* <span className="bigSpan">{text("playOnline")}</span> */}
-
-
-        <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
-          disabled={!multiplayerState.connected || maintenance}>{session?.token?.secret ? text("rankedDuel") : text("findDuel")}</button>
-
-        {/* <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span> */}
-        <div className="multiplayerPrivBtns">
-        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
-        <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
-        </div>
-      </div>
-
-              <div className="home__squarebtns">
-{/*                 { !isApp && (
-                  <>
-                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="home__squarebtn gameBtn" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
-                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="home__squarebtn gameBtn" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
-                <Link href={"./leaderboard"}><button className="home__squarebtn gameBtn" aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                </>
-                )}
-                <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
- */}
-                <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>
-                </div>
-
-              </>
-            )}
-            </div>
-
-          <div style={{ marginTop: "20px" }}>
-            <center>
-              { !loading && screen === "home"  && !inCrazyGames &&(!session?.token?.supporter) && (
-    <Ad inCrazyGames={inCrazyGames} screenH={height} types={[[320,50],[728,90],[970,90],[970,250]]} screenW={width} />
-              )}
-    </center>
-            </div>
-          </div>
-          </>
-        )}
-          <br />
-
-
-        </div>
-
         <InfoModal shown={false} />
-        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
-            customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
-              console.log("map", map)
-              openMap(map.countryMap||map.slug);
-              setGameOptionsModalShown(false)
-            }:null}
-            showAllCountriesOption={(gameOptionsModalShown&&screen==="singleplayer")}
-            showOptions={screen==="singleplayer"}
-            gameOptions={gameOptions} setGameOptions={setGameOptions} />
+        <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => { setMapModal(false); setGameOptionsModalShown(false) }} text={text}
+          customChooseMapCallback={(gameOptionsModalShown && screen === "singleplayer") ? (map) => {
+            console.log("map", map)
+            openMap(map.countryMap || map.slug);
+            setGameOptionsModalShown(false)
+          } : null}
+          showAllCountriesOption={(gameOptionsModalShown && screen === "singleplayer")}
+          showOptions={screen === "singleplayer"}
+          gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
         <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
 
@@ -1988,83 +1947,81 @@ setShowCountryButtons(false)
           multiplayerState?.inGame && !multiplayerState?.gameData?.public
         } sendInvite={sendInvite} />
 
+        {/* IF PLAYER SELECTED SINGLEPLAYER MODE, THEN DO THIS */}
         {screen === "singleplayer" && <div className="home__singleplayer">
           <GameUI
-          miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-            singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal}  setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+            miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
+            singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
         </div>}
 
         {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
           <GameUI
-          miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
+            miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
             inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
-          </div>}
+        </div>}
 
-          {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
-            <div className="home__onboarding__completed">
-              <OnboardingText words={[
-                text("onboarding1")
-              ]} pageDone={() => {
+        {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
+          <div className="home__onboarding__completed">
+            <OnboardingText words={[
+              text("onboarding1")
+            ]} pageDone={() => {
+              try {
+                gameStorage.setItem("onboarding", 'done')
+              } catch (e) { }
+              setOnboarding((prev) => {
+                return {
+                  ...prev,
+                  finalOnboardingShown: true
+                }
+              })
+            }} shown={!onboarding?.finalOnboardingShown} />
+            <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} button1Press={() => {
+              if (onboarding) {
+                sendEvent("tutorial_end");
                 try {
                   gameStorage.setItem("onboarding", 'done')
-                } catch(e) {}
-                setOnboarding((prev)=>{
-                  return {
-                    ...prev,
-                    finalOnboardingShown: true
-                  }
-                })
-              }} shown={!onboarding?.finalOnboardingShown} />
-              <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} button1Press={() =>{
-                if(onboarding) {
-                  sendEvent("tutorial_end");
-                  try {
-                  gameStorage.setItem("onboarding", 'done')
-                  } catch(e) {}
-                }
+                } catch (e) { }
+              }
 
-                setOnboarding(null)
-                if(!window.location.search.includes("app=true") && !inCrazyGames) {
-      setShowSuggestLoginModal(true)
-    }
-                setScreen("home")
-              }}/>
-              </div>
-              </div>
-}
+              setOnboarding(null)
+              if (!window.location.search.includes("app=true") && !inCrazyGames) {
+                setShowSuggestLoginModal(true)
+              }
+              setScreen("home")
+            }} />
+          </div>
+        </div>
+        }
 
+        {/* DISPLAY THIS WHEN THE ROUND'S OVER */}
+        <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")}
 
-  <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")}
+          button1Press={() => {
+            backBtnPressed(true)
 
-  button1Press={() => {
-    backBtnPressed(true)
+          }}
 
-  }}
+          button2Text={text("home")}
+          button2Press={() => {
+            backBtnPressed()
+          }}
+        />
 
-  button2Text={text("home")}
-  button2Press={() => {
-
-    backBtnPressed()
-
-
-  }}
-  />
-
-
+        {/* IF PLAYER SELECTED DUEL/MULTIPLAYER, THEN DO THIS */}
         {screen === "multiplayer" && <div className="home__multiplayer">
           <MultiplayerHome partyModalShown={partyModalShown} setPartyModalShown={setPartyModalShown} multiplayerError={multiplayerError} handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
         </div>}
 
         {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
           <GameUI
-          miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-          inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{ location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent,
-            nm: multiplayerState?.gameData?.nm,
-            npz: multiplayerState?.gameData?.npz,
-            showRoadName: multiplayerState?.gameData?.showRoadName
-           }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+            miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
+            inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} xpEarned={xpEarned} setXpEarned={setXpEarned} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} latLong={latLong} loadLocation={() => { }} gameOptions={{
+              location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent,
+              nm: multiplayerState?.gameData?.nm,
+              npz: multiplayerState?.gameData?.npz,
+              showRoadName: multiplayerState?.gameData?.showRoadName
+            }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
         )}
-
 
 
         <Script id="clarity">
@@ -2181,8 +2138,12 @@ if(window.inCrazyGames) {
 
   `}
         </Script>
+
+
+
       </main>
+
+
     </>
   )
 }
-
