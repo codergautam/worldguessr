@@ -52,8 +52,12 @@ const SvEmbed = () => {
   return (
     <>
     <Head>
-    <script
+    {/* <script
       src="https://maps.googleapis.com/maps/api/js?v=weekly"
+      defer
+    ></script> */}
+        <script
+      src="/maps.js"
       defer
     ></script>
     </Head>
