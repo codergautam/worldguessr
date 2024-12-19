@@ -23,6 +23,14 @@ export default async function handler(req, res) {
         }).select("secret username email staff canMakeClues supporter").cache(120);
         if (userDb) {
           output = { secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter };
+          if(!userDb.username || userDb.username.length < 1) {
+            // try again without cache, to prevent new users getting stuck with no username
+           const userDb2  = await User.findOne({
+              secret,
+            }).select("secret username email staff canMakeClues supporter");
+            if(userDb2) output = { secret: userDb2.secret, username: userDb2.username, email: userDb2.email, staff: userDb2.staff, canMakeClues: userDb2.canMakeClues, supporter: userDb2.supporter };
+          }
+
           return res.status(200).json(output);
         } else {
           return res.status(400).json({ error: 'Invalid' });
