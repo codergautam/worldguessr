@@ -40,8 +40,53 @@ export default class Game {
     this.displayLocation = null;
     this.readyToEnd = false;
 
+    if(this.public) {
+      this.showRoadName = false;
+      this.nm = false;
+      this.npz = false;
+    }
+
     if(allLocations) this.generateLocations(allLocations);
   }
+
+  toJSON() {
+    return {
+      id: this.id,
+      code: this.code,
+      players: this.players,
+      state: this.state,
+      public: this.public,
+      timePerRound: this.timePerRound,
+      waitBetweenRounds: this.waitBetweenRounds,
+      maxDist: this.maxDist,
+      startTime: this.startTime,
+      endTime: this.endTime,
+      nextEvtTime: this.nextEvtTime,
+      locations: this.locations,
+      location: this.location,
+      rounds: this.rounds,
+      curRound: this.curRound,
+      maxPlayers: this.maxPlayers,
+      extent: this.extent,
+      displayLocation: this.displayLocation,
+      readyToEnd: this.readyToEnd,
+      nm: this.nm,
+      npz: this.npz,
+      showRoadName: this.showRoadName,
+      calculationDone: this.calculationDone,
+      eloChanges: this.eloChanges,
+      pIds: this.pIds,
+      accountIds: this.accountIds,
+      location: this.location,
+    }
+  }
+  static fromJSON(json) {
+    const gObj = new Game(json.id, json.public, json.location, json.rounds);
+    Object.assign(gObj, json);
+    return gObj;
+
+  }
+
 
   addPlayer(player, host=false, tag) {
     if(Object.keys(this.players).length >= this.maxPlayers) {
@@ -68,7 +113,11 @@ export default class Game {
     player.gameId = this.id;
     player.inQueue = false;
 
-    player.send({
+    player.send(this.getInitialSendState(player));
+  }
+
+  getInitialSendState(player) {
+    return {
       type: 'game',
       state: this.state,
       timePerRound: this.timePerRound,
@@ -82,13 +131,17 @@ export default class Game {
       myId: player.id,
       public: this.public,
       players: Object.values(this.players),
-      host: playerObj.host,
+      host: this.players[player.id].host,
       maxDist: this.maxDist,
       code: this.code,
       extent: this.extent,
       generated: this.locations.length,
-      displayLocation: this.displayLocation
-    });
+      displayLocation: this.displayLocation,
+
+      nm: this.nm,
+      npz: this.npz,
+      showRoadName: this.showRoadName,
+    }
   }
 
   resetGame(allLocations) {
@@ -100,6 +153,14 @@ export default class Game {
     this.sendStateUpdate();
   }
 
+
+  rejoinGame(player) {
+    if(this.public && this.state === 'end') {
+      this.removePlayer(player);
+    } else {
+    player.ws.send(JSON.stringify(this.getInitialSendState(player)));
+    }
+  }
 
   givePoints() {
     if(!this.public) {
@@ -196,7 +257,8 @@ export default class Game {
     }
   }
 
-  sendStateUpdate(includeLocations=false) {
+
+  getSendableState(includeLocations=false) {
     const state = {
       type: 'game',
       state: this.state,
@@ -222,6 +284,11 @@ export default class Game {
       state.displayLocation = this.displayLocation;
       // timePerround, nm,npz,showRoadName,rounds
     }
+    return state;
+  }
+
+  sendStateUpdate(includeLocations=false) {
+    const state = this.getSendableState(includeLocations);
     this.sendAllPlayers(state);
   }
 

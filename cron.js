@@ -11,6 +11,7 @@ import countries from './public/countries.json' with { type: "json" };
 import findLatLongRandom from './components/findLatLongServer.js';
 import cityGen from './serverUtils/cityGen.js';
 
+import mainWorld from './public/world-main.json' with { type: "json" };
 configDotenv();
 
 // let dbEnabled = false;
@@ -104,16 +105,44 @@ let lastAllCountriesCacheUpdate = 0;
 
 app.get('/allCountries.json', (req, res) => {
   if(Date.now() - lastAllCountriesCacheUpdate > 60 * 1000) {
-    let locations = [];
-    const totalCountries = countries.length;
-    const locsPerCountry = locationCnt / totalCountries;
-    for (const country of countries) {
-      const locs = countryLocations[country];
-      const randomLocations = locs.sort(() => Math.random() - 0.5).slice(0, locsPerCountry);
-      locations.push(...randomLocations);
+    // old world
+    // let locations = [];
+    // const totalCountries = countries.length;
+    // const locsPerCountry = locationCnt / totalCountries;
+    // for (const country of countries) {
+    //   const locs = countryLocations[country];
+    //   const randomLocations = locs.sort(() => Math.random() - 0.5).slice(0, locsPerCountry);
+    //   locations.push(...randomLocations);
+    // }
+    // locations = locations.sort(() => Math.random() - 0.5);
+    // allCountriesCache = locations;
+    // lastAllCountriesCacheUpdate = Date.now();
+    // return res.json({ ready: locations.length>0, locations });
+
+    // new world
+    // pick 2k locations randomly from mainWorld, calculate country based on lat/long
+    // prevent duplicates
+    const totalLocs = mainWorld.length;
+    const neededLocs = 2000;
+    const indexes = new Set();
+    while (indexes.size < neededLocs) {
+      indexes.add(Math.floor(Math.random() * totalLocs));
     }
-    locations = locations.sort(() => Math.random() - 0.5);
+    const locations = [];
+    for (const index of indexes) {
+      try {
+      const { lat, lng } = mainWorld[index];
+      const country = lookup(lat, lng, true)[0];
+      locations.push({ lat, long: lng, country });
+      } catch (error) {
+        locations.push({ lat, long: lng });
+        console.error('Error looking up country', error, index);
+      }
+    }
+
     allCountriesCache = locations;
+
+    lastAllCountriesCacheUpdate = Date.now();
     return res.json({ ready: locations.length>0, locations });
   } else {
     return res.json({ ready: allCountriesCache.length>0, locations: allCountriesCache });

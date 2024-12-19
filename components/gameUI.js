@@ -76,7 +76,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
             round: prev.round + 1
           }
         })
-      } else {
+      } else if(setSinglePlayerRound) {
         // reset to default
         setSinglePlayerRound({
           round: 1,

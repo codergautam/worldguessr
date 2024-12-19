@@ -183,7 +183,7 @@ statsRef.current = stats;
     },
     onNonOAuthError: error => {
       console.log("login non oauth error", error);
-      toast.error("Login error, contact support if this persists (1)\n\nMake sure popups are enabled (needed for google window)")
+      toast.error("Login error, contact support if this persists (1)")
 
     },
     flow: "auth-code",
@@ -319,7 +319,11 @@ statsRef.current = stats;
         console.log("crazygames user not logged in")
         // user not logged in
         // verify with not_logged_in
-        window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in" });
+        let rc = gameStorage.getItem("rejoinCode");
+
+        window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in",
+          rejoinCode: rc
+         });
         setWs((prev) => {
           if(prev) {
             prev.send(window.verifyPayload)
@@ -827,6 +831,11 @@ setShowCountryButtons(false)
 
   }, [multiplayerState?.joinOptions?.error]);
 
+  useEffect(() => {
+    if(multiplayerState?.connected && multiplayerError) {
+      setMultiplayerError(null)
+    }
+  }, [multiplayerState?.connected, multiplayerError])
 
   function handleMultiplayerAction(action, ...args) {
     if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
@@ -947,7 +956,7 @@ setShowCountryButtons(false)
         connecting: true,
         shouldConnect: false
       }))
-      const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 20)
+      const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 50)
       if(ws && ws.readyState === 1) {
       setWs(ws)
       setMultiplayerState((prev)=>({
@@ -976,7 +985,7 @@ setShowCountryButtons(false)
           if(secret !== "not_logged_in") {
             window.verified = true;
           }
-          ws.send(JSON.stringify({ type: "verify", secret, tz}))
+        ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode") }))
       } else if(window.verifyPayload) {
         console.log("sending verify from verifyPayload")
         ws.send(window.verifyPayload)
@@ -1135,7 +1144,12 @@ setShowCountryButtons(false)
           connected: true,
           connecting: false,
           guestName: data.guestName
-        }))
+      }))
+
+      if(data.rejoinCode) {
+          gameStorage.setItem("rejoinCode", data.rejoinCode)
+      }
+
       } else if (data.type === "error") {
         setMultiplayerState((prev) => ({
           ...prev,
@@ -1175,6 +1189,7 @@ setShowCountryButtons(false)
           }
         } catch(e) {}
 
+        // console.log('got game options', data)
         setGameOptions((prev) => ({
           ...prev,
           nm: data.nm,
@@ -1212,7 +1227,7 @@ setShowCountryButtons(false)
             if (didIguess) {
               setMultiplayerChatEnabled(true)
             } else {
-              if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
+              // if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
             }
           }
 
@@ -1421,8 +1436,13 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home")
+      if(window.screen !== "home") {
       setMultiplayerError(true)
+      toast.info(text("connectionLostRecov"))
+
+      }
+
+      setScreen("home")
 
 
     }
@@ -1435,8 +1455,12 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home")
+      if(window.screen !== "home") {
       setMultiplayerError(true)
+
+      toast.info(text("connectionLostRecov"))
+      }
+      setScreen("home")
     }
 
 
@@ -1858,7 +1882,7 @@ setShowCountryButtons(false)
       {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
       <LeagueModal shown={leagueModal} onClose={() => setLeagueModal(false)} session={session} eloData={eloData} />
       {ChatboxMemo}
-    <ToastContainer/>
+    <ToastContainer pauseOnFocusLoss={false} />
 
     <div className="videoAdParent hidden">
   <div className="videoAdPlayer">
