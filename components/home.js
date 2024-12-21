@@ -1436,13 +1436,14 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home") {
+      if(window.screen !== "home" && window.screen !== "singleplayer") {
       setMultiplayerError(true)
+      setLoading(false)
+
       toast.info(text("connectionLostRecov"))
 
-      }
-
       setScreen("home")
+    }
 
 
     }
@@ -1455,12 +1456,13 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home") {
+      if(window.screen !== "home" && window.screen !== "singleplayer") {
       setMultiplayerError(true)
 
       toast.info(text("connectionLostRecov"))
-      }
       setScreen("home")
+    }
+
     }
 
 
@@ -1700,10 +1702,11 @@ setShowCountryButtons(false)
   }
   function fetchMethod() {
     //gameOptions.countryMap && gameOptions.offical
-    console.log("fetching")
-    fetch(window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:
+    const url = window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:
     gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
-    `/mapLocations/${gameOptions.location}`)).then((res) => res.json()).then((data) => {
+    `/mapLocations/${gameOptions.location}`);
+    console.log("fetching", url)
+    fetch(url).then((res) => res.json()).then((data) => {
       if(data.ready) {
         // this uses long for lng
         for(let i = 0; i < data.locations.length; i++) {
@@ -1713,12 +1716,17 @@ setShowCountryButtons(false)
           }
         }
 
+        // shuffle data.locations
+        data.locations = data.locations.sort(() => Math.random() - 0.5)
+
+        console.log("got locations", data.locations)
+
         setAllLocsArray(data.locations)
 
         if(gameOptions.location === "all") {
         const loc = data.locations[0]
         setLatLong(loc)
-
+          console.log("setting latlong", loc)
         } else {
           let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
