@@ -660,12 +660,8 @@ button1Press={() =>{
 
         {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
           <PlayerList multiplayerState={multiplayerState} playAgain={() => {
-
-
             backBtnPressed(true, "unranked")
-
           }} backBtn={() => {
-
             backBtnPressed()
           }} />
         )}

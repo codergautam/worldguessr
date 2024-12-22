@@ -62,6 +62,7 @@ const initialMultiplayerState = {
   inGame: false,
   nextGameQueued: false,
   enteringGameCode: false,
+  nextGameType: null,
   createOptions: {
     rounds: 5,
     timePerRound: 30,
@@ -1347,6 +1348,7 @@ setShowCountryButtons(false)
             ...initialMultiplayerState,
             connected: true,
             nextGameQueued: prev.nextGameQueued,
+            nextGameType: prev.nextGameType,
             playerCount: prev.playerCount,
             guestName: prev.guestName
           }
@@ -1601,8 +1603,6 @@ setShowCountryButtons(false)
 
   }, []);
   function backBtnPressed(queueNextGame = false, nextGameType) {
-
-
 
     if (loading) setLoading(false);
     if(multiplayerError) setMultiplayerError(false)
@@ -2211,15 +2211,11 @@ setShowCountryButtons(false)
 
   button1Press={() => {
     backBtnPressed(true, "ranked")
-
   }}
 
   button2Text={text("home")}
   button2Press={() => {
-
     backBtnPressed()
-
-
   }}
   />
 
