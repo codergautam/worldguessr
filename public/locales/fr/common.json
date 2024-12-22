@@ -226,5 +226,7 @@
   "victory": "Victoire",
   "defeat": "Défaite",
   "elo": "ELO",
-  "xp": "XP"
+  "xp": "XP",
+  "unableToJoinDuel": "Impossible de trouver un duel pour le moment. Veuillez envoyer un e-mail à support@worldguessr.com",
+  "unrankedDuel": "Jeu public"
 }

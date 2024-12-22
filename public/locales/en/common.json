@@ -231,5 +231,6 @@
   "xp": "XP",
   "leagueModalDesc": "Play duels to gain ELO and climb the leaderboard.",
   "leagueModalDesc2": "Stats may be delayed up to 1 hour",
-  "unableToJoinDuel": "Unable to find duel at this time. Please email support@worldguessr.com"
+  "unableToJoinDuel": "Unable to find duel at this time. Please email support@worldguessr.com",
+  "unrankedDuel": "Unranked Duel"
 }

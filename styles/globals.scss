@@ -1148,6 +1148,13 @@ screen and (pointer:coarse) {
   background-color: #542626;
 }
 
+.unrankedGame {
+  background-color: #327a32;
+}
+.unrankedGame:hover {
+  background-color: #265226;
+}
+
 // chatbox
 .chatboxParent {
   position: fixed;
@@ -1781,7 +1788,8 @@ screen and (pointer:coarse) {
   .mainHomeBtns {
     flex-direction: column;
     gap: 10px;
-    height: 200px;
+    // height: 200px;
+    height: auto;
   }
   .multiplayerPrivBtns {
     flex-direction: column;

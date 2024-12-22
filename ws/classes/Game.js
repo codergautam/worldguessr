@@ -14,15 +14,16 @@ import { fromLonLat } from "ol/proj.js";
 import { setElo } from "../../api/eloRank.js";
 
 export default class Game {
-  constructor(id, publicLobby, location="all", rounds=5, allLocations) {
+  constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
+    this.duel = isDuel;
     this.timePerRound = 60000;
     this.waitBetweenRounds = 10000;
-    if(publicLobby) {
+    if(isDuel) {
       this.waitBetweenRounds = 6000;
 
 
@@ -56,6 +57,7 @@ export default class Game {
       players: this.players,
       state: this.state,
       public: this.public,
+      duel: this.duel,
       timePerRound: this.timePerRound,
       waitBetweenRounds: this.waitBetweenRounds,
       maxDist: this.maxDist,
@@ -81,7 +83,7 @@ export default class Game {
     }
   }
   static fromJSON(json) {
-    const gObj = new Game(json.id, json.public, json.location, json.rounds);
+    const gObj = new Game(json.id, json.public, json.location, json.rounds, null, json.duel);
     Object.assign(gObj, json);
     return gObj;
 
@@ -96,7 +98,7 @@ export default class Game {
       username: player.username,
       accountId: player.accountId,
       id: player.id,
-      score: this.public ? 5000 : 0,
+      score: this.duel ? 5000 : 0,
       host: host && !this.public,
       supporter: player.supporter,
       elo: player.elo,
@@ -130,6 +132,7 @@ export default class Game {
       maxPlayers: this.maxPlayers,
       myId: player.id,
       public: this.public,
+      duel: this.duel,
       players: Object.values(this.players),
       host: this.players[player.id].host,
       maxDist: this.maxDist,
@@ -163,7 +166,7 @@ export default class Game {
   }
 
   givePoints() {
-    if(!this.public) {
+    if(!this.duel) {
     for (const playerId of Object.keys(this.players)) {
       const player = this.players[playerId];
       if(!player.guess) {
@@ -316,12 +319,12 @@ export default class Game {
     this.checkRemaining();
 
     // self destruct if no players or it is a Party and host left
-    if (Object.keys(this.players).length < 1 || (!this.public && isPlayerHost)) {
+    if (Object.keys(this.players).length < 1 || (!this.duel && isPlayerHost)) {
       this.shutdown();
       games.delete(this.id);
     }
 
-    if(this.public && Object.keys(this.players).length < 2) {
+    if(this.duel && Object.keys(this.players).length < 2) {
       this.end(tag);
     }
   }
@@ -476,6 +479,7 @@ export default class Game {
       let loc;
       if(this.location === "all") {
         // get n random from the list
+        console.log('All locations', allLocations.length);
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
         this.maxDist = 20000;
         this.extent = null;
@@ -527,7 +531,7 @@ export default class Game {
     this.nextEvtTime = this.endTime + 60000;
 
 
-    if(this.public && !this.calculationDone) {
+    if(this.duel && !this.calculationDone) {
       // find the winner
       // winner is the one with most points
       // or if only 1 player, they win
