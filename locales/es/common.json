@@ -133,7 +133,7 @@
   "friendReqAlreadyReceived": "Solicitud de amistad ya recibida",
   "alreadyFriends": "Ya eres amigo de este usuario",
   "disconnected": "Desconectado",
-  "userAlreadyConnected": "El usuario ya ha iniciado sesión",
+  "userAlreadyConnected": "Ya has iniciado sesión en otro dispositivo",
   "onboarding1": "¡Eres un natural!",
   "onboarding2": "Estás en un lugar aleatorio. ¿Puedes adivinar dónde estás?",
   "onboarding3": "Coloca un pin en el mapa donde crees que estás. Cuanto más cerca estés, más puntos obtendrás.",
@@ -227,5 +227,7 @@
   "victory": "Victoria",
   "defeat": "Derrota",
   "elo": "ELO",
-  "xp": "XP"
+  "xp": "XP",
+  "unableToJoinDuel": "No se puede encontrar un duelo en este momento. Por favor, envía un correo electrónico a support@worldguessr.com",
+  "unrankedDuel": "Juego publico"
 }
