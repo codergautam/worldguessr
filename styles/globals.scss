@@ -641,12 +641,12 @@ h1, h2, h3, span {
   z-index: 10;
   border-radius: 10px;
   position: absolute;
-  right:  0px;
+  right:  10px;
   display: flex;
   flex-flow: column;
 
 
-  bottom: 0px;
+  bottom: 10px;
   margin-top: auto;
   margin-left: auto;
   margin-right: 0px;
@@ -1146,6 +1146,13 @@ screen and (pointer:coarse) {
 }
 .publicGame:hover {
   background-color: #542626;
+}
+
+.unrankedGame {
+  background-color: #327a32;
+}
+.unrankedGame:hover {
+  background-color: #265226;
 }
 
 // chatbox
@@ -1781,7 +1788,8 @@ screen and (pointer:coarse) {
   .mainHomeBtns {
     flex-direction: column;
     gap: 10px;
-    height: 200px;
+    // height: 200px;
+    height: auto;
   }
   .multiplayerPrivBtns {
     flex-direction: column;

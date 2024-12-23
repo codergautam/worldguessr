@@ -1,4 +1,5 @@
 import { useTranslation } from '@/components/useTranslations'
+import guestNameString from '@/serverUtils/guestNameFromString';
 import { useEffect } from 'react';
 import { FaCopy } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
@@ -90,7 +91,9 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
 
               <div className="multiplayerLeaderboard__player__username">
 
-                {player.username}
+                {
+                process.env.NEXT_PUBLIC_COOLMATH?guestNameString(player.username):
+                player.username}
                 {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
                 {player.host && <span style={{color: "red"}}> ({text("host")})</span>}
 
@@ -98,7 +101,9 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
 
             ) : (
               <>
-            <div className="multiplayerLeaderboard__player__username">#{i + 1} - {player.username}
+            <div className="multiplayerLeaderboard__player__username">#{i + 1} -      {
+                process.env.NEXT_PUBLIC_COOLMATH?guestNameString(player.username):
+                player.username}
 
             {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
 

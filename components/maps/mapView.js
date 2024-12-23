@@ -76,7 +76,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
 
   const handleSearch = useCallback(
     debounce((term) => {
-      if (term.length > 3) {
+      if (term.length > 3 && !process.env.NEXT_PUBLIC_COOLMATH) {
         fetch(window.cConfig.apiUrl+"/api/map/searchMap", {
           method: "POST",
           headers: {
@@ -356,6 +356,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
           {hasResults ? (
             Object.keys(mapHome)
               .filter((k) => k !== "message")
+              .filter((k) => !process.env.NEXT_PUBLIC_COOLMATH || k !== "recent") //coolmath doesnt want unmoderated maps
               .map((section, si) => {
                 const mapsArray =
                   section === "recent" && searchResults.length > 0
@@ -459,7 +460,13 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
               })
           ) : (
             // make sure not loading
-            !mapHome?.message && (
+            (!mapHome?.message ||
+
+            (process.env.NEXT_PUBLIC_COOLMATH &&
+              searchTerm.length > 0 &&
+              (!hasResults || hasResults.filter((k) => k !== "recent").length === 0))
+          ) &&
+            (
               <div className="noResults">{text("noResultsFound")}</div>
             )
           )}

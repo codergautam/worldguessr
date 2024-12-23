@@ -62,6 +62,7 @@ const initialMultiplayerState = {
   inGame: false,
   nextGameQueued: false,
   enteringGameCode: false,
+  nextGameType: null,
   createOptions: {
     rounds: 5,
     timePerRound: 30,
@@ -183,7 +184,7 @@ statsRef.current = stats;
     },
     onNonOAuthError: error => {
       console.log("login non oauth error", error);
-      toast.error("Login error, contact support if this persists (1)\n\nMake sure popups are enabled (needed for google window)")
+      toast.error("Login error, contact support if this persists (1)")
 
     },
     flow: "auth-code",
@@ -319,7 +320,11 @@ statsRef.current = stats;
         console.log("crazygames user not logged in")
         // user not logged in
         // verify with not_logged_in
-        window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in" });
+        let rc = gameStorage.getItem("rejoinCode");
+
+        window.verifyPayload = JSON.stringify({ type: "verify", secret: "not_logged_in", username: "not_logged_in",
+          rejoinCode: rc
+         });
         setWs((prev) => {
           if(prev) {
             prev.send(window.verifyPayload)
@@ -827,8 +832,14 @@ setShowCountryButtons(false)
 
   }, [multiplayerState?.joinOptions?.error]);
 
+  useEffect(() => {
+    if(multiplayerState?.connected && multiplayerError) {
+      setMultiplayerError(null)
+    }
+  }, [multiplayerState?.connected, multiplayerError])
 
   function handleMultiplayerAction(action, ...args) {
+    console.log(action)
     if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
 
     if (action === "publicDuel") {
@@ -836,10 +847,24 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...prev,
         gameQueued: "publicDuel",
+        nextGameType: undefined,
         nextGameQueued: false
       }))
-      sendEvent("multiplayer_request_duel")
+      sendEvent("multiplayer_request_ranked_duel")
       ws.send(JSON.stringify({ type: "publicDuel" }))
+    }
+
+    if (action === "unrankedDuel") {
+      setScreen("multiplayer")
+      setMultiplayerState((prev) => ({
+        ...prev,
+        gameQueued: "unrankedDuel",
+        nextGameType: undefined,
+        nextGameQueued: false,
+        publicDuelRange: null
+      }))
+      sendEvent("multiplayer_request_unranked_duel")
+      ws.send(JSON.stringify({ type: "unrankedDuel" }))
     }
 
     if (action === "joinPrivateGame") {
@@ -947,7 +972,7 @@ setShowCountryButtons(false)
         connecting: true,
         shouldConnect: false
       }))
-      const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 20)
+      const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 50)
       if(ws && ws.readyState === 1) {
       setWs(ws)
       setMultiplayerState((prev)=>({
@@ -976,7 +1001,7 @@ setShowCountryButtons(false)
           if(secret !== "not_logged_in") {
             window.verified = true;
           }
-          ws.send(JSON.stringify({ type: "verify", secret, tz}))
+        ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode") }))
       } else if(window.verifyPayload) {
         console.log("sending verify from verifyPayload")
         ws.send(window.verifyPayload)
@@ -1087,7 +1112,7 @@ setShowCountryButtons(false)
 
 
   useEffect(() => {
-    if (!multiplayerState?.inGame && multiplayerState?.gameData?.public) {
+    if (!multiplayerState?.inGame && multiplayerState?.gameData?.duel) {
 
       setMultiplayerChatEnabled(false)
       setMultiplayerChatOpen(false)
@@ -1135,7 +1160,12 @@ setShowCountryButtons(false)
           connected: true,
           connecting: false,
           guestName: data.guestName
-        }))
+      }))
+
+      if(data.rejoinCode) {
+          gameStorage.setItem("rejoinCode", data.rejoinCode)
+      }
+
       } else if (data.type === "error") {
         setMultiplayerState((prev) => ({
           ...prev,
@@ -1163,7 +1193,7 @@ setShowCountryButtons(false)
         setScreen("multiplayer")
         setMultiplayerState((prev) => {
 
-          if(!data.public) {
+          if(!data.duel) {
             setMultiplayerChatEnabled(true)
           }
 
@@ -1175,6 +1205,7 @@ setShowCountryButtons(false)
           }
         } catch(e) {}
 
+        // console.log('got game options', data)
         setGameOptions((prev) => ({
           ...prev,
           nm: data.nm,
@@ -1212,7 +1243,7 @@ setShowCountryButtons(false)
             if (didIguess) {
               setMultiplayerChatEnabled(true)
             } else {
-              if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
+              // if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
             }
           }
 
@@ -1317,6 +1348,7 @@ setShowCountryButtons(false)
             ...initialMultiplayerState,
             connected: true,
             nextGameQueued: prev.nextGameQueued,
+            nextGameType: prev.nextGameType,
             playerCount: prev.playerCount,
             guestName: prev.guestName
           }
@@ -1421,8 +1453,14 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home")
+      if(window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
       setMultiplayerError(true)
+      setLoading(false)
+
+      toast.info(text("connectionLostRecov"))
+
+      setScreen("home")
+    }
 
 
     }
@@ -1435,8 +1473,14 @@ setShowCountryButtons(false)
       setMultiplayerState((prev) => ({
         ...initialMultiplayerState,
       }));
-      if(window.screen !== "home")
+
+      if(window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
       setMultiplayerError(true)
+
+      toast.info(text("connectionLostRecov"))
+      setScreen("home")
+    }
+
     }
 
 
@@ -1451,7 +1495,12 @@ setShowCountryButtons(false)
 
   useEffect(() => {
     if (multiplayerState?.connected && !multiplayerState?.inGame && multiplayerState?.nextGameQueued) {
-      handleMultiplayerAction("publicDuel");
+      // handleMultiplayerAction("publicDuel");
+      if(multiplayerState?.nextGameType === "ranked") {
+        handleMultiplayerAction("publicDuel")
+      } else if(multiplayerState?.nextGameType === "unranked") {
+        handleMultiplayerAction("unrankedDuel")
+      }
     }
   }, [multiplayerState, timeOffset])
 
@@ -1553,9 +1602,7 @@ setShowCountryButtons(false)
   window.crazyMidgame = crazyMidgame;
 
   }, []);
-  function backBtnPressed(queueNextGame = false) {
-
-
+  function backBtnPressed(queueNextGame = false, nextGameType) {
 
     if (loading) setLoading(false);
     if(multiplayerError) setMultiplayerError(false)
@@ -1591,10 +1638,12 @@ setShowCountryButtons(false)
         } catch(e) {}
       }
 
+
       setMultiplayerState((prev) => {
         return {
           ...prev,
-          nextGameQueued: queueNextGame === true
+          nextGameQueued: queueNextGame === true,
+          nextGameType
         }
       })
       setScreen("home")
@@ -1676,10 +1725,11 @@ setShowCountryButtons(false)
   }
   function fetchMethod() {
     //gameOptions.countryMap && gameOptions.offical
-    console.log("fetching")
-    fetch(window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:
+    const url = window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:
     gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
-    `/mapLocations/${gameOptions.location}`)).then((res) => res.json()).then((data) => {
+    `/mapLocations/${gameOptions.location}`);
+    console.log("fetching", url)
+    fetch(url).then((res) => res.json()).then((data) => {
       if(data.ready) {
         // this uses long for lng
         for(let i = 0; i < data.locations.length; i++) {
@@ -1689,12 +1739,17 @@ setShowCountryButtons(false)
           }
         }
 
+        // shuffle data.locations
+        data.locations = data.locations.sort(() => Math.random() - 0.5)
+
+        console.log("got locations", data.locations)
+
         setAllLocsArray(data.locations)
 
         if(gameOptions.location === "all") {
         const loc = data.locations[0]
         setLatLong(loc)
-
+          console.log("setting latlong", loc)
         } else {
           let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
@@ -1783,7 +1838,7 @@ setShowCountryButtons(false)
   }
 
   const ChatboxMemo = React.useMemo(() => <ChatBox miniMapShown={miniMapShown} ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={
-    session?.token?.secret && multiplayerChatEnabled
+    session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH
   }
   isGuest={session?.token?.secret ? false : true}
   publicGame={multiplayerState?.gameData?.public}
@@ -1858,7 +1913,7 @@ setShowCountryButtons(false)
       {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
       <LeagueModal shown={leagueModal} onClose={() => setLeagueModal(false)} session={session} eloData={eloData} />
       {ChatboxMemo}
-    <ToastContainer/>
+    <ToastContainer pauseOnFocusLoss={false} />
 
     <div className="videoAdParent hidden">
   <div className="videoAdPlayer">
@@ -1978,10 +2033,10 @@ setShowCountryButtons(false)
         enteringGameCode: true
       }))}}
 
-      inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.public && !leagueModal} />
+      inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={()=>setFriendsModal(true)} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => setAccountModalOpen(true)} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.duel && !leagueModal} />
 
 {/* reload button for public game */}
-{ multiplayerState?.gameData?.public && multiplayerState?.gameData?.state === "guess" && (
+{ multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
 <div className="gameBtnContainer" style={{position: 'fixed',top: '60px', left: '10px', zIndex: 1000000}}>
 
   <button className="gameBtn navBtn backBtn reloadBtn" onClick={()=>reloadBtnPressed()}><FaArrowRotateRight /></button>
@@ -2031,10 +2086,21 @@ setShowCountryButtons(false)
               }} >{text("singleplayer")}</button>
         {/* <span className="bigSpan">{text("playOnline")}</span> */}
 
+        <div className="multiplayerPrivBtns">
 
+              { session?.token?.secret && (
         <button className="homeBtn multiplayerOptionBtn publicGame" onClick={() => handleMultiplayerAction("publicDuel")}
-          disabled={!multiplayerState.connected || maintenance}>{session?.token?.secret ? text("rankedDuel") : text("findDuel")}</button>
+          disabled={!multiplayerState.connected || maintenance}>{text("rankedDuel")}</button>
+              )}
+        <button className="homeBtn multiplayerOptionBtn unrankedGame" onClick={() => handleMultiplayerAction("unrankedDuel")}
+          disabled={!multiplayerState.connected || maintenance}>
 
+            {
+              session?.token?.secret ? text("unrankedDuel") :
+            text("findDuel")
+
+            }</button>
+  </div>
         {/* <span className="bigSpan" disabled={!multiplayerState.connected}>{text("playFriends")}</span> */}
         <div className="multiplayerPrivBtns">
         <button className="homeBtn multiplayerOptionBtn" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
@@ -2052,7 +2118,8 @@ setShowCountryButtons(false)
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
  */}
-                <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>
+ { !process.env.NEXT_PUBLIC_COOLMATH &&
+                <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>}
                 </div>
 
               </>
@@ -2144,16 +2211,12 @@ setShowCountryButtons(false)
   <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")}
 
   button1Press={() => {
-    backBtnPressed(true)
-
+    backBtnPressed(true, "ranked")
   }}
 
   button2Text={text("home")}
   button2Press={() => {
-
     backBtnPressed()
-
-
   }}
   />
 

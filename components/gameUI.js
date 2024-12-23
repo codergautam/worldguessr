@@ -76,7 +76,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
             round: prev.round + 1
           }
         })
-      } else {
+      } else if(setSinglePlayerRound) {
         // reset to default
         setSinglePlayerRound({
           round: 1,
@@ -96,7 +96,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
       const loadTime = window.gameOpen;
       const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
       if(lastDiscordShown) return console.log("Discord modal already shown");
-      if(Date.now() - loadTime > 600000) {
+      if(Date.now() - loadTime > 600000 && !process.env.NEXT_PUBLIC_COOLMATH) {
         setShowDiscordModal(true)
         sendEvent('discord_modal_shown')
       } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
@@ -454,14 +454,14 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
   return (
     <div className="gameUI">
 
-{ !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter) && (
+{ !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter) && (width >700) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
-    <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[320,50]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
 
 
-{ multiplayerState?.gameData?.public && (
+{ multiplayerState?.gameData?.duel && (
   <div className={`hbparent ${isStartingDuel ? 'hb-parent' : ''}`}>
     <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
   <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
@@ -627,7 +627,7 @@ button1Press={() =>{
         }
         }} />
       )}
-      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'}  ${multiplayerState?.gameData?.public ? 'duel' : ''}`}>
+      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'}  ${multiplayerState?.gameData?.duel ? 'duel' : ''}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
@@ -651,21 +651,17 @@ button1Press={() =>{
           )
         }
 
-        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.public && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1 && (
           <BannerText text={
             text("gameStartingIn", {t:timeToNextMultiplayerEvt})
           } shown={true} />
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.public && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
           <PlayerList multiplayerState={multiplayerState} playAgain={() => {
-
-
-            backBtnPressed(true)
-
+            backBtnPressed(true, "unranked")
           }} backBtn={() => {
-
             backBtnPressed()
           }} />
         )}

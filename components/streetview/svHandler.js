@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 
 const SvEmbedIframe = (params) => {
   const iframeRef = useRef(null);
-  const [iframeSrc, setIframeSrc] = useState(`/svEmbed`);
+  const [iframeSrc, setIframeSrc] = useState(null);
 
 
   // Function to send updated params via postMessage to the iframe
@@ -22,7 +22,7 @@ const SvEmbedIframe = (params) => {
 
   useEffect(() => {
     // reload iframe when lat or long changes
-    console.log("lat or long changed", params.lat, params.long);
+    // console.log("lat or long changed", params.lat, params.long);
     setIframeSrc(`/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}&showAnswer=${params.showAnswer}&hidden=false`);
   }, [params?.lat, params?.long]);
 
@@ -65,6 +65,10 @@ const SvEmbedIframe = (params) => {
 
 
   if(!params.lat && !params.long) {
+    return null;
+  }
+
+  if(!iframeSrc) {
     return null;
   }
 

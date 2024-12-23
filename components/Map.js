@@ -4,6 +4,7 @@ import { Circle, Marker, Polyline, Popup, Tooltip, useMapEvents } from "react-le
 import { useTranslation } from '@/components/useTranslations';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
+import guestNameString from "@/serverUtils/guestNameFromString";
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
 // Dynamic import of react-leaflet components
@@ -59,6 +60,8 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
     if (!map || answerShown) return;
 
     setTimeout(() => {
+      try {
+
       if (extent) {
         const bounds = L.latLngBounds([extent[1], extent[0]], [extent[3], extent[2]]);
         map.fitBounds(bounds);
@@ -66,6 +69,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         // reset to default
         map.setView([30, 0], 2);
       }
+    }catch(e) {}
     }, 500);
   }, [gameOptions?.extent ? JSON.stringify(gameOptions.extent) : null, map, answerShown]);
 
@@ -179,7 +183,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         if(!player.guess) return null;
 
 
-        const name = player.username;
+        const name = process.env.NEXT_PUBLIC_COOLMATH?guestNameString(player.username):player.username;
         const latLong = [player.guess[0], player.guess[1]];
 
         const tIcon = customPins[name]==="polandball" ? polandballIcon : src2Icon;

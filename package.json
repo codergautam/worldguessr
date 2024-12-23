@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' UWS_HTTP_MAX_HEADERS_SIZE=16384 nodemon ws/ws --exec \"node --no-warnings=ExperimentalWarning\" --watch ws/ws.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
+    "dev": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' UWS_HTTP_MAX_HEADERS_SIZE=16384 nodemon ws/ws --quiet --signal SIGTERM --exec \"node --no-warnings=ExperimentalWarning\" --watch ws/ws.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
     "build": "cross-env next build",
     "start-api": "cross-env  NODE_ENV=production node server.js",
     "start-ws": "cross-env UWS_HTTP_MAX_HEADERS_SIZE=16384 NODE_ENV=production node ws/ws",
@@ -33,7 +33,7 @@
     "moment": "^2.30.1",
     "moment-timezone": "^0.5.45",
     "mongoose": "^8.3.3",
-    "next": "14.2.1",
+    "next": "14.2.4",
     "nextjs-google-analytics": "^2.3.3",
     "ol": "^9.1.0",
     "react": "^18.2.0",

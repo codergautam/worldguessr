@@ -14,15 +14,16 @@ import { fromLonLat } from "ol/proj.js";
 import { setElo } from "../../api/eloRank.js";
 
 export default class Game {
-  constructor(id, publicLobby, location="all", rounds=5, allLocations) {
+  constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
+    this.duel = isDuel;
     this.timePerRound = 60000;
     this.waitBetweenRounds = 10000;
-    if(publicLobby) {
+    if(isDuel) {
       this.waitBetweenRounds = 6000;
 
 
@@ -40,8 +41,54 @@ export default class Game {
     this.displayLocation = null;
     this.readyToEnd = false;
 
+    if(this.public) {
+      this.showRoadName = false;
+      this.nm = false;
+      this.npz = false;
+    }
+
     if(allLocations) this.generateLocations(allLocations);
   }
+
+  toJSON() {
+    return {
+      id: this.id,
+      code: this.code,
+      players: this.players,
+      state: this.state,
+      public: this.public,
+      duel: this.duel,
+      timePerRound: this.timePerRound,
+      waitBetweenRounds: this.waitBetweenRounds,
+      maxDist: this.maxDist,
+      startTime: this.startTime,
+      endTime: this.endTime,
+      nextEvtTime: this.nextEvtTime,
+      locations: this.locations,
+      location: this.location,
+      rounds: this.rounds,
+      curRound: this.curRound,
+      maxPlayers: this.maxPlayers,
+      extent: this.extent,
+      displayLocation: this.displayLocation,
+      readyToEnd: this.readyToEnd,
+      nm: this.nm,
+      npz: this.npz,
+      showRoadName: this.showRoadName,
+      calculationDone: this.calculationDone,
+      eloChanges: this.eloChanges,
+      pIds: this.pIds,
+      accountIds: this.accountIds,
+      location: this.location,
+    }
+  }
+  static fromJSON(json) {
+    const gObj = new Game(json.id, json.public, json.location, json.rounds, null, json.duel);
+    Object.assign(gObj, json);
+    return gObj;
+
+  }
+
 
   addPlayer(player, host=false, tag) {
     if(Object.keys(this.players).length >= this.maxPlayers) {
@@ -51,7 +98,7 @@ export default class Game {
       username: player.username,
       accountId: player.accountId,
       id: player.id,
-      score: this.public ? 5000 : 0,
+      score: this.duel ? 5000 : 0,
       host: host && !this.public,
       supporter: player.supporter,
       elo: player.elo,
@@ -68,7 +115,11 @@ export default class Game {
     player.gameId = this.id;
     player.inQueue = false;
 
-    player.send({
+    player.send(this.getInitialSendState(player));
+  }
+
+  getInitialSendState(player) {
+    return {
       type: 'game',
       state: this.state,
       timePerRound: this.timePerRound,
@@ -81,14 +132,19 @@ export default class Game {
       maxPlayers: this.maxPlayers,
       myId: player.id,
       public: this.public,
+      duel: this.duel,
       players: Object.values(this.players),
-      host: playerObj.host,
+      host: this.players[player.id].host,
       maxDist: this.maxDist,
       code: this.code,
       extent: this.extent,
       generated: this.locations.length,
-      displayLocation: this.displayLocation
-    });
+      displayLocation: this.displayLocation,
+
+      nm: this.nm,
+      npz: this.npz,
+      showRoadName: this.showRoadName,
+    }
   }
 
   resetGame(allLocations) {
@@ -101,8 +157,16 @@ export default class Game {
   }
 
 
+  rejoinGame(player) {
+    if(this.public && this.state === 'end') {
+      this.removePlayer(player);
+    } else {
+    player.ws.send(JSON.stringify(this.getInitialSendState(player)));
+    }
+  }
+
   givePoints() {
-    if(!this.public) {
+    if(!this.duel) {
     for (const playerId of Object.keys(this.players)) {
       const player = this.players[playerId];
       if(!player.guess) {
@@ -196,7 +260,8 @@ export default class Game {
     }
   }
 
-  sendStateUpdate(includeLocations=false) {
+
+  getSendableState(includeLocations=false) {
     const state = {
       type: 'game',
       state: this.state,
@@ -222,6 +287,11 @@ export default class Game {
       state.displayLocation = this.displayLocation;
       // timePerround, nm,npz,showRoadName,rounds
     }
+    return state;
+  }
+
+  sendStateUpdate(includeLocations=false) {
+    const state = this.getSendableState(includeLocations);
     this.sendAllPlayers(state);
   }
 
@@ -249,12 +319,12 @@ export default class Game {
     this.checkRemaining();
 
     // self destruct if no players or it is a Party and host left
-    if (Object.keys(this.players).length < 1 || (!this.public && isPlayerHost)) {
+    if (Object.keys(this.players).length < 1 || (!this.duel && isPlayerHost)) {
       this.shutdown();
       games.delete(this.id);
     }
 
-    if(this.public && Object.keys(this.players).length < 2) {
+    if(this.duel && Object.keys(this.players).length < 2) {
       this.end(tag);
     }
   }
@@ -409,6 +479,7 @@ export default class Game {
       let loc;
       if(this.location === "all") {
         // get n random from the list
+        console.log('All locations', allLocations.length);
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
         this.maxDist = 20000;
         this.extent = null;
@@ -460,7 +531,7 @@ export default class Game {
     this.nextEvtTime = this.endTime + 60000;
 
 
-    if(this.public && !this.calculationDone) {
+    if(this.duel && !this.calculationDone) {
       // find the winner
       // winner is the one with most points
       // or if only 1 player, they win

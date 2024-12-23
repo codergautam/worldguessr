@@ -13,11 +13,23 @@ import { Webhook } from "discord-webhook-node";
 
 import cityGen from '../serverUtils/cityGen.js';
 import lookup from "coordinate_to_country"
-import { players, games } from '../serverUtils/states.js';
+import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
 import { getLeagueRange } from '../components/utils/leagues.js';
 import calculateOutcomes from '../components/utils/eloSystem.js';
+import { tmpdir } from 'os';
+
+import arbitraryWorld from '../public/world-arbitrary.json' with { type: "json" };
+
+function pick5RandomArb() {
+  const rand = new Set();
+  while(rand.size < 5) {
+    rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
+  }
+  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: lookup(r.lat, r.lng, true) ? lookup(r.lat, r.lng, true)[0] : 'unknown' }));
+}
+
 
 config();
 // Load the profanity filter
@@ -34,6 +46,7 @@ const port = process.env.WS_PORT || 3002;
 
 const playersInQueue = new Map();
 
+
 let maintenanceMode = false;
 let dbEnabled = true;
 
@@ -43,12 +56,14 @@ function currentDate() {
 }
 
 // location generator
-let allLocations = [];
+let allLocations = [{"lat":59.94945834525827,"long":10.74877784715781,"country":"NO"},{"lat":-22.41504758873939,"long":-42.95073348255873,"country":"BR"},{"lat":7.117061549697593,"long":6.737664188991607,"country":"NG"},{"lat":43.11066098012346,"long":141.5910123338441,"country":"JP"},{"lat":49.88659404088488,"long":-99.9475096434099,"country":"CA"},{"lat":46.720999413096,"long":19.86240516067642,"country":"HU"}];
+
 const generateMainLocations = async () => {
   // fetch cron job localhost:3003/allCountries.json
   fetch('http://localhost:3003/allCountries.json').then(async (res) => {
     const data = await res.json();
     allLocations = data.locations??[];
+
   }).catch((e) => {
     console.error('Failed to load locations', e, currentDate());
   });
@@ -148,6 +163,26 @@ blockedAt((time, stack) => {
 })
 function stop(reason) {
   console.error('Stopping server', reason, currentDate());
+
+  // store players and games in cache
+  let gamesArr = [];
+  let playersArr = [];
+  for (const game of games.values()) {
+    // store json
+    gamesArr.push(game.toJSON());
+  }
+  for (const player of players.values()) {
+    // store json
+    playersArr.push(player.toJSON());
+  }
+  try {
+  console.log('Saving gamestate before stopping',tmpdir() + `/gamestate.worldguessr`);
+  fs.writeFileSync(tmpdir() + `/gamestate.worldguessr`, JSON.stringify({ games: gamesArr, players: playersArr,
+    time: Date.now() }));
+    console.log("Stored ", gamesArr.length, " games and ", playersArr.length, " players");
+  } catch(e) {
+    console.error('Failed to save gamestate', e, currentDate());
+  }
 }
 
 process.on('SIGTERM', () => {
@@ -375,7 +410,52 @@ app.ws('/wg', {
         player.setScreen(json.screen);
       }
 
-      if ((json.type === 'publicDuel') && !player.gameId) {
+      if((json.type === 'unrankedDuel') && !player.gameId) {
+        if(player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'unableToJoinDuel',
+            toastType: 'error'
+          });
+          return;
+        }
+
+        player.inQueue = true;
+        const queueDetails = {
+          guest: player.accountId ? false : true,
+          queueTime: Date.now(),
+          duel: false
+        }
+        playersInQueue.set(player.id, queueDetails);
+        if(player.ip !== 'unknown' && player.ip.includes('.')) {
+
+          const ipOctets = player.ip.split('.').slice(0, 3).join('.');
+
+          if (!ipDuelRequestsLast10.has(ipOctets)) {
+            ipDuelRequestsLast10.set(ipOctets, 1);
+          } else {
+          log('Duel requests from ip', ipOctets, ipDuelRequestsLast10.get(ipOctets));
+
+            ipDuelRequestsLast10.set(ipOctets, ipDuelRequestsLast10.get(ipOctets) + 1);
+          }
+
+          if (ipDuelRequestsLast10.get(ipOctets) > 50) {
+            log('Banned IP due to spam', ipOctets);
+            bannedIps.add(ipOctets);
+            ws.close();
+
+            for(const player of players.values()) {
+              if(player.ip.includes(ipOctets)) {
+                player.ws.close();
+              }
+            }
+          }
+        }
+
+      }
+
+
+      if ((json.type === 'publicDuel') && player.accountId &&  !player.gameId) {
         if(player.banned) {
           player.send({
             type: 'toast',
@@ -392,7 +472,8 @@ app.ws('/wg', {
 
           const queueDetails = {
             guest: true,
-            queueTime: Date.now()
+            queueTime: Date.now(),
+            duel: true
           }
           playersInQueue.set(player.id, queueDetails);
 
@@ -405,7 +486,8 @@ app.ws('/wg', {
           max: range[1],
           elo: player.elo,
           guest: false,
-          queueTime: Date.now()
+          queueTime: Date.now(),
+          duel: true
         }
         playersInQueue.set(player.id, queueDetails);
 
@@ -970,15 +1052,28 @@ app.ws('/wg', {
       ipConnectionCount.delete(ws.ip);
     }
 
+    console.log(players.has(ws.id), ws.id, players.size);
     if (players.has(ws.id)) {
       const player = players.get(ws.id);
-      if (player.gameId) {
-        const game = games.get(player.gameId);
-        if (game) {
-          game.removePlayer(player, true);
+
+      // handle case where user just made an account and name is not set
+      if(!player.username) {
+        // disconnect the player
+        if(player.gameId) {
+          const game = games.get(player.gameId);
+          game.removePlayer(player);
         }
+
+        players.delete(ws.id);
+
+      } else {
+      player.ws = null;
+      player.inQueue = false;
+      player.disconnectTime = Date.now();
+      player.disconnected = true;
+      disconnectedPlayers.set(player.accountId??player.rejoinCode, player.id);
       }
-      players.delete(ws.id);
+      console.log('Player disconnected', player.username, player.id, currentDate());
     }
     if (playersInQueue.has(ws.id)) {
       playersInQueue.delete(ws.id);
@@ -988,6 +1083,39 @@ app.ws('/wg', {
 });
 
 
+
+// check if gamestate can be recovered from os.tmpdir+gamestate.worldguessr
+try {
+  const gamestate = JSON.parse(fs.readFileSync(tmpdir() + `/gamestate.worldguessr`));
+  if (gamestate && Date.now() - gamestate.time < 1000 * 60) {
+    console.log('Recovered gamestate', gamestate.games.length, 'games', gamestate.players.length, 'players');
+
+    for (const player of gamestate.players) {
+      const newPlayer = Player.fromJSON(player);
+      newPlayer.disconnectTime = Date.now(); // important
+      newPlayer.disconnected = true;
+      if(newPlayer.inQueue) {
+        newPlayer.inQueue = false;
+      }
+      players.set(player.id, newPlayer);
+      disconnectedPlayers.set(player.accountId??player.rejoinCode, player.id);
+    }
+    for (const game of gamestate.games) {
+      console.log(game.id);
+      const newGame = Game.fromJSON(game);
+      games.set(game.id, newGame);
+    }
+
+    console.log('Recovered gamestate successfully');
+    // remove the file
+
+    fs.unlinkSync(tmpdir() + `/gamestate.worldguessr`);
+
+  }
+} catch(e) {
+}
+
+
   // update player count
   setInterval(() => {
 
@@ -995,7 +1123,7 @@ app.ws('/wg', {
       if (player.verified && !player.gameId) {
         player.send({
           type: 'cnt',
-          c: players.size
+          c: players.size-disconnectedPlayers.size
         });
       }
       player.send({
@@ -1026,7 +1154,7 @@ app.ws('/wg', {
     const matchedPlayers = new Set();
 
     // Convert Map to an array for efficient iteration
-    const entries = Array.from(duelQueue.entries());
+    const entries = Array.from(duelQueue.entries()).filter(r => r[1].duel);
 
     // Loop through each player in the queue
     for (let i = 0; i < entries.length; i++) {
@@ -1076,7 +1204,7 @@ app.ws('/wg', {
   setInterval(() => {
 
 
-    // const minRoundsRemaining = 3;
+    const minRoundsRemaining = 3;
     for (const game of games.values()) {
 
       const playerCnt = Object.keys(game.players).length;
@@ -1121,62 +1249,72 @@ app.ws('/wg', {
       }
 
 
-      // // find games that can be joined
-      // if (playersInQueue.size < 1) {
-      //   continue;
-      // }
-      // if (!game.public) {
-      //   continue;
-      // }
-      // if (game.rounds - game.curRound < minRoundsRemaining) {
-      //   continue;
-      // }
-      // if (playerCnt >= game.maxPlayers) {
-      //   continue;
-      // }
+      // find games that can be joined
+      // unranked (meaning non duel) public games
+      if (playersInQueue.size < 1) {
+        continue;
+      }
+      if (!game.public || game.duel) {
+        continue;
+      }
+      if (game.rounds - game.curRound < minRoundsRemaining) {
+        continue;
+      }
+      if (playerCnt >= game.maxPlayers) {
+        continue;
+      }
 
 
-      // const multiplayerMax = Math.min(10, game.maxPlayers)
-      // let playersCanJoin = multiplayerMax - playerCnt;
-      // for (const playerId of playersInQueue) {
-      //   const player = players.get(playerId);
-      //   if(!player) {
-      //     playersInQueue.delete(playerId);
-      //     continue;
-      //   }
-      //   if (player.gameId) {
-      //     continue;
-      //   }
-      //   if (playersCanJoin < 1) {
-      //     break;
-      //   }
-      //   game.addPlayer(player);
-      //   playersInQueue.delete(playerId);
-      //   playersCanJoin--;
-      // }
+      const multiplayerMax = Math.min(10, game.maxPlayers)
+      let playersCanJoin = multiplayerMax - playerCnt;
+      for (const playerData of playersInQueue) {
+        const playerId = playerData[0];
+        const queueData = playerData[1];
+        if (queueData.duel) {
+          continue;
+        }
+        const player = players.get(playerId);
+        if(!player) {
+          playersInQueue.delete(playerId);
+          continue;
+        }
+        if (player.gameId) {
+          continue;
+        }
+        if (playersCanJoin < 1) {
+          break;
+        }
+        game.addPlayer(player);
+        playersInQueue.delete(playerId);
+        playersCanJoin--;
+      }
 
     }
 
-    // if (playersInQueue.size > 1) {
-    //   // create a new public game
-    //   const gameId = uuidv4();
-    //   const game = new Game(gameId, true, undefined, undefined, allLocations);
-    //   games.set(gameId, game);
+    if (playersInQueue.size > 1 && [...playersInQueue.values()].filter(r => !r.duel).length > 1) {
+      // create a new public game (non duel)
+      const gameId = uuidv4();
+      const game = new Game(gameId, true, undefined, undefined, allLocations);
+      games.set(gameId, game);
 
-    //   let playersCanJoin = game.maxPlayers;
-    //   for (const playerId of playersInQueue) {
-    //     const player = players.get(playerId);
-    //     if (player.gameId) {
-    //       continue;
-    //     }
-    //     if (playersCanJoin < 1) {
-    //       break;
-    //     }
-    //     game.addPlayer(player);
-    //     playersInQueue.delete(playerId);
-    //     playersCanJoin--;
-    //   }
-    // }
+      let playersCanJoin = game.maxPlayers;
+      for (const playerData of playersInQueue) {
+        const playerId = playerData[0];
+        const player = players.get(playerId);
+        if (player.gameId) {
+          continue;
+        }
+        if(player.duel) {
+          continue;
+        }
+        if (playersCanJoin < 1) {
+          break;
+        }
+        game.addPlayer(player);
+        playersInQueue.delete(playerId);
+        playersCanJoin--;
+      }
+    }
 
     if (playersInQueue.size >= 1) {
       const pairs = findDuelPairs(playersInQueue);
@@ -1186,7 +1324,7 @@ app.ws('/wg', {
         const p2 = players.get(id2);
 
         const gameId = uuidv4();
-        const game = new Game(gameId, true, undefined, undefined, allLocations);
+        const game = new Game(gameId, true, undefined, undefined, allLocations, true);
         games.set(gameId, game);
 
         game.addPlayer(p1, undefined, "p1");
@@ -1215,6 +1353,11 @@ app.ws('/wg', {
             p2: p2.accountId
           }
 
+          if(p1.elo > 2000 && p2.elo > 2000) {
+            // use arbitrary world map to make it harder
+            game.locations = pick5RandomArb();
+          }
+
 
         }
 
@@ -1232,7 +1375,7 @@ app.ws('/wg', {
       for(const playerId of playersInQueue) {
         const player = players.get(playerId[0]);
         const queueData = playerId[1];
-        if(!queueData.guest && Date.now() - queueData.queueTime > 10000) {
+        if(!queueData.guest && queueData.duel && Date.now() - queueData.queueTime > 10000) {
           playersInQueue.set(playerId[0], { ...queueData, min: 0, max: 10000, queueTime: Date.now() });
 
           player.send({
@@ -1242,6 +1385,27 @@ app.ws('/wg', {
         }
       }
     }
+
+    // loop through disconnected players and remove them if they have been disconnected for more than 30 seconds
+    for(const [accountId, playerId] of disconnectedPlayers) {
+      const player = players.get(playerId);
+      if(!player) {
+        disconnectedPlayers.delete(accountId);
+        continue;
+      }
+      if(Date.now() - player.disconnectTime > 30000) {
+        disconnectedPlayers.delete(accountId);
+        if (player.gameId) {
+          const game = games.get(player.gameId);
+          if (game) {
+            game.removePlayer(player, true);
+          }
+        }
+
+        players.delete(playerId);
+      }
+    }
+
   }, 500);
 
 

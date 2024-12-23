@@ -31,6 +31,16 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
     )
   }
 
+  if(!((multiplayerState?.inGame) || (multiplayerState?.enteringGameCode) ||
+
+  (multiplayerState?.gameQueued) || (multiplayerState?.nextGameQueued))) {
+        return (
+      <div className="multiplayerHome">
+        <BannerText text={text("connectionLost")} shown={true} hideCompass={true} />
+      </div>
+    )
+  }
+
   return (
     <div className={`multiplayerHome ${!["waiting","end"].includes(multiplayerState?.gameData?.state) ? "inGame" : ""}`}>
         {/* <BannerText text={multiplayerState.error} shown={multiplayerState.error} hideCompass={true} /> */}
@@ -51,7 +61,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
       )}
 
 
-        <BannerText text={text("findingOpponent")} shown={multiplayerState.gameQueued} subText={
+        <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued} subText={
           multiplayerState?.publicDuelRange? `${text("eloRange")}: ${multiplayerState?.publicDuelRange[0]} - ${multiplayerState?.publicDuelRange[1]}` : undefined
         } />
 
