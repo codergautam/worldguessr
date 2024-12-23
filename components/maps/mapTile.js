@@ -146,10 +146,18 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
           </div>
           {!map.countryMap && map.created_by_name && (
             <div className="map-tile__author">
-              by {highlightMatch(map.created_by_name, searchTerm)}
+
+
+{!process.env.NEXT_PUBLIC_COOLMATH && (
+  <>
+    {` by ${highlightMatch(map.created_by_name, searchTerm)}`}
+    &nbsp;&middot;
+  </>
+)}
+
 
               {map.accepted && (
-                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}>&nbsp; &middot; {formatNumber(map.locations, 3)} locations</span>
+                <span style={{color: 'rgba(255, 255, 255, 0.5)'}}> {formatNumber(map.locations, 3)} locations</span>
               )}
 
             </div>

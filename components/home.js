@@ -1838,7 +1838,7 @@ setShowCountryButtons(false)
   }
 
   const ChatboxMemo = React.useMemo(() => <ChatBox miniMapShown={miniMapShown} ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={
-    session?.token?.secret && multiplayerChatEnabled
+    session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH
   }
   isGuest={session?.token?.secret ? false : true}
   publicGame={multiplayerState?.gameData?.public}
@@ -2118,7 +2118,8 @@ setShowCountryButtons(false)
                 )}
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
  */}
-                <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>
+ { !process.env.NEXT_PUBLIC_COOLMATH &&
+                <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>}
                 </div>
 
               </>

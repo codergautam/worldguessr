@@ -191,12 +191,17 @@ export default function RoundOverScreen({
           {history && history.length > 0 && (
             <div className="historyContainer">
               <h3>{text("history")}</h3>
+
               {history.map((h, index) => (
                 <div key={index} className="historyItem">
                   <a
                     href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${h.lat},${h.long}`}
                     target="_blank"
                     rel="noreferrer"
+                    style={{
+                      textDecoration: process.env.NEXT_PUBLIC_COOLMATH ? "none" : "underline",
+                      pointerEvents: process.env.NEXT_PUBLIC_COOLMATH ? "none" : "auto", // coolmathgames doenst want outgoing links
+                    }}
                   >
                     <span>
                       #{index + 1} -{" "}
@@ -205,6 +210,7 @@ export default function RoundOverScreen({
                   </a>
                 </div>
               ))}
+
             </div>
           )}
         </div>
