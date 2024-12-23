@@ -21,11 +21,11 @@ export default class Game {
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
     this.duel = isDuel;
-    this.timePerRound = 60000;
+    this.timePerRound = 30000;
     this.waitBetweenRounds = 10000;
     if(isDuel) {
       this.waitBetweenRounds = 6000;
-
+      this.timePerRound = 60000;
 
     }
     this.maxDist = 20000;
