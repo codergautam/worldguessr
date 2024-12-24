@@ -1304,7 +1304,7 @@ try {
         if (player.gameId) {
           continue;
         }
-        if(player.duel) {
+        if(playerData[1].duel) {
           continue;
         }
         if (playersCanJoin < 1) {
