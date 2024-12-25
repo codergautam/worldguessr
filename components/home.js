@@ -2003,7 +2003,7 @@ setShowCountryButtons(false)
           showAnswer={showAnswer}
           lat={latLong?.lat}
           long={latLong?.long}
-          showRoadLabels={gameOptions?.showRoadName}
+          showRoadLabels={screen==="onboarding"?false:gameOptions?.showRoadName}
           loading={loading}
           setLoading={setLoading}
           hidden={((!latLong || !latLong.lat || !latLong.long)|| loading)||(
