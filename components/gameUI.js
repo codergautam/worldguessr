@@ -454,9 +454,9 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
   return (
     <div className="gameUI">
 
-{ !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter) && (width >700) && (
+{ !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter)  && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
-    <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[320,50]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
 
