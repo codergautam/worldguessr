@@ -1602,7 +1602,11 @@ setShowCountryButtons(false)
   window.crazyMidgame = crazyMidgame;
 
   }, []);
+
+
   function backBtnPressed(queueNextGame = false, nextGameType) {
+    setStreetViewShown(false)
+    setOnboardingCompleted(true)
 
     if (loading) setLoading(false);
     if(multiplayerError) setMultiplayerError(false)
@@ -1618,13 +1622,11 @@ setShowCountryButtons(false)
     if(screen === "onboarding") {
       setScreen("home")
       setOnboarding(null)
-      setOnboardingCompleted(true)
         gameStorage.setItem("onboarding", 'done')
 
       return;
     }
 
-    setStreetViewShown(false)
 
     if (multiplayerState?.inGame) {
       if(!multiplayerState?.gameData?.host || multiplayerState?.gameData?.state === "waiting") {
@@ -2050,8 +2052,8 @@ setShowCountryButtons(false)
   </button>
 )}
 
+        <div className={`home__content ${screen !== "home" ? "hidden" : "cshown"} `}>
 
-        <div className={`home__content ${screen !== "home" ? "hidden" : ""} `}>
 
 
         { onboardingCompleted===null ? (

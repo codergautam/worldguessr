@@ -52,6 +52,16 @@ html {
   animation: hide 0.5s ease-in-out forwards;
   pointer-events: none;
 }
+// we have to do this for ios otherwise back btn makes a blank home page, not sure why
+// not even all ios devices some randomly
+.cshown {
+  left: 50%;
+  opacity: 1;
+  animation: fadeIn 0.5s ease-in-out forwards;
+  pointer-events: all;
+  display: flex !important;
+
+}
 
 .home__btns {
   display: flex;
