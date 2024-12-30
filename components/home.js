@@ -1862,6 +1862,7 @@ setShowCountryButtons(false)
   useEffect(() => {
     function checkForCheats() {
       if(document.getElementById("coo1rdinates")) return true;
+      if(document.getElementById("map-canvas")) return true;
       // try {
       // if(window.localStorage.getItem("banned")) return true;
       // } catch(e) {
@@ -1872,10 +1873,7 @@ setShowCountryButtons(false)
       if(window.banned) return;
       sendEvent("cheat_detected")
       // redirect to banned page
-      alert("imagine cheating on a free geography game. L")
-      window.location.href = "https://www.youtube.com/watch?v=dQw4w9WgXcQ";
-      window.banned = true;
-      document.write("<h1>You have been banned from playing this game.</h1> If you believe this is a mistake, please contact us at	support@worldguessr.com")
+      window.location.href = "/banned";
       window.localStorage.setItem("banned", "true")
     }
     if(checkForCheats()) {
