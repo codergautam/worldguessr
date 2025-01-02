@@ -55,15 +55,15 @@ return (
 <label>{text("numOfRounds")}:</label>
 <div className="numberInput rounds">
 <FaArrowLeft onClick={() =>  setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, rounds: Math.max(1, Math.min(20, Number(multiplayerState.createOptions.rounds) - 1)) }}))} />
-<input type="number" className='numberIn' placeholder={text("numOfRounds")}  max={20} onChange={(e) => enforceMinMax(e.target, ()=>setMultiplayerState(prev=>({...prev, createOptions: {...prev.createOptions, rounds: e.target.value}})))} value={multiplayerState.createOptions.rounds} />
+<input type="number" className='numberIn' placeholder={text("numOfRounds")}  max={20} min={1} onChange={(e) => enforceMinMax(e.target, ()=>setMultiplayerState(prev=>({...prev, createOptions: {...prev.createOptions, rounds: e.target.value}})))} value={multiplayerState.createOptions.rounds} />
 <FaArrowRight onClick={() =>  setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, rounds: Math.max(1, Math.min(20, Number(multiplayerState.createOptions.rounds) + 1)) }}))} />
 </div>
 
 <label>{text("timePerRoundSecs")}:</label>
 <div className="timePerRound numberInput">
-<FaArrowLeft onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(1, Math.min(300, Number(multiplayerState.createOptions.timePerRound) - 10)) }}))} />
-<input type="number" className='numberIn' placeholder={text("timePerRoundSecs")} max={300} onChange={(e) => enforceMinMax(e.target, ()=>setMultiplayerState(prev=>({...prev, createOptions: {...prev.createOptions, timePerRound: e.target.value}})))} value={multiplayerState.createOptions.timePerRound} />
-<FaArrowRight onClick={() =>  setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(1, Math.min(300, Number(multiplayerState.createOptions.timePerRound) + 10)) }}))} />
+<FaArrowLeft onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(10, Math.min(300, Number(multiplayerState.createOptions.timePerRound) - 10)) }}))} />
+<input type="number" className='numberIn' placeholder={text("timePerRoundSecs")} max={300} min={10} onChange={(e) => enforceMinMax(e.target, ()=>setMultiplayerState(prev=>({...prev, createOptions: {...prev.createOptions, timePerRound: e.target.value}})))} value={multiplayerState.createOptions.timePerRound} />
+<FaArrowRight onClick={() =>  setMultiplayerState(prev => ({ ...prev, createOptions: {...prev.createOptions, timePerRound: Math.max(10, Math.min(300, Number(multiplayerState.createOptions.timePerRound) + 10)) }}))} />
 </div>
 
 <label>

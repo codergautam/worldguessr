@@ -22,5 +22,7 @@ export default function calcPoints({lat, lon, guessLat, guessLon, usedHint, maxD
   let pts = 5000 * Math.E ** (-10*(dist / maxDist));
   if(usedHint) pts = pts / 2;
   if(pts > 4997) pts = 5000;
+  // if dist under 30m, give 5000 points
+  if(dist < 0.03) pts = 5000;
   return Math.round(pts);
 }
