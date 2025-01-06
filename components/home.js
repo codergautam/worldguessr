@@ -106,6 +106,7 @@ export default function Home({ }) {
   const [loginQueued, setLoginQueued] = useState(false);
   const [options, setOptions] = useState({
   });
+  const [onboardingModalShown, setOnboardingModalShown] = useState(false);
   const [multiplayerError, setMultiplayerError] = useState(null);
   const [miniMapShown, setMiniMapShown] = useState(false)
 
@@ -504,6 +505,7 @@ while (locations.length < 5) {
     locations.push(loc)
   }
 }
+setOnboardingModalShown(true);
 
 setOnboarding({
   round: 1,
@@ -550,6 +552,10 @@ setShowCountryButtons(false)
       loadLocation()
     }
   }, [onboarding?.round])
+
+  useEffect(() => {
+    console.log("onboarding", onboardingModalShown)
+  }, [onboardingModalShown])
 
   useEffect(() => {
     if(onboarding?.completed) {
@@ -2141,7 +2147,7 @@ setShowCountryButtons(false)
 
         </div>
 
-        <InfoModal shown={false} />
+        <InfoModal shown={onboardingModalShown} onClose={() => setOnboardingModalShown(false)}/>
         <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
             customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
               console.log("map", map)
@@ -2169,7 +2175,6 @@ setShowCountryButtons(false)
         {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
           <GameUI
           inCoolMathGames={inCoolMathGames}
-
           miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
             inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
           </div>}
