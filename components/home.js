@@ -1047,11 +1047,11 @@ setShowCountryButtons(false)
   }, [screen, inCrazyGames])
 
   useEffect(() => {
-    if(multiplayerState?.connected && inCrazyGames) {
+    if(multiplayerState?.connected) {
 
           // check if joined via invite link
           try {
-            let code = window.CrazyGames.SDK.game.getInviteParam("code")
+            let code = inCrazyGames ?  window.CrazyGames.SDK.game.getInviteParam("code") : window.location.search.includes("code=") ? window.location.search.split("code=")[1].split("&")[0] : null;
             let instantJoin = window.location.search.includes("instantJoin");
 
 
@@ -1068,6 +1068,7 @@ setShowCountryButtons(false)
             setOnboardingCompleted(true)
             setOnboarding(null)
             setLoading(false)
+            setOnboardingModalShown(false)
             setScreen("home")
             if(code) {
 
