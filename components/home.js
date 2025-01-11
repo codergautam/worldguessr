@@ -2257,6 +2257,12 @@ document.addEventListener(
   },
   { passive: false }
 );
+
+document.addEventListener('touchmove', e => {
+  if (e.touches.length > 1) {
+     e.preventDefault();
+  }
+}, {passive: false})
             window.lastAdShown = Date.now();
             window.gameOpen = Date.now();
           //   try {
