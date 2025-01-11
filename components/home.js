@@ -1047,11 +1047,20 @@ setShowCountryButtons(false)
   }, [screen, inCrazyGames])
 
   useEffect(() => {
+
+    if(window.location.search.includes("code=")) {
+      try {
+      window.localStorage.setItem("joinCode", window.location.search.split("code=")[1].split("&")[0])
+      window.location.href = "/"
+      } catch(e) {}
+      return;
+    }
+
     if(multiplayerState?.connected) {
 
           // check if joined via invite link
           try {
-            let code = inCrazyGames ?  window.CrazyGames.SDK.game.getInviteParam("code") : window.location.search.includes("code=") ? window.location.search.split("code=")[1].split("&")[0] : null;
+            let code = inCrazyGames ?  window.CrazyGames.SDK.game.getInviteParam("code") : window.localStorage.getItem("joinCode");
             let instantJoin = window.location.search.includes("instantJoin");
 
 
