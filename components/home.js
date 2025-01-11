@@ -1064,6 +1064,10 @@ setShowCountryButtons(false)
             let instantJoin = window.location.search.includes("instantJoin");
 
 
+            if(window.localStorage.getItem("joinCode")) {
+              window.localStorage.removeItem("joinCode")
+            }
+
 
             if(code || instantJoin) {
 
