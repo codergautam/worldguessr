@@ -50,7 +50,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
          </span>
         )}
       <div className="navbar__right">
-      {session?.token?.secret && (
+      {session?.token?.secret && !["getready","guess"].includes(multiplayerState?.gameData?.state) && (
          <button className="gameBtn friendBtn" onClick={onFriendsPress} disabled={ !multiplayerState?.connected }>
          <FaUserFriends size={40}/>
           </button>
