@@ -505,7 +505,7 @@ while (locations.length < 5) {
     locations.push(loc)
   }
 }
-setOnboardingModalShown(true);
+setOnboardingModalShown(false);
 
 setOnboarding({
   round: 1,
@@ -2046,6 +2046,7 @@ setShowCountryButtons(false)
       joinCodePress={() => {
         setOnboarding(null)
         setOnboardingCompleted(true)
+        setOnboardingModalShown(false)
           gameStorage.setItem("onboarding", 'done')
         setScreen("multiplayer")
         setMultiplayerState((prev) => ({
