@@ -625,6 +625,7 @@ export default class Game {
     }
 
       if(p1obj && leftUser !== 'p1') {
+        try {
       p1obj.send({
         type: 'duelEnd',
         winner:  winner?.tag === 'p1',
@@ -633,9 +634,11 @@ export default class Game {
         timeElapsed: this.endTime - this.startTime,
         oldElo: p1OldElo
       });
+        } catch(e){}
     }
 
     if(p2obj && leftUser !== 'p2') {
+      try {
       p2obj.send({
         type: 'duelEnd',
         winner: winner?.tag === 'p2',
@@ -644,6 +647,8 @@ export default class Game {
         timeElapsed: this.endTime - this.startTime,
         oldElo: p2OldElo
       });
+      } catch(e) {
+      }
     }
 
     }
