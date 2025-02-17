@@ -114,6 +114,10 @@ const userSchema = new mongoose.Schema({
   duels_tied: {
     type: Number,
     default: 0
+  },
+  lastNameChange: {
+    type: Date,
+    default: 0
   }
 });
 

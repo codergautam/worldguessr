@@ -230,7 +230,7 @@ statsRef.current = stats;
     if(!session?.token?.username) return;
     if(!leagueModal && window.firstFetchElo) return;
 
-    fetch(clientConfig().apiUrl+"/api/eloRank?username="+session?.token?.username).then((res) => res.json()).then((data) => {
+    fetch(clientConfig().apiUrl+"/api/eloRank?secret="+session?.token?.secret).then((res) => res.json()).then((data) => {
       setEloData(data)
       window.firstFetchElo = true;
     }).catch((e) => {

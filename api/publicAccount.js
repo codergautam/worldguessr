@@ -1,5 +1,7 @@
 import User from '../models/User.js';
 
+export const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 export default async function handler(req, res) {
   // Only allow POST requests
   if (req.method !== 'POST') {
@@ -22,10 +24,13 @@ export default async function handler(req, res) {
 
   try {
     // Find user by the provided token
-    const user = id ? await User.findById(id).cache(120) : await User.findOne({ secret }).cache(120);
+    const user = id ? await User.findById(id).cache(0, `publicData_${id}`) : await User.findOne({ secret }).cache(120, `publicData_${secret}`);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+// convert lastNameChange to number
+    const lastNameChange = user.lastNameChange ? new Date(user.lastNameChange).getTime() : 0;
+
 
     // Get public data
     const publicData = {
@@ -33,6 +38,9 @@ export default async function handler(req, res) {
       totalXp: user.totalXp,
       createdAt: user.created_at,
       gamesLen: user.games.length,
+      canChangeUsername: !user.lastNameChange || Date.now() - lastNameChange > USERNAME_CHANGE_COOLDOWN,
+      daysUntilNameChange: lastNameChange ? Math.max(0, Math.ceil((lastNameChange + USERNAME_CHANGE_COOLDOWN - Date.now()) / (24 * 60 * 60 * 1000))) : 0,
+      recentChange: user.lastNameChange ? Date.now() - lastNameChange < 24 * 60 * 60 * 1000 : false,
     };
 
     // Return the public data

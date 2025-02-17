@@ -232,5 +232,11 @@
   "elo": "ELO",
   "xp": "XP",
   "unableToJoinDuel": "No se puede encontrar un duelo en este momento. Por favor, envía un correo electrónico a support@worldguessr.com",
-  "unrankedDuel": "Juego publico"
+  "unrankedDuel": "Juego publico",
+  "changeName": "Cambiar nombre",
+  "nameChanged": "Nombre cambiado. Puede tardar hasta 24 horas en reflejarse.",
+  "enterNewName": "Ingrese un nuevo nombre",
+  "recentChange": "Ha realizado un cambio de nombre reciente. Puede tardar hasta 24 horas en actualizarse completamente.",
+  "nameChangeInProgress": "Su cambio de nombre a {{name}} está en proceso, puede tardar hasta 24 horas en actualizarse completamente.",
+  "nameChangeCooldown": "Puede cambiar su nombre nuevamente en {{days}} días"
 }
