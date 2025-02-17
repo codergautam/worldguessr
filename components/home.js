@@ -53,6 +53,7 @@ import haversineDistance from "./utils/haversineDistance";
 import StreetView from "./streetview/streetView";
 import Stats from "stats.js";
 import SvEmbedIframe from "./streetview/svHandler";
+import SingleShareModal from "./singleShareModal";
 
 const initialMultiplayerState = {
   connected: false,
@@ -107,6 +108,7 @@ export default function Home({ }) {
   const [options, setOptions] = useState({
   });
   const [onboardingModalShown, setOnboardingModalShown] = useState(false);
+  const [singleShareModal, setSingleShareModal] = useState(false);
   const [multiplayerError, setMultiplayerError] = useState(null);
   const [miniMapShown, setMiniMapShown] = useState(false)
 
@@ -339,9 +341,8 @@ statsRef.current = stats;
 
     function finish() {
       const onboardingCompletedd = gameStorage.getItem("onboarding");
+      console.log('in finish function:', window.location.search)
       console.log("onboarding", onboardingCompletedd)
-      if(onboardingCompletedd !== "done") startOnboarding();
-      else setOnboardingCompleted(true)
 
       if(window.location.search.includes("map=")) {
             // get map slug map=slug from url
@@ -351,7 +352,15 @@ statsRef.current = stats;
 
             openMap(mapSlug)
       }
-          }
+      else if (window.location.search.includes("single=")) {
+            // get coord from url param 
+            const params = new URLSearchParams(window.location.search);
+            const mapCoordHash = params.get("single");
+            console.log('got single map', mapCoordHash)
+            setScreen("singleplayer");
+            setSingleMap(mapCoordHash);
+      }
+    }
     if(window.location.search.includes("crazygames")) {
       setInCrazyGames(true);
       window.inCrazyGames = true;
@@ -415,6 +424,7 @@ statsRef.current = stats;
   const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
   const [showDiscordModal, setShowDiscordModal] = useState(false);
   const [singlePlayerRound, setSinglePlayerRound] = useState(null);
+  const [singleMap, setSingleMap] = useState(null);
   const [partyModalShown, setPartyModalShown] = useState(false);
 
   const [inCoolMathGames, setInCoolMathGames] = useState(false);
@@ -456,11 +466,11 @@ statsRef.current = stats;
       // start the single player game
       setSinglePlayerRound({
         round: 1,
-        totalRounds: 5,
+        totalRounds: singleMap ? 1 : 5,
         locations: [],
       })
     }
-  }, [screen])
+  }, [screen, singleMap])
 
   const [allLocsArray, setAllLocsArray] = useState([]);
   function startOnboarding() {
@@ -567,16 +577,20 @@ setShowCountryButtons(false)
     const onboarding = gameStorage.getItem("onboarding");
     // check url
     const cg = window.location.search.includes("crazygames");
+    const params = new URLSearchParams(window.location.search);
     const specifiedMapSlug = window.location.search.includes("map=");
+    const singleMap = window.location.search.includes("single=");
+    console.log("in other", singleMap, params.get('single'))
     console.log("onboarding", onboarding, specifiedMapSlug)
     // make it false just for testing
     // gameStorage.setItem("onboarding", null)
-    if(onboarding && onboarding === "done") {
+    if(false && onboarding === "done") {
       setOnboardingCompleted(true)
 
 
     }
       else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
+        else if(singleMap && !cg) console.log('in other use:', params.get('single'))
       else setOnboardingCompleted(false)
   } catch(e) {
     console.error(e, "onboard");
@@ -2140,7 +2154,10 @@ setShowCountryButtons(false)
                 <button className="home__squarebtn gameBtn" aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
  */}
  { !process.env.NEXT_PUBLIC_COOLMATH &&
-                <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>}
+              <>
+                <button className="homeBtn" aria-label="Community Maps" onClick={()=>setMapModal(true)}>{text("communityMaps")}</button>
+                <button className="homeBtn" aria-label="Share Single Map" onClick={()=>setSingleShareModal(true)}>{text("singleShare")}</button>
+              </>}
                 </div>
 
               </>
@@ -2163,6 +2180,7 @@ setShowCountryButtons(false)
         </div>
 
         <InfoModal shown={onboardingModalShown} onClose={() => setOnboardingModalShown(false)}/>
+        <SingleShareModal shown={singleShareModal} onClose={() => setSingleShareModal(false)}/>
         <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {setMapModal(false);setGameOptionsModalShown(false)}} text={text}
             customChooseMapCallback={(gameOptionsModalShown&&screen==="singleplayer")?(map)=> {
               console.log("map", map)

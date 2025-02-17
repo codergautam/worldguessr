@@ -207,6 +207,7 @@
   "videoAdThanks": "Thanks for helping us keep WorldGuessr free by watching video ads!",
   "enjoyGameplay": "Enjoy 30 minutes of uninterrupted gameplay after this ad break",
   "communityMaps": "Community Maps",
+  "singleShare": "Share Single Map",
   "joinDiscord": "Join our Discord!",
   "joinDiscordDesc": "Join our community and improve your WorldGuessr skills!",
   "notNow": "Not now",
@@ -235,5 +236,8 @@
   "leagueModalDesc": "Play duels to gain ELO and climb the leaderboard.",
   "leagueModalDesc2": "Stats may be delayed up to 1 hour",
   "unableToJoinDuel": "Unable to find duel at this time. Please email support@worldguessr.com",
-  "unrankedDuel": "Unranked Match"
+  "unrankedDuel": "Unranked Match",
+  "shareSingleLinkTitle": "Share single location",
+  "shareSingleLinkText": "Input a Google Street View link here, and we'll give you a link to share with friends to play a single round play from that location!",
+  "generateLink": "Generate Link"
 }
