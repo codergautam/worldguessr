@@ -23,8 +23,8 @@ export default function SingleShareModal({ shown, onClose, pathUrl }) {
         if(linkText.search('@(-?[0-9]?[0-9]\.[0-9]*),(-?[0-9]?[0-9]\.[0-9]*)') < 0) {
             setError('Link is not a streetview link or does not contain coordinates, please try again');
         }
-        const coords = linkText.match('@(-?[0-9]?[0-9]\.[0-9]*),(-?[0-9]?[0-9]\.[0-9]*)');
-        const coordsForLink = `${coords[0]},${coords[1]}`
+        const coords = linkText.match('@(-?[0-9]?[0-9]\.[0-9]*),(-?[0-9]?[0-9]\.[0-9]*)')?.[0];
+        const coordsForLink = coords.split('').map((coordChar, i) => i ? coords.charCodeAt(i) : '').join('')
         setGenerated(`${basePath}?single=${coordsForLink}`)
     }
 

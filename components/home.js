@@ -82,6 +82,7 @@ export default function Home({ }) {
 
   const { width, height } = useWindowDimensions();
   const statsRef = useRef();
+  const router = useRouter();
 
   const [session, setSession] = useState(false);
   const { data: mainSession } = useSession();
@@ -489,42 +490,42 @@ statsRef.current = stats;
       }
     }
 
-setScreen("onboarding")
+    setScreen("onboarding")
 
-let onboardingLocations = [
-  { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
-{ lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
-{ lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
-  { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
-  // pyramid of giza 29.9773337,31.1321796
-  { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
-  // eiffel tower 48.8592946,2.2927855
-  { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
-  // statue of liberty 40.6909253,-74.0552998
-  { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
-  // brandenburg gate 52.5161999,13.3756414
-  { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
+    let onboardingLocations = [
+      { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
+    { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
+    { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
+      { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
+      // pyramid of giza 29.9773337,31.1321796
+      { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
+      // eiffel tower 48.8592946,2.2927855
+      { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
+      // statue of liberty 40.6909253,-74.0552998
+      { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
+      // brandenburg gate 52.5161999,13.3756414
+      { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
 
-]
+    ]
 
-// pick 5 random locations no repeats
-const locations = [];
-while (locations.length < 5) {
-  const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
-  if (!locations.find((l) => l.country === loc.country)) {
-    locations.push(loc)
+    // pick 5 random locations no repeats
+    const locations = [];
+    while (locations.length < 5) {
+      const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
+      if (!locations.find((l) => l.country === loc.country)) {
+        locations.push(loc)
+      }
+    }
+    setOnboardingModalShown(false);
+
+    setOnboarding({
+      round: 1,
+      locations: locations,
+      startTime: Date.now(),
+    })
+    sendEvent("tutorial_begin")
+    setShowCountryButtons(false)
   }
-}
-setOnboardingModalShown(false);
-
-setOnboarding({
-  round: 1,
-  locations: locations,
-  startTime: Date.now(),
-})
-sendEvent("tutorial_begin")
-setShowCountryButtons(false)
-}
   function openMap(mapSlug) {
     const country = countries.find((c) => c === mapSlug.toUpperCase());
     let officialCountryMap = null;
@@ -580,18 +581,24 @@ setShowCountryButtons(false)
     const params = new URLSearchParams(window.location.search);
     const specifiedMapSlug = window.location.search.includes("map=");
     const singleMap = window.location.search.includes("single=");
-    console.log("in other", singleMap, params.get('single'))
-    console.log("onboarding", onboarding, specifiedMapSlug)
+    const coordCode = params.get('single');
     // make it false just for testing
     // gameStorage.setItem("onboarding", null)
     if(false && onboarding === "done") {
       setOnboardingCompleted(true)
-
-
     }
-      else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
-        else if(singleMap && !cg) console.log('in other use:', params.get('single'))
-      else setOnboardingCompleted(false)
+    else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
+    else if(singleMap && !cg && coordCode?.length) {
+      let recreatedCoords = '';
+      for (let x = 0; x < coordCode.length; x+=2) {
+        const char = String.fromCharCode(coordCode[x] + '' + coordCode[x+1]);
+        recreatedCoords = recreatedCoords.concat(char);
+      }
+      recreatedCoords = recreatedCoords.split(',')
+      setSingleMap({lat: parseFloat(recreatedCoords[0]), long: parseFloat(recreatedCoords[1])});
+      setScreen('singleplayer')
+    }
+    else setOnboardingCompleted(false)
   } catch(e) {
     console.error(e, "onboard");
     setOnboardingCompleted(true);
@@ -1734,6 +1741,11 @@ setShowCountryButtons(false)
     setShowAnswer(false)
     setPinPoint(null)
     setHintShown(false)
+    if(singleMap){
+      setSingleMap(null);
+      router.query.single = '';
+      router.replace('/', '', {shallow: true});
+    }
   }
 
   function loadLocation() {
@@ -1754,107 +1766,108 @@ setShowCountryButtons(false)
       options = options.sort(() => Math.random() - 0.5)
       setOtherOptions(options)
     } else {
-    function defaultMethod() {
-    findLatLongRandom(gameOptions).then((latLong) => {
-      setLatLong(latLong)
-    });
-  }
-  function fetchMethod() {
-    //gameOptions.countryMap && gameOptions.offical
-    const url = window.cConfig.apiUrl+((gameOptions.location==="all")?`/${window?.learnMode ? 'clue': 'all'}Countries.json`:
-    gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
-    `/mapLocations/${gameOptions.location}`);
-    console.log("fetching", url)
-    fetch(url).then((res) => res.json()).then((data) => {
-      if(data.ready) {
-        // this uses long for lng
-        for(let i = 0; i < data.locations.length; i++) {
-          if(data.locations[i].lng && !data.locations[i].long) {
-            data.locations[i].long = data.locations[i].lng;
-            delete data.locations[i].lng;
-          }
-        }
-
-        // shuffle data.locations
-        data.locations = data.locations.sort(() => Math.random() - 0.5)
-
-        console.log("got locations", data.locations)
-
-        setAllLocsArray(data.locations)
-
-        if(gameOptions.location === "all") {
-        const loc = data.locations[0]
-        setLatLong(loc)
-          console.log("setting latlong", loc)
-        } else {
-          let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
-
-          while(loc.lat === latLong.lat && loc.long === latLong.long) {
-            loc = data.locations[Math.floor(Math.random() * data.locations.length)];
-          }
-
-          setLatLong(loc)
-          if(data.name) {
-
-            // calculate extent (for openlayers)
-             const mappedLatLongs = data.locations.map((l) => fromLonLat([l.long, l.lat], 'EPSG:4326'));
-             let extent = boundingExtent(mappedLatLongs);
-             console.log("extent", extent)
-             // convert extent from EPSG:4326 to EPSG:3857 (for openlayers)
-
-            setGameOptions((prev) => ({
-              ...prev,
-              communityMapName: data.name,
-              official: data.official ?? false,
-              maxDist: data.maxDist ?? 20000,
-              extent: extent
-            }))
-
-          }
-        }
-
-      } else {
-        if(gameOptions.location !== "all") {
-      toast(text("errorLoadingMap"), { type: 'error' })
-        }
-        defaultMethod()
+      function defaultMethod() {
+      findLatLongRandom(gameOptions).then((latLong) => {
+        setLatLong(latLong)
+      });
       }
-    }).catch((e) => {
-      console.error(e)
-      toast(text("errorLoadingMap"), { type: 'error' })
-      defaultMethod()
-    });
-  }
+      function fetchMethod() {
+        //gameOptions.countryMap && gameOptions.offical
+        const url = window.cConfig.apiUrl+((gameOptions.location==="all") ? `/${window?.learnMode ? 'clue': 'all'}Countries.json` :
+          gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
+            `/mapLocations/${gameOptions.location}`);
+        console.log("fetching", url)
+        fetch(url).then((res) => res.json()).then((data) => {
+          if(data.ready) {
+            // this uses long for lng
+            for(let i = 0; i < data.locations.length; i++) {
+              if(data.locations[i].lng && !data.locations[i].long) {
+                data.locations[i].long = data.locations[i].lng;
+                delete data.locations[i].lng;
+              }
+            }
 
-    if(allLocsArray.length===0) {
-      fetchMethod()
-    } else if(allLocsArray.length>0) {
-      const locIndex = allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long);
-      if((locIndex === -1) || allLocsArray.length === 1) {
-        console.log("could not find location in array", locIndex, allLocsArray)
-       fetchMethod()
-      } else {
-        if(gameOptions.location === "all") {
-        const loc = allLocsArray[locIndex+1] ?? allLocsArray[0];
-        setLatLong(loc)
-        } else {
-          // prevent repeats: remove the prev location from the array
-          setAllLocsArray((prev) => {
-             const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
+            // shuffle data.locations
+            data.locations = data.locations.sort(() => Math.random() - 0.5)
 
+            console.log("got locations", data.locations)
 
-             // community maps are randomized
-             const loc = newArr[Math.floor(Math.random() * newArr.length)];
+            setAllLocsArray(data.locations)
 
+            if(gameOptions.location === "all") {
+            const loc = data.locations[0]
+            setLatLong(loc)
+              console.log("setting latlong", loc)
+            } else {
+              let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
-             setLatLong(loc)
-             return newArr;
-            })
+              while(loc.lat === latLong.lat && loc.long === latLong.long) {
+                loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+              }
 
-        }
+              setLatLong(loc)
+              if(data.name) {
+
+                // calculate extent (for openlayers)
+                const mappedLatLongs = data.locations.map((l) => fromLonLat([l.long, l.lat], 'EPSG:4326'));
+                let extent = boundingExtent(mappedLatLongs);
+                console.log("extent", extent)
+                // convert extent from EPSG:4326 to EPSG:3857 (for openlayers)
+
+                setGameOptions((prev) => ({
+                  ...prev,
+                  communityMapName: data.name,
+                  official: data.official ?? false,
+                  maxDist: data.maxDist ?? 20000,
+                  extent: extent
+                }))
+
+              }
+            }
+
+          } else {
+            if(gameOptions.location !== "all") {
+          toast(text("errorLoadingMap"), { type: 'error' })
+            }
+            defaultMethod()
+          }
+        }).catch((e) => {
+          console.error(e)
+          toast(text("errorLoadingMap"), { type: 'error' })
+          defaultMethod()
+        });
       }
+        if (singleMap){
+          setLatLong(singleMap);
+        } else if (allLocsArray.length===0) {
+          fetchMethod()
+        } else if (allLocsArray.length>0) {
+          const locIndex = allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long);
+          if((locIndex === -1) || allLocsArray.length === 1) {
+            console.log("could not find location in array", locIndex, allLocsArray)
+          fetchMethod()
+          } else {
+            if(gameOptions.location === "all") {
+            const loc = allLocsArray[locIndex+1] ?? allLocsArray[0];
+            setLatLong(loc)
+            } else {
+              // prevent repeats: remove the prev location from the array
+              setAllLocsArray((prev) => {
+                const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
 
-  }
+
+                // community maps are randomized
+                const loc = newArr[Math.floor(Math.random() * newArr.length)];
+
+
+                setLatLong(loc)
+                return newArr;
+                })
+
+            }
+          }
+
+      }
     }
 
   }
@@ -2202,7 +2215,9 @@ setShowCountryButtons(false)
           <GameUI
           inCoolMathGames={inCoolMathGames}
           miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-            singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal}  setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+            singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal}  setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} xpEarned={xpEarned} setXpEarned={setXpEarned} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} streetViewShown={streetViewShown} setStreetViewShown={setStreetViewShown} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} goHome={() => {setScreen('home');
+              backBtnPressed(false);
+            }} />
         </div>}
 
         {screen === "onboarding" && onboarding?.round && <div className="home__onboarding">
@@ -2227,7 +2242,7 @@ setShowCountryButtons(false)
                   }
                 })
               }} shown={!onboarding?.finalOnboardingShown} />
-              <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} button1Press={() =>{
+              <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={singlePlayerRound?.totalRounds * 5000 ?? 25000} button1Press={() =>{
                 if(onboarding) {
                   sendEvent("tutorial_end");
                   try {
