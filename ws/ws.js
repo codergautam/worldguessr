@@ -776,7 +776,7 @@ app.ws('/wg', {
 
           }
           // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
-          if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
+          if (rounds < 1 || rounds > 20 || timePerRound < 10 || (timePerRound > 300 && timePerRound !== 60*60*24 )) {
             return;
           }
 
