@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
 import { useRouter } from "next/router";
+import { toast } from "react-toastify";
+import { FaCopy } from "react-icons/fa6";
 
 export default function SingleShareModal({ shown, onClose, pathUrl }) {
     const { t: text } = useTranslation("common");
@@ -12,20 +14,24 @@ export default function SingleShareModal({ shown, onClose, pathUrl }) {
         basePath = window.location
      }
 
-   
-
-    // State to handle screen navigation
     const [linkText, setLinkText] = useState('');
     const [error, setError] = useState('');
     const [generated, setGenerated] = useState('');
+
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(generated);
+        toast.success(text("copiedToClipboard"));
+    }
 
     const generateFromStreeviewLink = async () => {
         if(linkText.search('@(-?[0-9]?[0-9]\.[0-9]*),(-?[0-9]?[0-9]\.[0-9]*)') < 0) {
             setError('Link is not a streetview link or does not contain coordinates, please try again');
         }
         const coords = linkText.match('@(-?[0-9]?[0-9]\.[0-9]*),(-?[0-9]?[0-9]\.[0-9]*)')?.[0];
-        const coordsForLink = coords.split('').map((coordChar, i) => i ? coords.charCodeAt(i) : '').join('')
-        setGenerated(`${basePath}?single=${coordsForLink}`)
+        const coordsForLink = coords.split('').map((coordChar, i) => i ? coords.charCodeAt(i) : '').join('');
+        const generatedLink = `${basePath}?single=${coordsForLink}`;
+        setGenerated(generatedLink);
+        copyToClipboard();
     }
 
     return (
@@ -71,14 +77,36 @@ export default function SingleShareModal({ shown, onClose, pathUrl }) {
                         >
                             🗺️ {text("shareSingleLinkText")}
                         </p>
-                        <input
-                            type="text"
-                            name="google_maps_link"
-                            value={linkText}
-                            onChange={(e) => setLinkText(e.target.value)}
-                        />
+                        
+                        <div className="linkGenerator">
+                            <input
+                                type="text"
+                                className="mapsLinkInput"
+                                name="google_maps_link"
+                                value={linkText}
+                                onChange={(e) => setLinkText(e.target.value)}
+                            />
+                            {generated?.length ? 
+                                <p className="generatedLink">{generated} <button onClick={copyToClipboard} style={{
+                                      marginLeft: "10px",
+                                      padding: "5px",
+                                      backgroundColor: "orange",
+                                      color: "white",
+                                      border: "none",
+                                      cursor: "pointer",
+                                      pointerEvents: "all",
+                                      borderRadius: "5px"
+                                    }}>
+                                      {/* copy icon */}
+                            
+                                      <FaCopy />
+                                    </button></p> 
+                                    : <></>}
+                            
+                        </div>
+                        
 
-                        <p>{error ? error : generated}</p>
+                        <p>{error ? error : ''}</p>
 
                         <div
                             style={{
@@ -109,9 +137,16 @@ export default function SingleShareModal({ shown, onClose, pathUrl }) {
             </center>
 
             <style jsx>{`
-                .nextButton:hover, .letsGoButton:hover {
+                .nextButton:hover {
                     background-color: #45a049;
                     transform: scale(1.05);
+                }
+                .generateLink {
+                    background-color: #45a049;
+                    transform: scale(1.05);
+                }
+                .mapsLinkInput {
+                    width: 100%;
                 }
             `}</style>
         </Modal>

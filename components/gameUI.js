@@ -638,7 +638,7 @@ button1Press={() => {
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
         </span>
-
+      
         <span className={`timer ${!onboardingTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
@@ -649,7 +649,7 @@ button1Press={() => {
         </span>
 
         {
-          singlePlayerRound && !singlePlayerRound?.done && (
+          singlePlayerRound && !singlePlayerRound?.done && singlePlayerRound.totalRounds !== 1 && (
             <span className="timer shown">
               {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} -  {singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} {text("points")}
 
