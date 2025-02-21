@@ -341,9 +341,9 @@ statsRef.current = stats;
     }
 
     function finish() {
-      const onboardingCompletedd = gameStorage.getItem("onboarding");
-      console.log('in finish function:', window.location.search)
-      console.log("onboarding", onboardingCompletedd)
+      const onboardingCompletedd = gameStorage.getItem("onboarding");      
+      if(onboardingCompletedd !== "done") startOnboarding();
+      else setOnboardingCompleted(true)
 
       if(window.location.search.includes("map=")) {
             // get map slug map=slug from url
@@ -584,7 +584,7 @@ statsRef.current = stats;
     const coordCode = params.get('single');
     // make it false just for testing
     // gameStorage.setItem("onboarding", null)
-    if(false && onboarding === "done") {
+    if(onboarding && onboarding === "done") {
       setOnboardingCompleted(true)
     }
     else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
