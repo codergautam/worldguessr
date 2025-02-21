@@ -3,6 +3,7 @@ import { useTranslation } from "./useTranslations";
 import Modal from "react-responsive-modal";
 import MapsModal from "./maps/mapsModal";
 import enforceMinMax from "./utils/enforceMinMax"
+import gameSettingsOptions from "./gameSettingsOptions";
 
 export default function PartyModal({ onClose, ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, gameOptions, setGameOptions, shown, setSelectCountryModalShown, selectCountryModalShown }){
 
@@ -11,7 +12,6 @@ const { t: text } = useTranslation("common");
 if(selectCountryModalShown) {
   return (
     <MapsModal showAllCountriesOption={true} shown={selectCountryModalShown} onClose={() => setSelectCountryModalShown(false)} session={session} text={text} customChooseMapCallback={(map) => {
-      console.log(map, gameOptions)
       setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, location: map.countryMap || map.slug, displayLocation: map.name,
 
         nm: gameOptions?.nm,
@@ -68,40 +68,7 @@ return (
 
 <label>
 
-<div style={{display: "flex", flexDirection: 'column', alignItems: 'center', marginBottom: '5px', marginTop: '5px'}}>
-        <div>
-            <label htmlFor="nm">{text('nm')}</label>
-            <input type="checkbox" checked={gameOptions.nm}
-            id="nm"
-            onChange={(e) => {
-                setGameOptions({
-                    ...gameOptions,
-                    nm: e.target.checked
-                })
-            }
-            } />
-        </div>
-        <div>
-            <label htmlFor="npz">{text('npz')}</label>
-            <input  id="npz" type="checkbox" checked={gameOptions.npz} onChange={(e) => {
-                setGameOptions({
-                    ...gameOptions,
-                    npz: e.target.checked
-                })
-            }
-            } />
-        </div>
-        <div>
-            <label htmlFor="showRoadName" >{text('showRoadName')}</label>
-            <input  id="showRoadName" type="checkbox" checked={gameOptions.showRoadName} onChange={(e) => {
-                setGameOptions({
-                    ...gameOptions,
-                    showRoadName: e.target.checked
-                })
-            }
-            } />
-        </div>
-        </div>
+        {gameSettingsOptions({setGameOptions, gameOptions})}
 
 </label>
 
