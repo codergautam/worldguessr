@@ -584,11 +584,7 @@ statsRef.current = stats;
     const coordCode = params.get('single');
     // make it false just for testing
     // gameStorage.setItem("onboarding", null)
-    if(onboarding && onboarding === "done") {
-      setOnboardingCompleted(true)
-    }
-    else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
-    else if(singleMap && !cg && coordCode?.length) {
+    if(singleMap && !cg && coordCode?.length) {
       let recreatedCoords = '';
       const settingsString = coordCode.slice(0, 3); //first three in this param coordinates with the settings below, this order was just set int singleShareModal.js:generateFromStreetviewLink
       setGameOptions({...gameOptions, showRoadName: !!parseInt(settingsString?.[0]) || false, nm: !!parseInt(settingsString?.[1]) || false, npz: !!parseInt(settingsString?.[2]) || false})
@@ -601,6 +597,11 @@ statsRef.current = stats;
       setSingleMap({lat: parseFloat(recreatedCoords[0]), long: parseFloat(recreatedCoords[1])});
       setScreen('singleplayer')
     }
+    else if(onboarding && onboarding === "done") {
+      setOnboardingCompleted(true)
+    }
+    else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
+    
     else setOnboardingCompleted(false)
   } catch(e) {
     console.error(e, "onboard");
