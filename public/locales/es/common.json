@@ -232,5 +232,10 @@
   "elo": "ELO",
   "xp": "XP",
   "unableToJoinDuel": "No se puede encontrar un duelo en este momento. Por favor, envía un correo electrónico a support@worldguessr.com",
-  "unrankedDuel": "Juego publico"
+  "unrankedDuel": "Juego publico",
+  "singleShare": "Compartir un solo mapa",
+  "shareSingleLinkTitle": "Compartir una sola ubicación",
+  "shareSingleLinkText": "¡Pon un enlace de Google Street View aquí y te daremos un enlace que puedes compartir para jugar una sola ronda desde esa ubicación!",
+  "linkError": "El enlace no es un enlace de Streetview o no contiene coordenadas, inténtalo de nuevo",
+  "generateLink": "Generar enlace "
 }

@@ -590,7 +590,10 @@ statsRef.current = stats;
     else if(specifiedMapSlug && !cg) setOnboardingCompleted(true)
     else if(singleMap && !cg && coordCode?.length) {
       let recreatedCoords = '';
-      for (let x = 0; x < coordCode.length; x+=2) {
+      const settingsString = coordCode.slice(0, 3); //first three in this param coordinates with the settings below, this order was just set int singleShareModal.js:generateFromStreetviewLink
+      setGameOptions({...gameOptions, showRoadName: !!parseInt(settingsString?.[0]) || false, nm: !!parseInt(settingsString?.[1]) || false, npz: !!parseInt(settingsString?.[2]) || false})
+
+      for (let x = 3; x < coordCode.length; x+=2) {
         const char = String.fromCharCode(coordCode[x] + '' + coordCode[x+1]);
         recreatedCoords = recreatedCoords.concat(char);
       }

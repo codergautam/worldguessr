@@ -4,6 +4,7 @@ import { useTranslation } from '@/components/useTranslations';
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { FaCopy } from "react-icons/fa6";
+import gameSettingsOptions from "./gameSettingsOptions";
 
 export default function SingleShareModal({ shown, onClose, pathUrl }) {
     const { t: text } = useTranslation("common");
@@ -15,7 +16,7 @@ export default function SingleShareModal({ shown, onClose, pathUrl }) {
      }
 
     const [linkText, setLinkText] = useState('');
-    const [error, setError] = useState('');
+    const [gameOptions, setGameOptions] = useState({showRoadName: true, nm: false, npz: false});
     const [generated, setGenerated] = useState('');
 
     const copyToClipboard = () => {
@@ -24,13 +25,17 @@ export default function SingleShareModal({ shown, onClose, pathUrl }) {
     }
 
     const generateFromStreeviewLink = async () => {
+        if(!linkText?.length) return;
         if(linkText.search('@(-?[0-9]?[0-9]\.[0-9]*),(-?[0-9]?[0-9]\.[0-9]*)') < 0) {
-            setError('Link is not a streetview link or does not contain coordinates, please try again');
+            toast.error(text('linkError'));
+            return;
         }
         const coords = linkText.match('@(-?[0-9]?[0-9]\.[0-9]*),(-?[0-9]?[0-9]\.[0-9]*)')?.[0];
-        const coordsForLink = coords.split('').map((coordChar, i) => i ? coords.charCodeAt(i) : '').join('');
-        const generatedLink = `${basePath}?single=${coordsForLink}`;
+        const coordsForLink = coords?.split('')?.map((coordChar, i) => i ? coords.charCodeAt(i) : '').join('');
+        const coordsPlusOptions = `${gameOptions.showRoadName ? '1' : '0'}${gameOptions.nm ? '1' : '0'}${gameOptions.npz ? '1' : '0'}${coordsForLink}`;
+        const generatedLink = `${basePath}?single=${coordsPlusOptions}`;
         setGenerated(generatedLink);
+        setLinkText('');
         copyToClipboard();
     }
 
@@ -105,8 +110,7 @@ export default function SingleShareModal({ shown, onClose, pathUrl }) {
                             
                         </div>
                         
-
-                        <p>{error ? error : ''}</p>
+                        {gameSettingsOptions({setGameOptions, gameOptions})}
 
                         <div
                             style={{
@@ -115,6 +119,7 @@ export default function SingleShareModal({ shown, onClose, pathUrl }) {
                         >
                             <button
                                 className="nextButton"
+                                disabled={!linkText?.length}
                                 style={{
                                     fontSize: '16px',
                                     fontWeight: 'bold',
@@ -140,6 +145,12 @@ export default function SingleShareModal({ shown, onClose, pathUrl }) {
                 .nextButton:hover {
                     background-color: #45a049;
                     transform: scale(1.05);
+                }
+                .nextButton:disabled {
+                    cursor: not-allowed !important;
+                }
+                .nextButton:disabled:hover {
+                    transform: scale(1);
                 }
                 .generateLink {
                     background-color: #45a049;

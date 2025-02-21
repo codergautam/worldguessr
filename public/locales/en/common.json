@@ -238,6 +238,7 @@
   "unableToJoinDuel": "Unable to find duel at this time. Please email support@worldguessr.com",
   "unrankedDuel": "Unranked Match",
   "shareSingleLinkTitle": "Share single location",
-  "shareSingleLinkText": "Input a Google Street View link here, and we'll give you a link to share with friends to play a single round play from that location!",
+  "shareSingleLinkText": "Put a Google Street View link here, and we'll give you a sharable link to play a single round play from that location!",
+  "linkError": "Link is not a streetview link or does not contain coordinates, please try again",
   "generateLink": "Generate Link"
 }
