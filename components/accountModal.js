@@ -43,7 +43,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, inCr
             }
         }} open={shown} center onClose={()=>{setAccountModalOpen(false)}}>
 
-          <AccountView accountData={accountData} supporter={session?.token?.supporter} />
+          <AccountView accountData={accountData} supporter={session?.token?.supporter} session={session} />
 
 {!inCrazyGames && (
             <button onClick={()=>signOut()} style={{

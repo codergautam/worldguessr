@@ -233,7 +233,7 @@ statsRef.current = stats;
     if(!session?.token?.username) return;
     if(!leagueModal && window.firstFetchElo) return;
 
-    fetch(clientConfig().apiUrl+"/api/eloRank?username="+session?.token?.username).then((res) => res.json()).then((data) => {
+    fetch(clientConfig().apiUrl+"/api/eloRank?secret="+session?.token?.secret).then((res) => res.json()).then((data) => {
       setEloData(data)
       window.firstFetchElo = true;
     }).catch((e) => {
@@ -800,12 +800,40 @@ statsRef.current = stats;
     } else {
       let json;
 
-      try {
-      const res = await fetch("https://ipapi.co/json/");
-       json = await res.json();
-      }catch(e){}
+      // try {
+      // const res = await fetch("https://ipapi.co/json/");
+      //  json = await res.json();
+      //  console.log("json", json)
+      // }catch(e){}
 
-      const countryCode = json?.country_code;
+      // const countryCode = json?.country_code;
+
+      // find timezone as we can use that to determine country
+      let timezone = moment.tz.guess();
+      console.log("timezone", timezone)
+      // find country code from timezone
+      let countryCode = null;
+      function getCountryByTimeZone(userTimeZone) {
+        // Get a list of countries from moment-timezone
+        const countries = moment.tz.countries();
+
+        // Iterate through the countries and check if the time zone is associated with any country
+        for (const country of countries) {
+          const timeZones = moment.tz.zonesForCountry(country);
+
+          if (timeZones.includes(userTimeZone)) {
+            // Use Intl.DisplayNames to get the full country name
+            return country;
+          }
+        }
+
+        // Return the original time zone if no matching country is found
+        return null;
+      }
+
+      countryCode = getCountryByTimeZone(timezone);
+      console.log("countryCode", countryCode)
+
       let system = "metric";
       if(countryCode && ["US", "LR", "MM", "UK"].includes(countryCode)) system = "imperial";
 

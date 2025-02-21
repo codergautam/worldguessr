@@ -4,7 +4,7 @@ import { getLeague } from '../components/utils/leagues.js';
 
 // given a username return the elo and the rank of the user
 export default async function handler(req, res) {
-  const { username } = req.query;
+  const { username, secret } = req.query;
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -20,8 +20,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Find user by the provided username
-    const user = await User.findOne({ username });
+    // Find user by the provided username or secret
+    let user;
+    // const user = await User.findOne({ username });
+    if(username) {
+      user = await User.findOne({ username });
+    } else if(secret) {
+      user = await User.findOne({ secret });
+    }
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }

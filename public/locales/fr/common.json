@@ -236,5 +236,11 @@
   "shareSingleLinkTitle": "Partager un seul emplacement",
   "shareSingleLinkText": "Mettez un lien Google Street View ici, et nous vous donnerons un lien partageable pour jouer un seul tour à partir de cet endroit !",
   "linkError": "Le lien n’est pas un lien StreetView ou ne contient pas de coordonnées, veuillez réessayer",
-  "generateLink": "Générer un lien"
+  "generateLink": "Générer un lien",
+  "changeName": "Changer de nom",
+  "nameChanged": "Nom changé. Cela peut prendre jusqu'à 24 heures pour être mis à jour.",
+  "enterNewName": "Entrez un nouveau nom",
+  "recentChange": "Vous avez récemment changé de nom. Cela peut prendre jusqu'à 24 heures pour être complètement mis à jour.",
+  "nameChangeInProgress": "Votre changement de nom en {{name}} est en cours, cela peut prendre jusqu'à 24 heures pour être complètement mis à jour.",
+  "nameChangeCooldown": "Vous pourrez changer votre nom à nouveau dans {{days}} jours"
 }

@@ -238,5 +238,11 @@
   "shareSingleLinkTitle": "Einen einzigen Standort teilen",
   "shareSingleLinkText": "Fügen Sie hier einen Google Street View-Link ein, und wir geben Ihnen einen teilbaren Link, über den Sie von diesem Ort aus eine einzelne Runde spielen können!",
   "linkError": "Der Link ist kein Streetview-Link oder enthält keine Koordinaten, bitte versuchen Sie es erneut ",
-  "generateLink": "Link generieren"
+  "generateLink": "Link generieren",
+  "changeName": "Namen ändern",
+  "nameChanged": "Name geändert. Es kann bis zu 24 Stunden dauern, bis es sichtbar wird.",
+  "enterNewName": "Geben Sie einen neuen Namen ein",
+  "recentChange": "Sie haben kürzlich Ihren Namen geändert. Es kann bis zu 24 Stunden dauern, bis die Änderung vollständig aktualisiert ist.",
+  "nameChangeInProgress": "Ihre Namensänderung zu {{name}} ist in Bearbeitung. Es kann bis zu 24 Stunden dauern, bis sie vollständig aktualisiert ist.",
+  "nameChangeCooldown": "Sie können Ihren Namen in {{days}} Tagen erneut ändern"
 }
