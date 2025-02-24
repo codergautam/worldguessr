@@ -51,10 +51,10 @@ const styles = {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#f0f0f0", // Adjust according to your design
+        backgroundColor: "rgba(0, 0, 0, 0)", // Adjust according to your design
     },
     pageContent: {
-        backgroundColor: "#3A3B3C",
+        backgroundColor: "rgba(0, 0, 0, 0)",
         width: "calc(100vw - 40px)",
         height: "100vh",
         overflowY: "auto",

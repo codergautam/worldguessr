@@ -63,10 +63,10 @@
 
 input[type="text"],
 input[type="number"] {
-  background-color: #444;
-  color: #ccc;
-  border: none;
-  border-radius: 8px;
+  /*background-color: #444;*/
+  /*color: #ccc;*/
+  /*border: none;*/
+  /*border-radius: 8px;*/
   padding: 10px;
   margin: 10px;
   user-select: none;

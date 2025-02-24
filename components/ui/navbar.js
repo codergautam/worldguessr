@@ -23,14 +23,14 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
     <>
     <div className={`navbar ${shown ? "" : "hidden"}`}>
       <div className={`nonHome ${screen==='home'?'':'shown'}`}>
-      <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
-      <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
+          <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
+          <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
 
-      <button className="gameBtn navBtn backBtn desktop" onClick={backBtnPressed}>{text("back")}</button>
-      <button className="gameBtn navBtn backBtn mobile" onClick={backBtnPressed}><FaArrowLeft /></button>
+          <button className="gameBtn navBtn backBtn g2_red_button desktop" onClick={backBtnPressed}>{text("back")}</button>
+          <button className="gameBtn navBtn backBtn g2_red_button mobile" onClick={backBtnPressed}><FaArrowLeft /></button>
       </div>
       {reloadBtn && (
-      <button className="gameBtn navBtn backBtn reloadBtn" onClick={reloadBtnPressed}><FaArrowRotateRight /></button>
+      <button className="gameBtn navBtn backBtn reloadBtn g2_blue_button" onClick={reloadBtnPressed}><FaArrowRotateRight /></button>
       )}
 
 
@@ -51,12 +51,12 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
         )}
       <div className="navbar__right">
       {session?.token?.secret && (
-         <button className="gameBtn friendBtn" onClick={onFriendsPress} disabled={ !multiplayerState?.connected }>
+                      <button className="friendBtn g2_hover_effect g2_green_dark_button" onClick={onFriendsPress} disabled={ !multiplayerState?.connected }>
          <FaUserFriends size={40}/>
           </button>
         )}
         { screen === 'singleplayer' && (
-        <button className="gameBtn navBtn" disabled={loading} onClick={()=>setGameOptionsModalShown(true)}>
+        <button className="gameBtn navBtn g2_green_button g2_lexend" disabled={loading} onClick={()=>setGameOptionsModalShown(true)}>
           {((gameOptions.location === "all")|| !gameOptions.location)? text("allCountries") : gameOptions?.countryMap?nameFromCode(gameOptions.location):gameOptions?.communityMapName}
           {gameOptions.nm && gameOptions.npz?
           ', NMPZ':

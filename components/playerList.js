@@ -17,7 +17,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
   const N = waitingForStart ? 200 : 5; // Number of top players to show
 
   return (
-    <div className="multiplayerLeaderboard">
+    <div className="multiplayerLeaderboard g2_container">
       <span className="bigSpan">
         {gameOver?text("gameOver"):waitingForStart?host?text("yourPrivateGame"):text("privateGame"):text("leaderboard")}
         {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})}

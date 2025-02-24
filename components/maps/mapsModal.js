@@ -1,6 +1,7 @@
 import React from "react";
 import MapView from "./mapView";
 import { useRouter } from "next/router";
+import { Modal } from "react-responsive-modal";
 
 export default function MapsModal({ gameOptions, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions }) {
     if (!shown) {
@@ -16,8 +17,28 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
     };
 
     return (
-        <div style={styles.overlay}>
-            <div style={styles.modal}>
+        <Modal classNames={{ modal: "g2_modal" }} styles={{ modal: styles.overlay }} open={shown} onClose={onClose} showCloseIcon={false}>
+            <div className="g2_nav_ui">
+                <h1 className="g2_nav_title">{text("communityMaps")}</h1>
+                <div className="g2_nav_hr"></div>
+                <div className="g2_nav_group">
+                    <button className="g2_nav_text singleplayer"
+                        onClick={() => document.getElementById("countryMaps_map_view_section").scrollIntoView({ behavior: 'smooth' })}
+                    >{text("countryMaps")}</button>
+                    <button className="g2_nav_text singleplayer"
+                        onClick={() => document.getElementById("spotlight_map_view_section").scrollIntoView({ behavior: 'smooth' })  }
+                    >{text("spotlight")}</button>
+                    <button className="g2_nav_text singleplayer"
+                        onClick={() => document.getElementById("popular_map_view_section").scrollIntoView({ behavior: 'smooth' })}
+                    >{text("popular")}</button>
+                    <button className="g2_nav_text singleplayer"
+                        onClick={() => document.getElementById("recent_map_view_section").scrollIntoView({ behavior: 'smooth' })}
+                    >{text("recent")}</button>
+                </div>
+                <div className="g2_nav_hr"></div>
+                <button className="g2_nav_text singleplayer red" onClick={onClose}>{text("back")}</button>
+            </div>
+            <div className="g2_content" style={styles.modal}>
                 <div style={styles.modalContent}>
                     <MapView
                         showOptions={showOptions}
@@ -31,9 +52,9 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
                         setGameOptions={setGameOptions}
                     />
                 </div>
-                <button style={styles.closeButton} onClick={onClose}>X</button>
+                {/*<button style={styles.closeButton} onClick={onClose}>X</button>*/}
             </div>
-        </div>
+        </Modal>
     );
 }
 
@@ -44,18 +65,22 @@ const styles = {
         left: 0,
         width: "100vw",
         height: "100vh",
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
+        background: `linear-gradient(0deg, rgba(0, 0, 0, 1.0) 0%, rgba(0, 30, 15, 0.4) 100%), url("/street2.jpg")`,
+        padding: 0,
+        margin: 0,
+        objectFit: "cover",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
         zIndex: 1200,
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
     },
     modal: {
-        backgroundColor: "#3A3B3C",
-        width: "calc(100vw - 40px)",
-        height: "100vh",
+        //backgroundColor: "#3A3B3C",
+        width: "100%",
+        height: "100%",
         overflowY: "auto",
-        borderRadius: "8px",
         padding: "20px",
         position: "relative",
         pointerEvents: "all",
@@ -66,7 +91,7 @@ const styles = {
         height: "100%",
         overflowY: "auto",
         paddingBottom: "40px",
-
+        paddingTop: "50px"
     },
     closeButton: {
         position: "absolute",
