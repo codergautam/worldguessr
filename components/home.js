@@ -2073,7 +2073,7 @@ export default function Home({ }) {
 
 
                                 {onboardingCompleted && (
-                                    <h1 className="home__title g2_nav_title">WorldGuessr</h1>
+                                        <h1 className="home__title g2_nav_title wg_font">WorldGuessr</h1>
                                 )}
 
 
