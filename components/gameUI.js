@@ -631,7 +631,9 @@ button1Press={() =>{
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {
-multiplayerState?.gameData?.timePerRound === 86400000 ?
+multiplayerState?.gameData?.timePerRound === 86400000 &&
+timeToNextMultiplayerEvt > 1000*60*60 
+?
 text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})
 
 :
