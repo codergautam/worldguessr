@@ -4,6 +4,8 @@ import { Webhook } from "discord-webhook-node";
 import { USERNAME_CHANGE_COOLDOWN } from './publicAccount.js';
 import Map from '../models/Map.js';
 import cachegoose from 'recachegoose';
+import { Filter } from 'bad-words';
+const filter = new Filter();
 
 export default async function handler(req, res) {
   // Only allow POST requests
@@ -28,6 +30,10 @@ export default async function handler(req, res) {
   // Alphanumeric characters and underscores only
   if (!/^[a-zA-Z0-9_]+$/.test(username)) {
     return res.status(400).json({ message: 'Username must contain only letters, numbers, and underscores' });
+  }
+  // make sure username is not profane
+  if (filter.isProfane(username)) {
+    return res.status(400).json({ message: 'Inappropriate content' });
   }
   // Make sure the username is unique (case-insensitive)
   const lowerUsername = username.toLowerCase();
