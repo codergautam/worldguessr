@@ -69,7 +69,8 @@ html {
 /// ccar
 
 .home__content.hidden {
-    left: 100vw;
+    left: 100vw !important;
+    display: none !important;
     opacity: 0;
     animation: hide 0.5s ease-in-out forwards;
     pointer-events: none;
