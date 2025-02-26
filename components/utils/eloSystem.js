@@ -40,7 +40,7 @@ export default function calculateOutcomes(player1Rating, player2Rating, winner) 
   const player2Outcome = 1 - player1Outcome;
 
   const newRating1 = updateElo(player1Rating, player2Rating, player1Outcome, player2Outcome);
-  const newRating2 = updateElo(player2Rating, player1Rating, player1Outcome, player2Outcome);
+  const newRating2 = updateElo(player2Rating, player1Rating, player2Outcome, player1Outcome);
 
   return { newRating1, newRating2 };
 }
