@@ -239,5 +239,6 @@
   "enterNewName": "Geben Sie einen neuen Namen ein",
   "recentChange": "Sie haben kürzlich Ihren Namen geändert. Es kann bis zu 24 Stunden dauern, bis die Änderung vollständig aktualisiert ist.",
   "nameChangeInProgress": "Ihre Namensänderung zu {{name}} ist in Bearbeitung. Es kann bis zu 24 Stunden dauern, bis sie vollständig aktualisiert ist.",
-  "nameChangeCooldown": "Sie können Ihren Namen in {{days}} Tagen erneut ändern"
+  "nameChangeCooldown": "Sie können Ihren Namen in {{days}} Tagen erneut ändern",
+  "disableTimer": "Timer deaktivieren"
 }
