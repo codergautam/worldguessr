@@ -42,7 +42,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         <Modal id="accountModal" styles={{
             modal: {
                 zIndex: 100,
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 1.0) 0%, rgba(0, 30, 15, 0.4) 100%), url("/street2.jpg")`, // dark mode: #333
+                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("/street2.jpg")`, // dark mode: #333
                 color: 'white',
                 padding: '0px',
                 margin: '0px',
@@ -52,9 +52,12 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 textAlign: 'center',
                 position: "absolute",
                 top: 0,
-                left: 0
+                left: 0,
+                objectFit: "cover",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
             }
-        }} classNames={{ modal: "g2_modal" }} open={shown} center onClose={() => { setAccountModalOpen(false) }} showCloseIcon={false}>
+        }} classNames={{ modal: "g2_modal" }} open={shown} center onClose={() => { setAccountModalOpen(false) }} showCloseIcon={false} animationDuration={0}>
 
 
             <div className="g2_nav_ui">

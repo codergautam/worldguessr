@@ -1,5 +1,6 @@
 .container {
   height: 100vh;
+  width: 100vw;
   overflow: hidden;
   background-color: #1a2f23;
   color: #ffffff;
@@ -11,6 +12,7 @@
   flex: 1;
   overflow-y: auto;
   max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
   padding: 2rem;
 }

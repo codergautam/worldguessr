@@ -31,7 +31,10 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 maxWidth: '500px',
                 textAlign: 'center',
                 position: "absolute",
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 1.0) 0%, rgba(0, 30, 15, 0.4) 100%), url("/street2.jpg")`
+                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("/street2.jpg")`,
+                objectFit: "cover",
+                backgroundSize: "cover",
+                backgroundPosition: "center",
             },
             closeButton: {
                 backgroundColor: 'white'
@@ -41,7 +44,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 modal: 'g2_modal'
             }
         }
-            open={shown} center onClose={onClose} showCloseIcon={false}>
+            open={shown} center onClose={onClose} showCloseIcon={false} animationDuration={0}>
 
             <div className="g2_nav_ui">
                 <h1 className="g2_nav_title">{text("settings")}</h1>

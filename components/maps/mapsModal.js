@@ -1,8 +1,18 @@
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import MapView from "./mapView";
 import { useRouter } from "next/router";
 import { Modal } from "react-responsive-modal";
 
+const initMakeMap = {
+    open: false,
+    progress: false,
+    name: "",
+    description_short: "",
+    description_long: "",
+    data: "",
+    edit: false,
+    mapId: "",
+};
 export default function MapsModal({ gameOptions, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions }) {
     if (!shown) {
         return null;
@@ -16,17 +26,84 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
         }
     };
 
+    const [makeMap, setMakeMap] = useState(initMakeMap);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
+
+    const debounce = (func, delay) => {
+        let timer;
+        return (...args) => {
+            clearTimeout(timer);
+            timer = setTimeout(() => func(...args), delay);
+        };
+    };
+
+    const handleSearch = useCallback(
+        debounce((term) => {
+            if (term.length > 3 && !process.env.NEXT_PUBLIC_COOLMATH) {
+                fetch(window.cConfig.apiUrl + "/api/map/searchMap", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ query: term, secret: session?.token?.secret }),
+                })
+                    .then((res) => res.json())
+                    .then((data) => {
+                        setSearchResults(data);
+                    })
+                    .catch(() => {
+                        toast.error("Failed to search maps");
+                    });
+            } else {
+                setSearchResults([]);
+            }
+        }, 300),
+        []
+    );
+
+    useEffect(() => {
+        handleSearch(searchTerm);
+    }, [searchTerm, handleSearch]);
+
     return (
-        <Modal classNames={{ modal: "g2_modal" }} styles={{ modal: styles.overlay }} open={shown} onClose={onClose} showCloseIcon={false}>
+        <Modal classNames={{ modal: "g2_modal" }} styles={{ modal: styles.overlay }} open={shown} onClose={onClose} showCloseIcon={false} animationDuration={0}>
             <div className="g2_nav_ui">
                 <h1 className="g2_nav_title">{text("communityMaps")}</h1>
+                <div className="g2_nav_hr"></div>
+                {!makeMap.open && (
+                    <div className="mapSearch">
+                        <input
+                            type="text"
+                            placeholder={text("searchForMaps")}
+                            className="g2_input"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                )}
+                <div style={{ width: "100%" }}>
+                    <button
+                        onClick={() => {
+                            if (makeMap.edit) {
+                                setMakeMap({
+                                    ...initMakeMap,
+                                    open: true,
+                                });
+                            } else setMakeMap({ ...makeMap, open: true })
+                        }}
+                        className="g2_green_button3 g2_button_style"
+                        style={{ width: "50%", fontSize: "1.1em" }}
+                    >
+                        Make Map
+                    </button></div>
                 <div className="g2_nav_hr"></div>
                 <div className="g2_nav_group">
                     <button className="g2_nav_text singleplayer"
                         onClick={() => document.getElementById("countryMaps_map_view_section").scrollIntoView({ behavior: 'smooth' })}
                     >{text("countryMaps")}</button>
                     <button className="g2_nav_text singleplayer"
-                        onClick={() => document.getElementById("spotlight_map_view_section").scrollIntoView({ behavior: 'smooth' })  }
+                        onClick={() => document.getElementById("spotlight_map_view_section").scrollIntoView({ behavior: 'smooth' })}
                     >{text("spotlight")}</button>
                     <button className="g2_nav_text singleplayer"
                         onClick={() => document.getElementById("popular_map_view_section").scrollIntoView({ behavior: 'smooth' })}
@@ -50,6 +127,9 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
                         onMapClick={handleMapClick}
                         gameOptions={gameOptions}
                         setGameOptions={setGameOptions}
+                        makeMap={makeMap} setMakeMap={setMakeMap} initMakeMap={initMakeMap}
+                        searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+                        searchResults={searchResults} setSearchResults={setSearchResults}
                     />
                 </div>
                 {/*<button style={styles.closeButton} onClick={onClose}>X</button>*/}
@@ -65,7 +145,7 @@ const styles = {
         left: 0,
         width: "100vw",
         height: "100vh",
-        background: `linear-gradient(0deg, rgba(0, 0, 0, 1.0) 0%, rgba(0, 30, 15, 0.4) 100%), url("/street2.jpg")`,
+        background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("/street2.jpg")`,
         padding: 0,
         margin: 0,
         objectFit: "cover",
@@ -78,7 +158,7 @@ const styles = {
     },
     modal: {
         //backgroundColor: "#3A3B3C",
-        width: "100%",
+        //width: "100%",
         height: "100%",
         overflowY: "auto",
         padding: "20px",

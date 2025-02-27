@@ -1,8 +1,8 @@
 :root {
-    --r: 24;
-    --g: 70;
-    --b: 32;
-    --gradBottomBase: rgba(var(--r), var(--g), var(--b), 1.0) 0%, rgba(var(--r), var(--g), var(--b), 0.812) 80%, rgba(255,255,255,0) 100%;
+    --r: 20;
+    --g: 65;
+    --b: 25;
+    --gradBottomBase: rgba(var(--r), var(--g), var(--b), 1.0) 0%, rgba(var(--r), var(--g), var(--b), 0.612) 50%, rgba(255,255,255,0) 100%;
     --gradTopBase: rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(255,255,255,0) 50%;
     --grad1: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.812) 35%, rgba(255,255,255,0) 100%);
     --gradDown: linear-gradient(0deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.812) 35%, rgba(255,255,255,0) 100%);
@@ -135,15 +135,29 @@ html {
     height: 100vh;
     display: flex !important;
     position: absolute;
-    background: linear-gradient(0deg, rgba(0, 0, 0, 1.0) 0%, rgba(0, 30, 15, 0.4) 100%), url("/street2.jpg");
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("/street2.jpg");
+    object-fit: cover;
+    background-size: cover;
+    background-position: center;
 }
 
+@keyframes nav_slide_in {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
 
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
 
 .g2_content {
     flex-grow: 1;
     height: 100%;
     overflow-y: auto;
+    width: 70vw;
 }
 
 .g2_nav_ui {
@@ -152,10 +166,14 @@ html {
     height: 100%;
     display: flex;
     flex-direction: column;
-    width: 40vw;
+    width: 30vw;
     gap: 15px;
-    padding-left: 7vw;
+    padding-left: 5vw;
     background: linear-gradient(65deg, var(--gradTopBase)), linear-gradient(90deg, var(--gradBottomBase));
+    
+}
+.g2_nav_ui > * {
+    animation: nav_slide_in 0.3s ease-in-out;
 }
 
 .g2_nav_group {
@@ -214,8 +232,12 @@ html {
     background: none;
     font-weight: 400;
     text-align: left;
+    padding: 0;
+    margin: 0;
     cursor: pointer;
     transition: all 0.5s;
+    padding-block: 0;
+    padding-inline: 0;
 }
 .g2_nav_text.red{
     color: #FFAAAA;
@@ -292,7 +314,7 @@ html {
     color: white;
     -webkit-text-stroke: 1px black;
     text-shadow: 2px 2px black;
-    //margin-bottom: 0;
+    margin-bottom: 0;
     animation: fadeIn 0.4s ease-in-out forwards;
 }
 
@@ -512,6 +534,12 @@ html {
     color: white;
     transition: background-color 0.3s;
 }
+.g2_green_button3 {
+    border: 1.4px solid var(--primaryDark);
+    background-color: var(--primaryTransparent);
+    color: white;
+    transition: background-color 0.3s;
+}
 .g2_green_button2 {
     border: 1.4px solid var(--primaryDark);
     filter: brightness(1.8) hue-rotate(-20deg);
@@ -519,7 +547,10 @@ html {
     color: white;
     transition: background-color 0.3s;
 }
-.g2_green_button:hover{
+.g2_green_button3:hover{
+    background-color: var(--primary);
+}
+.g2_green_button:hover {
     background-color: var(--primary);
 }
 .g2_green_button2:hover {
@@ -528,7 +559,7 @@ html {
 
 .g2_button_style {
     padding: 10px;
-    border-radius: 8px;
+    border-radius: 16px;
 }
 
 .g2_shadow {
@@ -659,7 +690,7 @@ h1, h2, h3, span {
     font-size: 1.8em;
     font-family: "Jockey One" !important;
     // text border
-    //-webkit-text-stroke: 1px black;
+    -webkit-text-stroke: 1px black;
 }
 .wg_font {
     font-family: "Jockey One" !important;
@@ -690,12 +721,12 @@ h1, h2, h3, span {
 @keyframes fadeInNonHome {
     0% {
         opacity: 0;
-        transform: scale(0)
+        //transform: scale(0)
     }
 
     100% {
         opacity: 1;
-        transform: scale(1)
+        //transform: scale(1)
     }
 }
 
@@ -1319,6 +1350,21 @@ h1, h2, h3, span {
     pointer-events: all;
 }
 
+
+.topGameInfoButton {
+    align-self: flex-end;
+    transform: translate(10px, -10px);
+    background: none;
+    border: none;
+    color: white;
+    transition: color 0.5s, background 0.5s;
+    border-radius: 5px;
+}
+.topGameInfoButton:hover{
+    color: #BBBBFF;
+    background: rgba(255, 255, 255, 0.1);
+}
+
 .endCards {
     pointer-events: none;
     display: flex;
@@ -1344,9 +1390,12 @@ h1, h2, h3, span {
 }
 
 .bannerContent {
-    font-size: 2em;
+    font-size: 1.8em;
     text-align: center;
     font-family: lexend;
+    display: flex;
+    gap: 5px;
+    flex-direction: column;
 }
 
 
@@ -2730,10 +2779,12 @@ div[dir="ltr"] {
 }
 
 .mapSearch {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 20px;
+    margin: 0;
+    padding: 0;
+}
+.mapSearch input{
+    width: 90%;
+    margin: 0 !important;
 }
 
 .mapSearchInput {

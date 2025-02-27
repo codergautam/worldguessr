@@ -1908,11 +1908,11 @@ export default function Home({ }) {
         <>
             <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} />
 
-            <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage }
+            <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen} eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
                 friendModal={<FriendsModal ws={ws} shown={friendsModal} onClose={() => setFriendsModal(false)} session={session} canSendInvite={
                     // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a Party
                     multiplayerState?.inGame && !multiplayerState?.gameData?.public
-                } sendInvite={sendInvite} /> }
+                } sendInvite={sendInvite} />}
             />
             <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
             <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
@@ -1996,7 +1996,11 @@ export default function Home({ }) {
             }}>
                 <NextImage.default src={'./street2.jpg'}
                     draggable={false}
-                    fill alt="Game Background" style={{ objectFit: "cover", userSelect: 'none' }}
+                    fill alt="Game Background" style={{
+                        objectFit: "cover", userSelect: 'none',
+                        backgroundSize: "cover",
+                        backgroundPosition: "center"
+                    }}
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
             </div>
@@ -2053,7 +2057,7 @@ export default function Home({ }) {
 
                 {/* ELO/League button */}
                 {screen === "home" && !mapModal && session && session?.token?.secret && (
-                    <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("profile"); } }
+                    <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
                     //                        style={{ backgroundColor: eloData?.league?.color }}
                     >
                         {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league?.emoji}
@@ -2073,7 +2077,7 @@ export default function Home({ }) {
 
 
                                 {onboardingCompleted && (
-                                        <h1 className="home__title g2_nav_title wg_font">WorldGuessr</h1>
+                                    <h1 className="home__title g2_nav_title wg_font">WorldGuessr</h1>
                                 )}
 
 
@@ -2156,7 +2160,7 @@ export default function Home({ }) {
 
                 <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
 
-                
+
 
                 {screen === "singleplayer" && <div className="home__singleplayer">
                     <GameUI

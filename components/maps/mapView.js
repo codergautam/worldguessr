@@ -6,24 +6,13 @@ import { ScrollMenu } from "react-horizontal-scrolling-menu";
 import "react-horizontal-scrolling-menu/dist/styles.css";
 import config from "@/clientConfig";
 
-const initMakeMap = {
-    open: false,
-    progress: false,
-    name: "",
-    description_short: "",
-    description_long: "",
-    data: "",
-    edit: false,
-    mapId: "",
-};
 
-export default function MapView({ gameOptions, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption }) {
-    const [makeMap, setMakeMap] = useState(initMakeMap);
+
+export default function MapView({ gameOptions, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption, makeMap, setMakeMap, initMakeMap, searchTerm, setSearchTerm, searchResults, setSearchResults }) {
+    
     const [mapHome, setMapHome] = useState({
         message: text("loading") + "...",
     });
-    const [searchTerm, setSearchTerm] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
     const [heartingMap, setHeartingMap] = useState("");
 
     function refreshHome(removeMapId) {
@@ -67,41 +56,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
         refreshHome();
     }, [session?.token?.secret]);
 
-    const debounce = (func, delay) => {
-        let timer;
-        return (...args) => {
-            clearTimeout(timer);
-            timer = setTimeout(() => func(...args), delay);
-        };
-    };
-
-    const handleSearch = useCallback(
-        debounce((term) => {
-            if (term.length > 3 && !process.env.NEXT_PUBLIC_COOLMATH) {
-                fetch(window.cConfig.apiUrl + "/api/map/searchMap", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ query: term, secret: session?.token?.secret }),
-                })
-                    .then((res) => res.json())
-                    .then((data) => {
-                        setSearchResults(data);
-                    })
-                    .catch(() => {
-                        toast.error("Failed to search maps");
-                    });
-            } else {
-                setSearchResults([]);
-            }
-        }, 300),
-        []
-    );
-
-    useEffect(() => {
-        handleSearch(searchTerm);
-    }, [searchTerm, handleSearch]);
+    
 
     function createMap(map) {
         if (!session?.token?.secret) {
@@ -248,7 +203,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
 
     return (
         <div className="mapView">
-            <div className="mapViewNavbar g2_container">
+            {makeMap.open && (<div className="mapViewNavbar g2_container">
                 <div className="mapViewLeft">
                     <button
                         onClick={() =>
@@ -293,7 +248,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
                         </button>
                     )}
                 </div>
-            </div>
+            </div>)}
 
             {showOptions && (
                 <div style={{ display: "flex", flexDirection: 'column', alignItems: 'center', marginBottom: '5px', marginTop: '5px' }}>
@@ -330,17 +285,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
                 </div>
             )}
 
-            {!makeMap.open && (
-                <div className="mapSearch">
-                    <input
-                        type="text"
-                        placeholder={text("searchForMaps")}
-                        className="g2_input"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-            )}
+            
 
             {!makeMap.open && (
                 <div>
