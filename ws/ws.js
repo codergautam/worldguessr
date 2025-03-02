@@ -60,6 +60,7 @@ let allLocations = [{"lat":59.94945834525827,"long":10.74877784715781,"country":
 
 const generateMainLocations = async () => {
   // fetch cron job localhost:3003/allCountries.json
+  try {
   fetch('http://localhost:3003/allCountries.json').then(async (res) => {
     const data = await res.json();
     allLocations = data.locations??[];
@@ -67,6 +68,9 @@ const generateMainLocations = async () => {
   }).catch((e) => {
     console.error('Failed to load locations', e, currentDate());
   });
+} catch(e) {
+  console.error('Failed to load locations', e, currentDate());
+}
 
 
 };
