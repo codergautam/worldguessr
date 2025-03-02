@@ -100,16 +100,16 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
                 <div className="g2_nav_hr"></div>
                 <div className="g2_nav_group">
                     <button className="g2_nav_text singleplayer"
-                        onClick={() => document.getElementById("countryMaps_map_view_section").scrollIntoView({ behavior: 'smooth' })}
+                        onClick={() => document.getElementById("countryMaps_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("countryMaps")}</button>
                     <button className="g2_nav_text singleplayer"
-                        onClick={() => document.getElementById("spotlight_map_view_section").scrollIntoView({ behavior: 'smooth' })}
+                        onClick={() => document.getElementById("spotlight_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("spotlight")}</button>
                     <button className="g2_nav_text singleplayer"
-                        onClick={() => document.getElementById("popular_map_view_section").scrollIntoView({ behavior: 'smooth' })}
+                        onClick={() => document.getElementById("popular_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("popular")}</button>
                     <button className="g2_nav_text singleplayer"
-                        onClick={() => document.getElementById("recent_map_view_section").scrollIntoView({ behavior: 'smooth' })}
+                        onClick={() => document.getElementById("recent_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("recent")}</button>
                 </div>
                 <div className="g2_nav_hr"></div>
