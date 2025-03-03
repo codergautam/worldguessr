@@ -68,13 +68,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                 <input
                                     id="disableTimer"
                                     type="checkbox"
-                                    checked={gameOptions.disableTimer}
+                                    checked={multiplayerState?.createOptions?.timePerRound === 60 * 60 * 24}
                                     onChange={(e) => {
                                         const isChecked = e.target.checked;
-                                        setGameOptions({
-                                            ...gameOptions,
-                                            disableTimer: isChecked
-                                        });
                                         setMultiplayerState(prev => ({
                                             ...prev,
                                             createOptions: {
@@ -87,12 +83,16 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                             </div>
 
 
+                                    {multiplayerState?.createOptions?.timePerRound !== 60 * 60 * 24 && (
+                                        <>
                             <label>{text("timePerRoundSecs")}:</label>
                             <div className="timePerRound numberInput">
                                 <FaArrowLeft onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, timePerRound: Math.max(10, Math.min(300, Number(multiplayerState.createOptions.timePerRound) - 10)) } }))} />
                                 <input type="number" className='numberIn' placeholder={text("timePerRoundSecs")} max={300} min={10} onChange={(e) => enforceMinMax(e.target, () => setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, timePerRound: e.target.value } })))} value={multiplayerState.createOptions.timePerRound} />
                                 <FaArrowRight onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, timePerRound: Math.max(10, Math.min(300, Number(multiplayerState.createOptions.timePerRound) + 10)) } }))} />
                             </div>
+                            </>
+                                    )}
                             <div className="g2_nav_hr"></div>
                             <label>
 
