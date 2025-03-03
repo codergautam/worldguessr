@@ -59,7 +59,6 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
             }
         }} classNames={{ modal: "g2_modal" }} open={shown} center onClose={() => { setAccountModalOpen(false) }} showCloseIcon={false} animationDuration={0}>
 
-
             <div className="g2_nav_ui">
                 <h1 className="g2_nav_title">{accountData.username}</h1>
                 <div className="g2_nav_hr"></div>
@@ -75,7 +74,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
             </div>
             <div className="g2_content" style={{ paddingTop: "50px" }}>
                 {(accountModalPage == "profile") && (<>
-                    <AccountView accountData={accountData} supporter={session?.token?.supporter} eloData={eloData} />
+                    <AccountView accountData={accountData} supporter={session?.token?.supporter} eloData={eloData} session={session} />
 
                     {!inCrazyGames && (
                         <button onClick={() => signOut()} style={{

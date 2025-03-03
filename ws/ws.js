@@ -60,6 +60,7 @@ let allLocations = [{"lat":59.94945834525827,"long":10.74877784715781,"country":
 
 const generateMainLocations = async () => {
   // fetch cron job localhost:3003/allCountries.json
+  try {
   fetch('http://localhost:3003/allCountries.json').then(async (res) => {
     const data = await res.json();
     allLocations = data.locations??[];
@@ -67,6 +68,9 @@ const generateMainLocations = async () => {
   }).catch((e) => {
     console.error('Failed to load locations', e, currentDate());
   });
+} catch(e) {
+  console.error('Failed to load locations', e, currentDate());
+}
 
 
 };
@@ -328,6 +332,46 @@ setInterval(() => {
   ipDuelRequestsLast10.clear();
 }, 10000);
 
+function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=false, npz=false, showRoadName=true, displayLocation="World") {
+          // maxDist no longer required-> can be pulled from community map
+          if (!location) return;
+          if (!rounds || !timePerRound) {
+            return;
+          }
+          // make sure displayLocation isa string
+          if (typeof displayLocation !== 'string') {
+            displayLocation = null;
+          }
+          if(displayLocation) {
+            // trim to 30 characters
+            displayLocation = displayLocation.substring(0, 30);
+
+          }
+          // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
+          if (rounds < 1 || rounds > 20 || timePerRound < 10 || (timePerRound > 300 && timePerRound !== 60*60*24 )) {
+            return;
+          }
+
+          if(!nm) nm = false;
+          if(!npz) npz = false;
+          if(!showRoadName) showRoadName = false;
+
+          game.timePerRound = timePerRound * 1000;
+          game.nm = !!nm;
+          game.npz = !!npz;
+          game.showRoadName = !!showRoadName;
+          game.location = location;
+          // clear current locations
+          game.locations = [];
+          game.rounds = rounds;
+          game.displayLocation = displayLocation;
+
+          // generate locations
+          game.generateLocations(allLocations);
+
+          game.sendStateUpdate(true);
+
+        }
 app.ws('/wg', {
   /* Options */
   compression: uws.SHARED_COMPRESSOR,
@@ -740,9 +784,12 @@ app.ws('/wg', {
         // game.location = location;
         // if (maxDist) game.maxDist = maxDist;
 
-        games.set(gameId, game);
 
+        games.set(gameId, game);
+        // initialize with default options
         game.addPlayer(player, true);
+        updateGameOptions(game);
+
       }
 
       if(json.type === "resetGame" && player.gameId && games.has(player.gameId)) {
@@ -759,45 +806,7 @@ app.ws('/wg', {
         // make sure player is host
         if(game.players[player.id].host) {
           let { rounds, timePerRound, location, nm, npz, showRoadName, displayLocation } = json;
-          rounds = Number(rounds);
-
-          // maxDist no longer required-> can be pulled from community map
-          if (!location) return;
-          if (!rounds || !timePerRound) {
-            return;
-          }
-          // make sure displayLocation isa string
-          if (typeof displayLocation !== 'string') {
-            displayLocation = null;
-          }
-          if(displayLocation) {
-            // trim to 30 characters
-            displayLocation = displayLocation.substring(0, 30);
-
-          }
-          // if(!locations || !Array.isArray(locations) || locations.length < 1 || locations.length > 20) return;
-          if (rounds < 1 || rounds > 20 || timePerRound < 10 || timePerRound > 300) {
-            return;
-          }
-
-          if(!nm) nm = false;
-          if(!npz) npz = false;
-          if(!showRoadName) showRoadName = false;
-
-          game.timePerRound = timePerRound * 1000;
-          game.nm = !!nm;
-          game.npz = !!npz;
-          game.showRoadName = !!showRoadName;
-          game.location = location;
-          // clear current locations
-          game.locations = [];
-          game.rounds = rounds;
-          game.displayLocation = displayLocation;
-
-          // generate locations
-          game.generateLocations(allLocations);
-
-          game.sendStateUpdate(true);
+          updateGameOptions(game, rounds, timePerRound, location, nm, npz, showRoadName, displayLocation);
 
         }
       }

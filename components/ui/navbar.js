@@ -50,8 +50,8 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
          </span>
         )}
       <div className="navbar__right">
-      {session?.token?.secret && (
-                      <button className="friendBtn g2_hover_effect g2_green_dark_button" onClick={onFriendsPress} disabled={ !multiplayerState?.connected }>
+      {session?.token?.secret && !["getready","guess"].includes(multiplayerState?.gameData?.state) && (
+         <button className="gameBtn friendBtn" onClick={onFriendsPress} disabled={ !multiplayerState?.connected }>
          <FaUserFriends size={40}/>
           </button>
         )}

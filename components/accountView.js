@@ -3,9 +3,63 @@ import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
 
-export default function AccountView({ accountData, supporter, eloData }) {
+export default function AccountView({ accountData, supporter, eloData, session }) {
     const { t: text } = useTranslation("common");
+    const changeName = async () => {
+        if(window.settingName) return;
+        const secret = session?.token?.secret;
+        if (!secret) return alert("An error occurred (log out and log back in)");
+        // make sure name change is not in progress
 
+        try {
+        const response1 = await fetch(window.cConfig.apiUrl+'/api/checkIfNameChangeProgress', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token: secret })
+        });
+
+        // get the json
+        const data1 = await response1.json();
+        if(data1.name) {
+          return alert(text("nameChangeInProgress", {name: data1.name}));
+        }
+      } catch (error) {
+        return alert('An error occurred');
+      }
+
+        const username = prompt(text("enterNewName"));
+
+        window.settingName = true;
+        const response = await fetch(window.cConfig.apiUrl+'/api/setName', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, token: secret })
+        });
+
+        if(response.ok) {
+          window.settingName = false;
+          sendEvent("name_change");
+          alert(text("nameChanged"));
+
+          setTimeout(() => {
+              window.location.reload();
+          },1000);
+        } else {
+          window.settingName = false;
+          try {
+            const data = await response.json();
+            alert(data.message || 'An error occurred');
+
+          } catch (error) {
+            alert('An error occurred');
+          }
+        }
+
+      };
     const userLeague = getLeague(eloData.elo);
 
     const [hoveredLeague, setHoveredLeague] = useState(null);
@@ -62,6 +116,29 @@ export default function AccountView({ accountData, supporter, eloData }) {
                 {/* Games played: {accountData.gamesLen} */}
                 {text("gamesPlayed", { games: accountData.gamesLen })}
             </p>
+
+            {/* change name buton */}
+      {accountData.canChangeUsername ? (
+      <button style={{marginTop: '10px', padding: '5px 10px', border: 'none', borderRadius: '5px', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer'}}
+
+      onClick={changeName}>
+        {text("changeName")}
+      </button>
+      ): accountData.recentChange ? (
+      <p style={textStyle}>
+        <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
+        {text("recentChange")}
+      </p>
+
+      ) : null}
+
+{accountData.daysUntilNameChange > 0 && (
+<p style={textStyle}>
+        <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
+        {text("nameChangeCooldown", {days: accountData.daysUntilNameChange})}
+      </p>
+)}
+
             </div>
 
             <div class="g2_nav_hr"></div>
@@ -236,7 +313,7 @@ export default function AccountView({ accountData, supporter, eloData }) {
                 </div>
             </center>
 
-           
+
 
 
             <div class="g2_nav_hr"></div>

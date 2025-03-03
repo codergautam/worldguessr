@@ -474,44 +474,57 @@ export default class Game {
 
     } else {
 
+      if(this.location === "all") {
 
     for (let i = 0; i < this.rounds; i++) {
       let loc;
-      if(this.location === "all") {
         // get n random from the list
         console.log('All locations', allLocations.length);
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
         this.maxDist = 20000;
         this.extent = null;
-      } else if(countries.includes(this.location)) {
-        try {
-          let data = await fetch('http://localhost:3001/countryLocations/'+this.location, {
-            headers: {
-              'Content-Type': 'application/json'
-            },
-          });
-         data = await data.json();
-          if(data.ready && data.locations) {
-            loc = data.locations[Math.floor(Math.random() * data.locations.length)];
-          } else {
-      loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
 
-          }
-        } catch (e) {
-          console.error('Error getting country locations', e);
-        }
-
-      }
       this.locations.push(loc);
-      this.maxDist = countryMaxDists[this.location] || 20000;
-      this.extent = officialCountryMaps.find((c) => c.countryCode === this.location)?.extent || null;
-      // console.log('Extent', this.extent, this.location);
 
       this.sendAllPlayers({
         type: 'generating',
         generated: this.locations.length,
       })
     }
+  } else {
+
+    try {
+    let loc;
+      this.maxDist = countryMaxDists[this.location] || 20000;
+      this.extent = officialCountryMaps.find((c) => c.countryCode === this.location)?.extent || null;
+      console.time('Country locations '+this.location);
+      let data = await fetch('http://localhost:3001/countryLocations/'+this.location, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+      });
+     data = await data.json();
+     console.timeEnd('Country locations '+this.location);
+     for(let i = 0; i < this.rounds; i++) {
+      if(data.ready && data.locations) {
+        loc = data.locations[Math.floor(Math.random() * data.locations.length)];
+        data.locations = data.locations.filter((l) => l !== loc);
+      } else {
+  loc = await findLatLongRandom({ location: this.location }, getRandomPointInCountry, lookup);
+
+      }
+
+      this.locations.push(loc);
+      this.sendAllPlayers({
+        type: 'generating',
+        generated: this.locations.length,
+      })
+    }
+    } catch (e) {
+      console.error('Error getting country locations', e);
+    }
+
+  }
 
     this.sendAllPlayers({
       type: 'maxDist',
@@ -612,6 +625,7 @@ export default class Game {
     }
 
       if(p1obj && leftUser !== 'p1') {
+        try {
       p1obj.send({
         type: 'duelEnd',
         winner:  winner?.tag === 'p1',
@@ -620,9 +634,11 @@ export default class Game {
         timeElapsed: this.endTime - this.startTime,
         oldElo: p1OldElo
       });
+        } catch(e){}
     }
 
     if(p2obj && leftUser !== 'p2') {
+      try {
       p2obj.send({
         type: 'duelEnd',
         winner: winner?.tag === 'p2',
@@ -631,6 +647,8 @@ export default class Game {
         timeElapsed: this.endTime - this.startTime,
         oldElo: p2OldElo
       });
+      } catch(e) {
+      }
     }
 
     }

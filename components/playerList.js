@@ -156,7 +156,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
       )}
 
       {(multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) &&
-        <p style={{color: "yellow"}}>{text("generating")} ( {multiplayerState?.gameData?.generated||0} / {multiplayerState?.gameData?.rounds} )</p>}
+        <p style={{color: "yellow"}}>{text("generating")}</p>}
 
 { waitingForStart && !host && (multiplayerState?.gameData?.rounds== multiplayerState?.gameData?.generated) && (
           <p style={{color: "red"}}>{text("waitingForHostToStart")}...</p>

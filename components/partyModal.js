@@ -62,6 +62,31 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                 <FaArrowRight onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, rounds: Math.max(1, Math.min(20, Number(multiplayerState.createOptions.rounds) + 1)) } }))} />
                             </div>
 
+
+                            <div>
+                                <label htmlFor="disableTimer">{text('disableTimer')}</label>
+                                <input
+                                    id="disableTimer"
+                                    type="checkbox"
+                                    checked={gameOptions.disableTimer}
+                                    onChange={(e) => {
+                                        const isChecked = e.target.checked;
+                                        setGameOptions({
+                                            ...gameOptions,
+                                            disableTimer: isChecked
+                                        });
+                                        setMultiplayerState(prev => ({
+                                            ...prev,
+                                            createOptions: {
+                                                ...prev.createOptions,
+                                                timePerRound: isChecked ? 60 * 60 * 24 : Math.max(10, Math.min(300, prev.createOptions.timePerRound))
+                                            }
+                                        }));
+                                    }}
+                                />
+                            </div>
+
+
                             <label>{text("timePerRoundSecs")}:</label>
                             <div className="timePerRound numberInput">
                                 <FaArrowLeft onClick={() => setMultiplayerState(prev => ({ ...prev, createOptions: { ...prev.createOptions, timePerRound: Math.max(10, Math.min(300, Number(multiplayerState.createOptions.timePerRound) - 10)) } }))} />

@@ -11,7 +11,8 @@ import parseMapData from '../../components/utils/parseMapData.js';
 import generateSlug from '../../components/utils/slugGenerator.js';
 import Map from '../../models/Map.js';
 import User from '../../models/User.js';
-
+import { Filter} from 'bad-words';
+const filter = new Filter();
 import countries from '../../public/countries.json' with { type: "json" };
 import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
 
@@ -132,6 +133,12 @@ export default async function handler(req, res) {
   if(!action || !secret) {
     return res.status(400).json({ message: 'Missing action or secret' });
   }
+
+  // make sure name,short&long desc is appopriate
+  if(filter.isProfane(name) || filter.isProfane(description_short) || filter.isProfane(description_long)) {
+    return res.status(400).json({ message: 'Inappropriate content' });
+  }
+
 
   // get user from secret
   const user = await User.findOne({ secret: secret });

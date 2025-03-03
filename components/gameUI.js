@@ -245,38 +245,38 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
   useEffect(() => {
     if(onboarding) {
-      setOnboardingTextShown(true);
-      if( onboarding.round === 1) {
-        setOnboardingWords([
-        text("welcomeToWorldguessr")+"!",
-        text("onboarding2"),
-        text("onboarding3"),
-        text("onboarding4"),
-      ])
-    } else if(onboarding.round === 2) {
-      if(window.location.search.includes("crazygames")) {
-        setOnboardingWords([
-          text("greatJob"),
-        ])
-      } else {
-      setOnboardingWords([
-        text("greatJob"),
-        text("onboarding5"),
-      ])
-    }
-    } else if(onboarding.round === 3) {
-      setOnboardingWords([
-        text("astounding"),
-      ])
-    } else if(onboarding.round === 4) {
-      setOnboardingWords([
-        text("onboarding10")
-      ])
-    } else if(onboarding.round === 5) {
-      setOnboardingWords([
-        text("finalRound"),
-      ])
-    }
+    //   setOnboardingTextShown(true);
+    //   if( onboarding.round === 1) {
+    //     setOnboardingWords([
+    //     text("welcomeToWorldguessr")+"!",
+    //     text("onboarding2"),
+    //     text("onboarding3"),
+    //     text("onboarding4"),
+    //   ])
+    // } else if(onboarding.round === 2) {
+    //   if(window.location.search.includes("crazygames")) {
+    //     setOnboardingWords([
+    //       text("greatJob"),
+    //     ])
+    //   } else {
+    //   setOnboardingWords([
+    //     text("greatJob"),
+    //     text("onboarding5"),
+    //   ])
+    // }
+    // } else if(onboarding.round === 3) {
+    //   setOnboardingWords([
+    //     text("astounding"),
+    //   ])
+    // } else if(onboarding.round === 4) {
+    //   setOnboardingWords([
+    //     text("onboarding10")
+    //   ])
+    // } else if(onboarding.round === 5) {
+    //   setOnboardingWords([
+    //     text("finalRound"),
+    //   ])
+    // }
   }
   }, [onboarding?.round])
 
@@ -630,7 +630,15 @@ button1Press={() =>{
       <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'}  ${multiplayerState?.gameData?.duel ? 'duel' : ''}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
-      {text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
+      {
+multiplayerState?.gameData?.timePerRound === 86400000 &&
+timeToNextMultiplayerEvt > 120
+?
+text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})
+
+:
+
+      text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
         </span>
 
         <span className={`timer ${!onboardingTimerShown ? '' : 'shown'}`}>
