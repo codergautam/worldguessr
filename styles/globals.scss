@@ -158,6 +158,7 @@ html {
     height: 100%;
     overflow-y: auto;
     width: 70vw;
+    padding-top: 50px;
 }
 
 .g2_nav_ui {
@@ -194,7 +195,13 @@ html {
 .g2_nav_title {
     //font-family: "Jockey One";
     text-align: left;
-    padding-top: 5vh;
+    padding-top: 3vh;
+}
+.g2_flex{
+    display: flex;
+}
+.g2_col{
+    flex-direction: column;
 }
 
 @media (max-aspect-ratio: 1/1) or (min-aspect-ratio: 2/1) {
@@ -213,6 +220,11 @@ html {
     }
     .g2_content {
         overflow-y: visible;
+        width: 100%;
+        padding-top: 0px;
+    }
+    .g2_nav_text{
+        width: 100%;
     }
     .g2_nav_ui {
         //flex-direction: row;
@@ -224,6 +236,13 @@ html {
         height: auto;
         gap: 5px;
     }
+}
+
+#g2_playerCount{
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
 }
 
 .g2_nav_text {
@@ -670,8 +689,10 @@ h1, h2, h3, span {
     // enter from top
 
     transition: all 0.5s;
-    background: var(--primaryTransparent);
     height: 50px;
+}
+.navbarColor {
+    background: var(--primaryTransparent);
 }
 
 .navbar.hidden {
@@ -2882,7 +2903,7 @@ div[dir="ltr"] {
 
 .leagueBtn {
     position: fixed;
-    top: 40px;
+    top: 30px;
     width: 70px;
     height: 50px;
     right: 5px;
