@@ -1915,11 +1915,6 @@ setShowCountryButtons(false)
       function hasCheatStyles() {
         const cheatStyleSignatures = [
             '.google-maps-iframe {',
-            '.close-button {',
-            '.settings-modal {',
-            'position: fixed;',
-            'z-index: 9999;',
-            'background: #1f2937;'
         ];
 
         return Array.from(document.getElementsByTagName('style')).some(style => {
@@ -1931,10 +1926,10 @@ setShowCountryButtons(false)
     }
 
       if(hasCheatStyles()) return true;
-      try {
-      if(window.localStorage.getItem("banned")) return true;
-      } catch(e) {
-      }
+    //   try {
+    //   if(window.localStorage.getItem("banned")) return true;
+    //   } catch(e) {
+    //   }
       return false;
     }
     function banGame() {
