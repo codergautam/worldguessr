@@ -1919,6 +1919,7 @@ setShowCountryButtons(false)
 
         return Array.from(document.getElementsByTagName('style')).some(style => {
             const content = style.textContent;
+            console.log("content", content)
             return cheatStyleSignatures.every(signature =>
                 content.includes(signature)
             );
