@@ -1911,10 +1911,30 @@ setShowCountryButtons(false)
     function checkForCheats() {
       if(document.getElementById("coo1rdinates")) return true;
       if(document.getElementById("map-canvas")) return true;
-      // try {
-      // if(window.localStorage.getItem("banned")) return true;
-      // } catch(e) {
-      // }
+
+      function hasCheatStyles() {
+        const cheatStyleSignatures = [
+            '.google-maps-iframe {',
+            '.close-button {',
+            '.settings-modal {',
+            'position: fixed;',
+            'z-index: 9999;',
+            'background: #1f2937;'
+        ];
+
+        return Array.from(document.getElementsByTagName('style')).some(style => {
+            const content = style.textContent;
+            return cheatStyleSignatures.every(signature =>
+                content.includes(signature)
+            );
+        });
+    }
+
+      if(hasCheatStyles()) return true;
+      try {
+      if(window.localStorage.getItem("banned")) return true;
+      } catch(e) {
+      }
       return false;
     }
     function banGame() {
