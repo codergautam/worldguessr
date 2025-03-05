@@ -2043,7 +2043,13 @@ export default function Home({ }) {
                         }))
                     }}
 
-                    inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("friends"); }} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.duel} />
+                    inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("friends"); }} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.duel} gameOptionsModalShown={gameOptionsModalShown} />
+
+                {multiplayerState?.playerCount  && (
+                    <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || multiplayerState?.inGame || !multiplayerState?.connected) ? 'hide' : ''}`}>
+                        {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState.playerCount })}
+                    </span>
+                )}
 
                 {/* reload button for public game */}
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
@@ -2053,14 +2059,18 @@ export default function Home({ }) {
                     </div>
                 )}
 
+
+
                 {/* ELO/League button */}
+                <div>
                 {screen === "home" && !mapModal && session && session?.token?.secret && (
                     <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
                     //                        style={{ backgroundColor: eloData?.league?.color }}
                     >
                         {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league?.emoji}
                     </button>
-                )}
+                    )}
+                </div>
 
                 <div className={`home__content g2_modal ${screen !== "home" ? "hidden" : "cshown"} `}>
                     <div className="g2_nav_ui" >

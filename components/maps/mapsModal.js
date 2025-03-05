@@ -72,32 +72,21 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
                 <h1 className="g2_nav_title">{text("communityMaps")}</h1>
                 <div className="g2_nav_hr"></div>
                 {!makeMap.open && (
-                    <div className="mapSearch">
-                        <input
-                            type="text"
-                            placeholder={text("searchForMaps")}
-                            className="g2_input"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
+                    <>
+                        <div className="mapSearch">
+                            <input
+                                type="text"
+                                placeholder={text("searchForMaps")}
+                                className="g2_input"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <div className="g2_nav_hr"></div>
+                    </>
                 )}
-                <div style={{ width: "100%" }}>
-                    <button
-                        onClick={() => {
-                            if (makeMap.edit) {
-                                setMakeMap({
-                                    ...initMakeMap,
-                                    open: true,
-                                });
-                            } else setMakeMap({ ...makeMap, open: true })
-                        }}
-                        className="g2_green_button3 g2_button_style"
-                        style={{ width: "50%", fontSize: "1.1em" }}
-                    >
-                        Make Map
-                    </button></div>
-                <div className="g2_nav_hr"></div>
+
+
                 <div className="g2_nav_group">
                     <button className="g2_nav_text singleplayer"
                         onClick={() => document.getElementById("countryMaps_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}

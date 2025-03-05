@@ -9,7 +9,7 @@ import config from "@/clientConfig";
 
 
 export default function MapView({ gameOptions, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption, makeMap, setMakeMap, initMakeMap, searchTerm, setSearchTerm, searchResults, setSearchResults }) {
-    
+
     const [mapHome, setMapHome] = useState({
         message: text("loading") + "...",
     });
@@ -56,7 +56,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
         refreshHome();
     }, [session?.token?.secret]);
 
-    
+
 
     function createMap(map) {
         if (!session?.token?.secret) {
@@ -250,6 +250,22 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
                 </div>
             </div>)}
 
+            {!makeMap.open && <div style={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
+                <button
+                    onClick={() => {
+                        if (makeMap.edit) {
+                            setMakeMap({
+                                ...initMakeMap,
+                                open: true,
+                            });
+                        } else setMakeMap({ ...makeMap, open: true })
+                    }}
+                    className="g2_green_button3 g2_button_style"
+                    style={{ width: "minContent", fontSize: "1.1em", paddingRight: "40px", paddingLeft: "40px" }}>Make Map</button>
+                <div style={{ width: "0%" }}></div>
+            </div>}
+
+
             {showOptions && (
                 <div style={{ display: "flex", flexDirection: 'column', alignItems: 'center', marginBottom: '5px', marginTop: '5px' }}>
                     <div>
@@ -285,7 +301,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
                 </div>
             )}
 
-            
+
 
             {!makeMap.open && (
                 <div>
@@ -318,7 +334,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
 
                                 return mapsArray.length > 0 ? (
                                     <>
-                                        <h2 id={section+"_map_view_section"} className="mapSectionTitle">{text(section)}{["myMaps", "likedMaps", "reviewQueue"].includes(section) && ` (${mapsArray.length})`}</h2>
+                                        <h2 id={section + "_map_view_section"} className="mapSectionTitle">{text(section)}{["myMaps", "likedMaps", "reviewQueue"].includes(section) && ` (${mapsArray.length})`}</h2>
                                         <div className={`mapSection section-${section} g2_container`} key={si}>
 
 

@@ -43,7 +43,7 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
         <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn'} ${session?.token?.supporter ? 'supporterBtn' : ''}`} onClick={() => {
         openAccountModal()
         }}>
-          {session?.token?.username ? <p style={{ color:'white', marginRight: '10px',marginLeft: '10px' }}>{session?.token?.username}</p> : null}
+          {session?.token?.username ? <p style={{ color:'white', marginRight: '-13px',marginLeft: '0px', fontSize: "1.4em", fontWeight: 700 }}>{session?.token?.username}</p> : null}
 
         </button>
     )}
