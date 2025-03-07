@@ -330,8 +330,8 @@ export default class Game {
   }
 
   start() {
-    if (this.state !== 'waiting' || Object.keys(this.players).length < 2 || this.rounds !== this.locations.length) {
-      console.log('Cannot start game', this.state, Object.keys(this.players).length, this.rounds, this.locations.length);
+    if (this.state !== 'waiting' || Object.keys(this.players).length < 2 || (this.rounds !== this.locations.length)) {
+      console.log('Cannot start game', this.state, Object.keys(this.players).length, this.rounds, this.locations.length, Object.keys(this.players).length < 2, this.rounds !== this.locations.length, this.state !== 'waiting');
       return;
     }
     this.state = 'getready';
