@@ -480,7 +480,6 @@ export default class Game {
     for (let i = 0; i < this.rounds; i++) {
       let loc;
         // get n random from the list
-        console.log('All locations', allLocations.length);
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
         this.maxDist = 20000;
         this.extent = null;
