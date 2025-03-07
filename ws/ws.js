@@ -59,8 +59,7 @@ function currentDate() {
 let allLocations = [{"lat":59.94945834525827,"long":10.74877784715781,"country":"NO"},{"lat":-22.41504758873939,"long":-42.95073348255873,"country":"BR"},{"lat":7.117061549697593,"long":6.737664188991607,"country":"NG"},{"lat":43.11066098012346,"long":141.5910123338441,"country":"JP"},{"lat":49.88659404088488,"long":-99.9475096434099,"country":"CA"},{"lat":46.720999413096,"long":19.86240516067642,"country":"HU"}];
 
 const generateMainLocations = async () => {
-  // fetch cron job localhost:3003/allCountries.json
-  // try {
+  try {
   fetch('http://localhost:3003/allCountries.json').then(async (res) => {
     const data = await res.json();
     if(data.locations && Array.isArray(data.locations) && data.locations.length > 0) {
@@ -73,9 +72,9 @@ const generateMainLocations = async () => {
   }).catch((e) => {
     console.error('Failed to load locations', e, currentDate());
   });
-// } catch(e) {
-//   console.error('Failed to load locations', e, currentDate());
-// }
+} catch(e) {
+  console.error('Failed to load locations', e, currentDate());
+}
 
 
 };
