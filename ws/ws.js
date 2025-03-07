@@ -60,17 +60,22 @@ let allLocations = [{"lat":59.94945834525827,"long":10.74877784715781,"country":
 
 const generateMainLocations = async () => {
   // fetch cron job localhost:3003/allCountries.json
-  try {
+  // try {
   fetch('http://localhost:3003/allCountries.json').then(async (res) => {
     const data = await res.json();
-    allLocations = data.locations??[];
+    if(data.locations && Array.isArray(data.locations) && data.locations.length > 0) {
+      allLocations = data.locations;
+
+    } else {
+      console.error('Failed to load locations', currentDate, data);
+    }
 
   }).catch((e) => {
     console.error('Failed to load locations', e, currentDate());
   });
-} catch(e) {
-  console.error('Failed to load locations', e, currentDate());
-}
+// } catch(e) {
+//   console.error('Failed to load locations', e, currentDate());
+// }
 
 
 };
@@ -1061,7 +1066,6 @@ app.ws('/wg', {
       ipConnectionCount.delete(ws.ip);
     }
 
-    console.log(players.has(ws.id), ws.id, players.size);
     if (players.has(ws.id)) {
       const player = players.get(ws.id);
 
@@ -1082,7 +1086,6 @@ app.ws('/wg', {
       player.disconnected = true;
       disconnectedPlayers.set(player.accountId??player.rejoinCode, player.id);
       }
-      console.log('Player disconnected', player.username, player.id, currentDate());
     }
     if (playersInQueue.has(ws.id)) {
       playersInQueue.delete(ws.id);
@@ -1446,7 +1449,7 @@ try {
     const gameCnt = games.size;
     const playerCnt = players.size;
     console.log('Players:', playerCnt, 'Games:', gameCnt, 'Memory:', memUsage);
-  }, 5000)
+  }, 10000)
   // // Check for pong messages and disconnect inactive clients
   // setInterval(() => {
   //   const currentTime = Date.now();
