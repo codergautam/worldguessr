@@ -1865,6 +1865,20 @@ export default function Home({ }) {
         function checkForCheats() {
             if (document.getElementById("coo1rdinates")) return true;
             if (document.getElementById("map-canvas")) return true;
+            function hasCheatStyles() {
+                const cheatStyleSignatures = [
+                    '.google-maps-iframe {',
+                ];
+
+                return Array.from(document.getElementsByTagName('style')).some(style => {
+                    const content = style.textContent;
+                    console.log("content", content)
+                    return cheatStyleSignatures.every(signature =>
+                        content.includes(signature)
+                    );
+                });
+            }
+            if(hasCheatStyles()) return true;
             // try {
             // if(window.localStorage.getItem("banned")) return true;
             // } catch(e) {
