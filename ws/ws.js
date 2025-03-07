@@ -368,7 +368,7 @@ function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=f
           game.location = location;
           // clear current locations
           game.locations = [];
-          game.rounds = rounds;
+          game.rounds = Number(rounds);
           game.displayLocation = displayLocation;
 
           // generate locations
