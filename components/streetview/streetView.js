@@ -111,6 +111,17 @@ const StreetView = ({
       setLoading(false);
       cleanMetaTags();
     });
+    if (typeof window !== "undefined") {
+      window.addEventListener(
+        'keydown',
+        (event) => {
+          if (nm && (event.key.toLowerCase() === 'w' || event.key.toLowerCase() === 's')) {
+            event.stopPropagation()
+          };
+        },
+        { capture: true },
+      );
+    }
   };
 
   // Main useEffect for handling embed or SDK
