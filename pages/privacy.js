@@ -5,8 +5,13 @@ const PrivacyPolicy = () => {
   return (
     <div style={{ padding: '2rem', overflow: 'scroll' }}>
       <h1>Privacy Policy</h1>
-      <p><strong>Effective Date:</strong> 08/14/24</p>
-
+      <p><strong>Effective Date:</strong> 03/13/25</p>
+      <style>{`
+        * {
+          overflow: visible !important;
+        }
+      `}</style>
+  
       <h2>Introduction</h2>
       <p>
         Welcome to WorldGuessr, a free web game accessible at <Link href="https://worldguessr.com">worldguessr.com</Link>. Your privacy is important to us, and this
