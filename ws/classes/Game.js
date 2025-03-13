@@ -330,7 +330,8 @@ export default class Game {
   }
 
   start() {
-    if (this.state !== 'waiting' || Object.keys(this.players).length < 2 || this.rounds !== this.locations.length) {
+    if ((this.state != 'waiting') || (Object.keys(this.players).length < 2) || (this.rounds != this.locations.length)) {
+      console.log('Cannot start game', this.state, Object.keys(this.players).length, this.rounds, this.locations.length, Object.keys(this.players).length < 2, this.rounds !== this.locations.length, this.state !== 'waiting');
       return;
     }
     this.state = 'getready';
@@ -479,7 +480,6 @@ export default class Game {
     for (let i = 0; i < this.rounds; i++) {
       let loc;
         // get n random from the list
-        console.log('All locations', allLocations.length);
         loc = allLocations[Math.floor(Math.random() * allLocations.length)];
         this.maxDist = 20000;
         this.extent = null;
@@ -497,14 +497,12 @@ export default class Game {
     let loc;
       this.maxDist = countryMaxDists[this.location] || 20000;
       this.extent = officialCountryMaps.find((c) => c.countryCode === this.location)?.extent || null;
-      console.time('Country locations '+this.location);
       let data = await fetch('http://localhost:3001/countryLocations/'+this.location, {
         headers: {
           'Content-Type': 'application/json'
         },
       });
      data = await data.json();
-     console.timeEnd('Country locations '+this.location);
      for(let i = 0; i < this.rounds; i++) {
       if(data.ready && data.locations) {
         loc = data.locations[Math.floor(Math.random() * data.locations.length)];

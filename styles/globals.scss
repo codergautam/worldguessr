@@ -183,7 +183,7 @@ html {
     gap: 15px;
     padding-left: 5vw;
     background: linear-gradient(65deg, var(--gradTopBase)), linear-gradient(90deg, var(--gradBottomBase));
-    
+
 }
 .g2_nav_ui > * {
     animation: nav_slide_in 0.3s ease-in-out;
@@ -333,13 +333,20 @@ html {
 
 
 .home__footer {
-    left: 10px;
-    bottom: 5px;
+    left: 5vw;
+    bottom: 50px;
     position: fixed;
     pointer-events: all;
     z-index: 10000;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: transform 0.5s ease, opacity 0.5s ease;
 }
 
+.home__footer.visible {
+    transform: translateY(0);
+    opacity: 1;
+}
 .footer_btns {
     display: flex;
     justify-content: center;
@@ -358,7 +365,7 @@ html {
         font-size: max(3vw, 40px);
         min-height: 50px;
         min-width: 50px;
-        
+
         padding: 10px;
         background-color: var(--primaryTransparent);
         aspect-ratio: 1/1;
@@ -2161,7 +2168,7 @@ img[alt="Google"] {
 
 .view-requests-button.selected {
     background-color: rgba(0, 0, 0, 0.3);
-    
+
 }
 
 .request-card {
@@ -2910,7 +2917,7 @@ div[dir="ltr"] {
     .mapViewMake {
         font-size: 15px;
     }
-    
+
     .mapViewClose {
         font-size: 15px;
     }
