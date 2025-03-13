@@ -20,7 +20,7 @@ const PrivacyPolicy = () => {
       </p>
 
           <p>
-  WorldGuessr is open to players of all ages for responsible free play. However, to create an account, you must be at least 13 years old, in accordance with Google's policies. If you are under 13, you may only create an account with verifiable parental or guardian consent.
+  WorldGuessr is open to players of all ages for responsible free play. However, to create an account, you must be at least 13 years old, in accordance with Google policies. If you are under 13, you may only create an account with verifiable parental or guardian consent.
 </p>
 
       <h2>Information We Collect</h2>
