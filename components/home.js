@@ -1880,7 +1880,7 @@ export default function Home({ }) {
                     );
                 });
             }
-            if(hasCheatStyles()) return true;
+            if (hasCheatStyles()) return true;
             // try {
             // if(window.localStorage.getItem("banned")) return true;
             // } catch(e) {
@@ -1974,27 +1974,27 @@ export default function Home({ }) {
 
             )}
 
-                <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal) ? "visible" : ""}`}>
-                    <div className="footer_btns">
-                        {!isApp && !inCoolMathGames && (
-                            <>
-                                <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+            <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal) ? "visible" : ""}`}>
+                <div className="footer_btns">
+                    {!isApp && !inCoolMathGames && (
+                        <>
+                            <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
 
-                                {!inCrazyGames && (
-                                    <>
-                                        <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                                        <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
-                                    </>
-                                )}
-                                <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
+                            {!inCrazyGames && (
+                                <>
+                                    <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
+                                    <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                                </>
+                            )}
+                            <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
 
-                                    <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                            </>
-                        )}
+                                <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                        </>
+                    )}
 
-                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
-                    </div>
+                    <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
                 </div>
+            </div>
 
             <div style={{
                 top: 0,
@@ -2128,24 +2128,16 @@ export default function Home({ }) {
                                                 </button>
                                                 {/* <span className="bigSpan">{text("playOnline")}</span> */}
 
+                                                <button className="g2_nav_text" aria-label="Duels" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("duels")}</button>
 
-                                                {session?.token?.secret && (
-                                                    <button className="g2_nav_text " onClick={() => { handleMultiplayerAction("publicDuel"); setShowPartyCards(false); }}
-                                                        disabled={!multiplayerState.connected || maintenance}>{text("rankedDuel")}</button>
-                                                )}
-                                                <button className="g2_nav_text " onClick={() => { handleMultiplayerAction("unrankedDuel"); setShowPartyCards(false); }}
-                                                    disabled={!multiplayerState.connected || maintenance}>
 
-                                                    {
-                                                        session?.token?.secret ? text("unrankedDuel") :
-                                                            text("findDuel")
-
-                                                    }</button>
                                             </div>
                                             <div className="g2_nav_hr"></div>
 
                                             <div className="g2_nav_group">
-                                                <button className="g2_nav_text" aria-label="Party" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("privateGame")}</button>
+                                                {/*<button className="g2_nav_text" aria-label="Party" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("privateGame")}</button>*/}
+                                                <button className="g2_nav_text" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
+                                                <button className="g2_nav_text" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
                                             </div>
 
                                             <div className="g2_nav_hr"></div>
@@ -2172,16 +2164,40 @@ export default function Home({ }) {
 
                         </div>
                         <div className="g2_content g2_content_margin g2_slide_in" style={{ display: "flex", gap: "20px", flexDirection: "column" }}>
+                            {/* 
+                            {session?.token?.secret && (
+                                <button className="g2_nav_text " onClick={() => { handleMultiplayerAction("publicDuel"); setShowPartyCards(false); }}
+                                    disabled={!multiplayerState.connected || maintenance}>{text("rankedDuel")}</button>
+                            )}
+                            <button className="g2_nav_text " onClick={() => { handleMultiplayerAction("unrankedDuel"); setShowPartyCards(false); }}
+                                disabled={!multiplayerState.connected || maintenance}>
+
+                                {
+                                    session?.token?.secret ? text("unrankedDuel") :
+                                        text("findDuel")
+
+                                }
+                            </button>*/}
                             {showPartyCards &&
                                 <>
-                                    <h1>{text("privateGame")}</h1>
+                                    <h1>{text("duels")}</h1>
                                     <div style={{ display: "flex", gap: "20px" }} >
-                                        <div className="g2_container_light g2_container_style g2_card">
-                                            <button className="g2_text" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
-                                            <hr className="g2_nav_hr"></hr>
-                                        </div>
+
+                                        {session?.token?.secret && (
+                                            <div className="g2_container_light g2_container_style g2_card">
+                                                <button className="g2_text" disabled={!multiplayerState.connected || maintenance} onClick={() => { handleMultiplayerAction("publicDuel"); }}>{text("rankedDuel")}</button>
+                                                <hr className="g2_nav_hr"></hr>
+                                            </div>
+                                        )}
+
+
                                         <div className="g2_container_light g2_container_style g2_card" >
-                                            <button className="g2_text" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
+                                        <button className="g2_text" disabled={!multiplayerState.connected || maintenance} onClick={() => { handleMultiplayerAction("unrankedDuel") }}>
+                                                {
+                                                    session?.token?.secret ? text("unrankedDuel") :
+                                                        text("findDuel")
+                                                }
+                                            </button>
                                             <hr className="g2_nav_hr"></hr>
                                         </div>
                                     </div>
