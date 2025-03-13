@@ -7,10 +7,17 @@ import { useTranslation } from '@/components/useTranslations';
 
 import FriendsModal from "@/components/friendModal";
 
-export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage }) {
+export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite }) {
     const { t: text } = useTranslation("common");
 
     const [accountData, setAccountData] = useState({});
+
+    const [friends, setFriends] = useState([
+    ]);
+    const [sentRequests, setSentRequests] = useState([
+    ]);
+    const [receivedRequests, setReceivedRequests] = useState([
+    ]);
 
     useEffect(() => {
         if (shown) {
@@ -35,7 +42,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
 
     if (!eloData) return null;
 
-
+   
 
 
     return (
@@ -67,7 +74,16 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 </div>
                 <div className="g2_nav_hr"></div>
                 <div className="g2_nav_group">
-                    <button className="g2_nav_text" onClick={() => setAccountModalPage("friends")}>{text("friendsText")}</button>
+                    <button className="g2_nav_text" onClick={() => setAccountModalPage("list")}>
+                        { text("friends", {cnt: friends.length })}
+                    </button>
+                    <button className="g2_nav_text" onClick={() => setAccountModalPage("sent")}>
+                        {text("viewSentRequests", { cnt: sentRequests.length })}
+                    </button>
+                    <button className="g2_nav_text" onClick={() => setAccountModalPage("received")}>
+                        {text("viewReceivedRequests", { cnt: receivedRequests.length })}
+                    </button>
+                    <button className="g2_nav_text" onClick={() => setAccountModalPage("add")}> {text("addFriend")}</button>
                 </div>
                 <div className="g2_nav_hr"></div>
                 <button className="g2_nav_text red" onClick={() => { setAccountModalOpen(false) }}>{text("back")}</button>
@@ -77,12 +93,10 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     <AccountView accountData={accountData} supporter={session?.token?.supporter} eloData={eloData} session={session} />
 
                     {!inCrazyGames && (
-                        <button onClick={() => signOut()} style={{
-                            background: 'red',
+                        <button className="g2_red_button" onClick={() => signOut()} style={{
                             color: 'white',
                             padding: '10px 20px',
                             borderRadius: '5px',
-                            border: 'none',
                             cursor: 'pointer',
                             fontSize: '16px',
                             fontWeight: 'bold',
@@ -92,8 +106,9 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                         </button>
                     )}</>
                 )}
-                {(accountModalPage == "friends") && (
-                    friendModal
+                {(accountModalPage !== "profile") && (
+                    <FriendsModal ws={ws} canSendInvite={canSendInvite} sendInvite={sendInvite} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
+                        friends={friends} setFriends={setFriends} sentRequests={sentRequests} setSentRequests={setSentRequests} receivedRequests={receivedRequests} setReceivedRequests={setReceivedRequests} />
                 ) }
             </div>
         </Modal>

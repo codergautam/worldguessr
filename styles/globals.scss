@@ -153,12 +153,24 @@ html {
     }
 }
 
+.g2_card{
+    width: 50%;
+    height: min-content;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .g2_content {
     flex-grow: 1;
     height: 100%;
     overflow-y: auto;
     width: 70vw;
     padding-top: 50px;
+}
+.g2_content_margin{
+    padding-right: 5vw;
+    padding-top: 15vh;
 }
 
 .g2_nav_ui {
@@ -174,6 +186,9 @@ html {
     
 }
 .g2_nav_ui > * {
+    animation: nav_slide_in 0.3s ease-in-out;
+}
+.g2_slide_in > * {
     animation: nav_slide_in 0.3s ease-in-out;
 }
 
@@ -204,28 +219,59 @@ html {
     flex-direction: column;
 }
 
+.g2_nav_squares{
+    display: flex;
+}
+.g2_nav_square{
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-top: 15px;
+    padding-bottom: 15px;
+    justify-content: center;
+}
+
 @media (max-aspect-ratio: 1/1) or (min-aspect-ratio: 2/1) {
+    .g2_nav_squares{
+        flex-direction: column;
+    }
+    .g2_content_margin {
+        margin-left: 10px;
+        margin-right: 10px;
+        padding-top: 0;
+    }
+    .g2_nav_square {
+        width: 100%;
+        align-items: center;
+    }
     .g2_modal {
         flex-direction: column;
     }
-    .g2_nav_title{
+
+    .g2_nav_title {
         padding-top: 0px;
     }
-    .g2_nav_hr{
+
+    .g2_nav_hr {
         width: 100%;
     }
-    .g2_nav_group{
+
+    .g2_nav_group {
         flex-direction: row;
         flex-wrap: wrap;
     }
+
     .g2_content {
         overflow-y: visible;
         width: 100%;
         padding-top: 0px;
     }
-    .g2_nav_text{
+
+    .g2_nav_text {
         width: 100%;
     }
+
     .g2_nav_ui {
         //flex-direction: row;
         //flex-wrap: wrap;
@@ -258,10 +304,22 @@ html {
     padding-block: 0;
     padding-inline: 0;
 }
+.g2_text {
+    color: white;
+    font-size: clamp(1.1em, 1.8vw, 2.3em);
+    font-weight: 300;
+    cursor: pointer;
+    transition: all 0.5s;
+    text-align: left;
+    background: none;
+    padding: 0;
+    margin: 0;
+}
 .g2_nav_text.red{
     color: #FFAAAA;
 }
 
+.g2_text:hover,
 .g2_nav_text:hover {
     color: aqua;
     margin-left: 10px;
@@ -2037,7 +2095,7 @@ img[alt="Google"] {
     display: flex;
     margin-bottom: 20px;
     height: fit-content;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
     width: 100%;
 }
@@ -2158,6 +2216,7 @@ img[alt="Google"] {
     height: 100%;
     flex-direction: column;
     gap: 5px;
+    padding-left: 10px;
 }
 
 .friendsTabs {
@@ -2172,7 +2231,11 @@ img[alt="Google"] {
     display: flex;
     gap: 20px;
     width: 100%;
+    text-align: left;
+    font-size: 1.2em;
+    justify-content: flex-start;
 }
+
 
 @media screen and (max-width: 680px) {
     .friendsModal {
@@ -2903,9 +2966,9 @@ div[dir="ltr"] {
 
 .leagueBtn {
     position: fixed;
-    top: 30px;
+    top: 40px;
     width: 70px;
-    height: 50px;
+    height: min-content;
     right: 5px;
     animation: bounce 0.5s;
     z-index: 1000;
@@ -2919,6 +2982,7 @@ div[dir="ltr"] {
     padding-left: 15px;
     padding-right: 15px;
     border-radius: 50px;
+    margin: 0;
 }
 
 .leagueBtn:hover {

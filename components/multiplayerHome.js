@@ -42,7 +42,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
     }
 
     return (
-        <div className={`multiplayerHome ${!["waiting", "end"].includes(multiplayerState?.gameData?.state) ? "inGame" : ""}`}>
+        <div className={`multiplayerHome g2_slide_in ${!["waiting", "end"].includes(multiplayerState?.gameData?.state) ? "inGame" : ""}`}>
             {/* <BannerText text={multiplayerState.error} shown={multiplayerState.error} hideCompass={true} /> */}
 
             {multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && multiplayerState.enteringGameCode && (

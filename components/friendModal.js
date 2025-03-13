@@ -2,20 +2,15 @@ import { Modal } from "react-responsive-modal";
 import { useState, useEffect } from "react";
 import { useTranslation } from '@/components/useTranslations';
 
-export default function FriendsModal({ shown, onClose, session, ws, canSendInvite, sendInvite }) {
-    const [friends, setFriends] = useState([
-    ]);
-    const [sentRequests, setSentRequests] = useState([
-    ]);
-    const [receivedRequests, setReceivedRequests] = useState([
-    ]);
+export default function FriendsModal({ shown, onClose, session, ws, canSendInvite, sendInvite, accountModalPage, setAccountModalPage, friends, setFriends, sentRequests, setSentRequests, receivedRequests, setReceivedRequests }) {
+   
     const [friendReqSendingState, setFriendReqSendingState] = useState(0);
 
     const [friendReqProgress, setFriendReqProgress] = useState(false);
     const [allowFriendReq, setAllowFriendReq] = useState(false);
 
     const [newFriend, setNewFriend] = useState('');
-    const [viewShown, setViewShown] = useState('list');
+    //const [accountModalPage, setAccountModalPage] = useState('list');
     const { t: text } = useTranslation("common");
 
     useEffect(() => {
@@ -87,6 +82,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
         ws.send(JSON.stringify({ type: 'removeFriend', id }));
     }
 
+
     return (
         <div id="friendsModal" style={{
 
@@ -99,7 +95,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
             textAlign: 'center',
             width: '100%',
             height: '100%',
-            
+
 
         }} className={
 
@@ -113,24 +109,12 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
 
             <div className="friendsContent">
 
-                <div className="friendsTabs">
-                    <button className={`view-requests-button ${viewShown === 'list' ? 'selected' : ''}`} onClick={() => setViewShown("list")}>{text("friends", { cnt: friends.length })}</button>
-                    <button className={`view-requests-button ${viewShown === "sent" ? "selected" : ""}`} onClick={() => setViewShown("sent")}>
-                        {text("viewSentRequests", { cnt: sentRequests.length })}
-                    </button>
-                    <button className={`view-requests-button ${viewShown === "received" ? "selected" : ""}`} onClick={() => setViewShown("received")}>
-                        {text("viewReceivedRequests", { cnt: receivedRequests.length })}
-                    </button>
-                    <button className={`view-requests-button ${viewShown === "add" ? "selected" : ""}`} onClick={() => setViewShown("add")}>
-                        {text("addFriend")}
-                    </button>
-
-                </div>
+                
 
                 <div className="friendsSection">
-                    {viewShown === "add" && (
+                    {accountModalPage === "add" && (
                         <div style={{ width: '100%' }}>
-                            <h3>{text("addFriend")}</h3>
+                            <h1>{text("addFriend")}</h1>
                             <p>
                                 {text("addFriendDescription")}
                             </p>
@@ -142,9 +126,9 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                                     value={newFriend}
                                     onChange={(e) => setNewFriend(e.target.value)}
                                     placeholder={text("addFriendPlaceholder")}
-                                    className="friend-input g2_input"
+                                    className="g2_input"
                                 />
-                                <button onClick={handleSendRequest} className="send-request-button" disabled={friendReqProgress}>
+                                <button onClick={handleSendRequest} className="g2_green_button g2_button_style" disabled={friendReqProgress}>
                                     {friendReqProgress ? text("loading") : text("sendRequest")}
                                 </button>
 
@@ -166,15 +150,15 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                     )}
 
 
-                    {viewShown !== "add" && (
+                    {accountModalPage !== "add" && (
                         <div className="friends-list-parent">
                             <h3>
-                                {viewShown === 'list' && text("friends", { cnt: friends.length })}
-                                {viewShown === 'sent' && text("sentRequests", { cnt: sentRequests.length })}
-                                {viewShown === 'received' && text("receivedRequests", { cnt: receivedRequests.length })}
+                                {accountModalPage === 'list' && text("friends", { cnt: friends.length })}
+                                {accountModalPage === 'sent' && text("sentRequests", { cnt: sentRequests.length })}
+                                {accountModalPage === 'received' && text("receivedRequests", { cnt: receivedRequests.length })}
                             </h3>
 
-                            {viewShown === 'received' && (
+                            {accountModalPage === 'received' && (
                                 <span>
                                     {text("allowFriendRequests")}&nbsp;
                                     {/* check box */}
@@ -183,19 +167,19 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                                 </span>
                             )}
 
-                            {viewShown === 'list' && friends.length === 0 && (
+                            {accountModalPage === 'list' && friends.length === 0 && (
                                 <div>{text("noFriends")}</div>
                             )}
-                            {viewShown === 'sent' && sentRequests.length === 0 && (
+                            {accountModalPage === 'sent' && sentRequests.length === 0 && (
                                 <div>{text("noSentRequests")}</div>
                             )}
-                            {viewShown === 'received' && receivedRequests.length === 0 && (
+                            {accountModalPage === 'received' && receivedRequests.length === 0 && (
                                 <div>{text("noReceivedRequests")}</div>
                             )}
 
                             <div className="friends-list">
                                 {
-                                    (viewShown === 'list' ? friends : viewShown === 'sent' ? sentRequests : receivedRequests).sort((a, b) => b.online - a.online).map(friend => (
+                                    (accountModalPage === 'list' ? friends : accountModalPage === 'sent' ? sentRequests : receivedRequests).sort((a, b) => b.online - a.online).map(friend => (
                                         <div key={friend.id} className="friend-card">
                                             <div className="friend-details">
                                                 <span className="friend-name">
@@ -203,17 +187,17 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                                                     {friend?.supporter && <span className="badge">{text("supporter")}</span>}
                                                 </span>
 
-                                                {viewShown === 'list' && (
+                                                {accountModalPage === 'list' && (
                                                     <span className="friend-state">{friend?.online ? text("online") : text("offline")}</span>
                                                 )}
 
                                             </div>
 
-                                            {viewShown === 'sent' && (
+                                            {accountModalPage === 'sent' && (
                                                 <button onClick={() => handleCancel(friend.id)} className={"cancel-button"}>✖</button>
                                             )}
 
-                                            {viewShown === 'list' && (
+                                            {accountModalPage === 'list' && (
                                                 <div style={{ float: 'right' }}>
                                                     {canSendInvite && friend.online && friend.socketId && (
                                                         <button onClick={() => sendInvite(friend.socketId)} className={"invite-button"}>{text("invite")}</button>
@@ -222,7 +206,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                                                 </div>
                                             )}
 
-                                            {viewShown === 'received' && (
+                                            {accountModalPage === 'received' && (
                                                 <div style={{ float: 'right' }}>
                                                     <button onClick={() => handleAccept(friend.id)} className={"accept-button"}>✔</button>
                                                     <button onClick={() => handleDecline(friend.id)} className={"decline-button"}>✖</button>

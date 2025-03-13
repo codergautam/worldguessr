@@ -46,7 +46,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 },
             }} classNames={
                 {
-                    modal: 'g2_container_harsh'
+                    modal: 'g2_container_harsh g2_slide_in'
                 }
             } open={shown} center>
                 <div style={{ display: "flex", flexDirection: "column", pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center', gap: "10px" }}>
