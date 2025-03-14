@@ -2194,7 +2194,9 @@ setShowCountryButtons(false)
           <div style={{ marginTop: "20px" }}>
             <center>
               { !loading && screen === "home"  && !inCrazyGames && !inCoolMathGames &&(!session?.token?.supporter) && (
-    <Ad inCrazyGames={inCrazyGames} screenH={height} types={[[320,50],[728,90],[970,90],[970,250]]} screenW={width} />
+    <Ad
+    unit={"worldguessr_home_ad"}
+    inCrazyGames={inCrazyGames} screenH={height} types={[[320,50],[728,90],[970,90],[970,250]]} screenW={width} />
               )}
     </center>
             </div>
