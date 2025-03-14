@@ -14,7 +14,7 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
       //<script data-cfasync="false"></script>
       script.src = "https://s.nitropay.com/ads-2071.js";
       script.async = true;
-      document.body.appendChild(script);
+      document.head.appendChild(script);
       //  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972" crossorigin="anonymous">
       const script2 = document.createElement('script');
       script2.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972";
