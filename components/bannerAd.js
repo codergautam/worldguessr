@@ -46,9 +46,14 @@ export default function Ad({
     if (type === -1 || !isClient || isClient === "debug") return;
 
     const config = {
-      refreshLimit: 10, // Max refreshes (optional)
       refreshTime: AD_REFRESH_SEC,
       renderVisibleOnly: true,
+      "report": {
+        "enabled": true,
+        "icon": true,
+        "wording": "Report Ad",
+        "position": "top-right"
+      },
       // demo: isClient === "debug",
       // sizes: [[types[type][0], types[type][1]]], update: instead of only choosing the best size, include the sizes that are smaller than the best (both width and height)
       sizes: types
