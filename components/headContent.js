@@ -7,6 +7,12 @@ export default function HeadContent({text,inCoolMathGames}) {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH) {
 
+
+    const scriptAp = document.createElement('script');
+    scriptAp.src = "https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js";
+    scriptAp.async = true;
+    document.body.appendChild(scriptAp);
+
 window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
 
@@ -24,6 +30,7 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
 
       return () => {
         document.head.removeChild(script);
+        document.body.removeChild(scriptAp);
         document.body.removeChild(script2);
       };
     } else if(window.location.search.includes("crazygames")) {

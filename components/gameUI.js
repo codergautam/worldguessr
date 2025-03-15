@@ -16,7 +16,7 @@ import ExplanationModal from "./explanationModal";
 import SaveStreakBanner from "./streakSaveBanner";
 import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
-import Ad from "./bannerAd";
+import Ad from "./bannerAdAdinplay";
 import fixBranding from "./utils/fixBranding";
 import gameStorage from "./utils/localStorage";
 import RoundOverScreen from "./roundOverScreen";

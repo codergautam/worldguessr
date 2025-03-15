@@ -658,10 +658,15 @@ export default class Game {
   shutdown() {
     for(const playerId of Object.keys(this.players)) {
       const p = players.get(playerId);
+      if(p) {
+        try {
       p.send({
         type: 'gameShutdown'
       });
       this.removePlayer(p);
+    } catch(e) {
+    }
+    }
     }
   }
 
