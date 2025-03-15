@@ -6,10 +6,10 @@ export default function HeadContent({text,inCoolMathGames}) {
   useEffect(() => {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH) {
-      
+
 window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
-      
+
       const script = document.createElement('script');
       //<script data-cfasync="false"></script>
       script.src = "https://s.nitropay.com/ads-2071.js";
@@ -23,7 +23,7 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
       document.body.appendChild(script2);
 
       return () => {
-        document.body.removeChild(script);
+        document.head.removeChild(script);
         document.body.removeChild(script2);
       };
     } else if(window.location.search.includes("crazygames")) {
