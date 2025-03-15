@@ -50,7 +50,10 @@ export default function Ad({
       refreshTime: AD_REFRESH_SEC,
       renderVisibleOnly: true,
       // demo: isClient === "debug",
-      sizes: [[types[type][0], types[type][1]]],
+      // sizes: [[types[type][0], types[type][1]]], update: instead of only choosing the best size, include the sizes that are smaller than the best (both width and height)
+      sizes: types
+        .filter((t) => t[0] <= types[type][0] && t[1] <= types[type][1])
+        .map((t) => [t[0], t[1]]),
       report: {
         load: () => {
           sendEvent(`ad_request_${types[type][0]}x${types[type][1]}_${unit}`);
@@ -116,7 +119,9 @@ export default function Ad({
             >
               <h3>Banner Ad Here</h3>
               <p style={{ fontSize: "0.8em" }}>
-                Ad size: {types[type][0]}x{types[type][1]}
+                {/* Ad size: {types[type][0]}x{types[type][1]} */}
+                Ad sizes: { types
+        .filter((t) => t[0] <= types[type][0] && t[1] <= types[type][1]).map((t) => `${t[0]}x${t[1]}`).join(", ") }
               </p>
               <p style={{ fontSize: "0.6em" }}>Unit: {unit}</p>
             </div>
