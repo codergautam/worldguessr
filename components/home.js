@@ -2207,7 +2207,7 @@ setShowCountryButtons(false)
 
                 height > 600 && width > 1000 &&
               (
-    <Ad
+    <NitroAd
     unit={"worldguessr_home_ad"}
     inCrazyGames={inCrazyGames} screenH={height} types={[[320,50]]} screenW={width}
                 showAdvertisementText={false}
