@@ -12,8 +12,10 @@
     --gradDouble: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.6) 15%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(var(--r), var(--g), var(--b), 0.6) 85%, rgba(var(--r), var(--g), var(--b), 1) 100%);
     --gradLight: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.52) 0%, rgba(var(--r), var(--g), var(--b), 0.28) 57%, rgba(255,255,255,0) 100%);
     --gradFull: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.72) 0%, rgba(var(--r), var(--g), var(--b), 0.38) 57%, rgba(var(--r), var(--g), var(--b), 0.3) 100%);
-    --gradRed: linear-gradient(135deg, rgba(156,82,39,0.754) 0%, rgba(255,98,98,0.4697) 31%, rgba(255,112,112,0.058) 100%);
-    --gradBlue: linear-gradient(135deg, rgba(30,62,156,0.754) 0%, rgba(98,98,255,0.4697) 31%, rgba(0,112,212,0.0) 100%);
+    --gradRed: linear-gradient(135deg, rgba(156, 82, 39, 0.9) 0%, rgba(91, 29, 29, 0.9) 31%, rgba(255, 112, 112, 0.9) 100%);
+    --gradBlue: linear-gradient(135deg, rgba(30, 62, 156, 0.9) 0%, rgba(29, 29, 91, 0.9) 31%, rgba(112, 112, 255, 0.9) 100%);
+    --gradGreenBtn: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(var(--r), var(--g), var(--b), 0.6) 57%, rgba(255, 255, 255, 0) 100%);
+
     --primary: #245734;
     --primaryDark: #112b18;
     --primaryTransparent: rgb(36, 87, 52, 0.7);
@@ -591,7 +593,7 @@ html {
 .g2_red_button {
     border: 1.4px solid #85200c;
     background: var(--gradRed);
-    transition: background-color 0.3s;
+    transition: box-shadow 0.3s ease, transform 0.3s ease, background-color 0.3s;
 }
 .g2_hover_effect {
     transition: all 0.5s;
@@ -600,45 +602,60 @@ html {
     background: var(--primary);
 }
 .g2_red_button:hover {
-    background-color: #85200c;
+    background-color: #49170d;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
 }
+
 
 .g2_blue_button {
     border: 1.4px solid #004684;
     background: var(--gradBlue);
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
 }
 .g2_blue_button:hover {
     background-color: #0b5394;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
 }
 
 .g2_green_button {
     border: 1.4px solid var(--primaryDark);
-    background: var(--gradLight);
+    background: var(--gradGreenBtn);
     color: white;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    cursor: pointer;
 }
 .g2_green_button3 {
     border: 1.4px solid var(--primaryDark);
     background-color: var(--primaryTransparent);
     color: white;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    cursor: pointer;
 }
 .g2_green_button2 {
     border: 1.4px solid var(--primaryDark);
     filter: brightness(1.8) hue-rotate(-20deg);
     background: var(--gradLight);
     color: white;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    cursor: pointer;
 }
 .g2_green_button3:hover{
     background-color: var(--primary);
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
+
 }
 .g2_green_button:hover {
     background-color: var(--primary);
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
 }
 .g2_green_button2:hover {
     background-color: var(--primary);
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
 }
 
 .g2_button_style {
@@ -756,9 +773,9 @@ h1, h2, h3, span {
     transition: all 0.5s;
     height: 50px;
 }
-.navbarColor {
-    background: var(--primaryTransparent);
-}
+// .navbarColor {
+//     background: var(--primaryTransparent);
+// }
 
 .navbar.hidden {
     transform: translateY(-100%);
