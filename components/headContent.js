@@ -6,10 +6,21 @@ export default function HeadContent({text,inCoolMathGames}) {
   useEffect(() => {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH) {
+
+
+    const scriptAp = document.createElement('script');
+    scriptAp.src = "https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js";
+    scriptAp.async = true;
+    document.body.appendChild(scriptAp);
+
+window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
+
+
       const script = document.createElement('script');
-      script.src = "https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js";
+      //<script data-cfasync="false"></script>
+      script.src = "https://s.nitropay.com/ads-2071.js";
       script.async = true;
-      document.body.appendChild(script);
+      document.head.appendChild(script);
       //  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972" crossorigin="anonymous">
       const script2 = document.createElement('script');
       script2.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972";
@@ -18,7 +29,8 @@ export default function HeadContent({text,inCoolMathGames}) {
       document.body.appendChild(script2);
 
       return () => {
-        document.body.removeChild(script);
+        document.head.removeChild(script);
+        document.body.removeChild(scriptAp);
         document.body.removeChild(script2);
       };
     } else if(window.location.search.includes("crazygames")) {

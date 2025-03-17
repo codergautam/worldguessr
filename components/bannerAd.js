@@ -1,9 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import useWindowDimensions from "./useWindowDimensions";
 import sendEvent from "./utils/sendEvent";
-import NextImage from "next/image";
 
-const AD_REFRESH_MS = 30000; // refresh ad every 60 seconds
+const AD_REFRESH_SEC = 30; // refresh ad every 30 seconds (NitroPay uses seconds)
 
 function findAdType(screenW, screenH, types, vertThresh) {
   let type = 0;
@@ -21,8 +20,7 @@ function findAdType(screenW, screenH, types, vertThresh) {
 
 export default function Ad({
   types,
-  centerOnOverflow,
-  inCrazyGames,
+  unit,
   vertThresh = 0.3,
   screenW,
   screenH,
@@ -33,7 +31,6 @@ export default function Ad({
   );
   const [isClient, setIsClient] = useState(false);
   const adDivRef = useRef(null);
-  const lastRefresh = useRef(0);
 
   useEffect(() => {
     if (window.location.hostname === "localhost") setIsClient("debug");
@@ -44,103 +41,38 @@ export default function Ad({
     setType(findAdType(screenW, screenH, types, vertThresh));
   }, [screenW, screenH, JSON.stringify(types), vertThresh]);
 
+  // NitroPay ad management
   useEffect(() => {
-    lastRefresh.current = 0;
-  }, [type]);
+    if (type === -1 || !isClient || isClient === "debug") return;
 
-  useEffect(() => {
-
-
-    const windowAny = window;
-
-    const displayNewAd = () => {
-    if(isClient === "debug" || !isClient) return;
-    console.log("Displaying new ad", type, isClient);
-
-      if (type === -1) return;
-      setTimeout(() => {
-        const isAdDivVisible =
-        adDivRef.current &&
-          adDivRef.current.getBoundingClientRect().top < window.innerHeight &&
-          adDivRef.current.getBoundingClientRect().bottom > 0;
-        if (
-          (inCrazyGames || ( windowAny.aiptag && windowAny.aiptag.cmd && windowAny.aiptag.cmd.display)) &&
-          isAdDivVisible &&
-          Date.now() - lastRefresh.current > (AD_REFRESH_MS*(inCrazyGames?2:1))
-        ) {
-          if(!inCrazyGames) {
-          try {
-            if (windowAny.aipDisplayTag && windowAny.aipDisplayTag.clear) {
-              for (const type of types) {
-                windowAny.aipDisplayTag.clear(
-                  `worldguessr-com_${type[0]}x${type[1]}`
-                );
-              }
-            }
-          } catch (e) {
-            alert("error clearing ad");
-          }
-        } else {
-          // clear everything inside the div
-          document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = "";
-        }
-
-          lastRefresh.current = Date.now();
-          sendEvent(`ad_request_${types[type][0]}x${types[type][1]}`);
-          setTimeout(() => {
-            if(!inCrazyGames) {
-          windowAny.aiptag.cmd.display.push(function () {
-            windowAny.aipDisplayTag.display(
-              `worldguessr-com_${types[type][0]}x${types[type][1]}`
-            );
-          });
-        } else {
-            // await is not mandatory when requesting banners, but it will allow you to catch errors
-
-            // check if
-            function requestCrazyGamesBanner() {
-          try {
-
-            window.CrazyGames.SDK.banner.requestBanner({
-              id: `worldguessr-com_${types[type][0]}x${types[type][1]}`,
-              width: types[type][0],
-              height: types[type][1],
-            }).then((e) => {
-              console.log("Banner request success", e);
-                  // clear everything inside the div
-          // document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = "";
-
-            }).catch((e) => {
-              console.log("Banner request error", e);
-              document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = `
-              <img src='/ad_${types[type][0]}x${types[type][1]}.png' width='${types[type][0]}' height='${types[type][1]}' alt='Advertisement' />`;
-
-            });
-
-          } catch (e) {
-            console.log("Banner request error", e);
-            if(e.code === "sdkNotInitialized") {
-              console.log("SDK not initialized, retrying in 1s");
-              setTimeout(() => {
-                requestCrazyGamesBanner();
-              }, 1000);
-            }
-          }
-          }
-          requestCrazyGamesBanner();
-
-        }
-        }, 50);
-        }
-      }, 100);
+    const config = {
+      refreshTime: AD_REFRESH_SEC,
+      renderVisibleOnly: true,
+      "report": {
+        "enabled": true,
+        "icon": true,
+        "wording": "Report Ad",
+        "position": "top-right"
+      },
+      // demo: isClient === "debug",
+      // sizes: [[types[type][0], types[type][1]]], update: instead of only choosing the best size, include the sizes that are smaller than the best (both width and height)
+      sizes: types
+        .filter((t) => t[0] <= types[type][0] && t[1] <= types[type][1])
+        .map((t) => [t[0], t[1]]),
+      report: {
+        load: () => {
+          sendEvent(`ad_request_${types[type][0]}x${types[type][1]}_${unit}`);
+        },
+        // Add other analytics hooks as needed
+      },
     };
 
-    let timerId = setInterval(() => {
-      displayNewAd();
-    }, 1000);
-    displayNewAd();
-    return () => clearInterval(timerId);
-  }, [type, inCrazyGames, isClient]);
+    window.nitroAds.createAd(unit, config);
+
+    return () => {
+      // window.nitroAds.destroy(unit);
+    };
+  }, [type, isClient, unit]);
 
   if (type === -1) return null;
   if (!isClient) return null;
@@ -174,20 +106,11 @@ export default function Ad({
           textAlign: "center",
           position: "relative",
         }}
-        id={`worldguessr-com_${types[type][0]}x${types[type][1]}`}
+        id={unit}
         ref={adDivRef}
       >
-        {isClient === "debug" ? (
+        {isClient === "debug" && (
           <>
-            <div style={{ position: "relative", zIndex: 1 }}>
-              {/* <NextImage.default
-                alt="Advertisement"
-                src={`./ad_${types[type][0]}x${types[type][1]}.png`}
-                width={types[type][0]}
-                height={types[type][1]}
-              /> */}
-            </div>
-
             <div
               style={{
                 position: "absolute",
@@ -199,23 +122,14 @@ export default function Ad({
                 backgroundColor: "rgba(0, 0, 0, 0.5)",
               }}
             >
-              <h3>Banner Ad Here</h3>
+              <h3>Banner Ad Here (Nitro)</h3>
               <p style={{ fontSize: "0.8em" }}>
-                Ad size: {types[type][0]} x {types[type][1]}
+                {/* Ad size: {types[type][0]}x{types[type][1]} */}
+                Ad sizes: { types
+        .filter((t) => t[0] <= types[type][0] && t[1] <= types[type][1]).map((t) => `${t[0]}x${t[1]}`).join(", ") }
               </p>
+              <p style={{ fontSize: "0.6em" }}>Unit: {unit}</p>
             </div>
-          </>
-        ) : (
-          <>
-            <div style={{ position: "relative", zIndex: 1 }}>
-            {/* <NextImage.default
-              alt="Advertisement"
-              src={`./ad_${types[type][0]}x${types[type][1]}.png`}
-              width={types[type][0]}
-              height={types[type][1]}
-            /> */}
-            </div>
-
           </>
         )}
       </div>

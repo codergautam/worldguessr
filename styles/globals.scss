@@ -2836,11 +2836,11 @@ map-tile__mapdetails.country{
 }
 
 .topAdFixed {
-    position: fixed;
-    top: 5px;
-    z-index: 1000;
-    left: 50%;
-    transform: translateX(-50%);
+  position: fixed;
+  top: 5px;
+  z-index: 1001;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 @media screen and (max-width: 700px) {

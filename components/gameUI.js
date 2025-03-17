@@ -16,7 +16,7 @@ import ExplanationModal from "./explanationModal";
 import SaveStreakBanner from "./streakSaveBanner";
 import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
-import Ad from "./bannerAd";
+import Ad from "./bannerAdAdinplay";
 import fixBranding from "./utils/fixBranding";
 import gameStorage from "./utils/localStorage";
 import RoundOverScreen from "./roundOverScreen";
@@ -456,7 +456,9 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
 { !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter)  && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
-    <Ad inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+      <Ad
+      unit={"worldguessr_gameui_ad"}
+    inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
 
