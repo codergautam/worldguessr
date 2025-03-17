@@ -84,7 +84,7 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
                 try {
                     json = await res.json();
                 } catch (e) {
-                    toast.error("Max file limit 4mb");
+                    toast.error("Max file limit 30mb");
                     setMakeMap({ ...makeMap, progress: false });
                     return;
                 }

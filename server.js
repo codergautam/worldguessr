@@ -46,8 +46,8 @@ function currentDate() {
   return new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
 }
 app.use(cors());
-app.use(bodyParser.json({limit: '5mb'}));
-app.use(bodyParser.urlencoded({limit: '5mb', extended: true, parameterLimit:50000}));
+app.use(bodyParser.json({limit: '30mb'}));
+app.use(bodyParser.urlencoded({limit: '30mb', extended: true, parameterLimit: 50000}));
 
 // Setup  /api routes
 const apiFolder = path.join(__dirname, 'api');
