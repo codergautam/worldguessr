@@ -113,6 +113,17 @@ export default function Home({ }) {
     const [showPartyCards, setShowPartyCards] = useState(false);
 
     useEffect(() => {
+      let hideInt = setInterval(() => {
+        if(document.getElementById("cmpPersistentLink")) {
+          document.getElementById("loading").style.display = "none";
+          clearInterval(hideInt);
+        }
+      }, 2000);
+      
+      return () => clearInterval(hideInt);
+    }, [])
+
+    useEffect(() => {
         const { ramUsage } = options;
         if (ramUsage) {
             if (!statsRef.current) {
@@ -2164,7 +2175,7 @@ export default function Home({ }) {
 
                         </div>
                         <div className="g2_content g2_content_margin g2_slide_in" style={{ display: "flex", gap: "20px", flexDirection: "column" }}>
-                            {/* 
+                            {/*
                             {session?.token?.secret && (
                                 <button className="g2_nav_text " onClick={() => { handleMultiplayerAction("publicDuel"); setShowPartyCards(false); }}
                                     disabled={!multiplayerState.connected || maintenance}>{text("rankedDuel")}</button>
