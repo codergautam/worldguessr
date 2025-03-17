@@ -114,6 +114,17 @@ export default function Home({ }) {
   const [miniMapShown, setMiniMapShown] = useState(false)
 
   useEffect(() => {
+    let hideInt = setInterval(() => {
+      if(document.getElementById("cmpPersistentLink")) {
+        document.getElementById("cmpPersistentLink").style.display = "none";
+        clearInterval(hideInt);
+      }
+    }, 2000);
+
+    return () => clearInterval(hideInt);
+  }, [])
+
+  useEffect(() => {
     const {ramUsage} = options;
     if(ramUsage) {
       if(!statsRef.current) {
