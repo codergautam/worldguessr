@@ -115,11 +115,11 @@ export default function Home({ }) {
     useEffect(() => {
       let hideInt = setInterval(() => {
         if(document.getElementById("cmpPersistentLink")) {
-          document.getElementById("loading").style.display = "none";
+          document.getElementById("cmpPersistentLink").style.display = "none";
           clearInterval(hideInt);
         }
       }, 2000);
-      
+
       return () => clearInterval(hideInt);
     }, [])
 
