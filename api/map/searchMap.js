@@ -36,15 +36,21 @@ export default async function searchMaps(req, res) {
 
   try {
     // Find maps that match the search query in either name, short description, or author name
+    // let maps = await Map.find({
+    //   accepted: true,
+    //   $or: [
+    //     { name: { $regex: query, $options: 'i' } },
+    //     { description_short: { $regex: query, $options: 'i' } },
+    //     { created_by_name: { $regex: query, $options: 'i' } }
+    //   ]
+    // }).sort({ hearts: -1 }).limit(50).cache(10000);
+
     let maps = await Map.find({
       accepted: true,
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { description_short: { $regex: query, $options: 'i' } },
-        { created_by_name: { $regex: query, $options: 'i' } }
-      ]
+      $text: { $search: query }
     }).sort({ hearts: -1 }).limit(50).cache(10000);
 
+    
     // Convert maps to sendable format
     let sendableMaps = await Promise.all(maps.map(async (map) => {
 
