@@ -17,7 +17,10 @@ import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
 import { useTranslation } from '@/components/useTranslations'
 import useWindowDimensions from "@/components/useWindowDimensions";
-import Ad from "@/components/bannerAd";
+
+import NitroAd from "@/components/bannerAd";
+import Ad from "@/components/bannerAdAdinplay";
+
 import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
 import sendEvent from "@/components/utils/sendEvent";
@@ -109,6 +112,17 @@ export default function Home({ }) {
   const [onboardingModalShown, setOnboardingModalShown] = useState(false);
   const [multiplayerError, setMultiplayerError] = useState(null);
   const [miniMapShown, setMiniMapShown] = useState(false)
+
+  useEffect(() => {
+    let hideInt = setInterval(() => {
+      if(document.getElementById("cmpPersistentLink")) {
+        document.getElementById("cmpPersistentLink").style.display = "none";
+        clearInterval(hideInt);
+      }
+    }, 2000);
+
+    return () => clearInterval(hideInt);
+  }, [])
 
   useEffect(() => {
     const {ramUsage} = options;
@@ -2192,11 +2206,23 @@ setShowCountryButtons(false)
             </div>
 
           <div style={{ marginTop: "20px" }}>
-            <center>
+          <center>
               { !loading && screen === "home"  && !inCrazyGames && !inCoolMathGames &&(!session?.token?.supporter) && (
-    <Ad
+    <Ad inCrazyGames={inCrazyGames} screenH={height} types={[[320,50],[728,90],[970,90],[970,250]]} screenW={width} />
+              )}
+    </center>
+
+    <br/>
+    <center>
+              { !loading && screen === "home"  && !inCrazyGames && !inCoolMathGames &&(!session?.token?.supporter) &&
+
+                height > 600 && width > 1000 &&
+              (
+    <NitroAd
     unit={"worldguessr_home_ad"}
-    inCrazyGames={inCrazyGames} screenH={height} types={[[320,50],[728,90],[970,90],[970,250]]} screenW={width} />
+    inCrazyGames={inCrazyGames} screenH={height} types={[[320,50]]} screenW={width}
+                showAdvertisementText={false}
+    />
               )}
     </center>
             </div>

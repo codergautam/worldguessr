@@ -122,7 +122,7 @@ export default function Ad({
                 backgroundColor: "rgba(0, 0, 0, 0.5)",
               }}
             >
-              <h3>Banner Ad Here</h3>
+              <h3>Banner Ad Here (Nitro)</h3>
               <p style={{ fontSize: "0.8em" }}>
                 {/* Ad size: {types[type][0]}x{types[type][1]} */}
                 Ad sizes: { types
