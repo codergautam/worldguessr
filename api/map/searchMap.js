@@ -12,7 +12,7 @@ export default async function searchMaps(req, res) {
   let { query, secret } = req.body;
   console.log("searchMaps", query, secret);
 
-  return res.status(429).json({ message: 'Temporarily not available' });
+  // return res.status(429).json({ message: 'Temporarily not available' });
 
   // secret must be string
   if (secret && typeof secret !== 'string') {
