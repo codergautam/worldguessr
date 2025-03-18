@@ -10,6 +10,9 @@ export default async function searchMaps(req, res) {
   }
 
   let { query, secret } = req.body;
+  console.log("searchMaps", query, secret);
+
+  return res.status(429).json({ message: 'Temporarily not available' });
 
   // secret must be string
   if (secret && typeof secret !== 'string') {
@@ -50,7 +53,7 @@ export default async function searchMaps(req, res) {
       $text: { $search: query }
     }).sort({ hearts: -1 }).limit(50).cache(10000);
 
-    
+
     // Convert maps to sendable format
     let sendableMaps = await Promise.all(maps.map(async (map) => {
 
