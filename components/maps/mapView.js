@@ -1072,30 +1072,30 @@ export default function MapView({ gameOptions, setGameOptions, showOptions, clos
 
     window.cConfig = config();
 
-    const controller = new AbortController();
-const timeoutId = setTimeout(() => controller.abort(), 5000);
+    let fallback = setTimeout(() => {
+      setMapHome(backupMapHome);
+    }, 5000);
 
-fetch(window.cConfig.apiUrl + "/api/map/mapHome", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(
-    session?.token?.secret
-      ? { secret: session?.token?.secret, inCG: window.inCrazyGames }
-      : {}
-  ),
-  signal: controller.signal,
-})
-  .then((res) => res.json())
-  .then((data) => {
-    clearTimeout(timeoutId);
-    setMapHome(data);
-  })
-  .catch(() => {
-    setMapHome(backupMapHome);
-  });
-
+    fetch(window.cConfig.apiUrl+"/api/map/mapHome", {
+      method: "POST",
+      headers: {
+      "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+      session?.token?.secret ? { secret: session?.token?.secret,
+        inCG: window.inCrazyGames
+       } : {}
+      ),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        clearTimeout(fallback);
+        setMapHome(data);
+      })
+      .catch(() => {
+        clearTimeout(fallback);
+        setMapHome(backupMapHome);
+      });
     }
   useEffect(() => {
     refreshHome();
