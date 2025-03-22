@@ -1099,7 +1099,8 @@ app.ws('/wg', {
 try {
   const gamestate = JSON.parse(fs.readFileSync(tmpdir() + `/gamestate.worldguessr`));
   if (gamestate && Date.now() - gamestate.time < 1000 * 60) {
-    console.log('Recovered gamestate', gamestate.games.length, 'games', gamestate.players.length, 'players');
+    console.log('Recovered gamestate', gamestate.games.length, 'games', gamestate.players.length, 'players', currentDate());
+    console.error('Recovered gamestate', gamestate.games.length, 'games', gamestate.players.length, 'players', currentDate()); // so it shows up in the error log after a crash
 
     for (const player of gamestate.players) {
       const newPlayer = Player.fromJSON(player);
