@@ -6,7 +6,7 @@ import { useTranslation } from '@/components/useTranslations'
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, sharedSingle }) {
   const { t: text } = useTranslation("common");
 
   const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer'))) && (!loading);
@@ -55,7 +55,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
          <FaUserFriends size={40}/>
           </button>
         )}
-        { screen === 'singleplayer' && (
+        { screen === 'singleplayer' && !sharedSingle && (
         <button className="gameBtn navBtn" disabled={loading} onClick={()=>setGameOptionsModalShown(true)}>
           {((gameOptions.location === "all")|| !gameOptions.location)? text("allCountries") : gameOptions?.countryMap?nameFromCode(gameOptions.location):gameOptions?.communityMapName}
           {gameOptions.nm && gameOptions.npz?
