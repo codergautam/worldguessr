@@ -161,8 +161,12 @@ export default class Game {
     if(this.public && this.state === 'end') {
       this.removePlayer(player);
     } else {
+      try {
     player.ws.send(JSON.stringify(this.getInitialSendState(player)));
-    }
+      } catch(e) {
+        console.error('Error sending game state to rejoining player', e);
+      }
+  }
   }
 
   givePoints() {
