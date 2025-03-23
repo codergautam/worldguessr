@@ -12,7 +12,7 @@
 google.com, pub-3340825671684972, DIRECT, f08c47fec0942fa0
 
 ##################################
-# AdinPlay.com ads.txt - 2025-03-10
+# AdinPlay.com ads.txt - 2025-03-20
 ##################################
 
 OWNERDOMAIN=swordbattle.io
@@ -710,6 +710,10 @@ rubiconproject.com, 21642, RESELLER, 0bfd66d529a55807
 conversantmedia.com, 100141, RESELLER
 indexexchange.com, 191973, RESELLER, 50b1c356f2c5c8fc
 triplelift.com, 12503, RESELLER, 6c33edb13117fd86
+insticator.com, 4ec3ed85-2830-4174-9f7f-f545620598b9, RESELLER
+sharethrough.com, Q9IzHdvp, RESELLER, d53b998a7bd4ecd2
+admanmedia.com, 2216, RESELLER
+connectad.io, 456, RESELLER, 85ac85a30c93b3e5
 # Adagio - Equativ
 smartadserver.com, 3554, RESELLER
 # Adagio - Sovrn
@@ -835,8 +839,10 @@ themediagrid.com, LTW57M, DIRECT, 35d5010d7789b49d
 vidazoo.com, 655c85dc63ceeb606a0f365f, DIRECT, b6ada874b4d7d0b2
 smartadserver.com, 3490, DIRECT
 
+venatus.com, SWT, DIRECT
+
 ##################################
-# AdinPlay.com ads.txt - 2025-03-10
+# AdinPlay.com ads.txt - 2025-03-20
 ##################################
 
 
