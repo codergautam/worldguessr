@@ -234,7 +234,7 @@ html {
     justify-content: center;
 }
 
-@media (max-aspect-ratio: 1/1) or (min-aspect-ratio: 2/1) {
+@media (max-aspect-ratio: 1/1.5) or (min-aspect-ratio: 2.5/1) {
     .g2_nav_squares{
         flex-direction: column;
     }
@@ -1465,6 +1465,7 @@ h1, h2, h3, span {
 }
 .topGameInfoButton:hover{
     color: #BBBBFF;
+    cursor: pointer;
     background: rgba(255, 255, 255, 0.1);
 }
 
