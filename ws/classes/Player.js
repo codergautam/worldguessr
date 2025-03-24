@@ -83,11 +83,10 @@ export default class Player {
 
     const handleReconnect = (dcPlayerId, rejoinCode) => {
       const dcPlayer = players.get(dcPlayerId);
-      if(dcPlayer) {
+      if(dcPlayer && this.ws) {
 
       // remove from disconnected players
       disconnectedPlayers.delete(rejoinCode);
-
       // set the player's ws to this ws
       this.ws.id = dcPlayerId;
       dcPlayer.ws = this.ws;

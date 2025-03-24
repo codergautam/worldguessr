@@ -5,7 +5,7 @@ const PrivacyPolicy = () => {
   return (
     <div style={{ padding: '2rem', overflow: 'scroll' }}>
       <h1>Privacy Policy</h1>
-      <p><strong>Effective Date:</strong> 03/13/25</p>
+      <p><strong>Effective Date:</strong> 03/18/25</p>
       <style>{`
         * {
           overflow: visible !important;
@@ -19,9 +19,9 @@ const PrivacyPolicy = () => {
         when you use our website and services.
       </p>
 
-          <p>
-  WorldGuessr is open to players of all ages for responsible free play. However, to create an account, you must be at least 13 years old, in accordance with Google policies. If you are under 13, you may only create an account with verifiable parental or guardian consent.
-</p>
+      <p>
+        WorldGuessr is open to players of all ages for responsible free play. However, to create an account, you must be at least 13 years old, in accordance with Google policies. If you are under 13, you may only create an account with verifiable parental or guardian consent.
+      </p>
 
       <h2>Information We Collect</h2>
       <h3>1. Google OAuth Data</h3>
@@ -54,6 +54,11 @@ const PrivacyPolicy = () => {
         information as described in their respective privacy policies.
       </p>
       <p>All or partial advertising on this Website or App is managed by Adinplay LLC.</p>
+
+      <h2>Cheating Policy</h2>
+      <p>
+        Cheating, exploiting bugs, or using unauthorized tools to gain an advantage in WorldGuessr is strictly prohibited. Players found engaging in such activities may have their accounts banned, and all progress may be forfeited. We encourage fair play and a positive gaming experience for everyone.
+      </p>
 
       <h2>Data Security</h2>
       <p>
