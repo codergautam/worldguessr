@@ -433,6 +433,7 @@ export default function Home({ }) {
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [coolmathSplash, setCoolmathSplash] = useState(null);
+    const [navSlideOut, setNavSlideOut] = useState(false);
 
     // check if ?coolmath=true
     useEffect(() => {
@@ -1985,27 +1986,7 @@ export default function Home({ }) {
 
             )}
 
-            <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal) ? "visible" : ""}`}>
-                <div className="footer_btns">
-                    {!isApp && !inCoolMathGames && (
-                        <>
-                            <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
 
-                            {!inCrazyGames && (
-                                <>
-                                    <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                                    <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
-                                </>
-                            )}
-                            <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
-
-                                <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                        </>
-                    )}
-
-                    <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
-                </div>
-            </div>
 
             <div style={{
                 top: 0,
@@ -2103,7 +2084,7 @@ export default function Home({ }) {
 
                 {screen == "home" &&
                     <div className={`home__content g2_modal ${screen !== "home" ? "hidden" : "cshown"} `}>
-                        <div className="g2_nav_ui" >
+                        <div className={`g2_nav_ui ${navSlideOut ? 'g2_slide_out' : ''}`} >
 
 
                             {onboardingCompleted === null ? (
@@ -2115,7 +2096,7 @@ export default function Home({ }) {
 
 
                                     {onboardingCompleted && (
-                                        <h1 className="home__title g2_nav_title wg_font">WorldGuessr</h1>
+                                        <h1 className={`home__title g2_nav_title wg_font ${navSlideOut ? 'g2_slide_out' : ''}`}>WorldGuessr</h1>
                                     )}
 
 
@@ -2129,11 +2110,14 @@ export default function Home({ }) {
                                                 <button className="g2_nav_text singleplayer"
 
                                                     onClick={() => {
-                                                        if (!loading) {
-                                                            // setScreen("singleplayer")
-                                                            crazyMidgame(() => setScreen("singleplayer"))
-                                                        }
-                                                        setShowPartyCards(false);
+                                                            if (loading) return;
+
+                                                            setNavSlideOut(true);
+                                                            setTimeout(() => {
+                                                              crazyMidgame(() => setScreen("singleplayer"));
+                                                              setShowPartyCards(false);
+                                                              setNavSlideOut(false); // Reset for next use
+                                                            }, 300);
                                                     }}>
                                                     {text("singleplayer")}
                                                 </button>
@@ -2147,17 +2131,57 @@ export default function Home({ }) {
 
                                             <div className="g2_nav_group">
                                                 {/*<button className="g2_nav_text" aria-label="Party" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("privateGame")}</button>*/}
-                                                <button className="g2_nav_text" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("createPrivateGame")}>{text("createGame")}</button>
-                                                <button className="g2_nav_text" disabled={!multiplayerState.connected || maintenance} onClick={() => handleMultiplayerAction("joinPrivateGame")}>{text("joinGame")}</button>
+                                                <button className="g2_nav_text" disabled={!multiplayerState.connected || maintenance} onClick={() => {
+                                                    setNavSlideOut(true);
+                                                    setTimeout(() => {
+                                                        setNavSlideOut(false); // Reset for next use
+                                                    handleMultiplayerAction("createPrivateGame")
+                                                    }, 300);
+                                                    }}>{text("createGame")}</button>
+                                                <button className="g2_nav_text" disabled={!multiplayerState.connected || maintenance} onClick={() => {
+                                                    setNavSlideOut(true);
+                                                    setTimeout(() => {
+                                                        setNavSlideOut(false); // Reset for next use
+                                                        handleMultiplayerAction("joinPrivateGame")
+
+                                                    }, 300);
+
+                                                    }}>{text("joinGame")}</button>
                                             </div>
 
                                             <div className="g2_nav_hr"></div>
 
                                             <div className="g2_nav_group">
                                                 {!process.env.NEXT_PUBLIC_COOLMATH &&
-                                                    <button className="g2_nav_text" aria-label="Community Maps" onClick={() => { setMapModal(true); setShowPartyCards(false); }}>{text("communityMaps")}</button>}
+                                                    <button className="g2_nav_text" aria-label="Community Maps" onClick={() => {
+                                                        setNavSlideOut(true);
+                                                        setTimeout(() => {
+                                                            setNavSlideOut(false); // Reset for next use
+                                                            setMapModal(true); setShowPartyCards(false);
+                                                        }, 300);
+                                                        }}>{text("communityMaps")}</button>}
                                             </div>
+                                            <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal) ? "visible" : ""}`}>
+                <div className="footer_btns">
+                    {!isApp && !inCoolMathGames && (
+                        <>
+                            <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
 
+                            {!inCrazyGames && (
+                                <>
+                                    <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
+                                    <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                                </>
+                            )}
+                            <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
+
+                                <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                        </>
+                    )}
+
+                    <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
+                </div>
+            </div>
                                         </>
                                     )}
 

@@ -42,7 +42,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
 
     if (!eloData) return null;
 
-   
+
 
 
     return (
@@ -67,7 +67,6 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         }} classNames={{ modal: "g2_modal" }} open={shown} center onClose={() => { setAccountModalOpen(false) }} showCloseIcon={false} animationDuration={0}>
 
             <div className="g2_nav_ui">
-                <h1 className="g2_nav_title">{accountData.username}</h1>
                 <div className="g2_nav_hr"></div>
                 <div className="g2_nav_group">
                     <button className="g2_nav_text" onClick={() => setAccountModalPage("profile") }>{text("profile")}</button>
@@ -108,7 +107,9 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 )}
                 {(accountModalPage !== "profile") && (
                     <FriendsModal ws={ws} canSendInvite={canSendInvite} sendInvite={sendInvite} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
-                        friends={friends} setFriends={setFriends} sentRequests={sentRequests} setSentRequests={setSentRequests} receivedRequests={receivedRequests} setReceivedRequests={setReceivedRequests} />
+                        friends={friends}
+                        shown={accountModalPage !== "profile"}
+                        setFriends={setFriends} sentRequests={sentRequests} setSentRequests={setSentRequests} receivedRequests={receivedRequests} setReceivedRequests={setReceivedRequests} />
                 ) }
             </div>
         </Modal>

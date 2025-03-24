@@ -87,7 +87,7 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
                 )}
 
 
-                <div className="g2_nav_group">
+                <div className="g2_nav_group map_categories">
                     <button className="g2_nav_text singleplayer"
                         onClick={() => document.getElementById("countryMaps_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("countryMaps")}</button>
@@ -154,10 +154,12 @@ const styles = {
         position: "relative",
         pointerEvents: "all",
         zIndex: 1010,
-    },
+        width: "100%",
+       },
     modalContent: {
         width: "100%",
-        height: "100%",
+        marginTop: "30px",
+        height: "calc(100% - 30px)",
         overflowY: "auto",
         paddingBottom: "40px",
         paddingTop: "50px"

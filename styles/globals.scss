@@ -137,7 +137,6 @@ html {
     height: 100vh;
     display: flex !important;
     position: absolute;
-    background: linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("/street2.jpg");
     object-fit: cover;
     background-size: cover;
     background-position: center;
@@ -174,6 +173,16 @@ html {
     padding-right: 5vw;
     padding-top: 15vh;
 }
+@keyframes nav_slide_out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+}
 
 .g2_nav_ui {
     padding-top: 50px;
@@ -184,15 +193,22 @@ html {
     width: 30vw;
     gap: 15px;
     padding-left: 5vw;
-    background: linear-gradient(65deg, var(--gradTopBase)), linear-gradient(90deg, var(--gradBottomBase));
+    background: linear-gradient(65deg, var(--gradTopBase)),
+                linear-gradient(90deg, var(--gradBottomBase));
+    transition: opacity 0.3s ease-in-out;
+}
 
+.g2_slide_out {
+    animation: nav_slide_out 0.3s ease-in-out forwards;
 }
+
 .g2_nav_ui > * {
-    animation: nav_slide_in 0.3s ease-in-out;
+    animation: nav_slide_in 0.3s ease-in-out forwards;
 }
-.g2_slide_in > * {
-    animation: nav_slide_in 0.3s ease-in-out;
+.g2_slide_in >* {
+    animation: nav_slide_in 0.3s ease-in-out forwards;
 }
+
 
 .g2_nav_group {
     display: flex;
@@ -234,7 +250,49 @@ html {
     justify-content: center;
 }
 
-@media (max-aspect-ratio: 1/1.5) or (min-aspect-ratio: 2.5/1) {
+.home__footer.visible {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.home__footer {
+    left: 5vw;
+    bottom: 50px;
+    position: fixed;
+    pointer-events: all;
+    z-index: 10000;
+    transform: translateY(100px);
+    opacity: 0;
+    transition: transform 0.5s ease, opacity 0.5s ease;
+}
+.footer_btns {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 20px;
+    max-width: 1000px;
+    z-index: 100;
+    pointer-events: all;
+
+    button {
+        //height: clamp(1.3em, 3vw, 5em);
+        //width: clamp(1.3em, 3vw, 5em);
+        height: 3vw;
+        width: 3vw;
+        font-size: max(3vw, 40px);
+        min-height: 50px;
+        min-width: 50px;
+
+        padding: 10px;
+        background-color: var(--primaryTransparent);
+        aspect-ratio: 1/1;
+        animation: fadeIn 0.4s ease-in-out forwards;
+        opacity: 0;
+        border: 1.5px solid var(--primaryDark);
+    }
+}
+@media (max-aspect-ratio: 1/1.5) or (max-height: 600px) or (min-aspect-ratio: 3/1) {
     .g2_nav_squares{
         flex-direction: column;
     }
@@ -284,6 +342,23 @@ html {
         height: auto;
         gap: 5px;
     }
+    .map_categories {
+        display: none;
+    }
+
+    // if height less than 500px
+    @media screen and (max-height: 500px) {
+        .home__footer {
+            bottom: 0px;
+            position: static;
+            align-items: normal !important;
+        }
+        .footer_btns {
+            align-items: normal !important;
+            justify-content: normal !important;
+        }
+    }
+
 }
 
 #g2_playerCount{
@@ -334,48 +409,8 @@ html {
 
 
 
-.home__footer {
-    left: 5vw;
-    bottom: 50px;
-    position: fixed;
-    pointer-events: all;
-    z-index: 10000;
-    transform: translateY(100px);
-    opacity: 0;
-    transition: transform 0.5s ease, opacity 0.5s ease;
-}
 
-.home__footer.visible {
-    transform: translateY(0);
-    opacity: 1;
-}
-.footer_btns {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-    margin-top: 20px;
-    max-width: 1000px;
-    z-index: 100;
-    pointer-events: all;
 
-    button {
-        //height: clamp(1.3em, 3vw, 5em);
-        //width: clamp(1.3em, 3vw, 5em);
-        height: 3vw;
-        width: 3vw;
-        font-size: max(3vw, 40px);
-        min-height: 50px;
-        min-width: 50px;
-
-        padding: 10px;
-        background-color: var(--primaryTransparent);
-        aspect-ratio: 1/1;
-        animation: fadeIn 0.4s ease-in-out forwards;
-        opacity: 0;
-        border: 1.5px solid var(--primaryDark);
-    }
-}
 
 .discord {
     background-color: #738adb !important;
@@ -401,11 +436,10 @@ html {
     -webkit-text-stroke: 1px black;
     text-shadow: 2px 2px black;
     margin-bottom: 0;
-    animation: fadeIn 0.4s ease-in-out forwards;
 }
 
 .home__subtitle {
-    font-size: clamp(1.2em, 2vw, 5em);
+    font-size: clamp(1.2em, 1.8vw, 1.5em);
     font-weight: 500;
     color: white;
     text-align: center;
@@ -2106,6 +2140,7 @@ img[alt="Google"] {
 }
 
 .friendBtn {
+    background: var(--gradGreenBtn);
     width: fit-content;
     display: flex;
     color: white;
