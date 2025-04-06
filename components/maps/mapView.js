@@ -9,7 +9,7 @@ import { backupMapHome } from "../utils/backupMapHome.js";
 
 
 
-  export default function MapView({ gameOptions, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption, makeMap, setMakeMap, initMakeMap, searchTerm, setSearchTerm, searchResults, setSearchResults }) {
+  export default function MapView({ gameOptions, mapModalClosing, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption, makeMap, setMakeMap, initMakeMap, searchTerm, setSearchTerm, searchResults, setSearchResults }) {
 
       const [mapHome, setMapHome] = useState({
           message: text("loading") + "...",
@@ -208,7 +208,7 @@ import { backupMapHome } from "../utils/backupMapHome.js";
               });
 
       return (
-          <div className="mapView">
+          <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
               {makeMap.open && (<div className="mapViewNavbar g2_container">
                   <div className="mapViewLeft">
                       <button

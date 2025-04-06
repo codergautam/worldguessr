@@ -13,7 +13,7 @@ const initMakeMap = {
     edit: false,
     mapId: "",
 };
-export default function MapsModal({ gameOptions, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions }) {
+export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions }) {
     if (!shown) {
         return null;
     }
@@ -68,7 +68,7 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
 
     return (
         <Modal classNames={{ modal: "g2_modal" }} styles={{ modal: styles.overlay }} open={shown} onClose={onClose} showCloseIcon={false} animationDuration={0}>
-            <div className="g2_nav_ui">
+            <div className={`g2_nav_ui ${mapModalClosing ? "g2_slide_out" : ""}`}>
                 <h1 className="g2_nav_title">{text("communityMaps")}</h1>
                 <div className="g2_nav_hr"></div>
                 {!makeMap.open && (
@@ -107,6 +107,7 @@ export default function MapsModal({ gameOptions, setGameOptions, shown, onClose,
             <div className="g2_content" style={styles.modal}>
                 <div style={styles.modalContent}>
                     <MapView
+                    mapModalClosing={mapModalClosing}
                         showOptions={showOptions}
                         showAllCountriesOption={showAllCountriesOption}
                         chosenMap={chosenMap}
@@ -162,7 +163,8 @@ const styles = {
         height: "calc(100% - 30px)",
         overflowY: "auto",
         paddingBottom: "40px",
-        paddingTop: "50px"
+        paddingTop: "50px",
+        overflowX: "hidden",
     },
     closeButton: {
         position: "absolute",

@@ -111,6 +111,7 @@ export default function Home({ }) {
     const [accountModalPage, setAccountModalPage] = useState("profile");
 
     const [showPartyCards, setShowPartyCards] = useState(false);
+    const [mapModalClosing, setMapModalClosing] = useState(false);
 
     useEffect(() => {
       let hideInt = setInterval(() => {
@@ -2242,7 +2243,15 @@ export default function Home({ }) {
                     </div>
                 }
                 <InfoModal shown={false} />
-                <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => { setMapModal(false); setGameOptionsModalShown(false) }} text={text}
+                <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {
+                    if(mapModalClosing) return;
+                    setMapModalClosing(true);
+                    setTimeout(() => {
+                        setMapModal(false); setGameOptionsModalShown(false); setMapModalClosing(false)
+                    }, 300);
+                   }}
+                mapModalClosing={mapModalClosing}
+                text={text}
                     customChooseMapCallback={(gameOptionsModalShown && screen === "singleplayer") ? (map) => {
                         console.log("map", map)
                         openMap(map.countryMap || map.slug);

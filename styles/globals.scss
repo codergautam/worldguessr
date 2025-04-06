@@ -183,7 +183,16 @@ html {
         opacity: 0;
     }
 }
-
+@keyframes nav_slide_out_right {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
 .g2_nav_ui {
     padding-top: 50px;
     left: 0px;
@@ -207,6 +216,9 @@ html {
 }
 .g2_slide_in >* {
     animation: nav_slide_in 0.3s ease-in-out forwards;
+}
+.slideout_right {
+    animation: nav_slide_out_right 0.3s ease-in-out forwards;
 }
 
 
