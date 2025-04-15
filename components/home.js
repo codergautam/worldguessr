@@ -1946,10 +1946,10 @@ setShowCountryButtons(false)
 
 
       if(hasCheatStyles()) return true;
-    //   try {
-    //   if(window.localStorage.getItem("banned")) return true;
-    //   } catch(e) {
-    //   }
+      try {
+      if(window.localStorage.getItem("bannedr")) return true;
+      } catch(e) {
+      }
       return false;
     }
     function banGame() {
@@ -1972,11 +1972,11 @@ setShowCountryButtons(false)
         body: JSON.stringify(data),
       }).then((response) => {
         window.location.href = "/banned2";
-        window.localStorage.setItem("banned", "true")
+        window.localStorage.setItem("bannedr", "true")
       }
       ).catch((error) => {
         window.location.href = "/banned2";
-        window.localStorage.setItem("banned", "true")
+        window.localStorage.setItem("bannedr", "true")
       });
     }
     if(checkForCheats()) {
