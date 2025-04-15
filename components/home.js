@@ -1971,11 +1971,11 @@ setShowCountryButtons(false)
         },
         body: JSON.stringify(data),
       }).then((response) => {
-        // window.location.href = "/banned2";
+        window.location.href = "/banned2";
         window.localStorage.setItem("banned", "true")
       }
       ).catch((error) => {
-        // window.location.href = "/banned2";
+        window.location.href = "/banned2";
         window.localStorage.setItem("banned", "true")
       });
     }
