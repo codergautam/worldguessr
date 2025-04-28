@@ -1100,20 +1100,30 @@ setShowCountryButtons(false)
 
     if(multiplayerState?.connected) {
 
-          // check if joined via invite link
+          // check if joined via invite link (CrazyGames, localStorage, or URL param)
           try {
-            let code = inCrazyGames ?  window.CrazyGames.SDK.game.getInviteParam("code") : window.localStorage.getItem("joinCode");
-            let instantJoin = window.location.search.includes("instantJoin");
+            let code = null;
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlCode = urlParams.get("code");
 
-
-            if(window.localStorage.getItem("joinCode")) {
-              window.localStorage.removeItem("joinCode")
+            if (urlCode) {
+              code = urlCode;
+              // Clean the code from the URL to prevent re-joining on refresh
+              const nextURL = window.location.pathname + window.location.search.replace(/&?code=[^&]*/, '').replace(/^\?$/, '');
+              window.history.replaceState({}, document.title, nextURL);
+            } else if (inCrazyGames) {
+              code = window.CrazyGames.SDK.game.getInviteParam("code");
+            } else {
+              code = window.localStorage.getItem("joinCode");
+              if (code) {
+                window.localStorage.removeItem("joinCode");
+              }
             }
 
+            let instantJoin = window.location.search.includes("instantJoin"); // Keep this for potential future use?
 
             if(code || instantJoin) {
-
-              if(typeof code === "string") {
+              if(typeof code === "string" && code) {
                 try {
                   code = parseInt(code)
                 } catch(e) {
@@ -2504,4 +2514,3 @@ if(window.inCrazyGames) {
     </>
   )
 }
-

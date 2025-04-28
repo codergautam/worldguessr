@@ -149,6 +149,7 @@
   "finalRound": "¡Ronda final!",
   "onboardingTimeEnd": "Olvidaste adivinar dentro del tiempo. ¡Presta atención!",
   "roundOver": "Ronda terminada",
+  "scanToJoin": "Escanear para Unirse",
   "home": "Inicio",
   "timeTakenTemplate": "Tiempo: {{t}}",
   "pointsEarnedTemplate": "Puntos: {{p}}",
