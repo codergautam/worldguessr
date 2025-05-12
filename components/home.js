@@ -1971,12 +1971,12 @@ setShowCountryButtons(false)
         },
         body: JSON.stringify(data),
       }).then((response) => {
-        window.location.href = "/banned2";
-        window.localStorage.setItem("bannedr", "true")
+        // window.location.href = "/banned2";
+        // window.localStorage.setItem("bannedr", "true")
       }
       ).catch((error) => {
-        window.location.href = "/banned2";
-        window.localStorage.setItem("bannedr", "true")
+        // window.location.href = "/banned2";
+        // window.localStorage.setItem("bannedr", "true")
       });
     }
     if(checkForCheats()) {
