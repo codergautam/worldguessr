@@ -199,7 +199,7 @@ statsRef.current = stats;
     },
     onNonOAuthError: error => {
       console.log("login non oauth error", error);
-      toast.error("Login error, contact support if this persists (1)")
+      toast.error("Login error, contact support if this persists (1) If using brave, enable third party cookies because Google requires it.")
 
     },
     flow: "auth-code",
