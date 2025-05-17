@@ -148,6 +148,7 @@
   "finalRound": "Финальный раунд!",
   "onboardingTimeEnd": "Вы забыли сделать предположение за отведенное время. Обратите внимание!",
   "roundOver": "Раунд окончен",
+  "scanToJoin": "Сканировать для присоединения",
   "home": "Главная",
   "timeTakenTemplate": "Время: {{t}}",
   "pointsEarnedTemplate": "Очки: {{p}}",

@@ -150,6 +150,7 @@
   "finalRound": "Final Round!",
   "onboardingTimeEnd": "You forgot to guess within the time. Pay attention!",
   "roundOver": "Round Over",
+  "scanToJoin": "Scan to Join",
   "home": "Home",
   "timeTakenTemplate": "Time: {{t}}",
   "pointsEarnedTemplate": "Points: {{p}}",

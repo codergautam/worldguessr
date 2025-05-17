@@ -1,11 +1,13 @@
 import { useTranslation } from '@/components/useTranslations'
 import guestNameString from '@/serverUtils/guestNameFromString';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { FaCopy } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
+import QRCode from 'qrcode';
 
 export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick }) {
   const { t: text } = useTranslation("common");
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
 
   const players = (multiplayerState?.gameData?.finalPlayers ?? multiplayerState?.gameData?.players).sort((a, b) => b.score - a.score);
   const myId = multiplayerState?.gameData?.myId;
@@ -14,7 +16,24 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
   const waitingForStart = multiplayerState.gameData?.state === "waiting";
   const gameOver = multiplayerState.gameData?.state === "end";
   const host = multiplayerState.gameData?.host;
+  const gameCode = multiplayerState.gameData?.code;
   const N = waitingForStart ? 200 : 5; // Number of top players to show
+
+  useEffect(() => {
+    if (waitingForStart && host && gameCode) {
+      const joinUrl = `${window.location.origin}/?code=${gameCode}`;
+      QRCode.toDataURL(joinUrl, { errorCorrectionLevel: 'H', width: 256 }, (err, url) => { // Increased width here
+        if (err) {
+          console.error("Failed to generate QR code:", err);
+          setQrCodeUrl('');
+        } else {
+          setQrCodeUrl(url);
+        }
+      });
+    } else {
+      setQrCodeUrl('');
+    }
+  }, [waitingForStart, host, gameCode]);
 
   return (
     <div className="multiplayerLeaderboard">
@@ -152,6 +171,13 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
         :
         <button className="gameBtn" onClick={() => startGameHost()}>{text("startGame")}</button> }
 
+        </div>
+      )}
+
+      { waitingForStart && host && qrCodeUrl && (
+        <div style={{ marginTop: '15px', background: 'white', padding: '10px', display: 'inline-block', borderRadius: '5px', textAlign: 'center' }}>
+          <img src={qrCodeUrl} alt="Join Game QR Code" width="256" height="256" />
+          <p style={{ color: 'black', marginTop: '5px', fontSize: '0.9em' }}>{text("scanToJoin")}</p>
         </div>
       )}
 
