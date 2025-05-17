@@ -239,5 +239,6 @@
   "recentChange": "Ha realizado un cambio de nombre reciente. Puede tardar hasta 24 horas en actualizarse completamente.",
   "nameChangeInProgress": "Su cambio de nombre a {{name}} está en proceso, puede tardar hasta 24 horas en actualizarse completamente.",
   "nameChangeCooldown": "Puede cambiar su nombre nuevamente en {{days}} días",
-  "disableTimer": "Deshabilitar temporizador"
+  "disableTimer": "Deshabilitar temporizador",
+  "confirmLeaveGame": "¿Estás seguro de que quieres salir del juego?"
 }
