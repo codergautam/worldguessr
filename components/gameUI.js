@@ -640,14 +640,14 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
 
 :
 
-      text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt})}
+      text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
         </span>
 
         <span className={`timer ${!onboardingTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {timeToNextRound ?
-      text("roundTimer", {r:onboarding?.round, mr: 5, t: timeToNextRound})
+      text("roundTimer", {r:onboarding?.round, mr: 5, t: timeToNextRound.toFixed(1)})
       : text("round", {r:onboarding?.round, mr: 5})}
 
         </span>
