@@ -24,7 +24,7 @@ import HealthBar from "./duelHealthbar";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons, goHome }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -519,14 +519,20 @@ multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameDat
 { singlePlayerRound?.done && (
 <RoundOverScreen points={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)
 
-} maxPoints={25000}
+} maxPoints={singlePlayerRound.totalRounds * 5000 ?? 25000}
 history={singlePlayerRound.locations}
-button1Text={text("playAgain")}
-button1Press={() =>{
-  window.crazyMidgame(() =>
+button1Text={singlePlayerRound.totalRounds === 1 ? text("home") : text("playAgain")}
+button1Press={() => {
+  if(singlePlayerRound.totalRounds === 1 && goHome){
+    goHome();
+  }
+  else{
+    window.crazyMidgame(() =>
 
-  loadLocationFunc()
-  )
+      loadLocationFunc()
+      )
+  }
+ 
               }}/>
 )}
 
@@ -642,7 +648,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
 
       text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
         </span>
-
+      
         <span className={`timer ${!onboardingTimerShown ? '' : 'shown'}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
@@ -653,7 +659,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
         </span>
 
         {
-          singlePlayerRound && !singlePlayerRound?.done && (
+          singlePlayerRound && !singlePlayerRound?.done && singlePlayerRound.totalRounds !== 1 && (
             <span className="timer shown">
               {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} -  {singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} {text("points")}
 
