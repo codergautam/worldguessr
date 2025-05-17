@@ -102,7 +102,10 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
                     >{text("recent")}</button>
                 </div>
                 <div className="g2_nav_hr"></div>
+                {!makeMap.open && (
+
                 <button className="g2_nav_text singleplayer red" onClick={onClose}>{text("back")}</button>
+                )}
             </div>
             <div className="g2_content" style={styles.modal}>
                 <div style={styles.modalContent}>
