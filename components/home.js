@@ -57,7 +57,7 @@ import StreetView from "./streetview/streetView";
 import Stats from "stats.js";
 import SvEmbedIframe from "./streetview/svHandler";
 import HomeNotice from "./homeNotice";
-import getTimeString from "./maintenanceTime";
+import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 
 const initialMultiplayerState = {
   connected: false,
@@ -2184,7 +2184,7 @@ if(inCrazyGames) {
             <h1 className="home__title">WorldGuessr</h1>
 
               { height > 650 && width > 1000 && (
-            <HomeNotice text={text("maintenanceText1", {date: "May 23rd", time: getTimeString()})} shown={true} />
+            <HomeNotice text={text("maintenanceText1", {date: getMaintenanceDate(), time: getTimeString()})} shown={true} />
               )}
             </>
             )}
