@@ -244,5 +244,6 @@
   "nameChangeInProgress": "Your name change to {{name}} is in progress, it can take up to 24 hours to fully update.",
   "nameChangeCooldown": "You can change your name again in {{days}} days",
   "disableTimer": "Disable Timer",
-  "duels":  "Duels"
+  "duels":  "Duels",
+  "maintenanceText1": "The game will be down for maintenance on {{date}} from {{time}}.\nWe apologize for the inconvenience."
 }
