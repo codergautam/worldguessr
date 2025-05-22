@@ -11,3 +11,11 @@ export default function getTimeString() {
 
   return `${start} - ${end} ${tz}`;
 }
+
+export function getMaintenanceDate() {
+  const cstDate = new Date(Date.UTC(2025, 4, 24, 1)); // May 23, 2025 at 7 PM CST (which is May 24, 1 AM UTC)
+  return cstDate.toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+  });
+}
