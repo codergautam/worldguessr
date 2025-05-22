@@ -56,6 +56,8 @@ import haversineDistance from "./utils/haversineDistance";
 import StreetView from "./streetview/streetView";
 import Stats from "stats.js";
 import SvEmbedIframe from "./streetview/svHandler";
+import HomeNotice from "./homeNotice";
+import getTimeString from "./maintenanceTime";
 
 const initialMultiplayerState = {
   connected: false,
@@ -991,7 +993,12 @@ setShowCountryButtons(false)
     }
 
     if(action === "setPrivateGameOptions" && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
-    setMultiplayerState((prev) => {
+if(inCrazyGames) {
+            const link = window.CrazyGames.SDK.game.showInviteButton({ code:  multiplayerState?.gameData?.code })
+            console.log("crazygames invite link", link)
+          }
+
+      setMultiplayerState((prev) => {
       ws.send(JSON.stringify({ type: "setPrivateGameOptions", rounds: prev.createOptions.rounds, timePerRound: prev.createOptions.timePerRound, nm: prev.createOptions.nm, npz: prev.createOptions.npz, showRoadName: prev.createOptions.showRoadName, location: prev.createOptions.location, displayLocation: prev.createOptions.displayLocation }))
       return prev;
     })
@@ -1103,7 +1110,7 @@ setShowCountryButtons(false)
           // check if joined via invite link
           try {
             let code = inCrazyGames ?  window.CrazyGames.SDK.game.getInviteParam("code") : window.localStorage.getItem("joinCode");
-            let instantJoin = window.location.search.includes("instantJoin");
+            let instantJoin =  (inCrazyGames && window.CrazyGames.SDK.game.isInstantMultiplayer) || window.location.search.includes("instantJoin");
 
 
             if(window.localStorage.getItem("joinCode")) {
@@ -1144,7 +1151,7 @@ setShowCountryButtons(false)
               }, 1000)
             } else {
               // create Party
-              // handleMultiplayerAction("createPrivateGame")
+              handleMultiplayerAction("createPrivateGame")
             }
 
             }
@@ -1258,14 +1265,6 @@ setShowCountryButtons(false)
           if(!data.duel) {
             setMultiplayerChatEnabled(true)
           }
-
-          try {
-          if(data.state === "waiting" && inCrazyGames && data.host) {
-            const link = window.CrazyGames.SDK.game.showInviteButton({ code: data.code });
-          } else {
-            window.CrazyGames.SDK.game.hideInviteButton();
-          }
-        } catch(e) {}
 
         // console.log('got game options', data)
         setGameOptions((prev) => ({
@@ -1934,7 +1933,6 @@ setShowCountryButtons(false)
 
         return Array.from(document.getElementsByTagName('style')).some(style => {
             const content = style.textContent;
-            console.log("content", content)
             return cheatStyleSignatures.every(signature =>
                 content.includes(signature)
             );
@@ -2182,8 +2180,14 @@ setShowCountryButtons(false)
 
           <div className="home__ui">
             { onboardingCompleted && (
+              <>
             <h1 className="home__title">WorldGuessr</h1>
+
+            <HomeNotice text={text("maintenanceText1", {date: "May 23rd", time: getTimeString()})} shown={true} />
+            </>
             )}
+
+            <center>
 
             <div className="home__btns">
 
@@ -2244,6 +2248,7 @@ setShowCountryButtons(false)
               </>
             )}
             </div>
+            </center>
 
           <div style={{ marginTop: "20px" }}>
           <center>

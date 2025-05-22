@@ -91,6 +91,7 @@ const StreetView = ({
       {
         position: { lat, lng: long },
         pov: { heading: 0, pitch: 0 },
+        zoom: 0,
         motionTracking: false,
         linksControl: !(nm && !showAnswer),
         clickToGo: !(nm && !showAnswer),
@@ -160,7 +161,7 @@ const StreetView = ({
   return shouldUseEmbed ? (
     <iframe
   className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} streetview`}
-  src={`https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=90&language=iw`}
+  src={`https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw`}
   referrerPolicy="no-referrer-when-downgrade"
   allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
   onLoad={() => {
