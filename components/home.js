@@ -2183,9 +2183,9 @@ if(inCrazyGames) {
               <>
             <h1 className="home__title">WorldGuessr</h1>
 
-              { height > 650 && width > 1000 && (
+              {/* { height > 650 && width > 1000 && (
             <HomeNotice text={text("maintenanceText1", {date: getMaintenanceDate(), time: getTimeString()})} shown={true} />
-              )}
+              )} */}
             </>
             )}
 
