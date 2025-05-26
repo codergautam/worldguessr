@@ -48,7 +48,6 @@ import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
-import LeagueModal from "./leagueModal";
 import haversineDistance from "./utils/haversineDistance";
 import StreetView from "./streetview/streetView";
 import Stats from "stats.js";
@@ -217,7 +216,6 @@ export default function Home({ }) {
     const [isApp, setIsApp] = useState(false);
     const [inCrazyGames, setInCrazyGames] = useState(false);
     const [maintenance, setMaintenance] = useState(false);
-    const [leagueModal, setLeagueModal] = useState(false);
 
     useEffect(() => {
 
@@ -245,7 +243,7 @@ export default function Home({ }) {
     const [animatedEloDisplay, setAnimatedEloDisplay] = useState(0);
     useEffect(() => {
         if (!session?.token?.username) return;
-        if (!leagueModal && window.firstFetchElo) return;
+        if (!accountModalOpen && window.firstFetchElo) return;
 
         fetch(clientConfig().apiUrl + "/api/eloRank?username=" + session?.token?.username).then((res) => res.json()).then((data) => {
             setEloData(data)
@@ -256,7 +254,7 @@ export default function Home({ }) {
 
 
 
-    }, [session?.token?.username, leagueModal])
+    }, [session?.token?.username, accountModalOpen])
     useEffect(() => {
         if (!eloData?.elo) return;
 
@@ -1949,7 +1947,6 @@ export default function Home({ }) {
             <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
             <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
             {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
-            {/*<LeagueModal shown={leagueModal} onClose={() => setLeagueModal(false)} session={session} eloData={eloData} />*/}
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
@@ -2053,8 +2050,8 @@ export default function Home({ }) {
                             enteringGameCode: true
                         }))
                     }}
-
-                    inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("friends"); }} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.duel} gameOptionsModalShown={gameOptionsModalShown} />
+                    accountModalOpen={accountModalOpen}
+                    inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("list"); }} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.duel} gameOptionsModalShown={gameOptionsModalShown} />
 
                 {multiplayerState?.playerCount && (
                     <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || multiplayerState?.inGame || !multiplayerState?.connected) ? 'hide' : ''}`}>
@@ -2075,7 +2072,7 @@ export default function Home({ }) {
                 {/* ELO/League button */}
                 <div>
                     {screen === "home" && !mapModal && session && session?.token?.secret && (
-                        <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
+                        <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("elo"); }}
                         //                        style={{ backgroundColor: eloData?.league?.color }}
                         >
                             {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league?.emoji}
@@ -2101,7 +2098,7 @@ export default function Home({ }) {
                                         <>
             <h1 className={`home__title g2_nav_title wg_font ${navSlideOut ? 'g2_slide_out' : ''}`}>WorldGuessr</h1>
 
-            <HomeNotice text={text("maintenanceText1", {date: getMaintenanceDate(), time: getTimeString()})} shown={true} />
+            {/* <HomeNotice text={text("maintenanceText1", {date: getMaintenanceDate(), time: getTimeString()})} shown={true} /> */}
             </>
 
                                     )}
@@ -2118,8 +2115,8 @@ export default function Home({ }) {
 
                                                     onClick={() => {
                                                             if (loading) return;
-
                                                             setNavSlideOut(true);
+                                                            setMiniMapShown(false);
                                                             setTimeout(() => {
                                                               crazyMidgame(() => setScreen("singleplayer"));
                                                               setShowPartyCards(false);
@@ -2168,7 +2165,7 @@ export default function Home({ }) {
                                                         }, 300);
                                                         }}>{text("communityMaps")}</button>}
                                             </div>
-                                            <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !leagueModal) ? "visible" : ""}`}>
+                                            <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen) ? "visible" : ""}`}>
                 <div className="footer_btns">
                     {!isApp && !inCoolMathGames && (
                         <>

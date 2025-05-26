@@ -1,10 +1,29 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
+import { FaHeart, FaTrash, FaUser, FaMapMarkerAlt } from "react-icons/fa";
 import formatNumber from "../utils/fmtNumber";
-import { FaHeart, FaPencil, FaTrash } from "react-icons/fa6";
+import { FaPencil } from "react-icons/fa6";
 
-export default function MapTile({ onPencilClick, showEditControls, map, onHeart, onClick, country, searchTerm, canHeart, showReviewOptions, secret, refreshHome }) {
+export default function MapTile({
+    onPencilClick,
+    showEditControls,
+    map,
+    onHeart,
+    onClick,
+    country,
+    searchTerm,
+    canHeart,
+    showReviewOptions,
+    secret,
+    refreshHome
+}) {
     const backgroundImage = country ? `url("https://flagcdn.com/h240/${country?.toLowerCase()}.png")` : "";
+    const [mapResubmittable, setMapResubmittable] = useState(map.resubmittable);
+
+    // Define escapeRegExp outside of highlightMatch so it exists before being called
+    const escapeRegExp = (string) => {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    };
 
     const highlightMatch = (text, searchTerm) => {
         if (!searchTerm || !text || typeof searchTerm !== 'string') return text;
@@ -12,23 +31,20 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
 
         const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
 
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        }
         return text.split(regex).map((part, index) =>
             part?.toLowerCase() === searchTerm?.toLowerCase() ? (
-                <span key={index} style={{ backgroundColor: 'darkOrange' }}>{part}</span>
+                <span key={index} className="highlight-match">{part}</span>
             ) : part
         );
     };
 
     const handleHeartClick = (e) => {
-        e.stopPropagation(); // Prevent onClick from firing
+        e.stopPropagation();
         if (!canHeart) return;
-
         onHeart();
     };
 
+    // Rest of the component remains unchanged
     const onReview = (e, mapId, accepted) => {
         e.stopPropagation();
         let reject_reason = null;
@@ -95,147 +111,150 @@ export default function MapTile({ onPencilClick, showEditControls, map, onHeart,
                 });
             }).catch(err => {
                 console.error(err);
-                try {
-                    err.json().then(data => {
-                        toast.error(data.message);
-                    });
-                } catch {
-                    toast.error("An error occurred while trying to delete the map. Please try again later.");
-                }
+                toast.error("An error occurred while trying to delete the map. Please try again later.");
             });
         }
     };
 
-    const [mapResubmittable, setMapResubmittable] = useState(map.resubmittable);
-
     return (
-        <div className={`map-tile ${country && 'country'}`} onClick={onClick} style={{
-            backgroundImage,
-            objectFit: "cover",
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "center",
-            backgroundSize: "cover"
-        }}>
-            <div className={`map-tile__header ${country && 'country'}`}>
+        <div
+            className={`map-tile ${country ? 'country' : ''}`}
+            onClick={onClick}
+            style={country ? { backgroundImage } : {}}
+        >
+            <div className={`map-tile__header ${country ? 'country' : ''}`}>
                 <div className="map-tile__mapdetails">
-                    <div className={`map-tile__name ${country && 'map-tile__name-country'}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <p>{highlightMatch(map.name, searchTerm)}</p>
-                        {/* Review Queue Status and Reject Reason */}
-                        {!country && (map.in_review || map.reject_reason) && map.yours && !map.accepted && (
-                            <div className={`map-tile__status ${map.reject_reason ? 'rejected' : 'in-review'}`}>
-                                {!map.accepted && map.resubmittable && map.reject_reason && (
-                                    <span>Rejected</span>
-                                )}
-                                {!map.accepted && !map.reject_reason && <span>In Review</span>}
+                    <div className="map-tile__content">
+                        {/* Top section with title and actions */}
+                        <div className="map-tile__top-section">
+                            <div className="map-tile__name">
+                                <h3>{highlightMatch(map.name, searchTerm)}</h3>
 
-                                {showReviewOptions && (
-                                    // accept and reject buttons
-                                    <div className="map-tile__review-options" onClick={(e) => e.stopPropagation()}>
-                                        <button className="accept" onClick={(e) => onReview(e, map.id, true)}>Accept</button>
-                                        <button className="reject" onClick={(e) => onReview(e, map.id, false)}>Reject</button>
-                                        {/* reject resubmittable */}
-                                        resubmittable?
-                                        <input type="checkbox" id="resubmittable" name="resubmittable" checked={mapResubmittable} onChange={(e) => {
-                                            e.stopPropagation();
-                                            setMapResubmittable(!mapResubmittable);
-                                        }} />
+                                {/* Status indicators */}
+                                {!country && (map.in_review || map.reject_reason) && map.yours && !map.accepted && (
+                                    <div className={`map-tile__status ${map.reject_reason ? 'rejected' : 'in-review'}`}>
+                                        {!map.accepted && map.resubmittable && map.reject_reason && (
+                                            <span>Rejected</span>
+                                        )}
+                                        {!map.accepted && !map.reject_reason && <span>In Review</span>}
                                     </div>
                                 )}
                             </div>
-                        )}
-                    </div>
-                    {!map.countryMap && map.created_by_name && (
-                        <div className="map-tile__author">
 
+                            {/* Actions - only show if not country and has creator name and not in review */}
+                            {!country && map.created_by_name && !map.in_review && !map.reject_reason && (
+                                <div className="map-tile__actions">
+                                    <button
+                                        className={`map-tile__heart ${!canHeart ? 'disabled' : ''} ${map.hearted ? 'hearted' : ''}`}
+                                        onClick={handleHeartClick}
+                                        disabled={!canHeart}
+                                    >
+                                        {map.hearts}&nbsp;<FaHeart />
+                                    </button>
 
-                            {!process.env.NEXT_PUBLIC_COOLMATH && (
-                                <>
-                                    {` by ${highlightMatch(map.created_by_name, searchTerm)}`}
-                                    &nbsp;&middot;
-                                </>
+                                    {showEditControls && map.yours && (
+                                        <div className="map-tile__controls">
+                                            <button
+                                                className="map-tile__edit"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    fetch(window.cConfig.apiUrl + `/api/map/action`, {
+                                                        method: 'POST',
+                                                        headers: {
+                                                            'Content-Type': 'application/json'
+                                                        },
+                                                        body: JSON.stringify({
+                                                            secret,
+                                                            action: 'get',
+                                                            mapId: map.id
+                                                        })
+                                                    }).then(res => {
+                                                        res.json().then(data => {
+                                                            if (res.ok) {
+                                                                const fullMap = data.map;
+                                                                onPencilClick({
+                                                                    ...map,
+                                                                    data: fullMap.data,
+                                                                    description_long: fullMap.description_long
+                                                                });
+                                                            } else {
+                                                                toast.error(data.message);
+                                                            }
+                                                        }).catch(err => {
+                                                            console.error(err);
+                                                            toast.error("An error occurred while trying to retrieve the map data. Please try again later.");
+                                                        });
+                                                    }).catch(err => {
+                                                        console.error(err);
+                                                        toast.error("An error occurred while trying to retrieve the map data. Please try again later.");
+                                                    });
+                                                }}
+                                            >
+                                                <FaPencil />
+                                            </button>
+                                            <button
+                                                className="map-tile__delete"
+                                                onClick={(e) => onDelete(e, map.id)}
+                                            >
+                                                <FaTrash />
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             )}
-
-
-                            {map.accepted && (
-                                <span style={{ color: 'rgba(255, 255, 255, 0.5)' }}> {formatNumber(map.locations, 3)} locations</span>
-                            )}
-
                         </div>
-                    )}
 
-                    {map.locations && (
-                        <div className="map-tile__author">
+                        {/* Bottom section with author info - always at bottom */}
+                        <div className="map-tile__bottom-section">
+                            {!country && map.created_by_name && (
+                                <div className="map-tile__author">
+                                    <FaUser size={12} />
+                                    {!process.env.NEXT_PUBLIC_COOLMATH && (
+                                        <>
+                                            {highlightMatch(map.created_by_name, searchTerm)}
+                                            &nbsp;•&nbsp;
+                                        </>
+                                    )}
+                                    {map.accepted && (
+                                        <span>
+                                            <FaMapMarkerAlt size={12} />
+                                            &nbsp;{formatNumber(map.locations, 2)} places
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-                            <span style={{ color: 'rgba(255, 255, 255, 0.5)' }}>
-
-                            </span>
+                    {/* Review options for staff */}
+                    {showReviewOptions && (
+                        <div className="map-tile__review-options" onClick={(e) => e.stopPropagation()}>
+                            <button className="accept" onClick={(e) => onReview(e, map.id, true)}>
+                                Accept
+                            </button>
+                            <button className="reject" onClick={(e) => onReview(e, map.id, false)}>
+                                Reject
+                            </button>
+                            <label>
+                                Resubmittable?
+                                <input
+                                    type="checkbox"
+                                    checked={mapResubmittable}
+                                    onChange={(e) => {
+                                        e.stopPropagation();
+                                        setMapResubmittable(!mapResubmittable);
+                                    }}
+                                />
+                            </label>
                         </div>
                     )}
                 </div>
-                {!country && map.created_by_name && !map.in_review && !map.reject_reason && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <button className={`map-tile__heart ${!canHeart ? 'disabled' : ''}`} onClick={handleHeartClick} disabled={!canHeart}>
-                            {map.hearts}&nbsp;
-                            <FaHeart color={map.hearted ? "red" : "white"} size={20} />
-                        </button>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexDirection: 'column' }}>
-                            {showEditControls && map.yours && (
-                                <button className="map-tile__delete" onClick={(e) => onDelete(e, map.id)}>
-                                    <FaTrash color="red" size={10} />
-                                </button>
-                            )}
-                            {showEditControls && map.yours && (
-                                <button className="map-tile__edit" onClick={(e) => {
-                                    // need to retrieve the map data
-                                    e.stopPropagation()
-                                    fetch(window.cConfig.apiUrl + `/api/map/action`, {
-                                        method: 'POST',
-                                        headers: {
-                                            'Content-Type': 'application/json'
-                                        },
-                                        body: JSON.stringify({
-                                            secret,
-                                            action: 'get',
-                                            mapId: map.id
-                                        })
-                                    }).then(res => {
-                                        res.json().then(data => {
-                                            if (res.ok) {
-                                                const fullMap = data.map;
-
-                                                onPencilClick({
-                                                    ...map,
-                                                    data: fullMap.data,
-                                                    description_long: fullMap.description_long
-                                                });
-                                            } else {
-                                                toast.error(data.message);
-                                            }
-                                        }).catch(err => {
-                                            console.error(err);
-                                            toast.error("An error occurred while trying to retrieve the map data. Please try again later.");
-                                        });
-                                    }).catch(err => {
-                                        console.error(err);
-                                        toast.error("An error occurred while trying to retrieve the map data. Please try again later.");
-                                    });
-                                }}>
-                                    <FaPencil color="white" size={10} />
-                                </button>
-                            )}
-                        </div>
-                    </div>
-                )}
             </div>
 
-            {/* {!country && (
-        <div className="map-tile__description">
-          {highlightMatch(map.description_short, searchTerm)}
-        </div>
-      )} */}
+            {/* Reject reason */}
             {map.yours && map.reject_reason && (
                 <div className="map-tile__reject-reason">
-                    <p>Reject Reason: {map.reject_reason}</p>
+                    <strong>Reject Reason:</strong> {map.reject_reason}
                 </div>
             )}
         </div>

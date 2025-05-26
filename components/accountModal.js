@@ -1,23 +1,28 @@
 import { Modal } from "react-responsive-modal";
 import { useEffect, useState } from "react";
 import AccountView from "./accountView";
+import EloView from "./eloView";
 import { getLeague, leagues } from "./utils/leagues";
 import { signOut } from "@/components/auth/auth";
 import { useTranslation } from '@/components/useTranslations';
-
 import FriendsModal from "@/components/friendModal";
 
 export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite }) {
     const { t: text } = useTranslation("common");
-
     const [accountData, setAccountData] = useState({});
-
-    const [friends, setFriends] = useState([
-    ]);
-    const [sentRequests, setSentRequests] = useState([
-    ]);
-    const [receivedRequests, setReceivedRequests] = useState([
-    ]);
+    const [friends, setFriends] = useState([]);
+    const [sentRequests, setSentRequests] = useState([]);
+    const [receivedRequests, setReceivedRequests] = useState([]);
+    const badgeStyle = {
+        marginLeft: '15px',
+        color: 'black',
+        fontSize: '0.7rem',
+        background: 'linear-gradient(135deg, #ffd700, #ffed4e)',
+        padding: '4px 12px',
+        borderRadius: '15px',
+        fontWeight: 'bold',
+        textShadow: 'none'
+    };
 
     useEffect(() => {
         if (shown) {
@@ -42,75 +47,125 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
 
     if (!eloData) return null;
 
+    const navigationItems = [
+        { key: "profile", label: text("profile"), icon: "👤" },
+        { key: "elo", label: text("ELO"), icon: "🏆" },
+        { key: "list", label: text("friends", {cnt: friends.length}), icon: "👥" },
+        { key: "sent", label: text("viewSentRequests", { cnt: sentRequests.length }), icon: "📤" },
+        { key: "received", label: text("viewReceivedRequests", { cnt: receivedRequests.length }), icon: "📥" },
+        { key: "add", label: text("addFriend"), icon: "➕" }
+    ];
 
+    const renderContent = () => {
+        switch (accountModalPage) {
+            case "profile":
+                return (
+                    <div className="profile-content">
+                        <AccountView
+                            accountData={accountData}
+                            supporter={session?.token?.supporter}
+                            eloData={eloData}
+                            session={session}
+                        />
 
+                        {!inCrazyGames && (
+                            <div className="profile-actions">
+                                <button
+                                    className="logout-button"
+                                    onClick={() => signOut()}
+                                >
+                                    {text("logOut")}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                );
+            case "elo":
+                return <EloView eloData={eloData} />;
+            default:
+                return (
+                    <FriendsModal
+                        ws={ws}
+                        canSendInvite={canSendInvite}
+                        sendInvite={sendInvite}
+                        accountModalPage={accountModalPage}
+                        setAccountModalPage={setAccountModalPage}
+                        friends={friends}
+                        shown={accountModalPage !== "profile" && accountModalPage !== "elo"}
+                        setFriends={setFriends}
+                        sentRequests={sentRequests}
+                        setSentRequests={setSentRequests}
+                        receivedRequests={receivedRequests}
+                        setReceivedRequests={setReceivedRequests}
+                    />
+                );
+        }
+    };
 
     return (
-        <Modal id="accountModal" styles={{
-            modal: {
-                zIndex: 100,
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("/street2.jpg")`, // dark mode: #333
-                color: 'white',
-                padding: '0px',
-                margin: '0px',
-                //borderRadius: '10px',
-                fontFamily: "'Arial', sans-serif",
-                //maxWidth: '500px',
-                textAlign: 'center',
-                position: "absolute",
-                top: 0,
-                left: 0,
-                objectFit: "cover",
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-            }
-        }} classNames={{ modal: "g2_modal" }} open={shown} center onClose={() => { setAccountModalOpen(false) }} showCloseIcon={false} animationDuration={0}>
+        <Modal
+            styles={{
+                modal: {
+                    padding: 0,
+                    margin: 0,
+                    maxWidth: 'none',
+                    width: '100vw',
+                    height: '100vh',
+                    background: 'transparent',
+                    borderRadius: 0
+                },
+                modalContainer: {
+                    height: 'auto',
+                }
+            }}
+            classNames={{ modal: "account-modal" }}
+            open={shown}
+            center
+            onClose={() => setAccountModalOpen(false)}
+            showCloseIcon={false}
+            animationDuration={200}
+        >
+            <div className="account-modal-container">
+                {/* Background with overlay */}
+                <div className="account-modal-background"></div>
 
-            <div className="g2_nav_ui">
-                <div className="g2_nav_hr"></div>
-                <div className="g2_nav_group">
-                    <button className="g2_nav_text" onClick={() => setAccountModalPage("profile") }>{text("profile")}</button>
-                </div>
-                <div className="g2_nav_hr"></div>
-                <div className="g2_nav_group">
-                    <button className="g2_nav_text" onClick={() => setAccountModalPage("list")}>
-                        { text("friends", {cnt: friends.length })}
-                    </button>
-                    <button className="g2_nav_text" onClick={() => setAccountModalPage("sent")}>
-                        {text("viewSentRequests", { cnt: sentRequests.length })}
-                    </button>
-                    <button className="g2_nav_text" onClick={() => setAccountModalPage("received")}>
-                        {text("viewReceivedRequests", { cnt: receivedRequests.length })}
-                    </button>
-                    <button className="g2_nav_text" onClick={() => setAccountModalPage("add")}> {text("addFriend")}</button>
-                </div>
-                <div className="g2_nav_hr"></div>
-                <button className="g2_nav_text red" onClick={() => { setAccountModalOpen(false) }}>{text("back")}</button>
-            </div>
-            <div className="g2_content" style={{ paddingTop: "50px" }}>
-                {(accountModalPage == "profile") && (<>
-                    <AccountView accountData={accountData} supporter={session?.token?.supporter} eloData={eloData} session={session} />
+                {/* Main content */}
+                <div className="account-modal-content">
+                    {/* Header with prominent close button */}
+                    <div className="account-modal-header">
+                        <h1 className="account-modal-title">{accountData?.username || text("account")} {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}</h1>
 
-                    {!inCrazyGames && (
-                        <button className="g2_red_button" onClick={() => signOut()} style={{
-                            color: 'white',
-                            padding: '10px 20px',
-                            borderRadius: '5px',
-                            cursor: 'pointer',
-                            fontSize: '16px',
-                            fontWeight: 'bold',
-                            marginTop: '20px'
-                        }}>
-                            {text("logOut")}
+
+                        <button
+                            className="account-modal-close"
+                            onClick={() => setAccountModalOpen(false)}
+                            aria-label="Close"
+                        >
+                            <span className="close-icon">✕</span>
                         </button>
-                    )}</>
-                )}
-                {(accountModalPage !== "profile") && (
-                    <FriendsModal ws={ws} canSendInvite={canSendInvite} sendInvite={sendInvite} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
-                        friends={friends}
-                        shown={accountModalPage !== "profile"}
-                        setFriends={setFriends} sentRequests={sentRequests} setSentRequests={setSentRequests} receivedRequests={receivedRequests} setReceivedRequests={setReceivedRequests} />
-                ) }
+                    </div>
+
+                    {/* Navigation */}
+                    <div className="account-modal-nav-container">
+                        <nav className="account-modal-nav">
+                            {navigationItems.map((item) => (
+                                <button
+                                    key={item.key}
+                                    className={`account-nav-item ${accountModalPage === item.key ? 'active' : ''}`}
+                                    onClick={() => setAccountModalPage(item.key)}
+                                >
+                                    <span className="nav-icon">{item.icon}</span>
+                                    <span className="nav-label">{item.label}</span>
+                                </button>
+                            ))}
+                        </nav>
+                    </div>
+
+                    {/* Content Area */}
+                    <div className="account-modal-body">
+                        {renderContent()}
+                    </div>
+                </div>
             </div>
         </Modal>
     )

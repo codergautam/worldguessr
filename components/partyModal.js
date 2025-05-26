@@ -101,6 +101,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                         <label htmlFor="nm">{text('nm')}</label>
                                         <input type="checkbox" checked={gameOptions.nm}
                                             id="nm"
+                                            name="nm"
                                             onChange={(e) => {
                                                 setGameOptions({
                                                     ...gameOptions,
@@ -111,7 +112,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                     </div>
                                     <div>
                                         <label htmlFor="npz">{text('npz')}</label>
-                                        <input id="npz" type="checkbox" checked={gameOptions.npz} onChange={(e) => {
+                                        <input id="npz"
+                                        name="npz"
+                                        type="checkbox" checked={gameOptions.npz} onChange={(e) => {
                                             setGameOptions({
                                                 ...gameOptions,
                                                 npz: e.target.checked
@@ -121,7 +124,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                     </div>
                                     <div>
                                         <label htmlFor="showRoadName" >{text('showRoadName')}</label>
-                                        <input id="showRoadName" type="checkbox" checked={gameOptions.showRoadName} onChange={(e) => {
+                                        <input id="showRoadName"
+                                        name="showRoadName"
+                                        type="checkbox" checked={gameOptions.showRoadName} onChange={(e) => {
                                             setGameOptions({
                                                 ...gameOptions,
                                                 showRoadName: e.target.checked

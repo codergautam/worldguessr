@@ -1,0 +1,423 @@
+/* Modern Account Modal Styles */
+.account-modal {
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.account-modal-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.account-modal-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        135deg,
+        rgba(0, 0, 0, 0.9) 0%,
+        rgba(0, 30, 15, 0.8) 50%,
+        rgba(0, 0, 0, 0.9) 100%
+    ),
+    url("/street2.jpg");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    z-index: -1;
+}
+
+.account-modal-content {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.account-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 20px;
+}
+
+.account-modal-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 600;
+    color: white;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.account-modal-close {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 20px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
+    position: relative;
+    z-index: 1000;
+}
+
+.account-modal-close:hover {
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.6);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.account-modal-close:active {
+    transform: scale(1.05);
+}
+
+.close-icon {
+    line-height: 1;
+    display: block;
+}
+
+.account-modal-nav-container {
+    width: 100%;
+    margin-bottom: 20px;
+    position: relative;
+}
+
+.account-modal-nav {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.account-modal-nav::-webkit-scrollbar {
+    height: 6px;
+}
+
+.account-modal-nav::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+.account-modal-nav::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+
+.account-modal-nav::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.account-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 25px;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 500;
+    backdrop-filter: blur(10px);
+    min-width: fit-content;
+    flex-shrink: 0;
+}
+
+.account-nav-item:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+}
+
+.account-nav-item.active {
+    background: var(--gradGreenBtn);
+    border-color: var(--primary);
+    box-shadow: 0 4px 15px rgba(36, 87, 52, 0.3);
+}
+
+.nav-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.nav-label {
+    font-weight: 500;
+}
+
+.account-modal-body {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    padding: 30px;
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.profile-content {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    height: 100%;
+}
+
+.profile-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: auto;
+    padding-top: 20px;
+}
+
+.logout-button {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    border: none;
+    color: white;
+    padding: 15px 30px;
+    border-radius: 25px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.logout-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+}
+
+.logout-button:active {
+    transform: translateY(0);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .account-modal-content {
+        padding: 15px;
+    }
+
+    .account-modal-header {
+        padding: 15px 0;
+        margin-bottom: 15px;
+    }
+
+    .account-modal-close {
+        width: 45px;
+        height: 45px;
+        font-size: 18px;
+    }
+
+    .account-modal-nav-container {
+        margin-bottom: 15px;
+    }
+
+    .account-modal-nav {
+        gap: 6px;
+        padding: 8px 0;
+    }
+
+    .account-nav-item {
+        padding: 10px 14px;
+        font-size: 13px;
+        gap: 6px;
+    }
+
+    .nav-icon {
+        font-size: 14px;
+    }
+
+    .account-modal-body {
+        padding: 20px;
+        border-radius: 15px;
+    }
+
+    .logout-button {
+        padding: 12px 24px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .account-modal-content {
+        padding: 12px;
+    }
+
+    .account-modal-header {
+        padding: 12px 0;
+        margin-bottom: 12px;
+    }
+
+    .account-modal-close {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+
+    .account-modal-nav-container {
+        margin-bottom: 12px;
+    }
+
+    .account-modal-nav {
+        gap: 4px;
+        padding: 6px 0;
+    }
+
+    .account-nav-item {
+        padding: 8px 12px;
+        font-size: 12px;
+        gap: 4px;
+        border-radius: 20px;
+    }
+
+    .nav-icon {
+        font-size: 12px;
+    }
+
+    .nav-label {
+        font-size: 11px;
+    }
+
+    .account-modal-body {
+        padding: 15px;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 320px) {
+    .account-nav-item {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+
+    .nav-icon {
+        font-size: 11px;
+    }
+
+    .nav-label {
+        font-size: 10px;
+    }
+}
+
+/* Dark mode enhancements */
+@media (prefers-color-scheme: dark) {
+    .account-modal-background {
+        background: linear-gradient(
+            135deg,
+            rgba(0, 0, 0, 0.95) 0%,
+            rgba(0, 20, 10, 0.9) 50%,
+            rgba(0, 0, 0, 0.95) 100%
+        ),
+        url("/street2.jpg");
+    }
+}
+
+/* Animation for modal entrance */
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.account-modal-content {
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+/* Scrollbar styling for the modal body */
+.account-modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.account-modal-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.account-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+}
+
+.account-modal-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+/* Add keyframes for the shine animation */
+@keyframes shine {
+    0% {
+        transform: translateX(-100%) translateY(-100%) rotate(30deg);
+    }
+    100% {
+        transform: translateX(100%) translateY(100%) rotate(30deg);
+    }
+}
+
+/* Enhanced league container styles */
+.league-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin: 30px 0;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Enhanced stat grid for better mobile responsiveness */
+@media (max-width: 768px) {
+    .league-container {
+        gap: 10px;
+        padding: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .league-container {
+        gap: 8px;
+        padding: 10px;
+    }
+}
+
+.react-responsive-modal-container {
+    height: auto !important;
+}

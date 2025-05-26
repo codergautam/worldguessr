@@ -71,7 +71,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
             <div className={`g2_nav_ui ${mapModalClosing ? "g2_slide_out" : ""}`}>
                 <h1 className="g2_nav_title">{text("communityMaps")}</h1>
                 <div className="g2_nav_hr"></div>
-                {!makeMap.open && (
+                {/* {!makeMap.open && (
                     <>
                         <div className="mapSearch">
                             <input
@@ -84,7 +84,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
                         </div>
                         <div className="g2_nav_hr"></div>
                     </>
-                )}
+                )} */}
 
 
                 <div className="g2_nav_group map_categories">

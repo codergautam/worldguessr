@@ -44,7 +44,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
           currentWs.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }));
         }
         // play sound
-        playSound();
+        // playSound();
         // if point is outside bounds, pan back
         const bounds = L.latLngBounds([-90, -180], [90, 180]);
 

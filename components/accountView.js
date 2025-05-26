@@ -2,6 +2,7 @@ import msToTime from "./msToTime";
 import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
+import { FaClock, FaGamepad, FaStar } from "react-icons/fa6";
 
 export default function AccountView({ accountData, supporter, eloData, session }) {
     const { t: text } = useTranslation("common");
@@ -60,271 +61,123 @@ export default function AccountView({ accountData, supporter, eloData, session }
         }
 
     };
-    const userLeague = getLeague(eloData.elo);
-
-    const [hoveredLeague, setHoveredLeague] = useState(null);
 
     const containerStyle = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flexStart',
         textAlign: "left",
-        //justifyContent: 'center',
-        //background: 'linear-gradient(135deg, #6e8efb, #a777e3)',
         color: '#fff',
         fontFamily: 'Arial, sans-serif',
         paddingBottom: '20px',
         boxSizing: 'border-box',
         borderRadius: '10px',
-        gap: "8px"
+        gap: "20px"
+    };
+
+    const profileCardStyle = {
+        background: 'rgba(255, 255, 255, 0.1)',
+        borderRadius: '20px',
+        padding: '30px',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
     };
 
     const titleStyle = {
         fontSize: '48px',
         fontWeight: 'bold',
-        //margin: '10px 0',
-        textShadow: '2px 2px 4px rgba(0,0,0,0.2)'
+        textShadow: '2px 2px 4px rgba(0,0,0,0.2)',
+        marginBottom: '20px'
     };
 
     const textStyle = {
-        fontSize: '24px',
-        //margin: '5px 0',
+        fontSize: '20px',
         letterSpacing: '0.5px',
-        width: "minContent"
+        marginBottom: '15px',
+        display: 'flex',
+        alignItems: 'center'
     };
 
     const iconStyle = {
-        marginRight: '8px'
+        marginRight: '12px',
+        fontSize: '20px',
+        width: '24px'
+    };
+
+    const buttonStyle = {
+        marginTop: '20px',
+        padding: '12px 24px',
+        border: 'none',
+        borderRadius: '25px',
+        background: 'linear-gradient(135deg, #28a745, #20c997)',
+        color: 'white',
+        cursor: 'pointer',
+        fontSize: '16px',
+        fontWeight: '600',
+        transition: 'all 0.3s ease',
+        boxShadow: '0 4px 15px rgba(40, 167, 69, 0.3)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.5px'
+    };
+
+    const warningStyle = {
+        ...textStyle,
+        color: '#ffc107',
+        background: 'rgba(255, 193, 7, 0.1)',
+        padding: '10px 15px',
+        borderRadius: '10px',
+        border: '1px solid rgba(255, 193, 7, 0.3)'
     };
 
     return (
-        <>
-            <div style={containerStyle}>
-                <span style={titleStyle}>
-                    <i className="fas fa-user" style={iconStyle}></i>
-                    {accountData.username}
-                    {supporter && <span className="badge" style={{ marginLeft: '10px', color: 'black', fontSize: '0.8rem' }}>{text("supporter")}</span>}
-                </span>
-                <p style={textStyle}>
-                    <i className="fas fa-clock" style={iconStyle}></i>
-                    {/* Joined {msToTime(Date.now() - new Date(accountData.createdAt).getTime())} ago */}
+        <div style={containerStyle}>
+            <div style={profileCardStyle}>
+                <div style={textStyle}>
+                    <FaClock style={iconStyle} />
                     {text("joined", { t: msToTime(Date.now() - new Date(accountData.createdAt).getTime()) })}
-                </p>
-                <p style={textStyle}>
-                    <i className="fas fa-star" style={iconStyle}></i>
+                </div>
+
+                <div style={textStyle}>
+                    <FaStar style={{ ...iconStyle }} />
                     {accountData.totalXp} XP
-                </p>
-                <p style={textStyle}>
-                    <i className="fas fa-gamepad" style={iconStyle}></i>
-                    {/* Games played: {accountData.gamesLen} */}
+                </div>
+
+                <div style={textStyle}>
+                    <FaGamepad style={iconStyle} />
                     {text("gamesPlayed", { games: accountData.gamesLen })}
-                </p>
+                </div>
 
-                {/* change name buton */}
+                {/* change name button */}
                 {accountData.canChangeUsername ? (
-                    <button style={{ marginTop: '10px', padding: '5px 10px', border: 'none', borderRadius: '5px', background: 'rgba(0,0,0,0.5)', color: 'white', cursor: 'pointer', maxWidth: "20%" }}
-
-                        onClick={changeName}>
+                    <button
+                        style={buttonStyle}
+                        onClick={changeName}
+                        onMouseEnter={(e) => {
+                            e.target.style.transform = 'translateY(-2px)';
+                            e.target.style.boxShadow = '0 6px 20px rgba(40, 167, 69, 0.4)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+                        }}
+                    >
                         {text("changeName")}
                     </button>
                 ) : accountData.recentChange ? (
-                    <p style={textStyle}>
+                    <div style={warningStyle}>
                         <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
                         {text("recentChange")}
-                    </p>
-
+                    </div>
                 ) : null}
 
                 {accountData.daysUntilNameChange > 0 && (
-                    <p style={textStyle}>
+                    <div style={warningStyle}>
                         <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
                         {text("nameChangeCooldown", { days: accountData.daysUntilNameChange })}
-                    </p>
-                )}
-
-            </div>
-
-            <div class="g2_nav_hr"></div>
-
-            <div class="g2_nav_squares">
-                <div class="g2_nav_square">
-                    <h1 style={{
-                        fontSize: '48px',
-                        fontWeight: 600,
-                        marginBottom: '15px',
-                        color: 'white',
-                        //textShadow: '0px 0px 8px #ffd700'
-                    }}>{text("ELO")}</h1>
-
-                    {/* leagueModalDesc and leagueModalDesc2 */}
-                    <p style={{
-                        fontSize: '18px',
-                        color: 'white',
-                        marginBottom: '2px',
-                        textShadow: '0px 0px 8px #ffd700'
-
-                    }}>
-                        {text("leagueModalDesc")}
-                    </p>
-
-                    <p style={{
-                        fontSize: '18px',
-                        color: 'white',
-                        marginBottom: '7px'
-                    }}>
-                        {text("leagueModalDesc2")}
-                    </p>
-
-                    {/* League squares with names */}
-                    <div className="league-container">
-                        {Object.values(leagues).map((league) => {
-                            const isCurrentLeague = userLeague.name === league.name;
-                            const nextLeague = Object.values(leagues).find(l => l.min === league.min);
-                            const eloNeeded = nextLeague ? nextLeague.min : 0;
-
-                            return (
-                                <div
-                                    key={league.name}
-                                    style={{
-                                        position: 'relative',
-                                        width: '70px',
-                                        textAlign: 'center',
-                                        cursor: 'pointer',
-                                        transition: 'transform 0.2s ease',
-                                        transform: isCurrentLeague ? 'scale(1.1)' : 'scale(1)',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        e.currentTarget.style.transform = 'scale(1.15)';
-                                        setHoveredLeague(league.name)
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        e.currentTarget.style.transform = isCurrentLeague ? 'scale(1.1)' : 'scale(1)';
-                                        setHoveredLeague(null)
-                                    }}
-                                >
-                                    {/* League Square with Shine Effect */}
-                                    <div style={{
-                                        width: '70px',
-                                        height: '60px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        backgroundColor: league.color,
-                                        color: 'black',
-                                        borderRadius: '10px',
-                                        fontSize: '45px',
-                                        fontWeight: 'bold',
-                                        position: 'relative',
-                                        overflow: 'hidden'
-                                    }}>
-                                        {league.emoji}
-                                        {/* Shiny Effect */}
-                                        {isCurrentLeague && (
-                                            <div style={{
-                                                position: 'absolute',
-                                                top: '-100%',
-                                                left: '-100%',
-                                                width: '200%',
-                                                height: '200%',
-                                                background: 'linear-gradient(45deg, rgba(255,255,255,0.5), rgba(255,255,255,0))',
-                                                transform: 'rotate(30deg)',
-                                                animation: 'shine 2s infinite linear'
-                                            }} />
-                                        )}
-                                    </div>
-
-                                    {/* League Name */}
-                                    <p style={{
-                                        fontSize: '14px',
-                                        marginTop: '5px',
-                                        color: isCurrentLeague ? '#ffd700' : '#b0b0b0',
-                                        fontWeight: isCurrentLeague ? 'bold' : 'normal',
-                                        textShadow: isCurrentLeague ? '0px 0px 5px #ffd700' : 'none'
-                                    }}>
-                                        {league.name}
-                                    </p>
-
-                                    {/* ELO Badge */}
-                                    {eloNeeded > 0 && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            top: '-15px',
-                                            left: '50%',
-                                            transform: 'translateX(-50%)',
-                                            backgroundColor: league.color,
-                                            color: 'black',
-                                            border: '2px solid black',
-                                            padding: '3px 6px',
-                                            borderRadius: '8px',
-                                            fontSize: '10px',
-                                            fontWeight: 'bold',
-                                            opacity: hoveredLeague === league.name ? 1 : 0,
-                                            transition: 'opacity 0.2s',
-                                            whiteSpace: 'nowrap'
-                                        }}
-                                            className="elo-badge">
-                                            {eloNeeded} ELO
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
                     </div>
-                </div>
-                <div class="g2_nav_square">
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#b0b0b0',
-                        marginBottom: '5px'
-                    }}>
-                        {text("yourElo")}: <span style={{ color: '#ffd700' }}>{eloData.elo}</span>
-                    </p>
-
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#b0b0b0',
-                        marginBottom: '5px'
-                    }}>
-                        {text("yourGlobalRank")}: <span style={{ color: '#ffd700' }}>#{eloData.rank}</span>
-                    </p>
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#b0b0b0',
-                        marginBottom: '5px'
-                    }}>
-                        {text("duels_won")}: <span style={{ color: '#ffd700' }}>{eloData.duels_wins}</span>
-                    </p>
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#b0b0b0',
-                        marginBottom: '5px'
-                    }}>
-                        {text("duels_lost")}: <span style={{ color: '#ffd700' }}>{eloData.duels_losses}</span>
-                    </p>
-                    <p style={{
-                        fontSize: '18px',
-                        color: '#b0b0b0',
-                        marginBottom: '5px'
-                    }}>
-                        {text("duels_tied")}: <span style={{ color: '#ffd700' }}>{eloData.duels_tied}</span>
-                    </p>
-                    {eloData.win_rate && (
-                        <p style={{
-                            fontSize: '18px',
-                            color: '#b0b0b0',
-                            marginBottom: '5px'
-                        }}>
-                            {text("win_rate")}: <span style={{ color: '#ffd700' }}>{(eloData.win_rate * 100).toFixed(2)}%</span>
-                        </p>
-                    )}
-
-                </div>
+                )}
             </div>
-
-
-
-
-            <div class="g2_nav_hr"></div>
-        </>
+        </div>
     );
 }

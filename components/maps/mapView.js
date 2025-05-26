@@ -1,452 +1,406 @@
-  import React, { useState, useEffect, useCallback } from "react";
-  import { toast } from "react-toastify";
-  import MakeMapForm from "./makeMap";
-  import MapTile from "./mapTile";
-  import { ScrollMenu } from "react-horizontal-scrolling-menu";
-  import "react-horizontal-scrolling-menu/dist/styles.css";
-  import config from "@/clientConfig";
+import React, { useState, useEffect, useCallback } from "react";
+import { toast } from "react-toastify";
+import { FaSearch, FaPlus, FaArrowLeft, FaMapMarkedAlt } from "react-icons/fa";
+import MakeMapForm from "./makeMap";
+import MapTile from "./mapTile";
 import { backupMapHome } from "../utils/backupMapHome.js";
+import config from "@/clientConfig";
 
+export default function MapView({
+    gameOptions,
+    mapModalClosing,
+    setGameOptions,
+    showOptions,
+    close,
+    session,
+    text,
+    onMapClick,
+    chosenMap,
+    showAllCountriesOption,
+    makeMap,
+    setMakeMap,
+    initMakeMap,
+    searchTerm,
+    setSearchTerm,
+    searchResults,
+    setSearchResults
+}) {
+    const [mapHome, setMapHome] = useState({
+        message: text("loading") + "...",
+    });
+    const [heartingMap, setHeartingMap] = useState("");
+    const [isLoading, setIsLoading] = useState(true);
 
+    function refreshHome(removeMapId) {
+        if (removeMapId) {
+            setMapHome((prev) => {
+                const newMapHome = { ...prev };
+                Object.keys(newMapHome).forEach((section) => {
+                    newMapHome[section] = newMapHome[section].filter((m) => m.id !== removeMapId.removeMap);
+                });
+                return newMapHome;
+            });
+            return;
+        }
 
-  export default function MapView({ gameOptions, mapModalClosing, setGameOptions, showOptions, close, session, text, onMapClick, chosenMap, showAllCountriesOption, makeMap, setMakeMap, initMakeMap, searchTerm, setSearchTerm, searchResults, setSearchResults }) {
+        setIsLoading(true);
+        window.cConfig = config();
 
-      const [mapHome, setMapHome] = useState({
-          message: text("loading") + "...",
-      });
-      const [heartingMap, setHeartingMap] = useState("");
+        let backupMapHomeTimeout = setTimeout(() => {
+            setMapHome(backupMapHome);
+            setIsLoading(false);
+        }, 5000);
 
-      function refreshHome(removeMapId) {
+        fetch(window.cConfig.apiUrl + "/api/map/mapHome", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(
+                session?.token?.secret ? {
+                    secret: session?.token?.secret,
+                    inCG: window.inCrazyGames
+                } : {}
+            ),
+        })
+        .then((res) => res.json())
+        .then((data) => {
+            setMapHome(data);
+            setIsLoading(false);
+            clearTimeout(backupMapHomeTimeout);
+        })
+        .catch(() => {
+            setMapHome(backupMapHome);
+            setIsLoading(false);
+        });
+    }
 
-          console.log("refreshing home", removeMapId);
-          // if removeMapId is set, remove it from the mapHome temporarily
-          if (removeMapId) {
-              setMapHome((prev) => {
-                  const newMapHome = { ...prev };
-                  Object.keys(newMapHome).forEach((section) => {
-                      newMapHome[section] = newMapHome[section].filter((m) => m.id !== removeMapId.removeMap);
-                  });
-                  return newMapHome;
-              });
-              return;
-          }
+    useEffect(() => {
+        refreshHome();
+    }, [session?.token?.secret]);
 
-          window.cConfig = config();
+    function createMap(map) {
+        if (!session?.token?.secret) {
+            toast.error("Not logged in");
+            return;
+        }
 
-          let backupMapHomeTimeout = setTimeout(() => {
-                setMapHome( backupMapHome ); // revert to backup if fetch takes too long
-          }, 5000);
+        fetch(window.cConfig?.apiUrl + "/api/map/action", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                action: makeMap.edit ? "edit" : "create",
+                mapId: makeMap.mapId,
+                secret: session?.token?.secret,
+                name: map.name,
+                description_short: map.description_short,
+                description_long: map.description_long,
+                data: map.data,
+            }),
+        })
+        .then(async (res) => {
+            let json;
+            try {
+                json = await res.json();
+            } catch (e) {
+                toast.error("Max file limit 30mb");
+                setMakeMap({ ...makeMap, progress: false });
+                return;
+            }
+            if (res.ok) {
+                toast.success("Map " + (makeMap.edit ? "edited" : "created"));
+                setMakeMap(initMakeMap);
+                refreshHome();
+            } else {
+                setMakeMap({ ...makeMap, progress: false });
+                toast.error(json.message);
+            }
+        })
+        .catch(() => {
+            setMakeMap({ ...makeMap, progress: false });
+            toast.error("Unexpected Error creating map - 2");
+        });
+    }
 
-          fetch(window.cConfig.apiUrl + "/api/map/mapHome", {
-              method: "POST",
-              headers: {
-                  "Content-Type": "application/json",
-              },
-              body: JSON.stringify(
-                  session?.token?.secret ? {
-                      secret: session?.token?.secret,
-                      inCG: window.inCrazyGames
-                  } : {}
-              ),
-          })
-              .then((res) => res.json())
-              .then((data) => {
-                  setMapHome(data);
-                    clearTimeout(backupMapHomeTimeout); // clear the timeout if fetch is successful
-              })
-              .catch(() => {
-                  setMapHome(backupMapHome);
-              });
-      }
-      useEffect(() => {
-          refreshHome();
-      }, [session?.token?.secret]);
+    function heartMap(map) {
+        if (!session?.token?.secret) {
+            toast.error("Not logged in");
+            return;
+        }
 
+        setHeartingMap(map.id);
 
+        fetch(window.cConfig?.apiUrl + "/api/map/heartMap", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                secret: session?.token?.secret,
+                mapId: map.id,
+            }),
+        })
+        .then(async (res) => {
+            setHeartingMap("");
+            let json;
+            try {
+                json = await res.json();
+            } catch (e) {
+                toast.error("Unexpected Error hearting map - 1");
+                return;
+            }
+            if (res.ok && json.success) {
+                toast(json.hearted ? text("heartedMap") : text("unheartedMap"), {
+                    type: json.hearted ? 'success' : 'info'
+                });
 
-      function createMap(map) {
-          if (!session?.token?.secret) {
-              toast.error("Not logged in");
-              return;
-          }
+                const newHeartsCnt = json.hearts;
+                setMapHome((prev) => {
+                    const newMapHome = { ...prev };
+                    Object.keys(newMapHome).forEach((section) => {
+                        newMapHome[section] = newMapHome[section].map((m) => {
+                            if (m.id === map.id) {
+                                m.hearts = newHeartsCnt;
+                                m.hearted = json.hearted;
+                            }
+                            return m;
+                        });
 
-          fetch(window.cConfig?.apiUrl + "/api/map/action", {
-              method: "POST",
-              headers: {
-                  "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                  action: makeMap.edit ? "edit" : "create",
-                  mapId: makeMap.mapId,
-                  secret: session?.token?.secret,
-                  name: map.name,
-                  description_short: map.description_short,
-                  description_long: map.description_long,
-                  data: map.data,
-              }),
-          })
-              .then(async (res) => {
-                  let json;
-                  try {
-                      json = await res.json();
-                  } catch (e) {
-                      toast.error("Max file limit 30mb");
-                      setMakeMap({ ...makeMap, progress: false });
-                      return;
-                  }
-                  if (res.ok) {
-                      toast.success("Map " + (makeMap.edit ? "edited" : "created"));
-                      setMakeMap(initMakeMap);
-                      refreshHome();
-                  } else {
-                      setMakeMap({ ...makeMap, progress: false });
-                      toast.error(json.message);
-                  }
-              })
-              .catch(() => {
-                  setMakeMap({ ...makeMap, progress: false });
-                  toast.error("Unexpected Error creating map - 2");
-              });
-      }
+                        if (section === "likedMaps") {
+                            if (json.hearted) {
+                                newMapHome[section].push(map);
+                            } else {
+                                newMapHome[section] = newMapHome[section].filter((m) => m.id !== map.id);
+                            }
+                        }
+                    });
+                    return newMapHome;
+                });
 
-      function heartMap(map) {
-          if (!session?.token?.secret) {
-              toast.error("Not logged in");
-              return;
-          }
+                if (searchResults.length > 0) {
+                    setSearchResults((prev) => {
+                        return prev.map((m) => {
+                            if (m.id === map.id) {
+                                m.hearts = newHeartsCnt;
+                                m.hearted = json.hearted;
+                            }
+                            return m;
+                        });
+                    });
+                }
+            } else {
+                toast.error(text(json.message || json.error || "unexpectedError"));
+            }
+        })
+        .catch((e) => {
+            setHeartingMap("");
+            console.log(e);
+            toast.error("Unexpected Error hearting map - 2");
+        });
+    }
 
-          setHeartingMap(map.id);
+    const hasResults = Object.keys(mapHome)
+        .filter((k) => k !== "message")
+        .some((section) => {
+            const mapsArray = section === "recent" && searchResults.length > 0
+                ? searchResults
+                : mapHome[section].filter(
+                    (map) =>
+                        map.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
+                        map.description_short?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
+                        map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
+                );
+            return mapsArray.length > 0;
+        });
 
-          fetch(window.cConfig?.apiUrl + "/api/map/heartMap", {
-              method: "POST",
-              headers: {
-                  "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                  secret: session?.token?.secret,
-                  mapId: map.id,
-              }),
-          })
-              .then(async (res) => {
-                  setHeartingMap("");
-                  let json;
-                  try {
-                      json = await res.json();
-                  } catch (e) {
-                      toast.error("Unexpected Error hearting map - 1");
-                      return;
-                  }
-                  if (res.ok && json.success) {
-                      toast(json.hearted ? text("heartedMap") : text("unheartedMap"), {
-                          type: json.hearted ? 'success' : 'info'
-                      });
+    if (makeMap.open) {
+        return (
+            <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
+                <div className="map-header">
+                    <div className="map-header-left">
+                        <button
+                            onClick={() => setMakeMap({ ...makeMap, open: false })}
+                            className="map-back-btn"
+                        >
+                            <FaArrowLeft /> {text("back")}
+                        </button>
+                        <h1 className="map-title">
+                            {makeMap?.edit ? "Edit Map" : "Make Map"}
+                        </h1>
+                    </div>
+                </div>
+                <MakeMapForm map={makeMap} setMap={setMakeMap} createMap={createMap} />
+            </div>
+        );
+    }
 
+    return (
+        <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
+            {/* Header */}
+            <div className="map-header">
+                <div className="map-header-left">
+                    <button onClick={close} className="map-back-btn">
+                        <FaArrowLeft /> {text("close")}
+                    </button>
+                    <h1 className="map-title">{text("maps")}</h1>
+                </div>
+                {session?.token?.secret && (
+                    <button
+                        onClick={() => setMakeMap({ ...makeMap, open: true })}
+                        className="map-create-btn"
+                    >
+                        <FaPlus /> Make Map
+                    </button>
+                )}
+            </div>
 
-                      const newHeartsCnt = json.hearts;
-                      // update state
-                      setMapHome((prev) => {
-                          const newMapHome = { ...prev };
-                          Object.keys(newMapHome).forEach((section) => {
-                              newMapHome[section] = newMapHome[section].map((m) => {
-                                  if (m.id === map.id) {
+            {/* Search */}
+            <div className="map-search-section">
+                <div className="map-search-container">
+                    <FaSearch className="map-search-icon" />
+                    <input
+                        type="text"
+                        placeholder={text("searchForMaps")}
+                        className="map-search-input"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
 
-                                      m.hearts = newHeartsCnt;
-                                      m.hearted = json.hearted;
-                                  }
-                                  return m;
-                              });
+            {/* Game Options */}
+            {showOptions && (
+                <div className="map-options">
+                    <div className="map-option">
+                        <input
+                            type="checkbox"
+                            id="nm"
+                            checked={gameOptions.nm}
+                            onChange={(e) => setGameOptions({ ...gameOptions, nm: e.target.checked })}
+                        />
+                        <label htmlFor="nm">{text('nm')}</label>
+                    </div>
+                    <div className="map-option">
+                        <input
+                            type="checkbox"
+                            id="npz"
+                            checked={gameOptions.npz}
+                            onChange={(e) => setGameOptions({ ...gameOptions, npz: e.target.checked })}
+                        />
+                        <label htmlFor="npz">{text('npz')}</label>
+                    </div>
+                    <div className="map-option">
+                        <input
+                            type="checkbox"
+                            id="showRoadName"
+                            checked={gameOptions.showRoadName}
+                            onChange={(e) => setGameOptions({ ...gameOptions, showRoadName: e.target.checked })}
+                        />
+                        <label htmlFor="showRoadName">{text('showRoadName')}</label>
+                    </div>
+                </div>
+            )}
 
-                              if (section === "likedMaps") {
-                                  if (json.hearted) {
-                                      newMapHome[section].push(map);
-                                  } else {
-                                      newMapHome[section] = newMapHome[section].filter((m) => m.id !== map.id);
-                                  }
-                              }
-                          });
-                          return newMapHome;
-                      });
+            {/* Loading State */}
+            {isLoading && (
+                <div className="maps-loading">
+                    <div className="maps-loading-spinner"></div>
+                    <div className="maps-loading-text">{text("loading")}...</div>
+                </div>
+            )}
 
-                      if (searchResults.length > 0) {
-                          setSearchResults((prev) => {
-                              return prev.map((m) => {
-                                  if (m.id === map.id) {
-                                      m.hearts = newHeartsCnt;
-                                      m.hearted = json.hearted;
-                                  }
-                                  return m;
-                              });
-                          });
-                      }
-                  } else {
-                      toast.error(text(json.message || json.error || "unexpectedError"));
-                  }
-              })
-              .catch((e) => {
-                  setHeartingMap("");
-                  console.log(e);
-                  toast.error("Unexpected Error hearting map - 2");
-              });
-      }
+            {/* Content */}
+            {!isLoading && (
+                <>
+                    {/* All Countries Option */}
+                    {showAllCountriesOption &&
+                     ((searchTerm.length === 0) ||
+                      (text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase()))) && (
+                        <div className="all-countries-tile">
+                            <MapTile
+                                map={{ name: text("allCountries"), slug: "all" }}
+                                onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}
+                                searchTerm={searchTerm}
+                            />
+                        </div>
+                    )}
 
-      const hasResults =
-          Object.keys(mapHome)
-              .filter((k) => k !== "message")
-              .some((section) => {
-                  const mapsArray =
-                      section === "recent" && searchResults.length > 0
-                          ? searchResults
-                          : mapHome[section].filter(
-                              (map) =>
-                                  map.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
-                                  map.description_short?.toLowerCase()
-                                      .includes(searchTerm?.toLowerCase()) ||
-                                  map.created_by_name?.toLowerCase()
-                                      .includes(searchTerm?.toLowerCase())
-                          );
-                  return mapsArray.length > 0;
-              });
+                    {/* Map Sections */}
+                    {hasResults ? (
+                        Object.keys(mapHome)
+                            .filter((k) => k !== "message")
+                            .filter((k) => !process.env.NEXT_PUBLIC_COOLMATH || k !== "recent")
+                            .map((section, si) => {
+                                const mapsArray = section === "recent" && searchResults.length > 0
+                                    ? searchResults
+                                    : mapHome[section].filter((map) =>
+                                        map.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        map.description_short?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                        map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
+                                    );
 
-      return (
-          <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
-              {makeMap.open && (<div className="mapViewNavbar g2_container">
-                  <div className="mapViewLeft">
-                      <button
-                          onClick={() =>
-                              makeMap.open
-                                  ? setMakeMap({ ...makeMap, open: false })
-                                  : close()
-                          }
-                          className="mapViewClose g2_red_button"
-                      >
-                          {makeMap.open ? text("back") : text("close")}
-                      </button>
-                  </div>
-
-                  <h1 className="mapViewTitle">
-                      {makeMap.open ? makeMap?.edit ? "Edit Map" : "Make Map" : text("maps")}
-                  </h1>
-
-                  <div className="mapViewRight">
-                      {!makeMap.open && session?.token?.secret && (
-                          <button
-                              onClick={() => {
-
-                                  // disable for crazygames users
-                                  // if(inCrazyGames) {
-                                  //   toast.error("Please play on WorldGuessr.com to use this feature");
-                                  //   return;
-                                  // }
-                                  // temporarily disabled
-                                  // toast.error("Feature disabled temporarily due to maintenance");
-                                  // return;
-
-                                  if (makeMap.edit) {
-                                      setMakeMap({
-                                          ...initMakeMap,
-                                          open: true,
-                                      });
-                                  } else setMakeMap({ ...makeMap, open: true })
-                              }}
-                              className="mapViewMake g2_green_button"
-                          >
-                              Make Map
-                          </button>
-                      )}
-                  </div>
-              </div>)}
-
-              {!makeMap.open && <div style={{ width: "100%", display: "flex", justifyContent: "flex-end" }}>
-                  <button
-                      onClick={() => {
-                          if (makeMap.edit) {
-                              setMakeMap({
-                                  ...initMakeMap,
-                                  open: true,
-                              });
-                          } else setMakeMap({ ...makeMap, open: true })
-                      }}
-                      className="g2_green_button3 g2_button_style"
-                      style={{ width: "minContent", fontSize: "1.1em", paddingRight: "40px", paddingLeft: "40px" }}>Make Map</button>
-                  <div style={{ width: "0%" }}></div>
-              </div>}
-
-
-              {showOptions && (
-                  <div style={{ display: "flex", flexDirection: 'column', alignItems: 'center', marginBottom: '5px', marginTop: '5px' }}>
-                      <div>
-                          <span>{text('nm')}</span>
-                          <input type="checkbox" checked={gameOptions.nm} onChange={(e) => {
-                              setGameOptions({
-                                  ...gameOptions,
-                                  nm: e.target.checked
-                              })
-                          }
-                          } />
-                      </div>
-                      <div>
-                          <span>{text('npz')}</span>
-                          <input type="checkbox" checked={gameOptions.npz} onChange={(e) => {
-                              setGameOptions({
-                                  ...gameOptions,
-                                  npz: e.target.checked
-                              })
-                          }
-                          } />
-                      </div>
-                      <div>
-                          <span>{text('showRoadName')}</span>
-                          <input type="checkbox" checked={gameOptions.showRoadName} onChange={(e) => {
-                              setGameOptions({
-                                  ...gameOptions,
-                                  showRoadName: e.target.checked
-                              })
-                          }
-                          } />
-                      </div>
-                  </div>
-              )}
-
-
-
-              {!makeMap.open && (
-                  <div>
-                      {mapHome?.message && (
-                          <span className="bigSpan">{mapHome?.message}</span>
-                      )}
-
-                      <center>
-                          {showAllCountriesOption && ((searchTerm.length === 0) || (text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase()))) && (
-                              <MapTile map={{ name: text("allCountries"), slug: "all" }} onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })} searchTerm={searchTerm} />
-                          )}
-                      </center>
-
-                      {hasResults ? (
-                          Object.keys(mapHome)
-                              .filter((k) => k !== "message")
-                              .filter((k) => !process.env.NEXT_PUBLIC_COOLMATH || k !== "recent") //coolmath doesnt want unmoderated maps
-                              .map((section, si) => {
-                                  const mapsArray =
-                                      section === "recent" && searchResults.length > 0
-                                          ? searchResults
-                                          : mapHome[section].filter((map) =>
-                                              map.name?.toLowerCase()
-                                                  .includes(searchTerm.toLowerCase()) ||
-                                              map.description_short?.toLowerCase()
-                                                  .includes(searchTerm.toLowerCase()) ||
-                                              map.created_by_name?.toLowerCase()
-                                                  .includes(searchTerm?.toLowerCase())
-                                          );
-
-                                  return mapsArray.length > 0 ? (
-                                      <>
-                                          <h2 id={section + "_map_view_section"} className="mapSectionTitle">{text(section)}{["myMaps", "likedMaps", "reviewQueue"].includes(section) && ` (${mapsArray.length})`}</h2>
-                                          <div className={`mapSection section-${section} g2_container`} key={si}>
-
-
-                                              <div className={`mapSectionMaps`}>
-                                                  <ScrollMenu drag scrollContainerClassName={(section == "recent") ? "mapSectionWrap" : ""}>
-                                                      {section === "countryMaps" ? (
-                                                          mapsArray.map((map, i) => {
-                                                              if (i % 3 === 0) {
-                                                                  return (
-                                                                      <div
-                                                                          style={{
-                                                                              display: "flex",
-                                                                              flexDirection: "column",
-                                                                          }}
-                                                                          key={i}
-                                                                      >
-                                                                          {mapsArray.slice(i, i + 3).map((tileMap, index) => (
-                                                                              <MapTile
-                                                                                  key={i + index}
-                                                                                  map={tileMap}
-                                                                                  onClick={() => onMapClick(tileMap)}
-                                                                                  country={tileMap.countryMap}
-                                                                                  searchTerm={searchTerm}
-                                                                              />
-                                                                          ))}
-                                                                      </div>
-                                                                  );
-                                                              } else return null;
-                                                          })
-                                                      ) : (
-                                                          mapsArray.map((map, i) => {
-                                                              if (i % (section === "popular" ? 3 : 1) === 0) {
-                                                                  return (
-                                                                      <div
-                                                                          style={{
-                                                                              display: "flex",
-                                                                              flexDirection: "column",
-                                                                          }}
-                                                                          key={i}
-                                                                      >
-                                                                          {mapsArray.slice(i, i + (section === "popular" ? 3 : 1)).map((tileMap, index) => (
-                                                                              <MapTile
-                                                                                  key={i + index}
-                                                                                  map={tileMap}
-                                                                                  canHeart={session?.token?.secret && heartingMap !== mapsArray[i + index].id}
-                                                                                  onClick={() => onMapClick(tileMap)}
-                                                                                  country={tileMap.countryMap}
-                                                                                  searchTerm={searchTerm}
-                                                                                  secret={session?.token?.secret}
-                                                                                  refreshHome={refreshHome}
-                                                                                  showEditControls={
-                                                                                      (map.yours && section === "myMaps") ||
-                                                                                      session?.token?.staff
-                                                                                  }
-                                                                                  showReviewOptions={
-                                                                                      session?.token?.staff && section === "reviewQueue"
-                                                                                  }
-                                                                                  onPencilClick={(map) => {
-                                                                                      setMakeMap({
-                                                                                          ...initMakeMap,
-                                                                                          open: true,
-                                                                                          edit: true,
-                                                                                          mapId: map.id,
-                                                                                          name: map.name,
-                                                                                          description_short: map.description_short,
-                                                                                          description_long: map.description_long,
-                                                                                          data: map.data.map((loc) => {
-                                                                                              return JSON.stringify(loc);
-                                                                                          }),
-                                                                                      });
-                                                                                  }}
-                                                                                  onHeart={() => {
-                                                                                      heartMap(mapsArray[i + index]);
-                                                                                  }}
-                                                                              />
-                                                                          ))}
-                                                                      </div>
-                                                                  );
-                                                              } else return null;
-                                                          })
-                                                      )}
-                                                  </ScrollMenu>
-                                              </div>
-
-                                          </div>
-                                      </>
-                                  ) : null;
-                              })
-                      ) : (
-                          // make sure not loading
-                          (!mapHome?.message ||
-
-                              (process.env.NEXT_PUBLIC_COOLMATH &&
-                                  searchTerm.length > 0 &&
-                                  (!hasResults || hasResults.filter((k) => k !== "recent").length === 0))
-                          ) &&
-                          (
-                              <div className="noResults">{text("noResultsFound")}</div>
-                          )
-                      )}
-                  </div>
-              )}
-
-              {makeMap.open && (
-                  <MakeMapForm map={makeMap} setMap={setMakeMap} createMap={createMap} />
-              )}
-          </div>
-      );
-  }
+                                return mapsArray.length > 0 ? (
+                                    <div key={si} className="map-section">
+                                        <h2
+                                            id={section + "_map_view_section"}
+                                            className="map-section-title"
+                                        >
+                                            {text(section)}
+                                            {["myMaps", "likedMaps", "reviewQueue"].includes(section) &&
+                                             ` (${mapsArray.length})`}
+                                        </h2>
+                                        <div className="map-section-container">
+                                            <div className={`map-grid ${section === "countryMaps" ? "country-maps" : ""} ${section === "popular" ? "popular-maps" : ""}`}>
+                                                {mapsArray.map((map, i) => (
+                                                    <MapTile
+                                                        key={map.id || i}
+                                                        map={map}
+                                                        canHeart={session?.token?.secret && heartingMap !== map.id}
+                                                        onClick={() => onMapClick(map)}
+                                                        country={map.countryMap}
+                                                        searchTerm={searchTerm}
+                                                        secret={session?.token?.secret}
+                                                        refreshHome={refreshHome}
+                                                        showEditControls={
+                                                            (map.yours && section === "myMaps") ||
+                                                            session?.token?.staff
+                                                        }
+                                                        showReviewOptions={
+                                                            session?.token?.staff && section === "reviewQueue"
+                                                        }
+                                                        onPencilClick={(map) => {
+                                                            setMakeMap({
+                                                                ...initMakeMap,
+                                                                open: true,
+                                                                edit: true,
+                                                                mapId: map.id,
+                                                                name: map.name,
+                                                                description_short: map.description_short,
+                                                                description_long: map.description_long,
+                                                                data: map.data.map((loc) => JSON.stringify(loc)),
+                                                            });
+                                                        }}
+                                                        onHeart={() => heartMap(map)}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : null;
+                            })
+                    ) : (
+                        <div className="no-results">
+                            <FaMapMarkedAlt className="no-results-icon" />
+                            <h3 className="no-results-title">{text("noResultsFound")}</h3>
+                            <p className="no-results-text">
+                                Try adjusting your search terms or browse our featured maps.
+                            </p>
+                        </div>
+                    )}
+                </>
+            )}
+        </div>
+    );
+}

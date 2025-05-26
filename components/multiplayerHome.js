@@ -26,7 +26,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
     if (multiplayerError) {
         return (
             <div className="multiplayerHome">
-                <BannerText text={text("connectionLost")} shown={true} hideCompass={true} />
+                <BannerText position={"auto"} text={text("connectionLost")} shown={true} hideCompass={true} />
             </div>
         )
     }
@@ -36,7 +36,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
         (multiplayerState?.gameQueued) || (multiplayerState?.nextGameQueued))) {
         return (
             <div className="multiplayerHome">
-                <BannerText text={text("connectionLost")} shown={true} hideCompass={true} />
+                <BannerText position={"auto"} text={text("connectionLost")} shown={true} hideCompass={true} />
             </div>
         )
     }
@@ -61,11 +61,11 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
             )}
 
 
-            <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued} subText={
+            <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued} position={"auto"} subText={
                 multiplayerState?.publicDuelRange ? `${text("eloRange")}: ${multiplayerState?.publicDuelRange[0]} - ${multiplayerState?.publicDuelRange[1]}` : undefined
             } />
 
-            <BannerText text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />
+            <BannerText  position={"auto"} text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />
 
             {multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && !multiplayerState.gameData?.public && (
                 <PlayerList multiplayerState={multiplayerState} startGameHost={() => handleAction("startGameHost")} onEditClick={() => setPartyModalShown(true)} />

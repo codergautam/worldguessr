@@ -129,6 +129,12 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
   }
 
+  useEffect(() => {
+console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!showPanoOnResult && showAnswer) || (!showAnswer))))
+  console.log("10","minimapshown", miniMapShown, "showAnswer", showAnswer);
+  console.log("10","showpanoOnResult", showPanoOnResult, "singlePlayerRound.done", singlePlayerRound?.done);
+  }, [miniMapShown, showAnswer, singlePlayerRound?.done, showPanoOnResult])
+
   const { width, height } = useWindowDimensions();
   // how to determine if touch screen?
   let isTouchScreen = false;
