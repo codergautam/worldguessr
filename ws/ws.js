@@ -21,6 +21,31 @@ import calculateOutcomes from '../components/utils/eloSystem.js';
 import { tmpdir } from 'os';
 
 import arbitraryWorld from '../public/world-arbitrary.json' with { type: "json" };
+config();
+
+
+import { createClient } from 'redis';
+
+let redisClient;
+if(!process.env.REDIS_URI) {
+  console.log("[MISSING-ENV WARN] REDIS_URI env variable not set".yellow);
+} else {
+redisClient = createClient({
+  url: process.env.REDIS_URI,
+});
+
+redisClient.on('error', (err) => {
+  console.error('Redis Client Error', err);
+});
+
+const main = async () => {
+  await redisClient.connect();
+  console.log('Connected to Redis');
+};
+
+
+main();
+}
 
 function pick5RandomArb() {
   const rand = new Set();
@@ -31,7 +56,6 @@ function pick5RandomArb() {
 }
 
 
-config();
 // Load the profanity filter
 const filter = new Filter();
 filter.removeWords('damn')
