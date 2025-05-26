@@ -137,6 +137,13 @@ html {
     height: 100vh;
     display: flex !important;
     position: absolute;
+    // from accountModal.js
+    z-index: 100;
+    color: white;
+    padding: 0px !important; // Override default modal padding
+    margin: 0px !important; // Override default modal margin
+    font-family: "Lexend", sans-serif; // Keep consistent with html *
+    text-align: center;
     object-fit: cover;
     background-size: cover;
     background-position: center;
@@ -640,6 +647,13 @@ html {
     border: 1.4px solid #85200c;
     background: var(--gradRed);
     transition: box-shadow 0.3s ease, transform 0.3s ease, background-color 0.3s;
+    // For logout button in AccountModal
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px; // Consider using a clamp or font-size class
+    font-weight: bold;
+    margin-top: 20px;
 }
 .g2_hover_effect {
     transition: all 0.5s;
@@ -3267,9 +3281,23 @@ div:hover .elo-badge {
 
 .league-container {
     display: flex;
-    gap: 15px;
+    gap: clamp(10px, 2vw, 15px); // Responsive gap
     justify-content: center;
+    flex-wrap: wrap; // Allow wrapping on smaller screens
     margin-top: 10px;
+}
+
+.league-container > div { // Targeting the div wrapper for each league
+    width: clamp(60px, 10vw, 70px); // Responsive width
+    // Ensure child elements (emoji div, text p) scale or adjust appropriately
+    div[style*="width: 70px"] { // The colored square
+            width: 100% !important; // Override inline style to be responsive
+            height: clamp(50px, 8vw, 60px) !important; // Responsive height
+            font-size: clamp(35px, 6vw, 45px) !important; // Responsive emoji size
+    }
+    p { // League name
+        @extend .font-size-sm;
+    }
 }
 
 /* Responsive layout for mobile devices */
@@ -3277,5 +3305,97 @@ div:hover .elo-badge {
     .league-container {
         flex-direction: column;
         align-items: center;
+    }
+}
+
+// Typography utility classes
+.font-size-sm { font-size: clamp(0.8rem, 1.5vw, 1rem); }
+.font-size-md { font-size: clamp(1rem, 2vw, 1.25rem); }
+.font-size-lg { font-size: clamp(1.25rem, 2.5vw, 1.75rem); }
+.font-size-xl { font-size: clamp(1.5rem, 3vw, 2.25rem); }
+.font-size-title { font-size: clamp(2rem, 4vw, 3rem); }
+
+// Profile page specific classes
+.profile-view-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start; // Or 'center' if that fits better with overall design
+    text-align: left;
+    color: #fff; // Default text color
+    padding-bottom: 20px;
+    gap: clamp(8px, 1.5vw, 12px); // Responsive gap, e.g., clamp(8px, 1.5vw, 12px);
+    width: 100%; // Ensure it takes available width within the modal content area
+}
+
+.profile-title {
+    @extend .font-size-title; // Or directly apply clamp()
+    font-weight: bold;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    display: flex; // To align icon and text
+    align-items: center;
+}
+
+.profile-text {
+    @extend .font-size-lg; // Or directly apply clamp()
+    letter-spacing: 0.5px;
+    display: flex; // To align icon and text
+    align-items: center;
+}
+
+.profile-icon {
+    margin-right: 8px; // Or responsive margin
+    // Consider icon size responsiveness if needed
+}
+
+.profile-button {
+    // Inherit from .g2_green_button or similar, or define:
+    margin-top: 10px;
+    padding: clamp(5px, 1vw, 8px) clamp(10px, 2vw, 15px);
+    border: none;
+    border-radius: 5px;
+    background: rgba(0,0,0,0.5); // Or a theme color
+    color: white;
+    cursor: pointer;
+    @extend .font-size-md;
+    // Ensure it doesn't take full width by default, or set max-width
+    max-width: fit-content; // Or a specific max-width like 200px
+}
+
+.league-stats-container {
+    display: flex;
+    width: 100%; // Take full width
+    gap: 20px; // Space between ELO info and League squares
+    // Add media query for column layout on smaller screens
+    @media (max-width: 768px) { // Adjust breakpoint as needed
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+.elo-details-section {
+    // Styles for the left part of league-stats-container
+    // Uses .profile-text or similar for its children
+    flex-basis: 50%; // Adjust basis as needed
+    display: flex;
+    flex-direction: column;
+    gap: clamp(5px, 1vw, 8px);
+}
+
+.leagues-display-section {
+    // Styles for the right part of league-stats-container
+    flex-basis: 50%; // Adjust basis as needed
+    display: flex;
+    flex-direction: column;
+    align-items: center; // Center title and league container
+    h1 {
+        @extend .font-size-xl; // Or a specific title size for this section
+        font-weight: 600;
+        margin-bottom: 15px;
+        color: white;
+    }
+    p {
+            @extend .font-size-md;
+            color: white; // Or a secondary text color
+            margin-bottom: 2px; // Or use gap on parent
     }
 }

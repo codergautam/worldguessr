@@ -92,15 +92,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     <AccountView accountData={accountData} supporter={session?.token?.supporter} eloData={eloData} session={session} />
 
                     {!inCrazyGames && (
-                        <button className="g2_red_button" onClick={() => signOut()} style={{
-                            color: 'white',
-                            padding: '10px 20px',
-                            borderRadius: '5px',
-                            cursor: 'pointer',
-                            fontSize: '16px',
-                            fontWeight: 'bold',
-                            marginTop: '20px'
-                        }}>
+                        <button className="g2_red_button" onClick={() => signOut()}>
                             {text("logOut")}
                         </button>
                     )}</>
@@ -110,7 +102,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                         friends={friends}
                         shown={accountModalPage !== "profile"}
                         setFriends={setFriends} sentRequests={sentRequests} setSentRequests={setSentRequests} receivedRequests={receivedRequests} setReceivedRequests={setReceivedRequests} />
-                ) }
+                )}
             </div>
         </Modal>
     )
