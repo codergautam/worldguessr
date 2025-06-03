@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { toast } from "react-toastify";
-import { FaSearch, FaPlus, FaArrowLeft, FaMapMarkedAlt } from "react-icons/fa";
+import { FaSearch, FaPlus, FaArrowLeft, FaMapMarkedAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import MakeMapForm from "./makeMap";
 import MapTile from "./mapTile";
 import { backupMapHome } from "../utils/backupMapHome.js";
@@ -30,6 +30,7 @@ export default function MapView({
     });
     const [heartingMap, setHeartingMap] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [expandedSections, setExpandedSections] = useState({});
 
     function refreshHome(removeMapId) {
         if (removeMapId) {
@@ -215,6 +216,45 @@ export default function MapView({
             return mapsArray.length > 0;
         });
 
+    const toggleSection = (sectionKey) => {
+        setExpandedSections(prev => {
+
+        // scroll to section top if being collapsed and not in view
+        setTimeout(() => {
+            const sectionElement = document.getElementById(sectionKey + "_map_view_section");
+            if (sectionElement) {
+                const sectionTop = sectionElement.getBoundingClientRect().top;
+                const sectionHeight = 100;
+                const windowHeight = window.innerHeight;
+                // If the section is being collapsed and is not in view, scroll to it
+                console.log(sectionTop, sectionHeight, windowHeight);
+                if (prev[sectionKey] && (sectionTop < 0 || sectionTop + sectionHeight > windowHeight)) {
+                    sectionElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }
+        }, 100);
+
+        // toggle the section
+            return{
+            ...prev,
+            [sectionKey]: !prev[sectionKey]
+        }});
+    };
+
+    const getRowsForSection = (section) => {
+        if (section === "popular") return 3;
+        return 2;
+    };
+
+    const getMapsPerRow = () => {
+        // Responsive maps per row based on screen width
+        if (window.innerWidth >= 1400) return 6;
+        if (window.innerWidth >= 1200) return 5;
+        if (window.innerWidth >= 900) return 4;
+        if (window.innerWidth >= 600) return 3;
+        return 2;
+    };
+
     if (makeMap.open) {
         return (
             <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
@@ -320,6 +360,8 @@ export default function MapView({
                       (text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase()))) && (
                         <div className="all-countries-tile">
                             <MapTile
+                            bgImage={"url(\"/world.jpg\")"}
+                            forcedWidth="300px"
                                 map={{ name: text("allCountries"), slug: "all" }}
                                 onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}
                                 searchTerm={searchTerm}
@@ -341,7 +383,16 @@ export default function MapView({
                                         map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
                                     );
 
-                                return mapsArray.length > 0 ? (
+                                if (mapsArray.length === 0) return null;
+
+                                const isExpanded = expandedSections[section] || section === "recent";
+                                const rows = getRowsForSection(section);
+                                const mapsPerRow = getMapsPerRow();
+                                const defaultMaxMaps = rows * mapsPerRow;
+                                const shouldShowExpandButton = mapsArray.length > defaultMaxMaps && section !== "recent";
+                                const displayedMaps = isExpanded ? mapsArray : mapsArray.slice(0, defaultMaxMaps);
+
+                                return (
                                     <div key={si} className="map-section">
                                         <h2
                                             id={section + "_map_view_section"}
@@ -352,8 +403,8 @@ export default function MapView({
                                              ` (${mapsArray.length})`}
                                         </h2>
                                         <div className="map-section-container">
-                                            <div className={`map-grid ${section === "countryMaps" ? "country-maps" : ""} ${section === "popular" ? "popular-maps" : ""}`}>
-                                                {mapsArray.map((map, i) => (
+                                            <div className={`map-grid ${section === "countryMaps" ? "country-maps" : ""} ${section === "popular" ? "popular-maps" : ""} ${!isExpanded && section !== "recent" ? "collapsed" : "expanded"}`}>
+                                                {displayedMaps.map((map, i) => (
                                                     <MapTile
                                                         key={map.id || i}
                                                         map={map}
@@ -386,9 +437,28 @@ export default function MapView({
                                                     />
                                                 ))}
                                             </div>
+
+                                            {shouldShowExpandButton && (
+                                                <button
+                                                    className="show-more-btn"
+                                                    onClick={() => toggleSection(section)}
+                                                >
+                                                    {isExpanded ? (
+                                                        <>
+                                                            <FaChevronUp />
+                                                            Show Less
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <FaChevronDown />
+                                                            Show All
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                ) : null;
+                                );
                             })
                     ) : (
                         <div className="no-results">

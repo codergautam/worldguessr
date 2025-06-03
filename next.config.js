@@ -19,7 +19,16 @@ const nextConfig = {
         unoptimized: true,
     },
     output: 'export',
-    assetPrefix: './',
+    async rewrites() {
+        return [
+            {
+                source: '/map/:slug',
+                destination: '/map?s=:slug',
+            },
+        ];
+    },
+
+    // assetPrefix: './', we cant use this because it breaks dynamic paths (https://nextjs.org/docs/app/api-reference/config/next-config-js/assetPrefix)
 };
 
 // module.exports = nextConfig;

@@ -15,9 +15,11 @@ export default function MapTile({
     canHeart,
     showReviewOptions,
     secret,
-    refreshHome
+    refreshHome,
+    bgImage,
+    forcedWidth
 }) {
-    const backgroundImage = country ? `url("https://flagcdn.com/h240/${country?.toLowerCase()}.png")` : "";
+    const backgroundImage = bgImage ? bgImage : (country ? `url("https://flagcdn.com/h240/${country?.toLowerCase()}.png")` : "");
     const [mapResubmittable, setMapResubmittable] = useState(map.resubmittable);
 
     // Define escapeRegExp outside of highlightMatch so it exists before being called
@@ -120,7 +122,12 @@ export default function MapTile({
         <div
             className={`map-tile ${country ? 'country' : ''}`}
             onClick={onClick}
-            style={country ? { backgroundImage } : {}}
+            style={backgroundImage ? { backgroundImage,
+
+                backgroundSize: 'cover',
+                backgroundRepeat: 'no-repeat',
+                width: forcedWidth ? forcedWidth : undefined
+             } : {}}
         >
             <div className={`map-tile__header ${country ? 'country' : ''}`}>
                 <div className="map-tile__mapdetails">
