@@ -1073,7 +1073,10 @@ export default function Home({ }) {
                 let code = window.CrazyGames.SDK.game.getInviteParam("code")
                 let instantJoin =  (inCrazyGames && window.CrazyGames.SDK.game.isInstantMultiplayer) || window.location.search.includes("instantJoin");
 
-
+            if( window.CrazyGames.SDK.game.getInviteParam("code") || window.CrazyGames.SDK.game.isInstantMultiplayer) {
+              console.log("crazygames");
+              setInCrazyGames(true);
+            }
 
                 if (code || instantJoin) {
 
