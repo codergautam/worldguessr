@@ -72,6 +72,8 @@ export default function MapPage({ }) {
       }, 1000);
     }, 5000);
 
+    window.intervalId = intervalId;
+
     return () => clearInterval(intervalId);
   }, [mapData.data]);
 
@@ -173,6 +175,10 @@ export default function MapPage({ }) {
         marker.on('click', () => {
           setCurrentLocationIndex(index);
           updateSelectedMarker(index);
+          if(window.intervalId) {
+            clearInterval(window.intervalId);
+            window.intervalId = null;
+          }
 
           setFadeClass(styles.iframe + ' ' + styles.fadeOut);
           setTimeout(() => {
@@ -305,10 +311,6 @@ export default function MapPage({ }) {
             {/* World Map Section */}
             {mapData.data && mapData.data.length > 0 && (
               <div className={styles.worldMapSection}>
-                <h2>🌍 Locations Map</h2>
-                <p style={{ textAlign: 'center', marginBottom: '1rem', opacity: 0.8 }}>
-                  Click on any dot to preview that location above
-                </p>
                 <div className={styles.worldMapContainer}>
                   <div ref={mapRef} style={{ width: '100%', height: '100%' }}></div>
                 </div>

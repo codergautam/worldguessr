@@ -1,6 +1,7 @@
 .container {
   min-height: 100vh;
-  width: 100vw;
+  width: 100%;
+  max-width: 100vw;
   background: linear-gradient(
     135deg,
     rgba(0, 0, 0, 0.9) 0%,
@@ -15,7 +16,8 @@
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow-x: hidden; /* Fix horizontal scrollbar */
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .main {
@@ -26,7 +28,8 @@
   padding: 2rem;
   position: relative;
   z-index: 1;
-  overflow-x: hidden; /* Fix horizontal scrollbar */
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 .branding {
@@ -38,6 +41,7 @@
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
 }
 
 .branding h1 {
@@ -49,6 +53,7 @@
   -webkit-text-fill-color: transparent;
   text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
   font-weight: 700;
+  word-wrap: break-word;
 }
 
 .backButton {
@@ -68,6 +73,7 @@
   text-decoration: none;
   min-width: fit-content;
   margin-top: 1rem;
+  box-sizing: border-box;
 }
 
 .backButton:hover {
@@ -88,11 +94,14 @@
   font-size: 16px;
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+  overflow-wrap: break-word;
 }
 
 .statusMessage p {
   margin: 0;
   font-weight: 500;
+  word-wrap: break-word;
 }
 
 .mapHeader {
@@ -103,6 +112,8 @@
   margin-bottom: 2rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mapImage {
@@ -152,6 +163,7 @@
     transparent 100%
   );
   backdrop-filter: blur(10px);
+  box-sizing: border-box;
 }
 
 .mapInfo h1 {
@@ -160,6 +172,7 @@
   font-weight: 700;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
   margin-bottom: 0.5rem;
+  word-wrap: break-word;
 }
 
 .mapInfo p {
@@ -167,6 +180,7 @@
   opacity: 0.9;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
   line-height: 1.4;
+  word-wrap: break-word;
 }
 
 .playButton {
@@ -187,6 +201,7 @@
   box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
   backdrop-filter: blur(10px);
   border: 2px solid rgba(255, 255, 255, 0.1);
+  box-sizing: border-box;
 }
 
 .playButton:hover {
@@ -209,6 +224,8 @@
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .worldMapSection h2 {
@@ -217,6 +234,7 @@
   font-weight: 600;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
   text-align: center;
+  word-wrap: break-word;
 }
 
 .worldMapContainer {
@@ -226,6 +244,7 @@
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
 }
 
 .mapStats {
@@ -234,6 +253,8 @@
   gap: 1rem;
   margin-bottom: 2rem;
   flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .stat {
@@ -249,6 +270,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
   transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
 .stat:hover {
@@ -268,6 +290,7 @@
   font-weight: 700;
   margin-bottom: 0.25rem;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  word-wrap: break-word;
 }
 
 .statLabel {
@@ -286,6 +309,8 @@
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mapDescription h2 {
@@ -293,6 +318,7 @@
   margin-bottom: 1rem;
   font-weight: 600;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  word-wrap: break-word;
 }
 
 .mapDescription p {
@@ -300,6 +326,8 @@
   line-height: 1.6;
   margin-bottom: 1rem;
   opacity: 0.9;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .mapAuthor {
@@ -309,6 +337,7 @@
   font-size: 1.1rem;
   opacity: 0.8;
   font-style: italic;
+  word-wrap: break-word;
 }
 
 .fadeIn {

@@ -246,7 +246,7 @@ html {
 .g2_nav_hr {
     background: white;
     width: 90%;
-    height: 2px;
+    height: 2.7px;
     margin-top: 3px;
     margin-bottom: 3px;
 }
@@ -1348,6 +1348,8 @@ h1, h2, h3, span, label {
     background-color: #1ea0ac;
     color: white;
     border-radius: 10px;
+    padding: 5px;
+    cursor: pointer;
 }
 
 .hintBtn {

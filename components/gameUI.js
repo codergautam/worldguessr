@@ -560,6 +560,8 @@ button1Press={() =>{
           ) : (
             <FaExpand />
           )}</button>
+
+          &nbsp;
           <button className="cornerBtn" onClick={() => {
             setMapPinned(!mapPinned)
           }}>
