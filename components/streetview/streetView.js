@@ -112,6 +112,18 @@ const StreetView = ({
       setLoading(false);
       cleanMetaTags();
     });
+
+    panoramaRef.current.addListener("position_changed", () => {
+      const pos = panoramaRef.current.getPosition();
+      const curLat = pos.lat();
+      const curLng = pos.lng();
+
+      if(nm && !showAnswer && curLat !== lat && curLng !== long) {
+        // If NM is enabled and position changed, move back to original position
+        panoramaRef.current.setPosition({ lat, lng: long });
+      }
+    });
+
   };
 
   // Main useEffect for handling embed or SDK
@@ -132,6 +144,7 @@ const StreetView = ({
     return () => {
       if (panoramaRef.current) {
         google.maps.event.clearListeners(panoramaRef.current, "pano_changed");
+        google.maps.event.clearListeners(panoramaRef.current, "position_changed");
         panoramaRef.current.setVisible(false);
         panoramaRef.current = null;
       }
