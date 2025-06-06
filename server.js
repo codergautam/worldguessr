@@ -204,6 +204,16 @@ app.get('/allCountries.json', (req, res) => {
 
 let countryLocations = {};
 
+let rawOverrides = {};
+
+const mapOverridesDir = path.join(process.cwd(), 'public', 'mapOverrides');
+const mapOverrideFiles = fs.readdirSync(mapOverridesDir).filter(file => file.endsWith('.json'));
+
+for (const file of mapOverrideFiles) {
+  rawOverrides[file.replace('.json', '')] = JSON.parse(fs.readFileSync(path.join(mapOverridesDir, file), 'utf8'));
+}
+
+
 for (const country of countries) {
   countryLocations[country] = [];
 }
@@ -219,6 +229,18 @@ app.get('/countryLocations/:country', (req, res) => {
     return res.json({ ready: countryLocations[req.params.country].locations.length>0, locations: countryLocations[req.params.country].locations });
   } else {
 
+    if( rawOverrides[req.params.country]) {
+      countryLocations[req.params.country].locations = rawOverrides[req.params.country].customCoordinates.sort(() => Math.random() - 0.5).slice(0, 1000).map(loc => {
+        return {
+          lat: loc.lat,
+          long: loc.lng,
+          country: req.params.country
+        }
+      });
+
+      countryLocations[req.params.country].cacheUpdate = Date.now();
+      return res.json({ ready: countryLocations[req.params.country].locations.length>0, locations: countryLocations[req.params.country].locations });
+    } else {
 fetch('http://localhost:3003/countryLocations/'+req.params.country)
   .then(response => response.json())
   .then(data => {
@@ -232,6 +254,7 @@ fetch('http://localhost:3003/countryLocations/'+req.params.country)
     console.error('Error fetching countryLocations', error, currentDate());
     res.status(500).json({ ready: false, message: 'Error fetching countryLocations' });
   });
+}
 }
 });
 

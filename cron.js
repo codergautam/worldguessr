@@ -10,6 +10,8 @@ import express from 'express';
 import countries from './public/countries.json' with { type: "json" };
 import findLatLongRandom from './components/findLatLongServer.js';
 import cityGen from './serverUtils/cityGen.js';
+import fs from 'fs';
+import path from 'path';
 
 import mainWorld from './public/world-main.json' with { type: "json" };
 configDotenv();
@@ -38,8 +40,23 @@ let countryLocations = {};
 const locationCnt = 2000;
 const batchSize = 10;
 
+const overrideCountries = [];
+// get all file names of files in ./public/mapOverrides
+const mapOverridesDir = path.join(process.cwd(), 'public', 'mapOverrides');
+const mapOverrideFiles = fs.readdirSync(mapOverridesDir).filter(file => file.endsWith('.json'));
+
+for (const file of mapOverrideFiles) {
+  overrideCountries.push(file.split('.')[0]);
+}
+
+console.log(`Found override for countries: ${overrideCountries.join(', ')}`);
 
 for (const country of countries) {
+  if(overrideCountries.includes(country)) {
+    // Skip countries with manual overrides
+    console.log(`Skipping ${country} due to manual override`);
+    continue;
+  }
   countryLocations[country] = [];
 }
 
@@ -49,6 +66,10 @@ const generateBalancedLocations = async () => {
 
     // Loop through each country and start generating one batch for each
     for (const country of countries) {
+      if(!countryLocations[country]) {
+        continue;
+      }
+
       for (let i = 0; i < batchSize; i++) {
       const startTime = Date.now(); // Start time for each country
       const locationPromise = new Promise((resolve, reject) => {
