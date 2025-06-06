@@ -1,4 +1,5 @@
-import geonames from '../geonames-all-cities-with-a-population-1000.json' with { type: 'json' }
+// download the file from https://public.opendatasoft.com/explore/dataset/geonames-all-cities-with-a-population-1000/export/?flg=en-us&disjunctive.cou_name_en&sort=name
+import geonames from './geonames-all-cities-with-a-population-1000.json' with { type: 'json' }
 import countries from '../public/countries.json' with { type: 'json' }
 console.log('cities-initial', geonames.length)
 // filter out cities that aren't in countries
