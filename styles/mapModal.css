@@ -258,6 +258,13 @@
 }
 
 
+.comm_map_header {
+  padding-bottom: 10px;
+  font-size: clamp(1.2em, 2vw, 3em);
+}
+.comm_map_category_header {
+  font-size: clamp(1.1em, 1.7vw, 2.8em);
+}
 
 /* Map Grid */
 .map-grid {
@@ -269,9 +276,9 @@
   overflow: hidden;
 }/* Default collapsed view - horizontal scrolling */
 .map-grid.collapsed {
-  grid-auto-flow: column;
+  /* grid-auto-flow: column; */
   grid-template-rows: repeat(2, 1fr);
-  grid-template-columns: repeat(auto-fit, minmax(240px, 240px));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); /* Changed from 240px to 1fr */
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
@@ -281,23 +288,22 @@
   max-height: calc(2 * (140px + 16px));
 }
 
-.map-grid.country-maps {
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+.map-grid.collapsed.country-maps {
+  grid-template-rows: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Changed from 200px to 1fr */
+  max-height: calc(2 * (120px + 16px));
 }
 
-.map-grid.popular-maps {
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+.map-grid.collapsed.popular-maps {
+  grid-template-rows: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); /* Changed from 240px to 1fr */
+  max-height: calc(3 * (140px + 16px));
 }
 .map-grid.collapsed.popular-maps {
   grid-template-rows: repeat(3, 1fr);
   max-height: calc(3 * (140px + 16px));
 }
 
-.map-grid.collapsed.country-maps {
-  grid-template-rows: repeat(2, 1fr);
-  grid-template-columns: repeat(auto-fit, minmax(200px, 200px));
-  max-height: calc(2 * (120px + 16px));
-}
 
 /* Expanded view - normal grid */
 .map-grid.expanded {
@@ -537,7 +543,7 @@
   border: 1px solid rgba(220, 53, 69, 0.4);
   border-radius: 12px;
   color: #dc3545;
-  font-size: 0.75rem;
+  font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: var(--map-transition);
@@ -1190,20 +1196,17 @@
 }
 
 /* Base */
-.map-grid.collapsed .map-tile { width: 240px; flex-shrink: 0; }
-.map-grid.collapsed.country-maps .map-tile { width: 200px; }
+.map-grid.collapsed .map-tile { flex-shrink: 0; }
 
 /* ≤ 1400 px */
 @media (max-width: 1400px) {
-  .map-grid.collapsed          { grid-template-columns: repeat(auto-fit, minmax(220px, 220px)); }
-}
+    .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  }
 
 /* ≤ 1200 px */
 @media (max-width: 1200px) {
-  .map-grid.collapsed          { grid-template-columns: repeat(auto-fit, minmax(200px, 200px)); }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 180px)); }
-  .map-grid.collapsed .map-tile { width: 200px; }
-  .map-grid.collapsed.country-maps .map-tile { width: 180px; }
+  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 }
 
 /* ≤ 768 px */
@@ -1213,12 +1216,11 @@
   .delete-button { align-self: flex-end; width: auto; padding: 8px 16px; }
   .make-map-form > div[style*="alignItems"] { flex-direction: column; align-items: flex-start; gap: 8px; }
 
-  .map-grid.collapsed          { grid-template-columns: repeat(auto-fit, minmax(180px, 180px)); gap: 12px; }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 160px)); }
+  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
   .show-more-btn { padding: 14px 20px; font-size: 0.95rem; }
 
-  .map-grid.collapsed .map-tile { width: 180px; }
-  .map-grid.collapsed.country-maps .map-tile { width: 160px; }
+
 }
 
 /* ≤ 480 px */
@@ -1227,10 +1229,9 @@
   .make-map-form h2 { font-size: 1.5rem; }
   .add-button { width: 100%; justify-content: center; }
 
-  .map-grid.collapsed          { grid-template-columns: repeat(auto-fit, minmax(160px, 160px)); gap: 10px; }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(140px, 140px)); }
+  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   .show-more-btn { padding: 12px 16px; font-size: 0.9rem; margin-top: 12px; }
 
-  .map-grid.collapsed .map-tile { width: 160px; }
-  .map-grid.collapsed.country-maps .map-tile { width: 140px; }
+
 }

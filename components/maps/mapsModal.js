@@ -68,9 +68,9 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 
     return (
         <Modal classNames={{ modal: "g2_modal" }} styles={{ modal: styles.overlay }} open={shown} onClose={onClose} showCloseIcon={false} animationDuration={0}>
-            <div className={`g2_nav_ui ${mapModalClosing ? "g2_slide_out" : ""}`}>
-                <h1 className="g2_nav_title">{text("communityMaps")}</h1>
-                <div className="g2_nav_hr"></div>
+            <div className={`g2_nav_ui ${mapModalClosing ? "g2_slide_out" : ""} desktop`}>
+                <h1 className="g2_nav_title comm_map_header">{text("communityMaps")}</h1>
+                <div className="g2_nav_hr desktop"></div>
                 {/* {!makeMap.open && (
                     <>
                         <div className="mapSearch">
@@ -88,16 +88,16 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 
 
                 <div className="g2_nav_group map_categories">
-                    <button className="g2_nav_text singleplayer"
+                    <button className="g2_nav_text singleplayer comm_map_category_header"
                         onClick={() => document.getElementById("countryMaps_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("countryMaps")}</button>
-                    <button className="g2_nav_text singleplayer"
+                    <button className="g2_nav_text singleplayer comm_map_category_header"
                         onClick={() => document.getElementById("spotlight_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("spotlight")}</button>
-                    <button className="g2_nav_text singleplayer"
+                    <button className="g2_nav_text singleplayer comm_map_category_header"
                         onClick={() => document.getElementById("popular_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("popular")}</button>
-                    <button className="g2_nav_text singleplayer"
+                    <button className="g2_nav_text singleplayer comm_map_category_header"
                         onClick={() => document.getElementById("recent_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("recent")}</button>
                 </div>
