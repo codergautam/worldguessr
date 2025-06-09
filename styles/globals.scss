@@ -1878,6 +1878,12 @@ input[placeholder="Please login to chat"] {
     .mobile {
         display: block;
     }
+
+    .home__footer {
+        // center it
+        bottom: 10px;
+        left: calc(50% - 150px);
+    }
 }
 
 
