@@ -624,11 +624,75 @@ html {
 
 .accountBtn {
     position: fixed;
-    right: 10px;
+    right: 70px;
     top: 10px;
     width: auto;
     z-index: 101;
-    font-size: clamp(1.5em, 2vw, 3em);
+    font-size: 1.5em;
+    border-radius: 8px;
+    pointer-events: all;
+    background-color: var(--primaryTransparent);
+}
+
+.friendBtn {
+    background: var(--primaryTransparent);
+    width: fit-content;
+    display: flex;
+    color: white;
+    border-radius: 8px;
+    align-items: center;
+    justify-content: center;
+    pointer-events: all;
+    aspect-ratio: 1/1;
+    height: 42px;
+}
+
+.friendBtn:hover {
+    background: var(--primary);
+}
+
+.friendBtnFixed {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    aspect-ratio: inherit;
+
+}
+.friendBtnIcon {
+        width: 40px;
+        height: 40px;
+    }
+//less than 1280px
+@media screen and (max-width: 1280px) {
+    .accountBtn {
+        font-size: 1.2em;
+        right: 62px;
+    }
+    .friendBtn {
+        height: 36px;
+    }
+    .friendBtnIcon {
+        width: 35px;
+        height: 35px;
+    }
+}
+//less than 600px
+@media screen and (max-width: 600px) {
+.accountBtn {
+        font-size: 1.0em;
+        right: 58px;
+    }
+    .friendBtn {
+        height: 30px;
+    }
+    .friendBtnIcon {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+.accountBtn:hover {
+    background-color: var(--primary);
 }
 
 .navBtn {
@@ -2173,17 +2237,7 @@ img[alt="Google"] {
     height: 50px;
 }
 
-.friendBtn {
-    background: var(--gradGreenBtn);
-    width: fit-content;
-    display: flex;
-    color: white;
-    border-radius: 8px;
-    align-items: center;
-    justify-content: center;
-    pointer-events: all;
-    aspect-ratio: 1/1;
-}
+
 
 .input-group {
     display: flex;
@@ -2689,10 +2743,10 @@ div[dir="ltr"] {
 
 .leagueBtn {
     position: fixed;
-    top: 40px;
+    top: 60px;
     width: 70px;
     height: min-content;
-    right: 5px;
+    right: 10px;
     animation: bounce 0.5s;
     z-index: 1000;
     width: fit-content;
@@ -2704,8 +2758,25 @@ div[dir="ltr"] {
     padding: 0px;
     padding-left: 15px;
     padding-right: 15px;
-    border-radius: 50px;
+    border-radius: 8px;
     margin: 0;
+    background-color: var(--primaryTransparent);
+    padding-top: 5px;
+    padding-bottom: 5px;
+}
+
+// less than 1280px
+@media (max-width: 1280px) {
+    .leagueBtn {
+        top: 50px;
+    }
+}
+// less than 900px
+@media (max-width: 600px) {
+    .leagueBtn {
+        top: 45px;
+    }
+
 }
 
 .leagueBtn:hover {

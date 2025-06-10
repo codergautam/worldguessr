@@ -110,7 +110,7 @@ export default function EloView({ eloData }) {
                     color: 'white',
                     textAlign: 'center'
                 }}>
-                    {text("leagueSystem") || "League System"}
+                    {text("leagues")}
                 </h2>
 
                 <div style={leagueContainerStyle}>
@@ -219,7 +219,7 @@ export default function EloView({ eloData }) {
                     color: 'white',
                     textAlign: 'center'
                 }}>
-                    {text("statistics") || "Statistics"}
+                    {text("statistics")}
                 </h2>
 
                 <div style={statsGridStyle}>

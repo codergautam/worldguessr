@@ -70,11 +70,11 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                             onClick={joinCodePress}>{text("joinGame")}</button>
                     )}
 
-                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && (<AccountBtn inCrazyGames={inCrazyGames} session={session} navbarMode={true} openAccountModal={openAccountModal} />)}
+                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && (<AccountBtn inCrazyGames={inCrazyGames} session={session} navbarMode={screen !== "home"} openAccountModal={openAccountModal} />)}
 
                     {session?.token?.secret && !accountModalOpen && !gameOptionsModalShown && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && (
-                        <button className="gameBtn friendBtn" onClick={onFriendsPress} disabled={!multiplayerState?.connected}>
-                            <FaUserFriends size={40} />
+                        <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected}>
+                            <FaUserFriends size={40} className="friendBtnIcon" />
                         </button>
                     )}
                 </div>

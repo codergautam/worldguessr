@@ -111,8 +111,6 @@ export default function Home({ }) {
     const [multiplayerError, setMultiplayerError] = useState(null);
     const [miniMapShown, setMiniMapShown] = useState(false)
     const [accountModalPage, setAccountModalPage] = useState("profile");
-
-    const [showPartyCards, setShowPartyCards] = useState(false);
     const [mapModalClosing, setMapModalClosing] = useState(false);
 
     useEffect(() => {
@@ -2076,7 +2074,7 @@ export default function Home({ }) {
                 <div>
                     {screen === "home" && !mapModal && session && session?.token?.secret && (
                         <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("elo"); }}
-                        //                        style={{ backgroundColor: eloData?.league?.color }}
+                                               style={{ backgroundColor: eloData?.league?.color }}
                         >
                             {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league?.emoji}
                         </button>
@@ -2122,7 +2120,6 @@ export default function Home({ }) {
                                                             setMiniMapShown(false);
                                                             setTimeout(() => {
                                                               crazyMidgame(() => setScreen("singleplayer"));
-                                                              setShowPartyCards(false);
                                                               setNavSlideOut(false); // Reset for next use
                                                             }, 300);
                                                     }}>
@@ -2130,7 +2127,13 @@ export default function Home({ }) {
                                                 </button>
                                                 {/* <span className="bigSpan">{text("playOnline")}</span> */}
 
-                                                <button className="g2_nav_text" aria-label="Duels" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("duels")}</button>
+                                                {/* <button className="g2_nav_text" aria-label="Duels" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("duels")}</button> */}
+                                                    { session?.token?.secret && (
+                                                 <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("publicDuel") }}>{text("rankedDuel")}</button>
+                                                    )}
+                                                 <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("unrankedDuel") }}>{
+                                                    session?.token?.secret ? text("unrankedDuel") : text("findDuel")}</button>
+
 
 
                                             </div>
@@ -2164,7 +2167,7 @@ export default function Home({ }) {
                                                         setNavSlideOut(true);
                                                         setTimeout(() => {
                                                             setNavSlideOut(false); // Reset for next use
-                                                            setMapModal(true); setShowPartyCards(false);
+                                                            setMapModal(true);
                                                         }, 300);
                                                         }}>{text("communityMaps")}</button>}
                                             </div>
@@ -2225,7 +2228,7 @@ export default function Home({ }) {
 
                                 }
                             </button>*/}
-                            {showPartyCards &&
+                            {/* {showPartyCards &&
                                 <>
                                     <h1>{text("duels")}</h1>
                                     <div style={{ display: "flex", gap: "20px" }} >
@@ -2249,7 +2252,7 @@ export default function Home({ }) {
                                         </div>
                                     </div>
                                 </>
-                            }
+                            } */}
                         </div>
                     </div>
                 }

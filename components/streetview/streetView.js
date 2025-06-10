@@ -12,6 +12,13 @@ const StreetView = ({
   onLoad
 }) => {
 
+  const lastZoomlog = useRef(null);
+  const lastPovlog = useRef(null);
+  // Add debounce timers and data refs
+  const zoomDebounceTimer = useRef(null);
+  const povDebounceTimer = useRef(null);
+  const lastZoomData = useRef(null);
+  const lastPovData = useRef(null);
 
   useEffect(()=>{
 
@@ -53,6 +60,78 @@ const StreetView = ({
 
   // Helper to determine whether to use iframe or SDK
   const shouldUseEmbed = (showRoadLabels && ((!nm && !npz) || (nm && npz)));
+
+  // Debounced logging functions
+  const logZoomChange = (zoom) => {
+    const now = Date.now();
+
+    // Clear existing timer
+    if (zoomDebounceTimer.current) {
+      clearTimeout(zoomDebounceTimer.current);
+    }
+
+    // Store the latest zoom data
+    lastZoomData.current = {
+      type: 'zoom_changed',
+      timestamp: now,
+      zoom: zoom
+    };
+
+    // Check if we should log immediately (if last log was more than 500ms ago)
+    if (!lastZoomlog.current || (now - lastZoomlog.current) >= 500) {
+      console.log('REPLAY_EVENT:', lastZoomData.current);
+      lastZoomlog.current = now;
+    } else {
+      // Set a timer to log the final state after 500ms of no changes
+      zoomDebounceTimer.current = setTimeout(() => {
+        if (lastZoomData.current) {
+          console.log('REPLAY_EVENT:', {
+            ...lastZoomData.current,
+            timestamp: Date.now() // Update timestamp to current time
+          });
+          lastZoomlog.current = Date.now();
+          lastZoomData.current = null;
+        }
+      }, 500);
+    }
+  };
+
+  const logPovChange = (pov) => {
+    const now = Date.now();
+
+    // Clear existing timer
+    if (povDebounceTimer.current) {
+      clearTimeout(povDebounceTimer.current);
+    }
+
+    // Store the latest pov data
+    lastPovData.current = {
+      type: 'pov_changed',
+      timestamp: now,
+      pov: {
+        heading: pov.heading,
+        pitch: pov.pitch
+      }
+    };
+
+    // Check if we should log immediately (if last log was more than 500ms ago)
+    if (!lastPovlog.current || (now - lastPovlog.current) >= 500) {
+      console.log('REPLAY_EVENT:', lastPovData.current);
+      lastPovlog.current = now;
+    } else {
+      // Set a timer to log the final state after 500ms of no changes
+      povDebounceTimer.current = setTimeout(() => {
+        if (lastPovData.current) {
+          console.log('REPLAY_EVENT:', {
+            ...lastPovData.current,
+            timestamp: Date.now() // Update timestamp to current time
+          });
+          lastPovlog.current = Date.now();
+          lastPovData.current = null;
+        }
+      }, 500);
+    }
+  };
 
   // Reload location logic
   const reloadLocation = () => {
@@ -108,9 +187,23 @@ const StreetView = ({
     }, 100);
       onLoad();
 
+    // Event logging for replay system
     panoramaRef.current.addListener("pano_changed", () => {
       setLoading(false);
       cleanMetaTags();
+
+      // Log pano change event
+      const panoId = panoramaRef.current.getPano();
+      const position = panoramaRef.current.getPosition();
+      console.log('REPLAY_EVENT:', {
+        type: 'pano_changed',
+        timestamp: Date.now(),
+        panoId: panoId,
+        position: {
+          lat: position.lat(),
+          lng: position.lng()
+        }
+      });
     });
 
     panoramaRef.current.addListener("position_changed", () => {
@@ -118,10 +211,52 @@ const StreetView = ({
       const curLat = pos.lat();
       const curLng = pos.lng();
 
+      // Log position change event
+      console.log('REPLAY_EVENT:', {
+        type: 'position_changed',
+        timestamp: Date.now(),
+        position: {
+          lat: curLat,
+          lng: curLng
+        }
+      });
+
       if(nm && !showAnswer && curLat !== lat && curLng !== long) {
         // If NM is enabled and position changed, move back to original position
         panoramaRef.current.setPosition({ lat, lng: long });
       }
+    });
+
+    // Log POV (pan/tilt) changes with debouncing
+    panoramaRef.current.addListener("pov_changed", () => {
+      const pov = panoramaRef.current.getPov();
+      logPovChange(pov);
+    });
+
+    // Log zoom changes with debouncing
+    panoramaRef.current.addListener("zoom_changed", () => {
+      const zoom = panoramaRef.current.getZoom();
+      logZoomChange(zoom);
+    });
+
+    // Log when panorama becomes visible
+    panoramaRef.current.addListener("visible_changed", () => {
+      const visible = panoramaRef.current.getVisible();
+      console.log('REPLAY_EVENT:', {
+        type: 'visible_changed',
+        timestamp: Date.now(),
+        visible: visible
+      });
+    });
+
+    // Log status changes (for error handling)
+    panoramaRef.current.addListener("status_changed", () => {
+      const status = panoramaRef.current.getStatus();
+      console.log('REPLAY_EVENT:', {
+        type: 'status_changed',
+        timestamp: Date.now(),
+        status: status
+      });
     });
 
   };
@@ -142,9 +277,22 @@ const StreetView = ({
     }
 
     return () => {
+      // Clear debounce timers
+      if (zoomDebounceTimer.current) {
+        clearTimeout(zoomDebounceTimer.current);
+      }
+      if (povDebounceTimer.current) {
+        clearTimeout(povDebounceTimer.current);
+      }
+
       if (panoramaRef.current) {
+        // Clear all event listeners
         google.maps.event.clearListeners(panoramaRef.current, "pano_changed");
         google.maps.event.clearListeners(panoramaRef.current, "position_changed");
+        google.maps.event.clearListeners(panoramaRef.current, "pov_changed");
+        google.maps.event.clearListeners(panoramaRef.current, "zoom_changed");
+        google.maps.event.clearListeners(panoramaRef.current, "visible_changed");
+        google.maps.event.clearListeners(panoramaRef.current, "status_changed");
         panoramaRef.current.setVisible(false);
         panoramaRef.current = null;
       }

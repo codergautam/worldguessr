@@ -245,5 +245,6 @@
   "nameChangeCooldown": "You can change your name again in {{days}} days",
   "disableTimer": "Disable Timer",
   "duels":  "Duels",
-  "maintenanceText1": "The game will be down for maintenance on {{date}} from {{time}}.\nWe apologize for the inconvenience."
+  "maintenanceText1": "The game will be down for maintenance on {{date}} from {{time}}.\nWe apologize for the inconvenience.",
+  "statistics": "Statistics"
 }
