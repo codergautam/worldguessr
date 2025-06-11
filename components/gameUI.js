@@ -19,10 +19,11 @@ import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAdAdinplay";
 import fixBranding from "./utils/fixBranding";
 import gameStorage from "./utils/localStorage";
-import RoundOverScreen from "./roundOverScreen";
 import HealthBar from "./duelHealthbar";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
+// import RoundOverScreen from "./roundOverScreen";
+const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
 export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
@@ -291,7 +292,7 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
     function keydown(e) {
 
       if(explanationModalShown) return;
-      if(singlePlayerRound?.done) {
+      if(singlePlayerRound?.done && e.key === ' ') {
         loadLocationFunc()
         return;
       }
@@ -527,7 +528,7 @@ multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameDat
 
 } maxPoints={25000}
 history={singlePlayerRound.locations}
-button1Text={text("playAgain")}
+button1Text={"🎮 "+text("playAgain")}
 button1Press={() =>{
   window.crazyMidgame(() =>
 

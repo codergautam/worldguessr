@@ -1,9 +1,38 @@
-import React, { useState, useEffect } from "react";
-import { useTranslation } from "@/components/useTranslations";
-import { FaTrophy, FaClock, FaStar } from "react-icons/fa";
-import msToTime from "./msToTime";
+import React, { useEffect, useState, useRef } from 'react';
+import dynamic from 'next/dynamic';
+import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { useTranslation } from '@/components/useTranslations';
+import 'leaflet/dist/leaflet.css';
 
-export default function RoundOverScreen({
+const MapContainer = dynamic(
+  () => import("react-leaflet").then((module) => module.MapContainer),
+  { ssr: false }
+);
+const TileLayer = dynamic(
+  () => import("react-leaflet").then((module) => module.TileLayer),
+  { ssr: false }
+);
+
+// Component to handle map events and store map reference
+const MapEvents = ({ mapRef, onMapReady, history }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (map && !mapRef.current) {
+      mapRef.current = map;
+      onMapReady(true);
+
+      // Force resize after creation
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 100);
+    }
+  }, [map, mapRef, onMapReady]);
+
+  return null;
+};
+
+const GameSummary = ({
     history,
     points,
     time,
@@ -15,217 +44,374 @@ export default function RoundOverScreen({
     duel,
     data,
     hidden
-}) {
+}) => {
+  const { t: text } = useTranslation("common");
+  const [activeRound, setActiveRound] = useState(0);
+  const [mapReady, setMapReady] = useState(false);
+  const [leafletReady, setLeafletReady] = useState(false);
+  const mapRef = useRef(null);
+  const destIconRef = useRef(null);
+  const srcIconRef = useRef(null);
 
-    // duel: true if the game is a duel
-    // data: {winner: boolean (true if you won), draw: boolean (true if it was a draw), oldElo, newElo, timeElapsed}
+  // Initialize Leaflet icons when available
+  useEffect(() => {
+    const checkLeaflet = () => {
+      if (typeof window !== 'undefined' && window.L) {
+        destIconRef.current = window.L.icon({
+          iconUrl: './dest.png',
+          iconSize: [30, 49],
+          iconAnchor: [15, 49],
+          popupAnchor: [1, -34],
+        });
 
-    const [animatedPoints, setAnimatedPoints] = useState(0);
-    const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
-    const [stars, setStars] = useState([]);
-    const { t: text } = useTranslation("common");
+        srcIconRef.current = window.L.icon({
+          iconUrl: './src.png',
+          iconSize: [30, 49],
+          iconAnchor: [15, 49],
+          popupAnchor: [1, -34],
+        });
 
-    useEffect(() => {
-        let start = 0;
-        const end = points;
-        const duration = 1000;
-        const stepTime = duration / end ** 0.5;
+        setLeafletReady(true);
+      } else {
+        // Retry if Leaflet isn't loaded yet
+        setTimeout(checkLeaflet, 100);
+      }
+    };
 
-        const interval = setInterval(() => {
-            start++;
-            const increment = Math.pow(start, 2);
-            if (increment < end) {
-                setAnimatedPoints(increment);
-            } else {
-                setAnimatedPoints(end);
-                clearInterval(interval);
-            }
-        }, stepTime);
+    checkLeaflet();
+  }, []);
 
-        return () => clearInterval(interval);
-    }, [points]);
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
 
-    useEffect(() => {
-        if (duel && data && typeof data.oldElo === "number" && typeof data.newElo === "number") {
-            const { oldElo, newElo } = data;
-            const duration = 1500;
-            const stepTime = duration / Math.abs(newElo - oldElo);
+  const formatDistance = (distance) => {
+    if (distance < 1) {
+      return `${Math.round(distance * 1000)}m`;
+    } else if (distance < 10) {
+      return `${distance.toFixed(1)}km`;
+    } else {
+      return `${Math.round(distance)}km`;
+    }
+  };
 
-            let currentElo = oldElo;
-            const interval = setInterval(() => {
-                currentElo += currentElo < newElo ? 1 : -1;
-                setAnimatedElo(currentElo);
-                if (currentElo === newElo) clearInterval(interval);
-            }, stepTime);
+  const getPointsColor = (points) => {
+    if (points >= 3500) return '#4CAF50';
+    if (points >= 1500) return '#FFC107';
+    return '#F44336';
+  };
 
-            return () => clearInterval(interval);
-        }
-    }, [duel, data]);
+  const openInGoogleMaps = (lat, lng) => {
+    const url = `https://www.google.com/maps/@${lat},${lng},15z`;
+    window.open(url, '_blank');
+  };
 
-    useEffect(() => {
-        let newStars = [];
-        if (animatedPoints >= 24000) {
-            newStars = [
-                "/platinum_star.png",
-                "/platinum_star.png",
-                "/platinum_star.png",
-            ];
-        } else if (animatedPoints >= 22500) {
-            newStars = ["/platinum_star.png", "/platinum_star.png", "gold"];
-        } else if (animatedPoints >= 20000) {
-            newStars = ["/platinum_star.png", "gold", "gold"];
-        } else if (animatedPoints >= 17500) {
-            newStars = ["gold", "gold", "gold"];
-        } else if (animatedPoints >= 15000) {
-            newStars = ["gold", "gold", "#CD7F32"];
-        } else if (animatedPoints >= 12500) {
-            newStars = ["gold", "#CD7F32", "#CD7F32"];
-        } else if (animatedPoints >= 10000) {
-            newStars = ["#CD7F32", "#CD7F32", "#CD7F32"];
-        } else if (animatedPoints >= 7500) {
-            newStars = ["#CD7F32", "#CD7F32", "#b6b2b2"];
-        } else if (animatedPoints >= 5000) {
-            newStars = ["#CD7F32", "#b6b2b2", "#b6b2b2"];
-        } else {
-            newStars = ["#b6b2b2", "#b6b2b2", "#b6b2b2"];
-        }
+  const getOptimalZoom = (distance) => {
+    if (distance < 1) return 15;
+    if (distance < 5) return 13;
+    if (distance < 25) return 11;
+    if (distance < 100) return 9;
+    if (distance < 500) return 7;
+    if (distance < 2000) return 5;
+    return 3;
+  };
 
-        setStars(newStars);
-    }, [animatedPoints]);
-
-    if (duel && data) {
-        const { winner, draw, oldElo, newElo } = data;
-        const eloChange = newElo - oldElo;
-
-        return (
-            <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
-                <div className="round-over-content g2_container_dark">
-                    <span className="round-over-title bigSpan">{draw ? text("draw") : winner ? text("victory") : text("defeat")}</span>
-
-                    <div className="round-over-details">
-                        {typeof data.oldElo === "number" && typeof data.newElo === "number" && (
-                            <>
-                                <span className="elo-title" style={{ color: "black" }}
-                                >{text("yourElo")}:</span>
-                                <div className="elo-container">
-                                    <span className="elo-value">{animatedElo}</span>
-                                    <span
-                                        className="elo-change"
-                                        style={{ color: eloChange >= 0 ? "green" : "red" }}
-                                    >
-                                        {eloChange > 0 ? `+${eloChange}` : eloChange}
-                                    </span>
-                                </div>
-                            </>
-                        )}
-
-                        {data.timeElapsed > 0 && (
-                            <div className="time-elapsed">
-                                <FaClock /> {text("timeTakenTemplate", { t: msToTime(data.timeElapsed) })}
-                            </div>
-                        )}
-                    </div>
-
-
-
-
-                    {button1Press && button1Text && (
-                        <button className="play-again-btn g2_green_button" onClick={button1Press}>
-                            {button1Text ?? text("home")}
-                        </button>
-                    )}
-                    &nbsp;
-                    {button2Press && button2Text && (
-                        <button className="play-again-btn g2_green_button" onClick={button2Press}>
-                            {button2Text ?? text("home")}
-                        </button>
-                    )}
-                </div>
-            </div>
-        );
+  const fitMapToBounds = () => {
+    if (!mapRef.current || !history.length || !window.L) {
+      console.log('fitMapToBounds early return:', {
+        mapRef: !!mapRef.current,
+        historyLength: history.length,
+        leaflet: !!window.L
+      });
+      return;
     }
 
+    const map = mapRef.current;
+    const bounds = window.L.latLngBounds();
+
+    history.forEach(round => {
+      bounds.extend([round.lat, round.long]);
+      if (round.guessLat && round.guessLong) {
+        bounds.extend([round.guessLat, round.guessLong]);
+      }
+    });
+
+    try {
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [20, 20] });
+    }
+    } catch (error) {
+      console.error('Error fitting map to bounds:', error);
+    }
+  };
+
+  const focusOnRound = (roundIndex) => {
+    console.log('focusOnRound called:', {
+      mapRef: !!mapRef.current,
+      history: history.length,
+      roundIndex,
+      leaflet: !!window.L
+    });
+
+    if (!mapRef.current || !history[roundIndex] || !window.L) {
+      console.log('focusOnRound early return');
+      return;
+    }
+
+    const round = history[roundIndex];
+    const map = mapRef.current;
+
+    console.log(`Focusing on round ${roundIndex + 1}:`, round);
+
+    if (round.guessLat && round.guessLong) {
+      const distance = calculateDistance(round.lat, round.long, round.guessLat, round.guessLong);
+      const optimalZoom = getOptimalZoom(distance);
+
+      const bounds = window.L.latLngBounds([
+        [round.lat, round.long],
+        [round.guessLat, round.guessLong]
+      ]);
+
+         map.flyToBounds(bounds, {
+      padding: [50, 50],
+      maxZoom: optimalZoom,
+      duration: 1.5, // Animation duration in seconds
+      easeLinearity: 0.25 // Controls the animation easing (0-1, lower = more easing)
+    });
+  } else {
+    // Use flyTo for smooth animation to single point
+    map.flyTo([round.lat, round.long], 10, {
+      duration: 1.5,
+      easeLinearity: 0.25
+    });
+  }
+  };
+
+  useEffect(() => {
+    if (mapReady && history.length > 0 && leafletReady) {
+      console.log('Map ready, fitting bounds...');
+      setTimeout(() => {
+        fitMapToBounds();
+      }, 200);
+    }
+  }, [mapReady, history, leafletReady]);
+
+  const handleRoundClick = (index) => {
+    console.log(`Round ${index + 1} clicked`);
+    setActiveRound(index);
+
+    // Add a small delay to ensure the click visual feedback happens first
+    setTimeout(() => {
+      focusOnRound(index);
+    }, 100);
+  };
+
+  // Don't render until Leaflet is ready
+  if (!leafletReady || !destIconRef.current || !srcIconRef.current) {
     return (
-        <div className={`round-over-screen ${hidden ? 'hidden' : ''} ${duel ? 'duel' : ''}`}>
-            <div className="round-over-content g2_container_dark">
-                <span className="round-over-title bigSpan">{text("roundOver")}!</span>
-                <div className="star-container">
-                    {stars.map((star, index) => (
-                        <div
-                            key={index}
-                            className="star"
-                            style={{ animationDelay: `${index * 0.5}s` }}
-                        >
-                            {typeof star === "string" && star.endsWith(".png") ? (
-                                <img
-                                    src={star}
-                                    alt={`Star ${index}`}
-                                    style={{
-                                        width: "32px",
-                                        height: "32px",
-                                    }}
-                                />
-                            ) : (
-                                <FaStar className="star" style={{ color: star }} />
-                            )}
-                        </div>
-                    ))}
-                </div>
-                <div className="round-over-details">
-                    <div className="detail-item">
-                        <FaTrophy className="detail-icon" />
-                        <span className="detail-text">
-                            {text("pointsEarnedTemplate", {
-                                p: `${animatedPoints?.toFixed(0)} / ${maxPoints}`,
-                            })}
-                        </span>
-                    </div>
-                    {time > 0 && (
-                        <div className="detail-item">
-                            <FaClock className="detail-icon" />
-                            <span className="detail-text">
-                                {text("timeTakenTemplate", { t: time })}
-                            </span>
-                        </div>
-                    )}
-                    {history && history.length > 0 && (
-                        <div className="
-">
-                            <h3>{text("history")}</h3>
-
-                            {history.map((h, index) => (
-                                <div key={index} className="historyItem">
-                                    <a
-                                        href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${h.lat},${h.long}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        style={{
-                                            textDecoration: process.env.NEXT_PUBLIC_COOLMATH ? "none" : "underline",
-                                            pointerEvents: process.env.NEXT_PUBLIC_COOLMATH ? "none" : "auto", // coolmathgames doenst want outgoing links
-                                        }}
-                                    >
-                                        <span>
-                                            #{index + 1} -{" "}
-                                            {text("pointsEarnedTemplate", { p: h.points })}
-                                        </span>
-                                    </a>
-                                </div>
-                            ))}
-
-                        </div>
-                    )}
-                </div>
-                {button1Press && button1Text && (
-                    <button className="play-again-btn g2_green_button" onClick={button1Press}>
-                        {button1Text ?? text("home")}
-                    </button>
-                )}
-                {button2Press && button2Text && (
-                    <button className="play-again-btn g2_green_button" onClick={button2Press}>
-                        {button2Text ?? text("home")}
-                    </button>
-                )}
-            </div>
+      <div className="game-summary-container">
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          color: 'white',
+          fontSize: '1.5rem'
+        }}>
+          Loading map...
         </div>
+      </div>
     );
-}
+  }
+
+  if (!history || history.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="game-summary-container">
+      <div className="game-summary-map">
+        <MapContainer
+          center={[0, 0]}
+          zoom={2}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <MapEvents
+            mapRef={mapRef}
+            onMapReady={setMapReady}
+            history={history}
+          />
+
+          <TileLayer
+            url={`https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}`}
+          />
+
+          {history.map((round, index) => {
+            const distance = round.guessLat && round.guessLong
+              ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
+              : null;
+
+            return (
+              <React.Fragment key={index}>
+                {/* Actual location marker */}
+                <Marker
+                  position={[round.lat, round.long]}
+                  icon={destIconRef.current}
+                >
+                  <Popup className="map-marker-popup">
+                    <div className="popup-content">
+                      <div className="popup-round">Round {index + 1} - Actual Location</div>
+                      <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
+                        {round.points} points
+                      </div>
+                      {distance && (
+                        <div className="popup-distance">
+                          Distance: {formatDistance(distance)}
+                        </div>
+                      )}
+                      <div className="popup-actions">
+                        <button
+                          className="popup-btn gmaps"
+                          onClick={() => openInGoogleMaps(round.lat, round.long)}
+                        >
+                          📍 Google Maps
+                        </button>
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+
+                {/* Guess location marker and line */}
+                {round.guessLat && round.guessLong && (
+                  <>
+                    <Marker
+                      position={[round.guessLat, round.guessLong]}
+                      icon={srcIconRef.current}
+                    >
+                      <Popup className="map-marker-popup">
+                        <div className="popup-content">
+                          <div className="popup-round">Round {index + 1} - Your Guess</div>
+                          <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
+                            {round.points} points
+                          </div>
+                          <div className="popup-distance">
+                            Distance: {formatDistance(distance)}
+                          </div>
+                        </div>
+                      </Popup>
+                    </Marker>
+
+                    <Polyline
+                      positions={[
+                        [round.lat, round.long],
+                        [round.guessLat, round.guessLong]
+                      ]}
+                      color={getPointsColor(round.points)}
+                      weight={3}
+                      opacity={activeRound === index ? 1 : 0.6}
+                    />
+                  </>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </MapContainer>
+      </div>
+
+      <div className="game-summary-sidebar">
+        <div className="summary-header">
+          <h1 className="summary-title">Game Complete!</h1>
+          <div className="summary-score">{points}</div>
+          <div className="summary-total">
+            out of {history.length * 5000} points</div>
+
+          <div className="summary-actions">
+            {button1Text && (
+            <button className="action-btn primary" onClick={button1Press}>
+                {button1Text || 'Play Again'}
+            </button>
+            )}
+            {button2Text && (
+            <button className="action-btn secondary" onClick={button2Press}>
+                {button2Text || 'Close'}
+            </button>
+            )}
+          </div>
+        </div>
+
+        <div className="rounds-container">
+          {history.map((round, index) => {
+            const distance = round.guessLat && round.guessLong
+              ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
+              : null;
+
+            return (
+              <div
+                key={index}
+                className={`round-item round-animation ${activeRound === index ? 'active' : ''}`}
+                style={{ animationDelay: `${index * 0.1}s` }}
+                onClick={() => handleRoundClick(index)}
+              >
+                <div className="round-header">
+                  <span className="round-number">Round {index + 1}</span>
+                  <span
+                    className="round-points"
+                    style={{ color: getPointsColor(round.points) }}
+                  >
+                    {round.points} pts
+                  </span>
+                </div>
+
+                <div className="round-details">
+                  {distance && (
+                    <div className="detail-row">
+                      <span className="detail-label">
+                        <span className="detail-icon">📏</span>
+                        Distance
+                      </span>
+                      <span className="distance-value">{formatDistance(distance)}</span>
+                    </div>
+                  )}
+
+                  <div className="detail-row">
+                    <span className="detail-label">
+                      <span className="detail-icon">⭐</span>
+                      Score
+                    </span>
+                    <span style={{ color: getPointsColor(round.points) }}>
+                      {round.points} / 5000
+                    </span>
+                  </div>
+
+                  <div className="location-info">
+                    {/* <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
+                      Click to focus on map
+                    </span> */}
+                    <button
+                      className="gmaps-link"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openInGoogleMaps(round.lat, round.long);
+                      }}
+                    >
+                      📍 Google Maps
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default GameSummary;

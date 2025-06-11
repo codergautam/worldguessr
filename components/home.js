@@ -23,10 +23,11 @@ import SettingsModal from "@/components/settingsModal";
 import sendEvent from "@/components/utils/sendEvent";
 import initWebsocket from "@/components/utils/initWebsocket";
 import 'react-toastify/dist/ReactToastify.css';
-
+import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
-import RoundOverScreen from "@/components/roundOverScreen";
+// import RoundOverScreen from "@/components/roundOverScreen";
+const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
 import FriendsModal from "@/components/friendModal";
@@ -2326,7 +2327,6 @@ export default function Home({ }) {
                     </div>
                 </div>
                 }
-
 
                 <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")}
 

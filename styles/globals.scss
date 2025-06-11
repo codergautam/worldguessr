@@ -2090,7 +2090,19 @@ img[alt="Google"] {
         top: 50px;
     }
 }
+.leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+}
 
+.game-summary-map .leaflet-container {
+    height: 100vh !important;
+}
+
+/* Ensure map tiles load properly */
+.leaflet-tile {
+    max-width: none !important;
+}
 .round-over-screen {
     position: fixed;
     top: 0;
@@ -2114,6 +2126,33 @@ img[alt="Google"] {
     scale: 0;
     pointer-events: none;
 }
+.round-over-screen.fullscreen {
+    background-color: #1a1a1a;
+    align-items: stretch;
+    justify-content: stretch;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1000;
+}
+
+.game-summary-container {
+    display: flex;
+    width: 100%;
+    height: 100vh; /* Changed from 100% to 100vh */
+    position: relative;
+    font-family: lexend;
+}
+
+.game-summary-map {
+    flex: 1;
+    position: fixed;
+    z-index: 1;
+    width: 100%;
+    height: 100%; /* Ensure full height */
+}
 
 .round-over-content {
     padding: 40px;
@@ -2125,21 +2164,323 @@ img[alt="Google"] {
     font-family: lexend;
 }
 
-.round-over-title {
-    font-size: 2.5rem;
-    margin-bottom: 20px;
+
+
+
+.game-summary-sidebar {
+    width: 400px;
+    background: linear-gradient(135deg, rgba(20, 65, 25, 0.95) 0%, rgba(20, 65, 25, 0.85) 100%);
+    backdrop-filter: blur(10px);
+    border-left: 2px solid var(--primary);
+    overflow-y: auto;
+    z-index: 2;
+    position: relative;
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.summary-header {
+    padding: 30px 25px 20px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.2);
+    padding-top: 60px;
+}
+
+.summary-title {
+    font-size: 2.2rem;
     color: white;
+    margin-bottom: 10px;
+    font-weight: 600;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.summary-score {
+    font-size: 3rem;
+    color: #4CAF50;
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.summary-total {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 15px;
+}
+
+.summary-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-family: lexend;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.action-btn.primary {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+}
+
+.action-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.rounds-container {
+    padding: 0;
+}
+
+.round-item {
+    padding: 20px 25px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    background: transparent;
+}
+
+.round-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.round-item.active {
+    background: rgba(76, 175, 80, 0.2);
+    border-left: 4px solid #4CAF50;
+}
+
+.round-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.round-number {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+}
+
+.round-points {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4CAF50;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.round-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.detail-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.detail-icon {
+    font-size: 1rem;
+    color: #FFD700;
+}
+
+.distance-value {
+    font-weight: 500;
+    color: white;
+}
+
+.location-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gmaps-link {
+    background: rgba(66, 133, 244, 0.8);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.gmaps-link:hover {
+    background: rgba(66, 133, 244, 1);
+    transform: scale(1.05);
+}
+
+.round-animation {
+    animation: slideInFromRight 0.5s ease-out forwards;
+    opacity: 0;
+}
+
+@keyframes slideInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.map-marker-popup {
+    max-width: 250px;
+}
+
+.popup-content {
+    text-align: center;
     font-family: lexend;
 }
 
-.round-over-details {
+.popup-round {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.popup-points {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4CAF50;
+    margin-bottom: 8px;
+}
+
+.popup-distance {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.popup-actions {
     display: flex;
-    flex-direction: column;
-    gap: 15px;
-    margin-bottom: 30px;
-    align-items: center;
-    font-family: lexend;
+    gap: 8px;
+    justify-content: center;
+}
+
+.popup-btn {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: none;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.popup-btn.gmaps {
+    background: #4285f4;
     color: white;
+}
+
+.popup-btn:hover {
+    transform: scale(1.05);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .game-summary-container {
+        flex-direction: column;
+    }
+
+    .game-summary-sidebar {
+        width: 100%;
+        height: 40%;
+        border-left: none;
+        border-top: 2px solid var(--primary);
+        order: 2;
+    }
+
+    .game-summary-map {
+        height: 60%;
+        order: 1;
+    }
+
+    .summary-header {
+        padding: 20px 15px 15px;
+    }
+
+    .summary-title {
+        font-size: 1.8rem;
+    }
+
+    .summary-score {
+        font-size: 2.5rem;
+    }
+
+    .round-item {
+        padding: 15px 20px;
+    }
+
+    .round-details {
+        font-size: 0.85rem;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .summary-header {
+        padding: 15px 10px;
+    }
+
+    .summary-title {
+        font-size: 1.5rem;
+    }
+
+    .summary-score {
+        font-size: 2rem;
+    }
+
+    .round-item {
+        padding: 12px 15px;
+    }
+
+    .summary-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .action-btn {
+        width: 100%;
+        max-width: 200px;
+    }
 }
 
 .elo-container {
