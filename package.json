@@ -53,10 +53,6 @@
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.48.0",
     "uuid": "^9.0.1"
   },
-  "engines": {
-    "node": "22.x",
-    "npm": "11.x"
-  },
   "devDependencies": {
     "concurrently": "^9.0.1",
     "eslint": "^8",
