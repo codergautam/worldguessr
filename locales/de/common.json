@@ -240,6 +240,5 @@
   "recentChange": "Sie haben kürzlich Ihren Namen geändert. Es kann bis zu 24 Stunden dauern, bis die Änderung vollständig aktualisiert ist.",
   "nameChangeInProgress": "Ihre Namensänderung zu {{name}} ist in Bearbeitung. Es kann bis zu 24 Stunden dauern, bis sie vollständig aktualisiert ist.",
   "nameChangeCooldown": "Sie können Ihren Namen in {{days}} Tagen erneut ändern",
-  "disableTimer": "Timer deaktivieren",
-  "maintenanceText1": "Das Spiel wird am {{date}} von {{time}} wegen Wartungsarbeiten nicht verfügbar sein.\nWir entschuldigen uns für die Unannehmlichkeiten."
+  "disableTimer": "Timer deaktivieren"
 }
