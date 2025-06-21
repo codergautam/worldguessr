@@ -13,14 +13,18 @@ export default function HeadContent({text,inCoolMathGames}) {
     scriptAp.async = true;
     document.body.appendChild(scriptAp);
 
-window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
+// start nitroPay script
 
+// window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
-      const script = document.createElement('script');
-      //<script data-cfasync="false"></script>
-      script.src = "https://s.nitropay.com/ads-2071.js";
-      script.async = true;
-      document.head.appendChild(script);
+//       const script = document.createElement('script');
+//       //<script data-cfasync="false"></script>
+//       script.src = "https://s.nitropay.com/ads-2071.js";
+//       script.async = true;
+//       document.head.appendChild(script);
+
+// end nitroPay script
+
       //  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972" crossorigin="anonymous">
       const script2 = document.createElement('script');
       script2.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972";

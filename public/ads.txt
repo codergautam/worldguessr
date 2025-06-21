@@ -12,7 +12,7 @@
 google.com, pub-3340825671684972, DIRECT, f08c47fec0942fa0
 
 ##################################
-# AdinPlay.com ads.txt - 2025-03-20
+# AdinPlay.com ads.txt - 2025-06-19
 ##################################
 
 OWNERDOMAIN=swordbattle.io
@@ -144,6 +144,11 @@ triplelift.com,8472,DIRECT,6c33edb13117fd86
 kargo.com,8824,RESELLER
 start.io,123111883,RESELLER
 connectad.io,455,RESELLER,85ac85a30c93b3e5
+triplelift.com,5241,DIRECT,6c33edb13117fd86
+inmobi.com,cdfd74ce1cdd4a67b1c4794c072324ff,DIRECT,83e75a7ae333ca9d
+sonobi.com,dc5f975b54,DIRECT,d1a215d9eb5aee9e
+
+
 
 # 33Across
 rubiconproject.com, 16414, RESELLER, 0bfd66d529a55807 #33Across #hb #tag
@@ -842,7 +847,7 @@ smartadserver.com, 3490, DIRECT
 venatus.com, SWT, DIRECT
 
 ##################################
-# AdinPlay.com ads.txt - 2025-03-20
+# AdinPlay.com ads.txt - 2025-06-19
 ##################################
 
 
