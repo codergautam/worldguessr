@@ -2397,7 +2397,7 @@ img[alt="Google"] {
 }
 
 .round-item {
-    padding: 20px 25px;
+    padding: 12px 20px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     cursor: pointer;
     transition: all 0.3s ease;
@@ -2419,7 +2419,7 @@ img[alt="Google"] {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .round-number {
@@ -2438,8 +2438,8 @@ img[alt="Google"] {
 .round-details {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    font-size: 0.9rem;
+    gap: 4px;
+    font-size: 0.85rem;
 }
 
 .detail-row {
@@ -2568,19 +2568,28 @@ img[alt="Google"] {
 
     .game-summary-sidebar {
         width: 100%;
-        height: 40%;
+        height: 45%;
         border-left: none;
         border-top: 2px solid var(--primary);
         order: 2;
+        display: flex;
+        flex-direction: column;
     }
 
     .game-summary-map {
-        height: 60%;
+        height: 55%;
         order: 1;
     }
 
     .summary-header {
-        padding: 20px 15px 15px;
+        padding: 15px 15px 10px;
+        flex-shrink: 0;
+    }
+
+    .rounds-container {
+        flex: 1;
+        overflow-y: auto;
+        padding-bottom: 10px;
     }
 
     .summary-title {
@@ -2592,7 +2601,7 @@ img[alt="Google"] {
     }
 
     .round-item {
-        padding: 15px 20px;
+        padding: 10px 15px;
     }
 
     .round-details {
@@ -2619,7 +2628,7 @@ img[alt="Google"] {
     }
 
     .round-item {
-        padding: 12px 15px;
+        padding: 8px 12px;
     }
 
     .summary-actions {

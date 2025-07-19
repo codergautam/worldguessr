@@ -268,7 +268,7 @@ const GameSummary = ({
                   <Popup className="map-marker-popup">
                     <div className="popup-content">
                       <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("actualLocation")}</div>
-                      <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
+                      <div className="popup-points" style={{ color: 'white' }}>
                         {round.points} {text("points")}
                       </div>
                       {distance && (
@@ -298,7 +298,7 @@ const GameSummary = ({
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
                           <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("yourGuess")}</div>
-                          <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
+                          <div className="popup-points" style={{ color: 'white' }}>
                             {round.points} {text("points")}
                           </div>
                           <div className="popup-distance">
@@ -313,7 +313,7 @@ const GameSummary = ({
                         [round.lat, round.long],
                         [round.guessLat, round.guessLong]
                       ]}
-                      color={getPointsColor(round.points)}
+                      color="#4CAF50"
                       weight={3}
                       opacity={activeRound === index ? 1 : 0.6}
                     />
@@ -363,7 +363,7 @@ const GameSummary = ({
                   <span className="round-number">{text("roundNumber", {number: index + 1})}</span>
                   <span
                     className="round-points"
-                    style={{ color: getPointsColor(round.points) }}
+                    style={{ color: 'white' }}
                   >
                     {round.points} {text("pts")}
                   </span>
@@ -385,7 +385,7 @@ const GameSummary = ({
                       <span className="detail-icon">⭐</span>
                       {text("score")}
                     </span>
-                    <span style={{ color: getPointsColor(round.points) }}>
+                    <span style={{ color: 'white' }}>
                       {round.points} / 5000
                     </span>
                   </div>
