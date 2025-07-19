@@ -225,7 +225,7 @@ const GameSummary = ({
           color: 'white',
           fontSize: '1.5rem'
         }}>
-          Loading map...
+          {text("loadingMap")}
         </div>
       </div>
     );
@@ -267,13 +267,13 @@ const GameSummary = ({
                 >
                   <Popup className="map-marker-popup">
                     <div className="popup-content">
-                      <div className="popup-round">Round {index + 1} - Actual Location</div>
+                      <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("actualLocation")}</div>
                       <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
-                        {round.points} points
+                        {round.points} {text("points")}
                       </div>
                       {distance && (
                         <div className="popup-distance">
-                          Distance: {formatDistance(distance)}
+                          {text("distance")}: {formatDistance(distance)}
                         </div>
                       )}
                       <div className="popup-actions">
@@ -281,7 +281,7 @@ const GameSummary = ({
                           className="popup-btn gmaps"
                           onClick={() => openInGoogleMaps(round.lat, round.long)}
                         >
-                          📍 Google Maps
+                          📍 {text("openInMaps")}
                         </button>
                       </div>
                     </div>
@@ -297,12 +297,12 @@ const GameSummary = ({
                     >
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
-                          <div className="popup-round">Round {index + 1} - Your Guess</div>
+                          <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("yourGuess")}</div>
                           <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
-                            {round.points} points
+                            {round.points} {text("points")}
                           </div>
                           <div className="popup-distance">
-                            Distance: {formatDistance(distance)}
+                            {text("distance")}: {formatDistance(distance)}
                           </div>
                         </div>
                       </Popup>
@@ -327,10 +327,10 @@ const GameSummary = ({
 
       <div className="game-summary-sidebar">
         <div className="summary-header">
-          <h1 className="summary-title">Game Complete!</h1>
+          <h1 className="summary-title">{text("gameComplete")}</h1>
           <div className="summary-score">{points}</div>
           <div className="summary-total">
-            out of {history.length * 5000} points</div>
+            {text("outOf")} {history.length * 5000} {text("points")}</div>
 
           <div className="summary-actions">
             {button1Text && (
@@ -360,12 +360,12 @@ const GameSummary = ({
                 onClick={() => handleRoundClick(index)}
               >
                 <div className="round-header">
-                  <span className="round-number">Round {index + 1}</span>
+                  <span className="round-number">{text("roundNumber", {number: index + 1})}</span>
                   <span
                     className="round-points"
                     style={{ color: getPointsColor(round.points) }}
                   >
-                    {round.points} pts
+                    {round.points} {text("pts")}
                   </span>
                 </div>
 
@@ -374,7 +374,7 @@ const GameSummary = ({
                     <div className="detail-row">
                       <span className="detail-label">
                         <span className="detail-icon">📏</span>
-                        Distance
+                        {text("distance")}
                       </span>
                       <span className="distance-value">{formatDistance(distance)}</span>
                     </div>
@@ -383,7 +383,7 @@ const GameSummary = ({
                   <div className="detail-row">
                     <span className="detail-label">
                       <span className="detail-icon">⭐</span>
-                      Score
+                      {text("score")}
                     </span>
                     <span style={{ color: getPointsColor(round.points) }}>
                       {round.points} / 5000
@@ -401,7 +401,7 @@ const GameSummary = ({
                         openInGoogleMaps(round.lat, round.long);
                       }}
                     >
-                      📍 Google Maps
+                      📍 {text("openInMaps")}
                     </button>
                   </div>
                 </div>

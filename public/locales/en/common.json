@@ -246,5 +246,14 @@
   "disableTimer": "Disable Timer",
   "duels":  "Duels",
   "maintenanceText1": "The game will be down for maintenance on {{date}} from {{time}}.\nWe apologize for the inconvenience.",
-  "statistics": "Statistics"
+  "statistics": "Statistics",
+  "loadingMap": "Loading map...",
+  "gameComplete": "Game Complete!",
+  "outOf": "out of",
+  "actualLocation": "Actual Location",
+  "distance": "Distance",
+  "score": "Score",
+  "pts": "pts",
+  "roundNumber": "Round {{number}}",
+  "clickToFocusMap": "Click to focus on map"
 }
