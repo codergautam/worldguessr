@@ -2571,8 +2571,7 @@ img[alt="Google"] {
 
     .game-summary-sidebar {
         width: 100vw;
-        height: 45vh;
-        min-height: 300px;
+        height: max(45vh, 300px);
         border-left: none;
         border-top: 2px solid var(--primary);
         order: 2;
@@ -2587,7 +2586,7 @@ img[alt="Google"] {
     }
 
     .game-summary-map {
-        height: 55vh;
+        height: calc(100vh - max(45vh, 300px));
         width: 100vw;
         order: 1;
         position: fixed;
