@@ -1761,7 +1761,6 @@ h1, h2, h3, span, label {
 
 .join-party-card {
     background: var(--gradLight);
-    background-color: rgba(255, 255, 255, 0.35);
     backdrop-filter: blur(15px);
     border-radius: 24px;
     padding: clamp(30px, 5vw, 50px);
@@ -1794,7 +1793,7 @@ h1, h2, h3, span, label {
     flex-direction: column;
     gap: 16px;
     width: 100%;
-    
+
     @media (min-width: 520px) {
         flex-direction: row;
         align-items: stretch;
@@ -1815,13 +1814,13 @@ h1, h2, h3, span, label {
     letter-spacing: 2px;
     transition: all 0.3s ease;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    
+
     &::placeholder {
         color: #999;
         font-weight: 400;
         letter-spacing: normal;
     }
-    
+
     &:focus {
         outline: none;
         border-color: var(--primary);
@@ -1836,26 +1835,26 @@ h1, h2, h3, span, label {
     font-weight: 600;
     border: 2px solid var(--primaryDark);
     border-radius: 12px;
-    background: var(--gradGreenBtn);
+    background: var(--primary);
     color: white;
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     min-width: 100px;
     flex-shrink: 0;
-    
+
     &:hover:not(:disabled) {
-        background: var(--primary);
+        background: var(--primaryDark);
         transform: translateY(-2px);
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
     }
-    
+
     &:disabled {
         opacity: 0.7;
         cursor: not-allowed;
         transform: none;
     }
-    
+
     &:active:not(:disabled) {
         transform: translateY(-1px);
     }
