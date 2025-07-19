@@ -1746,22 +1746,27 @@ h1, h2, h3, span, label {
 
 // Join Party Screen Styles
 .join-party-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    width: 100%;
     padding: 20px;
     pointer-events: all;
+    box-sizing: border-box;
 }
 
 .join-party-card {
     background: var(--gradLight);
-    background-color: rgba(255, 255, 255, 0.15);
+    background-color: rgba(255, 255, 255, 0.35);
     backdrop-filter: blur(15px);
     border-radius: 24px;
     padding: clamp(30px, 5vw, 50px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     width: 100%;
     max-width: 480px;
     min-width: 320px;
@@ -1788,10 +1793,12 @@ h1, h2, h3, span, label {
     display: flex;
     flex-direction: column;
     gap: 16px;
+    width: 100%;
     
-    @media (min-width: 480px) {
+    @media (min-width: 520px) {
         flex-direction: row;
         align-items: stretch;
+        gap: 12px;
     }
 }
 
@@ -1824,7 +1831,7 @@ h1, h2, h3, span, label {
 }
 
 .join-party-button {
-    padding: 16px 32px;
+    padding: 16px 24px;
     font-size: clamp(1rem, 2.5vw, 1.2rem);
     font-weight: 600;
     border: 2px solid var(--primaryDark);
@@ -1834,7 +1841,8 @@ h1, h2, h3, span, label {
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    min-width: 120px;
+    min-width: 100px;
+    flex-shrink: 0;
     
     &:hover:not(:disabled) {
         background: var(--primary);

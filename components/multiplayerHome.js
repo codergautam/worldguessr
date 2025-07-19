@@ -49,32 +49,32 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
                 <div className="join-party-container">
                     <div className="join-party-card">
                         <h2 className="join-party-title">{text("joinGame")}</h2>
-                        
+
                         <div className="join-party-form">
                             <div className="join-party-input-group">
-                                <input 
-                                    type="text" 
-                                    className="join-party-input" 
-                                    placeholder={text("gameCode")} 
-                                    value={multiplayerState.joinOptions.gameCode || ""} 
-                                    maxLength={6} 
-                                    onChange={(e) => setMultiplayerState((prev) => ({ 
-                                        ...prev, 
-                                        joinOptions: { 
-                                            ...prev.joinOptions, 
-                                            gameCode: e.target.value.replace(/\D/g, "") 
-                                        } 
-                                    }))} 
+                                <input
+                                    type="text"
+                                    className="join-party-input"
+                                    placeholder={text("gameCode")}
+                                    value={multiplayerState.joinOptions.gameCode || ""}
+                                    maxLength={6}
+                                    onChange={(e) => setMultiplayerState((prev) => ({
+                                        ...prev,
+                                        joinOptions: {
+                                            ...prev.joinOptions,
+                                            gameCode: e.target.value.replace(/\D/g, "")
+                                        }
+                                    }))}
                                 />
-                                <button 
-                                    className="join-party-button" 
-                                    disabled={multiplayerState?.joinOptions?.gameCode?.length !== 6 || multiplayerState?.joinOptions?.progress} 
+                                <button
+                                    className="join-party-button"
+                                    disabled={multiplayerState?.joinOptions?.gameCode?.length !== 6 || multiplayerState?.joinOptions?.progress}
                                     onClick={() => handleAction("joinPrivateGame", multiplayerState?.joinOptions?.gameCode)}
                                 >
-                                    {multiplayerState?.joinOptions?.progress ? text("loading") + "..." : text("go")}
+                                    {multiplayerState?.joinOptions?.progress ? "..." : text("go")}
                                 </button>
                             </div>
-                            
+
                             {multiplayerState?.joinOptions?.error && (
                                 <div className="join-party-error">
                                     {multiplayerState.joinOptions.error}
