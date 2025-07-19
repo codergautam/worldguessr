@@ -2323,6 +2323,7 @@ img[alt="Google"] {
     backdrop-filter: blur(10px);
     border-left: 2px solid var(--primary);
     overflow-y: auto;
+    overflow-x: hidden;
     z-index: 2;
     position: relative;
     box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
@@ -2574,6 +2575,7 @@ img[alt="Google"] {
         order: 2;
         display: flex;
         flex-direction: column;
+        overflow-x: hidden;
     }
 
     .game-summary-map {
