@@ -1405,6 +1405,7 @@ h1, h2, h3, span, label {
 
 .guessBtn {
     background-color: rgba(0, 0, 200, 0.6);
+    border-radius: 8px;
 }
 
 .cornerBtn {
@@ -1420,6 +1421,7 @@ h1, h2, h3, span, label {
     width: 20%;
     background-color: var(--primaryTransparent);
     transition: all 250ms ease;
+    border-radius: 8px;
 }
 
 .hintBtn.hintShown {
