@@ -380,15 +380,6 @@ const GameSummary = ({
                     </div>
                   )}
 
-                  <div className="detail-row">
-                    <span className="detail-label">
-                      <span className="detail-icon">⭐</span>
-                      {text("score")}
-                    </span>
-                    <span style={{ color: 'white' }}>
-                      {round.points} / 5000
-                    </span>
-                  </div>
 
                   <div className="location-info">
                     {/* <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
