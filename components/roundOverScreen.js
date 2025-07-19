@@ -268,7 +268,7 @@ const GameSummary = ({
                   <Popup className="map-marker-popup">
                     <div className="popup-content">
                       <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("actualLocation")}</div>
-                      <div className="popup-points" style={{ color: 'white' }}>
+                      <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
                         {round.points} {text("points")}
                       </div>
                       {distance && (
@@ -298,7 +298,7 @@ const GameSummary = ({
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
                           <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("yourGuess")}</div>
-                          <div className="popup-points" style={{ color: 'white' }}>
+                          <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
                             {round.points} {text("points")}
                           </div>
                           <div className="popup-distance">
@@ -313,7 +313,7 @@ const GameSummary = ({
                         [round.lat, round.long],
                         [round.guessLat, round.guessLong]
                       ]}
-                      color="#4CAF50"
+                      color={getPointsColor(round.points)}
                       weight={3}
                       opacity={activeRound === index ? 1 : 0.6}
                     />
@@ -363,7 +363,7 @@ const GameSummary = ({
                   <span className="round-number">{text("roundNumber", {number: index + 1})}</span>
                   <span
                     className="round-points"
-                    style={{ color: 'white' }}
+                    style={{ color: getPointsColor(round.points) }}
                   >
                     {round.points} {text("pts")}
                   </span>
