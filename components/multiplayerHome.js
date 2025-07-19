@@ -46,17 +46,42 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
             {/* <BannerText text={multiplayerState.error} shown={multiplayerState.error} hideCompass={true} /> */}
 
             {multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && multiplayerState.enteringGameCode && (
-                <div className="g2_container_light g2_container_style" style={{ pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center' }}>
-                    <span className="bigSpan" style={{ fontSize: "1.5em" }}>{text("joinGame")}</span>
-
-                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
-                        <input style={{height: "100%"}} type="text" className="g2_input" placeholder={text("gameCode")} value={multiplayerState.joinOptions.gameCode} maxLength={6} onChange={(e) => setMultiplayerState((prev) => ({ ...prev, joinOptions: { ...prev.joinOptions, gameCode: e.target.value.replace(/\D/g, "") } }))} />
-                        <button style={{ height: "100%", width: "auto" }} className="g2_green_button g2_button_style g2_shadow" disabled={multiplayerState?.joinOptions?.gameCode?.length !== 6 || multiplayerState?.joinOptions?.progress} onClick={() => handleAction("joinPrivateGame", multiplayerState?.joinOptions?.gameCode)}>
-                            {text("go")}
-                        </button>
+                <div className="join-party-container">
+                    <div className="join-party-card">
+                        <h2 className="join-party-title">{text("joinGame")}</h2>
+                        
+                        <div className="join-party-form">
+                            <div className="join-party-input-group">
+                                <input 
+                                    type="text" 
+                                    className="join-party-input" 
+                                    placeholder={text("gameCode")} 
+                                    value={multiplayerState.joinOptions.gameCode || ""} 
+                                    maxLength={6} 
+                                    onChange={(e) => setMultiplayerState((prev) => ({ 
+                                        ...prev, 
+                                        joinOptions: { 
+                                            ...prev.joinOptions, 
+                                            gameCode: e.target.value.replace(/\D/g, "") 
+                                        } 
+                                    }))} 
+                                />
+                                <button 
+                                    className="join-party-button" 
+                                    disabled={multiplayerState?.joinOptions?.gameCode?.length !== 6 || multiplayerState?.joinOptions?.progress} 
+                                    onClick={() => handleAction("joinPrivateGame", multiplayerState?.joinOptions?.gameCode)}
+                                >
+                                    {multiplayerState?.joinOptions?.progress ? text("loading") + "..." : text("go")}
+                                </button>
+                            </div>
+                            
+                            {multiplayerState?.joinOptions?.error && (
+                                <div className="join-party-error">
+                                    {multiplayerState.joinOptions.error}
+                                </div>
+                            )}
+                        </div>
                     </div>
-
-                    <p style={{ color: "red", visibility: multiplayerState?.joinOptions?.error ? "visible" : "hidden" }}>{multiplayerState?.joinOptions?.error}</p>
                 </div>
             )}
 
