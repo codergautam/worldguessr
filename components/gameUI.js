@@ -350,7 +350,8 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
         return {
           ...prev,
           locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, guessLat: pinPoint.lat, guessLong: pinPoint.lng,
-            points: calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist })
+            points: calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist }),
+            timeTaken: Math.round((Date.now() - roundStartTime) / 1000)
 
           }],
           lastPoint: calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist })
