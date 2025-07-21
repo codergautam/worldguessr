@@ -257,5 +257,6 @@
   "roundNumber": "Round {{number}}",
   "clickToFocusMap": "Click to focus on map",
   "viewDetails": "View Details",
-  "hideDetails": "Hide Details"
+  "hideDetails": "Hide Details",
+  "timeTaken": "Time"
 }
