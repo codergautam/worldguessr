@@ -208,10 +208,19 @@ const GameSummary = ({
     console.log(`Round ${index + 1} clicked`);
     setActiveRound(index);
 
-    // Add a small delay to ensure the click visual feedback happens first
-    setTimeout(() => {
-      focusOnRound(index);
-    }, 100);
+    // Check if mobile (screen width <= 1024px) 
+    const isMobile = window.innerWidth <= 1024;
+    
+    if (isMobile) {
+      // On mobile, open Google Maps directly
+      const round = history[index];
+      openInGoogleMaps(round.lat, round.long);
+    } else {
+      // On desktop, focus on map with animation
+      setTimeout(() => {
+        focusOnRound(index);
+      }, 100);
+    }
   };
 
   // Don't render until Leaflet is ready
