@@ -2624,6 +2624,38 @@ img[alt="Google"] {
         display: none;
     }
 
+    /* Low height device optimizations when expanded */
+    @media (max-height: 600px) {
+        .game-summary-sidebar.mobile-expanded .summary-header {
+            padding: 8px 10px 5px;
+        }
+        
+        .game-summary-sidebar.mobile-expanded .summary-title {
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        
+        .game-summary-sidebar.mobile-expanded .summary-score {
+            font-size: 1.8rem;
+            margin-bottom: 4px;
+        }
+        
+        .game-summary-sidebar.mobile-expanded .summary-total {
+            font-size: 0.8rem;
+            margin-bottom: 6px;
+        }
+        
+        .game-summary-sidebar.mobile-expanded .summary-actions {
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+        
+        .game-summary-sidebar.mobile-expanded .action-btn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+    }
+
     .gmaps-link {
         display: none;
     }
