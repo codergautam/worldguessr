@@ -37,7 +37,8 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
           return {
           completed: true,
           points: prev.points,
-          timeTaken: Date.now() - prev.startTime
+          timeTaken: Date.now() - prev.startTime,
+          locations: prev.locations || []
           }
         })
         setShowAnswer(false)
@@ -334,12 +335,21 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
     setShowAnswer(true)
     if(showCountryButtons || setShowCountryButtons)setShowCountryButtons(false);
     if(onboarding) {
+      const roundPoints = countryGuesser?2500:calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: 20000});
       setOnboarding((prev) => {
 
         return {
           ...prev,
           nextRoundTime:0,
-          points: (prev.points??0) + (countryGuesser?2500:calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: 20000}))
+          points: (prev.points??0) + roundPoints,
+          locations: [...(prev.locations || []), {
+            lat: latLong.lat, 
+            long: latLong.long, 
+            guessLat: pinPoint.lat, 
+            guessLong: pinPoint.lng,
+            points: roundPoints,
+            timeTaken: Math.round((Date.now() - roundStartTime) / 1000)
+          }]
         }
       })
       setTimeToNextRound(0)
@@ -462,7 +472,7 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
   return (
     <div className="gameUI">
 
-{ !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter) && !singlePlayerRound?.done && (
+{ !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
       unit={"worldguessr_gameui_ad"}
@@ -536,6 +546,19 @@ button1Press={() =>{
   loadLocationFunc()
   )
               }}/>
+)}
+
+{ onboarding?.completed && (
+<RoundOverScreen 
+  points={onboarding.points || 0}
+  maxPoints={25000}
+  history={onboarding.locations || []}
+  button1Text={"🎮 "+text("playAgain")}
+  button1Press={() => {
+    window.crazyMidgame(() =>
+      loadLocationFunc()
+    )
+  }}/>
 )}
 
       {(!countryGuesser || (countryGuesser && showAnswer)) && (!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (

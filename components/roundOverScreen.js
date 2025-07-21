@@ -104,7 +104,7 @@ const GameSummary = ({
   };
 
   const getPointsColor = (points) => {
-    if (points >= 3500) return '#4CAF50';
+    if (points >= 3000) return '#4CAF50';
     if (points >= 1500) return '#FFC107';
     return '#F44336';
   };
@@ -208,9 +208,9 @@ const GameSummary = ({
     console.log(`Round ${index + 1} clicked`);
     setActiveRound(index);
 
-    // Check if mobile (screen width <= 1024px) 
+    // Check if mobile (screen width <= 1024px)
     const isMobile = window.innerWidth <= 1024;
-    
+
     if (isMobile) {
       // On mobile, open Google Maps directly
       const round = history[index];
@@ -343,13 +343,13 @@ const GameSummary = ({
             {text("outOf")} {history.length * 5000} {text("points")}</div>
 
           <div className="summary-actions">
-            <button 
-              className="action-btn mobile-expand-btn" 
+            <button
+              className="action-btn mobile-expand-btn"
               onClick={() => setMobileExpanded(!mobileExpanded)}
             >
               {mobileExpanded ? text("hideDetails") : text("viewDetails")}
             </button>
-            
+
             {button1Text && (
             <button className="action-btn primary" onClick={button1Press}>
                 {button1Text || 'Play Again'}

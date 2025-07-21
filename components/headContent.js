@@ -33,7 +33,7 @@ export default function HeadContent({text,inCoolMathGames}) {
       document.body.appendChild(script2);
 
       return () => {
-        document.head.removeChild(script);
+        // document.head.removeChild(script);
         document.body.removeChild(scriptAp);
         document.body.removeChild(script2);
       };
