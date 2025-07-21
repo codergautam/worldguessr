@@ -255,5 +255,7 @@
   "score": "Score",
   "pts": "pts",
   "roundNumber": "Round {{number}}",
-  "clickToFocusMap": "Click to focus on map"
+  "clickToFocusMap": "Click to focus on map",
+  "viewDetails": "View Details",
+  "hideDetails": "Hide Details"
 }

@@ -49,6 +49,7 @@ const GameSummary = ({
   const [activeRound, setActiveRound] = useState(0);
   const [mapReady, setMapReady] = useState(false);
   const [leafletReady, setLeafletReady] = useState(false);
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
@@ -325,7 +326,7 @@ const GameSummary = ({
         </MapContainer>
       </div>
 
-      <div className="game-summary-sidebar">
+      <div className={`game-summary-sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`}>
         <div className="summary-header">
           <h1 className="summary-title">{text("gameComplete")}</h1>
           <div className="summary-score">{points}</div>
@@ -333,6 +334,13 @@ const GameSummary = ({
             {text("outOf")} {history.length * 5000} {text("points")}</div>
 
           <div className="summary-actions">
+            <button 
+              className="action-btn mobile-expand-btn" 
+              onClick={() => setMobileExpanded(!mobileExpanded)}
+            >
+              {mobileExpanded ? text("hideDetails") : text("viewDetails")}
+            </button>
+            
             {button1Text && (
             <button className="action-btn primary" onClick={button1Press}>
                 {button1Text || 'Play Again'}
@@ -346,7 +354,7 @@ const GameSummary = ({
           </div>
         </div>
 
-        <div className="rounds-container">
+        <div className={`rounds-container ${!mobileExpanded ? 'mobile-hidden' : ''}`}>
           {history.map((round, index) => {
             const distance = round.guessLat && round.guessLong
               ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)

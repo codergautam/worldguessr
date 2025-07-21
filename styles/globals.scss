@@ -2563,10 +2563,20 @@ img[alt="Google"] {
     transform: scale(1.05);
 }
 
+/* Desktop rules - always show rounds container and hide mobile expand button */
+.mobile-expand-btn {
+    display: none;
+}
+
+.rounds-container.mobile-hidden {
+    display: block;
+}
+
 /* Mobile Responsive */
 @media (max-width: 1024px) {
     .game-summary-container {
         flex-direction: column;
+        overflow-x: hidden;
     }
 
     .game-summary-sidebar {
@@ -2583,6 +2593,33 @@ img[alt="Google"] {
         left: 0;
         right: 0;
         z-index: 10;
+        transition: height 0.3s ease;
+    }
+
+    .game-summary-sidebar.mobile-expanded {
+        height: 80vh;
+    }
+
+    .mobile-expand-btn {
+        display: block;
+        background: var(--primaryTransparent);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
+
+    .mobile-expand-btn:hover {
+        background: var(--primary);
+        transform: scale(1.02);
+    }
+
+    .rounds-container.mobile-hidden {
+        display: none;
     }
 
     .game-summary-map {
@@ -2604,11 +2641,12 @@ img[alt="Google"] {
     .rounds-container {
         flex: 1;
         overflow-y: auto;
+        overflow-x: hidden;
         padding-bottom: 10px;
     }
 
     .summary-title {
-        font-size: 1.8rem;
+        font-size: 1.2rem;
     }
 
     .summary-score {
