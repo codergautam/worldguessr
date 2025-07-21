@@ -2581,7 +2581,8 @@ img[alt="Google"] {
 
     .game-summary-sidebar {
         width: 100vw;
-        height: 40vh;
+        height: auto;
+        min-height: fit-content;
         border-left: none;
         border-top: 2px solid var(--primary);
         order: 2;
