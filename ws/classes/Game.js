@@ -543,7 +543,7 @@ export default class Game {
   end(leftUser) {
     this.state = 'end';
     this.endTime = Date.now();
-    this.nextEvtTime = this.endTime + 60000;
+    this.nextEvtTime = this.endTime + 7200000; // 2 hours (2 * 60 * 60 * 1000)
 
 
     if(this.duel && !this.calculationDone) {

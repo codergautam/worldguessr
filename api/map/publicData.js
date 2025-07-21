@@ -31,12 +31,19 @@ export default async function handler(req, res) {
 
   // If map is not official, check user-created maps
   const map = await Map.findOne({ slug })
-    .select({ 'data': { $slice: 10 } }) // Slice the data to limit to 10 items
+    .select({ 'data': { $slice: 5000 } }) // Slice the data to limit to 10 items
     .lean().cache(10000);
 
   if (!map) {
     return res.status(404).json({ message: 'Map not found' });
   }
+
+  // Get total location count efficiently without loading the array
+  const countResult = await Map.aggregate([
+    { $match: { slug } },
+    { $project: { locationcnt: { $size: { $ifNull: ["$data", []] } } } }
+  ]);
+  const locationcnt = countResult[0]?.locationcnt || 0;
 
   const authorId = map.created_by;
   const authorUser = await User.findById(authorId).lean();
@@ -51,6 +58,7 @@ export default async function handler(req, res) {
 
   map.created_by = authorUser?.username;
   map.created_at = msToTime(Date.now() - map.created_at);
+  map.locationcnt = locationcnt;
 
   return res.json({
     mapData: map

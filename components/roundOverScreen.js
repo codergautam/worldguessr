@@ -350,7 +350,6 @@ const GameSummary = ({
   // If no history provided, try to construct it from multiplayerState
   let gameHistory = history;
   if ((!history || history.length === 0) && multiplayerState?.gameData) {
-    console.log("RoundOverScreen: Constructing history from multiplayerState", { multiplayerState });
 
     const { locations, players, finalPlayers, myId } = multiplayerState.gameData;
 
@@ -397,13 +396,11 @@ const GameSummary = ({
         };
       });
 
-      console.log("RoundOverScreen: Constructed history", gameHistory);
     }
   }
 
   // If still no valid history data, show fallback
   if (!gameHistory || gameHistory.length === 0) {
-    console.log("RoundOverScreen: No history data available", { history, gameHistory, duel, multiplayerState });
     return (
       <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
         <div className="game-summary-container">

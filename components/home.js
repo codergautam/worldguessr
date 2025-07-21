@@ -691,15 +691,23 @@ export default function Home({ }) {
             setScreen("singleplayer")
 
             openMap(mapSlug)
-
-            // Remove the map parameter from URL without refresh while keeping other params
-            params.delete("map");
-            const newSearch = params.toString();
-            const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '');
-            window.history.replaceState({}, '', newUrl);
         }
 
         if (window.location.search.includes("createPrivateGame=true")) {
+        }
+    }, [])
+
+    // Separate useEffect to clean up URL parameters after component has mounted
+    useEffect(() => {
+        // Remove map parameter from URL if present, without causing hydration issues
+        if (window.location.search.includes("map=") && !window.location.search.includes("crazygames")) {
+            setTimeout(() => {
+                const params = new URLSearchParams(window.location.search);
+                params.delete("map");
+                const newSearch = params.toString();
+                const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '');
+                window.history.replaceState({}, '', newUrl);
+            }, 1000); // Delay to ensure the component has mounted
         }
     }, [])
 

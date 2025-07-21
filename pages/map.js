@@ -18,6 +18,7 @@ export default function MapPage({ }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersRef = useRef([]);
+  const clusterGroupRef = useRef(null);
   const [selectedLocationIndex, setSelectedLocationIndex] = useState(0);
 
   useEffect(() => {
@@ -104,6 +105,11 @@ export default function MapPage({ }) {
         iconAnchor: [13, 13]
       }));
     });
+
+    // If using clustering, refresh the cluster to update marker appearance
+    if (clusterGroupRef.current) {
+      clusterGroupRef.current.refreshClusters();
+    }
   };
 
   // Initialize Leaflet Map
@@ -119,10 +125,48 @@ export default function MapPage({ }) {
 
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.onload = initMap;
+      script.onload = () => {
+        // Load MarkerCluster if we have many locations
+        if (mapData.data.length > 100) {
+          const clusterCss = document.createElement('link');
+          clusterCss.rel = 'stylesheet';
+          clusterCss.href = 'https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css';
+          document.head.appendChild(clusterCss);
+
+          const clusterDefaultCss = document.createElement('link');
+          clusterDefaultCss.rel = 'stylesheet';
+          clusterDefaultCss.href = 'https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css';
+          document.head.appendChild(clusterDefaultCss);
+
+          const clusterScript = document.createElement('script');
+          clusterScript.src = 'https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js';
+          clusterScript.onload = initMap;
+          document.head.appendChild(clusterScript);
+        } else {
+          initMap();
+        }
+      };
       document.head.appendChild(script);
     } else {
-      initMap();
+      // Check if we need clustering and load it if not already loaded
+      if (mapData.data.length > 100 && !window.L.MarkerClusterGroup) {
+        const clusterCss = document.createElement('link');
+        clusterCss.rel = 'stylesheet';
+        clusterCss.href = 'https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css';
+        document.head.appendChild(clusterCss);
+
+        const clusterDefaultCss = document.createElement('link');
+        clusterDefaultCss.rel = 'stylesheet';
+        clusterDefaultCss.href = 'https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css';
+        document.head.appendChild(clusterDefaultCss);
+
+        const clusterScript = document.createElement('script');
+        clusterScript.src = 'https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js';
+        clusterScript.onload = initMap;
+        document.head.appendChild(clusterScript);
+      } else {
+        initMap();
+      }
     }
 
     function initMap() {
@@ -147,6 +191,30 @@ export default function MapPage({ }) {
 
       mapInstanceRef.current = map;
 
+      // Determine if we should use clustering
+      const useCluster = mapData.data.length > 100;
+      let markerClusterGroup = null;
+
+      if (useCluster && window.L.MarkerClusterGroup) {
+        markerClusterGroup = window.L.markerClusterGroup({
+          maxClusterRadius: 50,
+          iconCreateFunction: function(cluster) {
+            const count = cluster.getChildCount();
+            let size = 'small';
+            if (count >= 100) size = 'large';
+            else if (count >= 20) size = 'medium';
+
+            return new window.L.DivIcon({
+              html: `<div><span>${count}</span></div>`,
+              className: `marker-cluster marker-cluster-${size}`,
+              iconSize: new window.L.Point(40, 40)
+            });
+          }
+        });
+        map.addLayer(markerClusterGroup);
+        clusterGroupRef.current = markerClusterGroup;
+      }
+
       // Add markers for each location
       mapData.data.forEach((location, index) => {
         const isSelected = index === selectedLocationIndex;
@@ -170,7 +238,7 @@ export default function MapPage({ }) {
             iconSize: [26, 26],
             iconAnchor: [13, 13]
           })
-        }).addTo(map);
+        });
 
         marker.on('click', () => {
           setCurrentLocationIndex(index);
@@ -186,13 +254,24 @@ export default function MapPage({ }) {
           }, 500);
         });
 
+        // Add to cluster group or directly to map
+        if (useCluster && markerClusterGroup) {
+          markerClusterGroup.addLayer(marker);
+        } else {
+          marker.addTo(map);
+        }
+
         markersRef.current.push(marker);
       });
 
       // Fit map to show all markers
       if (mapData.data.length > 0) {
-        const group = new window.L.featureGroup(markersRef.current);
-        map.fitBounds(group.getBounds().pad(0.1));
+        if (useCluster && markerClusterGroup) {
+          map.fitBounds(markerClusterGroup.getBounds().pad(0.1));
+        } else {
+          const group = new window.L.featureGroup(markersRef.current);
+          map.fitBounds(group.getBounds().pad(0.1));
+        }
       }
     }
 
@@ -202,6 +281,7 @@ export default function MapPage({ }) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
         markersRef.current = [];
+        clusterGroupRef.current = null;
       }
     };
   }, [mapData.data]);
@@ -235,6 +315,44 @@ export default function MapPage({ }) {
 
           .custom-marker div:hover {
             transform: scale(1.2);
+          }
+
+          .marker-cluster {
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 2px solid #4CAF50;
+            border-radius: 50%;
+            text-align: center;
+            font-size: 12px;
+            font-weight: bold;
+            line-height: 36px;
+            color: #333;
+            cursor: pointer;
+          }
+
+          .marker-cluster-small {
+            background-color: rgba(76, 175, 80, 0.8);
+            color: white;
+          }
+
+          .marker-cluster-medium {
+            background-color: rgba(255, 152, 0, 0.8);
+            color: white;
+          }
+
+          .marker-cluster-large {
+            background-color: rgba(244, 67, 54, 0.8);
+            color: white;
+          }
+
+          .marker-cluster div {
+            width: 36px;
+            height: 36px;
+            margin-left: 2px;
+            margin-top: 2px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
         `}
       </style>
@@ -329,7 +447,7 @@ export default function MapPage({ }) {
               {mapData.data && (
                 <div className={styles.stat}>
                   <span className={styles.statIcon}>📍</span>
-                  <span className={styles.statValue}>{mapData.data.length.toLocaleString()}</span>
+                  <span className={styles.statValue}>{mapData.locationcnt.toLocaleString()}</span>
                   <span className={styles.statLabel}>Locations</span>
                 </div>
               )}
