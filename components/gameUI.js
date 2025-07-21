@@ -32,14 +32,25 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
   function loadLocationFuncRaw() {
     setShowStreakAdBanner(false)
     if(onboarding) {
-      if(onboarding.round === 5) {
+      if(onboarding.completed) {
+        // Reset onboarding to start over
+        setOnboarding({
+          round: 1,
+          points: 0,
+          startTime: Date.now(),
+          locations: []
+        })
+      } else if(onboarding.round === 5) {
+        console.log("Setting onboarding to completed", onboarding);
         setOnboarding((prev)=>{
-          return {
-          completed: true,
-          points: prev.points,
-          timeTaken: Date.now() - prev.startTime,
-          locations: prev.locations || []
-          }
+          const completedOnboarding = {
+            completed: true,
+            points: prev.points,
+            timeTaken: Date.now() - prev.startTime,
+            locations: prev.locations || []
+          };
+          console.log("Completed onboarding state:", completedOnboarding);
+          return completedOnboarding;
         })
         setShowAnswer(false)
         setStreetViewShown(false)
@@ -294,6 +305,10 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
 
       if(explanationModalShown) return;
       if(singlePlayerRound?.done && e.key === ' ') {
+        loadLocationFunc()
+        return;
+      }
+      if(onboarding?.completed && e.key === ' ') {
         loadLocationFunc()
         return;
       }
@@ -555,6 +570,7 @@ button1Press={() =>{
   history={onboarding.locations || []}
   button1Text={"🎮 "+text("playAgain")}
   button1Press={() => {
+    console.log("Onboarding Play Again clicked", onboarding);
     window.crazyMidgame(() =>
       loadLocationFunc()
     )
