@@ -691,6 +691,12 @@ export default function Home({ }) {
             setScreen("singleplayer")
 
             openMap(mapSlug)
+
+            // Remove the map parameter from URL without refresh while keeping other params
+            params.delete("map");
+            const newSearch = params.toString();
+            const newUrl = window.location.pathname + (newSearch ? '?' + newSearch : '');
+            window.history.replaceState({}, '', newUrl);
         }
 
         if (window.location.search.includes("createPrivateGame=true")) {

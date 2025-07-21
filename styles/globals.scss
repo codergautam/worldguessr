@@ -695,6 +695,21 @@ html {
     background-color: var(--primary);
 }
 
+// Green styling for account button during onboarding
+.navbar.onboarding .accountBtn:not(.backBtn),
+.navbar.onboarding .navBtn:not(.backBtn) {
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradGreenBtn);
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
+}
+
+.navbar.onboarding .accountBtn:not(.backBtn):hover,
+.navbar.onboarding .navBtn:not(.backBtn):hover {
+    background-color: var(--primary);
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
+}
+
 .navBtn {
     font-size: 1.0em;
     width: auto;
@@ -714,34 +729,7 @@ html {
     font-family: lexend;
 }
 
-.g2_red_button {
-    border: 1.4px solid #85200c;
-    background: var(--gradRed);
-    transition: box-shadow 0.3s ease, transform 0.3s ease, background-color 0.3s;
-}
-.g2_hover_effect {
-    transition: all 0.5s;
-}
-.g2_hover_effect:hover{
-    background: var(--primary);
-}
-.g2_red_button:hover {
-    background-color: #49170d;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
-    transform: scale(1.05);
-}
 
-
-.g2_blue_button {
-    border: 1.4px solid #004684;
-    background: var(--gradBlue);
-    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
-}
-.g2_blue_button:hover {
-    background-color: #0b5394;
-    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
-    transform: scale(1.05);
-}
 
 .g2_green_button {
     border: 1.4px solid var(--primaryDark);
@@ -781,7 +769,34 @@ html {
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
     transform: scale(1.05);
 }
+.g2_red_button {
+    border: 1.4px solid #85200c;
+    background: var(--gradRed);
+    transition: box-shadow 0.3s ease, transform 0.3s ease, background-color 0.3s;
+}
+.g2_hover_effect {
+    transition: all 0.5s;
+}
+.g2_hover_effect:hover{
+    background: var(--primary);
+}
+.g2_red_button:hover {
+    background-color: #49170d;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
+}
 
+
+.g2_blue_button {
+    border: 1.4px solid #004684;
+    background: var(--gradBlue);
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
+}
+.g2_blue_button:hover {
+    background-color: #0b5394;
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
+}
 .g2_button_style {
     padding: 10px;
     border-radius: 16px;
@@ -2629,27 +2644,27 @@ img[alt="Google"] {
         .game-summary-sidebar.mobile-expanded .summary-header {
             padding: 8px 10px 5px;
         }
-        
+
         .game-summary-sidebar.mobile-expanded .summary-title {
             font-size: 0.9rem;
             margin-bottom: 4px;
         }
-        
+
         .game-summary-sidebar.mobile-expanded .summary-score {
             font-size: 1.8rem;
             margin-bottom: 4px;
         }
-        
+
         .game-summary-sidebar.mobile-expanded .summary-total {
             font-size: 0.8rem;
             margin-bottom: 6px;
         }
-        
+
         .game-summary-sidebar.mobile-expanded .summary-actions {
             gap: 4px;
             margin-bottom: 4px;
         }
-        
+
         .game-summary-sidebar.mobile-expanded .action-btn {
             padding: 6px 12px;
             font-size: 0.8rem;

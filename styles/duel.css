@@ -1,0 +1,207 @@
+/* Duel-specific styles for RoundOverScreen */
+
+.round-over-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.round-over-screen.hidden {
+  display: none;
+}
+
+.duel-header .summary-title {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.elo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 1rem 0;
+}
+
+.elo-title {
+  font-size: 1.2rem;
+  color: #ccc;
+  margin-bottom: 0.5rem;
+}
+
+.elo-display {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.elo-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #fff;
+}
+
+.elo-change {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.time-elapsed {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #ccc;
+  margin-top: 1rem;
+}
+
+.duel-rounds {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.duel-round-item {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.duel-round-item:hover,
+.duel-round-item.active {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateX(5px);
+}
+
+.duel-round-details {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+
+.player-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.player-name {
+  font-size: 0.9rem;
+  color: #ccc;
+}
+
+.score-points {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.health-damage {
+  font-size: 0.8rem;
+  color: #ff6b6b;
+}
+
+.vs-divider {
+  font-size: 0.9rem;
+  color: #fff;
+  font-weight: bold;
+}
+
+.final-score-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  margin-bottom: 0.25rem;
+}
+
+.rank {
+  font-weight: bold;
+  color: #ffd700;
+  min-width: 2rem;
+}
+
+.player-info {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.player-name {
+  color: #fff;
+}
+
+.final-score {
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+/* Star animations for regular games */
+.star-container {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  justify-content: center;
+}
+
+.star {
+  animation: starAppear 0.5s ease-in-out forwards;
+  opacity: 0;
+  transform: scale(0);
+}
+
+@keyframes starAppear {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-180deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2) rotate(-90deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+/* Custom marker styles for players */
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Mobile responsive */
+@media (max-width: 1024px) {
+  .duel-round-details {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .vs-divider {
+    order: 2;
+  }
+
+  .elo-display {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .elo-value {
+    font-size: 1.5rem;
+  }
+
+  .elo-change {
+    font-size: 1.2rem;
+  }
+}

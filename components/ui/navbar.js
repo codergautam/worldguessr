@@ -21,7 +21,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
 
     return (
         <>
-            <div className={`navbar ${shown ? "" : "hidden"} ${screen == "home" ? "": "navbarColor"}`}>
+            <div className={`navbar ${shown ? "" : "hidden"} ${screen == "home" ? "": "navbarColor"} ${screen === "onboarding" ? "onboarding" : ""}`}>
                 <div className={`nonHome ${screen === 'home' ? '' : 'shown'}`}>
                     <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
                     <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>

@@ -2,6 +2,7 @@ import "@/styles/globals.scss";
 import "@/styles/multiPlayerModal.css";
 import "@/styles/accountModal.css";
 import "@/styles/mapModal.css";
+import '@/styles/duel.css';
 
 import { GoogleAnalytics } from "nextjs-google-analytics";
 import { GoogleOAuthProvider } from '@react-oauth/google';

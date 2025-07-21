@@ -360,9 +360,9 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
           nextRoundTime:0,
           points: (prev.points??0) + roundPoints,
           gameResults: [...(prev.gameResults || []), {
-            lat: latLong.lat, 
-            long: latLong.long, 
-            guessLat: pinPoint.lat, 
+            lat: latLong.lat,
+            long: latLong.long,
+            guessLat: pinPoint.lat,
             guessLong: pinPoint.lng,
             points: roundPoints,
             timeTaken: Math.round((Date.now() - roundStartTime) / 1000)
@@ -566,7 +566,7 @@ button1Press={() =>{
 )}
 
 { onboarding?.completed && (
-<RoundOverScreen 
+<RoundOverScreen
   points={onboarding.points || 0}
   maxPoints={25000}
   history={onboarding.locations || []}
@@ -719,7 +719,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && ((multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds)||(multiplayerState?.gameData?.state === "end")) && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (
           <PlayerList multiplayerState={multiplayerState} playAgain={() => {
             backBtnPressed(true, "unranked")
           }} backBtn={() => {
@@ -727,7 +727,44 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
           }} />
         )}
 
+        {/* Debug multiplayer state */}
+        {multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === "end" && console.log("Debug: Game ended, multiplayerState:", {
+          inGame: multiplayerState.inGame,
+          state: multiplayerState?.gameData?.state,
+          duel: multiplayerState?.gameData?.duel,
+          history: multiplayerState?.gameData?.history,
+          rounds: multiplayerState?.gameData?.rounds,
+          players: multiplayerState?.gameData?.players
+        })}
 
+        {/* Private game over screen */}
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "end" && (
+          <RoundOverScreen
+            history={multiplayerState?.gameData?.history || []}
+            duel={false}
+            multiplayerState={multiplayerState}
+            points={multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.score || 0}
+            maxPoints={multiplayerState?.gameData?.rounds * 5000}
+            button1Text={multiplayerState?.gameData?.public ? text("playAgain") : null}
+            button1Press={multiplayerState?.gameData?.public ? () => backBtnPressed(true, "unranked") : null}
+            button2Text={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? text("back") : null}
+            button2Press={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? () => backBtnPressed() : null}
+          />
+        )}
+
+        {/* Duel game over screen */}
+        {multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "end" && (
+          <RoundOverScreen
+            history={multiplayerState?.gameData?.history || []}
+            duel={true}
+            data={multiplayerState?.gameData?.duelEnd}
+            multiplayerState={multiplayerState}
+            button1Text={multiplayerState?.gameData?.public ? text("playAgain") : null}
+            button1Press={multiplayerState?.gameData?.public ? () => backBtnPressed(true, "ranked") : null}
+            button2Text={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? text("back") : null}
+            button2Press={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? () => backBtnPressed() : null}
+          />
+        )}
 
     <ExplanationModal lat={latLong?.lat} long={latLong?.long} shown={explanationModalShown} onClose={() => {
         setExplanationModalShown(false)

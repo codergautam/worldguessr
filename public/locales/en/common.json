@@ -250,6 +250,7 @@
   "statistics": "Statistics",
   "loadingMap": "Loading map...",
   "gameComplete": "Game Complete!",
+  "duelComplete": "Duel Complete!",
   "outOf": "out of",
   "actualLocation": "Actual Location",
   "distance": "Distance",
@@ -259,5 +260,10 @@
   "clickToFocusMap": "Click to focus on map",
   "viewDetails": "View Details",
   "hideDetails": "Hide Details",
-  "timeTaken": "Time"
+  "timeTaken": "Time",
+  "draw": "Draw",
+  "roundDetails": "Round Details",
+  "finalScores": "Final Scores",
+  "opponent": "Opponent",
+  "time": "Time"
 }

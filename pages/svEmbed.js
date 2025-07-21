@@ -32,7 +32,7 @@ const SvEmbed = () => {
   useEffect(() => {
     const handleMessage = (event) => {
       if (event.data && typeof event.data === "object" && event.data.type === "updateProps") {
-        console.log("Received message from parent", event.data);
+        // console.log("Received message from parent", event.data);
         const newProps = { ...props, ...event.data.props };
         setProps(newProps);
       }
