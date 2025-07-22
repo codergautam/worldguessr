@@ -2594,27 +2594,35 @@ img[alt="Google"] {
     .game-summary-container {
         flex-direction: column;
         overflow-x: hidden;
+        height: 100vh;
+    }
+
+    .game-summary-map {
+        flex: 1;
+        height: auto;
+        min-height: 0;
     }
 
     .game-summary-sidebar {
         width: 100vw;
-        height: 200px;
+        height: auto;
         border-left: none;
         border-top: 2px solid var(--primary);
         order: 2;
-        display: flex;
-        flex-direction: column;
-        overflow-x: hidden;
+        display: grid;
+        grid-template-rows: auto 0fr;
+        overflow: hidden;
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
         z-index: 10;
-        transition: height 0.3s ease;
+        transition: grid-template-rows 0.3s ease;
     }
 
     .game-summary-sidebar.mobile-expanded {
-        height: 90vh;
+        grid-template-rows: auto 1fr;
+        max-height: 90vh;
     }
 
     .mobile-expand-btn {
@@ -2636,7 +2644,19 @@ img[alt="Google"] {
     }
 
     .rounds-container.mobile-hidden {
-        display: none;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .rounds-container {
+        overflow: hidden;
+        min-height: 0;
+        transition: all 0.3s ease;
+    }
+
+    .game-summary-sidebar.mobile-expanded .rounds-container {
+        overflow-y: auto;
+        padding-bottom: 10px;
     }
 
     /* Low height device optimizations when expanded */
@@ -2688,14 +2708,21 @@ img[alt="Google"] {
 
     .summary-header {
         padding: 15px 15px 10px;
-        flex-shrink: 0;
+        grid-row: 1;
+    }
+
+    .summary-header:not(.mobile-expanded) {
+        padding-top: 15px;
+    }
+
+    .summary-actions {
+        margin-top: auto;
     }
 
     .rounds-container {
-        flex: 1;
-        overflow-y: auto;
-        overflow-x: hidden;
-        padding-bottom: 10px;
+        grid-row: 2;
+        overflow: hidden;
+        min-height: 0;
     }
 
     .summary-title {

@@ -134,32 +134,44 @@ const GameSummary = ({
 
   // Stars calculation for regular games
   useEffect(() => {
-    if (!duel && animatedPoints) {
+    if (!duel && points && maxPoints) {
+      const percentage = (points / maxPoints) * 100;
       let newStars = [];
-      if (animatedPoints >= 24000) {
-        newStars = ["/platinum_star.png", "/platinum_star.png", "/platinum_star.png"];
-      } else if (animatedPoints >= 22500) {
-        newStars = ["/platinum_star.png", "/platinum_star.png", "gold"];
-      } else if (animatedPoints >= 20000) {
-        newStars = ["/platinum_star.png", "gold", "gold"];
-      } else if (animatedPoints >= 17500) {
-        newStars = ["gold", "gold", "gold"];
-      } else if (animatedPoints >= 15000) {
-        newStars = ["gold", "gold", "#CD7F32"];
-      } else if (animatedPoints >= 12500) {
-        newStars = ["gold", "#CD7F32", "#CD7F32"];
-      } else if (animatedPoints >= 10000) {
-        newStars = ["#CD7F32", "#CD7F32", "#CD7F32"];
-      } else if (animatedPoints >= 7500) {
-        newStars = ["#CD7F32", "#CD7F32", "#b6b2b2"];
-      } else if (animatedPoints >= 5000) {
-        newStars = ["#CD7F32", "#b6b2b2", "#b6b2b2"];
-      } else {
-        newStars = ["#b6b2b2", "#b6b2b2", "#b6b2b2"];
+
+      const gold = "gold"; // Define gold color for stars
+      const platinum = "/platinum_star.png"; // Define platinum star image
+      const silver = "#CD7F32"; // Define silver color for stars
+      const bronze = "#b6b2b2"; // Define bronze color for stars
+
+      // zero to 30% - bronze star
+      if (percentage <= 20) {
+        newStars = [bronze];
+      } else if (percentage <= 30) {
+        newStars = [bronze, bronze];
+      } else if (percentage <= 45) {
+        newStars = [bronze, bronze, bronze];
+      } else if (percentage <= 50) {
+        newStars = [silver, silver, bronze];
+      } else if (percentage <= 60) {
+        newStars = [silver, silver, silver];
+      } else if(percentage <= 62) {
+        newStars = [gold, silver, silver];
+      } else if (percentage <= 65) {
+        newStars = [gold, gold, silver];
+      } else if (percentage <= 79) {
+        newStars = [gold, gold, gold];
+      } else if (percentage <= 82) {
+        newStars = [platinum, gold, gold];
+      } else if (percentage <= 85) {
+        newStars = [platinum, platinum, gold];
+      } else if (percentage <= 100) {
+        newStars = [platinum, platinum, platinum];
       }
+
       setStars(newStars);
+
     }
-  }, [animatedPoints, duel]);
+  }, [points, duel, maxPoints]);
 
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const R = 6371;
@@ -399,65 +411,69 @@ const GameSummary = ({
     }
   }
 
-  // If still no valid history data, show fallback
-  if (!gameHistory || gameHistory.length === 0) {
-    return (
-      <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
-        <div className="game-summary-container">
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100vh',
-            color: 'white',
-            fontSize: '1.5rem',
-            padding: '2rem',
-            textAlign: 'center'
-          }}>
-            <div>{text("gameComplete")}</div>
-            <div style={{ fontSize: '1rem', marginTop: '1rem', opacity: 0.7 }}>
-              {duel ? text("duelComplete") : text("gameComplete")}
-            </div>
-            {button1Text && (
-              <button
-                onClick={button1Press}
-                style={{
-                  marginTop: '2rem',
-                  padding: '1rem 2rem',
-                  fontSize: '1.2rem',
-                  backgroundColor: '#4CAF50',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
-                {button1Text}
-              </button>
-            )}
-            {button2Text && (
-              <button
-                onClick={button2Press}
-                style={{
-                  marginTop: '1rem',
-                  padding: '1rem 2rem',
-                  fontSize: '1.2rem',
-                  backgroundColor: '#666',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
-                {button2Text}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+  if(!gameHistory || gameHistory.length === 0) {
+    return null;
   }
+
+  // // If still no valid history data, show fallback
+  // if (!gameHistory || gameHistory.length === 0) {
+  //   return (
+  //     <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
+  //       <div className="game-summary-container">
+  //         <div style={{
+  //           display: 'flex',
+  //           flexDirection: 'column',
+  //           justifyContent: 'center',
+  //           alignItems: 'center',
+  //           height: '100vh',
+  //           color: 'white',
+  //           fontSize: '1.5rem',
+  //           padding: '2rem',
+  //           textAlign: 'center'
+  //         }}>
+  //           <div>{text("gameComplete")}</div>
+  //           <div style={{ fontSize: '1rem', marginTop: '1rem', opacity: 0.7 }}>
+  //             {duel ? text("duelComplete") : text("gameComplete")}
+  //           </div>
+  //           {button1Text && (
+  //             <button
+  //               onClick={button1Press}
+  //               style={{
+  //                 marginTop: '2rem',
+  //                 padding: '1rem 2rem',
+  //                 fontSize: '1.2rem',
+  //                 backgroundColor: '#4CAF50',
+  //                 color: 'white',
+  //                 border: 'none',
+  //                 borderRadius: '8px',
+  //                 cursor: 'pointer'
+  //               }}
+  //             >
+  //               {button1Text}
+  //             </button>
+  //           )}
+  //           {button2Text && (
+  //             <button
+  //               onClick={button2Press}
+  //               style={{
+  //                 marginTop: '1rem',
+  //                 padding: '1rem 2rem',
+  //                 fontSize: '1.2rem',
+  //                 backgroundColor: '#666',
+  //                 color: 'white',
+  //                 border: 'none',
+  //                 borderRadius: '8px',
+  //                 cursor: 'pointer'
+  //               }}
+  //             >
+  //               {button2Text}
+  //             </button>
+  //           )}
+  //         </div>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   // Use the constructed or provided history
   history = gameHistory;
