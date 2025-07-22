@@ -205,7 +205,7 @@ export default function MakeMapForm({ map, setMap, createMap }) {
             { uploaded ? "Bulk Uploaded":"...or Bulk Upload a file" }
             </h3>
             { !uploaded && (
-          <span>Supports JSON format from <a style={{color: "cyan"}} href="https://map-generator.vercel.app/" target="_blank" rel="noreferrer">map-generator.vercel.app</a></span>
+          <span>Supports JSON format from <a style={{color: "cyan"}} href="https://map-degen.vercel.app/" target="_blank" rel="noreferrer">map-degen.vercel.app</a></span>
             )}
           { !uploaded && (
             <label htmlFor="file-upload" className="add-button button"  style={{cursor: 'pointer', padding: '8px 16px'}}>

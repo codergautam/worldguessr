@@ -45,6 +45,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
         setOnboarding((prev)=>{
           const completedOnboarding = {
             completed: true,
+            round: prev.round, // Preserve round for parent component condition
             points: prev.points,
             timeTaken: Date.now() - prev.startTime,
             locations: prev.locations || []
