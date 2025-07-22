@@ -33,12 +33,13 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
     setShowStreakAdBanner(false)
     if(onboarding) {
       if(onboarding.completed) {
-        // Reset onboarding to start over
+        // Reset onboarding to start over - preserve template locations
         setOnboarding({
           round: 1,
           points: 0,
           startTime: Date.now(),
-          locations: []
+          locations: onboarding.locations, // Keep template locations for gameplay
+          gameResults: [] // Clear previous game results
         })
       } else if(onboarding.round === 5) {
         console.log("Setting onboarding to completed", onboarding);
@@ -48,7 +49,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
             round: prev.round, // Preserve round for parent component condition
             points: prev.points,
             timeTaken: Date.now() - prev.startTime,
-            locations: prev.locations || []
+            locations: prev.gameResults || [] // Use gameResults for the summary
           };
           console.log("Completed onboarding state:", completedOnboarding);
           return completedOnboarding;
@@ -358,7 +359,7 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
           ...prev,
           nextRoundTime:0,
           points: (prev.points??0) + roundPoints,
-          locations: [...(prev.locations || []), {
+          gameResults: [...(prev.gameResults || []), {
             lat: latLong.lat, 
             long: latLong.long, 
             guessLat: pinPoint.lat, 
@@ -588,7 +589,7 @@ button1Press={() =>{
         if(mapPinned) return;
         // todo: if mouse down, don't collapse
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!showPanoOnResult && showAnswer) || (!showAnswer))) ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && !onboarding?.completed && ((!showPanoOnResult && showAnswer) || (!showAnswer))) ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 
 {!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
@@ -625,7 +626,7 @@ button1Press={() =>{
         </div>
       </div>
 
-      <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${(showAnswer||singlePlayerRound?.done) ? 'answerShownBtns' : ''}`}>
+      <div className={`mobile_minimap__btns ${miniMapShown ? 'miniMapShown' : ''} ${(showAnswer||singlePlayerRound?.done||onboarding?.completed) ? 'answerShownBtns' : ''}`}>
         {miniMapShown && (
           <>
             {/* guess and hint  */}
