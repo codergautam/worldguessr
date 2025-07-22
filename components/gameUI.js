@@ -699,7 +699,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {timeToNextRound ?
       text("roundTimer", {r:onboarding?.round, mr: 5, t: timeToNextRound.toFixed(1)})
-      : text("round", {r:onboarding?.round, mr: 5})}
+      : text("round", {r:onboarding?.round, mr: 5})} - {onboarding?.points || 0} {text("points")}
 
         </span>
 
