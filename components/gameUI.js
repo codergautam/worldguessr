@@ -570,12 +570,12 @@ button1Press={() =>{
   points={onboarding.points || 0}
   maxPoints={25000}
   history={onboarding.locations || []}
-  button1Text={"🎮 "+text("playAgain")}
+  button1Text={"🏠 "+text("goHome")}
   button1Press={() => {
-    console.log("Onboarding Play Again clicked", onboarding);
-    window.crazyMidgame(() =>
-      loadLocationFunc()
-    )
+    console.log("Onboarding Go Home clicked", onboarding);
+    window.crazyMidgame(() => {
+      backBtnPressed();
+    })
   }}/>
 )}
 

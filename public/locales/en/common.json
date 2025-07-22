@@ -32,6 +32,7 @@
   "gameCode": "Game Code",
   "host": "Host",
   "playAgain": "Play Again",
+  "goHome": "Go Home",
   "nextRound": "Next Round",
   "singlePlayerNeeded": "1 more player needed to start",
   "startGame": "Start Game",
