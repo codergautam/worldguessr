@@ -217,21 +217,18 @@ const GameSummary = ({
     if (!player) return null;
 
     return (
-      <div style={{ marginTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '12px' }}>
-        <h4 style={{ color: 'white', marginBottom: '8px', fontSize: '1rem' }}>
-          {player.username} - {text("roundDetails")}
-        </h4>
+      <div style={{marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px'}}>
         {history.map((round, index) => {
           const playerRound = round.players?.[playerId];
           if (!playerRound) return null;
-          
-          const distance = playerRound.lat && playerRound.long 
+
+          const distance = playerRound.lat && playerRound.long
             ? calculateDistance(round.lat, round.long, playerRound.lat, playerRound.long)
             : null;
 
           return (
-            <div key={index} style={{ 
-              padding: '8px 12px', 
+            <div key={index} style={{
+              padding: '8px 12px',
               backgroundColor: 'rgba(255, 255, 255, 0.05)',
               marginBottom: '4px',
               borderRadius: '4px',
@@ -240,7 +237,7 @@ const GameSummary = ({
               alignItems: 'center'
             }}>
               <span style={{ color: 'white', fontSize: '0.9rem' }}>
-                {text("round", {r: index + 1, mr: history.length})}
+                {text("roundNo", {r: index + 1})}
               </span>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 {distance && (
@@ -276,12 +273,12 @@ const GameSummary = ({
     return displayPlayers.map((player, index) => {
       const isCurrentPlayer = player.playerId === multiplayerState?.gameData?.myId;
       const isSelected = selectedPlayer === player.playerId;
-      
+
       return (
         <React.Fragment key={player.playerId}>
           <div
             className={`round-item round-animation ${isSelected ? 'active' : ''}`}
-            style={{ 
+            style={{
               animationDelay: `${index * 0.1}s`,
               cursor: 'pointer'
             }}
@@ -289,13 +286,13 @@ const GameSummary = ({
           >
             <div className="round-header">
               <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                <div style={{ 
-                  width: '24px', 
+                <div style={{
+                  width: '24px',
                   height: '24px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginRight: '8px' 
+                  marginRight: '8px'
                 }}>
                   {index === 0 && <FaTrophy style={{ color: '#FFD700', fontSize: '1.2rem', filter: 'drop-shadow(0 2px 4px rgba(255, 215, 0, 0.3))' }} />}
                   {index === 1 && <FaTrophy style={{ color: '#C0C0C0', fontSize: '1.1rem', filter: 'drop-shadow(0 2px 4px rgba(192, 192, 192, 0.3))' }} />}
@@ -638,7 +635,7 @@ const GameSummary = ({
                   >
                     <Popup>
                       <div>
-                        <strong>{text("round")} {index + 1}</strong><br />
+                        <strong>{text("roundNo", { r: index + 1 })}</strong><br />
                         {text("actualLocation")}
                       </div>
                     </Popup>
@@ -654,7 +651,7 @@ const GameSummary = ({
                         <Popup>
                           <div>
                             <strong>{text("yourGuess")}</strong><br />
-                            {text("round")} {index + 1}<br />
+                            {text("roundNo", { r: index + 1 })}<br />
                             {round.points} {text("points")}
                           </div>
                         </Popup>
@@ -687,7 +684,7 @@ const GameSummary = ({
                             <Popup>
                               <div>
                                 <strong>{player.username || text("opponent")}</strong><br />
-                                {text("round")} {index + 1}<br />
+                                {text("roundNo", { r: index + 1 })}<br />
                                 {player.points} {text("points")}
                               </div>
                             </Popup>
@@ -778,7 +775,7 @@ const GameSummary = ({
                         onClick={() => handleRoundClick(index)}
                       >
                         <div className="round-header">
-                          <span className="round-number">{text("round")} {index + 1}</span>
+                          <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
                         </div>
 
                         <div className="duel-round-details">
@@ -932,7 +929,7 @@ const GameSummary = ({
                           <Popup>
                             <div>
                               <strong>{player.username || text("opponent")}</strong><br />
-                              {text("round")} {index + 1}<br />
+                              {text("roundNo", { r: index + 1 })}<br />
                               {player.points} {text("points")}
                             </div>
                           </Popup>

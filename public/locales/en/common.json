@@ -52,6 +52,7 @@
   "howToPlay": "How to Play",
   "roundTimer": "Round #{{r}} / {{mr}} - {{t}} seconds",
   "round": "Round #{{r}} / {{mr}}",
+  "roundNo": "Round #{{r}}",
   "gameStartingIn": "Game starting in {{t}}s",
   "guessDistanceKm": "Your guess was {{d}}km away",
   "guessDistanceM": "Your guess was {{d}}m away",
