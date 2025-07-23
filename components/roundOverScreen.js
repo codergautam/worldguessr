@@ -223,7 +223,6 @@ const GameSummary = ({
             </span>
             <span
               className="round-points"
-              style={{ color: getPointsColor(player.totalScore) }}
             >
               {player.totalScore} {text("pts")}
             </span>
