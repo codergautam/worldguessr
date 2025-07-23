@@ -2076,7 +2076,7 @@ export default function Home({ }) {
 
                 {/* reload button for public game */}
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
-                    <div className="gameBtnContainer" style={{ position: 'fixed', top: '60px', left: '10px', zIndex: 1000000 }}>
+                    <div className="gameBtnContainer" style={{ position: 'fixed', top: '90px', left: '10px', zIndex: 1000000 }}>
 
                         <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><FaArrowRotateRight /></button>
                     </div>
