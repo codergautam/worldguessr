@@ -2260,6 +2260,7 @@ img[alt="Google"] {
 .leaflet-container {
     height: 100% !important;
     width: 100% !important;
+    cursor: crosshair !important;
 }
 
 .game-summary-map .leaflet-container {
@@ -2772,6 +2773,62 @@ img[alt="Google"] {
     .action-btn {
         width: 100%;
         max-width: 200px;
+    }
+}
+
+
+
+
+/* Low width/height desktop optimizations */
+@media (min-width: 1025px) and (max-width: 1366px), (min-width: 1025px) and (max-height: 768px) {
+    .summary-header {
+        padding: 20px 20px 15px;
+        padding-top: 40px;
+    }
+
+    .summary-title {
+        font-size: 1.8rem;
+        margin-bottom: 8px;
+    }
+
+    .summary-score {
+        font-size: 2.5rem;
+        margin-bottom: 4px;
+    }
+
+    .summary-total {
+        font-size: 1rem;
+        margin-bottom: 12px;
+    }
+
+    .summary-actions {
+        gap: 8px;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+
+    .star-container {
+        margin-bottom: 0.75rem;
+    }
+
+    .star {
+        font-size: 1.6rem;
+    }
+
+    /* ELO container adjustments */
+    .elo-value {
+        font-size: 1.6rem;
+    }
+
+    .elo-change {
+        font-size: 0.9rem;
+    }
+
+    .time-elapsed {
+        font-size: 0.9rem;
     }
 }
 

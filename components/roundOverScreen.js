@@ -260,9 +260,10 @@ const GameSummary = ({
     });
 
     try {
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [20, 20] });
-    }
+      if (bounds.isValid()) {
+        // Fit bounds once initially, then allow free user interaction
+        map.fitBounds(bounds, { padding: [20, 20] });
+      }
     } catch (error) {
       console.error('Error fitting map to bounds:', error);
     }
@@ -304,6 +305,7 @@ const GameSummary = ({
         });
       }
 
+      // Use flyToBounds but don't lock the extent - user can freely pan/zoom after
       map.flyToBounds(bounds, {
         padding: [50, 50],
         maxZoom: optimalZoom,
@@ -311,6 +313,7 @@ const GameSummary = ({
         easeLinearity: 0.25
       });
     } else {
+      // Just center on the target location without locking
       map.flyTo([round.lat, round.long], 10, {
         duration: 1.5,
         easeLinearity: 0.25
@@ -320,12 +323,13 @@ const GameSummary = ({
 
   useEffect(() => {
     if (mapReady && history.length > 0 && leafletReady) {
-      console.log('Map ready, fitting bounds...');
+      console.log('Map ready, setting initial view...');
       setTimeout(() => {
+        // Set initial extent only once, then allow free user interaction
         fitMapToBounds();
       }, 200);
     }
-  }, [mapReady, history, leafletReady]);
+  }, [mapReady, leafletReady]); // Removed history dependency to prevent refitting on history changes
 
   const handleRoundClick = (index) => {
     console.log(`Round ${index + 1} clicked`);
@@ -493,8 +497,6 @@ const GameSummary = ({
               minZoom={1}
               maxZoom={18}
               worldCopyJump={false}
-              maxBounds={[[-90, -180], [90, 180]]}
-              maxBoundsViscosity={0.5}
               style={{ height: "100%", width: "100%" }}
             >
               <MapEvents
@@ -729,8 +731,6 @@ const GameSummary = ({
           minZoom={1}
           maxZoom={18}
           worldCopyJump={false}
-          maxBounds={[[-90, -180], [90, 180]]}
-          maxBoundsViscosity={0.5}
           style={{ height: "100%", width: "100%" }}
         >
           <MapEvents
