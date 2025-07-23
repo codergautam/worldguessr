@@ -218,7 +218,7 @@ const GameSummary = ({
         >
           <div className="round-header">
             <span className="round-number">
-              {index === 0 && <FaTrophy style={{ color: '#FFD700', marginRight: '4px' }} />}
+              {index === 0 && <FaTrophy style={{ color: '#FFD700', marginRight: '8px', fontSize: '1.1rem' }} />}
               #{index + 1} {player.username} {isCurrentPlayer && `(${text("you")})`}
             </span>
             <span
@@ -906,14 +906,6 @@ const GameSummary = ({
               {text("outOf")} {maxPoints} {text("points")}
             </div>
 
-            {/* Show leaderboard for multiplayer games */}
-            {multiplayerState?.gameData && history[0]?.players && Object.keys(history[0].players).length > 1 && (
-              <div className="multiplayer-leaderboard">
-                <h3>{text("finalScores")}</h3>
-                {renderLeaderboard(false)}
-              </div>
-            )}
-
           <div className="summary-actions">
             <button
               className="action-btn mobile-expand-btn"
@@ -936,7 +928,17 @@ const GameSummary = ({
         </div>
 
         <div className={`rounds-container ${!mobileExpanded ? 'mobile-hidden' : ''}`}>
-          {history.map((round, index) => {
+          {/* Show leaderboard for multiplayer games */}
+          {multiplayerState?.gameData && history[0]?.players && Object.keys(history[0].players).length > 1 && (
+            <>
+              <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("finalScores")}</h3>
+              {renderLeaderboard(false)}
+            </>
+          )}
+
+          {/* Show individual rounds only if not a multiplayer game with leaderboard */}
+          {!(multiplayerState?.gameData && history[0]?.players && Object.keys(history[0].players).length > 1) && 
+            history.map((round, index) => {
             const distance = round.guessLat && round.guessLong
               ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
               : null;
