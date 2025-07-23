@@ -194,6 +194,45 @@ const GameSummary = ({
     }
   };
 
+  // Reusable leaderboard rendering function
+  const renderLeaderboard = (showAll = false) => {
+    if (!history[0]?.players) return null;
+    
+    const players = Object.entries(history[0].players)
+      .map(([playerId, player]) => ({
+        playerId,
+        username: player.username,
+        totalScore: history.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
+      }))
+      .sort((a, b) => b.totalScore - a.totalScore);
+
+    const displayPlayers = showAll ? players : players.slice(0, 5);
+    
+    return displayPlayers.map((player, index) => {
+      const isCurrentPlayer = player.playerId === multiplayerState?.gameData?.myId;
+      return (
+        <div 
+          key={player.playerId} 
+          className={`round-item round-animation ${isCurrentPlayer ? 'active' : ''}`}
+          style={{ animationDelay: `${index * 0.1}s` }}
+        >
+          <div className="round-header">
+            <span className="round-number">
+              {index === 0 && <FaTrophy style={{ color: '#FFD700', marginRight: '4px' }} />}
+              #{index + 1} {player.username} {isCurrentPlayer && `(${text("you")})`}
+            </span>
+            <span
+              className="round-points"
+              style={{ color: getPointsColor(player.totalScore) }}
+            >
+              {player.totalScore} {text("pts")}
+            </span>
+          </div>
+        </div>
+      );
+    });
+  };
+
   const getPointsColor = (points) => {
     if (points >= 3000) return '#4CAF50';
     if (points >= 1500) return '#FFC107';
@@ -690,27 +729,11 @@ const GameSummary = ({
                 </>
               )}
 
-              {/* For private games and unranked duels with multiple players */}
+              {/* For private games and unranked multiplayer (including 10 player games) */}
               {(!multiplayerState?.gameData?.duel || Object.keys(history[0]?.players || {}).length > 2) && (
                 <>
                   <h3>{text("finalScores")}</h3>
-                  {Object.entries(history[0]?.players || {})
-                    .map(([playerId, player]) => ({
-                      playerId,
-                      username: player.username,
-                      totalScore: history.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
-                    }))
-                    .sort((a, b) => b.totalScore - a.totalScore)
-                    .map((player, index) => (
-                      <div key={player.playerId} className="final-score-item">
-                        <div className="rank">#{index + 1}</div>
-                        <div className="player-info">
-                          <span className="player-name">{player.username}</span>
-                          <span className="final-score">{player.totalScore} {text("pts")}</span>
-                        </div>
-                      </div>
-                    ))
-                  }
+                  {renderLeaderboard(true)}
                 </>
               )}
             </div>
@@ -881,7 +904,17 @@ const GameSummary = ({
             <div className="summary-score">{animatedPoints?.toFixed(0) || points}</div>
             <div className="summary-total">
               {text("outOf")} {maxPoints} {text("points")}
-            </div>          <div className="summary-actions">
+            </div>
+
+            {/* Show leaderboard for multiplayer games */}
+            {multiplayerState?.gameData && history[0]?.players && Object.keys(history[0].players).length > 1 && (
+              <div className="multiplayer-leaderboard">
+                <h3>{text("finalScores")}</h3>
+                {renderLeaderboard(false)}
+              </div>
+            )}
+
+          <div className="summary-actions">
             <button
               className="action-btn mobile-expand-btn"
               onClick={() => setMobileExpanded(!mobileExpanded)}
