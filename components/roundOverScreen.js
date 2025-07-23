@@ -220,7 +220,7 @@ const GameSummary = ({
       return (
         <div
           key={player.playerId}
-          className={`round-item round-animation ${isCurrentPlayer ? 'active' : ''}`}
+          className="round-item round-animation"
           style={{ animationDelay: `${index * 0.1}s` }}
         >
           <div className="round-header">
