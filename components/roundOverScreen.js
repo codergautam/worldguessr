@@ -224,16 +224,16 @@ const GameSummary = ({
           style={{ animationDelay: `${index * 0.1}s` }}
         >
           <div className="round-header">
-            <span className="round-number" style={{ display: 'flex', alignItems: 'center' }}>
-              <span style={{ display: 'inline-block', width: '24px', textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+              <div style={{ width: '24px', textAlign: 'center', marginRight: '8px' }}>
                 {index === 0 && <FaTrophy style={{ color: '#FFD700', fontSize: '1.2rem', filter: 'drop-shadow(0 2px 4px rgba(255, 215, 0, 0.3))' }} />}
                 {index === 1 && <FaTrophy style={{ color: '#C0C0C0', fontSize: '1.1rem', filter: 'drop-shadow(0 2px 4px rgba(192, 192, 192, 0.3))' }} />}
                 {index === 2 && <FaTrophy style={{ color: '#CD7F32', fontSize: '1rem', filter: 'drop-shadow(0 2px 4px rgba(205, 127, 50, 0.3))' }} />}
-              </span>
-              <span style={{ marginLeft: '4px' }}>
+              </div>
+              <span className="round-number">
                 #{index + 1} {player.username} {isCurrentPlayer && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
               </span>
-            </span>
+            </div>
             {renderPoints(player.totalScore)}
           </div>
         </div>
