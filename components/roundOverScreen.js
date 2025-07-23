@@ -53,6 +53,7 @@ const GameSummary = ({
   const [mapReady, setMapReady] = useState(false);
   const [leafletReady, setLeafletReady] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
@@ -201,6 +202,63 @@ const GameSummary = ({
     </span>
   );
 
+  // Handle player selection
+  const handlePlayerSelect = (playerId) => {
+    if (selectedPlayer === playerId) {
+      setSelectedPlayer(null); // Deselect if already selected
+    } else {
+      setSelectedPlayer(playerId);
+    }
+  };
+
+  // Render player round distribution
+  const renderPlayerRounds = (playerId) => {
+    const player = history[0]?.players[playerId];
+    if (!player) return null;
+
+    return (
+      <div style={{ marginTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.1)', paddingTop: '12px' }}>
+        <h4 style={{ color: 'white', marginBottom: '8px', fontSize: '1rem' }}>
+          {player.username} - {text("roundDetails")}
+        </h4>
+        {history.map((round, index) => {
+          const playerRound = round.players?.[playerId];
+          if (!playerRound) return null;
+          
+          const distance = playerRound.lat && playerRound.long 
+            ? calculateDistance(round.lat, round.long, playerRound.lat, playerRound.long)
+            : null;
+
+          return (
+            <div key={index} style={{ 
+              padding: '8px 12px', 
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+              marginBottom: '4px',
+              borderRadius: '4px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span style={{ color: 'white', fontSize: '0.9rem' }}>
+                {text("round")} {index + 1}
+              </span>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                {distance && (
+                  <span style={{ color: '#aaa', fontSize: '0.8rem' }}>
+                    {formatDistance(distance)}
+                  </span>
+                )}
+                <span style={{ color: 'white', fontWeight: 'bold' }}>
+                  {playerRound.points} {text("pts")}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // Reusable leaderboard rendering function
   const renderLeaderboard = (showAll = false) => {
     if (!history[0]?.players) return null;
@@ -217,33 +275,41 @@ const GameSummary = ({
 
     return displayPlayers.map((player, index) => {
       const isCurrentPlayer = player.playerId === multiplayerState?.gameData?.myId;
+      const isSelected = selectedPlayer === player.playerId;
+      
       return (
-        <div
-          key={player.playerId}
-          className="round-item round-animation"
-          style={{ animationDelay: `${index * 0.1}s` }}
-        >
-          <div className="round-header">
-            <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <div style={{ 
-                width: '24px', 
-                height: '24px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginRight: '8px' 
-              }}>
-                {index === 0 && <FaTrophy style={{ color: '#FFD700', fontSize: '1.2rem', filter: 'drop-shadow(0 2px 4px rgba(255, 215, 0, 0.3))' }} />}
-                {index === 1 && <FaTrophy style={{ color: '#C0C0C0', fontSize: '1.1rem', filter: 'drop-shadow(0 2px 4px rgba(192, 192, 192, 0.3))' }} />}
-                {index === 2 && <FaTrophy style={{ color: '#CD7F32', fontSize: '1rem', filter: 'drop-shadow(0 2px 4px rgba(205, 127, 50, 0.3))' }} />}
+        <React.Fragment key={player.playerId}>
+          <div
+            className={`round-item round-animation ${isSelected ? 'active' : ''}`}
+            style={{ 
+              animationDelay: `${index * 0.1}s`,
+              cursor: 'pointer'
+            }}
+            onClick={() => handlePlayerSelect(player.playerId)}
+          >
+            <div className="round-header">
+              <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                <div style={{ 
+                  width: '24px', 
+                  height: '24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: '8px' 
+                }}>
+                  {index === 0 && <FaTrophy style={{ color: '#FFD700', fontSize: '1.2rem', filter: 'drop-shadow(0 2px 4px rgba(255, 215, 0, 0.3))' }} />}
+                  {index === 1 && <FaTrophy style={{ color: '#C0C0C0', fontSize: '1.1rem', filter: 'drop-shadow(0 2px 4px rgba(192, 192, 192, 0.3))' }} />}
+                  {index === 2 && <FaTrophy style={{ color: '#CD7F32', fontSize: '1rem', filter: 'drop-shadow(0 2px 4px rgba(205, 127, 50, 0.3))' }} />}
+                </div>
+                <span className="round-number">
+                  #{index + 1} {player.username} {isCurrentPlayer && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
+                </span>
               </div>
-              <span className="round-number">
-                #{index + 1} {player.username} {isCurrentPlayer && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
-              </span>
+              {renderPoints(player.totalScore)}
             </div>
-            {renderPoints(player.totalScore)}
           </div>
-        </div>
+          {isSelected && renderPlayerRounds(player.playerId)}
+        </React.Fragment>
       );
     });
   };
