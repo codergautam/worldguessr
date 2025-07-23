@@ -226,7 +226,7 @@ const GameSummary = ({
           <div className="round-header">
             <span className="round-number">
               {index === 0 && <FaTrophy style={{ color: '#FFD700', marginRight: '8px', fontSize: '1.1rem' }} />}
-              #{index + 1} {player.username} {isCurrentPlayer && `(${text("you")})`}
+              #{index + 1} {player.username} {isCurrentPlayer && <span style={{ color: '#4CAF50', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
             </span>
             {renderPoints(player.totalScore)}
           </div>
