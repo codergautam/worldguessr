@@ -870,13 +870,21 @@ html {
 }
 
 .reloadBtn {
-    //background-color: #000099;
-    // width: 100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     aspect-ratio: 1/1;
+    border: 2px solid rgba(29, 29, 91, 0.8);
+    background: var(--gradBlue);
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    border-radius: 50%;
+    font-weight: 600;
 }
 
 .reloadBtn:hover {
-    background-color: #00005f;
+    background-color: rgba(30, 62, 156, 0.85);
 }
 
 h1, h2, h3, span, label {
