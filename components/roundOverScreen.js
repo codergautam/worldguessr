@@ -194,6 +194,13 @@ const GameSummary = ({
     }
   };
 
+  // Reusable points display component
+  const renderPoints = (points) => (
+    <span className="round-points">
+      {points} {text("pts")}
+    </span>
+  );
+
   // Reusable leaderboard rendering function
   const renderLeaderboard = (showAll = false) => {
     if (!history[0]?.players) return null;
@@ -221,11 +228,7 @@ const GameSummary = ({
               {index === 0 && <FaTrophy style={{ color: '#FFD700', marginRight: '8px', fontSize: '1.1rem' }} />}
               #{index + 1} {player.username} {isCurrentPlayer && `(${text("you")})`}
             </span>
-            <span
-              className="round-points"
-            >
-              {player.totalScore} {text("pts")}
-            </span>
+            {renderPoints(player.totalScore)}
           </div>
         </div>
       );
@@ -951,12 +954,7 @@ const GameSummary = ({
               >
                 <div className="round-header">
                   <span className="round-number">{text("roundNumber", {number: index + 1})}</span>
-                  <span
-                    className="round-points"
-                    style={{ color: getPointsColor(round.points) }}
-                  >
-                    {round.points} {text("pts")}
-                  </span>
+                  {renderPoints(round.points)}
                 </div>
 
                 <div className="round-details">
