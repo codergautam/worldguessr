@@ -240,7 +240,7 @@ const GameSummary = ({
               alignItems: 'center'
             }}>
               <span style={{ color: 'white', fontSize: '0.9rem' }}>
-                {text("round")} {index + 1}
+                {text("round", {r: index + 1, mr: history.length})}
               </span>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 {distance && (
