@@ -196,7 +196,7 @@ const GameSummary = ({
 
   // Reusable points display component
   const renderPoints = (points) => (
-    <span className="round-points">
+    <span className="round-points" style={{ color: "white" }}>
       {points} {text("pts")}
     </span>
   );
@@ -204,7 +204,7 @@ const GameSummary = ({
   // Reusable leaderboard rendering function
   const renderLeaderboard = (showAll = false) => {
     if (!history[0]?.players) return null;
-    
+
     const players = Object.entries(history[0].players)
       .map(([playerId, player]) => ({
         playerId,
@@ -214,12 +214,12 @@ const GameSummary = ({
       .sort((a, b) => b.totalScore - a.totalScore);
 
     const displayPlayers = showAll ? players : players.slice(0, 5);
-    
+
     return displayPlayers.map((player, index) => {
       const isCurrentPlayer = player.playerId === multiplayerState?.gameData?.myId;
       return (
-        <div 
-          key={player.playerId} 
+        <div
+          key={player.playerId}
           className={`round-item round-animation ${isCurrentPlayer ? 'active' : ''}`}
           style={{ animationDelay: `${index * 0.1}s` }}
         >
@@ -937,65 +937,6 @@ const GameSummary = ({
               {renderLeaderboard(false)}
             </>
           )}
-
-          {/* Show individual rounds only if not a multiplayer game with leaderboard */}
-          {!(multiplayerState?.gameData && history[0]?.players && Object.keys(history[0].players).length > 1) && 
-            history.map((round, index) => {
-            const distance = round.guessLat && round.guessLong
-              ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
-              : null;
-
-            return (
-              <div
-                key={index}
-                className={`round-item round-animation ${activeRound === index ? 'active' : ''}`}
-                style={{ animationDelay: `${index * 0.1}s` }}
-                onClick={() => handleRoundClick(index)}
-              >
-                <div className="round-header">
-                  <span className="round-number">{text("roundNumber", {number: index + 1})}</span>
-                  {renderPoints(round.points)}
-                </div>
-
-                <div className="round-details">
-                  {distance && (
-                    <div className="detail-row">
-                      <span className="detail-label">
-                        <span className="detail-icon">📏</span>
-                        {text("distance")}
-                      </span>
-                      <span className="distance-value">{formatDistance(distance)}</span>
-                    </div>
-                  )}
-
-                  {round.timeTaken && (
-                    <div className="detail-row">
-                      <span className="detail-label">
-                        <span className="detail-icon">⏱️</span>
-                        {text("timeTaken")}
-                      </span>
-                      <span className="time-value">{round.timeTaken}s</span>
-                    </div>
-                  )}
-
-                  <div className="location-info">
-                    {/* <span style={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.8rem' }}>
-                      Click to focus on map
-                    </span> */}
-                    <button
-                      className="gmaps-link"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openInGoogleMaps(round.lat, round.long);
-                      }}
-                    >
-                      📍 {text("openInMaps")}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>
