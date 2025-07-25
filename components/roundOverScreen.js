@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
-import { FaTrophy, FaClock, FaStar } from "react-icons/fa";
+import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt } from "react-icons/fa";
 import msToTime from "./msToTime";
 import 'leaflet/dist/leaflet.css';
 
@@ -219,9 +219,53 @@ const GameSummary = ({
     }
   };
 
+  // Render individual round details (reusable for both multiplayer and singleplayer)
+  const renderRoundDetails = () => {
+    if (!history || history.length === 0) return null;
+
+    return history.map((round, index) => {
+      const distance = round.guessLat && round.guessLong
+        ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
+        : null;
+
+      return (
+        <div
+          key={index}
+          className={`round-item round-animation ${activeRound === index ? 'active' : ''}`}
+          style={{
+            animationDelay: `${index * 0.1}s`,
+            cursor: 'pointer'
+          }}
+          onClick={() => handleRoundClick(index)}
+        >
+          <div className="round-header">
+            <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
+            {renderPoints(round.points || 0)}
+          </div>
+          {distance !== null && (
+            <div className="round-distance">
+              <FaRuler /> {formatDistance(distance)}
+            </div>
+          )}
+          <div className="round-location">
+            <FaMapMarkerAlt /> {text("actualLocation")}
+            <button
+              className="location-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                openInGoogleMaps(round.lat, round.long);
+              }}
+            >
+              <FaExternalLinkAlt />
+            </button>
+          </div>
+        </div>
+      );
+    });
+  };
+
   // Render player round distribution
   const renderPlayerRounds = (playerId) => {
-    const player = history[0]?.players[playerId];
     if (!player) return null;
 
     return (
@@ -989,6 +1033,70 @@ const GameSummary = ({
             <>
               <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("finalScores")}</h3>
               {renderLeaderboard(false)}
+            </>
+          )}
+
+          {!multiplayerState?.gameData && history && history.length > 0 && (
+            <>
+              <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("roundDetails")}</h3>
+              {history.map((round, index) => {
+                const distance = round.guessLat && round.guessLong
+                  ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
+                  : null;
+
+                return (
+                  <div
+                    key={index}
+                    className={`round-item round-animation ${activeRound === index ? 'active' : ''}`}
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                    onClick={() => handleRoundClick(index)}
+                  >
+                    <div className="round-header">
+                      <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
+                      <span
+                        className="round-points"
+                        style={{ color: 'white' }}
+                      >
+                        {round.points} {text("pts")}
+                      </span>
+                    </div>
+
+                    <div className="round-details">
+                      {distance && (
+                        <div className="detail-row">
+                          <span className="detail-label">
+                            <span className="detail-icon">📏</span>
+                            {text("distance")}
+                          </span>
+                          <span className="distance-value">{formatDistance(distance)}</span>
+                        </div>
+                      )}
+
+                      <div className="detail-row">
+                        <span className="detail-label">
+                          <span className="detail-icon">⭐</span>
+                          {text("score")}
+                        </span>
+                        <span style={{ color: 'white' }}>
+                          {round.points} / 5000
+                        </span>
+                      </div>
+
+                      <div className="location-info">
+                        <button
+                          className="gmaps-link"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openInGoogleMaps(round.lat, round.long);
+                          }}
+                        >
+                          📍 {text("openInMaps")}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </>
           )}
         </div>
