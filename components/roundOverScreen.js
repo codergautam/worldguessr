@@ -999,12 +999,24 @@ const GameSummary = ({
                   ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
                   : null;
 
+                const isMobile = typeof window !== 'undefined' && window.innerWidth <= 1024;
+
+                const handleTileClick = () => {
+                  if (isMobile) {
+                    // On mobile, open Google Maps directly
+                    openInGoogleMaps(round.lat, round.long);
+                  } else {
+                    // On desktop, focus on the round in the map
+                    handleRoundClick(index);
+                  }
+                };
+
                 return (
                   <div
                     key={index}
                     className={`round-item round-animation ${activeRound === index ? 'active' : ''}`}
                     style={{ animationDelay: `${index * 0.1}s` }}
-                    onClick={() => handleRoundClick(index)}
+                    onClick={handleTileClick}
                   >
                     <div className="round-header">
                       <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
@@ -1015,34 +1027,36 @@ const GameSummary = ({
                         >
                           {round.points} {text("pts")}
                         </span>
-                        <button
-                          className="gmaps-icon"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openInGoogleMaps(round.lat, round.long);
-                          }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            padding: '2px',
-                            borderRadius: '3px',
-                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                            color: 'white',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '20px',
-                            height: '20px',
-                            transition: 'background-color 0.2s'
-                          }}
-                          onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
-                          onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
-                          title={text("openInMaps")}
-                        >
-                          📍
-                        </button>
+                        {!isMobile && (
+                          <button
+                            className="gmaps-icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openInGoogleMaps(round.lat, round.long);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              padding: '2px',
+                              borderRadius: '3px',
+                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                              color: 'white',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '20px',
+                              height: '20px',
+                              transition: 'background-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                            title={text("openInMaps")}
+                          >
+                            📍
+                          </button>
+                        )}
                       </div>
                     </div>
 
