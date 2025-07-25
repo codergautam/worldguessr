@@ -1008,12 +1008,42 @@ const GameSummary = ({
                   >
                     <div className="round-header">
                       <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
-                      <span
-                        className="round-points"
-                        style={{ color: 'white' }}
-                      >
-                        {round.points} {text("pts")}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span
+                          className="round-points"
+                          style={{ color: 'white' }}
+                        >
+                          {round.points} {text("pts")}
+                        </span>
+                        <button
+                          className="gmaps-icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openInGoogleMaps(round.lat, round.long);
+                          }}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                            padding: '2px',
+                            borderRadius: '3px',
+                            backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                            color: 'white',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '20px',
+                            height: '20px',
+                            transition: 'background-color 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                          title={text("openInMaps")}
+                        >
+                          📍
+                        </button>
+                      </div>
                     </div>
 
                     <div className="round-details">
@@ -1027,16 +1057,14 @@ const GameSummary = ({
                         </div>
                       )}
 
-                      <div className="location-info">
-                        <button
-                          className="gmaps-link"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openInGoogleMaps(round.lat, round.long);
-                          }}
-                        >
-                          📍 {text("openInMaps")}
-                        </button>
+                      <div className="detail-row">
+                        <span className="detail-label">
+                          <span className="detail-icon">⭐</span>
+                          {text("score")}
+                        </span>
+                        <span style={{ color: 'white' }}>
+                          {round.points} / 5000
+                        </span>
                       </div>
                     </div>
                   </div>
