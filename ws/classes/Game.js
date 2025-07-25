@@ -40,6 +40,7 @@ export default class Game {
     this.extent = null;
     this.displayLocation = null;
     this.readyToEnd = false;
+    this.roundHistory = []; // Store guess history for each round
 
     if(this.public) {
       this.showRoadName = false;
@@ -72,6 +73,7 @@ export default class Game {
       extent: this.extent,
       displayLocation: this.displayLocation,
       readyToEnd: this.readyToEnd,
+      roundHistory: this.roundHistory,
       nm: this.nm,
       npz: this.npz,
       showRoadName: this.showRoadName,
@@ -140,6 +142,7 @@ export default class Game {
       extent: this.extent,
       generated: this.locations.length,
       displayLocation: this.displayLocation,
+      roundHistory: this.roundHistory,
 
       nm: this.nm,
       npz: this.npz,
@@ -151,6 +154,8 @@ export default class Game {
     this.state = 'waiting';
     // clear locations
     this.locations = [];
+    // clear round history
+    this.roundHistory = [];
     // start generating new locations
     this.generateLocations(allLocations);
     this.sendStateUpdate();
@@ -256,6 +261,57 @@ export default class Game {
   }
   }
 
+  saveRoundToHistory() {
+    if (this.curRound > 0 && this.curRound <= this.locations.length) {
+      const roundData = {
+        round: this.curRound,
+        location: this.locations[this.curRound - 1],
+        players: {}
+      };
+
+      // Save each player's guess and calculated points for this round
+      for (const playerId of Object.keys(this.players)) {
+        const player = this.players[playerId];
+        if (player.guess) {
+          const loc = this.locations[this.curRound - 1];
+          let points = 0;
+
+          if (this.duel) {
+            // For duels, calculate raw points without the health system
+            points = calcPoints({
+              lat: loc.lat,
+              lon: loc.long,
+              guessLat: player.guess[0],
+              guessLon: player.guess[1],
+              usedHint: false,
+              maxDist: this.maxDist
+            });
+          } else {
+            // For regular games, use standard points calculation
+            points = calcPoints({
+              lat: loc.lat,
+              lon: loc.long,
+              guessLat: player.guess[0],
+              guessLon: player.guess[1],
+              usedHint: false,
+              maxDist: this.maxDist
+            });
+          }
+
+          roundData.players[playerId] = {
+            username: player.username,
+            lat: player.guess[0],
+            long: player.guess[1],
+            points: points,
+            final: player.final
+          };
+        }
+      }
+
+      this.roundHistory.push(roundData);
+    }
+  }
+
   clearGuesses() {
     for (const playerId of Object.keys(this.players)) {
       const player = this.players[playerId];
@@ -289,6 +345,7 @@ export default class Game {
       state.showRoadName = this.showRoadName;
       state.rounds = this.rounds;
       state.displayLocation = this.displayLocation;
+      state.roundHistory = this.roundHistory;
       // timePerround, nm,npz,showRoadName,rounds
     }
     return state;
@@ -541,6 +598,15 @@ export default class Game {
     }
   }
   end(leftUser) {
+    // Save the final round data before ending if we haven't already saved this round
+    if (this.curRound > 0 && this.curRound <= this.locations.length) {
+      // Check if this round has already been saved to avoid duplicates
+      const lastSavedRound = this.roundHistory.length > 0 ? this.roundHistory[this.roundHistory.length - 1].round : 0;
+      if (lastSavedRound !== this.curRound) {
+        this.saveRoundToHistory();
+      }
+    }
+
     this.state = 'end';
     this.endTime = Date.now();
     this.nextEvtTime = this.endTime + 7200000; // 2 hours (2 * 60 * 60 * 1000)
@@ -656,7 +722,7 @@ export default class Game {
     }
 
 
-    this.sendStateUpdate();
+    this.sendStateUpdate(true); // Send complete state including roundHistory
   }
 
   shutdown() {

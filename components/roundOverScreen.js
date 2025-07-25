@@ -57,6 +57,7 @@ const GameSummary = ({
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
+  const src2IconRef = useRef(null); // Green icon for opponent markers
 
   // Animation states for duel
   const [animatedPoints, setAnimatedPoints] = useState(0);
@@ -76,6 +77,13 @@ const GameSummary = ({
 
         srcIconRef.current = window.L.icon({
           iconUrl: './src.png',
+          iconSize: [30, 49],
+          iconAnchor: [15, 49],
+          popupAnchor: [1, -34],
+        });
+
+        src2IconRef.current = window.L.icon({
+          iconUrl: './src2.png',
           iconSize: [30, 49],
           iconAnchor: [15, 49],
           popupAnchor: [1, -34],
@@ -463,7 +471,7 @@ const GameSummary = ({
   };
 
   // Don't render until Leaflet is ready
-  if (!leafletReady || !destIconRef.current || !srcIconRef.current) {
+  if (!leafletReady || !destIconRef.current || !srcIconRef.current || !src2IconRef.current) {
     return (
       <div className="game-summary-container">
         <div style={{
@@ -484,51 +492,27 @@ const GameSummary = ({
   let gameHistory = history;
   if ((!history || history.length === 0) && multiplayerState?.gameData) {
 
-    const { locations, players, finalPlayers, myId } = multiplayerState.gameData;
+    const { roundHistory, myId } = multiplayerState.gameData;
 
-    if (locations && locations.length > 0) {
-      gameHistory = locations.map((location, roundIndex) => {
-        // Find my guess for this round
-        const myPlayer = players?.find(p => p.id === myId);
-        const myGuess = myPlayer?.guess;
-
-        // Calculate points for my guess if available
-        let myPoints = 0;
-        if (myGuess && myGuess.length >= 2) {
-          const distance = calculateDistance(location.lat, location.long, myGuess[0], myGuess[1]);
-          // Use the same points calculation as the game
-          const maxDist = multiplayerState.gameData.maxDist || 20000;
-          myPoints = Math.max(0, Math.round(5000 * (1 - (distance / maxDist))));
-        }
-
-        // Create players object for this round
-        const roundPlayers = {};
-        players?.forEach(player => {
-          if (player.guess && player.guess.length >= 2) {
-            const playerDistance = calculateDistance(location.lat, location.long, player.guess[0], player.guess[1]);
-            const maxDist = multiplayerState.gameData.maxDist || 20000;
-            const playerPoints = Math.max(0, Math.round(5000 * (1 - (playerDistance / maxDist))));
-
-            roundPlayers[player.id] = {
-              username: player.username,
-              lat: player.guess[0],
-              long: player.guess[1],
-              points: playerPoints
-            };
-          }
-        });
+    // Use roundHistory from server (this should always be available now)
+    if (roundHistory && roundHistory.length > 0) {
+      console.log('Using server roundHistory data for game results:', roundHistory.length, 'rounds');
+      gameHistory = roundHistory.map((roundData, roundIndex) => {
+        const location = roundData.location;
+        const myPlayerData = roundData.players[myId];
 
         return {
           lat: location.lat,
           long: location.long,
-          guessLat: myGuess?.[0],
-          guessLong: myGuess?.[1],
-          points: myPoints,
-          players: roundPlayers,
+          guessLat: myPlayerData?.lat,
+          guessLong: myPlayerData?.long,
+          points: myPlayerData?.points || 0, // Always use server-calculated points
+          players: roundData.players,
           timeTaken: null // Not available in this data structure
         };
       });
-
+    } else {
+      console.error('No roundHistory available from server! This should not happen.');
     }
   }
 
@@ -674,12 +658,7 @@ const GameSummary = ({
                         <React.Fragment key={`${index}-${playerId}`}>
                           <Marker
                             position={[player.lat, player.long]}
-                            icon={window.L.divIcon({
-                              className: 'custom-marker',
-                              html: `<div style="background-color: ${playerColor}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white;"></div>`,
-                              iconSize: [20, 20],
-                              iconAnchor: [10, 10]
-                            })}
+                            icon={src2IconRef.current}
                           >
                             <Popup>
                               <div>
@@ -859,10 +838,14 @@ const GameSummary = ({
                   <Popup className="map-marker-popup">
                     <div className="popup-content">
                       <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("actualLocation")}</div>
-                      <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
-                        {round.points} {text("points")}
-                      </div>
-                      {distance && (
+                      {/* Only show points in single player games */}
+                      {(!multiplayerState?.gameData || !history[0]?.players || Object.keys(history[0].players).length <= 1) && (
+                        <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
+                          {round.points} {text("points")}
+                        </div>
+                      )}
+                      {/* Only show distance in single player games */}
+                      {distance && (!multiplayerState?.gameData || !history[0]?.players || Object.keys(history[0].players).length <= 1) && (
                         <div className="popup-distance">
                           {text("distance")}: {formatDistance(distance)}
                         </div>
@@ -919,12 +902,7 @@ const GameSummary = ({
                       <React.Fragment key={`${index}-${playerId}`}>
                         <Marker
                           position={[player.lat, player.long]}
-                          icon={window.L.divIcon({
-                            className: 'custom-marker',
-                            html: `<div style="background-color: ${playerColor}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white;"></div>`,
-                            iconSize: [20, 20],
-                            iconAnchor: [10, 10]
-                          })}
+                          icon={src2IconRef.current}
                         >
                           <Popup>
                             <div>

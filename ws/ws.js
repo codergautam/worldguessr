@@ -1262,6 +1262,7 @@ try {
 
       } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
         game.givePoints();
+        game.saveRoundToHistory(); // Save the round data after points are calculated
         if(game.curRound <= game.rounds) {
           game.curRound++;
           game.state = 'getready';
@@ -1469,9 +1470,11 @@ try {
 
   setInterval(() => {
     // log player count, game count, memory usage
-    const memUsage = process.memoryUsage().heapUsed;
+    let memUsage = process.memoryUsage().heapUsed;
     const gameCnt = games.size;
     const playerCnt = players.size;
+
+     memUsage = (memUsage / 1024 / 1024).toFixed(2) + ' MB';
     console.log('Players:', playerCnt, 'Games:', gameCnt, 'Memory:', memUsage);
   }, 10000)
   // // Check for pong messages and disconnect inactive clients
