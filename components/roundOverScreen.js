@@ -930,15 +930,50 @@ const GameSummary = ({
       </div>
 
         <div className={`game-summary-sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`}>
-          <div className="summary-header">
-            <h1 className="summary-title">{text("gameComplete")}</h1>
+          <div 
+            className="summary-header"
+            style={{
+              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
+                padding: '8px 16px',
+                minHeight: 'auto',
+                transform: 'scale(0.95)'
+              } : {})
+            }}
+          >
+            <h1 
+              className="summary-title"
+              style={{
+                transition: 'all 0.3s ease-out',
+                ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
+                  fontSize: '1.2rem',
+                  margin: '4px 0',
+                  transform: 'translateY(-2px)'
+                } : {})
+              }}
+            >
+              {text("gameComplete")}
+            </h1>
 
-            <div className="star-container">
+            <div 
+              className="star-container"
+              style={{
+                transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
+                  margin: '4px 0',
+                  transform: 'scale(0.7) translateY(-4px)',
+                  opacity: 0.9
+                } : {})
+              }}
+            >
               {stars.map((star, index) => (
                 <div
                   key={index}
                   className="star"
-                  style={{ animationDelay: `${index * 0.5}s` }}
+                  style={{ 
+                    animationDelay: `${index * 0.5}s`,
+                    transition: 'transform 0.3s ease-out'
+                  }}
                 >
                   {typeof star === "string" && star.endsWith(".png") ? (
                     <img
@@ -947,17 +982,44 @@ const GameSummary = ({
                       style={{
                         width: "32px",
                         height: "32px",
+                        transition: 'all 0.3s ease-out'
                       }}
                     />
                   ) : (
-                    <FaStar className="star" style={{ color: star }} />
+                    <FaStar className="star" style={{ 
+                      color: star,
+                      transition: 'all 0.3s ease-out'
+                    }} />
                   )}
                 </div>
               ))}
             </div>
 
-            <div className="summary-score">{animatedPoints?.toFixed(0) || points}</div>
-            <div className="summary-total">
+            <div 
+              className="summary-score"
+              style={{
+                transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
+                  fontSize: '1.5rem',
+                  margin: '2px 0',
+                  transform: 'scale(0.9) translateY(-2px)'
+                } : {})
+              }}
+            >
+              {animatedPoints?.toFixed(0) || points}
+            </div>
+            <div 
+              className="summary-total"
+              style={{
+                transition: 'all 0.3s ease-out',
+                ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
+                  fontSize: '0.8rem',
+                  margin: '2px 0',
+                  opacity: 0.8,
+                  transform: 'translateY(-1px)'
+                } : {})
+              }}
+            >
               {text("outOf")} {maxPoints} {text("points")}
             </div>
 
