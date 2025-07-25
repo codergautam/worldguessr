@@ -6,7 +6,7 @@ import { useTranslation } from '@/components/useTranslations'
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown }) {
     const { t: text } = useTranslation("common");
 
     const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer'))) && (!loading);
@@ -25,7 +25,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 <div className={`nonHome ${screen === 'home' ? '' : 'shown'}`}>
                     <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
                     <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
-                    {!gameOptionsModalShown && !accountModalOpen &&  <>
+                    {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown &&  <>
                         <button className="gameBtn navBtn backBtn g2_red_button desktop" onClick={backBtnPressed}>{text("back")}</button>
                         <button className="gameBtn navBtn backBtn g2_red_button mobile" onClick={backBtnPressed}><FaArrowLeft /></button>
                     </>

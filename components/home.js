@@ -430,6 +430,7 @@ export default function Home({ }) {
     const [showDiscordModal, setShowDiscordModal] = useState(false);
     const [singlePlayerRound, setSinglePlayerRound] = useState(null);
     const [partyModalShown, setPartyModalShown] = useState(false);
+    const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [coolmathSplash, setCoolmathSplash] = useState(null);
@@ -2066,7 +2067,27 @@ export default function Home({ }) {
                         }))
                     }}
                     accountModalOpen={accountModalOpen}
-                    inCoolMathGames={inCoolMathGames} maintenance={maintenance} inCrazyGames={inCrazyGames} loading={loading} onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("list"); }} loginQueued={loginQueued} setLoginQueued={setLoginQueued} inGame={multiplayerState?.inGame || screen === "singleplayer"} openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }} session={session} reloadBtnPressed={reloadBtnPressed} backBtnPressed={backBtnPressed} setGameOptionsModalShown={setGameOptionsModalShown} onNavbarPress={() => onNavbarLogoPress()} gameOptions={gameOptions} screen={screen} multiplayerState={multiplayerState} shown={!multiplayerState?.gameData?.duel} gameOptionsModalShown={gameOptionsModalShown} />
+                    inCoolMathGames={inCoolMathGames}
+                    maintenance={maintenance}
+                    inCrazyGames={inCrazyGames}
+                    loading={loading}
+                    onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("list"); }}
+                    loginQueued={loginQueued}
+                    setLoginQueued={setLoginQueued}
+                    inGame={multiplayerState?.inGame || screen === "singleplayer"}
+                    openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
+                    session={session}
+                    reloadBtnPressed={reloadBtnPressed}
+                    backBtnPressed={backBtnPressed}
+                    setGameOptionsModalShown={setGameOptionsModalShown}
+                    onNavbarPress={() => onNavbarLogoPress()}
+                    gameOptions={gameOptions}
+                    screen={screen}
+                    multiplayerState={multiplayerState}
+                    shown={!multiplayerState?.gameData?.duel}
+                    gameOptionsModalShown={gameOptionsModalShown}
+                    selectCountryModalShown={selectCountryModalShown}
+                />
 
                 {multiplayerState?.playerCount && (
                     <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || multiplayerState?.inGame || !multiplayerState?.connected) ? 'hide' : ''}`}>
@@ -2350,7 +2371,19 @@ export default function Home({ }) {
 
 
                 {screen === "multiplayer" && <div className="home__multiplayer">
-                    <MultiplayerHome partyModalShown={partyModalShown} setPartyModalShown={setPartyModalShown} multiplayerError={multiplayerError} handleAction={handleMultiplayerAction} session={session} ws={ws} setWs={setWs} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} />
+                    <MultiplayerHome
+                        partyModalShown={partyModalShown}
+                        setPartyModalShown={setPartyModalShown}
+                        multiplayerError={multiplayerError}
+                        handleAction={handleMultiplayerAction}
+                        session={session}
+                        ws={ws}
+                        setWs={setWs}
+                        multiplayerState={multiplayerState}
+                        setMultiplayerState={setMultiplayerState}
+                        selectCountryModalShown={selectCountryModalShown}
+                        setSelectCountryModalShown={setSelectCountryModalShown}
+                    />
                 </div>}
 
                 {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (

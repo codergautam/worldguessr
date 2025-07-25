@@ -7,11 +7,12 @@ import MapsModal from "./maps/mapsModal";
 import PartyModal from "./partyModal";
 
 
-export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, partyModalShown, setPartyModalShown }) {
+export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, partyModalShown, setPartyModalShown, selectCountryModalShown, setSelectCountryModalShown }) {
 
     const { t: text } = useTranslation("common");
 
-    const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
+    // Remove local state since it's now passed from parent
+    // const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
     const [gameOptions, setGameOptions] = useState({
         showRoadName: true, // rate limit fix: showRoadName true
         nm: false,
