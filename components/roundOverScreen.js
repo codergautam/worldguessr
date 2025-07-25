@@ -1056,16 +1056,6 @@ const GameSummary = ({
                           <span className="distance-value">{formatDistance(distance)}</span>
                         </div>
                       )}
-
-                      <div className="detail-row">
-                        <span className="detail-label">
-                          <span className="detail-icon">⭐</span>
-                          {text("score")}
-                        </span>
-                        <span style={{ color: 'white' }}>
-                          {round.points} / 5000
-                        </span>
-                      </div>
                     </div>
                   </div>
                 );
