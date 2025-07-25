@@ -219,51 +219,6 @@ const GameSummary = ({
     }
   };
 
-  // Render individual round details (reusable for both multiplayer and singleplayer)
-  const renderRoundDetails = () => {
-    if (!history || history.length === 0) return null;
-
-    return history.map((round, index) => {
-      const distance = round.guessLat && round.guessLong
-        ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
-        : null;
-
-      return (
-        <div
-          key={index}
-          className={`round-item round-animation ${activeRound === index ? 'active' : ''}`}
-          style={{
-            animationDelay: `${index * 0.1}s`,
-            cursor: 'pointer'
-          }}
-          onClick={() => handleRoundClick(index)}
-        >
-          <div className="round-header">
-            <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
-            {renderPoints(round.points || 0)}
-          </div>
-          {distance !== null && (
-            <div className="round-distance">
-              <FaRuler /> {formatDistance(distance)}
-            </div>
-          )}
-          <div className="round-location">
-            <FaMapMarkerAlt /> {text("actualLocation")}
-            <button
-              className="location-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                openInGoogleMaps(round.lat, round.long);
-              }}
-            >
-              <FaExternalLinkAlt />
-            </button>
-          </div>
-        </div>
-      );
-    });
-  };
-
   // Render player round distribution
   const renderPlayerRounds = (playerId) => {
     if (!player) return null;
@@ -1071,16 +1026,6 @@ const GameSummary = ({
                           <span className="distance-value">{formatDistance(distance)}</span>
                         </div>
                       )}
-
-                      <div className="detail-row">
-                        <span className="detail-label">
-                          <span className="detail-icon">⭐</span>
-                          {text("score")}
-                        </span>
-                        <span style={{ color: 'white' }}>
-                          {round.points} / 5000
-                        </span>
-                      </div>
 
                       <div className="location-info">
                         <button
