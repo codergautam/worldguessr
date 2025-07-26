@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import MapView from "./mapView";
 import { useRouter } from "next/router";
+import { toast } from "react-toastify";
 import { Modal } from "react-responsive-modal";
 
 const initMakeMap = {
