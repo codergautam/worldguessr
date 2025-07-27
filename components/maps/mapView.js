@@ -78,9 +78,23 @@ export default function MapView({
 
     useEffect(() => {
         refreshHome();
-    }, [session?.token?.secret]);
 
-    function createMap(map) {
+        // Add debounced resize listener to recalculate grid when window size changes
+        let resizeTimeout;
+        const handleResize = () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                // Force re-render by updating state
+                setExpandedSections(prev => ({ ...prev }));
+            }, 150); // 150ms debounce
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearTimeout(resizeTimeout);
+        };
+    }, [session?.token?.secret]);    function createMap(map) {
         if (!session?.token?.secret) {
             toast.error("Not logged in");
             return;
@@ -246,16 +260,50 @@ export default function MapView({
         return 2;
     };
 
-    const getMapsPerRow = () => {
-        // Responsive maps per row based on screen width
-        if (window.innerWidth >= 1400) return 6;
-        if (window.innerWidth >= 1200) return 5;
-        if (window.innerWidth >= 900) return 4;
-        if (window.innerWidth >= 600) return 3;
-        return 2;
-    };
+    const getMapsPerRow = (section = "default") => {
+        // Get the actual container width and calculate how many tiles can fit
+        const container = document.querySelector('.mapView');
+        if (!container) {
+            // Fallback to screen width based calculation
+            if (window.innerWidth >= 1400) return 6;
+            if (window.innerWidth >= 1200) return 5;
+            if (window.innerWidth >= 1000) return 4;
+            if (window.innerWidth >= 768) return 3;
+            return 2;
+        }
 
-    if (makeMap.open) {
+        const containerWidth = container.clientWidth - 40; // Account for padding (20px each side)
+
+        // Get grid gap - starts at 16px but changes based on screen size
+        let gridGap = 16;
+        if (window.innerWidth <= 480) gridGap = 8;
+        else if (window.innerWidth <= 768) gridGap = 12;
+
+        // Get minimum widths that match the CSS exactly - updated for better desktop experience
+        let minTileWidth;
+        if (section === "countryMaps") {
+            // Country maps have smaller tiles
+            if (window.innerWidth <= 360) minTileWidth = 100;
+            else if (window.innerWidth <= 480) minTileWidth = 120;
+            else if (window.innerWidth <= 768) minTileWidth = 150;
+            else if (window.innerWidth <= 1000) minTileWidth = 170;
+            else if (window.innerWidth <= 1200) minTileWidth = 180;
+            else minTileWidth = 180;
+        } else {
+            // Regular maps - increased minimum widths for better desktop experience
+            if (window.innerWidth <= 360) minTileWidth = 120;
+            else if (window.innerWidth <= 480) minTileWidth = 140;
+            else if (window.innerWidth <= 768) minTileWidth = 170;
+            else if (window.innerWidth <= 1000) minTileWidth = 190;
+            else if (window.innerWidth <= 1200) minTileWidth = 200;
+            else if (window.innerWidth <= 1400) minTileWidth = 220;
+            else minTileWidth = 200;
+        }
+
+        // Calculate how many tiles can fit using the same formula as CSS auto-fit
+        const tilesPerRow = Math.floor((containerWidth + gridGap) / (minTileWidth + gridGap));
+        return Math.max(1, tilesPerRow); // Ensure at least 1 tile per row
+    };    if (makeMap.open) {
         return (
             <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
                 <div className="map-header">
@@ -387,7 +435,7 @@ export default function MapView({
 
                                 const isExpanded = expandedSections[section] || section === "recent";
                                 const rows = getRowsForSection(section);
-                                const mapsPerRow = getMapsPerRow();
+                                const mapsPerRow = getMapsPerRow(section);
                                 const defaultMaxMaps = rows * mapsPerRow;
                                 const shouldShowExpandButton = mapsArray.length > defaultMaxMaps && section !== "recent";
                                 const displayedMaps = isExpanded ? mapsArray : mapsArray.slice(0, defaultMaxMaps);
@@ -403,7 +451,7 @@ export default function MapView({
                                              ` (${mapsArray.length})`}
                                         </h2>
                                         <div className="map-section-container">
-                                            <div className={`map-grid ${section === "countryMaps" ? "country-maps" : ""} ${section === "popular" ? "popular-maps" : ""} ${!isExpanded && section !== "recent" ? "collapsed" : "expanded"}`}>
+                                            <div className={`map-grid ${section === "countryMaps" ? "country-maps" : ""} ${section === "popular" ? "popular-maps" : ""} ${section === "spotlight" ? "spotlight-maps" : ""} ${!isExpanded && section !== "recent" ? "collapsed" : "expanded"}`}>
                                                 {displayedMaps.map((map, i) => (
                                                     <MapTile
                                                         key={map.id || i}

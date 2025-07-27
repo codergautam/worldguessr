@@ -6,7 +6,7 @@ import { useTranslation } from '@/components/useTranslations'
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, mapModalOpen }) {
     const { t: text } = useTranslation("common");
 
     const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting");
@@ -23,8 +23,8 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
         <>
             <div className={`navbar ${shown ? "" : "hidden"} ${screen == "home" ? "": "navbarColor"} ${screen === "onboarding" ? "onboarding" : ""}`}>
                 <div className={`nonHome ${screen === 'home' ? '' : 'shown'}`}>
-                    <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>
-                    <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>
+                    {!mapModalOpen && <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>}
+                    {!mapModalOpen && <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>}
                     {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown &&  <>
                         <button className="gameBtn navBtn backBtn g2_red_button desktop" onClick={backBtnPressed}>{text("back")}</button>
                         <button className="gameBtn navBtn backBtn g2_red_button mobile" onClick={backBtnPressed}><FaArrowLeft /></button>
@@ -70,9 +70,9 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                             onClick={joinCodePress}>{text("joinGame")}</button>
                     )}
 
-                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && (<AccountBtn inCrazyGames={inCrazyGames} session={session} navbarMode={screen !== "home"} openAccountModal={openAccountModal} />)}
+                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && (<AccountBtn inCrazyGames={inCrazyGames} session={session} navbarMode={screen !== "home"} openAccountModal={openAccountModal} />)}
 
-                    {session?.token?.secret && !accountModalOpen && !gameOptionsModalShown && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && (
+                    {session?.token?.secret && !accountModalOpen && !gameOptionsModalShown && !mapModalOpen && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && (
                         <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected}>
                             <FaUserFriends size={40} className="friendBtnIcon" />
                         </button>

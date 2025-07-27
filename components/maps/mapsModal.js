@@ -69,7 +69,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 
     return (
         <Modal classNames={{ modal: "g2_modal" }} styles={{ modal: styles.overlay }} open={shown} onClose={onClose} showCloseIcon={false} animationDuration={0}>
-            <div className={`g2_nav_ui ${mapModalClosing ? "g2_slide_out" : ""} desktop`}>
+            <div className={`g2_nav_ui map-modal-sidebar ${mapModalClosing ? "g2_slide_out" : ""} desktop`}>
                 <h1 className="g2_nav_title comm_map_header">{text("communityMaps")}</h1>
                 <div className="g2_nav_hr desktop"></div>
                 {/* {!makeMap.open && (
@@ -108,7 +108,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
                 <button className="g2_nav_text singleplayer red" onClick={onClose}>{text("back")}</button>
                 )}
             </div>
-            <div className="g2_content" style={styles.modal}>
+            <div className="g2_content map-modal-content" style={styles.modal}>
                 <div style={styles.modalContent}>
                     <MapView
                     mapModalClosing={mapModalClosing}
@@ -158,17 +158,15 @@ const styles = {
         padding: "20px",
         position: "relative",
         pointerEvents: "all",
-        zIndex: 1010,
+        zIndex: 1130,
         width: "100%",
        },
     modalContent: {
         width: "100%",
-        marginTop: "30px",
-        height: "calc(100% - 30px)",
         overflowY: "auto",
         paddingBottom: "40px",
-        paddingTop: "50px",
         overflowX: "hidden",
+        zIndex: 1130,
     },
     closeButton: {
         position: "absolute",

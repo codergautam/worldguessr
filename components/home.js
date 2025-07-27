@@ -2087,6 +2087,7 @@ export default function Home({ }) {
                     shown={!multiplayerState?.gameData?.duel}
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}
+                    mapModalOpen={mapModal}
                 />
 
                 {multiplayerState?.playerCount && (
