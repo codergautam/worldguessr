@@ -11,7 +11,7 @@ const PrivacyPolicy = () => {
           overflow: visible !important;
         }
       `}</style>
-  
+
       <h2>Introduction</h2>
       <p>
         Welcome to WorldGuessr, a free web game accessible at <Link href="https://worldguessr.com">worldguessr.com</Link>. Your privacy is important to us, and this
@@ -53,7 +53,7 @@ const PrivacyPolicy = () => {
         We use third-party services which may collect
         information as described in their respective privacy policies.
       </p>
-      <p>All or partial advertising on this Website or App is managed by Adinplay LLC.</p>
+      <p>All or partial advertising on this Website or App is managed by Nitro.</p>
 
       <h2>Cheating Policy</h2>
       <p>

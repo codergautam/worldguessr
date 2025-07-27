@@ -54,10 +54,12 @@ const GameSummary = ({
   const [leafletReady, setLeafletReady] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [headerCompact, setHeaderCompact] = useState(false);
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
   const src2IconRef = useRef(null); // Green icon for opponent markers
+  const roundsContainerRef = useRef(null);
 
   // Animation states for duel
   const [animatedPoints, setAnimatedPoints] = useState(0);
@@ -141,6 +143,26 @@ const GameSummary = ({
     }
   }, [duel, data]);
 
+  // Handle scroll to make header compact
+  useEffect(() => {
+    const handleScroll = () => {
+      if (roundsContainerRef.current) {
+        const scrollTop = roundsContainerRef.current.scrollTop;
+        const shouldBeCompact = scrollTop > 20; // Threshold for compacting
+
+        if (shouldBeCompact !== headerCompact) {
+          setHeaderCompact(shouldBeCompact);
+        }
+      }
+    };
+
+    const roundsContainer = roundsContainerRef.current;
+    if (roundsContainer) {
+      roundsContainer.addEventListener('scroll', handleScroll);
+      return () => roundsContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [headerCompact]);
+
   // Stars calculation for regular games
   useEffect(() => {
     if (!duel && points && maxPoints) {
@@ -221,7 +243,7 @@ const GameSummary = ({
 
   // Render player round distribution
   const renderPlayerRounds = (playerId) => {
-    if (!player) return null;
+    if (!playerId || !history[0]?.players?.[playerId]) return null;
 
     return (
       <div style={{marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px'}}>
@@ -253,7 +275,7 @@ const GameSummary = ({
                   </span>
                 )}
                 <span style={{ color: 'white', fontWeight: 'bold' }}>
-                  {playerRound.points} {text("pts")}
+                  {playerRound.points || 0} {text("pts")}
                 </span>
               </div>
             </div>
@@ -685,7 +707,7 @@ const GameSummary = ({
           </div>
 
           <div className={`game-summary-sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`}>
-            <div className="summary-header duel-header">
+            <div className={`summary-header duel-header ${headerCompact && typeof window !== 'undefined' && window.innerWidth > 1024 ? 'compact' : ''}`}>
               <h1 className="summary-title">
                 {draw ? text("draw") : winner ? text("victory") : text("defeat")}
               </h1>
@@ -732,7 +754,7 @@ const GameSummary = ({
               </div>
             </div>
 
-            <div className={`rounds-container duel-rounds ${!mobileExpanded ? 'mobile-hidden' : ''}`}>
+            <div className={`rounds-container duel-rounds ${!mobileExpanded ? 'mobile-hidden' : ''}`} ref={roundsContainerRef}>
               {/* For ranked duels with 2 players */}
               {multiplayerState?.gameData?.duel && history.length > 0 && (
                 <>
@@ -930,18 +952,20 @@ const GameSummary = ({
       </div>
 
         <div className={`game-summary-sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`}>
-          <div 
-            className="summary-header"
+          <div
+            className={`summary-header ${headerCompact && typeof window !== 'undefined' && window.innerWidth > 1024 ? 'compact' : ''}`}
             style={{
               transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
               ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
                 padding: '8px 16px',
                 minHeight: 'auto',
                 transform: 'scale(0.95)'
-              } : {})
+              } : {
+                paddingTop: headerCompact && typeof window !== 'undefined' && window.innerWidth > 1024 ? '15px' : '60px' // Ensure top padding is persistent on desktop
+              })
             }}
           >
-            <h1 
+            <h1
               className="summary-title"
               style={{
                 transition: 'all 0.3s ease-out',
@@ -955,7 +979,7 @@ const GameSummary = ({
               {text("gameComplete")}
             </h1>
 
-            <div 
+            <div
               className="star-container"
               style={{
                 transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
@@ -970,7 +994,7 @@ const GameSummary = ({
                 <div
                   key={index}
                   className="star"
-                  style={{ 
+                  style={{
                     animationDelay: `${index * 0.5}s`,
                     transition: 'transform 0.3s ease-out'
                   }}
@@ -986,7 +1010,7 @@ const GameSummary = ({
                       }}
                     />
                   ) : (
-                    <FaStar className="star" style={{ 
+                    <FaStar className="star" style={{
                       color: star,
                       transition: 'all 0.3s ease-out'
                     }} />
@@ -995,7 +1019,7 @@ const GameSummary = ({
               ))}
             </div>
 
-            <div 
+            <div
               className="summary-score"
               style={{
                 transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -1008,7 +1032,7 @@ const GameSummary = ({
             >
               {animatedPoints?.toFixed(0) || points}
             </div>
-            <div 
+            <div
               className="summary-total"
               style={{
                 transition: 'all 0.3s ease-out',
@@ -1044,7 +1068,7 @@ const GameSummary = ({
           </div>
         </div>
 
-        <div className={`rounds-container ${!mobileExpanded ? 'mobile-hidden' : ''}`}>
+        <div className={`rounds-container ${!mobileExpanded ? 'mobile-hidden' : ''}`} ref={roundsContainerRef}>
           {/* Show leaderboard for multiplayer games */}
           {multiplayerState?.gameData && history[0]?.players && Object.keys(history[0].players).length > 1 && (
             <>

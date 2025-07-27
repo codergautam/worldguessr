@@ -254,7 +254,6 @@ html {
 .g2_nav_title {
     //font-family: "Jockey One";
     text-align: left;
-    padding-top: 3vh;
 }
 .g2_flex{
     display: flex;
@@ -389,8 +388,8 @@ html {
 
 #g2_playerCount{
     position: absolute;
-    bottom: 20px;
-    right: 20px;
+    bottom: 50px;
+    right: 50px;
     z-index: 1000;
 }
 
@@ -624,14 +623,19 @@ html {
 
 .accountBtn {
     position: fixed;
-    right: 70px;
-    top: 10px;
+    right: 50px;
+    top: 50px;
     width: auto;
     z-index: 101;
     font-size: 1.5em;
     border-radius: 8px;
     pointer-events: all;
     background-color: var(--primaryTransparent);
+}
+
+.accountBtn.loggedIn {
+    top: 10px;
+    right: 70px;
 }
 
 .friendBtn {
@@ -666,6 +670,8 @@ html {
 @media screen and (max-width: 1280px) {
     .accountBtn {
         font-size: 1.2em;
+    }
+    .accountBtn.loggedIn {
         right: 62px;
     }
     .friendBtn {
@@ -680,6 +686,10 @@ html {
 @media screen and (max-width: 600px) {
 .accountBtn {
         font-size: 1.0em;
+        top: 10px;
+        right: 20px;
+    }
+    .accountBtn.loggedIn {
         right: 58px;
     }
     .friendBtn {
@@ -2350,11 +2360,12 @@ img[alt="Google"] {
     background: linear-gradient(135deg, rgba(20, 65, 25, 0.95) 0%, rgba(20, 65, 25, 0.85) 100%);
     backdrop-filter: blur(10px);
     border-left: 2px solid var(--primary);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden; /* Remove auto scroll from main sidebar */
     z-index: 2;
     position: relative;
     box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
 }
 
 .summary-header {
@@ -2363,6 +2374,46 @@ img[alt="Google"] {
     text-align: center;
     background: rgba(0, 0, 0, 0.2);
     padding-top: 60px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.summary-header.compact {
+    padding: 10px 25px 8px;
+    padding-top: 15px;
+}
+
+.summary-header.compact .summary-title {
+    font-size: 1.4rem;
+    margin-bottom: 5px;
+}
+
+.summary-header.compact .summary-score {
+    font-size: 1.8rem;
+    margin-bottom: 3px;
+}
+
+.summary-header.compact .summary-total {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.summary-header.compact .star-container {
+    transform: scale(0.7);
+    margin: 2px 0;
+}
+
+.summary-header.compact .summary-actions {
+    gap: 6px;
+}
+
+.summary-header.compact .action-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
 }
 
 .summary-title {
@@ -2371,6 +2422,7 @@ img[alt="Google"] {
     margin-bottom: 10px;
     font-weight: 600;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
 }
 
 .summary-score {
@@ -2379,12 +2431,18 @@ img[alt="Google"] {
     font-weight: bold;
     margin-bottom: 5px;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
 }
 
 .summary-total {
     font-size: 1.2rem;
     color: rgba(255, 255, 255, 0.8);
     margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.star-container {
+    transition: all 0.3s ease;
 }
 
 .summary-actions {
@@ -2392,6 +2450,7 @@ img[alt="Google"] {
     gap: 10px;
     justify-content: center;
     flex-wrap: wrap;
+    transition: all 0.3s ease;
 }
 
 .action-btn {
@@ -2423,6 +2482,10 @@ img[alt="Google"] {
 
 .rounds-container {
     padding: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
 }
 
 .round-item {
@@ -2598,6 +2661,17 @@ img[alt="Google"] {
     display: block;
 }
 
+/* Ensure top padding is persistent on desktop to avoid conflicts with logo */
+@media (min-width: 1025px) {
+    .summary-header {
+        padding-top: 60px !important;
+    }
+
+    .summary-header.compact {
+        padding-top: 15px !important;
+    }
+}
+
 /* Mobile Responsive */
 @media (max-width: 1024px) {
     .game-summary-container {
@@ -2627,6 +2701,15 @@ img[alt="Google"] {
         right: 0;
         z-index: 10;
         transition: grid-template-rows 0.3s ease;
+    }
+
+    /* Override desktop flex layout on mobile */
+    .game-summary-sidebar {
+        flex-direction: initial;
+    }
+
+    .summary-header {
+        position: relative !important; /* Override sticky positioning on mobile */
     }
 
     .game-summary-sidebar.mobile-expanded {

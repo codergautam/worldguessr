@@ -8,20 +8,22 @@ export default function HeadContent({text,inCoolMathGames}) {
   !process.env.NEXT_PUBLIC_COOLMATH) {
 
 
-    const scriptAp = document.createElement('script');
-    scriptAp.src = "https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js";
-    scriptAp.async = true;
-    document.body.appendChild(scriptAp);
+  // start adinplay script
+    // const scriptAp = document.createElement('script');
+    // scriptAp.src = "https://api.adinplay.com/libs/aiptag/pub/SWT/worldguessr.com/tag.min.js";
+    // scriptAp.async = true;
+    // document.body.appendChild(scriptAp);
+    // end adinplay script
 
 // start nitroPay script
 
-// window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
+window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
-//       const script = document.createElement('script');
-//       //<script data-cfasync="false"></script>
-//       script.src = "https://s.nitropay.com/ads-2071.js";
-//       script.async = true;
-//       document.head.appendChild(script);
+      const script = document.createElement('script');
+      //<script data-cfasync="false"></script>
+      script.src = "https://s.nitropay.com/ads-2071.js";
+      script.async = true;
+      document.head.appendChild(script);
 
 // end nitroPay script
 
