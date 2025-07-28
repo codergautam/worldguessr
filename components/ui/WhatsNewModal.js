@@ -59,21 +59,21 @@ export default function WhatsNewModal({ changelog }) {
         // For testing - always show modal temporarily
         console.log('Forcing modal to show for testing');
         setCurrentEntry(latestEntry);
-        setIsOpen(true);
+        // setIsOpen(true);
 
         // Original logic (commented out for testing):
-        // if (!storedVersion) {
-        //   localStorage.setItem('lastVersion', latestEntry.version);
-        //   console.log('First time user, setting version without modal');
-        //   return;
-        // }
-        // if (isVersionHigher(latestEntry.version, storedVersion)) {
-        //   console.log('Showing modal for version update');
-        //   setCurrentEntry(latestEntry);
-        //   setIsOpen(true);
-        // } else {
-        //   console.log('User is on latest version, no modal needed');
-        // }
+        if (!storedVersion) {
+          localStorage.setItem('lastVersion', latestEntry.version);
+          console.log('First time user, setting version without modal');
+          return;
+        }
+        if (isVersionHigher(latestEntry.version, storedVersion)) {
+          console.log('Showing modal for version update');
+          setCurrentEntry(latestEntry);
+          setIsOpen(true);
+        } else {
+          console.log('User is on latest version, no modal needed');
+        }
       } catch (error) {
         console.error('Error checking version:', error);
       }
