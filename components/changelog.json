@@ -5,7 +5,7 @@
   {
     "version": "1.1.0",
     "date": "7/28/2025",
-    "change":"WorldGuessr just got a massive update.\n### 📈 Performance Graphs\n- Track your **ELO**, **XP**, and **ranks** over time with beautiful new graphs.\n- See your growth, streaks, and slumps in a glance.\n\n### 🔁 Ranked Duel Replays\n- Every ranked match now has a **replay**.  \n  - Spot patterns. Catch cheaters. Learn from legends.\n\n### 🗺️ Map Maker Tools\n- Added support for **panoIds** — more precise control for creators.\n\n### 🙌 Shoutout\nHuge thanks to the community (especially **Flykii**) for the feedback and ideas that made this update possible 💙\n\n",
+    "change":"WorldGuessr just got a massive update.\n\n### 🎨 UI Revamp\n- Complete redesign of the user interface with a modern, sleek look.\n- Improved navigation and better visual hierarchy throughout the app.\n- Enhanced mobile experience with responsive design improvements.\n\n### 📈 Revamped Profile Page\n- Track your **ELO**, **XP**, and **ranks** over time with beautiful new graphs.\n- See your growth, streaks, and slumps in a glance.\n- Redesigned layout with better organization of your stats and achievements.\n\n### 🔁 Ranked Duel Replays\n- Every ranked match now has a **replay**.  \n  - Spot patterns. Catch cheaters. Learn from legends.\n\n### 🗺️ Map Maker Tools\n- Added support for **panoIds** — more precise control for creators.\n\n### 🙌 Shoutout\nHuge thanks to the community (especially **Flykii**) for the feedback and ideas that made this update possible 💙\n\n",
     "postedBy": "gautam @ WorldGuessr"
   }
 ]
