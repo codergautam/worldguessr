@@ -961,7 +961,7 @@ const GameSummary = ({
                 minHeight: 'auto',
                 transform: 'scale(0.95)'
               } : {
-                paddingTop: headerCompact && typeof window !== 'undefined' && window.innerWidth > 1024 ? '15px' : '60px' // Ensure top padding is persistent on desktop
+                paddingTop: window.innerWidth < 1024 ? '15px' : '60px' // Ensure top padding is persistent on desktop
               })
             }}
           >
