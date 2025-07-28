@@ -35,8 +35,8 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
       document.body.appendChild(script2);
 
       return () => {
-        // document.head.removeChild(script);
-        document.body.removeChild(scriptAp);
+        document.head.removeChild(script);
+        // document.body.removeChild(scriptAp);
         document.body.removeChild(script2);
       };
     } else if(window.location.search.includes("crazygames")) {

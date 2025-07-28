@@ -2188,13 +2188,22 @@ export default function Home({ }) {
                                             <div className="g2_nav_group">
                                                 {/*<button className="g2_nav_text" aria-label="Party" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("privateGame")}</button>*/}
                                                 <button className="g2_nav_text" disabled={maintenance} onClick={() => {
-                                                    setNavSlideOut(true);
+                                                    if(!ws || !multiplayerState?.connected) {
+                                                        setConnectionErrorModalShown(true);
+                                                        return;
+                                                    }
+
+                                                   setNavSlideOut(true);
                                                     setTimeout(() => {
                                                         setNavSlideOut(false); // Reset for next use
                                                     handleMultiplayerAction("createPrivateGame")
                                                     }, 300);
                                                     }}>{text("createGame")}</button>
                                                 <button className="g2_nav_text" disabled={maintenance} onClick={() => {
+                                                    if(!ws || !multiplayerState?.connected) {
+                                                        setConnectionErrorModalShown(true);
+                                                        return;
+                                                    }
                                                     setNavSlideOut(true);
                                                     setTimeout(() => {
                                                         setNavSlideOut(false); // Reset for next use
@@ -2543,7 +2552,7 @@ if(window.inCrazyGames) {
 
   `}
                 </Script>
-                
+
                 <WhatsNewModal changelog={changelog} />
             </main>
         </>
