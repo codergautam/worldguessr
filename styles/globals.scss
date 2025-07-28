@@ -124,7 +124,7 @@ html {
     flex-direction: row;
 }
 .settingsModalInner label {
-    font-size: clamp(1.3em, 3vw, 1.8em);
+    font-size: min(clamp(1.3em, 3vw, 1.8em), clamp(1.1em, 4vh, 1.6em));
 }
 .settingsModalInner select, .settingsModalInner input {
     margin-left: 20px;
@@ -246,6 +246,7 @@ html {
 .g2_nav_hr {
     background: white;
     width: 90%;
+    max-width: 800px; /* Prevent stretching too wide */
     height: 2.7px;
     margin-top: 3px;
     margin-bottom: 3px;
@@ -340,6 +341,7 @@ html {
 
     .g2_nav_hr {
         width: 100%;
+        max-width: 1000px; /* Prevent stretching too wide on mobile landscape */
     }
 
     .g2_nav_group {
@@ -395,7 +397,7 @@ html {
 
 .g2_nav_text {
     color: white;
-    font-size: clamp(1.3em, 2.5vw, 4em);
+    font-size: min(clamp(1.3em, 2.5vw, 4em), clamp(1.1em, 3.5vh, 3.2em));
     background: none;
     font-weight: 400;
     text-align: left;
@@ -408,7 +410,7 @@ html {
 }
 .g2_text {
     color: white;
-    font-size: clamp(1.1em, 1.8vw, 2.3em);
+    font-size: min(clamp(1.1em, 1.8vw, 2.3em), clamp(0.9em, 2.5vh, 2em));
     font-weight: 300;
     cursor: pointer;
     transition: all 0.5s;
@@ -455,7 +457,7 @@ html {
 
 
 .home__title {
-    font-size: clamp(1.8em, 4vw, 13em);
+    font-size: min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em));
     font-weight: 500;
     color: white;
     -webkit-text-stroke: 1px black;
@@ -464,7 +466,7 @@ html {
 }
 
 .home__subtitle {
-    font-size: clamp(1.2em, 1.8vw, 1.5em);
+    font-size: min(clamp(1.2em, 1.8vw, 1.5em), clamp(1em, 2.5vh, 1.3em));
     font-weight: 500;
     color: white;
     text-align: center;
@@ -561,7 +563,7 @@ html {
 .gameBtn {
     background-color: rgba(0, 0, 0, 0);
     color: white;
-    font-size: clamp(1.3em, 3vw, 5em);
+    font-size: min(clamp(1.3em, 3vw, 5em), clamp(1.1em, 4vh, 3.5em));
     cursor: pointer;
     width: 100%;
     transition: background-color 0.3s;
@@ -1004,7 +1006,7 @@ h1, h2, h3, span, label {
     position: fixed;
     top: 50px;
     right: 0;
-    font-size: max(1.3em, 1.3vw);
+    font-size: min(max(1.3em, 1.3vw), max(1.1em, 2vh));
     background: var(--gradLight);
     background-color: var(--primaryTransparent);
     padding-left: 10px;
@@ -1655,7 +1657,7 @@ h1, h2, h3, span, label {
 }
 
 .bannerContent {
-    font-size: 1.8em;
+    font-size: min(clamp(1.6em, 2.5vw, 1.8em), clamp(1.4em, 3vh, 1.7em));
     text-align: center;
     font-family: lexend;
     display: flex;
@@ -1810,7 +1812,7 @@ h1, h2, h3, span, label {
 
 .join-party-title {
     color: white;
-    font-size: clamp(1.8rem, 4vw, 2.5rem);
+    font-size: min(clamp(1.8rem, 4vw, 2.5rem), clamp(1.5rem, 5vh, 2.2rem));
     font-weight: 600;
     margin: 0 0 30px 0;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -1839,7 +1841,7 @@ h1, h2, h3, span, label {
 .join-party-input {
     flex: 1;
     padding: 16px 20px;
-    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    font-size: min(clamp(1rem, 2.5vw, 1.2rem), clamp(0.9rem, 3vh, 1.1rem));
     border: 2px solid var(--primaryDark);
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.95);
@@ -1866,7 +1868,7 @@ h1, h2, h3, span, label {
 
 .join-party-button {
     padding: 16px 24px;
-    font-size: clamp(1rem, 2.5vw, 1.2rem);
+    font-size: min(clamp(1rem, 2.5vw, 1.2rem), clamp(0.9rem, 3vh, 1.1rem));
     font-weight: 600;
     border: 2px solid var(--primaryDark);
     border-radius: 12px;
@@ -2866,6 +2868,480 @@ img[alt="Google"] {
 
 
 
+
+/* Ultra-wide screen optimizations */
+@media (min-width: 1600px) and (max-height: 600px) {
+    .game-summary-sidebar {
+        width: 450px; /* Wider sidebar for ultra-wide screens */
+    }
+
+    .game-summary-map {
+        width: calc(100% - 450px);
+    }
+
+    .summary-header {
+        padding: 25px 30px 20px;
+        padding-top: 50px !important;
+    }
+
+    .summary-title {
+        font-size: 2rem;
+    }
+
+    .summary-score {
+        font-size: 2.8rem;
+    }
+
+    .summary-actions {
+        gap: 12px;
+    }
+
+    .action-btn {
+        padding: 10px 20px;
+        font-size: 0.95rem;
+    }
+
+    .round-item {
+        padding: 12px 20px;
+    }
+
+    /* Make elements larger to fill the wider space */
+    #endBanner {
+        max-width: 600px;
+        margin: 0 auto 10px;
+    }
+
+    .round-over-content {
+        max-width: 600px;
+    }
+
+    .join-party-card {
+        max-width: 500px;
+    }
+
+    /* Home page navigation separators constraint */
+    .g2_nav_hr {
+        max-width: 600px !important;
+    }
+}
+
+/* Intermediate screens - wide but not tall enough for full desktop layout */
+@media (min-width: 800px) and (max-width: 1024px) and (min-height: 451px) and (max-height: 600px) {
+    .game-summary-container {
+        flex-direction: row;
+        height: 100vh;
+    }
+
+    .game-summary-sidebar {
+        width: 350px;
+        height: 100vh;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 350px);
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+    }
+
+    .summary-header {
+        padding: 15px 20px 12px;
+        padding-top: 25px !important;
+    }
+
+    .summary-title {
+        font-size: 1.4rem;
+        margin-bottom: 5px;
+    }
+
+    .summary-score {
+        font-size: 2rem;
+        margin-bottom: 4px;
+    }
+
+    .summary-total {
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+
+    .star-container {
+        margin-bottom: 0.5rem;
+    }
+
+    .star {
+        font-size: 1.4rem;
+    }
+
+    .summary-actions {
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+
+    .round-item {
+        padding: 8px 15px;
+    }
+
+    .round-details {
+        font-size: 0.8rem;
+    }
+
+    .elo-value {
+        font-size: 1.4rem;
+    }
+
+    .elo-change {
+        font-size: 0.9rem;
+    }
+
+    .time-elapsed {
+        font-size: 0.9rem;
+    }
+}
+
+/* Extremely low height screens */
+@media (min-width: 800px) and (max-height: 350px) {
+    .game-summary-sidebar {
+        width: 280px !important; /* Even narrower for extreme cases */
+    }
+
+    .game-summary-map {
+        width: calc(100% - 280px) !important;
+    }
+
+    .summary-header {
+        padding: 3px 8px 2px !important;
+        padding-top: 5px !important;
+    }
+
+    .summary-title {
+        font-size: 0.7rem !important;
+        margin-bottom: 1px !important;
+    }
+
+    .summary-score {
+        font-size: 1rem !important;
+        margin-bottom: 1px !important;
+    }
+
+    .summary-total {
+        font-size: 0.6rem !important;
+        margin-bottom: 2px !important;
+    }
+
+    .star-container {
+        margin-bottom: 0.1rem !important;
+    }
+
+    .star {
+        font-size: 0.8rem !important;
+    }
+
+    .summary-actions {
+        gap: 1px !important;
+        margin-bottom: 1px !important;
+    }
+
+    .action-btn {
+        padding: 1px 4px !important;
+        font-size: 0.5rem !important;
+    }
+
+    .round-item {
+        padding: 2px 6px !important;
+    }
+
+    .round-number {
+        font-size: 0.65rem !important;
+    }
+
+    .round-points {
+        font-size: 0.7rem !important;
+    }
+
+    .round-details {
+        font-size: 0.55rem !important;
+        gap: 0px !important;
+    }
+
+    .detail-icon {
+        font-size: 0.6rem !important;
+    }
+
+    /* Hide less critical elements to save space */
+    .elo-container {
+        display: none !important;
+    }
+
+    .time-elapsed {
+        display: none !important;
+    }
+
+    /* Minimap even smaller */
+    #miniMapArea {
+        width: 120px !important;
+        height: 80px !important;
+    }
+
+    #miniMapContent {
+        width: 120px !important;
+        height: 80px !important;
+    }
+
+    .miniMap__btns {
+        bottom: 90px !important;
+    }
+
+    /* End banner minimal */
+    #endBanner {
+        min-height: 40px !important;
+        padding: 3px !important;
+    }
+
+    .bannerContent {
+        font-size: 0.8em !important;
+        gap: 1px !important;
+    }
+
+    .mainBannerTxt {
+        font-size: 0.6em !important;
+    }
+
+    .motivation {
+        font-size: 0.5em !important;
+    }
+
+    .endButtonContainer button {
+        padding: 2px 4px !important;
+        font-size: 0.5em !important;
+    }
+
+    /* Home page navigation separators constraint */
+    .g2_nav_hr {
+        max-width: 400px !important;
+        height: 1.5px !important;
+    }
+}
+
+/* Very low height optimizations for wide screens */
+@media (min-width: 800px) and (max-height: 450px) and (min-height: 351px) {
+    .game-summary-container {
+        flex-direction: row;
+        height: 100vh;
+    }
+
+    .game-summary-sidebar {
+        width: 320px; /* Narrower sidebar for very low height */
+        height: 100vh;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 320px);
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+    }
+
+    .summary-header {
+        padding: 8px 15px 6px;
+        padding-top: 12px !important;
+    }
+
+    .summary-title {
+        font-size: 1.1rem;
+        margin-bottom: 3px;
+    }
+
+    .summary-score {
+        font-size: 1.6rem;
+        margin-bottom: 2px;
+    }
+
+    .summary-total {
+        font-size: 0.8rem;
+        margin-bottom: 6px;
+    }
+
+    .star-container {
+        margin-bottom: 0.3rem;
+    }
+
+    .star {
+        font-size: 1.2rem;
+    }
+
+    .summary-actions {
+        gap: 4px;
+        margin-bottom: 4px;
+    }
+
+    .action-btn {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+    }
+
+    .round-item {
+        padding: 6px 12px;
+    }
+
+    .round-number {
+        font-size: 0.9rem;
+    }
+
+    .round-points {
+        font-size: 1rem;
+    }
+
+    .round-details {
+        font-size: 0.75rem;
+        gap: 2px;
+    }
+
+    .detail-icon {
+        font-size: 0.8rem;
+    }
+
+    .elo-value {
+        font-size: 1.2rem;
+    }
+
+    .elo-change {
+        font-size: 0.8rem;
+    }
+
+    .time-elapsed {
+        font-size: 0.8rem;
+    }
+
+    /* End banner optimizations for very low height */
+    #endBanner {
+        min-height: 80px;
+        padding: 10px;
+        margin-bottom: 5px;
+    }
+
+    .bannerContent {
+        font-size: 1.2em;
+        gap: 3px;
+    }
+
+    .mainBannerTxt {
+        font-size: 0.9em;
+    }
+
+    .smallmainBannerTxt {
+        font-size: 0.8em;
+    }
+
+    .motivation {
+        font-size: 0.7em;
+    }
+
+    .endButtonContainer button {
+        padding: 6px 12px;
+        font-size: 0.8em;
+    }
+
+    /* Round over content optimizations */
+    .round-over-content {
+        padding: 20px;
+        max-width: 400px;
+    }
+
+    /* Multipler home optimizations */
+    .multiplayerHome {
+        padding: 10px;
+    }
+
+    /* Join party optimizations */
+    .join-party-card {
+        padding: 20px;
+        max-width: 360px;
+    }
+
+    .join-party-title {
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+    }
+
+    .join-party-input {
+        padding: 10px 15px;
+        font-size: 1rem;
+    }
+
+    .join-party-button {
+        padding: 10px 15px;
+        font-size: 1rem;
+    }
+
+    /* Minimap optimizations for very low height */
+    #miniMapArea {
+        width: 200px !important;
+        height: 150px !important;
+        bottom: 10px !important;
+        right: 10px !important;
+    }
+
+    #miniMapContent {
+        width: 200px !important;
+        height: 150px !important;
+    }
+
+    .miniMap__btns {
+        bottom: 160px !important;
+        right: 15px !important;
+    }
+
+    .miniMap__btn {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 0.8rem !important;
+    }
+
+    .guessBtn {
+        padding: 8px 16px !important;
+        font-size: 0.9rem !important;
+    }
+
+    .chatboxBtn {
+        width: 35px !important;
+        height: 35px !important;
+        transform: translate(-25px, -25px) !important;
+    }
+
+    /* Onboarding div optimizations */
+    .onboardingDiv {
+        width: 60%;
+        top: 20px;
+        padding: 15px 25px;
+        font-size: 1.2em;
+    }
+
+    /* Country guesser options optimizations */
+    .countryGuessrOptions {
+        bottom: 20px;
+        width: 80%;
+    }
+
+    .countryGuessrCard {
+        height: 80px;
+    }
+
+    /* Home page navigation separators constraint */
+    .g2_nav_hr {
+        max-width: 500px !important;
+    }
+}
 
 /* Low width/height desktop optimizations */
 @media (min-width: 1025px) and (max-width: 1366px), (min-width: 1025px) and (max-height: 768px) {

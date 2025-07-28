@@ -70,7 +70,6 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
     return (
         <Modal classNames={{ modal: "g2_modal" }} styles={{ modal: styles.overlay }} open={shown} onClose={onClose} showCloseIcon={false} animationDuration={0}>
             <div className={`g2_nav_ui map-modal-sidebar ${mapModalClosing ? "g2_slide_out" : ""} desktop`}>
-                <h1 className="g2_nav_title comm_map_header">{text("communityMaps")}</h1>
                 <div className="g2_nav_hr desktop"></div>
                 {/* {!makeMap.open && (
                     <>
