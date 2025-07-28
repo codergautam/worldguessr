@@ -386,14 +386,6 @@ export default function MapPage({ }) {
           </center>
         </div>
 
-        {!mapData.name && (
-          <div className={styles.statusMessage} style={{backgroundColor: 'green', color: 'white'}}>
-            <center>
-              <p>Loading map...</p>
-            </center>
-          </div>
-        )}
-
         {mapData.name && (
           <div className={styles.mapHeader}>
             <div className={styles.mapImage}>

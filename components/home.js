@@ -2235,7 +2235,7 @@ export default function Home({ }) {
                             <br />
 
                         </div>
-                        
+
                         {/* Footer moved outside of sliding navigation */}
                         <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen) ? "visible" : ""}`}>
                             <div className="footer_btns">
@@ -2266,7 +2266,7 @@ export default function Home({ }) {
                                 <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
                             </div>
                         </div>
-                        
+
                         <div className="g2_content g2_content_margin g2_slide_in" style={{ display: "flex", gap: "20px", flexDirection: "column" }}>
                             {/*
                             {session?.token?.secret && (
