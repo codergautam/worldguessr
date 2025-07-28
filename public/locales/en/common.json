@@ -268,5 +268,6 @@
   "opponent": "Opponent",
   "time": "Time",
   "multiplayerNotConnected": "Not Connected to Server",
-  "multiplayerConnectionErrorMessage": "Please check your internet connection and try refreshing your page."
+  "multiplayerConnectionErrorMessage": "Please check your internet connection and try refreshing your page.",
+  "ok": "Ok"
 }
