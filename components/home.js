@@ -440,6 +440,7 @@ export default function Home({ }) {
     const [coolmathSplash, setCoolmathSplash] = useState(null);
     const [navSlideOut, setNavSlideOut] = useState(false);
 
+
     // check if ?coolmath=true
     useEffect(() => {
         if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
@@ -2226,35 +2227,6 @@ export default function Home({ }) {
                                                         }, 300);
                                                         }}>{text("communityMaps")}</button>}
                                             </div>
-                                            <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen) ? "visible" : ""}`}>
-                <div className="footer_btns">
-                    {!isApp && !inCoolMathGames && (
-                        <>
-                            <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
-
-                            {!inCrazyGames && (
-                                <>
-                                    <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                                    <Link target="_blank" className="desktop" href={"https://www.coolmathgames.com/0-worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames">
-                                        {/* Todo; include coolmath logo here; url is /cmlogo.png*/}
-
-                                        <NextImage.default src={'/cmlogo.png'} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" />
-
-                                        </button>
-                                    </Link>
-
-                                    <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
-                                </>
-                            )}
-                            <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
-
-                                <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
-                        </>
-                    )}
-
-                    <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
-                </div>
-            </div>
                                         </>
                                     )}
 
@@ -2263,6 +2235,38 @@ export default function Home({ }) {
                             <br />
 
                         </div>
+                        
+                        {/* Footer moved outside of sliding navigation */}
+                        <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen) ? "visible" : ""}`}>
+                            <div className="footer_btns">
+                                {!isApp && !inCoolMathGames && (
+                                    <>
+                                        <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+
+                                        {!inCrazyGames && (
+                                            <>
+                                                <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
+                                                <Link target="_blank" className="desktop" href={"https://www.coolmathgames.com/0-worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames">
+                                                    {/* Todo; include coolmath logo here; url is /cmlogo.png*/}
+
+                                                    <NextImage.default src={'/cmlogo.png'} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" />
+
+                                                    </button>
+                                                </Link>
+
+                                                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                                            </>
+                                        )}
+                                        <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
+
+                                            <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
+                                    </>
+                                )}
+
+                                <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
+                            </div>
+                        </div>
+                        
                         <div className="g2_content g2_content_margin g2_slide_in" style={{ display: "flex", gap: "20px", flexDirection: "column" }}>
                             {/*
                             {session?.token?.secret && (
