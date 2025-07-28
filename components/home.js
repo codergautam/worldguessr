@@ -46,6 +46,7 @@ import fixBranding from "@/components/utils/fixBranding";
 import gameStorage from "@/components/utils/localStorage";
 import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";
+import AlertModal from "@/components/ui/AlertModal";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
 import haversineDistance from "./utils/haversineDistance";
@@ -431,6 +432,7 @@ export default function Home({ }) {
     const [singlePlayerRound, setSinglePlayerRound] = useState(null);
     const [partyModalShown, setPartyModalShown] = useState(false);
     const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
+    const [connectionErrorModalShown, setConnectionErrorModalShown] = useState(false);
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [coolmathSplash, setCoolmathSplash] = useState(null);
@@ -871,7 +873,11 @@ export default function Home({ }) {
 
     function handleMultiplayerAction(action, ...args) {
         console.log(action)
-        if (!ws || !multiplayerState.connected || multiplayerState.gameQueued || multiplayerState.connecting) return;
+        if (!ws || !multiplayerState.connected) {
+            setConnectionErrorModalShown(true);
+            return;
+        }
+        if (multiplayerState.gameQueued || multiplayerState.connecting) return;
 
         if (action === "publicDuel") {
             setScreen("multiplayer")
@@ -2307,6 +2313,14 @@ export default function Home({ }) {
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
                 <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
+                
+                <AlertModal
+                    isOpen={connectionErrorModalShown}
+                    onClose={() => setConnectionErrorModalShown(false)}
+                    title={text("multiplayerNotConnected")}
+                    message={text("multiplayerConnectionErrorMessage")}
+                    type="error"
+                />
 
 
 
