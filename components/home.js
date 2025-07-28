@@ -47,6 +47,8 @@ import gameStorage from "@/components/utils/localStorage";
 import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";
 import AlertModal from "@/components/ui/AlertModal";
+import WhatsNewModal from "@/components/ui/WhatsNewModal";
+import changelog from "@/components/changelog.json";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
 import haversineDistance from "./utils/haversineDistance";
@@ -2541,6 +2543,8 @@ if(window.inCrazyGames) {
 
   `}
                 </Script>
+                
+                <WhatsNewModal changelog={changelog} />
             </main>
         </>
     )

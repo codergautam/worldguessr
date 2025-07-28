@@ -14,22 +14,23 @@ export default function Modal({
   useEffect(() => {
     if (isOpen) {
       setIsVisible(true);
+      setIsClosing(false);
       document.body.style.overflow = 'hidden';
-    } else {
-      if (isVisible) {
-        setIsClosing(true);
-        setTimeout(() => {
-          setIsVisible(false);
-          setIsClosing(false);
-          document.body.style.overflow = '';
-        }, 200);
-      }
+    } else if (isVisible) {
+      setIsClosing(true);
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+        setIsClosing(false);
+        document.body.style.overflow = '';
+      }, 200);
+      
+      return () => clearTimeout(timer);
     }
 
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen, isVisible]);
+  }, [isOpen]);
 
   const handleClose = () => {
     if (onClose) {
@@ -103,6 +104,8 @@ export default function Modal({
           overflow: hidden;
           animation: slideIn 0.2s ease-out;
           box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+          display: flex;
+          flex-direction: column;
         }
 
         .modal.closing {
@@ -152,7 +155,8 @@ export default function Modal({
         .modal-content {
           padding: 24px;
           overflow-y: auto;
-          max-height: 60vh;
+          flex: 1;
+          min-height: 0;
         }
 
         .modal-actions {
@@ -161,6 +165,7 @@ export default function Modal({
           justify-content: flex-end;
           gap: 12px;
           border-top: 1px solid rgba(255, 255, 255, 0.1);
+          flex-shrink: 0;
         }
 
         .modal-actions :global(button) {
@@ -194,7 +199,7 @@ export default function Modal({
 
         @keyframes slideIn {
           from {
-            transform: scale(0.95) translateY(20px);
+            transform: scale(0.9) translateY(30px);
             opacity: 0;
           }
           to {
@@ -209,15 +214,16 @@ export default function Modal({
             opacity: 1;
           }
           to {
-            transform: scale(0.95) translateY(-20px);
+            transform: scale(0.9) translateY(-30px);
             opacity: 0;
           }
         }
 
         @media (max-width: 768px) {
           .modal {
-            margin: 10px;
+            margin: 20px 10px;
             max-width: calc(100vw - 20px);
+            max-height: calc(100vh - 40px);
           }
           
           .modal-header {
