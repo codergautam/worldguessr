@@ -266,5 +266,7 @@
   "roundDetails": "Round Details",
   "finalScores": "Final Scores",
   "opponent": "Opponent",
-  "time": "Time"
+  "time": "Time",
+  "multiplayerNotConnected": "Not Connected to Server",
+  "multiplayerConnectionErrorMessage": "You need to be connected to the multiplayer server to play online. Please check your internet connection and try again."
 }
