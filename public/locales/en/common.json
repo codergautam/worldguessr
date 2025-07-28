@@ -268,5 +268,5 @@
   "opponent": "Opponent",
   "time": "Time",
   "multiplayerNotConnected": "Not Connected to Server",
-  "multiplayerConnectionErrorMessage": "You need to be connected to the multiplayer server to play online. Please check your internet connection and try again."
+  "multiplayerConnectionErrorMessage": "Please check your internet connection and try refreshing your page."
 }

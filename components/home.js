@@ -873,8 +873,10 @@ export default function Home({ }) {
 
     function handleMultiplayerAction(action, ...args) {
         console.log(action)
+
         if (!ws || !multiplayerState.connected) {
             setConnectionErrorModalShown(true);
+
             return;
         }
         if (multiplayerState.gameQueued || multiplayerState.connecting) return;
@@ -2183,14 +2185,14 @@ export default function Home({ }) {
 
                                             <div className="g2_nav_group">
                                                 {/*<button className="g2_nav_text" aria-label="Party" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("privateGame")}</button>*/}
-                                                <button className="g2_nav_text" disabled={!multiplayerState.connected || maintenance} onClick={() => {
+                                                <button className="g2_nav_text" disabled={maintenance} onClick={() => {
                                                     setNavSlideOut(true);
                                                     setTimeout(() => {
                                                         setNavSlideOut(false); // Reset for next use
                                                     handleMultiplayerAction("createPrivateGame")
                                                     }, 300);
                                                     }}>{text("createGame")}</button>
-                                                <button className="g2_nav_text" disabled={!multiplayerState.connected || maintenance} onClick={() => {
+                                                <button className="g2_nav_text" disabled={maintenance} onClick={() => {
                                                     setNavSlideOut(true);
                                                     setTimeout(() => {
                                                         setNavSlideOut(false); // Reset for next use
@@ -2313,7 +2315,7 @@ export default function Home({ }) {
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />
 
                 <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
-                
+
                 <AlertModal
                     isOpen={connectionErrorModalShown}
                     onClose={() => setConnectionErrorModalShown(false)}
