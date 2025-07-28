@@ -235,6 +235,12 @@ html {
     animation: nav_slide_out_right 0.3s ease-in-out forwards;
 }
 
+/* Fade out footer during slide-out animation */
+.home__content:has(.g2_slide_out) .home__footer {
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
 
 
 .g2_nav_group {
