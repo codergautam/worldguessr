@@ -25,7 +25,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, xpEarned, setXpEarned, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -77,7 +77,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
             ...prev,
             done: true
           };
-          
+
           // Store XP for all rounds when game is completed
           if(session?.token?.secret && gameOptions.official && prev.locations.length > 0) {
             const totalXp = prev.locations.reduce((sum, location) => sum + (location.xpEarned || 0), 0);
@@ -111,7 +111,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
               });
             }
           }
-          
+
           return completedGame;
         })
 
@@ -288,7 +288,6 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
       setStreetViewShown(false)
     } else {
       setRoundStartTime(Date.now());
-      setXpEarned(0);
     }
   }, [latLong, multiplayerState])
 
@@ -361,7 +360,7 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, showAnswer, onboarding, xpEarned, explanationModalShown, singlePlayerRound])
+  }, [pinPoint, showAnswer, onboarding, explanationModalShown, singlePlayerRound])
 
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
@@ -411,7 +410,7 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
     if(singlePlayerRound) {
       const roundPoints = calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
       const roundXp = gameOptions?.official ? Math.round(roundPoints / 50) : 0;
-      
+
       setSinglePlayerRound((prev) => {
         return {
           ...prev,
@@ -480,10 +479,6 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
     }
   }
 
-  useEffect(() => {
-    if(!latLong || !pinPoint || multiplayerState?.inGame || !gameOptions?.official) return;
-    setXpEarned(Math.round(calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist }) / 50))
-  }, [km, latLong, pinPoint, gameOptions?.official  ])
 
 
   useEffect(() => {
@@ -796,7 +791,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
 
 <EndBanner
 countryStreaksEnabled={gameOptions?.location === "all"}
-singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak} xpEarned={xpEarned} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
+singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak}  usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
   loadLocationFunc()
 
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {

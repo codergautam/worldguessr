@@ -1,7 +1,7 @@
 import calcPoints from "./calcPoints";
 import { useTranslation } from '@/components/useTranslations'
 
-export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, options, xpEarned, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
+export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
     const { t: text } = useTranslation("common");
 
     return (
@@ -14,7 +14,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
             </button>
             <div className="bannerContent">
 
-                
+
 
                 {pinPoint && (km >= 0) ? (
                     <span className='mainBannerTxt'>
@@ -42,10 +42,10 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
 
 
                 </p>
-                <p className="motivation">
+                {/* <p className="motivation">
                     {xpEarned > 0 && session?.token?.secret ? text("earnedXP", { xp: xpEarned }) : ''}
 
-                </p>
+                </p> */}
                 {countryStreaksEnabled && (
                     <p className="motivation">
                         {countryStreak > 0 ? text("onCountryStreak", { streak: countryStreak }) : ''}

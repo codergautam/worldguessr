@@ -723,7 +723,9 @@ export default class Game {
 
     // Save duel game to MongoDB for history tracking
     if(this.duel && this.accountIds?.p1 && this.accountIds?.p2) {
-      await this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo);
+      this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo).catch(error => {
+        console.error('Error saving duel game to MongoDB:', error);
+      });
     }
 
     }
@@ -752,7 +754,7 @@ export default class Game {
       // Get user data for both players
       const user1 = await User.findOne({ secret: this.accountIds.p1 });
       const user2 = await User.findOne({ secret: this.accountIds.p2 });
-      
+
       if (!user1 || !user2) {
         console.error('Could not find users for duel game save');
         return;
@@ -765,7 +767,7 @@ export default class Game {
       // Prepare rounds data from roundHistory
       const gameRounds = this.roundHistory.map((roundData, index) => {
         const actualLocation = this.locations[index];
-        
+
         return {
           roundNumber: index + 1,
           location: {
@@ -811,7 +813,7 @@ export default class Game {
       const gameDoc = new GameModel({
         gameId: `duel_${this.id}`,
         gameType: 'ranked_duel',
-        
+
         settings: {
           location: this.location || 'all',
           rounds: this.rounds,
@@ -823,13 +825,13 @@ export default class Game {
           noPan: this.npz || false,
           noZoom: this.npz || false
         },
-        
+
         startedAt: new Date(this.startTime),
         endedAt: new Date(this.endTime),
         totalDuration: Math.floor(totalDuration / 1000), // Convert to seconds
-        
+
         rounds: gameRounds,
-        
+
         players: [
           {
             playerId: p1.id,
@@ -860,13 +862,13 @@ export default class Game {
             }
           }
         ],
-        
+
         result: {
           winner: winner ? (winner.tag === 'p1' ? this.accountIds.p1 : this.accountIds.p2) : null,
           isDraw: draw,
           maxPossiblePoints: maxPossiblePoints
         },
-        
+
         multiplayer: {
           isPublic: false,
           gameCode: null,
@@ -878,20 +880,20 @@ export default class Game {
 
       // Save to MongoDB
       await gameDoc.save();
-      
+
       // Update totalGamesPlayed for both users
       await User.updateOne(
         { secret: this.accountIds.p1 },
         { $inc: { totalGamesPlayed: 1 } }
       );
-      
+
       await User.updateOne(
         { secret: this.accountIds.p2 },
         { $inc: { totalGamesPlayed: 1 } }
       );
 
       console.log(`Saved duel game ${gameDoc.gameId} between ${user1.username} and ${user2.username}`);
-      
+
     } catch (error) {
       console.error('Error saving duel game to MongoDB:', error);
     }
