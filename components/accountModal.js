@@ -144,8 +144,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 />
             )}
             
-            {/* Main Modal - Hide when showing game analysis */}
-            {!(accountModalPage === "history" && showingGameAnalysis) && (
+            {/* Main Modal */}
                 <Modal
                     styles={{
                         modal: {
@@ -162,7 +161,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                         }
                     }}
                     classNames={{ modal: "account-modal", modalContainer: "account-modal-p-container" }}
-                    open={shown}
+                    open={shown && !(accountModalPage === "history" && showingGameAnalysis)}
                     center
                     onClose={() => setAccountModalOpen(false)}
                     showCloseIcon={false}
@@ -211,7 +210,6 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                         </div>
                     </div>
                 </Modal>
-            )}
         </>
     )
 }
