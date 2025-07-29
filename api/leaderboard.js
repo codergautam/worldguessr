@@ -13,7 +13,7 @@ function sendableUser(user) {
     username: user.username,
     totalXp: user.totalXp ?? user.xpGained,
     createdAt: user.created_at,
-    gamesLen: Math.floor((user.totalGamesPlayed ?? 0) / 5),
+    gamesLen: user.totalGamesPlayed ?? 0,
     elo: user.elo,
     eloToday: user.elo_today,
   };
