@@ -15,6 +15,8 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
     const [friends, setFriends] = useState([]);
     const [sentRequests, setSentRequests] = useState([]);
     const [receivedRequests, setReceivedRequests] = useState([]);
+    const [selectedGame, setSelectedGame] = useState(null);
+    const [showingGameAnalysis, setShowingGameAnalysis] = useState(false);
     const badgeStyle = {
         marginLeft: '15px',
         color: 'black',
@@ -44,8 +46,20 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 }
             }
             fetchData();
+        } else {
+            // Reset game analysis state when modal is closed
+            setShowingGameAnalysis(false);
+            setSelectedGame(null);
         }
     }, [shown, session?.token?.secret]);
+
+    // Reset game analysis when switching away from history tab
+    useEffect(() => {
+        if (accountModalPage !== "history") {
+            setShowingGameAnalysis(false);
+            setSelectedGame(null);
+        }
+    }, [accountModalPage]);
 
     if (!eloData) return null;
 
@@ -85,10 +99,25 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     </div>
                 );
             case "history":
+                if (showingGameAnalysis && selectedGame) {
+                    return (
+                        <HistoricalGameView 
+                            game={selectedGame}
+                            session={session}
+                            onBack={() => {
+                                setShowingGameAnalysis(false);
+                                setSelectedGame(null);
+                            }}
+                        />
+                    );
+                }
                 return (
                     <GameHistory 
                         session={session}
-                        onGameClick={() => {}} // No game clicking, just show list
+                        onGameClick={(game) => {
+                            setSelectedGame(game);
+                            setShowingGameAnalysis(true);
+                        }}
                     />
                 );
             case "elo":
@@ -156,21 +185,23 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                         </button>
                     </div>
 
-                    {/* Navigation */}
-                    <div className="account-modal-nav-container">
-                        <nav className="account-modal-nav">
-                            {navigationItems.map((item) => (
-                                <button
-                                    key={item.key}
-                                    className={`account-nav-item ${accountModalPage === item.key ? 'active' : ''}`}
-                                    onClick={() => setAccountModalPage(item.key)}
-                                >
-                                    <span className="nav-icon">{item.icon}</span>
-                                    <span className="nav-label">{item.label}</span>
-                                </button>
-                            ))}
-                        </nav>
-                    </div>
+                    {/* Navigation - Hide when showing game analysis */}
+                    {!(accountModalPage === "history" && showingGameAnalysis) && (
+                        <div className="account-modal-nav-container">
+                            <nav className="account-modal-nav">
+                                {navigationItems.map((item) => (
+                                    <button
+                                        key={item.key}
+                                        className={`account-nav-item ${accountModalPage === item.key ? 'active' : ''}`}
+                                        onClick={() => setAccountModalPage(item.key)}
+                                    >
+                                        <span className="nav-icon">{item.icon}</span>
+                                        <span className="nav-label">{item.label}</span>
+                                    </button>
+                                ))}
+                            </nav>
+                        </div>
+                    )}
 
                     {/* Content Area */}
                     <div className="account-modal-body">
