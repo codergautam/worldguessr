@@ -16,7 +16,7 @@ export default function GameHistory({ session, onGameClick }) {
   });
 
   const fetchGames = async (page = 1) => {
-    if(typeof window === 'undefined' || !session?.token?.secret) return;
+    if(typeof window === 'undefined' || !session?.token?.secret || !window.cConfig?.apiUrl) return;
     setLoading(true);
     try {
       const response = await fetch(window.cConfig.apiUrl + '/api/gameHistory', {
@@ -48,7 +48,7 @@ export default function GameHistory({ session, onGameClick }) {
   };
 
   useEffect(() => {
-    if (session?.token?.secret) {
+    if (typeof window !== 'undefined' && session?.token?.secret && window.cConfig?.apiUrl) {
       fetchGames(1);
     }
   }, [session?.token?.secret]);

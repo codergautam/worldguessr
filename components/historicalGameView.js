@@ -11,6 +11,8 @@ export default function HistoricalGameView({ game, session, onBack }) {
 
   useEffect(() => {
     const fetchFullGameData = async () => {
+      if (typeof window === 'undefined' || !window.cConfig?.apiUrl) return;
+      
       setLoading(true);
       setError(null);
 
@@ -40,7 +42,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
       }
     };
 
-    if (game && session?.token?.secret) {
+    if (typeof window !== 'undefined' && game && session?.token?.secret && window.cConfig?.apiUrl) {
       fetchFullGameData();
     }
   }, [game, session?.token?.secret]);
