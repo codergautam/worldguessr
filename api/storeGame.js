@@ -45,7 +45,7 @@ async function guess(req, res) {
         let currentRoundStart = gameStartTime.getTime();
         const gameRounds = rounds.map((round, index) => {
           const { lat: guessLat, long: guessLong, actualLat, actualLong, usedHint, maxDist, roundTime, xp, points } = round;
-          const actualPoints = points || (xp * 50); // Use actual points if available, fallback to XP conversion
+          const actualPoints = points; // Use actual points from frontend
           
           const roundStart = new Date(currentRoundStart);
           const roundEnd = new Date(currentRoundStart + (roundTime * 1000));

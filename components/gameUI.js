@@ -97,7 +97,8 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
                     usedHint: false, // We don't track hints per round currently
                     maxDist: gameOptions.maxDist,
                     roundTime: location.timeTaken,
-                    xp: location.xpEarned
+                    xp: location.xpEarned,
+                    points: location.points
                   }))
                 })
               }).then(res => res.json()).then(data => {
