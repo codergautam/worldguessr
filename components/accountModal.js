@@ -161,7 +161,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                         }
                     }}
                     classNames={{ modal: "account-modal", modalContainer: "account-modal-p-container" }}
-                    open={shown && !(accountModalPage === "history" && showingGameAnalysis)}
+                    open={shown}
                     center
                     onClose={() => setAccountModalOpen(false)}
                     showCloseIcon={false}
