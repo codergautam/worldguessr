@@ -334,13 +334,14 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .gameHistory {
-    padding: 12px;
+    padding: 16px;
   }
   
   .gameItem {
     padding: 16px;
     min-width: unset;
     max-width: 100%;
+    width: 100%;
   }
   
   .gameStats {
@@ -370,13 +371,14 @@
 
 @media (max-width: 480px) {
   .gameHistory {
-    padding: 8px;
+    padding: 12px;
   }
   
   .gameItem {
-    padding: 8px;
+    padding: 16px;
     min-width: unset;
     max-width: 100%;
+    width: 100%;
   }
   
   .gameStats {
