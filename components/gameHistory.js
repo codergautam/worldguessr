@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { useTranslation } from '@/components/useTranslations';
 import formatTime from '../utils/formatTime';
 import styles from '../styles/gameHistory.module.css';
 
-const HistoricalGameView = dynamic(() => import('./historicalGameView'), { ssr: false });
-
-export default function GameHistory({ session, onGameClick, selectedGame, viewingGameHistory, onBack }) {
+export default function GameHistory({ session, onGameClick }) {
   const { t: text } = useTranslation("common");
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -88,16 +85,6 @@ export default function GameHistory({ session, onGameClick, selectedGame, viewin
     return location;
   };
 
-  // If viewing a specific game, render HistoricalGameView
-  if (viewingGameHistory && selectedGame) {
-    return (
-      <HistoricalGameView 
-        game={selectedGame}
-        session={session}
-        onBack={onBack}
-      />
-    );
-  }
 
   if (loading) {
     return (

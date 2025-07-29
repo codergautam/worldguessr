@@ -15,8 +15,6 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
     const [friends, setFriends] = useState([]);
     const [sentRequests, setSentRequests] = useState([]);
     const [receivedRequests, setReceivedRequests] = useState([]);
-    const [selectedGame, setSelectedGame] = useState(null);
-    const [viewingGameHistory, setViewingGameHistory] = useState(false);
     const badgeStyle = {
         marginLeft: '15px',
         color: 'black',
@@ -61,23 +59,6 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         { key: "add", label: text("addFriend"), icon: "➕" }
     ];
 
-    const handleGameClick = (game) => {
-        setSelectedGame(game);
-        setViewingGameHistory(true);
-    };
-
-    const handleBackToHistory = () => {
-        setSelectedGame(null);
-        setViewingGameHistory(false);
-    };
-
-    // Reset game history view when switching tabs
-    useEffect(() => {
-        if (accountModalPage !== 'history') {
-            setSelectedGame(null);
-            setViewingGameHistory(false);
-        }
-    }, [accountModalPage]);
 
     const renderContent = () => {
         switch (accountModalPage) {
@@ -107,10 +88,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 return (
                     <GameHistory 
                         session={session}
-                        onGameClick={handleGameClick}
-                        selectedGame={selectedGame}
-                        viewingGameHistory={viewingGameHistory}
-                        onBack={handleBackToHistory}
+                        onGameClick={() => {}} // No game clicking, just show list
                     />
                 );
             case "elo":
