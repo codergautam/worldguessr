@@ -1156,6 +1156,15 @@ const GameSummary = ({
                           <span className="distance-value">{formatDistance(distance)}</span>
                         </div>
                       )}
+                      {round.timeTaken && (
+                        <div className="detail-row">
+                          <span className="detail-label">
+                            <span className="detail-icon">⏱️</span>
+                            {text("timeTaken")}
+                          </span>
+                          <span className="time-value">{round.timeTaken}s</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
