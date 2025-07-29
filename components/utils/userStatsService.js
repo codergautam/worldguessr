@@ -41,55 +41,6 @@ class UserStatsService {
     }
   }
 
-  /**
-   * Record daily stats snapshots for all users (batch operation)
-   */
-  static async recordDailyStatsSnapshot() {
-    try {
-      console.log('Starting daily stats snapshot...');
-      
-      // Get all users with their current stats
-      const users = await User.find({
-        banned: { $ne: true },
-        totalXp: { $gt: 0 }
-      }).select('secret totalXp elo').lean();
-
-      // Calculate rankings
-      const usersByXP = [...users].sort((a, b) => (b.totalXp || 0) - (a.totalXp || 0));
-      const usersByELO = [...users].sort((a, b) => (b.elo || 1200) - (a.elo || 1200));
-
-      // Create rank mappings
-      const xpRankMap = new Map();
-      const eloRankMap = new Map();
-      
-      usersByXP.forEach((user, index) => {
-        xpRankMap.set(user.secret, index + 1);
-      });
-      
-      usersByELO.forEach((user, index) => {
-        eloRankMap.set(user.secret, index + 1);
-      });
-
-      // Batch create stats entries
-      const statsEntries = users.map(user => ({
-        userId: user.secret,
-        timestamp: new Date(),
-        totalXp: user.totalXp || 0,
-        xpRank: xpRankMap.get(user.secret),
-        elo: user.elo || 1200,
-        eloRank: eloRankMap.get(user.secret),
-        triggerEvent: 'daily_update'
-      }));
-
-      const result = await UserStats.insertMany(statsEntries);
-      console.log(`Daily stats snapshot completed: ${result.length} entries created`);
-      
-      return result.length;
-    } catch (error) {
-      console.error('Error recording daily stats snapshot:', error);
-      return 0;
-    }
-  }
 
   /**
    * Calculate user's XP rank among all users
