@@ -87,23 +87,42 @@
 }
 
 .gameItem {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 24px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   max-width: 800px;
   min-width: 400px;
   margin: 0 auto;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.gameItem::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #4CAF50, #2196F3, #9C27B0, #FF5722);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.gameItem:hover::before {
+  opacity: 1;
 }
 
 .gameItem:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
 }
 
 .gameHeader {
@@ -120,13 +139,15 @@
 }
 
 .gameTypeIcon {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .gameTypeLabel {
   color: white;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .gameDate {
@@ -157,14 +178,15 @@
 
 .statValue {
   color: white;
-  font-weight: 600;
-  font-size: 1rem;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .statPercentage {
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: normal;
-  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+  font-size: 0.9rem;
   margin-left: 4px;
 }
 
@@ -198,17 +220,18 @@
 
 .gameArrow {
   position: absolute;
-  right: 20px;
+  right: 24px;
   top: 50%;
   transform: translateY(-50%);
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 1.2rem;
-  transition: transform 0.2s ease;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 1.4rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .gameItem:hover .gameArrow {
-  transform: translateY(-50%) translateX(4px);
-  color: rgba(255, 255, 255, 0.7);
+  transform: translateY(-50%) translateX(8px) scale(1.2);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* Pagination */
