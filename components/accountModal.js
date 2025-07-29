@@ -99,18 +99,6 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     </div>
                 );
             case "history":
-                if (showingGameAnalysis && selectedGame) {
-                    return (
-                        <HistoricalGameView 
-                            game={selectedGame}
-                            session={session}
-                            onBack={() => {
-                                setShowingGameAnalysis(false);
-                                setSelectedGame(null);
-                            }}
-                        />
-                    );
-                }
                 return (
                     <GameHistory 
                         session={session}
@@ -143,72 +131,87 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
     };
 
     return (
-        <Modal
-            styles={{
-                modal: {
-                    padding: 0,
-                    margin: 0,
-                    maxWidth: 'none',
-                    width: '100vw',
-                    height: '100vh',
-                    background: 'transparent',
-                    borderRadius: 0
-                },
-                modalContainer: {
-                    height: 'auto',
-                }
-            }}
-            classNames={{ modal: "account-modal", modalContainer: "account-modal-p-container" }}
-            open={shown}
-            center
-            onClose={() => setAccountModalOpen(false)}
-            showCloseIcon={false}
-            animationDuration={200}
-        >
-            <div className="account-modal-container">
-                {/* Background with overlay */}
-                <div className="account-modal-background"></div>
+        <>
+            {/* Game Analysis - Render outside modal when active */}
+            {accountModalPage === "history" && showingGameAnalysis && selectedGame && (
+                <HistoricalGameView 
+                    game={selectedGame}
+                    session={session}
+                    onBack={() => {
+                        setShowingGameAnalysis(false);
+                        setSelectedGame(null);
+                    }}
+                />
+            )}
+            
+            {/* Main Modal - Hide when showing game analysis */}
+            {!(accountModalPage === "history" && showingGameAnalysis) && (
+                <Modal
+                    styles={{
+                        modal: {
+                            padding: 0,
+                            margin: 0,
+                            maxWidth: 'none',
+                            width: '100vw',
+                            height: '100vh',
+                            background: 'transparent',
+                            borderRadius: 0
+                        },
+                        modalContainer: {
+                            height: 'auto',
+                        }
+                    }}
+                    classNames={{ modal: "account-modal", modalContainer: "account-modal-p-container" }}
+                    open={shown}
+                    center
+                    onClose={() => setAccountModalOpen(false)}
+                    showCloseIcon={false}
+                    animationDuration={200}
+                >
+                    <div className="account-modal-container">
+                        {/* Background with overlay */}
+                        <div className="account-modal-background"></div>
 
-                {/* Main content */}
-                <div className="account-modal-content">
-                    {/* Header with prominent close button */}
-                    <div className="account-modal-header">
-                        <h1 className="account-modal-title">{accountData?.username || text("account")} {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}</h1>
+                        {/* Main content */}
+                        <div className="account-modal-content">
+                            {/* Header with prominent close button */}
+                            <div className="account-modal-header">
+                                <h1 className="account-modal-title">{accountData?.username || text("account")} {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}</h1>
 
 
-                        <button
-                            className="account-modal-close"
-                            onClick={() => setAccountModalOpen(false)}
-                            aria-label="Close"
-                        >
-                            <span className="close-icon">✕</span>
-                        </button>
-                    </div>
+                                <button
+                                    className="account-modal-close"
+                                    onClick={() => setAccountModalOpen(false)}
+                                    aria-label="Close"
+                                >
+                                    <span className="close-icon">✕</span>
+                                </button>
+                            </div>
 
-                    {/* Navigation - Hide when showing game analysis */}
-                    {!(accountModalPage === "history" && showingGameAnalysis) && (
-                        <div className="account-modal-nav-container">
-                            <nav className="account-modal-nav">
-                                {navigationItems.map((item) => (
-                                    <button
-                                        key={item.key}
-                                        className={`account-nav-item ${accountModalPage === item.key ? 'active' : ''}`}
-                                        onClick={() => setAccountModalPage(item.key)}
-                                    >
-                                        <span className="nav-icon">{item.icon}</span>
-                                        <span className="nav-label">{item.label}</span>
-                                    </button>
-                                ))}
-                            </nav>
+                            {/* Navigation */}
+                            <div className="account-modal-nav-container">
+                                <nav className="account-modal-nav">
+                                    {navigationItems.map((item) => (
+                                        <button
+                                            key={item.key}
+                                            className={`account-nav-item ${accountModalPage === item.key ? 'active' : ''}`}
+                                            onClick={() => setAccountModalPage(item.key)}
+                                        >
+                                            <span className="nav-icon">{item.icon}</span>
+                                            <span className="nav-label">{item.label}</span>
+                                        </button>
+                                    ))}
+                                </nav>
+                            </div>
+
+                            {/* Content Area */}
+                            <div className="account-modal-body">
+                                {renderContent()}
+                            </div>
                         </div>
-                    )}
-
-                    {/* Content Area */}
-                    <div className="account-modal-body">
-                        {renderContent()}
                     </div>
-                </div>
-            </div>
-        </Modal>
+                </Modal>
+            )}
+        </>
     )
 }

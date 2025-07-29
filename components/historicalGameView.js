@@ -11,6 +11,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+
   useEffect(() => {
     const fetchFullGameData = async () => {
       if (typeof window === 'undefined' || !window.cConfig?.apiUrl) return;
