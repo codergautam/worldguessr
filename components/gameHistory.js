@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useTranslation } from '@/components/useTranslations';
 import formatTime from '../utils/formatTime';
 import styles from '../styles/gameHistory.module.css';
 
-export default function GameHistory({ session, onGameClick }) {
+const HistoricalGameView = dynamic(() => import('./historicalGameView'), { ssr: false });
+
+export default function GameHistory({ session, onGameClick, selectedGame, viewingGameHistory, onBack }) {
   const { t: text } = useTranslation("common");
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +87,17 @@ export default function GameHistory({ session, onGameClick }) {
     // You can expand this to handle country codes and custom maps
     return location;
   };
+
+  // If viewing a specific game, render HistoricalGameView
+  if (viewingGameHistory && selectedGame) {
+    return (
+      <HistoricalGameView 
+        game={selectedGame}
+        session={session}
+        onBack={onBack}
+      />
+    );
+  }
 
   if (loading) {
     return (

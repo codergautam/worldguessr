@@ -105,20 +105,13 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 );
             case "history":
                 return (
-                    <div>
-                        {viewingGameHistory && selectedGame ? (
-                            <HistoricalGameView 
-                                game={selectedGame}
-                                session={session}
-                                onBack={handleBackToHistory}
-                            />
-                        ) : (
-                            <GameHistory 
-                                session={session}
-                                onGameClick={handleGameClick}
-                            />
-                        )}
-                    </div>
+                    <GameHistory 
+                        session={session}
+                        onGameClick={handleGameClick}
+                        selectedGame={selectedGame}
+                        viewingGameHistory={viewingGameHistory}
+                        onBack={handleBackToHistory}
+                    />
                 );
             case "elo":
                 return <EloView eloData={eloData} />;
