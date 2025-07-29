@@ -166,7 +166,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     center
                     onClose={() => setAccountModalOpen(false)}
                     showCloseIcon={false}
-                    animationDuration={200}
+                    animationDuration={300}
                 >
                     <div className="account-modal-container">
                         {/* Background with overlay */}
