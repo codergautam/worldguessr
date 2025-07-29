@@ -80,17 +80,6 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
     }, [accountModalPage]);
 
     const renderContent = () => {
-        // If viewing a specific game from history
-        if (viewingGameHistory && selectedGame) {
-            return (
-                <HistoricalGameView 
-                    game={selectedGame}
-                    session={session}
-                    onBack={handleBackToHistory}
-                />
-            );
-        }
-
         switch (accountModalPage) {
             case "profile":
                 return (
@@ -116,10 +105,20 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 );
             case "history":
                 return (
-                    <GameHistory 
-                        session={session}
-                        onGameClick={handleGameClick}
-                    />
+                    <div>
+                        {viewingGameHistory && selectedGame ? (
+                            <HistoricalGameView 
+                                game={selectedGame}
+                                session={session}
+                                onBack={handleBackToHistory}
+                            />
+                        ) : (
+                            <GameHistory 
+                                session={session}
+                                onGameClick={handleGameClick}
+                            />
+                        )}
+                    </div>
                 );
             case "elo":
                 return <EloView eloData={eloData} />;
