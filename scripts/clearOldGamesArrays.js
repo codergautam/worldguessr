@@ -5,7 +5,7 @@ import User from '../models/User.js';
 await mongoose.connect(process.env.MONGODB);
 
 async function clearOldGamesArrays() {
-  console.log('Clearing old games arrays to save space...');
+  console.log('Migrating games count and clearing old games arrays...');
   
   // Count users with games arrays
   const usersWithGames = await User.countDocuments({ 
@@ -15,18 +15,36 @@ async function clearOldGamesArrays() {
   console.log(`Found ${usersWithGames} users with old games arrays`);
   
   if (usersWithGames === 0) {
-    console.log('No games arrays to clear');
+    console.log('No games arrays to migrate');
     return;
   }
   
-  // Remove games field entirely
+  // Use aggregation to calculate totalGamesPlayed from games.length and update
   const result = await User.updateMany(
     { games: { $exists: true } },
-    { $unset: { games: "" } }
+    [
+      {
+        $set: {
+          totalGamesPlayed: {
+            $cond: {
+              if: { $isArray: "$games" },
+              then: { $size: "$games" },
+              else: { $ifNull: ["$totalGamesPlayed", 0] }
+            }
+          }
+        }
+      },
+      {
+        $unset: "games"
+      }
+    ]
   );
   
-  console.log(`Removed games field from ${result.modifiedCount} users`);
-  console.log('Space saved! Old games field and data completely removed.');
+  console.log(`Migrated ${result.modifiedCount} users:`);
+  console.log('- Set totalGamesPlayed = games.length');
+  console.log('- Removed games field entirely');
+  console.log('- APIs will show totalGamesPlayed / 5 as game count');
+  console.log('Space saved! Old games arrays completely removed.');
 }
 
 // Run the cleanup
