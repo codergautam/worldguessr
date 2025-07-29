@@ -2,10 +2,13 @@ import { Modal } from "react-responsive-modal";
 import { useEffect, useState } from "react";
 import AccountView from "./accountView";
 import EloView from "./eloView";
+import GameHistory from "./gameHistory";
+import HistoricalGameView from "./historicalGameView";
 import { getLeague, leagues } from "./utils/leagues";
 import { signOut } from "@/components/auth/auth";
 import { useTranslation } from '@/components/useTranslations';
 import FriendsModal from "@/components/friendModal";
+import '../styles/gameHistory.css';
 
 export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite }) {
     const { t: text } = useTranslation("common");
@@ -13,6 +16,8 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
     const [friends, setFriends] = useState([]);
     const [sentRequests, setSentRequests] = useState([]);
     const [receivedRequests, setReceivedRequests] = useState([]);
+    const [selectedGame, setSelectedGame] = useState(null);
+    const [viewingGameHistory, setViewingGameHistory] = useState(false);
     const badgeStyle = {
         marginLeft: '15px',
         color: 'black',
@@ -49,6 +54,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
 
     const navigationItems = [
         { key: "profile", label: text("profile"), icon: "👤" },
+        { key: "history", label: text("history"), icon: "📜" },
         { key: "elo", label: text("ELO"), icon: "🏆" },
         { key: "list", label: text("friends", {cnt: friends.length}), icon: "👥" },
         { key: "sent", label: text("viewSentRequests", { cnt: sentRequests.length }), icon: "📤" },
@@ -56,7 +62,36 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         { key: "add", label: text("addFriend"), icon: "➕" }
     ];
 
+    const handleGameClick = (game) => {
+        setSelectedGame(game);
+        setViewingGameHistory(true);
+    };
+
+    const handleBackToHistory = () => {
+        setSelectedGame(null);
+        setViewingGameHistory(false);
+    };
+
+    // Reset game history view when switching tabs
+    useEffect(() => {
+        if (accountModalPage !== 'history') {
+            setSelectedGame(null);
+            setViewingGameHistory(false);
+        }
+    }, [accountModalPage]);
+
     const renderContent = () => {
+        // If viewing a specific game from history
+        if (viewingGameHistory && selectedGame) {
+            return (
+                <HistoricalGameView 
+                    game={selectedGame}
+                    session={session}
+                    onBack={handleBackToHistory}
+                />
+            );
+        }
+
         switch (accountModalPage) {
             case "profile":
                 return (
@@ -79,6 +114,13 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                             </div>
                         )}
                     </div>
+                );
+            case "history":
+                return (
+                    <GameHistory 
+                        session={session}
+                        onGameClick={handleGameClick}
+                    />
                 );
             case "elo":
                 return <EloView eloData={eloData} />;
