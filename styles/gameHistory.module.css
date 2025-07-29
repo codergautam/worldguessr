@@ -339,6 +339,8 @@
   
   .gameItem {
     padding: 16px;
+    min-width: unset;
+    max-width: 100%;
   }
   
   .gameStats {
@@ -367,6 +369,16 @@
 }
 
 @media (max-width: 480px) {
+  .gameHistory {
+    padding: 12px;
+  }
+  
+  .gameItem {
+    padding: 12px;
+    min-width: unset;
+    max-width: 100%;
+  }
+  
   .gameStats {
     grid-template-columns: 1fr;
   }
