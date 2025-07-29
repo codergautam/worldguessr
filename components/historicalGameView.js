@@ -10,6 +10,24 @@ export default function HistoricalGameView({ game, session, onBack }) {
   const [fullGameData, setFullGameData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isExiting, setIsExiting] = useState(false);
+  const [isEntering, setIsEntering] = useState(true);
+
+  // Handle entering animation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsEntering(false);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Handle exit animation
+  const handleBack = () => {
+    setIsExiting(true);
+    setTimeout(() => {
+      onBack();
+    }, 300); // Wait for exit animation to complete
+  };
 
 
   useEffect(() => {
@@ -165,8 +183,15 @@ export default function HistoricalGameView({ game, session, onBack }) {
     };
   }
 
+  const getClassName = () => {
+    let className = styles.historicalGameView;
+    if (isEntering) className += ` ${styles.entering}`;
+    if (isExiting) className += ` ${styles.exiting}`;
+    return className;
+  };
+
   return (
-    <div className={styles.historicalGameView}>
+    <div className={getClassName()}>
       {/* Use the existing GameSummary component */}
       <GameSummary
         history={transformedHistory}
@@ -176,7 +201,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
         duel={isDuel}
         data={duelData}
         multiplayerState={multiplayerState}
-        button1Press={onBack}
+        button1Press={handleBack}
         button1Text={text('backToHistory')}
         button2Press={null}
         button2Text=""

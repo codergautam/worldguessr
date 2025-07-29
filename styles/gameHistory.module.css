@@ -278,17 +278,32 @@
   width: 100vw;
   height: 100vh;
   z-index: 99999;
-  background: rgba(0, 0, 0, 0);
+  background: rgba(0, 0, 0, 0.9);
+  opacity: 1;
+  transform: scale(1);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.historicalGameView.entering {
   animation: fadeInGameView 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
   opacity: 0;
-  transform: scale(0.98) translateY(20px);
+  transform: scale(0.95);
+  background: rgba(0, 0, 0, 0);
+  backdrop-filter: blur(0px);
+}
+
+.historicalGameView.exiting {
+  opacity: 0;
+  transform: scale(0.95);
+  background: rgba(0, 0, 0, 0);
   backdrop-filter: blur(0px);
 }
 
 @keyframes fadeInGameView {
   0% {
     opacity: 0;
-    transform: scale(0.98) translateY(20px);
+    transform: scale(0.95);
     background: rgba(0, 0, 0, 0);
     backdrop-filter: blur(0px);
   }
@@ -298,7 +313,7 @@
   }
   100% {
     opacity: 1;
-    transform: scale(1) translateY(0px);
+    transform: scale(1);
     background: rgba(0, 0, 0, 0.9);
     backdrop-filter: blur(10px);
   }
