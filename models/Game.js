@@ -34,7 +34,7 @@ const roundSchema = new mongoose.Schema({
   // Round metadata
   startedAt: { type: Date, default: Date.now },
   endedAt: { type: Date, default: null },
-  roundTimeLimit: { type: Number, default: 30000 } // milliseconds
+  roundTimeLimit: { type: Number, default: null } // milliseconds (null for singleplayer, set for multiplayer)
 }, { _id: false });
 
 const playerSummarySchema = new mongoose.Schema({
@@ -72,7 +72,7 @@ const gameSchema = new mongoose.Schema({
     location: { type: String, default: 'all' }, // 'all', country code, or custom map
     rounds: { type: Number, default: 5 },
     maxDist: { type: Number, default: 20000 }, // km
-    timePerRound: { type: Number, default: 30000 }, // milliseconds
+    timePerRound: { type: Number, default: null }, // milliseconds (null for singleplayer, set for multiplayer)
     official: { type: Boolean, default: true }, // affects XP
     
     // Additional settings

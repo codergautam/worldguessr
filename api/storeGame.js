@@ -75,8 +75,8 @@ async function guess(req, res) {
               usedHint: usedHint || false
             }],
             startedAt: roundStart,
-            endedAt: roundEnd,
-            roundTimeLimit: 30000 // Default time limit
+            endedAt: roundEnd
+            // No roundTimeLimit for singleplayer games - players can take as long as they want
           };
         });
 
@@ -89,7 +89,7 @@ async function guess(req, res) {
             location: 'all', // Default, could be enhanced to detect actual location setting
             rounds: rounds.length,
             maxDist: maxDist || 20000,
-            timePerRound: 30000,
+            timePerRound: null, // No time limit for singleplayer
             official: true,
             showRoadName: false,
             noMove: false,
