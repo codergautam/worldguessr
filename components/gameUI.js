@@ -73,10 +73,45 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
         setStreetViewShown(false)
 
         setSinglePlayerRound((prev) => {
-          return {
+          const completedGame = {
             ...prev,
             done: true
+          };
+          
+          // Store XP for all rounds when game is completed
+          if(session?.token?.secret && gameOptions.official && prev.locations.length > 0) {
+            const totalXp = prev.locations.reduce((sum, location) => sum + (location.xpEarned || 0), 0);
+            if(totalXp > 0) {
+              fetch(window.cConfig.apiUrl+'/api/storeGame', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  secret: session.token.secret,
+                  rounds: prev.locations.map(location => ({
+                    lat: location.guessLat,
+                    long: location.guessLong,
+                    actualLat: location.lat,
+                    actualLong: location.long,
+                    usedHint: false, // We don't track hints per round currently
+                    maxDist: gameOptions.maxDist,
+                    roundTime: location.timeTaken,
+                    xp: location.xpEarned
+                  }))
+                })
+              }).then(res => res.json()).then(data => {
+                if(data.error) {
+                  console.error(data.error);
+                  return;
+                }
+              }).catch(e => {
+                console.error(e);
+              });
+            }
           }
+          
+          return completedGame;
         })
 
     } else {
@@ -373,46 +408,24 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
     }
 
     if(singlePlayerRound) {
+      const roundPoints = calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
+      const roundXp = gameOptions?.official ? Math.round(roundPoints / 50) : 0;
+      
       setSinglePlayerRound((prev) => {
         return {
           ...prev,
           locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, guessLat: pinPoint.lat, guessLong: pinPoint.lng,
-            points: calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist }),
-            timeTaken: Math.round((Date.now() - roundStartTime) / 1000)
+            points: roundPoints,
+            timeTaken: Math.round((Date.now() - roundStartTime) / 1000),
+            xpEarned: roundXp
 
           }],
-          lastPoint: calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist })
+          lastPoint: roundPoints
         }
       })
     }
 
     if(multiplayerState?.inGame) return;
-
-    if(xpEarned > 0 && session?.token?.secret && gameOptions.official) {
-      fetch(window.cConfig.apiUrl+'/api/storeGame', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          secret: session.token.secret,
-          lat: pinPoint.lat,
-          long: pinPoint.lng,
-          usedHint: hintShown,
-          actualLat: latLong.lat,
-          actualLong: latLong.long,
-          maxDist: gameOptions.maxDist,
-          roundTime: Math.round((Date.now() - roundStartTime)/ 1000)
-        })
-      }).then(res => res.json()).then(data => {
-        if(data.error) {
-          console.error(data.error);
-          return;
-        }
-      }).catch(e => {
-        console.error(e);
-      });
-    }
 
     if(gameOptions.location === 'all' && pinPoint) {
 
