@@ -37,15 +37,15 @@ async function guess(req, res) {
         const gameStartTime = new Date(gameEndTime.getTime() - (totalRoundTime * 1000) - (rounds.length * 10000)); // Add 10s between rounds
 
         // Calculate total duration and points
-        const totalDuration = rounds.reduce((sum, round) => sum + (round.roundTime * 1000), 0); // Convert to milliseconds
-        const totalPoints = rounds.reduce((sum, round) => sum + (round.xp * 50), 0); // Convert XP back to points
+        const totalDuration = rounds.reduce((sum, round) => sum + round.roundTime, 0); // Keep in seconds
+        const totalPoints = rounds.reduce((sum, round) => sum + round.points, 0); // Use actual points from rounds
         const totalXp = rounds.reduce((sum, round) => sum + (round.xp || 0), 0);
 
         // Prepare rounds data for Games collection
         let currentRoundStart = gameStartTime.getTime();
         const gameRounds = rounds.map((round, index) => {
-          const { lat: guessLat, long: guessLong, actualLat, actualLong, usedHint, maxDist, roundTime, xp } = round;
-          const points = xp * 50; // Convert XP back to points
+          const { lat: guessLat, long: guessLong, actualLat, actualLong, usedHint, maxDist, roundTime, xp, points } = round;
+          const actualPoints = points || (xp * 50); // Use actual points if available, fallback to XP conversion
           
           const roundStart = new Date(currentRoundStart);
           const roundEnd = new Date(currentRoundStart + (roundTime * 1000));
@@ -68,7 +68,7 @@ async function guess(req, res) {
               accountId: user.secret,
               guessLat: guessLat,
               guessLong: guessLong,
-              points: points,
+              points: actualPoints,
               timeTaken: roundTime,
               xpEarned: xp || 0,
               guessedAt: guessTime,

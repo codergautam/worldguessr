@@ -85,7 +85,7 @@ const gameSchema = new mongoose.Schema({
   // Game timing
   startedAt: { type: Date, required: true },
   endedAt: { type: Date, required: true },
-  totalDuration: { type: Number, required: true }, // milliseconds
+  totalDuration: { type: Number, required: true }, // seconds
   
   // Round data
   rounds: [roundSchema],
