@@ -966,19 +966,6 @@ const GameSummary = ({
               })
             }}
           >
-            <h1
-              className="summary-title"
-              style={{
-                transition: 'all 0.3s ease-out',
-                ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
-                  fontSize: '1.2rem',
-                  margin: '4px 0',
-                  transform: 'translateY(-2px)'
-                } : {})
-              }}
-            >
-              {text("gameComplete")}
-            </h1>
 
             <div
               className="star-container"
