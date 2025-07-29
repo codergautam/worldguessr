@@ -22,10 +22,6 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  games: {
-    type: Array,
-    default: [],
-  },
   totalGamesPlayed: {
     type: Number,
     default: 0,

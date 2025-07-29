@@ -19,14 +19,14 @@ async function clearOldGamesArrays() {
     return;
   }
   
-  // Clear all games arrays
+  // Remove games field entirely
   const result = await User.updateMany(
     { games: { $exists: true } },
-    { $set: { games: [] } }
+    { $unset: { games: "" } }
   );
   
-  console.log(`Cleared games arrays for ${result.modifiedCount} users`);
-  console.log('Space saved! Old individual round data removed.');
+  console.log(`Removed games field from ${result.modifiedCount} users`);
+  console.log('Space saved! Old games field and data completely removed.');
 }
 
 // Run the cleanup
