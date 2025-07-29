@@ -1,8 +1,6 @@
 // import calcPoints from '@/components/calcPoints';
-// import storeGame from '@/components/storeGame';
 // import ratelimiter from '@/components/utils/ratelimitMiddleware'
 import calcPoints from '../components/calcPoints.js';
-import storeGame from '../components/storeGame.js';
 import ratelimiter from '../components/utils/ratelimitMiddleware.js';
 import Game from '../models/Game.js';
 import User from '../models/User.js';
@@ -135,12 +133,16 @@ async function guess(req, res) {
         // Save the game to Games collection
         await gameDoc.save();
 
-        // Still store individual rounds in the old format for backward compatibility
-        for(const round of rounds) {
-          const { lat: guessLat, long: guessLong, actualLat, actualLong, usedHint, maxDist, roundTime, xp } = round;
-          const calcXp = xp || Math.round(calcPoints({ guessLat, guessLon: guessLong, lat: actualLat, lon: actualLong, usedHint, maxDist }) / 50);
-          await storeGame(secret, calcXp, roundTime, [guessLat, guessLong]);
-        }
+        // Update user's totalGamesPlayed (increment by 1 per game, not per round)
+        await User.updateOne(
+          { secret: user.secret },
+          { 
+            $inc: { 
+              totalGamesPlayed: 1,
+              totalXp: totalXp
+            }
+          }
+        );
 
         // Record user stats for analytics
         try {
@@ -169,7 +171,22 @@ async function guess(req, res) {
   if(secret) {
     try {
       const calcXp = Math.round(calcPoints({ guessLat: lat, guessLon: long, lat: actualLat, lon: actualLong, usedHint, maxDist }) / 50);
-      await storeGame(secret, calcXp, roundTime, [lat, long]);
+      
+      // Update user stats directly (for multiplayer individual rounds)
+      await User.updateOne(
+        { secret },
+        { 
+          $inc: { totalXp: calcXp },
+          $push: { 
+            games: {
+              xp: calcXp,
+              timeTaken: roundTime,
+              latLong: [lat, long],
+              time: new Date()
+            }
+          }
+        }
+      );
     } catch (error) {
       return res.status(500).json({ error: 'An error occurred', message: error.message });
     }
