@@ -166,22 +166,6 @@ export default function HistoricalGameView({ game, session, onBack }) {
 
   return (
     <div className={styles.historicalGameView}>
-      {/* Back button header */}
-      <div className={styles.historicalGameHeader}>
-        <button 
-          className={styles.backButtonHeader}
-          onClick={onBack}
-        >
-          ← {text('backToHistory')}
-        </button>
-        <div className={styles.gameInfoHeader}>
-          <span className={styles.gameType}>{getGameTypeLabel(fullGameData.gameType)}</span>
-          <span className={styles.gameDate}>
-            {new Date(fullGameData.endedAt).toLocaleDateString()}
-          </span>
-        </div>
-      </div>
-
       {/* Use the existing GameSummary component */}
       <GameSummary
         history={transformedHistory}
