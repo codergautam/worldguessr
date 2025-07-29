@@ -4,6 +4,7 @@ import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
 import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt } from "react-icons/fa";
 import msToTime from "./msToTime";
+import formatTime from "../utils/formatTime";
 import 'leaflet/dist/leaflet.css';
 
 const MapContainer = dynamic(
@@ -1162,7 +1163,7 @@ const GameSummary = ({
                             <span className="detail-icon">⏱️</span>
                             {text("timeTaken")}
                           </span>
-                          <span className="time-value">{round.timeTaken}s</span>
+                          <span className="time-value">{formatTime(round.timeTaken)}</span>
                         </div>
                       )}
                     </div>
