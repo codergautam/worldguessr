@@ -94,6 +94,8 @@
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .gameItem:hover {

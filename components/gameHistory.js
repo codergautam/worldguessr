@@ -119,9 +119,6 @@ export default function GameHistory({ session, onGameClick }) {
       <div className={styles.gamesList}>
         {games.map((game) => {
           const gameTypeInfo = getGameTypeDisplay(game.gameType);
-          const pointsPercentage = Math.round(
-            (game.userStats.totalPoints / game.result.maxPossiblePoints) * 100
-          );
 
           return (
             <div
@@ -150,7 +147,7 @@ export default function GameHistory({ session, onGameClick }) {
                   <span className={styles.statValue}>
                     {game.userStats.totalPoints.toLocaleString()}
                     <span className={styles.statPercentage}>
-                      ({pointsPercentage}%)
+                      / {game.result.maxPossiblePoints.toLocaleString()}
                     </span>
                   </span>
                 </div>
