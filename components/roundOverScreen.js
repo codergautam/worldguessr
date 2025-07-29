@@ -348,7 +348,7 @@ const GameSummary = ({
   };
 
   const openInGoogleMaps = (lat, lng) => {
-    const url = `https://www.google.com/maps/@${lat},${lng},15z`;
+    const url = `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
     window.open(url, '_blank');
   };
 
