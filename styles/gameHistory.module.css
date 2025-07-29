@@ -285,6 +285,22 @@
   transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+/* Disable mobile animations for historical game view */
+.historicalGameView * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Re-enable only our specific animations */
+.historicalGameView.entering,
+.historicalGameView.exiting {
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+}
+
+.historicalGameView.entering {
+  animation: fadeInGameView 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards !important;
+}
+
 .historicalGameView.entering {
   animation: fadeInGameView 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
   opacity: 0;
