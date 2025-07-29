@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useTranslation } from '@/components/useTranslations';
-import GameSummary from './roundOverScreen';
 import styles from '../styles/gameHistory.module.css';
+
+const GameSummary = dynamic(() => import('./roundOverScreen'), { ssr: false });
 
 export default function HistoricalGameView({ game, session, onBack }) {
   const { t: text } = useTranslation("common");
