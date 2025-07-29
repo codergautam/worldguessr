@@ -8,7 +8,6 @@ import { getLeague, leagues } from "./utils/leagues";
 import { signOut } from "@/components/auth/auth";
 import { useTranslation } from '@/components/useTranslations';
 import FriendsModal from "@/components/friendModal";
-import '../styles/gameHistory.css';
 
 export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite }) {
     const { t: text } = useTranslation("common");

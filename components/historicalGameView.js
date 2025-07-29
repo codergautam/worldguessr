@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import GameSummary from './roundOverScreen';
+import styles from '../styles/gameHistory.module.css';
 
 export default function HistoricalGameView({ game, session, onBack }) {
   const { t: text } = useTranslation("common");
@@ -46,9 +47,9 @@ export default function HistoricalGameView({ game, session, onBack }) {
 
   if (loading) {
     return (
-      <div className="historical-game-loading">
-        <div className="loading-container">
-          <div className="loading-spinner"></div>
+      <div className={styles.historicalGameLoading}>
+        <div className={styles.loadingContainer}>
+          <div className={styles.loadingSpinner}></div>
           <h3>{text('loadingGameDetails')}</h3>
           <p>{text('pleaseWait')}</p>
         </div>
@@ -58,12 +59,12 @@ export default function HistoricalGameView({ game, session, onBack }) {
 
   if (error) {
     return (
-      <div className="historical-game-error">
-        <div className="error-container">
+      <div className={styles.historicalGameError}>
+        <div className={styles.errorContainer}>
           <h3>{text('errorLoadingGame')}</h3>
           <p>{error}</p>
           <button 
-            className="back-button"
+            className={styles.backButton}
             onClick={onBack}
           >
             ← {text('backToHistory')}
@@ -75,12 +76,12 @@ export default function HistoricalGameView({ game, session, onBack }) {
 
   if (!fullGameData) {
     return (
-      <div className="historical-game-error">
-        <div className="error-container">
+      <div className={styles.historicalGameError}>
+        <div className={styles.errorContainer}>
           <h3>{text('gameNotFound')}</h3>
           <p>{text('gameNoLongerAvailable')}</p>
           <button 
-            className="back-button"
+            className={styles.backButton}
             onClick={onBack}
           >
             ← {text('backToHistory')}
@@ -160,18 +161,18 @@ export default function HistoricalGameView({ game, session, onBack }) {
   }
 
   return (
-    <div className="historical-game-view">
+    <div className={styles.historicalGameView}>
       {/* Back button header */}
-      <div className="historical-game-header">
+      <div className={styles.historicalGameHeader}>
         <button 
-          className="back-button-header"
+          className={styles.backButtonHeader}
           onClick={onBack}
         >
           ← {text('backToHistory')}
         </button>
-        <div className="game-info-header">
-          <span className="game-type">{getGameTypeLabel(fullGameData.gameType)}</span>
-          <span className="game-date">
+        <div className={styles.gameInfoHeader}>
+          <span className={styles.gameType}>{getGameTypeLabel(fullGameData.gameType)}</span>
+          <span className={styles.gameDate}>
             {new Date(fullGameData.endedAt).toLocaleDateString()}
           </span>
         </div>

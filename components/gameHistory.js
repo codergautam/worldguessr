@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import formatTime from '../utils/formatTime';
+import styles from '../styles/gameHistory.module.css';
 
 export default function GameHistory({ session, onGameClick }) {
   const { t: text } = useTranslation("common");
@@ -15,6 +16,7 @@ export default function GameHistory({ session, onGameClick }) {
   });
 
   const fetchGames = async (page = 1) => {
+    if(typeof window === 'undefined' || !session?.token?.secret) return;
     setLoading(true);
     try {
       const response = await fetch(window.cConfig.apiUrl + '/api/gameHistory', {
@@ -22,7 +24,7 @@ export default function GameHistory({ session, onGameClick }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           secret: session?.token?.secret,
           page,
           limit: 10
@@ -73,7 +75,7 @@ export default function GameHistory({ session, onGameClick }) {
     if (diffMinutes < 60) return text('minutesAgo', { minutes: diffMinutes });
     if (diffHours < 24) return text('hoursAgo', { hours: diffHours });
     if (diffDays < 7) return text('daysAgo', { days: diffDays });
-    
+
     return date.toLocaleDateString();
   };
 
@@ -85,8 +87,8 @@ export default function GameHistory({ session, onGameClick }) {
 
   if (loading) {
     return (
-      <div className="game-history-loading">
-        <div className="loading-spinner"></div>
+      <div className={styles.gameHistoryLoading}>
+        <div className={styles.loadingSpinner}></div>
         <p>{text('loadingGameHistory')}</p>
       </div>
     );
@@ -94,9 +96,9 @@ export default function GameHistory({ session, onGameClick }) {
 
   if (games.length === 0) {
     return (
-      <div className="game-history-empty">
-        <div className="empty-state">
-          <span className="empty-icon">🎮</span>
+      <div className={styles.gameHistoryEmpty}>
+        <div className={styles.emptyState}>
+          <span className={styles.emptyIcon}>🎮</span>
           <h3>{text('noGamesPlayed')}</h3>
           <p>{text('startPlayingToSeeHistory')}</p>
         </div>
@@ -105,15 +107,15 @@ export default function GameHistory({ session, onGameClick }) {
   }
 
   return (
-    <div className="game-history">
-      <div className="game-history-header">
+    <div className={styles.gameHistory}>
+      <div className={styles.gameHistoryHeader}>
         <h3>{text('gameHistory')}</h3>
-        <span className="total-games">
+        <span className={styles.totalGames}>
           {text('totalGames', { count: pagination.totalGames })}
         </span>
       </div>
 
-      <div className="games-list">
+      <div className={styles.gamesList}>
         {games.map((game) => {
           const gameTypeInfo = getGameTypeDisplay(game.gameType);
           const pointsPercentage = Math.round(
@@ -121,105 +123,105 @@ export default function GameHistory({ session, onGameClick }) {
           );
 
           return (
-            <div 
-              key={game.gameId} 
-              className="game-item"
+            <div
+              key={game.gameId}
+              className={styles.gameItem}
               onClick={() => onGameClick(game)}
             >
-              <div className="game-header">
-                <div className="game-type">
-                  <span 
-                    className="game-type-icon"
+              <div className={styles.gameHeader}>
+                <div className={styles.gameType}>
+                  <span
+                    className={styles.gameTypeIcon}
                     style={{ color: gameTypeInfo.color }}
                   >
                     {gameTypeInfo.icon}
                   </span>
-                  <span className="game-type-label">{gameTypeInfo.label}</span>
+                  <span className={styles.gameTypeLabel}>{gameTypeInfo.label}</span>
                 </div>
-                <div className="game-date">
+                <div className={styles.gameDate}>
                   {formatDate(game.endedAt)}
                 </div>
               </div>
 
-              <div className="game-stats">
-                <div className="stat-item">
-                  <span className="stat-label">{text('points')}</span>
-                  <span className="stat-value">
+              <div className={styles.gameStats}>
+                <div className={styles.statItem}>
+                  <span className={styles.statLabel}>{text('points')}</span>
+                  <span className={styles.statValue}>
                     {game.userStats.totalPoints.toLocaleString()}
-                    <span className="stat-percentage">
+                    <span className={styles.statPercentage}>
                       ({pointsPercentage}%)
                     </span>
                   </span>
                 </div>
 
                 {game.userStats.totalXp > 0 && (
-                  <div className="stat-item">
-                    <span className="stat-label">XP</span>
-                    <span className="stat-value">{game.userStats.totalXp}</span>
+                  <div className={styles.statItem}>
+                    <span className={styles.statLabel}>XP</span>
+                    <span className={styles.statValue}>{game.userStats.totalXp}</span>
                   </div>
                 )}
 
-                <div className="stat-item">
-                  <span className="stat-label">{text('duration')}</span>
-                  <span className="stat-value">
+                <div className={styles.statItem}>
+                  <span className={styles.statLabel}>{text('duration')}</span>
+                  <span className={styles.statValue}>
                     {formatTime(game.totalDuration)}
                   </span>
                 </div>
               </div>
 
-              <div className="game-details">
-                <div className="detail-item">
-                  <span className="detail-label">{text('location')}</span>
-                  <span className="detail-value">
+              <div className={styles.gameDetails}>
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>{text('location')}</span>
+                  <span className={styles.detailValue}>
                     {getLocationDisplay(game.settings.location)}
                   </span>
                 </div>
 
-                <div className="detail-item">
-                  <span className="detail-label">{text('rounds')}</span>
-                  <span className="detail-value">{game.roundsPlayed}</span>
+                <div className={styles.detailItem}>
+                  <span className={styles.detailLabel}>{text('rounds')}</span>
+                  <span className={styles.detailValue}>{game.roundsPlayed}</span>
                 </div>
 
                 {game.multiplayer && (
-                  <div className="detail-item">
-                    <span className="detail-label">{text('players')}</span>
-                    <span className="detail-value">{game.multiplayer.playerCount}</span>
+                  <div className={styles.detailItem}>
+                    <span className={styles.detailLabel}>{text('players')}</span>
+                    <span className={styles.detailValue}>{game.multiplayer.playerCount}</span>
                   </div>
                 )}
 
                 {game.userStats.finalRank > 1 && (
-                  <div className="detail-item">
-                    <span className="detail-label">{text('rank')}</span>
-                    <span className="detail-value">#{game.userStats.finalRank}</span>
+                  <div className={styles.detailItem}>
+                    <span className={styles.detailLabel}>{text('rank')}</span>
+                    <span className={styles.detailValue}>#{game.userStats.finalRank}</span>
                   </div>
                 )}
               </div>
 
-              <div className="game-arrow">→</div>
+              <div className={styles.gameArrow}>→</div>
             </div>
           );
         })}
       </div>
 
       {pagination.totalPages > 1 && (
-        <div className="pagination">
+        <div className={styles.pagination}>
           <button
-            className="pagination-btn"
+            className={styles.paginationBtn}
             disabled={!pagination.hasPrevPage}
             onClick={() => fetchGames(pagination.currentPage - 1)}
           >
             ← {text('previous')}
           </button>
 
-          <span className="pagination-info">
-            {text('pageOf', { 
-              current: pagination.currentPage, 
-              total: pagination.totalPages 
+          <span className={styles.paginationInfo}>
+            {text('pageOf', {
+              current: pagination.currentPage,
+              total: pagination.totalPages
             })}
           </span>
 
           <button
-            className="pagination-btn"
+            className={styles.paginationBtn}
             disabled={!pagination.hasNextPage}
             onClick={() => fetchGames(pagination.currentPage + 1)}
           >
