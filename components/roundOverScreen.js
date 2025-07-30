@@ -760,12 +760,21 @@ const GameSummary = ({
                     const myId = multiplayerState?.gameData?.myId;
                     const myData = round.players?.[myId];
                     
+                    // Debug logging
+                    console.log('Round', index + 1, 'data:', {
+                      myId,
+                      roundPlayers: round.players,
+                      myData,
+                      roundPoints: round.points
+                    });
+                    
                     // Find opponent more robustly
                     const opponentEntries = Object.entries(round.players || {}).filter(([id]) => id !== myId);
                     const opponentData = opponentEntries.length > 0 ? opponentEntries[0][1] : null;
                     
-                    const myPoints = myData?.points || 0;
-                    const opponentPoints = opponentData?.points || 0;
+                    // Try to get points from multiple possible locations
+                    const myPoints = myData?.points ?? round.points ?? 0;
+                    const opponentPoints = opponentData?.points ?? 0;
                     
                     // Only person who guessed lower gets damage (higher - lower)
                     let myHealthDamage = 0;
