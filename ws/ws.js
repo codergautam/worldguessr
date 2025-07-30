@@ -1369,6 +1369,14 @@ try {
         playersInQueue.delete(id1);
         playersInQueue.delete(id2);
 
+        // Set account IDs for all registered players (needed for saving to MongoDB)
+        if(p1.accountId && p2.accountId) {
+          game.accountIds = {
+            p1: p1.accountId,
+            p2: p2.accountId
+          }
+        }
+
         // check if both have elo
         if(p1.elo && p2.elo) {
           // calculate elo change if p1 wins,loses,draws
@@ -1382,12 +1390,6 @@ try {
             [p1.id]: eloP1Win,
             [p2.id]: eloP2Win,
             draw: eloDraw
-          }
-
-
-          game.accountIds = {
-            p1: p1.accountId,
-            p2: p2.accountId
           }
 
           if(p1.elo > 2000 && p2.elo > 2000) {

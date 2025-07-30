@@ -752,8 +752,8 @@ export default class Game {
   async saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo) {
     try {
       // Get user data for both players
-      const user1 = await User.findOne({ secret: this.accountIds.p1 });
-      const user2 = await User.findOne({ secret: this.accountIds.p2 });
+      const user1 = await User.findOne({ _id: this.accountIds.p1 });
+      const user2 = await User.findOne({ _id: this.accountIds.p2 });
 
       if (!user1 || !user2) {
         console.error('Could not find users for duel game save');
