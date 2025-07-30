@@ -142,15 +142,36 @@ export default function GameHistory({ session, onGameClick }) {
               </div>
 
               <div className={styles.gameStats}>
-                <div className={styles.statItem}>
-                  <span className={styles.statLabel}>{text('points')}</span>
-                  <span className={styles.statValue}>
-                    {game.userStats.totalPoints.toLocaleString()}
-                    <span className={styles.statPercentage}>
-                      / {game.result.maxPossiblePoints.toLocaleString()}
+                {game.gameType === 'ranked_duel' ? (
+                  <>
+                    <div className={styles.statItem}>
+                      <span className={styles.statLabel}>{text('result')}</span>
+                      <span className={styles.statValue} style={{
+                        color: game.userPlayer?.finalRank === 1 ? '#4CAF50' : '#F44336'
+                      }}>
+                        {game.userPlayer?.finalRank === 1 ? text('victory') : text('defeat')}
+                      </span>
+                    </div>
+                    <div className={styles.statItem}>
+                      <span className={styles.statLabel}>{text('elo')}</span>
+                      <span className={styles.statValue} style={{
+                        color: game.userPlayer?.elo?.change >= 0 ? '#4CAF50' : '#F44336'
+                      }}>
+                        {game.userPlayer?.elo?.change > 0 ? '+' : ''}{game.userPlayer?.elo?.change}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className={styles.statItem}>
+                    <span className={styles.statLabel}>{text('points')}</span>
+                    <span className={styles.statValue}>
+                      {game.userStats.totalPoints.toLocaleString()}
+                      <span className={styles.statPercentage}>
+                        / {game.result.maxPossiblePoints.toLocaleString()}
+                      </span>
                     </span>
-                  </span>
-                </div>
+                  </div>
+                )}
 
                 {game.userStats.totalXp > 0 && (
                   <div className={styles.statItem}>
