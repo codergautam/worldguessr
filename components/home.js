@@ -1249,7 +1249,7 @@ export default function Home({ }) {
                 // Dispatch global event to close any open modals/screens
                 window.dispatchEvent(new CustomEvent('gameStarting'));
                 
-                // Close all open modals
+                // Close all open modals except party modal for party games
                 setAccountModalOpen(false);
                 setGameOptionsModalShown(false);
                 setSettingsModal(false);
@@ -1258,7 +1258,10 @@ export default function Home({ }) {
                 setMerchModal(false);
                 setShowSuggestLoginModal(false);
                 setShowDiscordModal(false);
-                setPartyModalShown(false);
+                // Only close party modal if this is not a party game (duel or public multiplayer)
+                if (data.duel || !data.isPrivate) {
+                    setPartyModalShown(false);
+                }
                 setSelectCountryModalShown(false);
                 setConnectionErrorModalShown(false);
                 
