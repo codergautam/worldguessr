@@ -149,6 +149,7 @@ export default function GameHistory({ session, onGameClick }) {
                       <span className={styles.statValue} style={{
                         color: game.userPlayer?.finalRank === 1 ? '#4CAF50' : '#F44336'
                       }}>
+                        {console.log('Duel game data:', game.userPlayer, 'finalRank:', game.userPlayer?.finalRank)}
                         {game.userPlayer?.finalRank === 1 ? text('victory') : text('defeat')}
                       </span>
                     </div>
