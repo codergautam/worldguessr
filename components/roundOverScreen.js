@@ -50,7 +50,7 @@ const GameSummary = ({
     multiplayerState
 }) => {
   const { t: text } = useTranslation("common");
-  const [activeRound, setActiveRound] = useState(0);
+  const [activeRound, setActiveRound] = useState(null); // null = no round selected
   const [mapReady, setMapReady] = useState(false);
   const [leafletReady, setLeafletReady] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState(false);
@@ -628,27 +628,35 @@ const GameSummary = ({
                 url={`https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}`}
               />
 
-              {finalHistory.map((round, index) => (
-                <React.Fragment key={index}>
-                  {/* Target location */}
-                  <Marker
-                    position={[round.lat, round.long]}
-                    icon={destIconRef.current}
-                  >
-                    <Popup>
-                      <div>
-                        <strong>{text("roundNo", { r: index + 1 })}</strong><br />
-                        {text("actualLocation")}
-                      </div>
-                    </Popup>
-                  </Marker>
+              {finalHistory.map((round, index) => {
+                // For duels: show all destination pins when no round selected, or only selected round's destination when a round is selected
+                // For other multiplayer: show all destination pins
+                const isDuel = multiplayerState?.gameData?.duel;
+                const shouldShowDestination = !isDuel || activeRound === null || activeRound === index;
+                
+                return (
+                  <React.Fragment key={index}>
+                    {/* Target location */}
+                    {shouldShowDestination && (
+                      <Marker
+                        position={[round.lat, round.long]}
+                        icon={destIconRef.current}
+                      >
+                        <Popup>
+                          <div>
+                            <strong>{text("roundNo", { r: index + 1 })}</strong><br />
+                            {text("actualLocation")}
+                          </div>
+                        </Popup>
+                      </Marker>
+                    )}
 
                   {/* Current player's guess */}
                   {round.guessLat && round.guessLong && (() => {
-                    // For duels: only show player's guess when this specific round is selected
+                    // For duels: show all player guesses when no round selected, or only selected round when a round is selected
                     // For other multiplayer: show all player's guesses
                     const isDuel = multiplayerState?.gameData?.duel;
-                    const shouldShowPlayerGuess = !isDuel || activeRound === index;
+                    const shouldShowPlayerGuess = !isDuel || activeRound === null || activeRound === index;
                     
                     if (!shouldShowPlayerGuess) {
                       return null;
@@ -682,10 +690,10 @@ const GameSummary = ({
                   {/* Other players' guesses */}
                   {round.players && Object.entries(round.players).map(([playerId, player]) => {
                     if (player.lat && player.long && playerId !== multiplayerState?.gameData?.myId) {
-                      // For duels: only show opponent guesses when this specific round is selected
+                      // For duels: show all opponent guesses when no round selected, or only selected round when a round is selected  
                       // For other multiplayer: show all opponent guesses
                       const isDuel = multiplayerState?.gameData?.duel;
-                      const shouldShowOpponent = !isDuel || activeRound === index;
+                      const shouldShowOpponent = !isDuel || activeRound === null || activeRound === index;
                       
                       if (!shouldShowOpponent) {
                         return null;
