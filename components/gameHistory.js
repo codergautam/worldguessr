@@ -147,18 +147,17 @@ export default function GameHistory({ session, onGameClick }) {
                     <div className={styles.statItem}>
                       <span className={styles.statLabel}>{text('result')}</span>
                       <span className={styles.statValue} style={{
-                        color: game.userPlayer?.finalRank === 1 ? '#4CAF50' : '#F44336'
+                        color: game.userStats?.finalRank === 1 ? '#4CAF50' : '#F44336'
                       }}>
-                        {console.log('Duel game data:', game.userPlayer, 'finalRank:', game.userPlayer?.finalRank)}
-                        {game.userPlayer?.finalRank === 1 ? text('victory') : text('defeat')}
+                        {game.userStats?.finalRank === 1 ? text('victory') : text('defeat')}
                       </span>
                     </div>
                     <div className={styles.statItem}>
                       <span className={styles.statLabel}>{text('elo')}</span>
                       <span className={styles.statValue} style={{
-                        color: game.userPlayer?.elo?.change >= 0 ? '#4CAF50' : '#F44336'
+                        color: game.userStats?.elo?.change >= 0 ? '#4CAF50' : '#F44336'
                       }}>
-                        {game.userPlayer?.elo?.change > 0 ? '+' : ''}{game.userPlayer?.elo?.change}
+                        {game.userStats?.elo?.change > 0 ? '+' : ''}{game.userStats?.elo?.change}
                       </span>
                     </div>
                   </>
