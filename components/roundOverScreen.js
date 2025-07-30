@@ -244,11 +244,11 @@ const GameSummary = ({
 
   // Render player round distribution
   const renderPlayerRounds = (playerId) => {
-    if (!playerId || !history[0]?.players?.[playerId]) return null;
+    if (!playerId || !finalHistory[0]?.players?.[playerId]) return null;
 
     return (
       <div style={{marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '8px'}}>
-        {history.map((round, index) => {
+        {finalHistory.map((round, index) => {
           const playerRound = round.players?.[playerId];
           if (!playerRound) return null;
 
@@ -288,13 +288,13 @@ const GameSummary = ({
 
   // Reusable leaderboard rendering function
   const renderLeaderboard = (showAll = false) => {
-    if (!history[0]?.players) return null;
+    if (!finalHistory[0]?.players) return null;
 
-    const players = Object.entries(history[0].players)
+    const players = Object.entries(finalHistory[0].players)
       .map(([playerId, player]) => ({
         playerId,
         username: player.username,
-        totalScore: history.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
+        totalScore: finalHistory.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
       }))
       .sort((a, b) => b.totalScore - a.totalScore);
 
@@ -375,14 +375,16 @@ const GameSummary = ({
 
   // Helper function to calculate health damage for duels
   const calculateHealthDamage = (points, maxPoints = 5000) => {
-    return maxPoints - points;
+    // Higher points = less damage. Scale damage from 0 to maxPoints based on inverse of points
+    const damage = Math.max(0, maxPoints - points);
+    return Math.round(damage);
   };
 
   const fitMapToBounds = () => {
-    if (!mapRef.current || !history.length || !window.L) {
+    if (!mapRef.current || !finalHistory.length || !window.L) {
       console.log('fitMapToBounds early return:', {
         mapRef: !!mapRef.current,
-        historyLength: history.length,
+        historyLength: finalHistory.length,
         leaflet: !!window.L
       });
       return;
@@ -391,7 +393,7 @@ const GameSummary = ({
     const map = mapRef.current;
     const bounds = window.L.latLngBounds();
 
-    history.forEach(round => {
+    finalHistory.forEach(round => {
       bounds.extend([round.lat, round.long]);
       if (round.guessLat && round.guessLong) {
         bounds.extend([round.guessLat, round.guessLong]);
@@ -419,17 +421,17 @@ const GameSummary = ({
   const focusOnRound = (roundIndex) => {
     console.log('focusOnRound called:', {
       mapRef: !!mapRef.current,
-      history: history.length,
+      history: finalHistory.length,
       roundIndex,
       leaflet: !!window.L
     });
 
-    if (!mapRef.current || !history[roundIndex] || !window.L) {
+    if (!mapRef.current || !finalHistory[roundIndex] || !window.L) {
       console.log('focusOnRound early return');
       return;
     }
 
-    const round = history[roundIndex];
+    const round = finalHistory[roundIndex];
     const map = mapRef.current;
 
     console.log(`Focusing on round ${roundIndex + 1}:`, round);
@@ -469,7 +471,7 @@ const GameSummary = ({
   };
 
   useEffect(() => {
-    if (mapReady && history.length > 0 && leafletReady) {
+    if (mapReady && finalHistory.length > 0 && leafletReady) {
       console.log('Map ready, setting initial view...');
       setTimeout(() => {
         // Set initial extent only once, then allow free user interaction
@@ -603,7 +605,7 @@ const GameSummary = ({
   // }
 
   // Use the constructed or provided history
-  history = gameHistory;
+  const finalHistory = gameHistory;
 
   // DUEL SCREEN IMPLEMENTATION
   if (duel && data) {
@@ -625,14 +627,14 @@ const GameSummary = ({
               <MapEvents
                 mapRef={mapRef}
                 onMapReady={setMapReady}
-                history={history}
+                history={finalHistory}
               />
 
               <TileLayer
                 url={`https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}`}
               />
 
-              {history.map((round, index) => (
+              {finalHistory.map((round, index) => (
                 <React.Fragment key={index}>
                   {/* Target location */}
                   <Marker
@@ -757,13 +759,17 @@ const GameSummary = ({
 
             <div className={`rounds-container duel-rounds ${!mobileExpanded ? 'mobile-hidden' : ''}`} ref={roundsContainerRef}>
               {/* For ranked duels with 2 players */}
-              {multiplayerState?.gameData?.duel && history.length > 0 && (
+              {multiplayerState?.gameData?.duel && finalHistory.length > 0 && (
                 <>
                   <h3>{text("roundDetails")}</h3>
-                  {history.map((round, index) => {
+                  {finalHistory.map((round, index) => {
                     const myId = multiplayerState?.gameData?.myId;
                     const myData = round.players?.[myId];
-                    const opponentData = Object.entries(round.players || {}).find(([id]) => id !== myId)?.[1];
+                    
+                    // Find opponent more robustly
+                    const opponentEntries = Object.entries(round.players || {}).filter(([id]) => id !== myId);
+                    const opponentData = opponentEntries.length > 0 ? opponentEntries[0][1] : null;
+                    
                     const myPoints = myData?.points || 0;
                     const opponentPoints = opponentData?.points || 0;
                     const myHealthDamage = calculateHealthDamage(myPoints);
@@ -809,7 +815,7 @@ const GameSummary = ({
               )}
 
               {/* For private games and unranked multiplayer (including 10 player games) */}
-              {(!multiplayerState?.gameData?.duel || Object.keys(history[0]?.players || {}).length > 2) && (
+              {(!multiplayerState?.gameData?.duel || Object.keys(finalHistory[0]?.players || {}).length > 2) && (
                 <>
                   <h3>{text("finalScores")}</h3>
                   {renderLeaderboard(true)}
@@ -861,13 +867,13 @@ const GameSummary = ({
                     <div className="popup-content">
                       <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("actualLocation")}</div>
                       {/* Only show points in single player games */}
-                      {(!multiplayerState?.gameData || !history[0]?.players || Object.keys(history[0].players).length <= 1) && (
+                      {(!multiplayerState?.gameData || !finalHistory[0]?.players || Object.keys(finalHistory[0].players).length <= 1) && (
                         <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
                           {round.points} {text("points")}
                         </div>
                       )}
                       {/* Only show distance in single player games */}
-                      {distance && (!multiplayerState?.gameData || !history[0]?.players || Object.keys(history[0].players).length <= 1) && (
+                      {distance && (!multiplayerState?.gameData || !finalHistory[0]?.players || Object.keys(finalHistory[0].players).length <= 1) && (
                         <div className="popup-distance">
                           {text("distance")}: {formatDistance(distance)}
                         </div>
@@ -1058,17 +1064,17 @@ const GameSummary = ({
 
         <div className={`rounds-container ${!mobileExpanded ? 'mobile-hidden' : ''}`} ref={roundsContainerRef}>
           {/* Show leaderboard for multiplayer games */}
-          {multiplayerState?.gameData && history[0]?.players && Object.keys(history[0].players).length > 1 && (
+          {multiplayerState?.gameData && finalHistory[0]?.players && Object.keys(finalHistory[0].players).length > 1 && (
             <>
               <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("finalScores")}</h3>
               {renderLeaderboard(false)}
             </>
           )}
 
-          {!multiplayerState?.gameData && history && history.length > 0 && (
+          {!multiplayerState?.gameData && finalHistory && finalHistory.length > 0 && (
             <>
               <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("roundDetails")}</h3>
-              {history.map((round, index) => {
+              {finalHistory.map((round, index) => {
                 const distance = round.guessLat && round.guessLong
                   ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
                   : null;
