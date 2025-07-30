@@ -29,6 +29,16 @@ export default function HistoricalGameView({ game, session, onBack }) {
     }, 300); // Wait for exit animation to complete
   };
 
+  // Auto-close when game starts
+  useEffect(() => {
+    const handleGameStarting = () => {
+      handleBack();
+    };
+    
+    window.addEventListener('gameStarting', handleGameStarting);
+    return () => window.removeEventListener('gameStarting', handleGameStarting);
+  }, []);
+
 
   useEffect(() => {
     const fetchFullGameData = async () => {

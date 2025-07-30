@@ -1246,6 +1246,22 @@ export default function Home({ }) {
                 toast(data.message === 'uac' ? text('userAlreadyConnected') : data.message, { type: 'error' });
 
             } else if (data.type === "game") {
+                // Dispatch global event to close any open modals/screens
+                window.dispatchEvent(new CustomEvent('gameStarting'));
+                
+                // Close all open modals
+                setAccountModalOpen(false);
+                setGameOptionsModalShown(false);
+                setSettingsModal(false);
+                setMapModal(false);
+                setFriendsModal(false);
+                setMerchModal(false);
+                setShowSuggestLoginModal(false);
+                setShowDiscordModal(false);
+                setPartyModalShown(false);
+                setSelectCountryModalShown(false);
+                setConnectionErrorModalShown(false);
+                
                 setScreen("multiplayer")
                 setMultiplayerState((prev) => {
 
