@@ -727,7 +727,8 @@ const GameSummary = ({
                     return null;
                   })}
                 </React.Fragment>
-              ))}
+                );
+              })}
             </MapContainer>
           </div>
 
