@@ -121,6 +121,20 @@ export default function HistoricalGameView({ game, session, onBack }) {
       return null;
     }
 
+    // For duels and multiplayer, include players data
+    let players = {};
+    if (round.allGuesses && round.allGuesses.length > 0) {
+      round.allGuesses.forEach(guess => {
+        players[guess.playerId] = {
+          username: guess.username,
+          points: guess.points,
+          lat: guess.guessLat,
+          long: guess.guessLong,
+          timeTaken: guess.timeTaken
+        };
+      });
+    }
+
     return {
       lat: round.location.lat,
       long: round.location.long,
@@ -129,7 +143,8 @@ export default function HistoricalGameView({ game, session, onBack }) {
       points: round.guess.points,
       timeTaken: round.guess.timeTaken,
       xpEarned: round.guess.xpEarned,
-      usedHint: round.guess.usedHint
+      usedHint: round.guess.usedHint,
+      players: players // Include players data for duels/multiplayer
     };
   }).filter(round => round !== null); // Remove null entries
 
@@ -158,6 +173,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
   if (fullGameData.gameType !== 'singleplayer') {
     multiplayerState = {
       gameData: {
+        myId: fullGameData.currentUserId, // Add the current user ID
         players: fullGameData.players.map(player => ({
           id: player.playerId,
           username: player.username,
