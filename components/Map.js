@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Popup, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
@@ -97,30 +97,34 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   const plopSound = React.useRef();
 
   const { t: text } = useTranslation("common");
-  const destIcon = L.icon({
-    iconUrl: './dest.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-  });
-  const srcIcon = L.icon({
-    iconUrl: './src.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-  });
-  const src2Icon = L.icon({
-    iconUrl: './src2.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-  });
-  const polandballIcon = L.icon({
-    iconUrl: './polandball.png',
-    iconSize: [50, 82],
-    iconAnchor: [25, 41],
-    popupAnchor: [1, 5],
-  });
+  
+  // Cache icons to prevent repeated requests
+  const icons = useMemo(() => ({
+    dest: L.icon({
+      iconUrl: './dest.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+    }),
+    src: L.icon({
+      iconUrl: './src.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+    }),
+    src2: L.icon({
+      iconUrl: './src2.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+    }),
+    polandball: L.icon({
+      iconUrl: './polandball.png',
+      iconSize: [50, 82],
+      iconAnchor: [25, 41],
+      popupAnchor: [1, 5],
+    })
+  }), []);
 
 
   useEffect(() => {
@@ -160,11 +164,11 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
       } pinPoint={pinPoint} setPinPoint={setPinPoint} answerShown={answerShown} dest={location} gameOptions={gameOptions} ws={ws} multiplayerState={multiplayerState} />
       {/* place a pin */}
       {location && answerShown && (
-        <Marker position={{ lat: location.lat, lng: location.long }} icon={destIcon} />
+        <Marker position={{ lat: location.lat, lng: location.long }} icon={icons.dest} />
       )}
       {pinPoint && (
         <>
-          <Marker position={pinPoint} icon={customPins[session?.token?.username] === "polandball" ? polandballIcon : srcIcon} >
+          <Marker position={pinPoint} icon={customPins[session?.token?.username] === "polandball" ? icons.polandball : icons.src} >
           <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent  position={{ lat: pinPoint.lat, lng: pinPoint.lng }}>
 
               {text("yourGuess")}
@@ -186,7 +190,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         const name = process.env.NEXT_PUBLIC_COOLMATH?guestNameString(player.username):player.username;
         const latLong = [player.guess[0], player.guess[1]];
 
-        const tIcon = customPins[name]==="polandball" ? polandballIcon : src2Icon;
+        const tIcon = customPins[name]==="polandball" ? icons.polandball : icons.src2;
 
         return (
           <>

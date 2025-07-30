@@ -794,9 +794,11 @@ const GameSummary = ({
                             <span className="score-points" style={{ color: getPointsColor(myPoints) }}>
                               {myPoints} {text("pts")}
                             </span>
-                            <span className="health-damage">
-                              -{myHealthDamage} ❤️
-                            </span>
+                            {myHealthDamage > 0 && (
+                              <span className="health-damage">
+                                -{myHealthDamage} ❤️
+                              </span>
+                            )}
                           </div>
 
                           <div className="vs-divider">VS</div>
@@ -806,9 +808,11 @@ const GameSummary = ({
                             <span className="score-points" style={{ color: getPointsColor(opponentPoints) }}>
                               {opponentPoints} {text("pts")}
                             </span>
-                            <span className="health-damage">
-                              -{opponentHealthDamage} ❤️
-                            </span>
+                            {opponentHealthDamage > 0 && (
+                              <span className="health-damage">
+                                -{opponentHealthDamage} ❤️
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
