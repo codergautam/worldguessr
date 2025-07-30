@@ -17,7 +17,7 @@ const TileLayer = dynamic(
 );
 
 // Component to handle map events and store map reference
-const MapEvents = ({ mapRef, onMapReady, history }) => {
+const MapEvents = ({ mapRef, onMapReady, history, onUserInteraction }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -31,6 +31,26 @@ const MapEvents = ({ mapRef, onMapReady, history }) => {
       }, 100);
     }
   }, [map, mapRef, onMapReady]);
+
+  // Listen for user-initiated map interactions
+  useEffect(() => {
+    if (map && onUserInteraction) {
+      const handleUserInteraction = () => {
+        onUserInteraction();
+      };
+
+      // Listen for zoom and pan events initiated by user
+      map.on('zoomstart', handleUserInteraction);
+      map.on('movestart', handleUserInteraction);
+      map.on('dragstart', handleUserInteraction);
+
+      return () => {
+        map.off('zoomstart', handleUserInteraction);
+        map.off('movestart', handleUserInteraction);
+        map.off('dragstart', handleUserInteraction);
+      };
+    }
+  }, [map, onUserInteraction]);
 
   return null;
 };
@@ -56,6 +76,7 @@ const GameSummary = ({
   const [mobileExpanded, setMobileExpanded] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [headerCompact, setHeaderCompact] = useState(false);
+  const [userHasInteracted, setUserHasInteracted] = useState(false); // Track if user has manually moved the map
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
@@ -66,6 +87,7 @@ const GameSummary = ({
   const [animatedPoints, setAnimatedPoints] = useState(0);
   const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
+  const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
 
   // Initialize Leaflet icons when available
   useEffect(() => {
@@ -417,11 +439,12 @@ const GameSummary = ({
       mapRef: !!mapRef.current,
       history: finalHistory.length,
       roundIndex,
-      leaflet: !!window.L
+      leaflet: !!window.L,
+      userHasInteracted
     });
 
-    if (!mapRef.current || !finalHistory[roundIndex] || !window.L) {
-      console.log('focusOnRound early return');
+    if (!mapRef.current || !finalHistory[roundIndex] || !window.L || userHasInteracted) {
+      console.log('focusOnRound early return - user has interacted with map');
       return;
     }
 
@@ -465,14 +488,14 @@ const GameSummary = ({
   };
 
   useEffect(() => {
-    if (mapReady && finalHistory.length > 0 && leafletReady) {
+    if (mapReady && finalHistory.length > 0 && leafletReady && !userHasInteracted) {
       console.log('Map ready, setting initial view...');
       setTimeout(() => {
         // Set initial extent only once, then allow free user interaction
         fitMapToBounds();
       }, 200);
     }
-  }, [mapReady, leafletReady]); // Removed history dependency to prevent refitting on history changes
+  }, [mapReady, leafletReady, userHasInteracted]); // Only fit bounds if user hasn't interacted
 
   const handleRoundClick = (index) => {
     console.log(`Round ${index + 1} clicked`);
@@ -622,6 +645,7 @@ const GameSummary = ({
                 mapRef={mapRef}
                 onMapReady={setMapReady}
                 history={finalHistory}
+                onUserInteraction={() => setUserHasInteracted(true)}
               />
 
               <TileLayer
@@ -897,6 +921,7 @@ const GameSummary = ({
             mapRef={mapRef}
             onMapReady={setMapReady}
             history={history}
+            onUserInteraction={() => setUserHasInteracted(true)}
           />
 
           <TileLayer

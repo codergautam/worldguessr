@@ -277,7 +277,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 99999;
+  z-index: 9999;
   background: rgba(0, 0, 0, 0.9);
   opacity: 1;
   transform: scale(1);
@@ -402,34 +402,34 @@
   .gameHistory {
     padding: 16px;
   }
-  
+
   .gameItem {
     padding: 16px;
     min-width: unset;
     max-width: 100%;
     width: 100%;
   }
-  
+
   .gameStats {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .gameDetails {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .gameHeader {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
   }
-  
+
   .historicalGameHeader {
     flex-direction: column;
     gap: 12px;
     align-items: stretch;
   }
-  
+
   .gameInfoHeader {
     align-items: flex-start;
   }
@@ -439,27 +439,27 @@
   .gameHistory {
     padding: 12px;
   }
-  
+
   .gameItem {
     padding: 16px;
     min-width: unset;
     max-width: 100%;
     width: 100%;
   }
-  
+
   .gameStats {
     grid-template-columns: 1fr;
   }
-  
+
   .gameDetails {
     grid-template-columns: 1fr;
   }
-  
+
   .pagination {
     flex-direction: column;
     gap: 12px;
   }
-  
+
   .paginationInfo {
     order: -1;
   }
