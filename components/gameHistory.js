@@ -145,12 +145,6 @@ export default function GameHistory({ session, onGameClick }) {
                 {game.gameType === 'ranked_duel' ? (
                   <>
                     <div className={styles.statItem}>
-                      <span className={styles.statLabel}>{text('opponent')}</span>
-                      <span className={styles.statValue}>
-                        {game.opponent?.username || text('unknown')}
-                      </span>
-                    </div>
-                    <div className={styles.statItem}>
                       <span className={styles.statLabel}>{text('result')}</span>
                       <span className={styles.statValue} style={{
                         color: (game.userStats?.finalRank === 1 || game.userPlayer?.finalRank === 1) ? '#4CAF50' : '#F44336'
@@ -164,6 +158,18 @@ export default function GameHistory({ session, onGameClick }) {
                         color: (game.userStats?.elo?.change >= 0 || game.userPlayer?.elo?.change >= 0) ? '#4CAF50' : '#F44336'
                       }}>  
                         {((game.userStats?.elo?.change || game.userPlayer?.elo?.change) > 0) ? '+' : ''}{game.userStats?.elo?.change || game.userPlayer?.elo?.change}
+                      </span>
+                    </div>
+                    <div className={styles.statItem}>
+                      <span className={styles.statLabel}>{text('opponent')}</span>
+                      <span className={styles.statValue}>
+                        {game.opponent?.username || text('unknown')}
+                      </span>
+                    </div>
+                    <div className={styles.statItem}>
+                      <span className={styles.statLabel}>{text('duration')}</span>
+                      <span className={styles.statValue}>
+                        {formatTime(game.totalDuration)}
                       </span>
                     </div>
                   </>
