@@ -1,11 +1,27 @@
-import { FaCloud, FaCloudBolt, FaTowerBroadcast } from "react-icons/fa6";
+import { FaCloud, FaCloudBolt, FaTowerBroadcast, FaWifiSlash, FaWifi } from "react-icons/fa6";
+import { useState } from "react";
+import './wsIcon.css';
 
-export default function WsIcon({ connected, shown }) {
-  // show cloud if connected, else show cloud with slash
+export default function WsIcon({ connected, shown, onClick }) {
+  const [isHovered, setIsHovered] = useState(false);
+  
   return (
-    <div className={`wsIcon ${shown ? "" : "hidden"}`}>
-   <FaTowerBroadcast size={50} style={{ opacity: 1, color: 'white' }} />
-
-      </div>
+    <div 
+      className={`wsIcon ${shown ? "" : "hidden"} ${connected ? "connected" : "disconnected"}`}
+      onClick={onClick}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      title={connected ? "Connected to server" : "Connection lost - Click for details"}
+      style={{
+        transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+        cursor: onClick ? 'pointer' : 'default'
+      }}
+    >
+      {connected ? (
+        <FaWifi size={24} />
+      ) : (
+        <FaWifiSlash size={24} />
+      )}
+    </div>
   )
 }

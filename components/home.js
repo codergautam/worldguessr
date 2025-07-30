@@ -2123,6 +2123,7 @@ export default function Home({ }) {
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}
                     mapModalOpen={mapModal}
+                    onConnectionError={() => setConnectionErrorModalShown(true)}
                 />
 
                 {multiplayerState?.playerCount && (

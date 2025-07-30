@@ -6,7 +6,7 @@ import { useTranslation } from '@/components/useTranslations'
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, mapModalOpen }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, mapModalOpen, onConnectionError }) {
     const { t: text } = useTranslation("common");
 
     const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting");
@@ -37,9 +37,11 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
 
 
 
-                {!multiplayerState?.connected && (
-                    <WsIcon connected={false} shown={true} />
-                )}
+                <WsIcon 
+                    connected={multiplayerState?.connected} 
+                    shown={true} 
+                    onClick={!multiplayerState?.connected ? onConnectionError : undefined} 
+                />
 
 
                 {screen === 'multiplayer' && multiplayerState?.inGame && multiplayerState?.gameData?.players.length > 0 && (
