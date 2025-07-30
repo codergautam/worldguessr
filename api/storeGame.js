@@ -63,7 +63,7 @@ async function guess(req, res) {
             playerGuesses: [{
               playerId: user.secret,
               username: user.username || 'Player',
-              accountId: user.secret,
+              accountId: user._id,
               guessLat: guessLat,
               guessLong: guessLong,
               points: actualPoints,
@@ -104,7 +104,7 @@ async function guess(req, res) {
           players: [{
             playerId: user.secret,
             username: user.username || 'Player',
-            accountId: user.secret,
+            accountId: user._id,
             totalPoints: totalPoints,
             totalXp: totalXp,
             averageTimePerRound: rounds.reduce((sum, r) => sum + r.roundTime, 0) / rounds.length,

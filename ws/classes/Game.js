@@ -781,7 +781,7 @@ export default class Game {
             {
               playerId: p1.id,
               username: user1.username || 'Player',
-              accountId: user1.secret,
+              accountId: this.accountIds.p1,
               guessLat: roundData.players[p1.id]?.lat || null,
               guessLong: roundData.players[p1.id]?.long || null,
               points: roundData.players[p1.id]?.points || 0,
@@ -794,7 +794,7 @@ export default class Game {
             {
               playerId: p2.id,
               username: user2.username || 'Player',
-              accountId: user2.secret,
+              accountId: this.accountIds.p2,
               guessLat: roundData.players[p2.id]?.lat || null,
               guessLong: roundData.players[p2.id]?.long || null,
               points: roundData.players[p2.id]?.points || 0,
@@ -836,7 +836,7 @@ export default class Game {
           {
             playerId: p1.id,
             username: user1.username || 'Player',
-            accountId: user1.secret,
+            accountId: this.accountIds.p1,
             totalPoints: p1.score,
             totalXp: 0, // Duels don't give XP
             averageTimePerRound: 30,
@@ -850,7 +850,7 @@ export default class Game {
           {
             playerId: p2.id,
             username: user2.username || 'Player',
-            accountId: user2.secret,
+            accountId: this.accountIds.p2,
             totalPoints: p2.score,
             totalXp: 0,
             averageTimePerRound: 30,
@@ -864,7 +864,7 @@ export default class Game {
         ],
 
         result: {
-          winner: winner ? (winner.tag === 'p1' ? user1.secret : user2.secret) : null,
+          winner: winner ? (winner.tag === 'p1' ? this.accountIds.p1 : this.accountIds.p2) : null,
           isDraw: draw,
           maxPossiblePoints: maxPossiblePoints
         },
@@ -883,12 +883,12 @@ export default class Game {
 
       // Update totalGamesPlayed for both users
       await User.updateOne(
-        { secret: user1.secret },
+        { _id: this.accountIds.p1 },
         { $inc: { totalGamesPlayed: 1 } }
       );
 
       await User.updateOne(
-        { secret: user2.secret },
+        { _id: this.accountIds.p2 },
         { $inc: { totalGamesPlayed: 1 } }
       );
 

@@ -149,7 +149,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
       eloDiff: fullGameData.userPlayer.elo.change,
       won: fullGameData.userPlayer.finalRank === 1,
       // Add opponent info if available
-      opponent: fullGameData.players.find(p => p.accountId !== session?.token?.secret)
+      opponent: fullGameData.players.find(p => p.accountId !== fullGameData.currentUserId)
     };
   }
 

@@ -28,7 +28,7 @@ export default async function handler(req, res) {
     // Fetch the specific game
     const game = await Game.findOne({
       gameId: gameId,
-      'players.accountId': secret // Ensure user participated in this game
+      'players.accountId': user._id // Ensure user participated in this game
     }).lean();
 
     if (!game) {
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       // All rounds with locations and guesses
       rounds: game.rounds.map((round, index) => {
         // Find user's guess for this round
-        const userGuess = round.playerGuesses.find(guess => guess.accountId === secret);
+        const userGuess = round.playerGuesses.find(guess => guess.accountId === user._id.toString());
         
         return {
           roundNumber: round.roundNumber,
@@ -103,7 +103,10 @@ export default async function handler(req, res) {
       multiplayer: game.multiplayer,
       
       // Find the requesting user's player data
-      userPlayer: game.players.find(player => player.accountId === secret)
+      userPlayer: game.players.find(player => player.accountId === user._id.toString()),
+      
+      // Add user's _id for frontend comparisons
+      currentUserId: user._id.toString()
     };
 
     return res.status(200).json({ game: formattedGame });

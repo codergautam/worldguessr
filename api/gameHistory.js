@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
     // Fetch user's games with pagination
     const games = await Game.find({
-      'players.accountId': secret
+      'players.accountId': user._id
     })
     .sort({ endedAt: -1 }) // Most recent first
     .skip(skip)
@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
     // Get total count for pagination
     const totalGames = await Game.countDocuments({
-      'players.accountId': secret
+      'players.accountId': user._id
     });
 
     // Calculate pagination info
@@ -47,8 +47,8 @@ export default async function handler(req, res) {
 
     // Format games for frontend
     const formattedGames = games.map(game => {
-      // Find the user's player data
-      const userPlayer = game.players.find(player => player.accountId === secret);
+      // Find the user's player data  
+      const userPlayer = game.players.find(player => player.accountId === user._id.toString() || player.accountId === secret);
       
       return {
         gameId: game.gameId,
