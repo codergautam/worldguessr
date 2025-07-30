@@ -43,7 +43,6 @@ export default function AccountView({ accountData, supporter, eloData, session }
 
         if (response.ok) {
             window.settingName = false;
-            sendEvent("name_change");
             alert(text("nameChanged"));
 
             setTimeout(() => {
