@@ -192,12 +192,14 @@ export default function GameHistory({ session, onGameClick }) {
                   </div>
                 )}
 
-                <div className={styles.statItem}>
-                  <span className={styles.statLabel}>{text('duration')}</span>
-                  <span className={styles.statValue}>
-                    {formatTime(game.totalDuration)}
-                  </span>
-                </div>
+                {game.gameType !== 'ranked_duel' && (
+                  <div className={styles.statItem}>
+                    <span className={styles.statLabel}>{text('duration')}</span>
+                    <span className={styles.statValue}>
+                      {formatTime(game.totalDuration)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className={styles.gameDetails}>
