@@ -1,5 +1,30 @@
 import { toast } from "react-toastify";
 
+// Global connection manager to prevent multiple concurrent attempts
+const connectionManager = {
+  activeAttempts: new Map(),
+  
+  cancel(url) {
+    if (this.activeAttempts.has(url)) {
+      const { websocket, cleanup } = this.activeAttempts.get(url);
+      console.log(`[WS Manager] Cancelling previous connection attempt to ${url}`);
+      cleanup();
+      if (websocket && websocket.readyState === WebSocket.CONNECTING) {
+        websocket.close();
+      }
+      this.activeAttempts.delete(url);
+    }
+  },
+  
+  register(url, websocket, cleanup) {
+    this.activeAttempts.set(url, { websocket, cleanup });
+  },
+  
+  complete(url) {
+    this.activeAttempts.delete(url);
+  }
+};
+
 /**
  * inits a websocket by a given url, returned promise resolves with initialized websocket, rejects after failure/timeout.
  *
@@ -17,9 +42,25 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
   var timeoutId = null;
   var attemptId = Math.random().toString(36).substr(2, 9);
   
+  // Cancel any previous connection attempts to the same URL
+  connectionManager.cancel(url);
+  
   console.log(`[WS ${attemptId}] Initializing WebSocket connection to ${url} (timeout: ${timeoutMs}ms, retries: ${numberOfRetries})`);
   
   var promise = new Promise((resolve, reject) => {
+      var websocket = null;
+      
+      // Cleanup function to clear timeouts and close websocket
+      const cleanup = () => {
+          if (timeoutId) {
+              clearTimeout(timeoutId);
+              timeoutId = null;
+          }
+          if (websocket && websocket.readyState === WebSocket.CONNECTING) {
+              websocket.close();
+          }
+      };
+      
       timeoutId = setTimeout(function () {
           if(!hasReturned) {
               console.warn(`[WS ${attemptId}] Opening websocket timed out after ${timeoutMs}ms: ${url}`);
@@ -34,7 +75,10 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
           }
           
           console.log(`[WS ${attemptId}] Creating new WebSocket connection`);
-          var websocket = new WebSocket(url);
+          websocket = new WebSocket(url);
+          
+          // Register this attempt with the connection manager
+          connectionManager.register(url, websocket, cleanup);
           
           websocket.onopen = function (event) {
               console.log(`[WS ${attemptId}] WebSocket opened successfully`);
@@ -44,6 +88,7 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
               } else {
                   hasReturned = true;
                   clearTimeout(timeoutId);
+                  connectionManager.complete(url);
                   console.info(`[WS ${attemptId}] WebSocket connection established: ${url}`);
                   resolve(websocket);
               }
@@ -75,7 +120,8 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
               return;
           }
           hasReturned = true;
-          clearTimeout(timeoutId);
+          cleanup();
+          connectionManager.complete(url);
           
           console.log(`[WS ${attemptId}] Connection failed (reason: ${reason}), retries remaining: ${numberOfRetries}`);
           
