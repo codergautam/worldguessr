@@ -50,6 +50,14 @@ export default async function handler(req, res) {
       // Find the user's player data  
       const userPlayer = game.players.find(player => player.accountId === user._id.toString() || player.accountId === secret);
       
+      // For ranked duels, find opponent data
+      let opponentPlayer = null;
+      if (game.gameType === 'ranked_duel') {
+        opponentPlayer = game.players.find(player => 
+          player.accountId !== user._id.toString() && player.accountId !== secret
+        );
+      }
+      
       return {
         gameId: game.gameId,
         gameType: game.gameType,
@@ -87,6 +95,14 @@ export default async function handler(req, res) {
           isPublic: game.multiplayer?.isPublic || false,
           playerCount: game.players?.length || 1,
           gameCode: game.multiplayer?.gameCode
+        } : null,
+        
+        // Opponent info (for ranked duels)
+        opponent: opponentPlayer ? {
+          username: opponentPlayer.username,
+          totalPoints: opponentPlayer.totalPoints || 0,
+          finalRank: opponentPlayer.finalRank || 2,
+          elo: opponentPlayer.elo || null
         } : null,
         
         // Round count for display
