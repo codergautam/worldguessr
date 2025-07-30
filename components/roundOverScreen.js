@@ -373,12 +373,6 @@ const GameSummary = ({
     return colors[Math.abs(hash) % colors.length];
   };
 
-  // Helper function to calculate health damage for duels
-  const calculateHealthDamage = (points, maxPoints = 5000) => {
-    // Higher points = less damage. Scale damage from 0 to maxPoints based on inverse of points
-    const damage = Math.max(0, maxPoints - points);
-    return Math.round(damage);
-  };
 
   const fitMapToBounds = () => {
     if (!mapRef.current || !finalHistory.length || !window.L) {
@@ -772,8 +766,17 @@ const GameSummary = ({
                     
                     const myPoints = myData?.points || 0;
                     const opponentPoints = opponentData?.points || 0;
-                    const myHealthDamage = calculateHealthDamage(myPoints);
-                    const opponentHealthDamage = calculateHealthDamage(opponentPoints);
+                    
+                    // Only person who guessed lower gets damage (higher - lower)
+                    let myHealthDamage = 0;
+                    let opponentHealthDamage = 0;
+                    
+                    if (myPoints < opponentPoints) {
+                      myHealthDamage = opponentPoints - myPoints;
+                    } else if (opponentPoints < myPoints) {
+                      opponentHealthDamage = myPoints - opponentPoints;
+                    }
+                    // If points are equal, no damage to either player
 
                     return (
                       <div
