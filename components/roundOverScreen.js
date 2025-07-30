@@ -149,7 +149,7 @@ const GameSummary = ({
 
   // Animation for elo in duels
   useEffect(() => {
-    if (duel && data && typeof data.oldElo === "number" && typeof data.newElo === "number") {
+    if (duel && data && typeof data.oldElo === "number" && typeof data.newElo === "number" && !eloAnimationComplete) {
       const { oldElo, newElo } = data;
       const duration = 1500;
       const steps = Math.abs(newElo - oldElo);
@@ -159,12 +159,15 @@ const GameSummary = ({
       const interval = setInterval(() => {
         currentElo += currentElo < newElo ? 1 : -1;
         setAnimatedElo(currentElo);
-        if (currentElo === newElo) clearInterval(interval);
+        if (currentElo === newElo) {
+          clearInterval(interval);
+          setEloAnimationComplete(true); // Mark animation as complete
+        }
       }, stepTime);
 
       return () => clearInterval(interval);
     }
-  }, [duel, data]);
+  }, [duel, data?.oldElo, data?.newElo, eloAnimationComplete]); // Use specific properties instead of entire data object
 
   // Handle scroll to make header compact
   useEffect(() => {
