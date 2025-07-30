@@ -646,6 +646,22 @@ const GameSummary = ({
                           <div>
                             <strong>{text("roundNo", { r: index + 1 })}</strong><br />
                             {text("actualLocation")}
+                            <div style={{ marginTop: '8px' }}>
+                              <button
+                                onClick={() => openInGoogleMaps(round.lat, round.long)}
+                                style={{
+                                  background: '#4285f4',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '12px'
+                                }}
+                              >
+                                🗺️ {text("openInMaps")}
+                              </button>
+                            </div>
                           </div>
                         </Popup>
                       </Marker>
