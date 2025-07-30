@@ -157,15 +157,22 @@ export default function HistoricalGameView({ game, session, onBack }) {
   
   // For duels, prepare the data structure
   let duelData = null;
-  if (isDuel && fullGameData.userPlayer) {
-    duelData = {
-      oldElo: fullGameData.userPlayer.elo.before,
-      newElo: fullGameData.userPlayer.elo.after,
-      eloDiff: fullGameData.userPlayer.elo.change,
-      won: fullGameData.userPlayer.finalRank === 1,
-      // Add opponent info if available
-      opponent: fullGameData.players.find(p => p.accountId !== fullGameData.currentUserId)
-    };
+  if (isDuel) {
+    // Support both data structures: userPlayer (gameDetails API) and userStats (gameHistory API)
+    const playerData = fullGameData.userPlayer || fullGameData.userStats;
+    
+    if (playerData) {
+      const eloData = playerData.elo || {};
+      duelData = {
+        oldElo: eloData.before || eloData.oldElo || 0,
+        newElo: eloData.after || eloData.newElo || 0, 
+        eloDiff: eloData.change || 0,
+        winner: playerData.finalRank === 1,
+        draw: fullGameData.result?.isDraw || false,
+        // Add opponent info if available
+        opponent: fullGameData.players?.find(p => p.accountId !== fullGameData.currentUserId)
+      };
+    }
   }
 
   // For multiplayer games, prepare the state  
