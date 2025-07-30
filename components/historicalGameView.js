@@ -168,12 +168,16 @@ export default function HistoricalGameView({ game, session, onBack }) {
     };
   }
 
-  // For multiplayer games, prepare the state
+  // For multiplayer games, prepare the state  
   let multiplayerState = null;
   if (fullGameData.gameType !== 'singleplayer') {
+    // Find the current user's playerId from the players array
+    const currentUserPlayer = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
+    const myPlayerId = currentUserPlayer ? currentUserPlayer.playerId : fullGameData.currentUserId;
+    
     multiplayerState = {
       gameData: {
-        myId: fullGameData.currentUserId, // Add the current user ID
+        myId: myPlayerId, // Use the correct playerId that matches the game data
         players: fullGameData.players.map(player => ({
           id: player.playerId,
           username: player.username,

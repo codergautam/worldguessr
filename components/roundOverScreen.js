@@ -670,7 +670,6 @@ const GameSummary = ({
 
                   {/* Other players' guesses */}
                   {round.players && Object.entries(round.players).map(([playerId, player]) => {
-                    console.log('Checking player:', playerId, 'vs myId:', multiplayerState?.gameData?.myId, 'equal:', playerId === multiplayerState?.gameData?.myId);
                     if (player.lat && player.long && playerId !== multiplayerState?.gameData?.myId) {
                       const playerColor = getPlayerColor(playerId, false);
                       return (
@@ -760,13 +759,6 @@ const GameSummary = ({
                   {finalHistory.map((round, index) => {
                     const myId = multiplayerState?.gameData?.myId;
                     const myData = round.players?.[myId];
-                    
-                    console.log('Points debug:', {
-                      myId,
-                      roundPlayers: round.players,
-                      myData,
-                      roundPoints: round.points
-                    });
                     
                     // Find opponent more robustly
                     const opponentEntries = Object.entries(round.players || {}).filter(([id]) => id !== myId);
