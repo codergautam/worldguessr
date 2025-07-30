@@ -767,6 +767,12 @@ export default function Home({ }) {
             try {
                 gameStorage.setItem("onboarding", 'done')
             } catch (e) { }
+            
+            // If user is currently in onboarding, redirect to home
+            if (screen === "onboarding") {
+                setScreen("home")
+                setOnboarding(null)
+            }
         }
     }, [session])
 
