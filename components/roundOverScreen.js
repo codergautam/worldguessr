@@ -644,33 +644,53 @@ const GameSummary = ({
                   </Marker>
 
                   {/* Current player's guess */}
-                  {round.guessLat && round.guessLong && (
-                    <>
-                      <Marker
-                        position={[round.guessLat, round.guessLong]}
-                        icon={srcIconRef.current}
-                      >
-                        <Popup>
-                          <div>
-                            <strong>{text("yourGuess")}</strong><br />
-                            {text("roundNo", { r: index + 1 })}<br />
-                            {round.points} {text("points")}
-                          </div>
-                        </Popup>
-                      </Marker>
+                  {round.guessLat && round.guessLong && (() => {
+                    // For duels: only show player's guess when this specific round is selected
+                    // For other multiplayer: show all player's guesses
+                    const isDuel = multiplayerState?.gameData?.duel;
+                    const shouldShowPlayerGuess = !isDuel || activeRound === index;
+                    
+                    if (!shouldShowPlayerGuess) {
+                      return null;
+                    }
+                    
+                    return (
+                      <>
+                        <Marker
+                          position={[round.guessLat, round.guessLong]}
+                          icon={srcIconRef.current}
+                        >
+                          <Popup>
+                            <div>
+                              <strong>{text("yourGuess")}</strong><br />
+                              {text("roundNo", { r: index + 1 })}<br />
+                              {round.points} {text("points")}
+                            </div>
+                          </Popup>
+                        </Marker>
 
-                      <Polyline
-                        positions={[[round.lat, round.long], [round.guessLat, round.guessLong]]}
-                        color="#4CAF50"
-                        weight={3}
-                        opacity={0.7}
-                      />
-                    </>
-                  )}
+                        <Polyline
+                          positions={[[round.lat, round.long], [round.guessLat, round.guessLong]]}
+                          color="#4CAF50"
+                          weight={3}
+                          opacity={0.7}
+                        />
+                      </>
+                    );
+                  })()}
 
                   {/* Other players' guesses */}
                   {round.players && Object.entries(round.players).map(([playerId, player]) => {
                     if (player.lat && player.long && playerId !== multiplayerState?.gameData?.myId) {
+                      // For duels: only show opponent guesses when this specific round is selected
+                      // For other multiplayer: show all opponent guesses
+                      const isDuel = multiplayerState?.gameData?.duel;
+                      const shouldShowOpponent = !isDuel || activeRound === index;
+                      
+                      if (!shouldShowOpponent) {
+                        return null;
+                      }
+                      
                       const playerColor = getPlayerColor(playerId, false);
                       return (
                         <React.Fragment key={`${index}-${playerId}`}>
