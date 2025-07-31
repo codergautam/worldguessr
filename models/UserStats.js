@@ -32,7 +32,7 @@ const userStatsSchema = new mongoose.Schema({
     type: Number, 
     required: true,
     min: 0,
-    default: 1200 // Standard starting ELO
+    default: 1000 // Standard starting ELO
   },
   eloRank: { 
     type: Number, 

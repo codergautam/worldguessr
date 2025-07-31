@@ -14,6 +14,7 @@ import { fromLonLat } from "ol/proj.js";
 import { setElo } from "../../api/eloRank.js";
 import GameModel from "../../models/Game.js";
 import User from "../../models/User.js";
+import UserStatsService from "../../components/utils/userStatsService.js";
 
 export default class Game {
   constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
@@ -726,6 +727,11 @@ export default class Game {
       this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo).catch(error => {
         console.error('Error saving duel game to MongoDB:', error);
       });
+
+      // Create userstats documents for both users
+      this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo).catch(error => {
+        console.error('Error creating duel user stats:', error);
+      });
     }
 
     }
@@ -896,6 +902,47 @@ export default class Game {
 
     } catch (error) {
       console.error('Error saving duel game to MongoDB:', error);
+    }
+  }
+
+  async createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo) {
+    try {
+      // Create userstats document for player 1
+      if (this.accountIds.p1) {
+        await UserStatsService.recordGameStats(
+          this.accountIds.p1, 
+          `duel_${this.id}`,
+          {
+            gameType: 'ranked_duel',
+            result: winner?.tag === 'p1' ? 'win' : (draw ? 'draw' : 'loss'),
+            opponent: this.accountIds.p2,
+            eloChange: p1NewElo ? (p1NewElo - p1OldElo) : 0,
+            finalScore: p1.score,
+            duration: this.endTime - this.startTime
+          }
+        );
+        console.log(`Created userstats for player 1: ${this.accountIds.p1}`);
+      }
+
+      // Create userstats document for player 2
+      if (this.accountIds.p2) {
+        await UserStatsService.recordGameStats(
+          this.accountIds.p2,
+          `duel_${this.id}`,
+          {
+            gameType: 'ranked_duel',
+            result: winner?.tag === 'p2' ? 'win' : (draw ? 'draw' : 'loss'),
+            opponent: this.accountIds.p1,
+            eloChange: p2NewElo ? (p2NewElo - p2OldElo) : 0,
+            finalScore: p2.score,
+            duration: this.endTime - this.startTime
+          }
+        );
+        console.log(`Created userstats for player 2: ${this.accountIds.p2}`);
+      }
+
+    } catch (error) {
+      console.error('Error creating duel user stats:', error);
     }
   }
 
