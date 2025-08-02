@@ -446,8 +446,8 @@ const GameSummary = ({
       userHasInteracted
     });
 
-    if (!mapRef.current || !finalHistory[roundIndex] || !window.L || userHasInteracted) {
-      console.log('focusOnRound early return - user has interacted with map');
+    if (!mapRef.current || !finalHistory[roundIndex] || !window.L) {
+      console.log('focusOnRound early return - missing requirements');
       return;
     }
 
