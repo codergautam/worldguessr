@@ -862,7 +862,7 @@ const GameSummary = ({
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {round.timeTaken && (
                               <span className="round-points" style={{ color: 'white' }}>
-                                ⏱️ {formatTime(round.timeTaken)}
+                                ⏱️ {formatTime(myData?.timeTaken || round.timeTaken)}
                               </span>
                             )}
                             {typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
