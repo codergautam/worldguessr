@@ -18,18 +18,12 @@ class UserStatsService {
         return null;
       }
 
-      // Get current rankings
-      const xpRank = await this.calculateXPRank(user.totalXp);
-      const eloRank = await this.calculateELORank(user.elo || 1000);
-
-      // Record the stats snapshot
+      // Record the stats snapshot without expensive ranking calculations
       const statsEntry = await UserStats.create({
         userId: userId,
         timestamp: new Date(),
         totalXp: user.totalXp || 0,
-        xpRank: xpRank,
         elo: user.elo || 1000,
-        eloRank: eloRank,
         triggerEvent: 'game_completed',
         gameId: gameId
       });
