@@ -823,11 +823,11 @@ const GameSummary = ({
               </div>
             </div>
 
-            <div className={`rounds-container duel-rounds ${!mobileExpanded ? 'mobile-hidden' : ''}`} ref={roundsContainerRef}>
+            <div className={`rounds-container ${!mobileExpanded ? 'mobile-hidden' : ''}`} ref={roundsContainerRef}>
               {/* For ranked duels with 2 players */}
               {multiplayerState?.gameData?.duel && finalHistory.length > 0 && (
                 <>
-                  <h3>{text("roundDetails")}</h3>
+                  <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("roundDetails")}</h3>
                   {finalHistory.map((round, index) => {
                     const myId = multiplayerState?.gameData?.myId;
                     const myData = round.players?.[myId];
