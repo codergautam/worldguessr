@@ -945,15 +945,6 @@ const GameSummary = ({
                                 </div>
                               )}
 
-                              {round.timeTaken && (
-                                <div className="detail-row">
-                                  <span className="detail-label">
-                                    <span className="detail-icon">⏱️</span>
-                                    {text("timeTaken")}
-                                  </span>
-                                  <span className="time-value">{formatTime(round.timeTaken)}</span>
-                                </div>
-                              )}
                             </>
                           )}
                         </div>
