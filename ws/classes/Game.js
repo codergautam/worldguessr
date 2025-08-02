@@ -44,6 +44,7 @@ export default class Game {
     this.displayLocation = null;
     this.readyToEnd = false;
     this.roundHistory = []; // Store guess history for each round
+    this.roundStartTimes = {}; // Track when each round started for each player
 
     if(this.public) {
       this.showRoadName = false;
@@ -306,7 +307,8 @@ export default class Game {
             lat: player.guess[0],
             long: player.guess[1],
             points: points,
-            final: player.final
+            final: player.final,
+            timeTaken: player.roundTimeTaken || this.timePerRound / 1000 // Use actual time or default
           };
         }
       }
@@ -320,7 +322,10 @@ export default class Game {
       const player = this.players[playerId];
       player.guess = null;
       player.final = false;
+      player.roundTimeTaken = null; // Reset time for new round
     }
+    // Track when this round's guessing phase starts for time calculation
+    this.roundStartTimes[this.curRound] = Date.now();
   }
 
 
@@ -430,6 +435,12 @@ export default class Game {
 
     player.final = final;
     player.guess = latLong;
+
+    // Track time taken for this round when player makes final guess
+    if(final && this.roundStartTimes[this.curRound]) {
+      const timeTaken = Date.now() - this.roundStartTimes[this.curRound];
+      player.roundTimeTaken = Math.floor(timeTaken / 1000); // Convert to seconds
+    }
 
     if(final) {
       this.sendAllPlayers({
@@ -791,7 +802,7 @@ export default class Game {
               guessLat: roundData.players[p1.id]?.lat || null,
               guessLong: roundData.players[p1.id]?.long || null,
               points: roundData.players[p1.id]?.points || 0,
-              timeTaken: 30, // Default, we don't track individual round times in duels
+              timeTaken: roundData.players[p1.id]?.timeTaken || 30,
               xpEarned: 0, // Duels don't give XP per round
               guessedAt: new Date(this.startTime + (index * 60000)), // Approximate timing
               usedHint: false
@@ -804,7 +815,7 @@ export default class Game {
               guessLat: roundData.players[p2.id]?.lat || null,
               guessLong: roundData.players[p2.id]?.long || null,
               points: roundData.players[p2.id]?.points || 0,
-              timeTaken: 30,
+              timeTaken: roundData.players[p2.id]?.timeTaken || 30,
               xpEarned: 0,
               guessedAt: new Date(this.startTime + (index * 60000)),
               usedHint: false
@@ -845,7 +856,7 @@ export default class Game {
             accountId: this.accountIds.p1,
             totalPoints: p1.score,
             totalXp: 0, // Duels don't give XP
-            averageTimePerRound: 30,
+            averageTimePerRound: this.calculateAverageTime(p1.id),
             finalRank: winner?.tag === 'p1' ? 1 : (draw ? 1 : 2),
             elo: {
               before: p1OldElo,
@@ -859,7 +870,7 @@ export default class Game {
             accountId: this.accountIds.p2,
             totalPoints: p2.score,
             totalXp: 0,
-            averageTimePerRound: 30,
+            averageTimePerRound: this.calculateAverageTime(p2.id),
             finalRank: winner?.tag === 'p2' ? 1 : (draw ? 1 : 2),
             elo: {
               before: p2OldElo,
@@ -944,6 +955,22 @@ export default class Game {
     } catch (error) {
       console.error('Error creating duel user stats:', error);
     }
+  }
+
+  calculateAverageTime(playerId) {
+    if (!this.roundHistory.length) return 30;
+    
+    let totalTime = 0;
+    let roundsWithTime = 0;
+    
+    for (const round of this.roundHistory) {
+      if (round.players[playerId]?.timeTaken) {
+        totalTime += round.players[playerId].timeTaken;
+        roundsWithTime++;
+      }
+    }
+    
+    return roundsWithTime > 0 ? Math.round(totalTime / roundsWithTime) : 30;
   }
 
 }
