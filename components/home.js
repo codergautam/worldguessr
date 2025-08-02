@@ -767,7 +767,7 @@ export default function Home({ }) {
             try {
                 gameStorage.setItem("onboarding", 'done')
             } catch (e) { }
-            
+
             // If user is currently in onboarding, redirect to home
             if (screen === "onboarding") {
                 setScreen("home")
@@ -1248,7 +1248,7 @@ export default function Home({ }) {
             } else if (data.type === "game") {
                 // Dispatch global event to close any open modals/screens
                 window.dispatchEvent(new CustomEvent('gameStarting'));
-                
+
                 // Close all open modals except party modal for party games
                 setAccountModalOpen(false);
                 setGameOptionsModalShown(false);
@@ -1258,13 +1258,9 @@ export default function Home({ }) {
                 setMerchModal(false);
                 setShowSuggestLoginModal(false);
                 setShowDiscordModal(false);
-                // Only close party modal if this is not a party game (duel or public multiplayer)
-                if (data.duel || !data.isPrivate) {
-                    setPartyModalShown(false);
-                }
                 setSelectCountryModalShown(false);
                 setConnectionErrorModalShown(false);
-                
+
                 setScreen("multiplayer")
                 setMultiplayerState((prev) => {
 
