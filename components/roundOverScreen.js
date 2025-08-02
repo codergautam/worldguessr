@@ -860,9 +860,6 @@ const GameSummary = ({
                         <div className="round-header">
                           <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span className="round-points" style={{ color: 'white' }}>
-                              {myPoints} {text("pts")}
-                            </span>
                             {typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
                               <button
                                 className="gmaps-icon"
@@ -897,54 +894,62 @@ const GameSummary = ({
                         </div>
 
                         <div className="round-details">
-                          <div className="detail-row">
-                            <span className="detail-label">
-                              <span className="detail-icon">👤</span>
-                              {text("you")}
-                            </span>
-                            <span className="score-points" style={{ color: getPointsColor(myPoints) }}>
-                              {myPoints} {text("pts")}
+                          <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', margin: '8px 0' }}></div>
+                          <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                            <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{text("you")}</span>
+                              <span className="score-points" style={{ color: getPointsColor(myPoints), fontWeight: 'bold' }}>
+                                {myPoints} {text("pts")}
+                              </span>
                               {myHealthDamage > 0 && (
-                                <span className="health-damage" style={{ marginLeft: '8px', color: '#ff6b6b' }}>
+                                <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}>
                                   -{myHealthDamage} ❤️
                                 </span>
                               )}
-                            </span>
-                          </div>
-                          
-                          <div className="detail-row">
-                            <span className="detail-label">
-                              <span className="detail-icon">⚔️</span>
-                              {opponentData?.username || text("opponent")}
-                            </span>
-                            <span className="score-points" style={{ color: getPointsColor(opponentPoints) }}>
-                              {opponentPoints} {text("pts")}
+                            </div>
+
+                            <div className="vs-divider" style={{ 
+                              padding: '0 16px', 
+                              fontWeight: 'bold', 
+                              color: 'rgba(255, 255, 255, 0.6)',
+                              fontSize: '0.9em'
+                            }}>VS</div>
+
+                            <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{opponentData?.username || text("opponent")}</span>
+                              <span className="score-points" style={{ color: getPointsColor(opponentPoints), fontWeight: 'bold' }}>
+                                {opponentPoints} {text("pts")}
+                              </span>
                               {opponentHealthDamage > 0 && (
-                                <span className="health-damage" style={{ marginLeft: '8px', color: '#ff6b6b' }}>
+                                <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}>
                                   -{opponentHealthDamage} ❤️
                                 </span>
                               )}
-                            </span>
+                            </div>
                           </div>
 
-                          {round.distance && (
-                            <div className="detail-row">
-                              <span className="detail-label">
-                                <span className="detail-icon">📏</span>
-                                {text("distance")}
-                              </span>
-                              <span className="distance-value">{formatDistance(round.distance)}</span>
-                            </div>
-                          )}
+                          {(round.distance || round.timeTaken) && (
+                            <>
+                              {round.distance && (
+                                <div className="detail-row">
+                                  <span className="detail-label">
+                                    <span className="detail-icon">📏</span>
+                                    {text("distance")}
+                                  </span>
+                                  <span className="distance-value">{formatDistance(round.distance)}</span>
+                                </div>
+                              )}
 
-                          {round.timeTaken && (
-                            <div className="detail-row">
-                              <span className="detail-label">
-                                <span className="detail-icon">⏱️</span>
-                                {text("timeTaken")}
-                              </span>
-                              <span className="time-value">{formatTime(round.timeTaken)}</span>
-                            </div>
+                              {round.timeTaken && (
+                                <div className="detail-row">
+                                  <span className="detail-label">
+                                    <span className="detail-icon">⏱️</span>
+                                    {text("timeTaken")}
+                                  </span>
+                                  <span className="time-value">{formatTime(round.timeTaken)}</span>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
