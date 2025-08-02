@@ -853,39 +853,99 @@ const GameSummary = ({
                     return (
                       <div
                         key={index}
-                        className={`duel-round-item ${activeRound === index ? 'active' : ''}`}
+                        className={`round-item round-animation ${activeRound === index ? 'active' : ''}`}
+                        style={{ animationDelay: `${index * 0.1}s` }}
                         onClick={() => handleRoundClick(index)}
                       >
                         <div className="round-header">
                           <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
-                        </div>
-
-                        <div className="duel-round-details">
-                          <div className="player-score">
-                            <span className="player-name">{text("you")}</span>
-                            <span className="score-points" style={{ color: getPointsColor(myPoints) }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span className="round-points" style={{ color: 'white' }}>
                               {myPoints} {text("pts")}
                             </span>
-                            {myHealthDamage > 0 && (
-                              <span className="health-damage">
-                                -{myHealthDamage} ❤️
-                              </span>
+                            {typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
+                              <button
+                                className="gmaps-icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openInGoogleMaps(round.lat, round.long);
+                                }}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  padding: '2px',
+                                  borderRadius: '3px',
+                                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                  color: 'white',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '20px',
+                                  height: '20px',
+                                  transition: 'background-color 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                                title={text("openInMaps")}
+                              >
+                                📍
+                              </button>
                             )}
                           </div>
+                        </div>
 
-                          <div className="vs-divider">VS</div>
-
-                          <div className="player-score">
-                            <span className="player-name">{opponentData?.username || text("opponent")}</span>
+                        <div className="round-details">
+                          <div className="detail-row">
+                            <span className="detail-label">
+                              <span className="detail-icon">👤</span>
+                              {text("you")}
+                            </span>
+                            <span className="score-points" style={{ color: getPointsColor(myPoints) }}>
+                              {myPoints} {text("pts")}
+                              {myHealthDamage > 0 && (
+                                <span className="health-damage" style={{ marginLeft: '8px', color: '#ff6b6b' }}>
+                                  -{myHealthDamage} ❤️
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          
+                          <div className="detail-row">
+                            <span className="detail-label">
+                              <span className="detail-icon">⚔️</span>
+                              {opponentData?.username || text("opponent")}
+                            </span>
                             <span className="score-points" style={{ color: getPointsColor(opponentPoints) }}>
                               {opponentPoints} {text("pts")}
+                              {opponentHealthDamage > 0 && (
+                                <span className="health-damage" style={{ marginLeft: '8px', color: '#ff6b6b' }}>
+                                  -{opponentHealthDamage} ❤️
+                                </span>
+                              )}
                             </span>
-                            {opponentHealthDamage > 0 && (
-                              <span className="health-damage">
-                                -{opponentHealthDamage} ❤️
-                              </span>
-                            )}
                           </div>
+
+                          {round.distance && (
+                            <div className="detail-row">
+                              <span className="detail-label">
+                                <span className="detail-icon">📏</span>
+                                {text("distance")}
+                              </span>
+                              <span className="distance-value">{formatDistance(round.distance)}</span>
+                            </div>
+                          )}
+
+                          {round.timeTaken && (
+                            <div className="detail-row">
+                              <span className="detail-label">
+                                <span className="detail-icon">⏱️</span>
+                                {text("timeTaken")}
+                              </span>
+                              <span className="time-value">{formatTime(round.timeTaken)}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
