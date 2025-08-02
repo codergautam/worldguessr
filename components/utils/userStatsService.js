@@ -12,7 +12,7 @@ class UserStatsService {
   static async recordGameStats(userId, gameId, gameData = {}) {
     try {
       // Get user's current stats from User model
-      const user = await User.findOne({ secret: userId });
+      const user = await User.findOne({ _id: userId });
       if (!user) {
         console.warn(`User not found for stats recording: ${userId}`);
         return null;
