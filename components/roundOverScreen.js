@@ -860,6 +860,11 @@ const GameSummary = ({
                         <div className="round-header">
                           <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            {round.timeTaken && (
+                              <span className="round-points" style={{ color: 'white' }}>
+                                ⏱️ {formatTime(round.timeTaken)}
+                              </span>
+                            )}
                             {typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
                               <button
                                 className="gmaps-icon"
