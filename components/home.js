@@ -68,6 +68,8 @@ const initialMultiplayerState = {
     nextGameQueued: false,
     enteringGameCode: false,
     nextGameType: null,
+    retryCount: 0,
+    maxRetries: 50,
     createOptions: {
         rounds: 5,
         timePerRound: 30,
@@ -1024,7 +1026,8 @@ export default function Home({ }) {
                 setMultiplayerState((prev) => ({
                     ...prev,
                     connecting: true,
-                    shouldConnect: false
+                    shouldConnect: false,
+                    retryCount: prev.retryCount + 1
                 }))
                 const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 50)
                 if (ws && ws.readyState === 1) {
@@ -1216,6 +1219,7 @@ export default function Home({ }) {
                     ...prev,
                     connected: true,
                     connecting: false,
+                    retryCount: 0, // Reset retry count on successful connection
                     guestName: data.guestName
                 }))
 
@@ -2355,9 +2359,15 @@ export default function Home({ }) {
                 <AlertModal
                     isOpen={connectionErrorModalShown}
                     onClose={() => setConnectionErrorModalShown(false)}
-                    title={text("multiplayerNotConnected")}
-                    message={text("multiplayerConnectionErrorMessage")}
-                    type="error"
+                    title={multiplayerState.connecting ? text("multiplayerConnecting") : text("multiplayerNotConnected")}
+                    message={multiplayerState.connecting 
+                        ? text("connectingMessage", { 
+                            attempt: multiplayerState.retryCount, 
+                            maxRetries: multiplayerState.maxRetries 
+                          })
+                        : text("multiplayerConnectionErrorMessage")
+                    }
+                    type={multiplayerState.connecting ? "warning" : "error"}
                 />
 
 
