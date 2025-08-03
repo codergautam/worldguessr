@@ -899,7 +899,6 @@ const GameSummary = ({
                         </div>
 
                         <div className="round-details">
-                          <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.1)', margin: '8px 0' }}></div>
                           <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                               <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{text("you")}</span>
