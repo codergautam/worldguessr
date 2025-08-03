@@ -268,7 +268,7 @@
   "opponent": "Opponent",
   "time": "Time",
   "multiplayerNotConnected": "Not Connected to Server",
-  "multiplayerConnectionErrorMessage": "Please check your internet connection and try refreshing your page.",
+  "multiplayerConnectionErrorMessage": "This can happen for a variety of reasons. Please check your internet connection, make sure nobody else is using your account and try refreshing the site.",
   "ok": "Ok",
   "gameHistory": "Game History",
   "totalGames": "{{count}} games stored",
