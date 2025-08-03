@@ -15,6 +15,7 @@ export default function AlertModal({
   const getVariant = (type) => {
     switch (type) {
       case 'error': return 'error';
+      case 'warning': return 'warning';
       default: return 'default';
     }
   };
@@ -45,14 +46,15 @@ export default function AlertModal({
     >
       <div style={{ textAlign: 'center' }}>
         {message && (
-          <p style={{
+          <div style={{
             fontSize: '16px',
             lineHeight: '1.5',
             margin: '0',
-            color: 'rgba(255, 255, 255, 0.9)'
+            color: 'rgba(255, 255, 255, 0.9)',
+            whiteSpace: 'pre-line' // This will render \n as line breaks
           }}>
             {message}
-          </p>
+          </div>
         )}
         {children}
       </div>

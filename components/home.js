@@ -1027,7 +1027,6 @@ export default function Home({ }) {
                     ...prev,
                     connecting: true,
                     shouldConnect: false,
-                    retryCount: prev.retryCount + 1
                 }))
                 const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 50)
                 if (ws && ws.readyState === 1) {
@@ -1519,6 +1518,8 @@ export default function Home({ }) {
 
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
+                retryCount: prev.retryCount + 1, // Increment retry count on failure
+                maxRetries: prev.maxRetries,
             }));
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
                 setMultiplayerError(true)
@@ -1539,6 +1540,8 @@ export default function Home({ }) {
 
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
+                retryCount: prev.retryCount + 1, // Increment retry count on failure
+                maxRetries: prev.maxRetries,
             }));
 
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
@@ -2360,10 +2363,10 @@ export default function Home({ }) {
                     isOpen={connectionErrorModalShown}
                     onClose={() => setConnectionErrorModalShown(false)}
                     title={multiplayerState.connecting ? text("multiplayerConnecting") : text("multiplayerNotConnected")}
-                    message={multiplayerState.connecting 
-                        ? text("connectingMessage", { 
-                            attempt: multiplayerState.retryCount, 
-                            maxRetries: multiplayerState.maxRetries 
+                    message={multiplayerState.connecting
+                        ? text("connectingMessage", {
+                            attempt: multiplayerState.retryCount,
+                            maxRetries: multiplayerState.maxRetries
                           })
                         : text("multiplayerConnectionErrorMessage")
                     }
