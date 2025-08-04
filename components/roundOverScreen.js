@@ -626,14 +626,6 @@ const GameSummary = ({
 
   // Use the constructed or provided history
   const finalHistory = gameHistory;
-  
-  // DEBUG: Log the data to understand what's available
-  console.log('RoundOverScreen DEBUG:', {
-    finalHistory,
-    multiplayerState: multiplayerState?.gameData,
-    historyLength: finalHistory?.length,
-    hasRounds: finalHistory?.[0]
-  });
 
   // DUEL SCREEN IMPLEMENTATION
   if (duel && data) {
