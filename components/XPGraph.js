@@ -150,7 +150,10 @@ export default function XPGraph({ session }) {
                         } else {
                             const rankGain = context.raw.rankGain || 0;
                             const rankText = rankGain > 0 ? `+${rankGain}` : rankGain < 0 ? `${rankGain}` : '0';
-                            return `${text('rankGain')}: ${rankText}`;
+                            return [
+                                `${text('rank')}: #${context.parsed.y}`,
+                                `${text('rankGain')}: ${rankText}`
+                            ];
                         }
                     }
                 }
