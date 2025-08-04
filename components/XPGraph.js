@@ -119,7 +119,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
                 borderColor: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo') ? '#4CAF50' : '#2196F3',
                 backgroundColor: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo') ? 'rgba(76, 175, 80, 0.1)' : 'rgba(33, 150, 243, 0.1)',
                 fill: true,
-                tension: 0.4,
+                tension: 0,
                 pointRadius: 4,
                 pointHoverRadius: 6,
                 pointBackgroundColor: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo') ? '#4CAF50' : '#2196F3',
