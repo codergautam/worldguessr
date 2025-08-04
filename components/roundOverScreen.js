@@ -982,13 +982,6 @@ const GameSummary = ({
                               )}
                             </div>
 
-                            <div className="vs-divider desktop" style={{
-                              padding: '0 16px',
-                              fontWeight: 'bold',
-                              color: 'rgba(255, 255, 255, 0.6)',
-                              fontSize: '0.9em',
-                              display: typeof window !== 'undefined' && window.innerWidth <= 1024 ? 'none' : 'block'
-                            }}>VS</div>
 
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                               <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{opponentData?.username || text("opponent")}</span>
