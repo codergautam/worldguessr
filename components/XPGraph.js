@@ -77,13 +77,15 @@ export default function XPGraph({ session }) {
                     x: date,
                     y: stat.totalXp,
                     xpGain: stat.xpGain || 0,
-                    rank: stat.xpRank
+                    rank: stat.xpRank,
+                    rankGain: stat.rankImprovement || 0
                 });
             } else {
                 // For rank - use actual rank (1 is best)
                 dataPoints.push({
                     x: date,
-                    y: stat.xpRank
+                    y: stat.xpRank,
+                    rankGain: stat.rankImprovement || 0
                 });
             }
         });
@@ -137,14 +139,11 @@ export default function XPGraph({ session }) {
                     label: (context) => {
                         if (viewMode === 'xp') {
                             const xpGain = context.raw.xpGain || 0;
-                            const rank = context.raw.rank || 0;
-                            return [
-                                `${text('totalXP')}: ${context.parsed.y.toLocaleString()}`,
-                                `${text('xpGain')}: +${xpGain}`,
-                                `${text('rank')}: #${rank}`
-                            ];
+                            return `${text('xpGain')}: +${xpGain}`;
                         } else {
-                            return `${text('xpRank')}: #${context.parsed.y}`;
+                            const rankGain = context.raw.rankGain || 0;
+                            const rankText = rankGain > 0 ? `+${rankGain}` : rankGain < 0 ? `${rankGain}` : '0';
+                            return `${text('rankGain')}: ${rankText}`;
                         }
                     }
                 }
