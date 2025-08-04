@@ -6,7 +6,8 @@
       "Bash(sed:*)",
       "Bash(node:*)",
       "Bash(npm install:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }

@@ -29,82 +29,68 @@ ChartJS.register(
 
 export default function XPGraph({ session }) {
     const { t: text } = useTranslation("common");
-    const [games, setGames] = useState([]);
+    const [userStats, setUserStats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState('xp'); // 'xp' or 'rank'
     const [chartData, setChartData] = useState(null);
 
-    const fetchAllGames = async () => {
+    const fetchUserProgression = async () => {
         if (!session?.token?.secret || !window.cConfig?.apiUrl) return;
         
         setLoading(true);
         try {
-            let allGames = [];
-            let page = 1;
-            let hasMore = true;
+            const response = await fetch(window.cConfig.apiUrl + '/api/userProgression', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    secret: session.token.secret,
+                    days: 90 // Get last 90 days of data
+                }),
+            });
 
-            while (hasMore) {
-                const response = await fetch(window.cConfig.apiUrl + '/api/gameHistory', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        secret: session.token.secret,
-                        page,
-                        limit: 50
-                    }),
-                });
-
-                if (response.ok) {
-                    const data = await response.json();
-                    allGames.push(...data.games);
-                    hasMore = data.pagination.hasNextPage;
-                    page++;
-                } else {
-                    hasMore = false;
-                }
+            if (response.ok) {
+                const data = await response.json();
+                setUserStats(data.progression);
+                calculateGraphData(data.progression);
+            } else {
+                console.error('Failed to fetch user progression');
             }
-
-            // Sort by endedAt (oldest first for cumulative calculation)
-            allGames.sort((a, b) => new Date(a.endedAt) - new Date(b.endedAt));
-            setGames(allGames);
-            calculateGraphData(allGames);
         } catch (error) {
-            console.error('Error fetching game history:', error);
+            console.error('Error fetching user progression:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const calculateGraphData = (games) => {
-        let cumulativeXP = 0;
+    const calculateGraphData = (stats) => {
         const dataPoints = [];
 
-        games.forEach((game) => {
-            cumulativeXP += game.userStats.totalXp || 0;
-            const date = new Date(game.endedAt);
+        stats.forEach((stat) => {
+            const date = new Date(stat.timestamp);
             
             if (viewMode === 'xp') {
                 dataPoints.push({
                     x: date,
-                    y: cumulativeXP,
-                    gameXP: game.userStats.totalXp || 0,
-                    gameType: game.gameType
+                    y: stat.totalXp,
+                    xpGain: stat.xpGain || 0,
+                    rank: stat.xpRank
                 });
             } else {
                 // For rank - use actual rank (1 is best)
                 dataPoints.push({
                     x: date,
-                    y: game.userStats.finalRank || 1,
-                    gameType: game.gameType
+                    y: stat.xpRank,
+                    elo: stat.elo,
+                    eloRank: stat.eloRank
                 });
             }
         });
 
         const data = {
             datasets: [{
-                label: viewMode === 'xp' ? text('cumulativeXP') : text('gameRank'),
+                label: viewMode === 'xp' ? text('totalXP') : text('xpRank'),
                 data: dataPoints,
                 borderColor: viewMode === 'xp' ? '#4CAF50' : '#2196F3',
                 backgroundColor: viewMode === 'xp' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(33, 150, 243, 0.1)',
@@ -122,13 +108,13 @@ export default function XPGraph({ session }) {
     };
 
     useEffect(() => {
-        if (games.length > 0) {
-            calculateGraphData(games);
+        if (userStats.length > 0) {
+            calculateGraphData(userStats);
         }
-    }, [viewMode, games]);
+    }, [viewMode, userStats]);
 
     useEffect(() => {
-        fetchAllGames();
+        fetchUserProgression();
     }, [session?.token?.secret]);
 
     const chartOptions = {
@@ -150,14 +136,22 @@ export default function XPGraph({ session }) {
                     },
                     label: (context) => {
                         if (viewMode === 'xp') {
-                            const gameXP = context.raw.gameXP || 0;
-                            return `${text('totalXP')}: ${context.parsed.y.toLocaleString()} (+${gameXP})`;
+                            const xpGain = context.raw.xpGain || 0;
+                            const rank = context.raw.rank || 0;
+                            return [
+                                `${text('totalXP')}: ${context.parsed.y.toLocaleString()}`,
+                                `${text('xpGain')}: +${xpGain}`,
+                                `${text('rank')}: #${rank}`
+                            ];
                         } else {
-                            return `${text('rank')}: #${context.parsed.y}`;
+                            const elo = context.raw.elo || 0;
+                            const eloRank = context.raw.eloRank || 0;
+                            return [
+                                `${text('xpRank')}: #${context.parsed.y}`,
+                                `${text('elo')}: ${elo}`,
+                                `${text('eloRank')}: #${eloRank}`
+                            ];
                         }
-                    },
-                    afterLabel: (context) => {
-                        return `${text('gameType')}: ${context.raw.gameType}`;
                     }
                 }
             }
@@ -251,24 +245,23 @@ export default function XPGraph({ session }) {
         );
     }
 
-    if (games.length === 0) {
+    if (userStats.length === 0) {
         return (
             <div style={graphStyle}>
                 <div style={{ textAlign: 'center', color: '#fff' }}>
-                    <h3>{text('noGamesPlayed')}</h3>
-                    <p>{text('startPlayingToSeeHistory')}</p>
+                    <h3>{text('noStatsAvailable')}</h3>
+                    <p>{text('playGamesToSeeProgression')}</p>
                 </div>
             </div>
         );
     }
 
-    const getTotalXP = () => {
-        return games.reduce((sum, game) => sum + (game.userStats.totalXp || 0), 0);
+    const getCurrentXP = () => {
+        return userStats.length > 0 ? userStats[userStats.length - 1].totalXp : 0;
     };
 
-    const getAverageRank = () => {
-        const ranks = games.filter(game => game.userStats.finalRank).map(game => game.userStats.finalRank);
-        return ranks.length > 0 ? Math.round(ranks.reduce((sum, rank) => sum + rank, 0) / ranks.length) : 1;
+    const getCurrentRank = () => {
+        return userStats.length > 0 ? userStats[userStats.length - 1].xpRank : 1;
     };
 
     return (
@@ -305,11 +298,11 @@ export default function XPGraph({ session }) {
                 color: 'rgba(255,255,255,0.7)',
                 fontSize: '14px'
             }}>
-                <span>{text('totalGames', { count: games.length })}</span>
+                <span>{text('dataPoints', { count: userStats.length })}</span>
                 <span>
                     {viewMode === 'xp' 
-                        ? `${text('totalXP')}: ${getTotalXP().toLocaleString()}`
-                        : `${text('averageRank')}: #${getAverageRank()}`
+                        ? `${text('currentXP')}: ${getCurrentXP().toLocaleString()}`
+                        : `${text('currentRank')}: #${getCurrentRank()}`
                     }
                 </span>
             </div>
