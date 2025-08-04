@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
@@ -533,53 +533,37 @@ const GameSummary = ({
     );
   }
 
-  // If no history provided, try to construct it from multiplayerState
-  let gameHistory = history;
-  console.log('TRANSFORM DEBUG:', {
-    hasHistory: !!history,
-    historyLength: history?.length,
-    hasMultiplayerState: !!multiplayerState?.gameData,
-    hasRoundHistory: !!multiplayerState?.gameData?.roundHistory,
-    roundHistoryLength: multiplayerState?.gameData?.roundHistory?.length
-  });
-  
-  if ((!history || history.length === 0) && multiplayerState?.gameData) {
-
-    const { roundHistory, myId } = multiplayerState.gameData;
-
-    // Use roundHistory from server (this should always be available now)
-    if (roundHistory && roundHistory.length > 0) {
-      console.log('Using server roundHistory data for game results:', roundHistory.length, 'rounds');
-      console.log('First roundData:', roundHistory[0]);
-      console.log('myId:', myId);
-      
-      gameHistory = roundHistory.map((roundData, roundIndex) => {
-        const location = roundData.location;
-        const myPlayerData = roundData.players[myId];
-        
-        console.log(`Round ${roundIndex + 1} transform:`, {
-          location,
-          myPlayerData,
-          hasLocation: !!location,
-          hasMyData: !!myPlayerData
-        });
-
-        return {
-          lat: location.lat,
-          long: location.long,
-          guessLat: myPlayerData?.lat,
-          guessLong: myPlayerData?.long,
-          points: myPlayerData?.points || 0, // Always use server-calculated points
-          players: roundData.players,
-          timeTaken: null // Not available in this data structure
-        };
-      });
-      
-      console.log('Transformed gameHistory:', gameHistory);
-    } else {
-      console.error('No roundHistory available from server! This should not happen.');
+  // Memoize the transformation to prevent infinite re-renders
+  const gameHistory = useMemo(() => {
+    // If history is already provided, use it
+    if (history && history.length > 0) {
+      return history;
     }
-  }
+
+    // If no history provided, try to construct it from multiplayerState
+    if (multiplayerState?.gameData?.roundHistory) {
+      const { roundHistory, myId } = multiplayerState.gameData;
+
+      if (roundHistory && roundHistory.length > 0) {
+        return roundHistory.map((roundData, roundIndex) => {
+          const location = roundData.location;
+          const myPlayerData = roundData.players[myId];
+
+          return {
+            lat: location.lat,
+            long: location.long,
+            guessLat: myPlayerData?.lat,
+            guessLong: myPlayerData?.long,
+            points: myPlayerData?.points || 0,
+            players: roundData.players,
+            timeTaken: null
+          };
+        });
+      }
+    }
+
+    return [];
+  }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId]);
 
   if(!gameHistory || gameHistory.length === 0) {
     return null;
