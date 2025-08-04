@@ -533,7 +533,7 @@ const GameSummary = ({
 
   // Memoize the transformation to prevent infinite re-renders
   const gameHistory = useMemo(() => {
-    console.log('useMemo executing with:', { 
+    console.log('useMemo executing with:', {
       historyExists: !!history,
       historyLength: history?.length,
       hasMultiplayerData: !!multiplayerState?.gameData,
@@ -541,13 +541,13 @@ const GameSummary = ({
       roundHistoryLength: multiplayerState?.gameData?.roundHistory?.length,
       myId: multiplayerState?.gameData?.myId
     });
-    
+
     // If history is already provided and not empty, use it
     if (history && history.length > 0) {
       console.log('Using existing history:', history);
       return history;
     }
-    
+
     console.log('History is empty or undefined, trying transformation');
 
     // If no history provided, try to construct it from multiplayerState
@@ -599,7 +599,7 @@ const GameSummary = ({
   }
 
   console.log('DEBUG gameHistory:', { gameHistory, length: gameHistory?.length, history, hasMultiplayer: !!multiplayerState?.gameData, hasRoundHistory: !!multiplayerState?.gameData?.roundHistory });
-  
+
   if(!gameHistory || gameHistory.length === 0) {
     console.log('No gameHistory, showing fallback message');
     return (
@@ -688,10 +688,10 @@ const GameSummary = ({
 
   // Use the constructed or provided history
   const finalHistory = gameHistory;
-  
-  console.log('Final rendering decision:', { 
-    duel, 
-    hasData: !!data, 
+
+  console.log('Final rendering decision:', {
+    duel,
+    hasData: !!data,
     finalHistoryLength: finalHistory.length,
     isDuelPath: !!(duel && data),
     isRegularPath: !(duel && data)
@@ -730,7 +730,7 @@ const GameSummary = ({
                 // For other multiplayer: show all destination pins
                 const isDuel = multiplayerState?.gameData?.duel;
                 const shouldShowDestination = !isDuel || activeRound === null || activeRound === index;
-                
+
                 return (
                   <React.Fragment key={index}>
                     {/* Target location */}
@@ -770,11 +770,11 @@ const GameSummary = ({
                     // For other multiplayer: show all player's guesses
                     const isDuel = multiplayerState?.gameData?.duel;
                     const shouldShowPlayerGuess = !isDuel || activeRound === null || activeRound === index;
-                    
+
                     if (!shouldShowPlayerGuess) {
                       return null;
                     }
-                    
+
                     return (
                       <>
                         <Marker
@@ -803,15 +803,15 @@ const GameSummary = ({
                   {/* Other players' guesses */}
                   {round.players && Object.entries(round.players).map(([playerId, player]) => {
                     if (player.lat && player.long && playerId !== multiplayerState?.gameData?.myId) {
-                      // For duels: show all opponent guesses when no round selected, or only selected round when a round is selected  
+                      // For duels: show all opponent guesses when no round selected, or only selected round when a round is selected
                       // For other multiplayer: show all opponent guesses
                       const isDuel = multiplayerState?.gameData?.duel;
                       const shouldShowOpponent = !isDuel || activeRound === null || activeRound === index;
-                      
+
                       if (!shouldShowOpponent) {
                         return null;
                       }
-                      
+
                       const playerColor = getPlayerColor(playerId, false);
                       return (
                         <React.Fragment key={`${index}-${playerId}`}>
@@ -901,18 +901,18 @@ const GameSummary = ({
                   {finalHistory.map((round, index) => {
                     const myId = multiplayerState?.gameData?.myId;
                     const myData = round.players?.[myId];
-                    
+
                     // Find opponent more robustly
                     const opponentEntries = Object.entries(round.players || {}).filter(([id]) => id !== myId);
                     const opponentData = opponentEntries.length > 0 ? opponentEntries[0][1] : null;
-                    
+
                     const myPoints = myData?.points || 0;
                     const opponentPoints = opponentData?.points || 0;
-                    
+
                     // Only person who guessed lower gets damage (higher - lower)
                     let myHealthDamage = 0;
                     let opponentHealthDamage = 0;
-                    
+
                     if (myPoints < opponentPoints) {
                       myHealthDamage = opponentPoints - myPoints;
                     } else if (opponentPoints < myPoints) {
@@ -982,11 +982,12 @@ const GameSummary = ({
                               )}
                             </div>
 
-                            <div className="vs-divider" style={{ 
-                              padding: '0 16px', 
-                              fontWeight: 'bold', 
+                            <div className="vs-divider desktop" style={{
+                              padding: '0 16px',
+                              fontWeight: 'bold',
                               color: 'rgba(255, 255, 255, 0.6)',
-                              fontSize: '0.9em'
+                              fontSize: '0.9em',
+                              display: typeof window !== 'undefined' && window.innerWidth <= 1024 ? 'none' : 'block'
                             }}>VS</div>
 
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
@@ -1158,7 +1159,7 @@ const GameSummary = ({
                         return null;
                       }
                     }
-                    
+
                     const playerColor = getPlayerColor(playerId, false);
                     return (
                       <React.Fragment key={`${index}-${playerId}`}>
