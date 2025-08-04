@@ -146,14 +146,19 @@ export default function XPGraph({ session }) {
                     label: (context) => {
                         if (viewMode === 'xp') {
                             const xpGain = context.raw.xpGain || 0;
-                            return `${text('xpGain')}: +${xpGain}`;
+                            const tooltip = [`${text('totalXP')}: ${context.parsed.y.toLocaleString()}`];
+                            if (xpGain !== 0) {
+                                tooltip.push(`${text('xpGain')}: +${xpGain}`);
+                            }
+                            return tooltip;
                         } else {
                             const rankGain = context.raw.rankGain || 0;
-                            const rankText = rankGain > 0 ? `+${rankGain}` : rankGain < 0 ? `${rankGain}` : '0';
-                            return [
-                                `${text('rank')}: #${context.parsed.y}`,
-                                `${text('rankGain')}: ${rankText}`
-                            ];
+                            const tooltip = [`${text('rank')}: #${context.parsed.y}`];
+                            if (rankGain !== 0) {
+                                const rankText = rankGain > 0 ? `+${rankGain}` : `${rankGain}`;
+                                tooltip.push(`${text('rankGain')}: ${rankText}`);
+                            }
+                            return tooltip;
                         }
                     }
                 }
