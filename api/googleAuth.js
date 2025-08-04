@@ -20,15 +20,15 @@ export default async function handler(req, res) {
 
             const userDb = await User.findOne({
           secret,
-        }).select("secret username email staff canMakeClues supporter").cache(120);
+        }).select("_id secret username email staff canMakeClues supporter").cache(120);
         if (userDb) {
-          output = { secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter };
+          output = { secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter, accountId: userDb._id };
           if(!userDb.username || userDb.username.length < 1) {
             // try again without cache, to prevent new users getting stuck with no username
            const userDb2  = await User.findOne({
               secret,
-            }).select("secret username email staff canMakeClues supporter");
-            if(userDb2) output = { secret: userDb2.secret, username: userDb2.username, email: userDb2.email, staff: userDb2.staff, canMakeClues: userDb2.canMakeClues, supporter: userDb2.supporter };
+            }).select("_id secret username email staff canMakeClues supporter");
+            if(userDb2) output = { secret: userDb2.secret, username: userDb2.username, email: userDb2.email, staff: userDb2.staff, canMakeClues: userDb2.canMakeClues, supporter: userDb2.supporter, accountId: userDb2._id };
           }
 
           return res.status(200).json(output);
@@ -68,9 +68,9 @@ export default async function handler(req, res) {
     const newUser = new User({ email, secret });
     await newUser.save();
 
-    output = { secret: secret, username: undefined, email: email, staff:false, canMakeClues: false, supporter: false };
+    output = { secret: secret, username: undefined, email: email, staff:false, canMakeClues: false, supporter: false, accountId: newUser._id };
   } else {
-    output = { secret: existingUser.secret, username: existingUser.username, email: existingUser.email, staff: existingUser.staff, canMakeClues: existingUser.canMakeClues, supporter: existingUser.supporter };
+    output = { secret: existingUser.secret, username: existingUser.username, email: existingUser.email, staff: existingUser.staff, canMakeClues: existingUser.canMakeClues, supporter: existingUser.supporter, accountId: existingUser._id };
   }
 
   return res.status(200).json(output);

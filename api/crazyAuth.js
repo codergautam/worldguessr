@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   // check if userId exists
   const user = await User.findOne({ crazyGamesId: userId }).cache(120);
   if (user) {
-    return res.status(200).json({ secret: user.secret, username: user.username });
+    return res.status(200).json({ secret: user.secret, username: user.username, email: user.email, staff: user.staff, canMakeClues: user.canMakeClues, supporter: user.supporter, accountId: user._id });
   }
 
   // check if username is taken
@@ -70,5 +70,5 @@ export default async function handler(req, res) {
   //   console.error('Error sending discord webhook', error);
   // }
 
-  return res.status(200).json({ secret: newUser.secret, username: newUser.username });
+  return res.status(200).json({ secret: newUser.secret, username: newUser.username, email: newUser.email, staff: newUser.staff, canMakeClues: newUser.canMakeClues, supporter: newUser.supporter, accountId: newUser._id });
 }

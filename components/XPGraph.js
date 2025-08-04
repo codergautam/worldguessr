@@ -35,8 +35,9 @@ export default function XPGraph({ session }) {
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
+        console.log(session?.token)
         if (!session?.token?.accountId || !window.cConfig?.apiUrl) return;
-        
+
         setLoading(true);
         try {
             const response = await fetch(window.cConfig.apiUrl + '/api/userProgression', {
@@ -70,7 +71,7 @@ export default function XPGraph({ session }) {
 
         stats.forEach((stat) => {
             const date = new Date(stat.timestamp);
-            
+
             if (viewMode === 'xp') {
                 dataPoints.push({
                     x: date,
@@ -231,9 +232,9 @@ export default function XPGraph({ session }) {
         return (
             <div style={graphStyle}>
                 <div style={{ textAlign: 'center', color: '#fff' }}>
-                    <div style={{ 
-                        width: '40px', 
-                        height: '40px', 
+                    <div style={{
+                        width: '40px',
+                        height: '40px',
                         border: '3px solid rgba(255,255,255,0.3)',
                         borderTop: '3px solid #4CAF50',
                         borderRadius: '50%',
@@ -271,7 +272,7 @@ export default function XPGraph({ session }) {
                 <h3 style={{ color: '#fff', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
                     {viewMode === 'xp' ? text('xpOverTime') : text('rankOverTime')}
                 </h3>
-                
+
                 <div style={toggleStyle}>
                     <button
                         style={toggleButtonStyle(viewMode === 'xp')}
@@ -292,16 +293,16 @@ export default function XPGraph({ session }) {
                 {chartData && <Line data={chartData} options={chartOptions} />}
             </div>
 
-            <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
+            <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
                 marginTop: '15px',
                 color: 'rgba(255,255,255,0.7)',
                 fontSize: '14px'
             }}>
                 <span>{text('dataPoints', { count: userStats.length })}</span>
                 <span>
-                    {viewMode === 'xp' 
+                    {viewMode === 'xp'
                         ? `${text('currentXP')}: ${getCurrentXP().toLocaleString()}`
                         : `${text('currentRank')}: #${getCurrentRank()}`
                     }
