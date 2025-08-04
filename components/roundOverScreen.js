@@ -996,6 +996,13 @@ const GameSummary = ({
               ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
               : null;
 
+            console.log(`Regular screen round ${index + 1}:`, {
+              hasLatLong: !!(round.lat && round.long),
+              hasGuess: !!(round.guessLat && round.guessLong),
+              isMultiplayer: !!multiplayerState?.gameData,
+              playerCount: multiplayerState?.gameData?.players?.length
+            });
+
             return (
               <React.Fragment key={index}>
                 {/* Actual location marker */}
