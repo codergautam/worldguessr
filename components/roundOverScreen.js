@@ -672,6 +672,14 @@ const GameSummary = ({
 
   // Use the constructed or provided history
   const finalHistory = gameHistory;
+  
+  console.log('Final rendering decision:', { 
+    duel, 
+    hasData: !!data, 
+    finalHistoryLength: finalHistory.length,
+    isDuelPath: !!(duel && data),
+    isRegularPath: !(duel && data)
+  });
 
   // DUEL SCREEN IMPLEMENTATION
   if (duel && data) {
@@ -1037,7 +1045,7 @@ const GameSummary = ({
             url={`https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}`}
           />
 
-          {history.map((round, index) => {
+          {finalHistory.map((round, index) => {
             const distance = round.guessLat && round.guessLong
               ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
               : null;
