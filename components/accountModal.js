@@ -109,7 +109,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     />
                 );
             case "elo":
-                return <EloView eloData={eloData} />;
+                return <EloView eloData={eloData} session={session} />;
             default:
                 return (
                     <FriendsModal

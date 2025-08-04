@@ -1,8 +1,9 @@
 import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useState } from "react";
+import XPGraph from "./XPGraph";
 
-export default function EloView({ eloData }) {
+export default function EloView({ eloData, session }) {
     const { t: text } = useTranslation("common");
     const userLeague = getLeague(eloData.elo);
     const [hoveredLeague, setHoveredLeague] = useState(null);
@@ -304,6 +305,9 @@ export default function EloView({ eloData }) {
                     )}
                 </div>
             </div>
+
+            {/* ELO Graph */}
+            <XPGraph session={session} mode="elo" />
         </div>
     );
 }
