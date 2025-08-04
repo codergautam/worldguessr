@@ -68,7 +68,6 @@ const initialMultiplayerState = {
     nextGameQueued: false,
     enteringGameCode: false,
     nextGameType: null,
-    retryCount: 0,
     maxRetries: 50,
     createOptions: {
         rounds: 5,
@@ -1218,7 +1217,6 @@ export default function Home({ }) {
                     ...prev,
                     connected: true,
                     connecting: false,
-                    retryCount: 0, // Reset retry count on successful connection
                     guestName: data.guestName
                 }))
 
@@ -1518,7 +1516,6 @@ export default function Home({ }) {
 
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
-                retryCount: prev.retryCount + 1, // Increment retry count on failure
                 maxRetries: prev.maxRetries,
             }));
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
@@ -1540,7 +1537,6 @@ export default function Home({ }) {
 
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
-                retryCount: prev.retryCount + 1, // Increment retry count on failure
                 maxRetries: prev.maxRetries,
             }));
 
@@ -2365,7 +2361,6 @@ export default function Home({ }) {
                     title={multiplayerState.connecting ? text("multiplayerConnecting") : text("multiplayerNotConnected")}
                     message={multiplayerState.connecting
                         ? text("connectingMessage", {
-                            attempt: multiplayerState.retryCount,
                             maxRetries: multiplayerState.maxRetries
                           })
                         : text("multiplayerConnectionErrorMessage")
