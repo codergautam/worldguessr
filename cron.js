@@ -18,6 +18,8 @@ import path from 'path';
 import mainWorld from './public/world-main.json' with { type: "json" };
 configDotenv();
 
+console.log('[INFO] Starting cron.js...');
+
 let dbEnabled = false;
 if (!process.env.MONGODB) {
   console.log("[MISSING-ENV WARN] MONGODB env variable not set");
@@ -302,6 +304,8 @@ app.get('/allCountries.json', (req, res) => {
         console.error('Error looking up country', error, index);
       }
     }
+
+    console.log(`Generated ${locations.length} locations from mainWorld which has ${totalLocs} total locations.`);
 
     allCountriesCache = locations;
 
