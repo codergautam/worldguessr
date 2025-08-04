@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { configDotenv } from 'dotenv';
 import User from './models/User.js';
+import UserStatsService from './components/utils/userStatsService.js';
 var app = express();
 import cors from 'cors';
 app.use(cors());
@@ -16,25 +17,96 @@ import path from 'path';
 import mainWorld from './public/world-main.json' with { type: "json" };
 configDotenv();
 
-// let dbEnabled = false;
-// if (!process.env.MONGODB) {
-//   console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
-//   dbEnabled = false;
-// } else {
-//   // Connect to MongoDB
-//   if (mongoose.connection.readyState !== 1) {
-//     try {
-//       await mongoose.connect(process.env.MONGODB);
-//       console.log('[INFO] Database Connected');
-//       dbEnabled = true;
-//     } catch (error) {
-//       console.error('[ERROR] Database connection failed!'.red, error.message);
-//       console.log(error);
-//       dbEnabled = false;
-//     }
-//   }
-// }
+let dbEnabled = false;
+if (!process.env.MONGODB) {
+  console.log("[MISSING-ENV WARN] MONGODB env variable not set");
+  dbEnabled = false;
+} else {
+  // Connect to MongoDB
+  if (mongoose.connection.readyState !== 1) {
+    try {
+      await mongoose.connect(process.env.MONGODB);
+      console.log('[INFO] Database Connected');
+      dbEnabled = true;
+    } catch (error) {
+      console.error('[ERROR] Database connection failed!', error.message);
+      console.log(error);
+      dbEnabled = false;
+    }
+  }
+}
 
+// Weekly UserStats update functionality
+let lastUserStatsUpdate = 0;
+const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+const updateAllUserStats = async () => {
+  if (!dbEnabled) {
+    console.log('[SKIP] UserStats update skipped - database not connected');
+    return;
+  }
+
+  console.log('[INFO] Starting weekly UserStats update...');
+  
+  try {
+    const batchSize = 100;
+    let skip = 0;
+    let totalUpdated = 0;
+    let totalErrors = 0;
+
+    while (true) {
+      const users = await User.find({ banned: { $ne: true } })
+        .select('_id username totalXp elo')
+        .skip(skip)
+        .limit(batchSize)
+        .lean();
+
+      if (users.length === 0) {
+        break; // No more users
+      }
+
+      console.log(`[INFO] Processing UserStats batch: ${users.length} users (offset ${skip})`);
+
+      for (const user of users) {
+        try {
+          const result = await UserStatsService.recordGameStats(user._id, null, {
+            triggerEvent: 'weekly_update'
+          });
+
+          if (result) {
+            totalUpdated++;
+          } else {
+            totalErrors++;
+          }
+        } catch (error) {
+          console.error(`[ERROR] Failed to update UserStats for user ${user.username || user._id}:`, error.message);
+          totalErrors++;
+        }
+      }
+
+      skip += batchSize;
+      
+      // Small delay between batches
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    console.log(`[INFO] Weekly UserStats update completed: ${totalUpdated} updated, ${totalErrors} errors`);
+    lastUserStatsUpdate = Date.now();
+    
+  } catch (error) {
+    console.error('[ERROR] Weekly UserStats update failed:', error);
+  }
+};
+
+// Check for weekly UserStats update (runs every hour, updates weekly)
+setInterval(async () => {
+  const now = Date.now();
+  if (now - lastUserStatsUpdate > WEEK_IN_MS) {
+    await updateAllUserStats();
+  }
+}, 60 * 60 * 1000); // Check every hour
+
+// Note: UserStats update will run automatically after 7 days from first check
 
 let countryLocations = {};
 const locationCnt = 2000;
