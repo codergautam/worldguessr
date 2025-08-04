@@ -775,11 +775,6 @@ const GameSummary = ({
                       return null;
                     }
                     
-                    // If a player is selected and it's not the current player, hide current player's guess
-                    if (selectedPlayer && selectedPlayer !== multiplayerState?.gameData?.myId) {
-                      return null;
-                    }
-                    
                     return (
                       <>
                         <Marker
@@ -1118,7 +1113,7 @@ const GameSummary = ({
                 </Marker>
 
                 {/* Guess location marker and line */}
-                {round.guessLat && round.guessLong && (!selectedPlayer || selectedPlayer === multiplayerState?.gameData?.myId) && (
+                {round.guessLat && round.guessLong && (
                   <>
                     <Marker
                       position={[round.guessLat, round.guessLong]}
