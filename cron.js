@@ -267,23 +267,19 @@ generateBalancedLocations();
 
 let allCountriesCache = [];
 let lastAllCountriesCacheUpdate = 0;
+let isCacheUpdating = false;
 
-app.get('/allCountries.json', (req, res) => {
-  if(Date.now() - lastAllCountriesCacheUpdate > 60 * 1000) {
-    // old world
-    // let locations = [];
-    // const totalCountries = countries.length;
-    // const locsPerCountry = locationCnt / totalCountries;
-    // for (const country of countries) {
-    //   const locs = countryLocations[country];
-    //   const randomLocations = locs.sort(() => Math.random() - 0.5).slice(0, locsPerCountry);
-    //   locations.push(...randomLocations);
-    // }
-    // locations = locations.sort(() => Math.random() - 0.5);
-    // allCountriesCache = locations;
-    // lastAllCountriesCacheUpdate = Date.now();
-    // return res.json({ ready: locations.length>0, locations });
+// Background function to update allCountries cache
+const updateAllCountriesCache = async () => {
+  if (isCacheUpdating) {
+    console.log('[CACHE] AllCountries cache update already in progress, skipping...');
+    return;
+  }
 
+  isCacheUpdating = true;
+  console.log('[CACHE] Starting allCountries cache update...');
+
+  try {
     // new world
     // pick 2k locations randomly from mainWorld, calculate country based on lat/long
     // prevent duplicates
@@ -296,24 +292,49 @@ app.get('/allCountries.json', (req, res) => {
     const locations = [];
     for (const index of indexes) {
       try {
-      const { lat, lng } = mainWorld[index];
-      const country = lookup(lat, lng, true)[0];
-      locations.push({ lat, long: lng, country });
+        const { lat, lng } = mainWorld[index];
+        const country = lookup(lat, lng, true)[0];
+        locations.push({ lat, long: lng, country });
       } catch (error) {
         locations.push({ lat, long: lng });
         console.error('Error looking up country', error, index);
       }
     }
 
-    console.log(`Generated ${locations.length} locations from mainWorld which has ${totalLocs} total locations.`);
+    console.log(`[CACHE] Generated ${locations.length} locations from mainWorld which has ${totalLocs} total locations.`);
 
     allCountriesCache = locations;
-
     lastAllCountriesCacheUpdate = Date.now();
-    return res.json({ ready: locations.length>0, locations });
-  } else {
-    return res.json({ ready: allCountriesCache.length>0, locations: allCountriesCache });
+  } catch (error) {
+    console.error('[CACHE] Error updating allCountries cache:', error);
+  } finally {
+    isCacheUpdating = false;
   }
+};
+
+// Background cache updater - runs every 60 seconds
+const startAllCountriesCacheUpdater = () => {
+  // Initial cache generation
+  updateAllCountriesCache();
+
+  // Set up recurring updates every 60 seconds
+  setInterval(() => {
+    updateAllCountriesCache();
+  }, 60 * 1000);
+
+  console.log('[CACHE] AllCountries cache updater started - updates every 60 seconds');
+};
+
+// Start the background cache updater
+startAllCountriesCacheUpdater();
+
+// Instant endpoint that just returns the latest cache
+app.get('/allCountries.json', (req, res) => {
+  // Always return the current cache instantly - no generation during request
+  return res.json({
+    ready: allCountriesCache.length > 0,
+    locations: allCountriesCache.slice() // Return a copy to avoid mutation
+  });
 });
 
 app.get('/countryLocations/:country', (req, res) => {
