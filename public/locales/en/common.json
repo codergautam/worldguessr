@@ -309,5 +309,11 @@
   "dataPoints": "{{count}} data points",
   "currentXP": "Current XP",
   "currentRank": "Current Rank",
-  "xpRank": "XP Rank"
+  "xpRank": "XP Rank",
+  "elo": "ELO",
+  "eloRank": "ELO Rank",
+  "eloGain": "ELO Change",
+  "eloOverTime": "ELO Over Time",
+  "eloRankOverTime": "ELO Rank Over Time",
+  "currentElo": "Current ELO"
 }

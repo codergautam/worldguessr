@@ -27,11 +27,11 @@ ChartJS.register(
     TimeScale
 );
 
-export default function XPGraph({ session }) {
+export default function XPGraph({ session, mode = 'xp' }) {
     const { t: text } = useTranslation("common");
     const [userStats, setUserStats] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [viewMode, setViewMode] = useState('xp'); // 'xp' or 'rank'
+    const [viewMode, setViewMode] = useState(mode === 'xp' ? 'xp' : 'elo'); // 'xp'/'rank' or 'elo'/'eloRank'
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
@@ -72,35 +72,57 @@ export default function XPGraph({ session }) {
         stats.forEach((stat) => {
             const date = new Date(stat.timestamp);
 
-            if (viewMode === 'xp') {
-                dataPoints.push({
-                    x: date,
-                    y: stat.totalXp,
-                    xpGain: stat.xpGain || 0,
-                    rank: stat.xpRank,
-                    rankGain: stat.rankImprovement || 0
-                });
+            if (mode === 'xp') {
+                if (viewMode === 'xp') {
+                    dataPoints.push({
+                        x: date,
+                        y: stat.totalXp,
+                        xpGain: stat.xpGain || 0,
+                        rank: stat.xpRank,
+                        rankGain: stat.rankImprovement || 0
+                    });
+                } else {
+                    // XP Rank mode
+                    dataPoints.push({
+                        x: date,
+                        y: stat.xpRank,
+                        rankGain: stat.rankImprovement || 0
+                    });
+                }
             } else {
-                // For rank - use actual rank (1 is best)
-                dataPoints.push({
-                    x: date,
-                    y: stat.xpRank,
-                    rankGain: stat.rankImprovement || 0
-                });
+                // ELO mode
+                if (viewMode === 'elo') {
+                    dataPoints.push({
+                        x: date,
+                        y: stat.elo,
+                        eloGain: stat.eloChange || 0,
+                        rank: stat.eloRank,
+                        rankGain: stat.eloChange ? (stat.eloChange > 0 ? Math.abs(stat.rankImprovement || 0) : -(Math.abs(stat.rankImprovement || 0))) : 0
+                    });
+                } else {
+                    // ELO Rank mode  
+                    dataPoints.push({
+                        x: date,
+                        y: stat.eloRank,
+                        rankGain: stat.eloChange ? (stat.eloChange > 0 ? Math.abs(stat.rankImprovement || 0) : -(Math.abs(stat.rankImprovement || 0))) : 0
+                    });
+                }
             }
         });
 
         const data = {
             datasets: [{
-                label: viewMode === 'xp' ? text('totalXP') : text('xpRank'),
+                label: mode === 'xp' ? 
+                    (viewMode === 'xp' ? text('totalXP') : text('xpRank')) :
+                    (viewMode === 'elo' ? text('elo') : text('eloRank')),
                 data: dataPoints,
-                borderColor: viewMode === 'xp' ? '#4CAF50' : '#2196F3',
-                backgroundColor: viewMode === 'xp' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(33, 150, 243, 0.1)',
+                borderColor: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo') ? '#4CAF50' : '#2196F3',
+                backgroundColor: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo') ? 'rgba(76, 175, 80, 0.1)' : 'rgba(33, 150, 243, 0.1)',
                 fill: true,
                 tension: 0.4,
                 pointRadius: 4,
                 pointHoverRadius: 6,
-                pointBackgroundColor: viewMode === 'xp' ? '#4CAF50' : '#2196F3',
+                pointBackgroundColor: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo') ? '#4CAF50' : '#2196F3',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
             }]
@@ -144,21 +166,42 @@ export default function XPGraph({ session }) {
                         });
                     },
                     label: (context) => {
-                        if (viewMode === 'xp') {
-                            const xpGain = context.raw.xpGain || 0;
-                            const tooltip = [`${text('totalXP')}: ${context.parsed.y.toLocaleString()}`];
-                            if (xpGain !== 0) {
-                                tooltip.push(`${text('xpGain')}: +${xpGain}`);
+                        if (mode === 'xp') {
+                            if (viewMode === 'xp') {
+                                const xpGain = context.raw.xpGain || 0;
+                                const tooltip = [`${text('totalXP')}: ${context.parsed.y.toLocaleString()}`];
+                                if (xpGain !== 0) {
+                                    tooltip.push(`${text('xpGain')}: +${xpGain}`);
+                                }
+                                return tooltip;
+                            } else {
+                                const rankGain = context.raw.rankGain || 0;
+                                const tooltip = [`${text('xpRank')}: #${context.parsed.y}`];
+                                if (rankGain !== 0) {
+                                    const rankText = rankGain > 0 ? `+${rankGain}` : `${rankGain}`;
+                                    tooltip.push(`${text('rankGain')}: ${rankText}`);
+                                }
+                                return tooltip;
                             }
-                            return tooltip;
                         } else {
-                            const rankGain = context.raw.rankGain || 0;
-                            const tooltip = [`${text('rank')}: #${context.parsed.y}`];
-                            if (rankGain !== 0) {
-                                const rankText = rankGain > 0 ? `+${rankGain}` : `${rankGain}`;
-                                tooltip.push(`${text('rankGain')}: ${rankText}`);
+                            // ELO mode
+                            if (viewMode === 'elo') {
+                                const eloGain = context.raw.eloGain || 0;
+                                const tooltip = [`${text('elo')}: ${context.parsed.y}`];
+                                if (eloGain !== 0) {
+                                    const eloText = eloGain > 0 ? `+${eloGain}` : `${eloGain}`;
+                                    tooltip.push(`${text('eloGain')}: ${eloText}`);
+                                }
+                                return tooltip;
+                            } else {
+                                const rankGain = context.raw.rankGain || 0;
+                                const tooltip = [`${text('eloRank')}: #${context.parsed.y}`];
+                                if (rankGain !== 0) {
+                                    const rankText = rankGain > 0 ? `+${rankGain}` : `${rankGain}`;
+                                    tooltip.push(`${text('rankGain')}: ${rankText}`);
+                                }
+                                return tooltip;
                             }
-                            return tooltip;
                         }
                     }
                 }
@@ -182,15 +225,15 @@ export default function XPGraph({ session }) {
                 }
             },
             y: {
-                beginAtZero: viewMode === 'xp',
-                reverse: viewMode === 'rank', // For rank, 1 should be at the top
+                beginAtZero: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo'),
+                reverse: (mode === 'xp' && viewMode === 'rank') || (mode === 'elo' && viewMode === 'eloRank'), // For rank, 1 should be at the top
                 grid: {
                     color: 'rgba(255, 255, 255, 0.1)'
                 },
                 ticks: {
                     color: 'rgba(255, 255, 255, 0.7)',
                     callback: function(value) {
-                        if (viewMode === 'xp') {
+                        if ((mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo')) {
                             return value.toLocaleString();
                         } else {
                             return `#${value}`;
@@ -264,31 +307,42 @@ export default function XPGraph({ session }) {
         );
     }
 
-    const getCurrentXP = () => {
-        return userStats.length > 0 ? userStats[userStats.length - 1].totalXp : 0;
+    const getCurrentValue = () => {
+        if (userStats.length === 0) return 0;
+        const latest = userStats[userStats.length - 1];
+        if (mode === 'xp') {
+            return viewMode === 'xp' ? latest.totalXp : latest.xpRank;
+        } else {
+            return viewMode === 'elo' ? latest.elo : latest.eloRank;
+        }
     };
 
     const getCurrentRank = () => {
-        return userStats.length > 0 ? userStats[userStats.length - 1].xpRank : 1;
+        if (userStats.length === 0) return 1;
+        const latest = userStats[userStats.length - 1];
+        return mode === 'xp' ? latest.xpRank : latest.eloRank;
     };
 
     return (
         <div style={graphStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <h3 style={{ color: '#fff', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-                    {viewMode === 'xp' ? text('xpOverTime') : text('rankOverTime')}
+                    {mode === 'xp' ? 
+                        (viewMode === 'xp' ? text('xpOverTime') : text('rankOverTime')) :
+                        (viewMode === 'elo' ? text('eloOverTime') : text('eloRankOverTime'))
+                    }
                 </h3>
 
                 <div style={toggleStyle}>
                     <button
-                        style={toggleButtonStyle(viewMode === 'xp')}
-                        onClick={() => setViewMode('xp')}
+                        style={toggleButtonStyle(mode === 'xp' ? viewMode === 'xp' : viewMode === 'elo')}
+                        onClick={() => setViewMode(mode === 'xp' ? 'xp' : 'elo')}
                     >
-                        {text('xp')}
+                        {mode === 'xp' ? text('xp') : text('elo')}
                     </button>
                     <button
-                        style={toggleButtonStyle(viewMode === 'rank')}
-                        onClick={() => setViewMode('rank')}
+                        style={toggleButtonStyle(mode === 'xp' ? viewMode === 'rank' : viewMode === 'eloRank')}
+                        onClick={() => setViewMode(mode === 'xp' ? 'rank' : 'eloRank')}
                     >
                         {text('rank')}
                     </button>
@@ -308,9 +362,15 @@ export default function XPGraph({ session }) {
             }}>
                 <span>{text('dataPoints', { count: userStats.length })}</span>
                 <span>
-                    {viewMode === 'xp'
-                        ? `${text('currentXP')}: ${getCurrentXP().toLocaleString()}`
-                        : `${text('currentRank')}: #${getCurrentRank()}`
+                    {mode === 'xp' ? 
+                        (viewMode === 'xp' 
+                            ? `${text('currentXP')}: ${getCurrentValue().toLocaleString()}`
+                            : `${text('currentRank')}: #${getCurrentValue()}`
+                        ) : 
+                        (viewMode === 'elo'
+                            ? `${text('currentElo')}: ${getCurrentValue()}`
+                            : `${text('currentRank')}: #${getCurrentValue()}`
+                        )
                     }
                 </span>
             </div>

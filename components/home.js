@@ -415,6 +415,7 @@ export default function Home({ }) {
 
         return () => {
             try {
+                if(!window.CrazyGames || !window.CrazyGames.SDK || !window.CrazyGames.SDK.user) return;
                 window.CrazyGames.SDK.user.removeAuthListener(crazyAuthListener);
             } catch (e) {
                 console.error("crazygames remove auth listener error", e)
