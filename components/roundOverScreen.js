@@ -812,11 +812,6 @@ const GameSummary = ({
                         return null;
                       }
                       
-                      // If a player is selected, only show that player's guesses
-                      if (selectedPlayer && playerId !== selectedPlayer) {
-                        return null;
-                      }
-                      
                       const playerColor = getPlayerColor(playerId, false);
                       return (
                         <React.Fragment key={`${index}-${playerId}`}>
