@@ -90,17 +90,17 @@ export default function EloView({ eloData, session }) {
     return (
         <div style={containerStyle}>
             {/* ELO Header */}
-            <div style={cardStyle}>
+            {/* <div style={cardStyle}>
                 <h1 style={titleStyle}>{text("ELO")}</h1>
 
                 <p style={descriptionStyle}>
                     {text("leagueModalDesc")}
                 </p>
 
-                {/* <p style={descriptionStyle}>
+                 <p style={descriptionStyle}>
                     {text("leagueModalDesc2")}
-                </p> */}
-            </div>
+                </p>
+            </div> */}
 
             {/* League System */}
             <div style={cardStyle}>
