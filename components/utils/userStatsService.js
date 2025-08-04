@@ -30,7 +30,7 @@ class UserStatsService {
         xpRank: xpRank,
         elo: user.elo || 1000,
         eloRank: eloRank,
-        triggerEvent: 'game_completed',
+        triggerEvent: gameData?.triggerEvent || 'game_completed',
         gameId: gameId
       });
 
