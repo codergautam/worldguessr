@@ -544,11 +544,13 @@ const GameSummary = ({
       myId: multiplayerState?.gameData?.myId
     });
     
-    // If history is already provided, use it
+    // If history is already provided and not empty, use it
     if (history && history.length > 0) {
       console.log('Using existing history:', history);
       return history;
     }
+    
+    console.log('History is empty or undefined, trying transformation');
 
     // If no history provided, try to construct it from multiplayerState
     if (multiplayerState?.gameData?.roundHistory) {
@@ -583,8 +585,29 @@ const GameSummary = ({
   console.log('DEBUG gameHistory:', { gameHistory, length: gameHistory?.length, history, hasMultiplayer: !!multiplayerState?.gameData, hasRoundHistory: !!multiplayerState?.gameData?.roundHistory });
   
   if(!gameHistory || gameHistory.length === 0) {
-    console.log('No gameHistory, returning null');
-    return null;
+    console.log('No gameHistory, showing fallback message');
+    return (
+      <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
+        <div className="game-summary-container">
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '100vh',
+            color: 'white',
+            fontSize: '1.5rem',
+            padding: '2rem',
+            textAlign: 'center'
+          }}>
+            <div>No game history available</div>
+            <div style={{ fontSize: '1rem', marginTop: '1rem', opacity: 0.7 }}>
+              Debug: history={JSON.stringify(history)}, roundHistory length={multiplayerState?.gameData?.roundHistory?.length}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // // If still no valid history data, show fallback
