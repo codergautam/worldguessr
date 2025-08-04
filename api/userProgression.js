@@ -8,19 +8,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId } = req.body;
+    const { secret } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ message: 'UserId is required' });
+    if (!secret) {
+      return res.status(400).json({ message: 'Secret is required' });
     }
 
-    // Find user by _id
-    const user = await User.findOne({ _id: userId });
+    // Find user by secret (for authentication)
+    const user = await User.findOne({ secret });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Get user's stats progression - all available data
+    // Get user's stats progression - all available data (using _id internally)
     const progression = await UserStatsService.getUserProgression(user._id);
 
     return res.status(200).json({ 

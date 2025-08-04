@@ -35,7 +35,7 @@ export default function XPGraph({ session }) {
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
-        if (!session?.token?.accountId || !window.cConfig?.apiUrl) return;
+        if (!session?.token?.secret || !window.cConfig?.apiUrl) return;
         
         setLoading(true);
         try {
@@ -45,7 +45,7 @@ export default function XPGraph({ session }) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    userId: session.token.accountId
+                    secret: session.token.secret
                 }),
             });
 
@@ -54,7 +54,9 @@ export default function XPGraph({ session }) {
                 setUserStats(data.progression);
                 calculateGraphData(data.progression);
             } else {
-                console.error('Failed to fetch user progression');
+                console.error('Failed to fetch user progression', response.status);
+                const errorData = await response.text();
+                console.error('Error details:', errorData);
             }
         } catch (error) {
             console.error('Error fetching user progression:', error);
@@ -114,7 +116,7 @@ export default function XPGraph({ session }) {
 
     useEffect(() => {
         fetchUserProgression();
-    }, [session?.token?.accountId]);
+    }, [session?.token?.secret]);
 
     const chartOptions = {
         responsive: true,
