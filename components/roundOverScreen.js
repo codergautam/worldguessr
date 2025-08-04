@@ -69,7 +69,6 @@ const GameSummary = ({
     hidden,
     multiplayerState
 }) => {
-  console.log('RoundOverScreen called with:', { duel, hasData: !!data, hasHistory: !!history, historyLength: history?.length });
   const { t: text } = useTranslation("common");
   const [activeRound, setActiveRound] = useState(null); // null = no round selected
   const [mapReady, setMapReady] = useState(false);
@@ -418,11 +417,6 @@ const GameSummary = ({
 
   const fitMapToBounds = () => {
     if (!mapRef.current || !finalHistory.length || !window.L) {
-      console.log('fitMapToBounds early return:', {
-        mapRef: !!mapRef.current,
-        historyLength: finalHistory.length,
-        leaflet: !!window.L
-      });
       return;
     }
 
@@ -455,23 +449,12 @@ const GameSummary = ({
   };
 
   const focusOnRound = (roundIndex) => {
-    console.log('focusOnRound called:', {
-      mapRef: !!mapRef.current,
-      history: finalHistory.length,
-      roundIndex,
-      leaflet: !!window.L,
-      userHasInteracted
-    });
-
     if (!mapRef.current || !finalHistory[roundIndex] || !window.L) {
-      console.log('focusOnRound early return - missing requirements');
       return;
     }
 
     const round = finalHistory[roundIndex];
     const map = mapRef.current;
-
-    console.log(`Focusing on round ${roundIndex + 1}:`, round);
 
     if (round.guessLat && round.guessLong) {
       const distance = calculateDistance(round.lat, round.long, round.guessLat, round.guessLong);
@@ -509,7 +492,6 @@ const GameSummary = ({
 
   useEffect(() => {
     if (mapReady && finalHistory.length > 0 && leafletReady && !userHasInteracted) {
-      console.log('Map ready, setting initial view...');
       setTimeout(() => {
         // Set initial extent only once, then allow free user interaction
         fitMapToBounds();
@@ -518,7 +500,6 @@ const GameSummary = ({
   }, [mapReady, leafletReady, userHasInteracted]); // Only fit bounds if user hasn't interacted
 
   const handleRoundClick = (index) => {
-    console.log(`Round ${index + 1} clicked`);
     setActiveRound(index);
 
     // Check if mobile (screen width <= 1024px)
@@ -533,33 +514,19 @@ const GameSummary = ({
 
   // Memoize the transformation to prevent infinite re-renders
   const gameHistory = useMemo(() => {
-    console.log('useMemo executing with:', {
-      historyExists: !!history,
-      historyLength: history?.length,
-      hasMultiplayerData: !!multiplayerState?.gameData,
-      hasRoundHistory: !!multiplayerState?.gameData?.roundHistory,
-      roundHistoryLength: multiplayerState?.gameData?.roundHistory?.length,
-      myId: multiplayerState?.gameData?.myId
-    });
-
     // If history is already provided and not empty, use it
     if (history && history.length > 0) {
-      console.log('Using existing history:', history);
       return history;
     }
-
-    console.log('History is empty or undefined, trying transformation');
 
     // If no history provided, try to construct it from multiplayerState
     if (multiplayerState?.gameData?.roundHistory) {
       const { roundHistory, myId } = multiplayerState.gameData;
-      console.log('Found roundHistory:', { roundHistory, myId });
 
       if (roundHistory && roundHistory.length > 0) {
         const transformed = roundHistory.map((roundData, roundIndex) => {
           const location = roundData.location;
           const myPlayerData = roundData.players[myId];
-          console.log(`Transforming round ${roundIndex + 1}:`, { location, myPlayerData });
 
           return {
             lat: location.lat,
@@ -571,12 +538,10 @@ const GameSummary = ({
             timeTaken: null
           };
         });
-        console.log('Transformed result:', transformed);
         return transformed;
       }
     }
 
-    console.log('No valid data found, returning empty array');
     return [];
   }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId]);
 
@@ -598,10 +563,7 @@ const GameSummary = ({
     );
   }
 
-  console.log('DEBUG gameHistory:', { gameHistory, length: gameHistory?.length, history, hasMultiplayer: !!multiplayerState?.gameData, hasRoundHistory: !!multiplayerState?.gameData?.roundHistory });
-
   if(!gameHistory || gameHistory.length === 0) {
-    console.log('No gameHistory, showing fallback message');
     return (
       <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
         <div className="game-summary-container">
@@ -688,14 +650,6 @@ const GameSummary = ({
 
   // Use the constructed or provided history
   const finalHistory = gameHistory;
-
-  console.log('Final rendering decision:', {
-    duel,
-    hasData: !!data,
-    finalHistoryLength: finalHistory.length,
-    isDuelPath: !!(duel && data),
-    isRegularPath: !(duel && data)
-  });
 
   // DUEL SCREEN IMPLEMENTATION
   if (duel && data) {
@@ -1067,13 +1021,6 @@ const GameSummary = ({
             const distance = round.guessLat && round.guessLong
               ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
               : null;
-
-            console.log(`Regular screen round ${index + 1}:`, {
-              hasLatLong: !!(round.lat && round.long),
-              hasGuess: !!(round.guessLat && round.guessLong),
-              isMultiplayer: !!multiplayerState?.gameData,
-              playerCount: multiplayerState?.gameData?.players?.length
-            });
 
             return (
               <React.Fragment key={index}>
