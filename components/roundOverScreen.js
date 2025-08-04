@@ -535,19 +535,31 @@ const GameSummary = ({
 
   // Memoize the transformation to prevent infinite re-renders
   const gameHistory = useMemo(() => {
+    console.log('useMemo executing with:', { 
+      historyExists: !!history,
+      historyLength: history?.length,
+      hasMultiplayerData: !!multiplayerState?.gameData,
+      hasRoundHistory: !!multiplayerState?.gameData?.roundHistory,
+      roundHistoryLength: multiplayerState?.gameData?.roundHistory?.length,
+      myId: multiplayerState?.gameData?.myId
+    });
+    
     // If history is already provided, use it
     if (history && history.length > 0) {
+      console.log('Using existing history:', history);
       return history;
     }
 
     // If no history provided, try to construct it from multiplayerState
     if (multiplayerState?.gameData?.roundHistory) {
       const { roundHistory, myId } = multiplayerState.gameData;
+      console.log('Found roundHistory:', { roundHistory, myId });
 
       if (roundHistory && roundHistory.length > 0) {
-        return roundHistory.map((roundData, roundIndex) => {
+        const transformed = roundHistory.map((roundData, roundIndex) => {
           const location = roundData.location;
           const myPlayerData = roundData.players[myId];
+          console.log(`Transforming round ${roundIndex + 1}:`, { location, myPlayerData });
 
           return {
             lat: location.lat,
@@ -559,13 +571,19 @@ const GameSummary = ({
             timeTaken: null
           };
         });
+        console.log('Transformed result:', transformed);
+        return transformed;
       }
     }
 
+    console.log('No valid data found, returning empty array');
     return [];
   }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId]);
 
+  console.log('DEBUG gameHistory:', { gameHistory, length: gameHistory?.length, history, hasMultiplayer: !!multiplayerState?.gameData, hasRoundHistory: !!multiplayerState?.gameData?.roundHistory });
+  
   if(!gameHistory || gameHistory.length === 0) {
+    console.log('No gameHistory, returning null');
     return null;
   }
 
