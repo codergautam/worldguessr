@@ -1152,14 +1152,21 @@ const GameSummary = ({
                 {/* Other players' guesses */}
                 {round.players && Object.entries(round.players).map(([playerId, player]) => {
                   if (player.lat && player.long && playerId !== multiplayerState?.gameData?.myId) {
-                    // Hide opponent pins for unranked duels (public games)
+                    // For unranked duels (public games), hide opponent pins unless a specific player is selected
                     if (multiplayerState?.gameData?.public) {
-                      return null;
-                    }
-                    
-                    // If a player is selected, only show that player's guesses
-                    if (selectedPlayer && playerId !== selectedPlayer) {
-                      return null;
+                      // If no player is selected, hide all opponent pins
+                      if (!selectedPlayer) {
+                        return null;
+                      }
+                      // If a player is selected but this isn't that player, hide this pin
+                      if (playerId !== selectedPlayer) {
+                        return null;
+                      }
+                    } else {
+                      // For private games, normal player selection logic
+                      if (selectedPlayer && playerId !== selectedPlayer) {
+                        return null;
+                      }
                     }
                     
                     const playerColor = getPlayerColor(playerId, false);

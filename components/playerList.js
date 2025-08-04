@@ -150,7 +150,11 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
         : multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated) ?
         null
         :
-        <button className="gameBtn g2_green_button g2_button_style" onClick={() => startGameHost()}>{text("startGame")}</button> }
+        <button className="gameBtn g2_green_button g2_button_style"
+            style={{
+            backgroundColor: "green",
+            }}
+        onClick={() => startGameHost()}>{text("startGame")}</button> }
 
         </div>
       )}
