@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { configDotenv } from 'dotenv';
 import User from './models/User.js';
+import UserStats from './models/UserStats.js';
 import UserStatsService from './components/utils/userStatsService.js';
 var app = express();
 import cors from 'cors';
@@ -45,52 +46,118 @@ const updateAllUserStats = async () => {
     return;
   }
 
-  console.log('[INFO] Starting weekly UserStats update...');
-  
+  console.log('[INFO] Starting ULTRA-FAST weekly UserStats update for ~2M users...');
+
   try {
-    const batchSize = 100;
-    let skip = 0;
+    const startTime = Date.now();
+
+    // STEP 1: Get ALL users sorted by XP and ELO (this is the key optimization!)
+    console.log('[FETCH] Starting parallel user fetch...');
+    const fetchStart = Date.now();
+    
+    const [usersByXp, usersByElo] = await Promise.all([
+      User.find({ banned: { $ne: true } })
+        .select('_id totalXp elo')
+        .sort({ totalXp: -1 })
+        .lean(),
+      User.find({ banned: { $ne: true } })
+        .select('_id elo')
+        .sort({ elo: -1 })
+        .lean()
+    ]);
+
+    const fetchTime = Date.now() - fetchStart;
+    console.log(`[FETCH] ✅ Fetched ${usersByXp.length} users in ${fetchTime}ms (${(fetchTime/usersByXp.length).toFixed(2)}ms/user)`);
+
+    // STEP 2: Create rank lookup maps (O(n) instead of O(n²))
+    console.log('[RANK] Creating rank lookup maps...');
+    const rankStart = Date.now();
+    
+    const xpRankMap = new Map();
+    const eloRankMap = new Map();
+
+    usersByXp.forEach((user, index) => {
+      xpRankMap.set(user._id.toString(), index + 1);
+    });
+
+    usersByElo.forEach((user, index) => {
+      eloRankMap.set(user._id.toString(), index + 1);
+    });
+
+    const rankTime = Date.now() - rankStart;
+    console.log(`[RANK] ✅ Created rank maps in ${rankTime}ms (${(rankTime/usersByXp.length).toFixed(3)}ms/user)`);
+    console.log(`[SETUP] Total setup time: ${fetchTime + rankTime}ms`);
+    console.log('━'.repeat(60));
+    console.log('[BULK] Starting bulk insert phase...');
+
+    // STEP 3: Bulk insert with pre-calculated ranks
+    const batchSize = 5000; // HUGE batches
     let totalUpdated = 0;
-    let totalErrors = 0;
 
-    while (true) {
-      const users = await User.find({ banned: { $ne: true } })
-        .select('_id username totalXp elo')
-        .skip(skip)
-        .limit(batchSize)
-        .lean();
-
-      if (users.length === 0) {
-        break; // No more users
-      }
-
-      console.log(`[INFO] Processing UserStats batch: ${users.length} users (offset ${skip})`);
-
-      for (const user of users) {
-        try {
-          const result = await UserStatsService.recordGameStats(user._id, null, {
-            triggerEvent: 'weekly_update'
-          });
-
-          if (result) {
-            totalUpdated++;
-          } else {
-            totalErrors++;
-          }
-        } catch (error) {
-          console.error(`[ERROR] Failed to update UserStats for user ${user.username || user._id}:`, error.message);
-          totalErrors++;
-        }
-      }
-
-      skip += batchSize;
+    for (let i = 0; i < usersByXp.length; i += batchSize) {
+      const batch = usersByXp.slice(i, i + batchSize);
       
-      // Small delay between batches
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Create documents for bulk insert
+      const documents = batch.map(user => ({
+        userId: user._id,
+        timestamp: new Date(),
+        totalXp: user.totalXp || 0,
+        xpRank: xpRankMap.get(user._id.toString()),
+        elo: user.elo || 1000,
+        eloRank: eloRankMap.get(user._id.toString()),
+        triggerEvent: 'weekly_update',
+        gameId: null
+      }));
+
+      // Bulk insert - MUCH faster than individual creates
+      try {
+        await UserStats.insertMany(documents, { ordered: false });
+        totalUpdated += documents.length;
+      } catch (error) {
+        console.error(`[ERROR] Bulk insert error for batch ${i}-${i + batch.length}:`, error.message);
+        // Continue with next batch
+      }
+
+      // Progress update with detailed stats
+      if ((i + batchSize) % 50000 === 0 || i + batchSize >= usersByXp.length) {
+        const now = Date.now();
+        const elapsedMs = now - startTime;
+        const processed = Math.min(i + batchSize, usersByXp.length);
+        const remaining = usersByXp.length - processed;
+        
+        // Calculate rates and estimates
+        const usersPerMs = processed / elapsedMs;
+        const usersPerSec = (usersPerMs * 1000).toFixed(0);
+        const msPerUser = (elapsedMs / processed).toFixed(2);
+        const progressPct = ((processed / usersByXp.length) * 100).toFixed(1);
+        
+        // Time estimates
+        const elapsedMin = (elapsedMs / 1000 / 60).toFixed(1);
+        const etaMs = remaining / usersPerMs;
+        const etaMin = (etaMs / 1000 / 60).toFixed(1);
+        const totalEtaMin = (elapsedMs + etaMs) / 1000 / 60;
+        
+        console.log(`[PROGRESS] ${processed}/${usersByXp.length} users (${progressPct}%)`);
+        console.log(`[SPEED] ${usersPerSec}/sec | ${msPerUser}ms/user | Batch: ${documents.length} users`);
+        console.log(`[TIME] Elapsed: ${elapsedMin}m | ETA: ${etaMin}m | Total: ${totalEtaMin.toFixed(1)}m`);
+        console.log(`[MEMORY] ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB heap used`);
+        console.log('─'.repeat(60));
+      }
     }
 
-    console.log(`[INFO] Weekly UserStats update completed: ${totalUpdated} updated, ${totalErrors} errors`);
+    const totalTimeMs = Date.now() - startTime;
+    const totalTimeSec = (totalTimeMs / 1000).toFixed(1);
+    const totalTimeMin = (totalTimeMs / 1000 / 60).toFixed(1);
+    const avgRate = (totalUpdated / totalTimeMs * 1000).toFixed(0);
+    const msPerUser = (totalTimeMs / totalUpdated).toFixed(2);
     
+    console.log('━'.repeat(60));
+    console.log(`[COMPLETE] 🚀 ULTRA-FAST update completed!`);
+    console.log(`[STATS] ${totalUpdated} users updated in ${totalTimeMs}ms (${totalTimeSec}s, ${totalTimeMin}m)`);
+    console.log(`[PERFORMANCE] ${avgRate} users/sec | ${msPerUser}ms/user`);
+    console.log(`[EFFICIENCY] ${((totalUpdated/2000000)*100).toFixed(1)}% of 2M users processed`);
+    console.log('━'.repeat(60));
+
   } catch (error) {
     console.error('[ERROR] Weekly UserStats update failed:', error);
   }
@@ -99,13 +166,13 @@ const updateAllUserStats = async () => {
 // Set up weekly timer that runs every 7 days
 const startWeeklyUserStatsTimer = () => {
   console.log('[INFO] UserStats weekly update timer started - next update in 7 days');
-  
+   updateAllUserStats();
   const runUpdateAndRestart = async () => {
     await updateAllUserStats();
     // Restart the timer for another 7 days
     setTimeout(runUpdateAndRestart, WEEK_IN_MS);
   };
-  
+
   // Start the timer
   setTimeout(runUpdateAndRestart, WEEK_IN_MS);
 };
