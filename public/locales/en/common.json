@@ -301,5 +301,13 @@
   "errorLoadingGame": "Error loading game",
   "backToHistory": "Back to History",
   "gameNotFound": "Game not found",
-  "gameNoLongerAvailable": "This game is no longer available"
+  "gameNoLongerAvailable": "This game is no longer available",
+  "xpGain": "XP Gain",
+  "rankGain": "Rank Change",
+  "noStatsAvailable": "No Stats Available",
+  "playGamesToSeeProgression": "Play games to see your progression over time",
+  "dataPoints": "{{count}} data points",
+  "currentXP": "Current XP",
+  "currentRank": "Current Rank",
+  "xpRank": "XP Rank"
 }
