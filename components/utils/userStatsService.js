@@ -24,7 +24,7 @@ class UserStatsService {
 
       // Record the stats snapshot
       const statsEntry = await UserStats.create({
-        userId: userId,
+        userId: user._id,
         timestamp: new Date(),
         totalXp: user.totalXp || 0,
         xpRank: xpRank,

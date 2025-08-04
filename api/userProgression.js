@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     }
 
     // Get user's stats progression - all available data
-    const progression = await UserStatsService.getUserProgression(user.secret);
+    const progression = await UserStatsService.getUserProgression(user._id);
 
     return res.status(200).json({ 
       progression,
