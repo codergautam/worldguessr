@@ -749,7 +749,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
         {/* Private game over screen */}
         {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "end" && (
           <RoundOverScreen
-            history={multiplayerState?.gameData?.history || []}
+            history={multiplayerState?.gameData?.roundHistory || []}
             duel={false}
             multiplayerState={multiplayerState}
             points={multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.score || 0}
