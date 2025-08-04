@@ -45,8 +45,7 @@ export default function XPGraph({ session }) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    secret: session.token.secret,
-                    days: 90 // Get last 90 days of data
+                    secret: session.token.secret
                 }),
             });
 

@@ -20,8 +20,8 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Get user's stats progression
-    const progression = await UserStatsService.getUserProgression(user.secret, days);
+    // Get user's stats progression - all available data
+    const progression = await UserStatsService.getUserProgression(user.secret);
 
     return res.status(200).json({ 
       progression,

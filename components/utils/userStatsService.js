@@ -77,15 +77,18 @@ class UserStatsService {
   /**
    * Get user's stats progression for charts
    */
-  static async getUserProgression(userId, days = 30) {
+  static async getUserProgression(userId, days = null) {
     try {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
+      const query = { userId: userId };
+      
+      // Only add timestamp filter if days is specified
+      if (days !== null) {
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days);
+        query.timestamp = { $gte: startDate };
+      }
 
-      const progression = await UserStats.find({
-        userId: userId,
-        timestamp: { $gte: startDate }
-      }).sort({ timestamp: 1 }).lean();
+      const progression = await UserStats.find(query).sort({ timestamp: 1 }).lean();
 
       // Add calculated fields for frontend
       return progression.map((stat, index, arr) => {
