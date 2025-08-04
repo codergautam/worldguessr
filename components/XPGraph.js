@@ -35,7 +35,7 @@ export default function XPGraph({ session }) {
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
-        if (!session?.token?.secret || !window.cConfig?.apiUrl) return;
+        if (!session?.token?.accountId || !window.cConfig?.apiUrl) return;
         
         setLoading(true);
         try {
@@ -45,7 +45,7 @@ export default function XPGraph({ session }) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    secret: session.token.secret
+                    userId: session.token.accountId
                 }),
             });
 
@@ -114,7 +114,7 @@ export default function XPGraph({ session }) {
 
     useEffect(() => {
         fetchUserProgression();
-    }, [session?.token?.secret]);
+    }, [session?.token?.accountId]);
 
     const chartOptions = {
         responsive: true,

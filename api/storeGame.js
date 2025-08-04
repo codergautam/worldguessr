@@ -146,7 +146,7 @@ async function guess(req, res) {
 
         // Record user stats for analytics
         try {
-          await UserStatsService.recordGameStats(user.secret, gameId);
+          await UserStatsService.recordGameStats(user._id, gameId);
         } catch (statsError) {
           console.warn('Failed to record user stats:', statsError);
           // Don't fail the entire request if stats recording fails
