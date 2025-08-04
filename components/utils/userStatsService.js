@@ -2,7 +2,7 @@ import UserStats from '../../models/UserStats.js';
 import User from '../../models/User.js';
 
 class UserStatsService {
-  
+
   /**
    * Record user stats after a game completion
    * @param {string} userId - User's account ID
@@ -80,7 +80,7 @@ class UserStatsService {
   static async getUserProgression(userId, days = null) {
     try {
       const query = { userId: userId };
-      
+
       // Only add timestamp filter if days is specified
       if (days !== null) {
         const startDate = new Date();
@@ -93,7 +93,7 @@ class UserStatsService {
       // Add calculated fields for frontend
       return progression.map((stat, index, arr) => {
         const prevStat = index > 0 ? arr[index - 1] : null;
-        
+
         return {
           ...stat,
           xpGain: prevStat ? stat.totalXp - prevStat.totalXp : 0,
@@ -146,10 +146,10 @@ class UserStatsService {
       // Enrich with user info
       const userIds = leaderboard.map(entry => entry.userId);
       const users = await User.find({
-        secret: { $in: userIds }
-      }).select('secret username').lean();
+        _id: { $in: userIds }
+      }).select('_id username').lean();
 
-      const userMap = new Map(users.map(u => [u.secret, u.username]));
+      const userMap = new Map(users.map(u => [u._id.toString(), u.username]));
 
       return leaderboard.map(entry => ({
         ...entry,
