@@ -535,6 +535,14 @@ const GameSummary = ({
 
   // If no history provided, try to construct it from multiplayerState
   let gameHistory = history;
+  console.log('TRANSFORM DEBUG:', {
+    hasHistory: !!history,
+    historyLength: history?.length,
+    hasMultiplayerState: !!multiplayerState?.gameData,
+    hasRoundHistory: !!multiplayerState?.gameData?.roundHistory,
+    roundHistoryLength: multiplayerState?.gameData?.roundHistory?.length
+  });
+  
   if ((!history || history.length === 0) && multiplayerState?.gameData) {
 
     const { roundHistory, myId } = multiplayerState.gameData;
