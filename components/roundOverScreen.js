@@ -312,6 +312,22 @@ const GameSummary = ({
     );
   };
 
+  // Get current user's rank
+  const getCurrentUserRank = () => {
+    if (!finalHistory[0]?.players || !multiplayerState?.gameData?.myId) return null;
+
+    const players = Object.entries(finalHistory[0].players)
+      .map(([playerId, player]) => ({
+        playerId,
+        username: player.username,
+        totalScore: finalHistory.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
+      }))
+      .sort((a, b) => b.totalScore - a.totalScore);
+
+    const currentUserIndex = players.findIndex(player => player.playerId === multiplayerState?.gameData?.myId);
+    return currentUserIndex !== -1 ? { rank: currentUserIndex + 1, total: players.length } : null;
+  };
+
   // Reusable leaderboard rendering function
   const renderLeaderboard = (showAll = false) => {
     if (!finalHistory[0]?.players) return null;
@@ -1233,6 +1249,31 @@ const GameSummary = ({
                 </div>
               ))}
             </div>
+
+            {/* Display rank for multiplayer non-duel games */}
+            {multiplayerState?.gameData && !multiplayerState?.gameData?.duel && finalHistory[0]?.players && Object.keys(finalHistory[0].players).length > 1 && (() => {
+              const rankInfo = getCurrentUserRank();
+              return rankInfo && (
+                <div
+                  style={{
+                    color: 'white',
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    margin: '8px 0',
+                    opacity: 0.9,
+                    transition: 'all 0.3s ease-out',
+                    ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
+                      fontSize: '1rem',
+                      margin: '4px 0',
+                      transform: 'scale(0.9)'
+                    } : {})
+                  }}
+                >
+                  {text("rank")} {rankInfo.rank}/{rankInfo.total}
+                </div>
+              );
+            })()}
 
             <div
               className="summary-score"
