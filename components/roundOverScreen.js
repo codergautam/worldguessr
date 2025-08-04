@@ -796,6 +796,11 @@ const GameSummary = ({
                         return null;
                       }
                       
+                      // If a player is selected, only show that player's guesses
+                      if (selectedPlayer && playerId !== selectedPlayer) {
+                        return null;
+                      }
+                      
                       const playerColor = getPlayerColor(playerId, false);
                       return (
                         <React.Fragment key={`${index}-${playerId}`}>
@@ -1128,6 +1133,11 @@ const GameSummary = ({
                   if (player.lat && player.long && playerId !== multiplayerState?.gameData?.myId) {
                     // Hide opponent pins for unranked duels (public games)
                     if (multiplayerState?.gameData?.public) {
+                      return null;
+                    }
+                    
+                    // If a player is selected, only show that player's guesses
+                    if (selectedPlayer && playerId !== selectedPlayer) {
                       return null;
                     }
                     
