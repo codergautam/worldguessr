@@ -83,9 +83,7 @@ export default function XPGraph({ session }) {
                 // For rank - use actual rank (1 is best)
                 dataPoints.push({
                     x: date,
-                    y: stat.xpRank,
-                    elo: stat.elo,
-                    eloRank: stat.eloRank
+                    y: stat.xpRank
                 });
             }
         });
@@ -146,13 +144,7 @@ export default function XPGraph({ session }) {
                                 `${text('rank')}: #${rank}`
                             ];
                         } else {
-                            const elo = context.raw.elo || 0;
-                            const eloRank = context.raw.eloRank || 0;
-                            return [
-                                `${text('xpRank')}: #${context.parsed.y}`,
-                                `${text('elo')}: ${elo}`,
-                                `${text('eloRank')}: #${eloRank}`
-                            ];
+                            return `${text('xpRank')}: #${context.parsed.y}`;
                         }
                     }
                 }
