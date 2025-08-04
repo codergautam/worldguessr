@@ -69,6 +69,7 @@ const GameSummary = ({
     hidden,
     multiplayerState
 }) => {
+  console.log('RoundOverScreen called with:', { duel, hasData: !!data, hasHistory: !!history, historyLength: history?.length });
   const { t: text } = useTranslation("common");
   const [activeRound, setActiveRound] = useState(null); // null = no round selected
   const [mapReady, setMapReady] = useState(false);

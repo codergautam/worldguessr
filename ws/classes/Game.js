@@ -17,7 +17,7 @@ import User from "../../models/User.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
 
 export default class Game {
-  constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
+  constructor(id, publicLobby, location="all", rounds=1, allLocations, isDuel=false) {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
@@ -921,7 +921,7 @@ export default class Game {
       // Create userstats document for player 1
       if (this.accountIds.p1) {
         await UserStatsService.recordGameStats(
-          this.accountIds.p1, 
+          this.accountIds.p1,
           `duel_${this.id}`,
           {
             gameType: 'ranked_duel',
@@ -959,17 +959,17 @@ export default class Game {
 
   calculateAverageTime(playerId) {
     if (!this.roundHistory.length) return 30;
-    
+
     let totalTime = 0;
     let roundsWithTime = 0;
-    
+
     for (const round of this.roundHistory) {
       if (round.players[playerId]?.timeTaken) {
         totalTime += round.players[playerId].timeTaken;
         roundsWithTime++;
       }
     }
-    
+
     return roundsWithTime > 0 ? Math.round(totalTime / roundsWithTime) : 30;
   }
 
