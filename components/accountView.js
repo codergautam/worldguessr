@@ -3,6 +3,7 @@ import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
 import { FaClock, FaGamepad, FaStar } from "react-icons/fa6";
+import XPGraph from "./XPGraph";
 
 export default function AccountView({ accountData, supporter, eloData, session }) {
     const { t: text } = useTranslation("common");
@@ -177,6 +178,8 @@ export default function AccountView({ accountData, supporter, eloData, session }
                     </div>
                 )}
             </div>
+
+            <XPGraph session={session} />
         </div>
     );
 }

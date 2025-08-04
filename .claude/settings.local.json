@@ -4,7 +4,9 @@
       "Bash(git commit:*)",
       "Bash(git add:*)",
       "Bash(sed:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }
