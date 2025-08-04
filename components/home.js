@@ -437,12 +437,6 @@ export default function Home({ }) {
     const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
     const [connectionErrorModalShown, setConnectionErrorModalShown] = useState(false);
 
-    // Auto-close connection error modal when connected
-    useEffect(() => {
-        if (multiplayerState.connected) {
-            setConnectionErrorModalShown(false);
-        }
-    }, [multiplayerState.connected]);
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [coolmathSplash, setCoolmathSplash] = useState(null);
@@ -859,6 +853,13 @@ export default function Home({ }) {
     );
     const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
     const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
+
+    // Auto-close connection error modal when connected
+    useEffect(() => {
+        if (multiplayerState.connected) {
+            setConnectionErrorModalShown(false);
+        }
+    }, [multiplayerState.connected]);
 
     useEffect(() => {
         if (!session?.token?.secret) return;
