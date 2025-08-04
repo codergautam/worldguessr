@@ -54,7 +54,7 @@ const updateAllUserStats = async () => {
     // STEP 1: Get ALL users sorted by XP and ELO (this is the key optimization!)
     console.log('[FETCH] Starting parallel user fetch...');
     const fetchStart = Date.now();
-    
+
     const [usersByXp, usersByElo] = await Promise.all([
       User.find({ banned: { $ne: true } })
         .select('_id totalXp elo')
@@ -72,7 +72,7 @@ const updateAllUserStats = async () => {
     // STEP 2: Create rank lookup maps (O(n) instead of O(n²))
     console.log('[RANK] Creating rank lookup maps...');
     const rankStart = Date.now();
-    
+
     const xpRankMap = new Map();
     const eloRankMap = new Map();
 
@@ -96,7 +96,7 @@ const updateAllUserStats = async () => {
 
     for (let i = 0; i < usersByXp.length; i += batchSize) {
       const batch = usersByXp.slice(i, i + batchSize);
-      
+
       // Create documents for bulk insert
       const documents = batch.map(user => ({
         userId: user._id,
@@ -124,19 +124,19 @@ const updateAllUserStats = async () => {
         const elapsedMs = now - startTime;
         const processed = Math.min(i + batchSize, usersByXp.length);
         const remaining = usersByXp.length - processed;
-        
+
         // Calculate rates and estimates
         const usersPerMs = processed / elapsedMs;
         const usersPerSec = (usersPerMs * 1000).toFixed(0);
         const msPerUser = (elapsedMs / processed).toFixed(2);
         const progressPct = ((processed / usersByXp.length) * 100).toFixed(1);
-        
+
         // Time estimates
         const elapsedMin = (elapsedMs / 1000 / 60).toFixed(1);
         const etaMs = remaining / usersPerMs;
         const etaMin = (etaMs / 1000 / 60).toFixed(1);
         const totalEtaMin = (elapsedMs + etaMs) / 1000 / 60;
-        
+
         console.log(`[PROGRESS] ${processed}/${usersByXp.length} users (${progressPct}%)`);
         console.log(`[SPEED] ${usersPerSec}/sec | ${msPerUser}ms/user | Batch: ${documents.length} users`);
         console.log(`[TIME] Elapsed: ${elapsedMin}m | ETA: ${etaMin}m | Total: ${totalEtaMin.toFixed(1)}m`);
@@ -150,12 +150,11 @@ const updateAllUserStats = async () => {
     const totalTimeMin = (totalTimeMs / 1000 / 60).toFixed(1);
     const avgRate = (totalUpdated / totalTimeMs * 1000).toFixed(0);
     const msPerUser = (totalTimeMs / totalUpdated).toFixed(2);
-    
+
     console.log('━'.repeat(60));
     console.log(`[COMPLETE] 🚀 ULTRA-FAST update completed!`);
     console.log(`[STATS] ${totalUpdated} users updated in ${totalTimeMs}ms (${totalTimeSec}s, ${totalTimeMin}m)`);
     console.log(`[PERFORMANCE] ${avgRate} users/sec | ${msPerUser}ms/user`);
-    console.log(`[EFFICIENCY] ${((totalUpdated/2000000)*100).toFixed(1)}% of 2M users processed`);
     console.log('━'.repeat(60));
 
   } catch (error) {
@@ -166,7 +165,6 @@ const updateAllUserStats = async () => {
 // Set up weekly timer that runs every 7 days
 const startWeeklyUserStatsTimer = () => {
   console.log('[INFO] UserStats weekly update timer started - next update in 7 days');
-   updateAllUserStats();
   const runUpdateAndRestart = async () => {
     await updateAllUserStats();
     // Restart the timer for another 7 days
