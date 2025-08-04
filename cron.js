@@ -37,7 +37,6 @@ if (!process.env.MONGODB) {
 }
 
 // Weekly UserStats update functionality
-let lastUserStatsUpdate = 0;
 const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const updateAllUserStats = async () => {
@@ -91,22 +90,28 @@ const updateAllUserStats = async () => {
     }
 
     console.log(`[INFO] Weekly UserStats update completed: ${totalUpdated} updated, ${totalErrors} errors`);
-    lastUserStatsUpdate = Date.now();
     
   } catch (error) {
     console.error('[ERROR] Weekly UserStats update failed:', error);
   }
 };
 
-// Check for weekly UserStats update (runs every hour, updates weekly)
-setInterval(async () => {
-  const now = Date.now();
-  if (now - lastUserStatsUpdate > WEEK_IN_MS) {
+// Set up weekly timer that runs every 7 days
+const startWeeklyUserStatsTimer = () => {
+  console.log('[INFO] UserStats weekly update timer started - next update in 7 days');
+  
+  const runUpdateAndRestart = async () => {
     await updateAllUserStats();
-  }
-}, 60 * 60 * 1000); // Check every hour
+    // Restart the timer for another 7 days
+    setTimeout(runUpdateAndRestart, WEEK_IN_MS);
+  };
+  
+  // Start the timer
+  setTimeout(runUpdateAndRestart, WEEK_IN_MS);
+};
 
-// Note: UserStats update will run automatically after 7 days from first check
+// Start the weekly timer
+startWeeklyUserStatsTimer();
 
 let countryLocations = {};
 const locationCnt = 2000;
