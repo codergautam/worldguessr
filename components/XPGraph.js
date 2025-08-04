@@ -146,7 +146,7 @@ export default function XPGraph({ session }) {
                 borderWidth: 1,
                 callbacks: {
                     title: (context) => {
-                        return context[0].parsed.x.toLocaleDateString();
+                        return new Date(context[0].parsed.x).toLocaleDateString();
                     },
                     label: (context) => {
                         if (viewMode === 'xp') {
