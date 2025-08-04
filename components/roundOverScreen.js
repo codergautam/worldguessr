@@ -515,24 +515,6 @@ const GameSummary = ({
     }
   };
 
-  // Don't render until Leaflet is ready
-  if (!leafletReady || !destIconRef.current || !srcIconRef.current || !src2IconRef.current) {
-    return (
-      <div className="game-summary-container">
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh',
-          color: 'white',
-          fontSize: '1.5rem'
-        }}>
-          {text("loadingMap")}
-        </div>
-      </div>
-    );
-  }
-
   // Memoize the transformation to prevent infinite re-renders
   const gameHistory = useMemo(() => {
     console.log('useMemo executing with:', { 
@@ -581,6 +563,24 @@ const GameSummary = ({
     console.log('No valid data found, returning empty array');
     return [];
   }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId]);
+
+  // Don't render until Leaflet is ready
+  if (!leafletReady || !destIconRef.current || !srcIconRef.current || !src2IconRef.current) {
+    return (
+      <div className="game-summary-container">
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          color: 'white',
+          fontSize: '1.5rem'
+        }}>
+          {text("loadingMap")}
+        </div>
+      </div>
+    );
+  }
 
   console.log('DEBUG gameHistory:', { gameHistory, length: gameHistory?.length, history, hasMultiplayer: !!multiplayerState?.gameData, hasRoundHistory: !!multiplayerState?.gameData?.roundHistory });
   
