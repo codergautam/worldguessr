@@ -222,12 +222,6 @@ export default function GameHistory({ session, onGameClick }) {
                   </div>
                 )}
 
-                {game.userStats.finalRank > 1 && (
-                  <div className={styles.detailItem}>
-                    <span className={styles.detailLabel}>{text('rank')}</span>
-                    <span className={styles.detailValue}>#{game.userStats.finalRank}</span>
-                  </div>
-                )}
               </div>
 
               <div className={styles.gameArrow}>→</div>
