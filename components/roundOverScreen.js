@@ -1065,6 +1065,11 @@ const GameSummary = ({
                 {/* Other players' guesses */}
                 {round.players && Object.entries(round.players).map(([playerId, player]) => {
                   if (player.lat && player.long && playerId !== multiplayerState?.gameData?.myId) {
+                    // Hide opponent pins for unranked duels (public games)
+                    if (multiplayerState?.gameData?.public) {
+                      return null;
+                    }
+                    
                     const playerColor = getPlayerColor(playerId, false);
                     return (
                       <React.Fragment key={`${index}-${playerId}`}>
