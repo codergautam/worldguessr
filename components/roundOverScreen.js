@@ -550,9 +550,19 @@ const GameSummary = ({
     // Use roundHistory from server (this should always be available now)
     if (roundHistory && roundHistory.length > 0) {
       console.log('Using server roundHistory data for game results:', roundHistory.length, 'rounds');
+      console.log('First roundData:', roundHistory[0]);
+      console.log('myId:', myId);
+      
       gameHistory = roundHistory.map((roundData, roundIndex) => {
         const location = roundData.location;
         const myPlayerData = roundData.players[myId];
+        
+        console.log(`Round ${roundIndex + 1} transform:`, {
+          location,
+          myPlayerData,
+          hasLocation: !!location,
+          hasMyData: !!myPlayerData
+        });
 
         return {
           lat: location.lat,
@@ -564,6 +574,8 @@ const GameSummary = ({
           timeTaken: null // Not available in this data structure
         };
       });
+      
+      console.log('Transformed gameHistory:', gameHistory);
     } else {
       console.error('No roundHistory available from server! This should not happen.');
     }
