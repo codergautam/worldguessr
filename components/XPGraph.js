@@ -32,6 +32,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
     const [userStats, setUserStats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState(mode === 'xp' ? 'xp' : 'elo'); // 'xp'/'rank' or 'elo'/'eloRank'
+    const [dateFilter, setDateFilter] = useState('7days'); // '7days', '30days', 'alltime'
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
@@ -68,8 +69,21 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
     const calculateGraphData = (stats) => {
         const dataPoints = [];
+        
+        // Filter stats based on date filter
+        const now = new Date();
+        const filteredStats = stats.filter((stat) => {
+            if (dateFilter === 'alltime') return true;
+            
+            const statDate = new Date(stat.timestamp);
+            const daysDiff = Math.floor((now - statDate) / (1000 * 60 * 60 * 24));
+            
+            if (dateFilter === '7days') return daysDiff <= 7;
+            if (dateFilter === '30days') return daysDiff <= 30;
+            return true;
+        });
 
-        stats.forEach((stat) => {
+        filteredStats.forEach((stat) => {
             const date = new Date(stat.timestamp);
 
             if (mode === 'xp') {
@@ -135,7 +149,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
         if (userStats.length > 0) {
             calculateGraphData(userStats);
         }
-    }, [viewMode, userStats]);
+    }, [viewMode, dateFilter, userStats]);
 
     useEffect(() => {
         fetchUserProgression();
@@ -325,7 +339,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
     return (
         <div style={graphStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                 <h3 style={{ color: '#fff', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
                     {mode === 'xp' ? 
                         (viewMode === 'xp' ? text('xpOverTime') : text('rankOverTime')) :
@@ -333,19 +347,42 @@ export default function XPGraph({ session, mode = 'xp' }) {
                     }
                 </h3>
 
-                <div style={toggleStyle}>
-                    <button
-                        style={toggleButtonStyle(mode === 'xp' ? viewMode === 'xp' : viewMode === 'elo')}
-                        onClick={() => setViewMode(mode === 'xp' ? 'xp' : 'elo')}
-                    >
-                        {mode === 'xp' ? text('xp') : text('elo')}
-                    </button>
-                    <button
-                        style={toggleButtonStyle(mode === 'xp' ? viewMode === 'rank' : viewMode === 'eloRank')}
-                        onClick={() => setViewMode(mode === 'xp' ? 'rank' : 'eloRank')}
-                    >
-                        {text('rank')}
-                    </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+                    <div style={toggleStyle}>
+                        <button
+                            style={toggleButtonStyle(dateFilter === '7days')}
+                            onClick={() => setDateFilter('7days')}
+                        >
+                            7 Days
+                        </button>
+                        <button
+                            style={toggleButtonStyle(dateFilter === '30days')}
+                            onClick={() => setDateFilter('30days')}
+                        >
+                            30 Days
+                        </button>
+                        <button
+                            style={toggleButtonStyle(dateFilter === 'alltime')}
+                            onClick={() => setDateFilter('alltime')}
+                        >
+                            All Time
+                        </button>
+                    </div>
+                    
+                    <div style={toggleStyle}>
+                        <button
+                            style={toggleButtonStyle(mode === 'xp' ? viewMode === 'xp' : viewMode === 'elo')}
+                            onClick={() => setViewMode(mode === 'xp' ? 'xp' : 'elo')}
+                        >
+                            {mode === 'xp' ? text('xp') : text('elo')}
+                        </button>
+                        <button
+                            style={toggleButtonStyle(mode === 'xp' ? viewMode === 'rank' : viewMode === 'eloRank')}
+                            onClick={() => setViewMode(mode === 'xp' ? 'rank' : 'eloRank')}
+                        >
+                            {text('rank')}
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -360,7 +397,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
                 color: 'rgba(255,255,255,0.7)',
                 fontSize: '14px'
             }}>
-                <span>{text('dataPoints', { count: userStats.length })}</span>
+                <span>{text('dataPoints', { count: chartData?.datasets[0]?.data?.length || 0 })}</span>
                 <span>
                     {mode === 'xp' ? 
                         (viewMode === 'xp' 
