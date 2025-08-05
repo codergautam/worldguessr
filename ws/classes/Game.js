@@ -215,7 +215,7 @@ export default class Game {
     let p1score = 0;
     let p2score = 0;
 
-    const mult = 30;
+    const mult = 1;
     if(p1.guess ) {
     p1score = calcPoints({
       lat: loc.lat,
@@ -276,7 +276,9 @@ export default class Game {
       // Save each player's guess and calculated points for this round
       for (const playerId of Object.keys(this.players)) {
         const player = this.players[playerId];
+        
         if (player.guess) {
+          // Player made a guess
           const loc = this.locations[this.curRound - 1];
           let points = 0;
 
@@ -309,6 +311,16 @@ export default class Game {
             points: points,
             final: player.final,
             timeTaken: player.roundTimeTaken || this.timePerRound / 1000 // Use actual time or default
+          };
+        } else {
+          // Player didn't make a guess - still record them with null values
+          roundData.players[playerId] = {
+            username: player.username,
+            lat: null,
+            long: null,
+            points: 0,
+            final: false,
+            timeTaken: this.timePerRound / 1000 // Full time since they didn't guess
           };
         }
       }
