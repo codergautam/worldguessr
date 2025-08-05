@@ -62,23 +62,28 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
     }, [shown, ws])
 
     const handleSendRequest = () => {
+        if (!ws) return;
         setFriendReqProgress(true);
         ws.send(JSON.stringify({ type: 'sendFriendRequest', name: newFriend }));
     };
 
     const handleAccept = (id) => {
+        if (!ws) return;
         ws.send(JSON.stringify({ type: 'acceptFriend', id }));
     };
 
     const handleDecline = (id) => {
+        if (!ws) return;
         ws.send(JSON.stringify({ type: 'declineFriend', id }));
     };
 
     const handleCancel = (id) => {
+        if (!ws) return;
         ws.send(JSON.stringify({ type: 'cancelRequest', id }));
     };
 
     const handleRemove = (id) => {
+        if (!ws) return;
         ws.send(JSON.stringify({ type: 'removeFriend', id }));
     }
 
