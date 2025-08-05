@@ -521,7 +521,14 @@ const GameSummary = ({
 
     // If no history provided, try to construct it from multiplayerState
     if (multiplayerState?.gameData?.roundHistory) {
-      const { roundHistory, myId } = multiplayerState.gameData;
+      const { roundHistory, myId, duel, public: isPublic } = multiplayerState.gameData;
+
+      // Skip transformation for ranked duels to prevent showing extra rounds
+      // when game ends early due to health loss
+      const isRankedDuel = duel && !isPublic;
+      if (isRankedDuel) {
+        return [];
+      }
 
       if (roundHistory && roundHistory.length > 0) {
         const transformed = roundHistory.map((roundData, roundIndex) => {
@@ -543,7 +550,7 @@ const GameSummary = ({
     }
 
     return [];
-  }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId]);
+  }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.public]);
 
   // Don't render until Leaflet is ready
   if (!leafletReady || !destIconRef.current || !srcIconRef.current || !src2IconRef.current) {
