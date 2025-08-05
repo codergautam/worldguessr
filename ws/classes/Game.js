@@ -215,7 +215,7 @@ export default class Game {
     let p1score = 0;
     let p2score = 0;
 
-    const mult = 1;
+    const mult = 30;
     if(p1.guess ) {
     p1score = calcPoints({
       lat: loc.lat,
@@ -612,12 +612,23 @@ export default class Game {
     }
   }
   end(leftUser) {
-    // Save the final round data before ending if we haven't already saved this round
+    // For duels, only save the final round if it was actually completed (all players made guesses)
+    // For regular games, save if the round was started but not yet saved
     if (this.curRound > 0 && this.curRound <= this.locations.length) {
-      // Check if this round has already been saved to avoid duplicates
       const lastSavedRound = this.roundHistory.length > 0 ? this.roundHistory[this.roundHistory.length - 1].round : 0;
+      
       if (lastSavedRound !== this.curRound) {
-        this.saveRoundToHistory();
+        // For duels, only save if the round was actually completed (players made guesses)
+        if (this.duel) {
+          // Check if at least one player made a guess in the current round
+          const playersWithGuesses = Object.values(this.players).filter(player => player.guess);
+          if (playersWithGuesses.length > 0) {
+            this.saveRoundToHistory();
+          }
+        } else {
+          // For regular games, save as before
+          this.saveRoundToHistory();
+        }
       }
     }
 
