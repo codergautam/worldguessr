@@ -567,6 +567,11 @@ export default function Home({ }) {
             maxDist: country ? countryMaxDists[country] : 20000,
             extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
         }))
+
+        // For community maps or when extent is missing, trigger loadLocation to recalculate extent
+        if (!country && mapSlug !== 'all') {
+            setTimeout(() => loadLocation(), 0);
+        }
     }
 
     useEffect(() => {
@@ -580,6 +585,14 @@ export default function Home({ }) {
             setOnboardingCompleted(true)
         }
     }, [onboarding?.completed])
+
+    // Restore extent when entering singleplayer mode if map is selected but extent is missing
+    useEffect(() => {
+        if (screen === "singleplayer" && gameOptions.location && gameOptions.location !== "all" && !gameOptions.extent) {
+            // Re-open the map to restore extent
+            openMap(gameOptions.location);
+        }
+    }, [screen])
     useEffect(() => {
         try {
             const onboarding = gameStorage.getItem("onboarding");
