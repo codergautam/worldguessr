@@ -42,7 +42,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
         if (friendReqSendingState > 0) {
             setTimeout(() => {
                 setFriendReqSendingState(0);
-            }, 2000);
+            }, 5000);
         }
     }, [friendReqSendingState]);
 
