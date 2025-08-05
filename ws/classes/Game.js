@@ -616,15 +616,11 @@ export default class Game {
     // For regular games, save if the round was started but not yet saved
     if (this.curRound > 0 && this.curRound <= this.locations.length) {
       const lastSavedRound = this.roundHistory.length > 0 ? this.roundHistory[this.roundHistory.length - 1].round : 0;
-      
+
       if (lastSavedRound !== this.curRound) {
-        // For duels, only save if the round was actually completed (players made guesses)
+        // For duels, don't save incomplete rounds - rounds should only be saved during normal flow
         if (this.duel) {
-          // Check if at least one player made a guess in the current round
-          const playersWithGuesses = Object.values(this.players).filter(player => player.guess);
-          if (playersWithGuesses.length > 0) {
-            this.saveRoundToHistory();
-          }
+          // Don't save any rounds in end() for duels - they should be saved during normal gameplay only
         } else {
           // For regular games, save as before
           this.saveRoundToHistory();
