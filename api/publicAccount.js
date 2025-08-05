@@ -8,23 +8,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  // Extract the token and username from the request body
-  const { id, secret } = req.body;
-  // secret must be string
-  if ((id && typeof id !== 'string') || (secret && typeof secret !== 'string')) {
-    return res.status(400).json({ message: 'Invalid input' });
-  }
-
-  if (!id && !secret) {
-    return res.status(400).json({ message: 'Provide at least one of the following: id or secret' });
-  }
-  if (id && secret) {
-    return res.status(400).json({ message: 'Provide only one of the following: id or secret' });
+  // Extract the user ID from the request body
+  const { id } = req.body;
+  
+  // Validate user ID
+  if (!id || typeof id !== 'string') {
+    return res.status(400).json({ message: 'Valid user ID is required' });
   }
 
   try {
-    // Find user by the provided token
-    const user = id ? await User.findById(id).cache(0, `publicData_${id}`) : await User.findOne({ secret }).cache(120, `publicData_${secret}`);
+    // Find user by the provided ID only (no secrets in public endpoints)
+    const user = await User.findById(id).cache(0, `publicData_${id}`);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
