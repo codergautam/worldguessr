@@ -779,7 +779,7 @@ export default class Game {
 
       // Calculate game statistics
       const totalDuration = this.endTime - this.startTime; // in milliseconds
-      const maxPossiblePoints = this.rounds * 5000;
+      const maxPossiblePoints = this.roundHistory.length * 5000; // Use actual completed rounds
 
       // Prepare rounds data from roundHistory
       const gameRounds = this.roundHistory.map((roundData, index) => {
@@ -835,7 +835,7 @@ export default class Game {
 
         settings: {
           location: this.location || 'all',
-          rounds: this.rounds,
+          rounds: this.roundHistory.length, // Use actual completed rounds, not original setting
           maxDist: this.maxDist || 20000,
           timePerRound: this.timePerRound || 60000,
           official: true,
