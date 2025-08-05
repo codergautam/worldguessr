@@ -32,7 +32,9 @@ export default function XPGraph({ session, mode = 'xp' }) {
     const [userStats, setUserStats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState(mode === 'xp' ? 'xp' : 'elo'); // 'xp'/'rank' or 'elo'/'eloRank'
-    const [dateFilter, setDateFilter] = useState('7days'); // '7days', '30days', 'alltime'
+    const [dateFilter, setDateFilter] = useState('7days'); // '7days', '30days', 'alltime', 'custom'
+    const [customStartDate, setCustomStartDate] = useState('');
+    const [customEndDate, setCustomEndDate] = useState('');
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
@@ -76,6 +78,16 @@ export default function XPGraph({ session, mode = 'xp' }) {
             if (dateFilter === 'alltime') return true;
             
             const statDate = new Date(stat.timestamp);
+            
+            if (dateFilter === 'custom') {
+                if (!customStartDate && !customEndDate) return true;
+                
+                const startDate = customStartDate ? new Date(customStartDate) : new Date(0);
+                const endDate = customEndDate ? new Date(customEndDate) : now;
+                
+                return statDate >= startDate && statDate <= endDate;
+            }
+            
             const daysDiff = Math.floor((now - statDate) / (1000 * 60 * 60 * 24));
             
             if (dateFilter === '7days') return daysDiff <= 7;
@@ -171,7 +183,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
         if (userStats.length > 0) {
             calculateGraphData(userStats);
         }
-    }, [viewMode, dateFilter, userStats]);
+    }, [viewMode, dateFilter, userStats, customStartDate, customEndDate]);
 
     useEffect(() => {
         fetchUserProgression();
@@ -359,14 +371,37 @@ export default function XPGraph({ session, mode = 'xp' }) {
         return mode === 'xp' ? latest.xpRank : latest.eloRank;
     };
 
+    const getTimeframeTitle = () => {
+        const baseTitle = mode === 'xp' ? 
+            (viewMode === 'xp' ? text('xpOverTime') : text('rankOverTime')) :
+            (viewMode === 'elo' ? text('eloOverTime') : text('eloRankOverTime'));
+        
+        switch (dateFilter) {
+            case '7days':
+                return `${baseTitle} (7 Days)`;
+            case '30days':
+                return `${baseTitle} (30 Days)`;
+            case 'custom':
+                if (customStartDate && customEndDate) {
+                    return `${baseTitle} (${new Date(customStartDate).toLocaleDateString()} - ${new Date(customEndDate).toLocaleDateString()})`;
+                } else if (customStartDate) {
+                    return `${baseTitle} (From ${new Date(customStartDate).toLocaleDateString()})`;
+                } else if (customEndDate) {
+                    return `${baseTitle} (Until ${new Date(customEndDate).toLocaleDateString()})`;
+                } else {
+                    return `${baseTitle} (Custom)`;
+                }
+            case 'alltime':
+            default:
+                return `${baseTitle} (All Time)`;
+        }
+    };
+
     return (
         <div style={graphStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                 <h3 style={{ color: '#fff', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
-                    {mode === 'xp' ? 
-                        (viewMode === 'xp' ? text('xpOverTime') : text('rankOverTime')) :
-                        (viewMode === 'elo' ? text('eloOverTime') : text('eloRankOverTime'))
-                    }
+                    {getTimeframeTitle()}
                 </h3>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
@@ -389,7 +424,54 @@ export default function XPGraph({ session, mode = 'xp' }) {
                         >
                             All Time
                         </button>
+                        <button
+                            style={toggleButtonStyle(dateFilter === 'custom')}
+                            onClick={() => setDateFilter('custom')}
+                        >
+                            Custom
+                        </button>
                     </div>
+                    
+                    {dateFilter === 'custom' && (
+                        <div style={{
+                            display: 'flex',
+                            gap: '10px',
+                            alignItems: 'center',
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            borderRadius: '10px',
+                            padding: '10px'
+                        }}>
+                            <input
+                                type="date"
+                                value={customStartDate}
+                                onChange={(e) => setCustomStartDate(e.target.value)}
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                                    borderRadius: '5px',
+                                    padding: '5px',
+                                    color: '#fff',
+                                    fontSize: '12px'
+                                }}
+                                placeholder="Start Date"
+                            />
+                            <span style={{ color: '#fff', fontSize: '12px' }}>to</span>
+                            <input
+                                type="date"
+                                value={customEndDate}
+                                onChange={(e) => setCustomEndDate(e.target.value)}
+                                style={{
+                                    background: 'rgba(255, 255, 255, 0.1)',
+                                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                                    borderRadius: '5px',
+                                    padding: '5px',
+                                    color: '#fff',
+                                    fontSize: '12px'
+                                }}
+                                placeholder="End Date"
+                            />
+                        </div>
+                    )}
                     
                     <div style={toggleStyle}>
                         <button
