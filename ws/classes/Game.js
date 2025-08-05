@@ -27,8 +27,8 @@ export default class Game {
     this.timePerRound = 30000;
     this.waitBetweenRounds = 10000;
     if(isDuel) {
-      this.waitBetweenRounds = 600;
-      this.timePerRound = 600;
+      this.waitBetweenRounds = 8000;
+      this.timePerRound = 60000;
 
     }
     this.maxDist = 20000;
