@@ -783,7 +783,9 @@ export default class Game {
 
       // Prepare rounds data from roundHistory
       const gameRounds = this.roundHistory.map((roundData, index) => {
-        const actualLocation = this.locations[index];
+        // Use the location from roundHistory, not from the full locations array
+        // This ensures we only save actually played rounds
+        const actualLocation = roundData.location;
 
         return {
           roundNumber: index + 1,
