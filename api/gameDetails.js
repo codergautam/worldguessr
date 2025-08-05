@@ -68,7 +68,7 @@ export default async function handler(req, res) {
           
           // All player guesses (for multiplayer games)
           allGuesses: round.playerGuesses.map(guess => ({
-            playerId: guess.playerId,
+            playerId: guess.accountId, // Use accountId instead of playerId to avoid exposing secrets
             username: guess.username,
             guessLat: guess.guessLat,
             guessLong: guess.guessLong,
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
       
       // All players (for multiplayer games)
       players: game.players.map(player => ({
-        playerId: player.playerId,
+        playerId: player.accountId, // Use accountId instead of playerId to avoid exposing secrets
         username: player.username,
         accountId: player.accountId,
         totalPoints: player.totalPoints,
