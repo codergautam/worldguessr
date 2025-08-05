@@ -36,7 +36,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ secret: session?.token?.secret }),
+                    body: JSON.stringify({ id: session?.token?.accountId }),
                 });
                 if (response.ok) {
                     const data = await response.json();

@@ -309,7 +309,7 @@ export default function Home({ }) {
                             window.CrazyGames.SDK.game.loadingStop();
                         } catch (e) { }
                         if (data.secret && data.username) {
-                            setSession({ token: { secret: data.secret, username: data.username } })
+                            setSession({ token: { secret: data.secret, username: data.username, accountId: data.accountId } })
                             // verify the ws
                             window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username });
 
