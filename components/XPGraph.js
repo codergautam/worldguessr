@@ -136,26 +136,39 @@ export default function XPGraph({ session, mode = 'xp' }) {
             }
         });
 
-        // Calculate point radius for each data point based on whether there was a change
+        // Calculate point radius for each data point based on whether the value actually changed
         const pointRadii = dataPoints.map((point, index) => {
             let hasChange = false;
             
-            if (mode === 'xp') {
-                if (viewMode === 'xp') {
-                    hasChange = point.xpGain !== 0;
+            // Check if this is the first or last point (always show these for context)
+            if (index === 0 || index === dataPoints.length - 1) {
+                return 4;
+            }
+            
+            // Check if the Y value changed from the previous point
+            const prevPoint = dataPoints[index - 1];
+            if (prevPoint && point.y !== prevPoint.y) {
+                hasChange = true;
+            }
+            
+            // Also check gain values as a fallback (for cases where Y value might be the same but there was activity)
+            if (!hasChange) {
+                if (mode === 'xp') {
+                    if (viewMode === 'xp') {
+                        hasChange = point.xpGain !== 0;
+                    } else {
+                        hasChange = point.rankGain !== 0;
+                    }
                 } else {
-                    hasChange = point.rankGain !== 0;
-                }
-            } else {
-                if (viewMode === 'elo') {
-                    hasChange = point.eloGain !== 0;
-                } else {
-                    hasChange = point.rankGain !== 0;
+                    if (viewMode === 'elo') {
+                        hasChange = point.eloGain !== 0;
+                    } else {
+                        hasChange = point.rankGain !== 0;
+                    }
                 }
             }
             
-            // Show circle only if there was a change, or if it's the first/last point for context
-            return (hasChange || index === 0 || index === dataPoints.length - 1) ? 4 : 0;
+            return hasChange ? 4 : 0;
         });
 
         const data = {
