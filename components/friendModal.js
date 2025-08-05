@@ -1,5 +1,5 @@
 import { Modal } from "react-responsive-modal";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from '@/components/useTranslations';
 
 export default function FriendsModal({ shown, onClose, session, ws, canSendInvite, sendInvite, accountModalPage, setAccountModalPage, friends, setFriends, sentRequests, setSentRequests, receivedRequests, setReceivedRequests }) {
@@ -12,6 +12,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
     const [newFriend, setNewFriend] = useState('');
     //const [accountModalPage, setAccountModalPage] = useState('list');
     const { t: text } = useTranslation("common");
+    const messageTimeoutRef = useRef(null);
 
     useEffect(() => {
         if (!ws) return;
@@ -40,10 +41,25 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
 
     useEffect(() => {
         if (friendReqSendingState > 0) {
-            setTimeout(() => {
+            // Clear any existing timeout
+            if (messageTimeoutRef.current) {
+                clearTimeout(messageTimeoutRef.current);
+            }
+            
+            // Set new timeout
+            messageTimeoutRef.current = setTimeout(() => {
                 setFriendReqSendingState(0);
+                messageTimeoutRef.current = null;
             }, 5000);
         }
+
+        // Cleanup function to clear timeout on unmount
+        return () => {
+            if (messageTimeoutRef.current) {
+                clearTimeout(messageTimeoutRef.current);
+                messageTimeoutRef.current = null;
+            }
+        };
     }, [friendReqSendingState]);
 
     useEffect(() => {
