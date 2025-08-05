@@ -61,7 +61,7 @@ async function guess(req, res) {
               place: null
             },
             playerGuesses: [{
-              playerId: user.secret,
+              playerId: user._id,
               username: user.username || 'Player',
               accountId: user._id,
               guessLat: guessLat,
@@ -102,7 +102,7 @@ async function guess(req, res) {
           rounds: gameRounds,
           
           players: [{
-            playerId: user.secret,
+            playerId: user._id,
             username: user.username || 'Player',
             accountId: user._id,
             totalPoints: totalPoints,
