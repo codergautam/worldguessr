@@ -124,6 +124,28 @@ export default function XPGraph({ session, mode = 'xp' }) {
             }
         });
 
+        // Calculate point radius for each data point based on whether there was a change
+        const pointRadii = dataPoints.map((point, index) => {
+            let hasChange = false;
+            
+            if (mode === 'xp') {
+                if (viewMode === 'xp') {
+                    hasChange = point.xpGain !== 0;
+                } else {
+                    hasChange = point.rankGain !== 0;
+                }
+            } else {
+                if (viewMode === 'elo') {
+                    hasChange = point.eloGain !== 0;
+                } else {
+                    hasChange = point.rankGain !== 0;
+                }
+            }
+            
+            // Show circle only if there was a change, or if it's the first/last point for context
+            return (hasChange || index === 0 || index === dataPoints.length - 1) ? 4 : 0;
+        });
+
         const data = {
             datasets: [{
                 label: mode === 'xp' ? 
@@ -134,7 +156,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
                 backgroundColor: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo') ? 'rgba(76, 175, 80, 0.1)' : 'rgba(33, 150, 243, 0.1)',
                 fill: true,
                 tension: 0,
-                pointRadius: 4,
+                pointRadius: pointRadii,
                 pointHoverRadius: 6,
                 pointBackgroundColor: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo') ? '#4CAF50' : '#2196F3',
                 pointBorderColor: '#ffffff',
