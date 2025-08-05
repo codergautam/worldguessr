@@ -6,8 +6,8 @@ const playerGuessSchema = new mongoose.Schema({
   accountId: { type: String, default: null }, // null for guest players
   
   // Guess data
-  guessLat: { type: Number, required: true },
-  guessLong: { type: Number, required: true },
+  guessLat: { type: Number, required: false, default: null },
+  guessLong: { type: Number, required: false, default: null },
   points: { type: Number, required: true },
   timeTaken: { type: Number, required: true }, // seconds
   xpEarned: { type: Number, default: 0 },

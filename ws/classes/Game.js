@@ -27,8 +27,8 @@ export default class Game {
     this.timePerRound = 30000;
     this.waitBetweenRounds = 10000;
     if(isDuel) {
-      this.waitBetweenRounds = 6000;
-      this.timePerRound = 60000;
+      this.waitBetweenRounds = 600;
+      this.timePerRound = 600;
 
     }
     this.maxDist = 20000;
@@ -276,7 +276,7 @@ export default class Game {
       // Save each player's guess and calculated points for this round
       for (const playerId of Object.keys(this.players)) {
         const player = this.players[playerId];
-        
+
         if (player.guess) {
           // Player made a guess
           const loc = this.locations[this.curRound - 1];
@@ -822,7 +822,7 @@ export default class Game {
             place: null
           },
           playerGuesses: [
-            // Player 1 guess
+            // Player 1 guess (including null values if they didn't guess)
             {
               playerId: p1.id,
               username: user1.username || 'Player',
@@ -830,12 +830,12 @@ export default class Game {
               guessLat: roundData.players[p1.id]?.lat || null,
               guessLong: roundData.players[p1.id]?.long || null,
               points: roundData.players[p1.id]?.points || 0,
-              timeTaken: roundData.players[p1.id]?.timeTaken || 30,
+              timeTaken: roundData.players[p1.id]?.timeTaken || 60, // Full time if no guess
               xpEarned: 0, // Duels don't give XP per round
               guessedAt: new Date(this.startTime + (index * 60000)), // Approximate timing
               usedHint: false
             },
-            // Player 2 guess
+            // Player 2 guess (including null values if they didn't guess)
             {
               playerId: p2.id,
               username: user2.username || 'Player',
@@ -843,7 +843,7 @@ export default class Game {
               guessLat: roundData.players[p2.id]?.lat || null,
               guessLong: roundData.players[p2.id]?.long || null,
               points: roundData.players[p2.id]?.points || 0,
-              timeTaken: roundData.players[p2.id]?.timeTaken || 30,
+              timeTaken: roundData.players[p2.id]?.timeTaken || 60, // Full time if no guess
               xpEarned: 0,
               guessedAt: new Date(this.startTime + (index * 60000)),
               usedHint: false
