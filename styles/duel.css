@@ -55,9 +55,11 @@
 .time-elapsed {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
   color: #ccc;
   margin-top: 1rem;
+  margin-bottom: 1rem;
 }
 
 .duel-rounds {
