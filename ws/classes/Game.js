@@ -972,7 +972,7 @@ export default class Game {
         multiplayer: {
           isPublic: false,
           gameCode: null,
-          hostPlayerId: p1.id,
+          hostPlayerId: player1Data.id,
           maxPlayers: 2,
           playerCount: 2
         }
