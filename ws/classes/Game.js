@@ -839,28 +839,28 @@ export default class Game {
             place: null
           },
           playerGuesses: [
-            // Player 1 guess (including null values if they didn't guess or disconnected)
+            // Player 1 guess (including null values if they didn't guess)
             {
-              playerId: p1?.id || 'disconnected-p1',
+              playerId: p1.id,
               username: user1.username || 'Player',
               accountId: this.accountIds.p1,
-              guessLat: p1?.id ? (roundData.players[p1.id]?.lat || null) : null,
-              guessLong: p1?.id ? (roundData.players[p1.id]?.long || null) : null,
-              points: p1?.id ? (roundData.players[p1.id]?.points || 0) : 0,
-              timeTaken: p1?.id ? (roundData.players[p1.id]?.timeTaken || 60) : 60,
+              guessLat: roundData.players[p1.id]?.lat || null,
+              guessLong: roundData.players[p1.id]?.long || null,
+              points: roundData.players[p1.id]?.points || 0,
+              timeTaken: roundData.players[p1.id]?.timeTaken || 60, // Full time if no guess
               xpEarned: 0, // Duels don't give XP per round
               guessedAt: new Date(this.startTime + (index * 60000)), // Approximate timing
               usedHint: false
             },
-            // Player 2 guess (including null values if they didn't guess or disconnected)
+            // Player 2 guess (including null values if they didn't guess)
             {
-              playerId: p2?.id || 'disconnected-p2',
+              playerId: p2.id,
               username: user2.username || 'Player',
               accountId: this.accountIds.p2,
-              guessLat: p2?.id ? (roundData.players[p2.id]?.lat || null) : null,
-              guessLong: p2?.id ? (roundData.players[p2.id]?.long || null) : null,
-              points: p2?.id ? (roundData.players[p2.id]?.points || 0) : 0,
-              timeTaken: p2?.id ? (roundData.players[p2.id]?.timeTaken || 60) : 60,
+              guessLat: roundData.players[p2.id]?.lat || null,
+              guessLong: roundData.players[p2.id]?.long || null,
+              points: roundData.players[p2.id]?.points || 0,
+              timeTaken: roundData.players[p2.id]?.timeTaken || 60, // Full time if no guess
               xpEarned: 0,
               guessedAt: new Date(this.startTime + (index * 60000)),
               usedHint: false
@@ -896,12 +896,12 @@ export default class Game {
 
         players: [
           {
-            playerId: p1?.id || 'disconnected-p1',
+            playerId: p1.id,
             username: user1.username || 'Player',
             accountId: this.accountIds.p1,
-            totalPoints: p1?.score || 0,
+            totalPoints: p1.score,
             totalXp: 0, // Duels don't give XP
-            averageTimePerRound: p1?.id ? this.calculateAverageTime(p1.id) : 60000,
+            averageTimePerRound: this.calculateAverageTime(p1.id),
             finalRank: winner?.tag === 'p1' ? 1 : (draw ? 1 : 2),
             elo: {
               before: p1OldElo,
@@ -910,12 +910,12 @@ export default class Game {
             }
           },
           {
-            playerId: p2?.id || 'disconnected-p2',
+            playerId: p2.id,
             username: user2.username || 'Player',
             accountId: this.accountIds.p2,
-            totalPoints: p2?.score || 0,
+            totalPoints: p2.score,
             totalXp: 0,
-            averageTimePerRound: p2?.id ? this.calculateAverageTime(p2.id) : 60000,
+            averageTimePerRound: this.calculateAverageTime(p2.id),
             finalRank: winner?.tag === 'p2' ? 1 : (draw ? 1 : 2),
             elo: {
               before: p2OldElo,
@@ -973,7 +973,7 @@ export default class Game {
             result: winner?.tag === 'p1' ? 'win' : (draw ? 'draw' : 'loss'),
             opponent: this.accountIds.p2,
             eloChange: p1NewElo ? (p1NewElo - p1OldElo) : 0,
-            finalScore: p1?.score || 0,
+            finalScore: p1.score,
             duration: this.endTime - this.startTime
           }
         );
@@ -990,7 +990,7 @@ export default class Game {
             result: winner?.tag === 'p2' ? 'win' : (draw ? 'draw' : 'loss'),
             opponent: this.accountIds.p1,
             eloChange: p2NewElo ? (p2NewElo - p2OldElo) : 0,
-            finalScore: p2?.score || 0,
+            finalScore: p2.score,
             duration: this.endTime - this.startTime
           }
         );
