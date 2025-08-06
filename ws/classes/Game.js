@@ -45,6 +45,7 @@ export default class Game {
     this.readyToEnd = false;
     this.roundHistory = []; // Store guess history for each round
     this.roundStartTimes = {}; // Track when each round started for each player
+    this.disconnectedPlayer = null; // Track disconnected player for ranked duels
 
     if(this.public) {
       this.showRoadName = false;
@@ -387,6 +388,12 @@ export default class Game {
   }
     const isPlayerHost = this.players[player.id].host;
     const tag = this.players[player.id].tag;
+    
+    // Track disconnection for ranked duels
+    if(this.public && this.duel) {
+      this.disconnectedPlayer = tag;
+    }
+    
     delete this.players[player.id];
     player.gameId = null;
     player.inQueue = false;
@@ -668,11 +675,21 @@ export default class Game {
       const p1obj = players.get(this.pIds.p1);
       const p2obj = players.get(this.pIds.p2);
 
-      if(leftUser === "p1") {
+      // Handle forfeit (someone left the game)
+      // For ranked duels, use tracked disconnection to ensure forfeiter always loses
+      if(this.public && this.disconnectedPlayer === "p1") {
+        winner = p2;
+      } else if(this.public && this.disconnectedPlayer === "p2") {
+        winner = p1;
+      }
+      // Fallback to leftUser parameter for regular duels
+      else if(leftUser === "p1") {
         winner = p2;
       } else if(leftUser === "p2") {
         winner = p1;
-      }else if(p1.score > p2.score) {
+      }
+      // Only check scores if no one forfeited
+      else if(p1.score > p2.score) {
         winner = p1;
       } else if(p2.score > p1.score) {
         winner = p2;
