@@ -46,46 +46,69 @@ export default async function handler(req, res) {
         const now = new Date();
         const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
-        // Get XP changes over the last 24 hours using UserStats
+        // Optimized approach using facets to avoid processing all users
         const xpChanges = await UserStats.aggregate([
           {
-            // Match stats within the last 24 hours
+            // First get recent stats to identify active users
             $match: {
               timestamp: { $gte: dayAgo }
             }
           },
           {
-            // Sort by user and timestamp to get latest first
             $sort: { userId: 1, timestamp: -1 }
           },
           {
-            // Group by user to get latest and earliest stats in the period
             $group: {
               _id: '$userId',
-              latestStats: { $first: '$$ROOT' },
-              earliestStats: { $last: '$$ROOT' },
-              statsCount: { $sum: 1 }
+              latestStat: { $first: '$$ROOT' }
             }
           },
           {
-            // Calculate XP change
+            // Now get the historical stat for each active user
+            $lookup: {
+              from: 'userstats',
+              let: { userId: '$_id', cutoff: dayAgo },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ['$userId', '$$userId'] },
+                        { $lte: ['$timestamp', '$$cutoff'] }
+                      ]
+                    }
+                  }
+                },
+                { $sort: { timestamp: -1 } },
+                { $limit: 1 }
+              ],
+              as: 'historicalStat'
+            }
+          },
+          {
+            $match: {
+              'historicalStat.0': { $exists: true }
+            }
+          },
+          {
             $project: {
               userId: '$_id',
-              currentXp: '$latestStats.totalXp',
-              previousXp: '$earliestStats.totalXp',
-              xpGained: { $subtract: ['$latestStats.totalXp', '$earliestStats.totalXp'] },
-              latestTimestamp: '$latestStats.timestamp',
-              statsCount: 1
+              currentXp: '$latestStat.totalXp',
+              previousXp: { $arrayElemAt: ['$historicalStat.totalXp', 0] },
+              xpGained: {
+                $subtract: [
+                  '$latestStat.totalXp',
+                  { $arrayElemAt: ['$historicalStat.totalXp', 0] }
+                ]
+              }
             }
           },
           {
-            // Only include users with actual XP gains
             $match: {
               xpGained: { $gt: 0 }
             }
           },
           {
-            // Sort by XP gained descending
             $sort: { xpGained: -1 }
           },
           {
@@ -235,46 +258,69 @@ export default async function handler(req, res) {
         const now = new Date();
         const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
-        // Get ELO changes over the last 24 hours using UserStats
+        // Optimized ELO changes calculation
         const eloChanges = await UserStats.aggregate([
           {
-            // Match stats within the last 24 hours
+            // First get recent stats to identify active users
             $match: {
               timestamp: { $gte: dayAgo }
             }
           },
           {
-            // Sort by user and timestamp to get latest first
             $sort: { userId: 1, timestamp: -1 }
           },
           {
-            // Group by user to get latest and earliest stats in the period
             $group: {
               _id: '$userId',
-              latestStats: { $first: '$$ROOT' },
-              earliestStats: { $last: '$$ROOT' },
-              statsCount: { $sum: 1 }
+              latestStat: { $first: '$$ROOT' }
             }
           },
           {
-            // Calculate ELO change
+            // Now get the historical stat for each active user
+            $lookup: {
+              from: 'userstats',
+              let: { userId: '$_id', cutoff: dayAgo },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ['$userId', '$$userId'] },
+                        { $lte: ['$timestamp', '$$cutoff'] }
+                      ]
+                    }
+                  }
+                },
+                { $sort: { timestamp: -1 } },
+                { $limit: 1 }
+              ],
+              as: 'historicalStat'
+            }
+          },
+          {
+            $match: {
+              'historicalStat.0': { $exists: true }
+            }
+          },
+          {
             $project: {
               userId: '$_id',
-              currentElo: '$latestStats.elo',
-              previousElo: '$earliestStats.elo',
-              eloChange: { $subtract: ['$latestStats.elo', '$earliestStats.elo'] },
-              latestTimestamp: '$latestStats.timestamp',
-              statsCount: 1
+              currentElo: '$latestStat.elo',
+              previousElo: { $arrayElemAt: ['$historicalStat.elo', 0] },
+              eloChange: {
+                $subtract: [
+                  '$latestStat.elo',
+                  { $arrayElemAt: ['$historicalStat.elo', 0] }
+                ]
+              }
             }
           },
           {
-            // Only include users with actual ELO changes (positive or negative)
             $match: {
               eloChange: { $ne: 0 }
             }
           },
           {
-            // Sort by ELO change descending
             $sort: { eloChange: -1 }
           },
           {
@@ -301,7 +347,7 @@ export default async function handler(req, res) {
             totalXp: user.totalXp || 0,
             createdAt: user.created_at,
             gamesLen: user.games?.length || 0,
-            elo: change.currentElo,
+            elo: change.eloChange, // Show the delta for daily leaderboard
             eloToday: change.eloChange // This represents the 24h change
           };
         }).filter(user => user !== null);
@@ -332,8 +378,7 @@ export default async function handler(req, res) {
           const userEloChange = await UserStats.aggregate([
             {
               $match: {
-                userId: user._id.toString(),
-                timestamp: { $gte: dayAgo }
+                userId: user._id.toString()
               }
             },
             {
@@ -342,13 +387,44 @@ export default async function handler(req, res) {
             {
               $group: {
                 _id: '$userId',
-                latestStats: { $first: '$$ROOT' },
-                earliestStats: { $last: '$$ROOT' }
+                allStats: { $push: '$$ROOT' }
               }
             },
             {
               $project: {
-                eloChange: { $subtract: ['$latestStats.elo', '$earliestStats.elo'] }
+                currentStats: { $arrayElemAt: ['$allStats', 0] },
+                stats24hAgo: {
+                  $reduce: {
+                    input: '$allStats',
+                    initialValue: null,
+                    in: {
+                      $cond: {
+                        if: {
+                          $and: [
+                            { $lte: ['$$this.timestamp', dayAgo] },
+                            { $or: [
+                              { $eq: ['$$value', null] },
+                              { $gt: ['$$this.timestamp', '$$value.timestamp'] }
+                            ]}
+                          ]
+                        },
+                        then: '$$this',
+                        else: '$$value'
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              $project: {
+                eloChange: {
+                  $cond: {
+                    if: { $ne: ['$stats24hAgo', null] },
+                    then: { $subtract: ['$currentStats.elo', '$stats24hAgo.elo'] },
+                    else: 0
+                  }
+                }
               }
             }
           ]);
@@ -359,9 +435,7 @@ export default async function handler(req, res) {
             // Count users with better ELO changes
             const betterUsersCount = await UserStats.aggregate([
               {
-                $match: {
-                  timestamp: { $gte: dayAgo }
-                }
+                $match: {}
               },
               {
                 $sort: { userId: 1, timestamp: -1 }
@@ -369,14 +443,46 @@ export default async function handler(req, res) {
               {
                 $group: {
                   _id: '$userId',
-                  latestStats: { $first: '$$ROOT' },
-                  earliestStats: { $last: '$$ROOT' }
+                  allStats: { $push: '$$ROOT' }
                 }
               },
               {
                 $project: {
                   userId: '$_id',
-                  eloChange: { $subtract: ['$latestStats.elo', '$earliestStats.elo'] }
+                  currentStats: { $arrayElemAt: ['$allStats', 0] },
+                  stats24hAgo: {
+                    $reduce: {
+                      input: '$allStats',
+                      initialValue: null,
+                      in: {
+                        $cond: {
+                          if: {
+                            $and: [
+                              { $lte: ['$$this.timestamp', dayAgo] },
+                              { $or: [
+                                { $eq: ['$$value', null] },
+                                { $gt: ['$$this.timestamp', '$$value.timestamp'] }
+                              ]}
+                            ]
+                          },
+                          then: '$$this',
+                          else: '$$value'
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                $project: {
+                  userId: '$_id',
+                  eloChange: {
+                    $cond: {
+                      if: { $ne: ['$stats24hAgo', null] },
+                      then: { $subtract: ['$currentStats.elo', '$stats24hAgo.elo'] },
+                      else: 0
+                    }
+                  }
                 }
               },
               {
