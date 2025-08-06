@@ -399,12 +399,12 @@ export default class Game {
   }
     const isPlayerHost = this.players[player.id].host;
     const tag = this.players[player.id].tag;
-    
+
     // Track disconnection for ranked duels
     if(this.public && this.duel) {
       this.disconnectedPlayer = tag;
     }
-    
+
     delete this.players[player.id];
     player.gameId = null;
     player.inQueue = false;
@@ -825,7 +825,7 @@ export default class Game {
     if (player) {
       return player; // Player is still connected
     }
-    
+
     // Only use persistent data for ranked duels
     if (this.duel && this.public) {
       // Find persistent data for disconnected player by tag
@@ -839,7 +839,7 @@ export default class Game {
         }
       }
     }
-    
+
     return null;
   }
 
@@ -848,7 +848,7 @@ export default class Game {
       // Get player data (current or persistent)
       const player1Data = this.getPlayerData(p1, 'p1');
       const player2Data = this.getPlayerData(p2, 'p2');
-      
+
       // Get user data for both players
       const user1 = await User.findOne({ _id: this.accountIds.p1 });
       const user2 = await User.findOne({ _id: this.accountIds.p2 });
