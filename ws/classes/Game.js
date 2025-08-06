@@ -46,6 +46,7 @@ export default class Game {
     this.roundHistory = []; // Store guess history for each round
     this.roundStartTimes = {}; // Track when each round started for each player
     this.disconnectedPlayer = null; // Track disconnected player for ranked duels
+    this.persistentPlayerData = {}; // Store persistent player data that survives disconnection
 
     if(this.public) {
       this.showRoadName = false;
@@ -121,6 +122,16 @@ export default class Game {
     this.players[player.id] = playerObj;
     player.gameId = this.id;
     player.inQueue = false;
+
+    // Store persistent data for ranked duels in case of disconnection
+    if(this.duel && this.public) {
+      this.persistentPlayerData[player.id] = {
+        accountId: player.accountId,
+        username: player.username,
+        tag: tag,
+        initialScore: playerObj.score
+      };
+    }
 
     player.send(this.getInitialSendState(player));
   }
@@ -809,14 +820,38 @@ export default class Game {
     }
   }
 
+  // Helper function to get player data (current or persistent)
+  getPlayerData(player, tag) {
+    if (player) {
+      return player; // Player is still connected
+    }
+    
+    // Find persistent data for disconnected player by tag
+    for (const [playerId, persistentData] of Object.entries(this.persistentPlayerData)) {
+      if (persistentData.tag === tag) {
+        return {
+          id: playerId,
+          score: persistentData.initialScore, // Use initial score if no current score
+          ...persistentData
+        };
+      }
+    }
+    
+    return null;
+  }
+
   async saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo) {
     try {
+      // Get player data (current or persistent)
+      const player1Data = this.getPlayerData(p1, 'p1');
+      const player2Data = this.getPlayerData(p2, 'p2');
+      
       // Get user data for both players
       const user1 = await User.findOne({ _id: this.accountIds.p1 });
       const user2 = await User.findOne({ _id: this.accountIds.p2 });
 
-      if (!user1 || !user2) {
-        console.error('Could not find users for duel game save');
+      if (!user1 || !user2 || !player1Data || !player2Data) {
+        console.error('Could not find users or player data for duel game save');
         return;
       }
 
@@ -841,26 +876,26 @@ export default class Game {
           playerGuesses: [
             // Player 1 guess (including null values if they didn't guess)
             {
-              playerId: p1.id,
+              playerId: player1Data.id,
               username: user1.username || 'Player',
               accountId: this.accountIds.p1,
-              guessLat: roundData.players[p1.id]?.lat || null,
-              guessLong: roundData.players[p1.id]?.long || null,
-              points: roundData.players[p1.id]?.points || 0,
-              timeTaken: roundData.players[p1.id]?.timeTaken || 60, // Full time if no guess
+              guessLat: roundData.players[player1Data.id]?.lat || null,
+              guessLong: roundData.players[player1Data.id]?.long || null,
+              points: roundData.players[player1Data.id]?.points || 0,
+              timeTaken: roundData.players[player1Data.id]?.timeTaken || 60, // Full time if no guess
               xpEarned: 0, // Duels don't give XP per round
               guessedAt: new Date(this.startTime + (index * 60000)), // Approximate timing
               usedHint: false
             },
             // Player 2 guess (including null values if they didn't guess)
             {
-              playerId: p2.id,
+              playerId: player2Data.id,
               username: user2.username || 'Player',
               accountId: this.accountIds.p2,
-              guessLat: roundData.players[p2.id]?.lat || null,
-              guessLong: roundData.players[p2.id]?.long || null,
-              points: roundData.players[p2.id]?.points || 0,
-              timeTaken: roundData.players[p2.id]?.timeTaken || 60, // Full time if no guess
+              guessLat: roundData.players[player2Data.id]?.lat || null,
+              guessLong: roundData.players[player2Data.id]?.long || null,
+              points: roundData.players[player2Data.id]?.points || 0,
+              timeTaken: roundData.players[player2Data.id]?.timeTaken || 60, // Full time if no guess
               xpEarned: 0,
               guessedAt: new Date(this.startTime + (index * 60000)),
               usedHint: false
@@ -896,12 +931,12 @@ export default class Game {
 
         players: [
           {
-            playerId: p1.id,
+            playerId: player1Data.id,
             username: user1.username || 'Player',
             accountId: this.accountIds.p1,
-            totalPoints: p1.score,
+            totalPoints: player1Data.score,
             totalXp: 0, // Duels don't give XP
-            averageTimePerRound: this.calculateAverageTime(p1.id),
+            averageTimePerRound: this.calculateAverageTime(player1Data.id),
             finalRank: winner?.tag === 'p1' ? 1 : (draw ? 1 : 2),
             elo: {
               before: p1OldElo,
@@ -910,12 +945,12 @@ export default class Game {
             }
           },
           {
-            playerId: p2.id,
+            playerId: player2Data.id,
             username: user2.username || 'Player',
             accountId: this.accountIds.p2,
-            totalPoints: p2.score,
+            totalPoints: player2Data.score,
             totalXp: 0,
-            averageTimePerRound: this.calculateAverageTime(p2.id),
+            averageTimePerRound: this.calculateAverageTime(player2Data.id),
             finalRank: winner?.tag === 'p2' ? 1 : (draw ? 1 : 2),
             elo: {
               before: p2OldElo,
@@ -962,6 +997,9 @@ export default class Game {
   }
 
   async createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo) {
+    // Get player data (current or persistent)
+    const player1Data = this.getPlayerData(p1, 'p1');
+    const player2Data = this.getPlayerData(p2, 'p2');
     try {
       // Create userstats document for player 1
       if (this.accountIds.p1) {
@@ -973,7 +1011,7 @@ export default class Game {
             result: winner?.tag === 'p1' ? 'win' : (draw ? 'draw' : 'loss'),
             opponent: this.accountIds.p2,
             eloChange: p1NewElo ? (p1NewElo - p1OldElo) : 0,
-            finalScore: p1.score,
+            finalScore: player1Data?.score || 0,
             duration: this.endTime - this.startTime
           }
         );
@@ -990,7 +1028,7 @@ export default class Game {
             result: winner?.tag === 'p2' ? 'win' : (draw ? 'draw' : 'loss'),
             opponent: this.accountIds.p1,
             eloChange: p2NewElo ? (p2NewElo - p2OldElo) : 0,
-            finalScore: p2.score,
+            finalScore: player2Data?.score || 0,
             duration: this.endTime - this.startTime
           }
         );
