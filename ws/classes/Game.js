@@ -46,7 +46,7 @@ export default class Game {
     this.roundHistory = []; // Store guess history for each round
     this.roundStartTimes = {}; // Track when each round started for each player
     this.disconnectedPlayer = null; // Track disconnected player for ranked duels
-    this.persistentPlayerData = {}; // Store persistent player data that survives disconnection
+    this.rankedDuelPersistentData = {}; // Store persistent player data for ranked duels only
 
     if(this.public) {
       this.showRoadName = false;
@@ -125,7 +125,7 @@ export default class Game {
 
     // Store persistent data for ranked duels in case of disconnection
     if(this.duel && this.public) {
-      this.persistentPlayerData[player.id] = {
+      this.rankedDuelPersistentData[player.id] = {
         accountId: player.accountId,
         username: player.username,
         tag: tag,
@@ -820,20 +820,23 @@ export default class Game {
     }
   }
 
-  // Helper function to get player data (current or persistent)
+  // Helper function to get player data (current or persistent for ranked duels only)
   getPlayerData(player, tag) {
     if (player) {
       return player; // Player is still connected
     }
     
-    // Find persistent data for disconnected player by tag
-    for (const [playerId, persistentData] of Object.entries(this.persistentPlayerData)) {
-      if (persistentData.tag === tag) {
-        return {
-          id: playerId,
-          score: persistentData.initialScore, // Use initial score if no current score
-          ...persistentData
-        };
+    // Only use persistent data for ranked duels
+    if (this.duel && this.public) {
+      // Find persistent data for disconnected player by tag
+      for (const [playerId, persistentData] of Object.entries(this.rankedDuelPersistentData)) {
+        if (persistentData.tag === tag) {
+          return {
+            id: playerId,
+            score: persistentData.initialScore, // Use initial score if no current score
+            ...persistentData
+          };
+        }
       }
     }
     
