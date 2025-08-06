@@ -125,11 +125,6 @@ const Leaderboard = ({ }) => {
           </div>
         )}
 
-        {pastDay && useElo && (
-          <div className={styles.warningMessage}>
-            <p>ELO past day leaderboard is not working at the moment. We are working on fixing it.</p>
-          </div>
-        )}
 
         {!loading && !error && (
           <div className={styles.leaderboardContainer}>

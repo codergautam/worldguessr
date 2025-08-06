@@ -375,67 +375,28 @@ export default async function handler(req, res) {
           // Calculate user's 24h ELO change and rank among daily changes
           const dayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
           
-          const userEloChange = await UserStats.aggregate([
-            {
-              $match: {
-                userId: user._id.toString()
-              }
-            },
-            {
-              $sort: { timestamp: -1 }
-            },
-            {
-              $group: {
-                _id: '$userId',
-                allStats: { $push: '$$ROOT' }
-              }
-            },
-            {
-              $project: {
-                currentStats: { $arrayElemAt: ['$allStats', 0] },
-                stats24hAgo: {
-                  $reduce: {
-                    input: '$allStats',
-                    initialValue: null,
-                    in: {
-                      $cond: {
-                        if: {
-                          $and: [
-                            { $lte: ['$$this.timestamp', dayAgo] },
-                            { $or: [
-                              { $eq: ['$$value', null] },
-                              { $gt: ['$$this.timestamp', '$$value.timestamp'] }
-                            ]}
-                          ]
-                        },
-                        then: '$$this',
-                        else: '$$value'
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            {
-              $project: {
-                eloChange: {
-                  $cond: {
-                    if: { $ne: ['$stats24hAgo', null] },
-                    then: { $subtract: ['$currentStats.elo', '$stats24hAgo.elo'] },
-                    else: 0
-                  }
-                }
-              }
-            }
-          ]);
-
-          if (userEloChange.length > 0) {
-            myElo = userEloChange[0].eloChange;
+          // Get user's current and 24h ago stats using the same optimized approach
+          const currentStat = await UserStats.findOne({ userId: user._id.toString() })
+            .sort({ timestamp: -1 });
+          
+          const stat24hAgo = await UserStats.findOne({ 
+            userId: user._id.toString(),
+            timestamp: { $lte: dayAgo }
+          }).sort({ timestamp: -1 });
+          
+          if (currentStat && stat24hAgo) {
+            myElo = currentStat.elo - stat24hAgo.elo;
             
-            // Count users with better ELO changes
+            // Count users with better ELO changes using the same optimized approach
+            const activeUserIds = await UserStats.distinct('userId', {
+              timestamp: { $gte: dayAgo }
+            });
+
             const betterUsersCount = await UserStats.aggregate([
               {
-                $match: {}
+                $match: {
+                  userId: { $in: activeUserIds }
+                }
               },
               {
                 $sort: { userId: 1, timestamp: -1 }
@@ -443,45 +404,42 @@ export default async function handler(req, res) {
               {
                 $group: {
                   _id: '$userId',
-                  allStats: { $push: '$$ROOT' }
+                  latestStat: { $first: '$$ROOT' }
                 }
               },
               {
-                $project: {
-                  userId: '$_id',
-                  currentStats: { $arrayElemAt: ['$allStats', 0] },
-                  stats24hAgo: {
-                    $reduce: {
-                      input: '$allStats',
-                      initialValue: null,
-                      in: {
-                        $cond: {
-                          if: {
-                            $and: [
-                              { $lte: ['$$this.timestamp', dayAgo] },
-                              { $or: [
-                                { $eq: ['$$value', null] },
-                                { $gt: ['$$this.timestamp', '$$value.timestamp'] }
-                              ]}
-                            ]
-                          },
-                          then: '$$this',
-                          else: '$$value'
+                $lookup: {
+                  from: 'userstats',
+                  let: { userId: '$_id', cutoff: dayAgo },
+                  pipeline: [
+                    {
+                      $match: {
+                        $expr: {
+                          $and: [
+                            { $eq: ['$userId', '$$userId'] },
+                            { $lte: ['$timestamp', '$$cutoff'] }
+                          ]
                         }
                       }
-                    }
-                  }
+                    },
+                    { $sort: { timestamp: -1 } },
+                    { $limit: 1 }
+                  ],
+                  as: 'historicalStat'
+                }
+              },
+              {
+                $match: {
+                  'historicalStat.0': { $exists: true }
                 }
               },
               {
                 $project: {
-                  userId: '$_id',
                   eloChange: {
-                    $cond: {
-                      if: { $ne: ['$stats24hAgo', null] },
-                      then: { $subtract: ['$currentStats.elo', '$stats24hAgo.elo'] },
-                      else: 0
-                    }
+                    $subtract: [
+                      '$latestStat.elo',
+                      { $arrayElemAt: ['$historicalStat.elo', 0] }
+                    ]
                   }
                 }
               },
@@ -496,6 +454,10 @@ export default async function handler(req, res) {
             ]);
             
             myRank = betterUsersCount.length > 0 ? betterUsersCount[0].count + 1 : 1;
+          } else {
+            // If user doesn't have historical data, set defaults
+            myElo = 0;
+            myRank = null;
           }
         } else {
           // All-time ELO leaderboard
