@@ -507,7 +507,7 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
 )}
 
 
-{ multiplayerState?.gameData?.duel && (
+{ multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state !== 'end' && (
   <div className={`hbparent ${isStartingDuel ? 'hb-parent' : ''}`}>
     <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
   <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
