@@ -78,11 +78,19 @@ async function deleteUserData() {
         const userStatsCount = await UserStats.countDocuments({ userId: user._id });
         const mapsCount = await Map.countDocuments({ created_by: user._id });
         const gamesCount = await Game.countDocuments({ 'players.accountId': user._id });
+        
+        // Count friend relationships
+        const friendsCount = await User.countDocuments({ friends: user._id });
+        const sentReqCount = await User.countDocuments({ receivedReq: user._id });
+        const receivedReqCount = await User.countDocuments({ sentReq: user._id });
 
         console.log(`\n📊 Related data to be affected:`);
         console.log(`   UserStats entries: ${userStatsCount}`);
         console.log(`   Maps created: ${mapsCount}`);
         console.log(`   Games participated in: ${gamesCount} (user data will be anonymized)`);
+        console.log(`   Users who have this user as friend: ${friendsCount}`);
+        console.log(`   Users who received friend requests from this user: ${sentReqCount}`);
+        console.log(`   Users who sent friend requests to this user: ${receivedReqCount}`);
 
         // Confirmation prompt
         console.log('\n⚠️  WARNING: This action is IRREVERSIBLE!');
@@ -91,6 +99,7 @@ async function deleteUserData() {
         console.log('- All user statistics and progression history'); 
         console.log('- All maps created by this user');
         console.log('- User data in games (anonymized - games themselves will remain)');
+        console.log('- Remove user from all friend lists, sent/received friend requests');
 
         const confirmation = await question('\nType "DELETE" to confirm deletion: ');
         
@@ -106,12 +115,15 @@ async function deleteUserData() {
             mapsDeleted: 0,
             gamesPlayerDataAnonymized: 0,
             gameRoundDataAnonymized: 0,
+            friendListsCleaned: 0,
+            sentRequestsCleaned: 0,
+            receivedRequestsCleaned: 0,
             userAccountDeleted: 0
         };
 
         // 1. Delete UserStats
         if (userStatsCount > 0) {
-            console.log(`🔄 Step 1/4: Deleting UserStats entries...`);
+            console.log(`🔄 Step 1/5: Deleting UserStats entries...`);
             console.log(`   📊 Found ${userStatsCount} UserStats entries to delete`);
             
             const userStatsResult = await UserStats.deleteMany({ userId: user._id });
@@ -122,12 +134,12 @@ async function deleteUserData() {
                 console.log(`   ⚠️  Warning: Expected ${userStatsCount} but deleted ${userStatsResult.deletedCount}`);
             }
         } else {
-            console.log(`🔄 Step 1/4: No UserStats entries to delete`);
+            console.log(`🔄 Step 1/5: No UserStats entries to delete`);
         }
 
         // 2. Delete Maps
         if (mapsCount > 0) {
-            console.log(`\n🔄 Step 2/4: Deleting Maps created by user...`);
+            console.log(`\n🔄 Step 2/5: Deleting Maps created by user...`);
             console.log(`   🗺️  Found ${mapsCount} maps to delete`);
             
             // Get map details before deletion for logging
@@ -146,12 +158,12 @@ async function deleteUserData() {
                 console.log(`   ⚠️  Warning: Expected ${mapsCount} but deleted ${mapsResult.deletedCount}`);
             }
         } else {
-            console.log(`\n🔄 Step 2/4: No maps to delete`);
+            console.log(`\n🔄 Step 2/5: No maps to delete`);
         }
 
         // 3. Anonymize user data in Games (don't delete entire games as they may have other players)
         if (gamesCount > 0) {
-            console.log(`\n🔄 Step 3/4: Anonymizing user data in games...`);
+            console.log(`\n🔄 Step 3/5: Anonymizing user data in games...`);
             console.log(`   🎮 Found ${gamesCount} games where user participated`);
             
             // Get some game details for logging
@@ -208,11 +220,55 @@ async function deleteUserData() {
             console.log(`   ✅ Anonymized round data in ${roundUpdateResult.modifiedCount} games`);
             console.log(`   ℹ️  Games preserved for other players - only user data anonymized`);
         } else {
-            console.log(`\n🔄 Step 3/4: No games to anonymize`);
+            console.log(`\n🔄 Step 3/5: No games to anonymize`);
         }
 
-        // 4. Delete User account (do this last)
-        console.log(`\n🔄 Step 4/4: Deleting user account...`);
+        // 4. Remove user from friend lists
+        const totalFriendRelationships = friendsCount + sentReqCount + receivedReqCount;
+        if (totalFriendRelationships > 0) {
+            console.log(`\n🔄 Step 4/5: Cleaning up friend relationships...`);
+            console.log(`   👥 Found ${totalFriendRelationships} friend relationships to clean up`);
+            
+            // Remove user from other users' friends arrays
+            if (friendsCount > 0) {
+                console.log(`   🔄 Removing user from ${friendsCount} friend lists...`);
+                const friendsResult = await User.updateMany(
+                    { friends: user._id },
+                    { $pull: { friends: user._id } }
+                );
+                deletionStats.friendListsCleaned = friendsResult.modifiedCount;
+                console.log(`   ✅ Removed from ${friendsResult.modifiedCount} friend lists`);
+            }
+            
+            // Remove user from other users' receivedReq arrays (user's sent requests)
+            if (sentReqCount > 0) {
+                console.log(`   🔄 Removing ${sentReqCount} sent friend requests...`);
+                const sentReqResult = await User.updateMany(
+                    { receivedReq: user._id },
+                    { $pull: { receivedReq: user._id } }
+                );
+                deletionStats.sentRequestsCleaned = sentReqResult.modifiedCount;
+                console.log(`   ✅ Removed ${sentReqResult.modifiedCount} sent friend requests`);
+            }
+            
+            // Remove user from other users' sentReq arrays (user's received requests)
+            if (receivedReqCount > 0) {
+                console.log(`   🔄 Removing ${receivedReqCount} received friend requests...`);
+                const receivedReqResult = await User.updateMany(
+                    { sentReq: user._id },
+                    { $pull: { sentReq: user._id } }
+                );
+                deletionStats.receivedRequestsCleaned = receivedReqResult.modifiedCount;
+                console.log(`   ✅ Removed ${receivedReqResult.modifiedCount} received friend requests`);
+            }
+            
+            console.log(`   ✅ Friend relationship cleanup completed`);
+        } else {
+            console.log(`\n🔄 Step 4/5: No friend relationships to clean up`);
+        }
+
+        // 5. Delete User account (do this last)
+        console.log(`\n🔄 Step 5/5: Deleting user account...`);
         console.log(`   👤 Deleting account: ${user.username} (${user._id})`);
         console.log(`   📧 Email: ${user.email || 'N/A'}`);
         console.log(`   📅 Account age: ${Math.floor((Date.now() - user.created_at) / (1000 * 60 * 60 * 24))} days`);
@@ -226,11 +282,14 @@ async function deleteUserData() {
         console.log('\n' + '='.repeat(60));
         console.log('📊 DELETION SUMMARY');
         console.log('='.repeat(60));
-        console.log(`👤 User Account:       ${deletionStats.userAccountDeleted} deleted`);
-        console.log(`📈 UserStats Entries:  ${deletionStats.userStatsDeleted} deleted`);
-        console.log(`🗺️  Maps Created:       ${deletionStats.mapsDeleted} deleted`);
-        console.log(`🎮 Games (Player Data): ${deletionStats.gamesPlayerDataAnonymized} anonymized`);
-        console.log(`🎯 Games (Round Data):  ${deletionStats.gameRoundDataAnonymized} anonymized`);
+        console.log(`👤 User Account:         ${deletionStats.userAccountDeleted} deleted`);
+        console.log(`📈 UserStats Entries:    ${deletionStats.userStatsDeleted} deleted`);
+        console.log(`🗺️  Maps Created:         ${deletionStats.mapsDeleted} deleted`);
+        console.log(`🎮 Games (Player Data):  ${deletionStats.gamesPlayerDataAnonymized} anonymized`);
+        console.log(`🎯 Games (Round Data):   ${deletionStats.gameRoundDataAnonymized} anonymized`);
+        console.log(`👥 Friend Lists:         ${deletionStats.friendListsCleaned} cleaned`);
+        console.log(`📤 Sent Requests:        ${deletionStats.sentRequestsCleaned} removed`);
+        console.log(`📥 Received Requests:    ${deletionStats.receivedRequestsCleaned} removed`);
         console.log('='.repeat(60));
         console.log('ℹ️  Note: Games were preserved for other players, only user data was anonymized');
         console.log(`⏱️  Process completed at: ${new Date().toISOString()}`);
