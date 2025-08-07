@@ -4088,22 +4088,183 @@ div[dir="ltr"] {
     transition-duration: 100ms;
 }
 
-.health-bar-container {
+// Modern Health Bar Styles with Animations
+.health-bar-container.modern {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 160px;
-    margin: 10px;
-    font-family: Arial, sans-serif;
+    width: 200px;
+    margin: 15px;
+    font-family: 'Lexend', sans-serif;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    &.animating {
+        transform: scale(1.05);
+        filter: drop-shadow(0 8px 25px rgba(0, 0, 0, 0.3));
+    }
 }
 
-.health-bar {
+.damage-indicator {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    color: #ff4757;
+    font-weight: bold;
+    font-size: 18px;
+    animation: damage-float 2s ease-out forwards;
+    z-index: 1000;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes damage-float {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-40px) scale(1.2);
+    }
+}
+
+.health-bar-wrapper {
+    width: 100%;
+    position: relative;
+}
+
+.health-bar-bg {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(30, 30, 30, 0.9) 100%);
+    border-radius: 15px;
+    padding: 8px;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 2px 4px rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.health-bar-track {
     position: relative;
     width: 100%;
-    height: 20px;
-    background-color: #c7c7c7;
-    border-radius: 10px;
+    height: 24px;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+    border-radius: 12px;
     overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.health-bar-fill {
+    height: 100%;
+    position: relative;
+    border-radius: 12px;
+    transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        animation: shimmer 3s infinite;
+    }
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.health-bar-shine {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    height: 8px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.6) 50%, transparent 100%);
+    border-radius: 10px;
+}
+
+.health-bar-pulse {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 12px;
+    animation: pulse 2s ease-in-out infinite;
+    opacity: 0.3;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.1; }
+    50% { opacity: 0.4; }
+}
+
+.health-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    z-index: 10;
+}
+
+.health-number {
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.health-max {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.player-info-modern {
+    margin-top: 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+    
+    &.starting {
+        transform: scale(1.2);
+        margin-top: 16px;
+    }
+}
+
+.player-name-wrapper {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.7) 0%, rgba(20, 20, 20, 0.8) 100%);
+    padding: 8px 16px;
+    border-radius: 20px;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.player-name {
+    color: white;
+    font-weight: 600;
+    font-size: 16px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    margin-right: 8px;
+}
+
+.player-elo {
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    
+    &:hover {
+        transform: scale(1.1);
+    }
 }
 
 .hb-start1,
@@ -4113,7 +4274,6 @@ div[dir="ltr"] {
     position: static !important;
 }
 
-
 .hb-parent {
     display: flex !important;
     justify-content: center;
@@ -4121,7 +4281,6 @@ div[dir="ltr"] {
     pointer-events: none;
     width: 100%;
     height: 100%;
-    // center vertically
     align-items: center;
     flex-direction: column;
 }
@@ -4130,88 +4289,61 @@ div[dir="ltr"] {
     display: flex;
     justify-content: center;
     align-items: center;
+    gap: 40px;
 }
 
-
-.health-bar-fill {
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 10px;
-    color: white;
-    font-weight: bold;
-    white-space: nowrap;
-}
-
-.health-text {
-    position: absolute;
-    width: 100%;
-    text-align: center;
-    color: white;
-}
-
-.player-info {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 5px;
-    font-size: 18px;
-    background-color: rgba(0, 0, 0, 0.5);
-    padding: 5px;
-    border-radius: 5px;
-}
-
-.player-info.starting {
-    font-size: 24px;
-}
-
-.player-name {
-    margin-right: 5px;
-    font-weight: bold;
-}
-
-.player-elo {
-    color: #f5f5f5;
-}
-
-/* Media Query for screens 600px and larger */
+/* Enhanced Media Queries */
 @media (min-width: 600px) {
-    .health-bar-container {
-        width: 250px; /* Increased width */
-        margin: 20px; /* Adjusted margin */
+    .health-bar-container.modern {
+        width: 280px;
+        margin: 25px;
     }
-
-    .health-bar {
-        height: 30px; /* Increased height for better visibility */
+    
+    .health-bar-track {
+        height: 28px;
     }
-
-    .health-bar-fill {
-        font-size: 18px; /* Larger font size */
+    
+    .health-number {
+        font-size: 18px;
     }
-
-    .player-info {
-        font-size: 16px; /* Larger font size */
+    
+    .player-name {
+        font-size: 18px;
+    }
+    
+    .player-elo {
+        font-size: 16px;
     }
 }
 
-/* Media Query for screens less than 400px */
 @media (max-width: 400px) {
-    .health-bar-container {
-        width: 100%; /* Full width */
-        margin: 10px 0; /* Adjusted margin */
+    .health-bar-container.modern {
+        width: 160px;
+        margin: 12px;
     }
-
-    .health-bar {
-        height: 20px; /* Reduced height */
+    
+    .health-bar-track {
+        height: 20px;
     }
-
-    .health-bar-fill {
-        font-size: 14px; /* Smaller font size */
+    
+    .health-number {
+        font-size: 14px;
     }
-
-    .player-info {
-        font-size: 14px; /* Smaller font size */
+    
+    .health-max {
+        font-size: 10px;
+    }
+    
+    .player-name {
+        font-size: 14px;
+    }
+    
+    .player-elo {
+        font-size: 12px;
+    }
+    
+    .hb-bars {
+        gap: 20px;
     }
 }
 

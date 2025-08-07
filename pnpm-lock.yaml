@@ -129,8 +129,8 @@ dependencies:
     specifier: ^0.17.0
     version: 0.17.0
   uWebSockets.js:
-    specifier: github:uNetworking/uWebSockets.js#v20.48.0
-    version: github.com/uNetworking/uWebSockets.js/51ae1d1fd92dff77cbbdc7c431021f85578da1a6
+    specifier: github:uNetworking/uWebSockets.js#v20.52.0
+    version: github.com/uNetworking/uWebSockets.js/cfc9a40d8132a34881813cec3d5f8e3a185b3ce3
   uuid:
     specifier: ^9.0.1
     version: 9.0.1
@@ -170,14 +170,6 @@ packages:
     dependencies:
       react: 18.3.1
     dev: false
-
-  /@emnapi/runtime@1.3.1:
-    resolution: {integrity: sha512-kEBmG8KyqtxJZv+ygbEim+KCGtIq1fC22Ms3S4ziXmYKm8uyoLX0MHONVKwp+9opg390VaKRNt4a7A9NwmpNhw==}
-    requiresBuild: true
-    dependencies:
-      tslib: 2.8.0
-    dev: false
-    optional: true
 
   /@emnapi/runtime@1.4.5:
     resolution: {integrity: sha512-++LApOtY0pEEz1zrd9vy1/zXVaVJJ/EbAF3u0fXIzPJEDtnITsBGbbK0EkM72amhl/R5b+5xx0Y/QhcVOpuulg==}
@@ -579,7 +571,7 @@ packages:
     cpu: [wasm32]
     requiresBuild: true
     dependencies:
-      '@emnapi/runtime': 1.3.1
+      '@emnapi/runtime': 1.4.5
     dev: false
     optional: true
 
@@ -5367,8 +5359,8 @@ packages:
     resolution: {integrity: sha512-w2NTI8+3l3eeltKAdK8QpiLo/flRAr2p8AGeakfMZOXBxOg9HIu4LVDxBi81sYgVhFhdJjv1OrB5ssI8uFPoLg==}
     dev: false
 
-  github.com/uNetworking/uWebSockets.js/51ae1d1fd92dff77cbbdc7c431021f85578da1a6:
-    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/51ae1d1fd92dff77cbbdc7c431021f85578da1a6}
+  github.com/uNetworking/uWebSockets.js/cfc9a40d8132a34881813cec3d5f8e3a185b3ce3:
+    resolution: {tarball: https://codeload.github.com/uNetworking/uWebSockets.js/tar.gz/cfc9a40d8132a34881813cec3d5f8e3a185b3ce3}
     name: uWebSockets.js
-    version: 20.48.0
+    version: 20.52.0
     dev: false
