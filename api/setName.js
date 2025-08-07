@@ -5,6 +5,7 @@ import { USERNAME_CHANGE_COOLDOWN } from "./publicAccount.js";
 import Map from "../models/Map.js";
 import cachegoose from "recachegoose";
 import { Filter } from "bad-words";
+import UserStatsService from "../components/utils/userStatsService.js";
 const filter = new Filter();
 
 export default async function handler(req, res) {
@@ -88,8 +89,18 @@ export default async function handler(req, res) {
     }
 
     // Update the user's username
+    const isFirstTimeSettingUsername = !user.username;
     user.username = username;
     await user.save();
+
+    // Create initial UserStats entry for new users
+    if (isFirstTimeSettingUsername) {
+      try {
+        await UserStatsService.recordGameStats(user._id, null, { triggerEvent: 'account_created' });
+      } catch (error) {
+        console.error('Error creating initial user stats:', error);
+      }
+    }
 
     // try {
     //   if(process.env.DISCORD_WEBHOOK) {

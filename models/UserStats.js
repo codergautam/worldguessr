@@ -43,7 +43,7 @@ const userStatsSchema = new mongoose.Schema({
   // Additional context (optional)
   triggerEvent: {
     type: String,
-    enum: ['game_completed', 'weekly_update'],
+    enum: ['game_completed', 'weekly_update', 'account_created'],
     default: 'game_completed'
   },
   
