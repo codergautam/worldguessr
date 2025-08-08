@@ -49,6 +49,56 @@ html {
     touch-action: pan-x, pan-y !important;
 }
 
+/* Leaflet map optimizations for sharp rendering */
+.leaflet-container {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+    
+    /* Prevent blurriness on high-DPI screens */
+    -webkit-transform-origin: 0 0;
+    -ms-transform-origin: 0 0;
+    transform-origin: 0 0;
+    
+    /* Hardware acceleration */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    
+    /* Ensure proper antialiasing */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.leaflet-tile-container {
+    /* Prevent tile interpolation/smoothing */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+}
+
+.leaflet-tile {
+    /* Ensure tiles load at full resolution */
+    image-rendering: auto;
+    image-rendering: -webkit-optimize-contrast;
+    
+    /* Prevent blurry tiles */
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    
+    /* Hardware acceleration for tiles */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+}
+
+/* Fix for retina/high-DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+    .leaflet-container {
+        /* Better handling of high-DPI rendering */
+        -webkit-transform: scale(1);
+        transform: scale(1);
+    }
+}
+
 
 .home__content {
     //position: fixed;

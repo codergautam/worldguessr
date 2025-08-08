@@ -237,7 +237,13 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
 
       <TileLayer
         noWrap={true}
-        url={`https://mt2.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}`}
+        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}`}
+        subdomains={['0', '1', '2', '3']}
+        attribution='&copy; <a href="https://maps.google.com">Google</a>'
+        maxZoom={22}
+        tileSize={256}
+        zoomOffset={0}
+        detectRetina={true}
       />
 
     <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
