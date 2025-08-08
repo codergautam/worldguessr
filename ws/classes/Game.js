@@ -799,6 +799,13 @@ export default class Game {
       });
     }
 
+    // Save unranked multiplayer games to MongoDB for history tracking
+    if(!this.duel && this.public && Object.keys(this.players).length >= 2) {
+      this.saveUnrankedMultiplayerToMongoDB().catch(error => {
+        console.error('Error saving unranked multiplayer game to MongoDB:', error);
+      });
+    }
+
     }
 
 
@@ -996,6 +1003,142 @@ export default class Game {
 
     } catch (error) {
       console.error('Error saving duel game to MongoDB:', error);
+    }
+  }
+
+  async saveUnrankedMultiplayerToMongoDB() {
+    try {
+      // Get all players with account IDs
+      const playersWithAccounts = Object.values(this.players).filter(p => p.accountId);
+      
+      if (playersWithAccounts.length < 2) {
+        console.log('Not enough players with accounts to save unranked multiplayer game');
+        return;
+      }
+
+      // Get user data for all players
+      const userPromises = playersWithAccounts.map(p => User.findOne({ _id: p.accountId }));
+      const users = await Promise.all(userPromises);
+      
+      // Filter out null users
+      const validUsers = users.filter(u => u !== null);
+      const validPlayers = playersWithAccounts.filter((p, index) => users[index] !== null);
+
+      if (validUsers.length < 2) {
+        console.log('Not enough valid users found for unranked multiplayer game');
+        return;
+      }
+
+      // Calculate game statistics
+      const totalDuration = this.endTime - this.startTime; // in milliseconds
+      const maxPossiblePoints = this.roundHistory.length * 5000;
+
+      // Prepare rounds data from roundHistory
+      const gameRounds = this.roundHistory.map((roundData, index) => {
+        const actualLocation = roundData.location;
+        
+        return {
+          roundNumber: index + 1,
+          location: {
+            lat: actualLocation.lat,
+            long: actualLocation.long,
+            country: actualLocation.country || null,
+            place: null
+          },
+          playerGuesses: validPlayers.map(player => ({
+            playerId: player.id,
+            username: player.username || 'Player',
+            accountId: player.accountId,
+            guessLat: roundData.players[player.id]?.lat || null,
+            guessLong: roundData.players[player.id]?.long || null,
+            points: roundData.players[player.id]?.points || 0,
+            timeTaken: roundData.players[player.id]?.timeTaken || this.timePerRound / 1000,
+            xpEarned: 0, // Unranked games don't give XP
+            guessedAt: new Date(this.startTime + (index * this.timePerRound)),
+            usedHint: false
+          })),
+          startedAt: new Date(this.startTime + (index * this.timePerRound)),
+          endedAt: new Date(this.startTime + ((index + 1) * this.timePerRound))
+        };
+      });
+
+      // Create player summaries sorted by total points (highest first)
+      const playerSummaries = validPlayers
+        .map(player => ({
+          playerId: player.id,
+          username: player.username || 'Player',
+          accountId: player.accountId,
+          totalPoints: player.score || 0,
+          totalXp: 0, // Unranked games don't give XP
+          averageTimePerRound: this.calculateAverageTime(player.id),
+          finalRank: 0, // Will be calculated below
+          elo: {
+            before: null,
+            after: null,
+            change: null
+          }
+        }))
+        .sort((a, b) => b.totalPoints - a.totalPoints)
+        .map((player, index) => ({
+          ...player,
+          finalRank: index + 1
+        }));
+
+      // Create the game document
+      const gameDoc = new GameModel({
+        gameId: `unranked_${this.id}`,
+        gameType: 'unranked_multiplayer',
+
+        settings: {
+          location: this.location || 'all',
+          rounds: this.roundHistory.length,
+          maxDist: this.maxDist || 20000,
+          timePerRound: this.timePerRound || 30000,
+          official: true, // Public multiplayer games are considered official
+          showRoadName: this.showRoadName || false,
+          noMove: this.nm || false,
+          noPan: this.npz || false,
+          noZoom: this.npz || false
+        },
+
+        startedAt: new Date(this.startTime),
+        endedAt: new Date(this.endTime),
+        totalDuration: Math.floor(totalDuration / 1000), // Convert to seconds
+
+        rounds: gameRounds,
+        players: playerSummaries,
+
+        result: {
+          winner: playerSummaries.length > 0 ? playerSummaries[0].accountId : null,
+          isDraw: playerSummaries.length >= 2 && playerSummaries[0].totalPoints === playerSummaries[1].totalPoints,
+          maxPossiblePoints: maxPossiblePoints
+        },
+
+        multiplayer: {
+          isPublic: true,
+          gameCode: this.code,
+          hostPlayerId: validPlayers[0]?.id || null,
+          maxPlayers: this.maxPlayers,
+          playerCount: validPlayers.length
+        }
+      });
+
+      // Save to MongoDB
+      await gameDoc.save();
+
+      // Update totalGamesPlayed for all users
+      const updatePromises = validUsers.map(user => 
+        User.updateOne(
+          { _id: user._id },
+          { $inc: { totalGamesPlayed: 1 } }
+        )
+      );
+      await Promise.all(updatePromises);
+
+      console.log(`Saved unranked multiplayer game ${gameDoc.gameId} with ${validPlayers.length} players`);
+
+    } catch (error) {
+      console.error('Error saving unranked multiplayer game to MongoDB:', error);
     }
   }
 
