@@ -564,6 +564,7 @@ export default function Home({ }) {
             location: mapSlug,
             official: (country || mapSlug === 'all') ? true : false,
             countryMap: country,
+            communityMapName: (country || mapSlug === 'all') ? "" : prev.communityMapName, // Clear community map name for official maps
             maxDist: country ? countryMaxDists[country] : 20000,
             extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
         }))

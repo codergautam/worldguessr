@@ -161,7 +161,7 @@ export default function GameHistory({ session, onGameClick }) {
                       <span className={styles.statLabel}>{text('elo')}</span>
                       <span className={styles.statValue} style={{
                         color: (game.userStats?.elo?.change >= 0 || game.userPlayer?.elo?.change >= 0) ? '#4CAF50' : '#F44336'
-                      }}>  
+                      }}>
                         {((game.userStats?.elo?.change || game.userPlayer?.elo?.change) > 0) ? '+' : ''}{game.userStats?.elo?.change || game.userPlayer?.elo?.change}
                       </span>
                     </div>
@@ -209,7 +209,7 @@ export default function GameHistory({ session, onGameClick }) {
 
               <div className={styles.gameDetails}>
                 <div className={styles.detailItem}>
-                  <span className={styles.detailLabel}>{text('location')}</span>
+                  <span className={styles.detailLabel}>{text('map')}</span>
                   <span className={styles.detailValue}>
                     {getLocationDisplay(game.settings.location)}
                   </span>
