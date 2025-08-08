@@ -49,6 +49,7 @@
   animation: slideInUp var(--map-animation-duration) ease-out;
   animation-fill-mode: forwards; /* Ensures animation stays in final state */
   backdrop-filter: blur(50px);
+  -webkit-overflow-scrolling: touch;
 }
 
 
@@ -286,6 +287,7 @@
   scroll-behavior: smooth;
   padding-bottom: 8px;
   max-height: calc(2 * (140px + 16px)); /* Fixed height calculation */
+  -webkit-overflow-scrolling: touch;
 }
 
 .map-grid.collapsed.country-maps {
@@ -405,6 +407,7 @@
   position: relative;
   overflow: hidden;
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-overflow-scrolling: touch;
 }
 
 
@@ -1359,6 +1362,46 @@
 
   /* Make expanded country maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .mapView {
+    -webkit-overflow-scrolling: touch;
+    overflow-scrolling: touch;
+  }
+
+  .map-grid.collapsed {
+    -webkit-overflow-scrolling: touch;
+    overflow-scrolling: touch;
+    transform: translateZ(0);
+  }
+
+  .map-section-container {
+    -webkit-overflow-scrolling: touch;
+    overflow-scrolling: touch;
+    transform: translateZ(0);
+  }
+
+  /* Fix for iOS sticky positioning issues */
+  .map-tile {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+  }
+
+  /* Prevent iOS zoom on input focus */
+  .map-search-input {
+    font-size: 16px;
+  }
+
+  .url-input {
+    font-size: 16px;
+  }
+
+  .make-map-form input[type="text"],
+  .make-map-form textarea {
+    font-size: 16px;
+  }
 }
 
 /* Hide map modal sidebar on short screens */

@@ -159,6 +159,7 @@ const styles = {
         pointerEvents: "all",
         zIndex: 1130,
         width: "100%",
+        WebkitOverflowScrolling: "touch",
        },
     modalContent: {
         width: "100%",
@@ -166,6 +167,7 @@ const styles = {
         paddingBottom: "40px",
         overflowX: "hidden",
         zIndex: 1130,
+        WebkitOverflowScrolling: "touch",
     },
     closeButton: {
         position: "absolute",
