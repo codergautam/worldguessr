@@ -97,7 +97,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   const plopSound = React.useRef();
 
   const { t: text } = useTranslation("common");
-  
+
   // Cache icons to prevent repeated requests
   const icons = useMemo(() => ({
     dest: L.icon({
@@ -241,9 +241,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         subdomains={['0', '1', '2', '3']}
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}
-        tileSize={256}
         zoomOffset={0}
-        detectRetina={true}
       />
 
     <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>

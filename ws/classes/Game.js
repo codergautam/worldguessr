@@ -1014,33 +1014,27 @@ export default class Game {
   async saveUnrankedMultiplayerToMongoDB() {
     console.log(`🎯 ENTERED saveUnrankedMultiplayerToMongoDB for game ${this.id}`);
     try {
-      // Get all players with account IDs
-      const playersWithAccounts = Object.values(this.players).filter(p => p.accountId);
-      console.log(`🔍 Found ${playersWithAccounts.length} players with accounts:`, playersWithAccounts.map(p => `${p.username}(${p.accountId})`));
+      // Get ALL players (both registered and guest users)
+      const allPlayers = Object.values(this.players);
+      console.log(`🔍 Found ${allPlayers.length} total players:`, allPlayers.map(p => `${p.username}(${p.accountId || 'GUEST'})`));
 
-      if (playersWithAccounts.length < 2) {
-        console.log('Not enough players with accounts to save unranked multiplayer game');
-        return;
-      }
+      // Get players with account IDs for UserStats creation
+      const playersWithAccounts = allPlayers.filter(p => p.accountId);
+      console.log(`🔍 Found ${playersWithAccounts.length} players with accounts for UserStats`);
 
-      // Get user data for all players
+      // Get user data for players with accounts
       const userPromises = playersWithAccounts.map(p => User.findOne({ _id: p.accountId }));
       const users = await Promise.all(userPromises);
 
       // Filter out null users
       const validUsers = users.filter(u => u !== null);
-      const validPlayers = playersWithAccounts.filter((p, index) => users[index] !== null);
-
-      if (validUsers.length < 2) {
-        console.log('Not enough valid users found for unranked multiplayer game');
-        return;
-      }
+      const validPlayersWithAccounts = playersWithAccounts.filter((p, index) => users[index] !== null);
 
       // Calculate game statistics
       const totalDuration = this.endTime - this.startTime; // in milliseconds
       const maxPossiblePoints = this.roundHistory.length * 5000;
 
-      // Prepare rounds data from roundHistory
+      // Prepare rounds data from roundHistory - include ALL players (guest and registered)
       const gameRounds = this.roundHistory.map((roundData, index) => {
         const actualLocation = roundData.location;
 
@@ -1052,10 +1046,10 @@ export default class Game {
             country: actualLocation.country || null,
             place: null
           },
-          playerGuesses: validPlayers.map(player => ({
+          playerGuesses: allPlayers.map(player => ({
             playerId: player.id,
             username: player.username || 'Player',
-            accountId: player.accountId,
+            accountId: player.accountId || null, // null for guest users
             guessLat: roundData.players[player.id]?.lat || null,
             guessLong: roundData.players[player.id]?.long || null,
             points: roundData.players[player.id]?.points || 0,
@@ -1069,12 +1063,12 @@ export default class Game {
         };
       });
 
-      // Create player summaries sorted by total points (highest first)
-      const playerSummaries = validPlayers
+      // Create player summaries sorted by total points (highest first) - include ALL players
+      const playerSummaries = allPlayers
         .map(player => ({
           playerId: player.id,
           username: player.username || 'Player',
-          accountId: player.accountId,
+          accountId: player.accountId || null, // null for guest users
           totalPoints: player.score || 0,
           totalXp: 0, // Unranked games don't give XP
           averageTimePerRound: this.calculateAverageTime(player.id),
@@ -1124,16 +1118,16 @@ export default class Game {
         multiplayer: {
           isPublic: true,
           gameCode: this.code,
-          hostPlayerId: validPlayers[0]?.id || null,
+          hostPlayerId: allPlayers[0]?.id || null,
           maxPlayers: this.maxPlayers,
-          playerCount: validPlayers.length
+          playerCount: allPlayers.length
         }
       });
 
       // Save to MongoDB
       await gameDoc.save();
 
-      // Update totalGamesPlayed for all users
+      // Update totalGamesPlayed for users with accounts only
       const updatePromises = validUsers.map(user =>
         User.updateOne(
           { _id: user._id },
@@ -1142,11 +1136,15 @@ export default class Game {
       );
       await Promise.all(updatePromises);
 
-      // Create UserStats records for all players
-      const userStatsPromises = playerSummaries.map(async (playerSummary) => {
+      // Create UserStats records ONLY for players with valid accounts
+      const userStatsPromises = validPlayersWithAccounts.map(async (player) => {
         try {
+          // Find the player summary data for this account
+          const playerSummary = playerSummaries.find(p => p.accountId === player.accountId);
+          if (!playerSummary) return;
+
           await UserStatsService.recordGameStats(
-            playerSummary.accountId,
+            player.accountId,
             `unranked_${this.id}`,
             {
               gameType: 'unranked_multiplayer',
@@ -1156,15 +1154,15 @@ export default class Game {
               playerCount: playerSummaries.length
             }
           );
-          console.log(`Created UserStats for unranked multiplayer player: ${playerSummary.username} (${playerSummary.accountId})`);
+          console.log(`Created UserStats for unranked multiplayer player: ${player.username} (${player.accountId})`);
         } catch (error) {
-          console.error(`Error creating UserStats for player ${playerSummary.accountId}:`, error);
+          console.error(`Error creating UserStats for player ${player.accountId}:`, error);
         }
       });
 
       await Promise.all(userStatsPromises);
 
-      console.log(`✅ SUCCESSFULLY saved unranked multiplayer game ${gameDoc.gameId} with ${validPlayers.length} players to Games collection and UserStats`);
+      console.log(`✅ SUCCESSFULLY saved unranked multiplayer game ${gameDoc.gameId} with ${allPlayers.length} total players (${validPlayersWithAccounts.length} registered, ${allPlayers.length - validPlayersWithAccounts.length} guests) to Games collection and UserStats`);
 
     } catch (error) {
       console.error('Error saving unranked multiplayer game to MongoDB:', error);
