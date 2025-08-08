@@ -78,17 +78,17 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
             done: true
           };
 
-          // Store XP for all rounds when game is completed
-          if(session?.token?.secret && gameOptions.official && prev.locations.length > 0) {
+          // Store game for all completed games (official maps give XP, community maps give 0 XP but are still saved)
+          if(session?.token?.secret && prev.locations.length > 0) {
             const totalXp = prev.locations.reduce((sum, location) => sum + (location.xpEarned || 0), 0);
-            if(totalXp > 0) {
-              fetch(window.cConfig.apiUrl+'/api/storeGame', {
+            fetch(window.cConfig.apiUrl+'/api/storeGame', {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                   secret: session.token.secret,
+                  official: gameOptions.official, // Pass official status to API
                   rounds: prev.locations.map(location => ({
                     lat: location.guessLat,
                     long: location.guessLong,
@@ -109,7 +109,6 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
               }).catch(e => {
                 console.error(e);
               });
-            }
           }
 
           return completedGame;
