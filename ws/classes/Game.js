@@ -670,16 +670,11 @@ export default class Game {
     this.endTime = Date.now();
     this.nextEvtTime = this.endTime + 7200000; // 2 hours (2 * 60 * 60 * 1000)
 
-    // Save unranked multiplayer games to MongoDB for history tracking
-    console.log(`🔍 DEBUG: Game ${this.id} ending - duel:${this.duel}, public:${this.public}, players:${Object.keys(this.players).length}`);
-
-    if(!this.duel && this.public && Object.keys(this.players).length >= 2) {
-      console.log(`🚀 TRIGGERING unranked multiplayer save for game ${this.id}`);
+    // Save all non-ranked duel games to MongoDB for history tracking
+    if(!this.duel && Object.keys(this.players).length >= 2) {
       this.saveUnrankedMultiplayerToMongoDB().catch(error => {
-        console.error('❌ Error saving unranked multiplayer game to MongoDB:', error);
+        console.error('❌ Error saving multiplayer game to MongoDB:', error);
       });
-    } else if(!this.duel) {
-      console.log(`⚠️ SKIPPING unranked multiplayer save for game ${this.id} - condition not met (public:${this.public}, players:${Object.keys(this.players).length})`);
     }
 
     if(this.duel && !this.calculationDone) {
@@ -1012,15 +1007,12 @@ export default class Game {
   }
 
   async saveUnrankedMultiplayerToMongoDB() {
-    console.log(`🎯 ENTERED saveUnrankedMultiplayerToMongoDB for game ${this.id}`);
     try {
       // Get ALL players (both registered and guest users)
       const allPlayers = Object.values(this.players);
-      console.log(`🔍 Found ${allPlayers.length} total players:`, allPlayers.map(p => `${p.username}(${p.accountId || 'GUEST'})`));
 
       // Get players with account IDs for UserStats creation
       const playersWithAccounts = allPlayers.filter(p => p.accountId);
-      console.log(`🔍 Found ${playersWithAccounts.length} players with accounts for UserStats`);
 
       // Get user data for players with accounts
       const userPromises = playersWithAccounts.map(p => User.findOne({ _id: p.accountId }));
@@ -1087,15 +1079,15 @@ export default class Game {
 
       // Create the game document
       const gameDoc = new GameModel({
-        gameId: `unranked_${this.id}`,
-        gameType: 'unranked_multiplayer',
+        gameId: `${this.public ? 'unranked' : 'party'}_${this.id}`,
+        gameType: this.public ? 'unranked_multiplayer' : 'party_multiplayer',
 
         settings: {
           location: this.location || 'all',
           rounds: this.roundHistory.length,
           maxDist: this.maxDist || 20000,
           timePerRound: this.timePerRound || 30000,
-          official: true, // Public multiplayer games are considered official
+          official: false,
           showRoadName: this.showRoadName || false,
           noMove: this.nm || false,
           noPan: this.npz || false,
@@ -1116,7 +1108,7 @@ export default class Game {
         },
 
         multiplayer: {
-          isPublic: true,
+          isPublic: this.public,
           gameCode: this.code,
           hostPlayerId: allPlayers[0]?.id || null,
           maxPlayers: this.maxPlayers,
@@ -1145,16 +1137,15 @@ export default class Game {
 
           await UserStatsService.recordGameStats(
             player.accountId,
-            `unranked_${this.id}`,
+            `${this.public ? 'unranked' : 'party'}_${this.id}`,
             {
-              gameType: 'unranked_multiplayer',
+              gameType: this.public ? 'unranked_multiplayer' : 'party_multiplayer',
               result: playerSummary.finalRank === 1 ? 'win' : 'loss', // First place wins, others lose
               finalScore: playerSummary.totalPoints || 0,
               duration: this.endTime - this.startTime,
               playerCount: playerSummaries.length
             }
           );
-          console.log(`Created UserStats for unranked multiplayer player: ${player.username} (${player.accountId})`);
         } catch (error) {
           console.error(`Error creating UserStats for player ${player.accountId}:`, error);
         }
@@ -1162,7 +1153,7 @@ export default class Game {
 
       await Promise.all(userStatsPromises);
 
-      console.log(`✅ SUCCESSFULLY saved unranked multiplayer game ${gameDoc.gameId} with ${allPlayers.length} total players (${validPlayersWithAccounts.length} registered, ${allPlayers.length - validPlayersWithAccounts.length} guests) to Games collection and UserStats`);
+      console.log(`✅ Saved ${this.public ? 'public' : 'party'} multiplayer game ${gameDoc.gameId} with ${allPlayers.length} total players (${validPlayersWithAccounts.length} registered, ${allPlayers.length - validPlayersWithAccounts.length} guests)`);
 
     } catch (error) {
       console.error('Error saving unranked multiplayer game to MongoDB:', error);
