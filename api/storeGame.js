@@ -9,7 +9,7 @@ import { createUUID } from '../components/createUUID.js';
 
 // Handle both single round and batch round submissions
 async function guess(req, res) {
-  const { lat, long, actualLat, actualLong, usedHint, secret, roundTime, maxDist, rounds, official } = req.body;
+  const { lat, long, actualLat, actualLong, usedHint, secret, roundTime, maxDist, rounds, official, location } = req.body;
 
   // secret must be string
   if(typeof secret !== 'string') {
@@ -84,7 +84,7 @@ async function guess(req, res) {
           gameType: 'singleplayer',
           
           settings: {
-            location: 'all', // Default, could be enhanced to detect actual location setting
+            location: location || 'all', // Use provided location or default to 'all'
             rounds: rounds.length,
             maxDist: maxDist || 20000,
             timePerRound: null, // No time limit for singleplayer

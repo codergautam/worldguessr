@@ -81,8 +81,13 @@ export default function GameHistory({ session, onGameClick }) {
 
   const getLocationDisplay = (location) => {
     if (location === 'all') return text('worldwide');
-    // You can expand this to handle country codes and custom maps
-    return location;
+    // Handle country codes (2-letter uppercase codes)
+    if (location && location.length === 2 && location === location.toUpperCase()) {
+      // This could be enhanced to return actual country names
+      return location;
+    }
+    // For community maps and other custom locations, return the name as-is
+    return location || text('unknown');
   };
 
 

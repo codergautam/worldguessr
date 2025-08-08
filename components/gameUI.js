@@ -89,6 +89,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
                 body: JSON.stringify({
                   secret: session.token.secret,
                   official: gameOptions.official, // Pass official status to API
+                  location: gameOptions.communityMapName || gameOptions.location, // Use community map name or location
                   rounds: prev.locations.map(location => ({
                     lat: location.guessLat,
                     long: location.guessLong,
