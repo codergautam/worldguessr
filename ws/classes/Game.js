@@ -17,7 +17,7 @@ import User from "../../models/User.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
 
 export default class Game {
-  constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
+  constructor(id, publicLobby, location="all", rounds=2, allLocations, isDuel=false) {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
@@ -1010,7 +1010,7 @@ export default class Game {
     try {
       // Get all players with account IDs
       const playersWithAccounts = Object.values(this.players).filter(p => p.accountId);
-      
+
       if (playersWithAccounts.length < 2) {
         console.log('Not enough players with accounts to save unranked multiplayer game');
         return;
@@ -1019,7 +1019,7 @@ export default class Game {
       // Get user data for all players
       const userPromises = playersWithAccounts.map(p => User.findOne({ _id: p.accountId }));
       const users = await Promise.all(userPromises);
-      
+
       // Filter out null users
       const validUsers = users.filter(u => u !== null);
       const validPlayers = playersWithAccounts.filter((p, index) => users[index] !== null);
@@ -1036,7 +1036,7 @@ export default class Game {
       // Prepare rounds data from roundHistory
       const gameRounds = this.roundHistory.map((roundData, index) => {
         const actualLocation = roundData.location;
-        
+
         return {
           roundNumber: index + 1,
           location: {
@@ -1127,7 +1127,7 @@ export default class Game {
       await gameDoc.save();
 
       // Update totalGamesPlayed for all users
-      const updatePromises = validUsers.map(user => 
+      const updatePromises = validUsers.map(user =>
         User.updateOne(
           { _id: user._id },
           { $inc: { totalGamesPlayed: 1 } }
@@ -1135,7 +1135,29 @@ export default class Game {
       );
       await Promise.all(updatePromises);
 
-      console.log(`Saved unranked multiplayer game ${gameDoc.gameId} with ${validPlayers.length} players`);
+      // Create UserStats records for all players
+      const userStatsPromises = playerSummaries.map(async (playerSummary) => {
+        try {
+          await UserStatsService.recordGameStats(
+            playerSummary.accountId,
+            `unranked_${this.id}`,
+            {
+              gameType: 'unranked_multiplayer',
+              result: playerSummary.finalRank === 1 ? 'win' : 'loss', // First place wins, others lose
+              finalScore: playerSummary.totalPoints || 0,
+              duration: this.endTime - this.startTime,
+              playerCount: playerSummaries.length
+            }
+          );
+          console.log(`Created UserStats for unranked multiplayer player: ${playerSummary.username} (${playerSummary.accountId})`);
+        } catch (error) {
+          console.error(`Error creating UserStats for player ${playerSummary.accountId}:`, error);
+        }
+      });
+      
+      await Promise.all(userStatsPromises);
+
+      console.log(`✅ SUCCESSFULLY saved unranked multiplayer game ${gameDoc.gameId} with ${validPlayers.length} players to Games collection and UserStats`);
 
     } catch (error) {
       console.error('Error saving unranked multiplayer game to MongoDB:', error);
