@@ -642,6 +642,7 @@ export default class Game {
     }
   }
   end(leftUser) {
+    console.log(`Ending game ${this.id} - duel: ${this.duel}, public: ${this.public}, players: ${Object.keys(this.players).length}`);
     // For duels, only save the final round if it was actually completed (all players made guesses)
     // For regular games, save if the round was started but not yet saved
     if (this.curRound > 0 && this.curRound <= this.locations.length) {
@@ -669,6 +670,17 @@ export default class Game {
     this.endTime = Date.now();
     this.nextEvtTime = this.endTime + 7200000; // 2 hours (2 * 60 * 60 * 1000)
 
+    // Save unranked multiplayer games to MongoDB for history tracking
+    console.log(`🔍 DEBUG: Game ${this.id} ending - duel:${this.duel}, public:${this.public}, players:${Object.keys(this.players).length}`);
+
+    if(!this.duel && this.public && Object.keys(this.players).length >= 2) {
+      console.log(`🚀 TRIGGERING unranked multiplayer save for game ${this.id}`);
+      this.saveUnrankedMultiplayerToMongoDB().catch(error => {
+        console.error('❌ Error saving unranked multiplayer game to MongoDB:', error);
+      });
+    } else if(!this.duel) {
+      console.log(`⚠️ SKIPPING unranked multiplayer save for game ${this.id} - condition not met (public:${this.public}, players:${Object.keys(this.players).length})`);
+    }
 
     if(this.duel && !this.calculationDone) {
       // find the winner
@@ -796,13 +808,6 @@ export default class Game {
       // Create userstats documents for both users
       this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo).catch(error => {
         console.error('Error creating duel user stats:', error);
-      });
-    }
-
-    // Save unranked multiplayer games to MongoDB for history tracking
-    if(!this.duel && this.public && Object.keys(this.players).length >= 2) {
-      this.saveUnrankedMultiplayerToMongoDB().catch(error => {
-        console.error('Error saving unranked multiplayer game to MongoDB:', error);
       });
     }
 
@@ -1007,9 +1012,11 @@ export default class Game {
   }
 
   async saveUnrankedMultiplayerToMongoDB() {
+    console.log(`🎯 ENTERED saveUnrankedMultiplayerToMongoDB for game ${this.id}`);
     try {
       // Get all players with account IDs
       const playersWithAccounts = Object.values(this.players).filter(p => p.accountId);
+      console.log(`🔍 Found ${playersWithAccounts.length} players with accounts:`, playersWithAccounts.map(p => `${p.username}(${p.accountId})`));
 
       if (playersWithAccounts.length < 2) {
         console.log('Not enough players with accounts to save unranked multiplayer game');
@@ -1154,7 +1161,7 @@ export default class Game {
           console.error(`Error creating UserStats for player ${playerSummary.accountId}:`, error);
         }
       });
-      
+
       await Promise.all(userStatsPromises);
 
       console.log(`✅ SUCCESSFULLY saved unranked multiplayer game ${gameDoc.gameId} with ${validPlayers.length} players to Games collection and UserStats`);
