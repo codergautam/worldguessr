@@ -709,14 +709,14 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {timeToNextRound ?
       text("roundTimer", {r:onboarding?.round, mr: 5, t: timeToNextRound.toFixed(1)})
-      : text("round", {r:onboarding?.round, mr: 5})} - <AnimatedCounter value={onboarding?.points || 0} /> {text("points")}
+      : text("round", {r:onboarding?.round, mr: 5})} - <AnimatedCounter value={onboarding?.points || 0} showIncrement={false} /> {text("points")}
 
         </span>
 
         {
           singlePlayerRound && !singlePlayerRound?.done && (
             <span className="timer shown">
-              {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} - <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} /> {text("points")}
+              {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} - <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} showIncrement={false} /> {text("points")}
 
             </span>
           )
