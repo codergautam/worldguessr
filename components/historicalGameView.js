@@ -34,7 +34,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
     const handleGameStarting = () => {
       handleBack();
     };
-    
+
     window.addEventListener('gameStarting', handleGameStarting);
     return () => window.removeEventListener('gameStarting', handleGameStarting);
   }, []);
@@ -43,7 +43,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
   useEffect(() => {
     const fetchFullGameData = async () => {
       if (typeof window === 'undefined' || !window.cConfig?.apiUrl) return;
-      
+
       setLoading(true);
       setError(null);
 
@@ -53,7 +53,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ 
+          body: JSON.stringify({
             secret: session?.token?.secret,
             gameId: game.gameId
           }),
@@ -96,7 +96,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
         <div className={styles.errorContainer}>
           <h3>{text('errorLoadingGame')}</h3>
           <p>{error}</p>
-          <button 
+          <button
             className={styles.backButton}
             onClick={onBack}
           >
@@ -113,7 +113,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
         <div className={styles.errorContainer}>
           <h3>{text('gameNotFound')}</h3>
           <p>{text('gameNoLongerAvailable')}</p>
-          <button 
+          <button
             className={styles.backButton}
             onClick={onBack}
           >
@@ -164,18 +164,18 @@ export default function HistoricalGameView({ game, session, onBack }) {
 
   // Determine if this is a duel
   const isDuel = fullGameData.gameType === 'ranked_duel';
-  
+
   // For duels, prepare the data structure
   let duelData = null;
   if (isDuel) {
     // Support both data structures: userPlayer (gameDetails API) and userStats (gameHistory API)
     const playerData = fullGameData.userPlayer || fullGameData.userStats;
-    
+
     if (playerData) {
       const eloData = playerData.elo || {};
       duelData = {
         oldElo: eloData.before || eloData.oldElo || 0,
-        newElo: eloData.after || eloData.newElo || 0, 
+        newElo: eloData.after || eloData.newElo || 0,
         eloDiff: eloData.change || 0,
         winner: playerData.finalRank === 1,
         draw: fullGameData.result?.isDraw || false,
@@ -185,13 +185,13 @@ export default function HistoricalGameView({ game, session, onBack }) {
     }
   }
 
-  // For multiplayer games, prepare the state  
+  // For multiplayer games, prepare the state
   let multiplayerState = null;
   if (fullGameData.gameType !== 'singleplayer') {
     // Find the current user's playerId from the players array
     const currentUserPlayer = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
     const myPlayerId = currentUserPlayer ? currentUserPlayer.playerId : fullGameData.currentUserId;
-    
+
     multiplayerState = {
       gameData: {
         myId: myPlayerId, // Use the correct playerId that matches the game data
@@ -246,15 +246,4 @@ export default function HistoricalGameView({ game, session, onBack }) {
       />
     </div>
   );
-
-  function getGameTypeLabel(gameType) {
-    const types = {
-      'singleplayer': text('singleplayer'),
-      'ranked_duel': text('rankedDuel'),
-      'unranked_multiplayer': text('multiplayer'),
-      'private_multiplayer': text('privateGame'),
-      'party_multiplayer': text('privateGame')
-    };
-    return types[gameType] || gameType;
-  }
 }
