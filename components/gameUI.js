@@ -690,7 +690,7 @@ button1Press={() =>{
         }
         }} />
       )}
-      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 ? 'critical' : ''}`}>
+      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint ? 'critical' : ''}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {
@@ -704,7 +704,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
       text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
         </span>
 
-        <span className={`timer ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 ? 'critical' : ''}`}>
+        <span className={`timer ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 && !showAnswer && !pinPoint ? 'critical' : ''}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {timeToNextRound ?
@@ -800,8 +800,8 @@ singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={co
   }} panoShown={showPanoOnResult} />
 
     {/* Critical timer screen warning effect */}
-    {((timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && multiplayerTimerShown) || 
-      (timeToNextRound <= 5 && timeToNextRound > 0 && onboardingTimerShown)) && (
+    {((timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && multiplayerTimerShown && !showAnswer && !pinPoint) || 
+      (timeToNextRound <= 5 && timeToNextRound > 0 && onboardingTimerShown && !showAnswer && !pinPoint)) && (
       <div className="screen-critical-warning" />
     )}
   </div>
