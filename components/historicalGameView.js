@@ -252,7 +252,8 @@ export default function HistoricalGameView({ game, session, onBack }) {
       'singleplayer': text('singleplayer'),
       'ranked_duel': text('rankedDuel'),
       'unranked_multiplayer': text('multiplayer'),
-      'private_multiplayer': text('privateGame')
+      'private_multiplayer': text('privateGame'),
+      'party_multiplayer': text('privateGame')
     };
     return types[gameType] || gameType;
   }
