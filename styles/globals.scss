@@ -1065,33 +1065,39 @@ h1, h2, h3, span, label {
 
 .timer {
     font-family: lexend;
+    font-weight: 600;
     z-index: 102;
     position: fixed;
     top: 50px;
     right: 0;
-    font-size: min(max(1.3em, 1.3vw), max(1.1em, 2vh));
+    font-size: clamp(1.1rem, 2vw, 1.5rem);
     background: var(--gradLight);
     background-color: var(--primaryTransparent);
-    padding-left: 10px;
-    padding-right: 10px;
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+    padding: 12px 20px;
     border: 2px solid var(--primary);
-    border-radius: 10px;
+    border-radius: 16px;
     color: white;
     user-select: none;
     pointer-events: none;
     width: max-content;
     opacity: 0;
-    transform: translateY(-100%);
-    box-shadow: 10px 3px 4px 0px rgb(0 0 0 / 35%);
-    //text-shadow: 2px 2px black;
-    margin-right: 5px;
+    transform: translateY(-20px) scale(0.95);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.35),
+        0 4px 12px rgba(36, 87, 52, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    margin-right: 20px;
+    letter-spacing: 0.025em;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timer.shown {
-    opacity: 100%;
-    transform: translateY(0%);
-    transition: all 0.5s;
-    animation: fadeIn 0.5s ease-in-out forwards;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1001;
 }
 
@@ -1106,6 +1112,181 @@ h1, h2, h3, span, label {
 @media screen and (max-width: 830px) {
     .timer.duel {
         top: 70px;
+    }
+}
+
+// Critical timer states for under 5 seconds
+.timer.critical {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.95) 0%, rgba(220, 38, 38, 0.95) 100%);
+    border-color: rgba(255, 255, 255, 0.4);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 4px 20px rgba(239, 68, 68, 0.6),
+        0 0 30px rgba(239, 68, 68, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    animation: timerPulse 1s ease-in-out infinite;
+    transform: translateY(0) scale(1.05);
+}
+
+.timer.duel.critical {
+    transform: translateX(50%) scale(1.05);
+}
+
+// Screen edge warning effect
+body:has(.timer.critical)::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 999;
+    animation: screenPulse 1s ease-in-out infinite;
+    border: 4px solid transparent;
+}
+
+@keyframes timerPulse {
+    0% {
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.4),
+            0 4px 20px rgba(239, 68, 68, 0.6),
+            0 0 30px rgba(239, 68, 68, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        filter: brightness(1);
+    }
+    50% {
+        box-shadow: 
+            0 12px 40px rgba(0, 0, 0, 0.5),
+            0 6px 30px rgba(239, 68, 68, 0.8),
+            0 0 50px rgba(239, 68, 68, 0.7),
+            0 0 80px rgba(239, 68, 68, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        filter: brightness(1.2);
+    }
+    100% {
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.4),
+            0 4px 20px rgba(239, 68, 68, 0.6),
+            0 0 30px rgba(239, 68, 68, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        filter: brightness(1);
+    }
+}
+
+@keyframes screenPulse {
+    0% {
+        border-color: rgba(239, 68, 68, 0);
+        box-shadow: inset 0 0 0 rgba(239, 68, 68, 0);
+    }
+    50% {
+        border-color: rgba(239, 68, 68, 0.3);
+        box-shadow: inset 0 0 100px rgba(239, 68, 68, 0.1);
+    }
+    100% {
+        border-color: rgba(239, 68, 68, 0);
+        box-shadow: inset 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+// Fallback for browsers that don't support :has()
+.screen-critical-warning {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    z-index: 999;
+    animation: screenPulse 1s ease-in-out infinite;
+    border: 4px solid transparent;
+}
+
+// Animated Counter Styles
+.animated-counter {
+    position: relative;
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    transition: all 0.3s ease;
+}
+
+.animated-counter.animating .counter-value {
+    color: #22c55e;
+    font-weight: 700;
+    text-shadow: 0 0 8px rgba(34, 197, 94, 0.3);
+    animation: counterGlow 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.increment-indicator {
+    position: absolute;
+    left: 100%;
+    top: -50%;
+    margin-left: 8px;
+    font-weight: 700;
+    font-size: 0.9em;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+@keyframes pointIncrement {
+    0% {
+        opacity: 0;
+        transform: translateY(0) scale(0.8);
+    }
+    20% {
+        opacity: 1;
+        transform: translateY(-8px) scale(1.1);
+    }
+    50% {
+        opacity: 1;
+        transform: translateY(-16px) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-32px) scale(0.9);
+    }
+}
+
+@keyframes counterGlow {
+    0% {
+        color: inherit;
+        text-shadow: none;
+        transform: scale(1);
+    }
+    30% {
+        color: #22c55e;
+        text-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+        transform: scale(1.05);
+    }
+    100% {
+        color: inherit;
+        text-shadow: none;
+        transform: scale(1);
+    }
+}
+
+// Enhanced styling for round over screen point animations
+.points-display.animating {
+    color: #22c55e !important;
+    text-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
+    animation: pointsGlow 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes pointsGlow {
+    0% {
+        color: #22c55e;
+        text-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
+        transform: scale(1);
+    }
+    50% {
+        color: #16a34a;
+        text-shadow: 0 0 25px rgba(34, 197, 94, 0.8);
+        transform: scale(1.08);
+    }
+    100% {
+        color: inherit;
+        text-shadow: none;
+        transform: scale(1);
     }
 }
 

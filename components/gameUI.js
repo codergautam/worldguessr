@@ -18,6 +18,7 @@ import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAdNitro";
 import fixBranding from "./utils/fixBranding";
+import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
 
@@ -689,7 +690,7 @@ button1Press={() =>{
         }
         }} />
       )}
-      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'}  ${multiplayerState?.gameData?.duel ? 'duel' : ''}`}>
+      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 ? 'critical' : ''}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {
@@ -703,19 +704,19 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
       text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
         </span>
 
-        <span className={`timer ${!onboardingTimerShown ? '' : 'shown'}`}>
+        <span className={`timer ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 ? 'critical' : ''}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {timeToNextRound ?
       text("roundTimer", {r:onboarding?.round, mr: 5, t: timeToNextRound.toFixed(1)})
-      : text("round", {r:onboarding?.round, mr: 5})} - {onboarding?.points || 0} {text("points")}
+      : text("round", {r:onboarding?.round, mr: 5})} - <AnimatedCounter value={onboarding?.points || 0} /> {text("points")}
 
         </span>
 
         {
           singlePlayerRound && !singlePlayerRound?.done && (
             <span className="timer shown">
-              {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} -  {singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} {text("points")}
+              {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} - <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} /> {text("points")}
 
             </span>
           )
@@ -797,6 +798,12 @@ singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={co
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {
     setShowPanoOnResult(!showPanoOnResult)
   }} panoShown={showPanoOnResult} />
+
+    {/* Critical timer screen warning effect */}
+    {((timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && multiplayerTimerShown) || 
+      (timeToNextRound <= 5 && timeToNextRound > 0 && onboardingTimerShown)) && (
+      <div className="screen-critical-warning" />
+    )}
   </div>
 
     </div>

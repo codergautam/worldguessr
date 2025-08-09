@@ -124,26 +124,40 @@ const GameSummary = ({
     checkLeaflet();
   }, []);
 
-  // Animation for points in regular games
+  // Enhanced smooth animation for points in regular games
   useEffect(() => {
     if (!duel && points) {
-      let start = 0;
-      const end = points;
-      const duration = 1000;
-      const stepTime = duration / Math.sqrt(end);
-
-      const interval = setInterval(() => {
-        start++;
-        const increment = Math.pow(start, 2);
-        if (increment < end) {
-          setAnimatedPoints(increment);
+      const startValue = animatedPoints || 0;
+      const endValue = points;
+      const duration = 1200; // Slightly longer for more dramatic effect
+      const startTime = Date.now();
+      
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Enhanced easing - combines ease-out with a slight bounce
+        const easeOutBack = (x) => {
+          const c1 = 1.70158;
+          const c3 = c1 + 1;
+          return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+        };
+        
+        const easedProgress = progress < 0.7 
+          ? 4 * Math.pow(progress, 3) // Ease out cubic for first 70%
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2; // Smooth transition to end
+        
+        const currentValue = startValue + (endValue - startValue) * easedProgress;
+        setAnimatedPoints(Math.round(currentValue));
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
         } else {
-          setAnimatedPoints(end);
-          clearInterval(interval);
+          setAnimatedPoints(endValue);
         }
-      }, stepTime);
-
-      return () => clearInterval(interval);
+      };
+      
+      requestAnimationFrame(animate);
     }
   }, [points, duel]);
 
@@ -1229,7 +1243,7 @@ const GameSummary = ({
             })()}
 
             <div
-              className="summary-score"
+              className={`summary-score points-display ${animatedPoints < points ? 'animating' : ''}`}
               style={{
                 transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
