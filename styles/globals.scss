@@ -2980,17 +2980,20 @@ img[alt="Google"] {
         background: var(--primaryTransparent);
         color: white;
         border: none;
-        padding: 8px 16px;
-        border-radius: 6px;
+        padding: 10px 20px;
+        border-radius: 8px;
         margin-bottom: 10px;
         cursor: pointer;
         font-size: 0.9rem;
+        font-family: lexend;
+        font-weight: 500;
         transition: all 0.3s ease;
     }
 
     .mobile-expand-btn:hover {
         background: var(--primary);
-        transform: scale(1.02);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
 
     .rounds-container.mobile-hidden {
