@@ -1080,7 +1080,7 @@ export default class Game {
       // Create the game document
       const gameDoc = new GameModel({
         gameId: `${this.public ? 'unranked' : 'party'}_${this.id}`,
-        gameType: this.public ? 'unranked_multiplayer' : 'party_multiplayer',
+        gameType: this.public ? 'unranked_multiplayer' : 'private_multiplayer',
 
         settings: {
           location: this.location || 'all',
@@ -1139,7 +1139,7 @@ export default class Game {
             player.accountId,
             `${this.public ? 'unranked' : 'party'}_${this.id}`,
             {
-              gameType: this.public ? 'unranked_multiplayer' : 'party_multiplayer',
+              gameType: this.public ? 'unranked_multiplayer' : 'private_multiplayer',
               result: playerSummary.finalRank === 1 ? 'win' : 'loss', // First place wins, others lose
               finalScore: playerSummary.totalPoints || 0,
               duration: this.endTime - this.startTime,

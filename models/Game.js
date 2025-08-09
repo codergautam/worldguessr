@@ -64,7 +64,7 @@ const gameSchema = new mongoose.Schema({
   gameType: { 
     type: String, 
     required: true, 
-    enum: ['singleplayer', 'ranked_duel', 'unranked_multiplayer', 'private_multiplayer', 'party_multiplayer']
+    enum: ['singleplayer', 'ranked_duel', 'unranked_multiplayer', 'private_multiplayer']
   },
   
   // Game settings
