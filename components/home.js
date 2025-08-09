@@ -2,6 +2,7 @@ import HeadContent from "@/components/headContent";
 import { FaDiscord, FaGithub } from "react-icons/fa";
 import { FaArrowRotateRight, FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
+import retryManager from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState, useRef } from "react";
 import Navbar from "@/components/ui/navbar";
@@ -175,25 +176,33 @@ export default function Home({ }) {
         // eslint-disable-next-line react-hooks/rules-of-hooks
         login = useGoogleLogin({
             onSuccess: tokenResponse => {
-                fetch(clientConfig().apiUrl + "/api/googleAuth", {
-                    body: JSON.stringify({ code: tokenResponse.code }),
-                    method: "POST",
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                }).then((res) => res.json()).then((data) => {
+                console.log("[Auth] Starting Google OAuth with retry mechanism");
+                
+                retryManager.fetchWithRetry(
+                    clientConfig().apiUrl + "/api/googleAuth",
+                    {
+                        body: JSON.stringify({ code: tokenResponse.code }),
+                        method: "POST",
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    },
+                    'googleAuthLogin'
+                ).then((res) => res.json()).then((data) => {
+                    console.log("[Auth] Google OAuth successful");
+                    
                     if (data.secret) {
-
                         setSession({ token: data })
                         window.localStorage.setItem("wg_secret", data.secret)
-
+                        console.log(`[Auth] Login successful for user:`, data.username);
                     } else {
+                        console.error("[Auth] No secret received from server");
                         toast.error("Login error, contact support if this persists (2)")
                     }
 
                 }).catch((e) => {
-                    console.error("google auth error", e)
-                    toast.error("Login error, contact support if this persists (3)")
+                    console.error("[Auth] Google OAuth failed after all retries:", e.message);
+                    toast.error(`Login failed: ${e.message}. Please try again or contact support.`);
                 })
             },
             onError: error => {

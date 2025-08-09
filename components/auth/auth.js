@@ -1,5 +1,6 @@
 import { inIframe } from "../utils/inIframe";
 import { toast } from "react-toastify";
+import retryManager from "../utils/retryFetch";
 
 // secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter
 let session = false;
@@ -87,31 +88,56 @@ export function useSession() {
 
     window.fetchingSession = true;
 
-    fetch(window.cConfig?.apiUrl+"/api/googleAuth", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    console.log(`[Auth] Starting authentication with retry mechanism`);
+    
+    retryManager.fetchWithRetry(
+      window.cConfig?.apiUrl + "/api/googleAuth",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ secret }),
       },
-      body: JSON.stringify({ secret }),
-    })
+      'googleAuth'
+    )
       .then((res) => res.json())
       .then((data) => {
         window.fetchingSession = false;
+        console.log(`[Auth] Authentication successful`);
+        
         if (data.error) {
-          console.error(data.error);
+          console.error(`[Auth] Server error:`, data.error);
+          session = null;
           return;
         }
 
         if (data.secret) {
           window.localStorage.setItem("wg_secret", data.secret);
           session = {token: data};
+          console.log(`[Auth] Session established for user:`, data.username);
         } else {
+          console.log(`[Auth] No session data received, user not logged in`);
           session = null;
         }
       })
       .catch((e) => {
         window.fetchingSession = false;
-        console.error(e);
+        console.error(`[Auth] Authentication failed after all retries:`, e.message);
+        
+        // Clear potentially corrupted session data
+        try {
+          window.localStorage.removeItem("wg_secret");
+        } catch (err) {
+          console.warn(`[Auth] Could not clear localStorage:`, err);
+        }
+        
+        session = null;
+        
+        // Show user-friendly error after all retries exhausted
+        if (retryManager.getRetryCount('googleAuth') >= 5) {
+          toast.error('Connection issues detected. Please refresh the page if problems persist.');
+        }
       });
     } else {
       session = null;
