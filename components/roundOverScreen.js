@@ -1388,15 +1388,18 @@ const GameSummary = ({
                           <span className="time-value">{formatTime(round.timeTaken)}</span>
                         </div>
                       )}
-                      {round.xpEarned && typeof round.xpEarned === 'number' && round.xpEarned > 0 && (
-                        <div className="detail-row">
-                          <span className="detail-label">
-                            <span className="detail-icon">⭐</span>
-                            XP
-                          </span>
-                          <span className="xp-value">+{round.xpEarned}</span>
-                        </div>
-                      )}
+{(() => {
+                        if (!round.xpEarned || round.xpEarned <= 0) return null;
+                        return (
+                          <div className="detail-row">
+                            <span className="detail-label">
+                              <span className="detail-icon">⭐</span>
+                              XP
+                            </span>
+                            <span className="xp-value">+{round.xpEarned}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
