@@ -171,6 +171,17 @@ export default function XPGraph({ session, mode = 'xp' }) {
             return hasChange ? 4 : 0;
         });
 
+        // Calculate min/max for dynamic scaling
+        const yValues = dataPoints.map(point => point.y);
+        const minValue = Math.min(...yValues);
+        const maxValue = Math.max(...yValues);
+        
+        // Add some padding to the range (5% on each side)
+        const range = maxValue - minValue;
+        const padding = range * 0.05;
+        const suggestedMin = minValue - padding;
+        const suggestedMax = maxValue + padding;
+
         const data = {
             datasets: [{
                 label: mode === 'xp' ? 
@@ -186,6 +197,8 @@ export default function XPGraph({ session, mode = 'xp' }) {
                 pointBackgroundColor: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo') ? '#4CAF50' : '#2196F3',
                 pointBorderColor: '#ffffff',
                 pointBorderWidth: 2,
+                suggestedMin,
+                suggestedMax
             }]
         };
 
@@ -286,7 +299,8 @@ export default function XPGraph({ session, mode = 'xp' }) {
                 }
             },
             y: {
-                beginAtZero: (mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo'),
+                min: chartData?.datasets[0]?.suggestedMin,
+                max: chartData?.datasets[0]?.suggestedMax,
                 reverse: (mode === 'xp' && viewMode === 'rank') || (mode === 'elo' && viewMode === 'eloRank'), // For rank, 1 should be at the top
                 grid: {
                     color: 'rgba(255, 255, 255, 0.1)'
