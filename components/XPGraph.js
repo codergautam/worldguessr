@@ -285,17 +285,22 @@ export default function XPGraph({ session, mode = 'xp' }) {
             x: {
                 type: 'time',
                 time: {
+                    unit: 'day',
                     displayFormats: {
+                        hour: 'MMM dd',
                         day: 'MMM dd',
                         week: 'MMM dd',
                         month: 'MMM yyyy'
-                    }
+                    },
+                    tooltipFormat: 'MMM dd, yyyy HH:mm'
                 },
                 grid: {
                     color: 'rgba(255, 255, 255, 0.1)'
                 },
                 ticks: {
-                    color: 'rgba(255, 255, 255, 0.7)'
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    maxTicksLimit: 8,
+                    autoSkip: true
                 }
             },
             y: {
