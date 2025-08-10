@@ -2432,7 +2432,7 @@ export default function Home({ }) {
                                 }
                             })
                         }} shown={!onboarding?.finalOnboardingShown} />
-                        <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} button1Press={() => {
+                        <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} history={onboarding.locations || []} button1Press={() => {
                             if (onboarding) {
                                 sendEvent("tutorial_end");
                                 try {

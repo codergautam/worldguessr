@@ -47,6 +47,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
         setOnboarding((prev)=>{
           const completedOnboarding = {
             completed: true,
+            finalOnboardingShown: true, // Prevent duplicate RoundOverScreen in home.js
             round: prev.round, // Preserve round for parent component condition
             points: prev.points,
             timeTaken: Date.now() - prev.startTime,
@@ -575,19 +576,6 @@ button1Press={() =>{
               }}/>
 )}
 
-{ onboarding?.completed && (
-<RoundOverScreen
-  points={onboarding.points || 0}
-  maxPoints={25000}
-  history={onboarding.locations || []}
-  button1Text={"🏠 "+text("goHome")}
-  button1Press={() => {
-    console.log("Onboarding Go Home clicked", onboarding);
-    window.crazyMidgame(() => {
-      backBtnPressed();
-    })
-  }}/>
-)}
 
       {(!countryGuesser || (countryGuesser && showAnswer)) && (!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (
         <>
