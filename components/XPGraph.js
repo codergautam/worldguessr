@@ -314,9 +314,9 @@ export default function XPGraph({ session, mode = 'xp' }) {
                     color: 'rgba(255, 255, 255, 0.7)',
                     callback: function(value) {
                         if ((mode === 'xp' && viewMode === 'xp') || (mode === 'elo' && viewMode === 'elo')) {
-                            return value.toLocaleString();
+                            return Math.floor(value).toLocaleString();
                         } else {
-                            return `#${value}`;
+                            return `#${Math.floor(value)}`;
                         }
                     }
                 }
