@@ -687,6 +687,7 @@ const GameSummary = ({
               minZoom={1}
               maxZoom={18}
               worldCopyJump={false}
+              zoomControl={typeof window !== 'undefined' && window.innerWidth > 1024}
               style={{ height: "100%", width: "100%" }}
             >
               <MapEvents
@@ -1025,6 +1026,7 @@ const GameSummary = ({
           minZoom={1}
           maxZoom={18}
           worldCopyJump={false}
+          zoomControl={typeof window !== 'undefined' && window.innerWidth > 1024}
           style={{ height: "100%", width: "100%" }}
         >
           <MapEvents
