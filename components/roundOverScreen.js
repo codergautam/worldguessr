@@ -905,7 +905,7 @@ const GameSummary = ({
                         <div className="round-header">
                           <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            {round.timeTaken && (
+                            {round.timeTaken && (myData?.timeTaken || round.timeTaken) > 0 && (
                               <span className="round-points" style={{ color: 'white' }}>
                                 ⏱️ {formatTime(myData?.timeTaken || round.timeTaken)}
                               </span>
@@ -981,7 +981,7 @@ const GameSummary = ({
 
                           {(round.distance || round.timeTaken) && (
                             <>
-                              {round.distance && (
+                              {round.distance && round.distance > 0 && (
                                 <div className="detail-row">
                                   <span className="detail-label">
                                     <span className="detail-icon">📏</span>
@@ -1370,7 +1370,7 @@ const GameSummary = ({
                     </div>
 
                     <div className="round-details">
-                      {distance && (
+                      {distance && distance > 0 && (
                         <div className="detail-row">
                           <span className="detail-label">
                             <span className="detail-icon">📏</span>
@@ -1379,7 +1379,7 @@ const GameSummary = ({
                           <span className="distance-value">{formatDistance(distance)}</span>
                         </div>
                       )}
-                      {round.timeTaken && (
+                      {round.timeTaken && round.timeTaken > 0 && (
                         <div className="detail-row">
                           <span className="detail-label">
                             <span className="detail-icon">⏱️</span>
@@ -1388,7 +1388,7 @@ const GameSummary = ({
                           <span className="time-value">{formatTime(round.timeTaken)}</span>
                         </div>
                       )}
-                      {round.xpEarned && round.xpEarned > 0 && (
+                      {round.xpEarned && typeof round.xpEarned === 'number' && round.xpEarned > 0 && (
                         <div className="detail-row">
                           <span className="detail-label">
                             <span className="detail-icon">⭐</span>
