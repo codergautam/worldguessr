@@ -638,9 +638,11 @@ button1Press={() =>{
           )}
           </>
         )}
-        <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
-          setMiniMapShown(!miniMapShown)
-        }}><FaMap size={miniMapShown ? 30 : 50} /> {!miniMapShown ? text("guess") : ''} </button>
+        {!loading && (
+          <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
+            setMiniMapShown(!miniMapShown)
+          }}><FaMap size={miniMapShown ? 30 : 50} /> {!miniMapShown ? text("guess") : ''} </button>
+        )}
       </div>
       </>
       )}
