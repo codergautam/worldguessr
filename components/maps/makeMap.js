@@ -208,10 +208,12 @@ export default function MakeMapForm({ map, setMap, createMap }) {
           <span>Supports JSON format from <a style={{color: "cyan"}} href="https://map-degen.vercel.app/" target="_blank" rel="noreferrer">map-degen.vercel.app</a></span>
             )}
           { !uploaded && (
-            <label htmlFor="file-upload" className="add-button button" style={{width: 'fit-content', display: 'inline-block'}}>
-              <input type="file" accept=".json" onChange={handleFileUpload} style={{overflow: 'hidden', width: 0, height: 0, opacity: 0}} id="file-upload" />
-              Upload File
-            </label>
+            <div>
+              <label htmlFor="file-upload" className="add-button button" style={{width: 'fit-content', display: 'inline-block'}}>
+                <input type="file" accept=".json" onChange={handleFileUpload} style={{overflow: 'hidden', width: 0, height: 0, opacity: 0}} id="file-upload" />
+                Upload File
+              </label>
+            </div>
           )}
           {
             uploaded && (
