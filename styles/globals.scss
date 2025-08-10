@@ -907,6 +907,16 @@ html {
     background-color: rgba(0, 0, 0, 0.25) !important;
 }
 
+/* Mobile responsive party modal */
+@media (max-width: 768px) {
+    .party-modal-responsive {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        padding: 15px !important;
+        margin: 0 auto !important;
+    }
+}
+
 .g2_container_light {
     background: var(--gradLight);
     background-color: rgba(255, 255, 255, 0.1);

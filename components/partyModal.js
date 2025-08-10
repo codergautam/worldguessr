@@ -33,12 +33,12 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                     zIndex: 100,
                     background: '#222',
                     color: 'white',
-                    padding: typeof window !== 'undefined' && window.innerWidth <= 768 ? '15px' : '20px',
+                    padding: '20px',
                     borderRadius: '50px',
                     fontFamily: "'Arial', sans-serif",
-                    maxWidth: typeof window !== 'undefined' && window.innerWidth <= 768 ? '95vw' : '500px',
+                    maxWidth: '500px',
                     textAlign: 'center',
-                    width: typeof window !== 'undefined' && window.innerWidth <= 768 ? '95vw' : '50vw',
+                    width: '50vw',
                     height: 'auto',
                 },
                 closeButton: {
@@ -46,7 +46,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 },
             }} classNames={
                 {
-                    modal: 'g2_container_harsh g2_slide_in'
+                    modal: 'g2_container_harsh g2_slide_in party-modal-responsive'
                 }
             } open={shown} center>
                 <div style={{ display: "flex", flexDirection: "column", pointerEvents: 'all', alignContent: 'center', justifyContent: 'center', textAlign: 'center', gap: "10px" }}>
