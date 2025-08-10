@@ -573,7 +573,8 @@ button1Press={() =>{
 
   loadLocationFunc()
   )
-              }}/>
+              }}
+session={session}/>
 )}
 
 
@@ -749,6 +750,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
             button1Press={multiplayerState?.gameData?.public ? () => backBtnPressed(true, "unranked") : null}
             button2Text={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? text("back") : null}
             button2Press={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? () => backBtnPressed() : null}
+            session={session}
           />
         )}
 
@@ -762,7 +764,8 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
             button1Text={multiplayerState?.gameData?.public ? text("playAgain") : null}
             button1Press={multiplayerState?.gameData?.public ? () => backBtnPressed(true, "ranked") : null}
             button2Text={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? text("back") : null}
-            button2Press={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? () => backBtnPressed() : null}
+            button2Press={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) : () => backBtnPressed() : null}
+            session={session}
           />
         )}
 

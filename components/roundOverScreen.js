@@ -67,7 +67,8 @@ const GameSummary = ({
     duel,
     data,
     hidden,
-    multiplayerState
+    multiplayerState,
+    session
 }) => {
   const { t: text } = useTranslation("common");
   const [activeRound, setActiveRound] = useState(null); // null = no round selected
@@ -1391,7 +1392,7 @@ const GameSummary = ({
                         </div>
                       )}
 {(() => {
-                        if (!round.xpEarned || round.xpEarned <= 0) return null;
+                        if (!session?.token?.secret || !round.xpEarned || round.xpEarned <= 0) return null;
                         return (
                           <div className="detail-row">
                             <span className="detail-label">
