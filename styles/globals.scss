@@ -54,16 +54,16 @@ html {
     image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
     image-rendering: pixelated;
-    
+
     /* Prevent blurriness on high-DPI screens */
     -webkit-transform-origin: 0 0;
     -ms-transform-origin: 0 0;
     transform-origin: 0 0;
-    
+
     /* Hardware acceleration */
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
-    
+
     /* Ensure proper antialiasing */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -80,11 +80,11 @@ html {
     /* Ensure tiles load at full resolution */
     image-rendering: auto;
     image-rendering: -webkit-optimize-contrast;
-    
+
     /* Prevent blurry tiles */
     -webkit-backface-visibility: hidden;
     backface-visibility: hidden;
-    
+
     /* Hardware acceleration for tiles */
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
@@ -1084,7 +1084,7 @@ h1, h2, h3, span, label {
     width: max-content;
     opacity: 0;
     transform: translateY(-20px) scale(0.95);
-    box-shadow: 
+    box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.35),
         0 4px 12px rgba(36, 87, 52, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.15);
@@ -1119,7 +1119,7 @@ h1, h2, h3, span, label {
 .timer.critical {
     background: linear-gradient(135deg, rgba(220, 100, 100, 0.9) 0%, rgba(200, 80, 80, 0.9) 100%);
     border-color: rgba(255, 200, 200, 0.5);
-    box-shadow: 
+    box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.4),
         0 4px 20px rgba(220, 100, 100, 0.4),
         0 0 25px rgba(220, 100, 100, 0.3),
@@ -1148,7 +1148,7 @@ body:has(.timer.critical)::before {
 
 @keyframes timerPulse {
     0% {
-        box-shadow: 
+        box-shadow:
             0 8px 32px rgba(0, 0, 0, 0.4),
             0 4px 20px rgba(220, 100, 100, 0.4),
             0 0 25px rgba(220, 100, 100, 0.3),
@@ -1156,7 +1156,7 @@ body:has(.timer.critical)::before {
         filter: brightness(1);
     }
     50% {
-        box-shadow: 
+        box-shadow:
             0 12px 40px rgba(0, 0, 0, 0.5),
             0 6px 30px rgba(220, 100, 100, 0.6),
             0 0 40px rgba(220, 100, 100, 0.5),
@@ -1165,7 +1165,7 @@ body:has(.timer.critical)::before {
         filter: brightness(1.1);
     }
     100% {
-        box-shadow: 
+        box-shadow:
             0 8px 32px rgba(0, 0, 0, 0.4),
             0 4px 20px rgba(220, 100, 100, 0.4),
             0 0 25px rgba(220, 100, 100, 0.3),
@@ -1177,7 +1177,7 @@ body:has(.timer.critical)::before {
 @keyframes screenPulse {
     0% {
         border-color: rgba(200, 80, 80, 0);
-        box-shadow: 
+        box-shadow:
             inset 0 0 0 rgba(200, 80, 80, 0),
             inset 30px 0 100px rgba(200, 80, 80, 0),
             inset -30px 0 100px rgba(200, 80, 80, 0),
@@ -1186,7 +1186,7 @@ body:has(.timer.critical)::before {
     }
     50% {
         border-color: rgba(200, 80, 80, 0.6);
-        box-shadow: 
+        box-shadow:
             inset 0 0 120px rgba(200, 80, 80, 0.1),
             inset 30px 0 100px rgba(200, 80, 80, 0.25),
             inset -30px 0 100px rgba(200, 80, 80, 0.25),
@@ -1195,7 +1195,7 @@ body:has(.timer.critical)::before {
     }
     100% {
         border-color: rgba(200, 80, 80, 0);
-        box-shadow: 
+        box-shadow:
             inset 0 0 0 rgba(200, 80, 80, 0),
             inset 30px 0 100px rgba(200, 80, 80, 0),
             inset -30px 0 100px rgba(200, 80, 80, 0),
@@ -2982,7 +2982,6 @@ img[alt="Google"] {
         border: none;
         padding: 10px 20px;
         border-radius: 8px;
-        margin-bottom: 10px;
         cursor: pointer;
         font-size: 0.9rem;
         font-family: lexend;
@@ -4347,7 +4346,7 @@ div[dir="ltr"] {
     font-family: 'Lexend', sans-serif;
     position: relative;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    
+
     &.animating {
         transform: scale(1.05);
         filter: drop-shadow(0 8px 25px rgba(0, 0, 0, 0.3));
@@ -4386,7 +4385,7 @@ div[dir="ltr"] {
     background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(30, 30, 30, 0.9) 100%);
     border-radius: 15px;
     padding: 8px;
-    box-shadow: 
+    box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.4),
         inset 0 2px 4px rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
@@ -4409,7 +4408,7 @@ div[dir="ltr"] {
     border-radius: 12px;
     transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     overflow: hidden;
-    
+
     &::before {
         content: '';
         position: absolute;
@@ -4482,7 +4481,7 @@ div[dir="ltr"] {
     margin-top: 12px;
     text-align: center;
     transition: all 0.3s ease;
-    
+
     &.starting {
         transform: scale(1.2);
         margin-top: 16px;
@@ -4510,7 +4509,7 @@ div[dir="ltr"] {
     font-weight: 500;
     font-size: 14px;
     transition: all 0.3s ease;
-    
+
     &:hover {
         transform: scale(1.1);
     }
@@ -4547,19 +4546,19 @@ div[dir="ltr"] {
         width: 280px;
         margin: 25px;
     }
-    
+
     .health-bar-track {
         height: 28px;
     }
-    
+
     .health-number {
         font-size: 18px;
     }
-    
+
     .player-name {
         font-size: 18px;
     }
-    
+
     .player-elo {
         font-size: 16px;
     }
@@ -4570,27 +4569,27 @@ div[dir="ltr"] {
         width: 160px;
         margin: 12px;
     }
-    
+
     .health-bar-track {
         height: 20px;
     }
-    
+
     .health-number {
         font-size: 14px;
     }
-    
+
     .health-max {
         font-size: 10px;
     }
-    
+
     .player-name {
         font-size: 14px;
     }
-    
+
     .player-elo {
         font-size: 12px;
     }
-    
+
     .hb-bars {
         gap: 20px;
     }
