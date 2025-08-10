@@ -131,32 +131,32 @@ const GameSummary = ({
       const endValue = points;
       const duration = 1200; // Slightly longer for more dramatic effect
       const startTime = Date.now();
-      
+
       const animate = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        
+
         // Enhanced easing - combines ease-out with a slight bounce
         const easeOutBack = (x) => {
           const c1 = 1.70158;
           const c3 = c1 + 1;
           return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
         };
-        
-        const easedProgress = progress < 0.7 
+
+        const easedProgress = progress < 0.7
           ? 4 * Math.pow(progress, 3) // Ease out cubic for first 70%
           : 1 - Math.pow(-2 * progress + 2, 3) / 2; // Smooth transition to end
-        
+
         const currentValue = startValue + (endValue - startValue) * easedProgress;
         setAnimatedPoints(Math.round(currentValue));
-        
+
         if (progress < 1) {
           requestAnimationFrame(animate);
         } else {
           setAnimatedPoints(endValue);
         }
       };
-      
+
       requestAnimationFrame(animate);
     }
   }, [points, duel]);
