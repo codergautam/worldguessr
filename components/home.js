@@ -1942,7 +1942,8 @@ export default function Home({ }) {
     }
         isGuest={session?.token?.secret ? false : true}
         publicGame={multiplayerState?.gameData?.public}
-        myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, miniMapShown, session?.token?.secret])
+        myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame}
+        roundOverScreenShown={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, multiplayerState?.gameData?.state, miniMapShown, session?.token?.secret])
 
     // Send pong every 10 seconds if websocket is connected
     useEffect(() => {
