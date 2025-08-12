@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [ "standalone-dev", "master" ]
+    branches: [ "master", "newgui" ]
   workflow_dispatch:
 
 jobs:
@@ -33,3 +33,4 @@ jobs:
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./out
+        publish_branch: ${{ github.ref_name == 'master' && 'gh-pages' || 'gh-pages-dev' }}
