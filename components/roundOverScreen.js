@@ -807,7 +807,7 @@ const GameSummary = ({
 
                           <Polyline
                             positions={[[round.lat, round.long], [player.lat, player.long]]}
-                            color={playerColor}
+                            color={getPointsColor(player.points)}
                             weight={2}
                             opacity={0.5}
                           />
@@ -1150,7 +1150,7 @@ const GameSummary = ({
 
                         <Polyline
                           positions={[[round.lat, round.long], [player.lat, player.long]]}
-                          color={playerColor}
+                          color={getPointsColor(player.points)}
                           weight={2}
                           opacity={0.5}
                         />
