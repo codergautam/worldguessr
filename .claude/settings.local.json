@@ -8,7 +8,8 @@
       "Bash(npm install:*)",
       "Bash(ls:*)",
       "Bash(git push:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

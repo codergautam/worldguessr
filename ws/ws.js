@@ -20,7 +20,7 @@ import { getLeagueRange } from '../components/utils/leagues.js';
 import calculateOutcomes from '../components/utils/eloSystem.js';
 import { tmpdir } from 'os';
 
-import arbitraryWorld from '../public/world-arbitrary.json' with { type: "json" };
+import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
 config();
 
 
