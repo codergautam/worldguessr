@@ -53,7 +53,7 @@ const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel }) => {
 
       const progress = Math.min(elapsed / duration, 1);
       const easedProgress = easeOutBack(progress);
-      const newDisplayHealth = displayHealth + easedProgress * (health - displayHealth);
+      const newDisplayHealth = Math.max(0, displayHealth + easedProgress * (health - displayHealth));
 
       setDisplayHealth(newDisplayHealth);
 
@@ -92,7 +92,7 @@ const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel }) => {
               </div>
             </div>
             <div className="health-text">
-              <span className="health-number">{Math.round(displayHealth)}</span>
+              <span className="health-number">{Math.max(0, Math.round(displayHealth))}</span>
               <span className="health-max">/{maxHealth}</span>
             </div>
           </div>
