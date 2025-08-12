@@ -1,5 +1,5 @@
 // pages/maps.js
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import MapView from "@/components/maps/mapView";
 import { useTranslation } from '@/components/useTranslations'
@@ -8,10 +8,24 @@ import config from "@/clientConfig";
 import { useSession } from "@/components/auth/auth";
 import Head from "next/head";
 
+const initMakeMap = {
+    open: false,
+    progress: false,
+    name: "",
+    description_short: "",
+    description_long: "",
+    data: "",
+    edit: false,
+    mapId: "",
+};
+
 export default function MapsPage({  }) {
     const router = useRouter();
     const { t: text } = useTranslation("common");
     const { data: session, status } = useSession();
+    const [makeMap, setMakeMap] = useState(initMakeMap);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
 
     useEffect(() => {
         window.cConfig = config();
@@ -38,6 +52,13 @@ export default function MapsPage({  }) {
                     onMapClick={handleMapClick}
                     gameOptions={undefined}
                     setGameOptions={undefined}
+                    makeMap={makeMap}
+                    setMakeMap={setMakeMap}
+                    initMakeMap={initMakeMap}
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                    searchResults={searchResults}
+                    setSearchResults={setSearchResults}
                 />
             </div>
         </div>

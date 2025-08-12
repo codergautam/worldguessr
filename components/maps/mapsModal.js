@@ -15,9 +15,9 @@ const initMakeMap = {
     mapId: "",
 };
 export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions }) {
-    if (!shown) {
-        return null;
-    }
+    const [makeMap, setMakeMap] = useState(initMakeMap);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [searchResults, setSearchResults] = useState([]);
 
     const handleMapClick = (map) => {
         if (customChooseMapCallback) {
@@ -26,10 +26,6 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
             window.location.href = `/map?s=${map.slug}${window.location.search.includes("crazygames") ? "&crazygames=true" : ""}`;
         }
     };
-
-    const [makeMap, setMakeMap] = useState(initMakeMap);
-    const [searchTerm, setSearchTerm] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
 
     const debounce = (func, delay) => {
         let timer;
@@ -66,6 +62,10 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
     useEffect(() => {
         handleSearch(searchTerm);
     }, [searchTerm, handleSearch]);
+
+    if (!shown) {
+        return null;
+    }
 
     return (
         <Modal classNames={{ modal: "g2_modal" }} styles={{ modal: styles.overlay }} open={shown} onClose={onClose} showCloseIcon={false} animationDuration={0}>
