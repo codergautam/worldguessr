@@ -52,7 +52,7 @@ const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel }) => {
       const elapsed = timestamp - startTime;
 
       const progress = Math.min(elapsed / duration, 1);
-      const easedProgress = easeOutBack(progress);
+      const easedProgress = progress; // Simple linear interpolation
       const newDisplayHealth = Math.max(0, displayHealth + easedProgress * (health - displayHealth));
 
       setDisplayHealth(newDisplayHealth);
