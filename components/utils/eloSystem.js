@@ -1,13 +1,11 @@
 // Constants
 const K = 50; // Scaling factor for Elo rating changes
 const c = 500; // Factor for expected outcome calculation
-const Rmin = 100; // Minimum Elo rating to avoid negative experiences
 export const Ra0 = 1000; // Initial Elo rating for new players
 
 const V = 10; // Bonus factor for victories
 const L = 5; // Additional scaling factor for score differences
 
-const maxElo = 10000;
 const exponentBase = 1.7;
 
 // Function to calculate expected outcome
@@ -32,7 +30,7 @@ function updateElo(Ra, Rb, Pa, Pb) {
   }
 
   const newRa = Ra + gainedElo;
-  return Math.min(maxElo, Math.round(Math.max(newRa, Rmin))); // Ensure rating doesn't drop below Rmin
+  return Math.round(newRa);
 }
 
 export default function calculateOutcomes(player1Rating, player2Rating, winner) {
