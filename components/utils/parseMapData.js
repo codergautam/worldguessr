@@ -15,12 +15,21 @@ export function extractMapDetails(url) {
       // Calculate zoom if fov is available
       const zoom = fov !== null ? Math.log2(180 / fov) : null;
 
+      // Extract panoId from URL (e.g., !1sAF1QipNIA4ndpD21zJIiwr-UPkpStYkHD1IkKysKrLc_)
+      let panoId = null;
+      const panoIdRegex = /!1s([A-Za-z0-9_-]+)/;
+      const panoIdMatch = url.match(panoIdRegex);
+      if (panoIdMatch) {
+          panoId = panoIdMatch[1];
+      }
+
       return {
           lat: lat,
           lng: long,
           heading: heading,
           pitch: pitch,
-          zoom: zoom
+          zoom: zoom,
+          panoId: panoId
       };
   } else {
       return null;
@@ -81,7 +90,7 @@ export default function parseMapData(obj) {
       }
     }
 
-    const params = ["lat","lng","heading","pitch","zoom"];
+    const params = ["lat","lng","heading","pitch","zoom","panoId"];
     const misspelled = [["latitude"], ["longitude","long","lon"]];
     let data = {};
 
