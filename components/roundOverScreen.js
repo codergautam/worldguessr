@@ -769,7 +769,7 @@ const GameSummary = ({
 
                         <Polyline
                           positions={[[round.lat, round.long], [round.guessLat, round.guessLong]]}
-                          color="#4CAF50"
+                          color={getPointsColor(round.points)}
                           weight={3}
                           opacity={0.7}
                         />
