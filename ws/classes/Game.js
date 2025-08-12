@@ -17,7 +17,7 @@ import User from "../../models/User.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
 
 export default class Game {
-  constructor(id, publicLobby, location="all", rounds=2, allLocations, isDuel=false) {
+  constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
