@@ -192,13 +192,8 @@ const StreetView = ({
       panoramaOptions
     );
 
-    // Set POV to point towards road (ignore any passed heading/pitch in JS SDK mode)
+    // Initial setup - will be properly set in pano_changed event
     setTimeout(() => {
-      const photographerPov = panoramaRef.current.getPhotographerPov();
-      panoramaRef.current.setPov({
-        heading: photographerPov.heading,
-        pitch: 0 // Always use level pitch for consistency
-      });
       panoramaRef.current.setZoom(0);
     }, 100);
       onLoad();
@@ -207,6 +202,15 @@ const StreetView = ({
     panoramaRef.current.addListener("pano_changed", () => {
       setLoading(false);
       cleanMetaTags();
+
+      // Set POV to point towards road (JS SDK mode should ignore passed heading/pitch)
+      const photographerPov = panoramaRef.current.getPhotographerPov();
+      if (photographerPov && photographerPov.heading !== undefined) {
+        panoramaRef.current.setPov({
+          heading: photographerPov.heading,
+          pitch: 0 // Always use level pitch for consistency
+        });
+      }
 
       // Log pano change event
       const panoId = panoramaRef.current.getPano();
