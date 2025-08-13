@@ -59,6 +59,7 @@ const StreetView = ({
 
   const panoramaRef = useRef(null);
   const initialPovSetRef = useRef(false);
+  const panoChangedHandledRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const googleMapsDivId = "googlemaps";
 
@@ -220,6 +221,7 @@ const StreetView = ({
       const currentPanoId = panoramaRef.current.getPano();
       console.log("[STREETVIEW] 🆔 Current pano ID:", currentPanoId);
       
+      panoChangedHandledRef.current = true; // Mark that pano_changed has handled setup
       setLoading(false);
       cleanMetaTags();
 
@@ -315,7 +317,7 @@ const StreetView = ({
         if (panoId) {
           // Use requestAnimationFrame to wait for next frame when panorama data is ready
           requestAnimationFrame(() => {
-            if (loading) {
+            if (!panoChangedHandledRef.current && loading) {
               console.log("[STREETVIEW] 🔧 Fallback: pano_changed didn't fire for panoId, handling manually");
               setLoading(false);
               cleanMetaTags();
@@ -351,6 +353,7 @@ const StreetView = ({
     
     setLoading(true);
     initialPovSetRef.current = false; // Reset flag for new location
+    panoChangedHandledRef.current = false; // Reset flag for new location
 
     if (shouldUseEmbed) {
       console.log("[STREETVIEW] 🖼️ Using iframe embed mode");
