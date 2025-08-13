@@ -38,7 +38,6 @@ export default function XPGraph({ session, mode = 'xp' }) {
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
-        console.log('[XPGraph] Session token:', session?.token)
         if (!session?.token?.accountId || !window.cConfig?.apiUrl) return;
 
         setLoading(true);
@@ -77,7 +76,6 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
         // Filter stats based on date filter
         const now = new Date();
-        console.log('[XPGraph] Current date:', now);
 
         const filteredStats = stats.filter((stat) => {
             if (dateFilter === 'alltime') return true;
@@ -142,7 +140,6 @@ export default function XPGraph({ session, mode = 'xp' }) {
             }
         });
 
-        console.log('[XPGraph] Final data points:', dataPoints.length, 'points');
 
         // Ensure we have at least 2 data points for the chart to display properly
         if (dataPoints.length === 1) {
@@ -166,7 +163,6 @@ export default function XPGraph({ session, mode = 'xp' }) {
                 })
             });
 
-            console.log('[XPGraph] Added duplicate point for single data point case:', dataPoints);
         } else if (dataPoints.length === 0) {
             // If no data points, don't render the chart
             console.log('[XPGraph] No data points available');
@@ -225,12 +221,6 @@ export default function XPGraph({ session, mode = 'xp' }) {
             const suggestedMin = baseValue - artificialRange;
             const suggestedMax = baseValue + artificialRange;
 
-            console.log('[XPGraph] All values are the same, using artificial range:', {
-                baseValue,
-                artificialRange,
-                suggestedMin,
-                suggestedMax
-            });
         } else {
             const padding = range * 0.05;
             var suggestedMin = minValue - padding;
