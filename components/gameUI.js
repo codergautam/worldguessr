@@ -416,7 +416,7 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
       setSinglePlayerRound((prev) => {
         return {
           ...prev,
-          locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, guessLat: pinPoint.lat, guessLong: pinPoint.lng,
+          locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, panoId: latLong.panoId || null, guessLat: pinPoint.lat, guessLong: pinPoint.lng,
             points: roundPoints,
             timeTaken: Math.round((Date.now() - roundStartTime) / 1000),
             xpEarned: roundXp

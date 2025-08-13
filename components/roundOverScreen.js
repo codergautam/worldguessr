@@ -404,6 +404,7 @@ const GameSummary = ({
   };
 
   const openInGoogleMaps = (lat, lng, panoId = null) => {
+    console.log('openInGoogleMaps called with:', { lat, lng, panoId });
     let url;
     if (panoId) {
       url = `http://maps.google.com/maps?q=&layer=c&panoid=${panoId}&cbp=11,0,0,0,0`;
