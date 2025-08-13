@@ -597,7 +597,7 @@ export default function Home({ }) {
 
     useEffect(() => {
         if (onboarding?.round > 1) {
-            loadLocation()
+            loadLocation("onboarding-useEffect")
         }
     }, [onboarding?.round])
 
@@ -1811,11 +1811,12 @@ export default function Home({ }) {
         setHintShown(false)
     }
 
-    function loadLocation() {
+    function loadLocation(debugSource = "unknown") {
         if (loading) return;
 
-        console.log("[LOCATION] 🚀 loading location for:", gameOptions.location)
+        console.log("[LOCATION] 🚀 loading location for:", gameOptions.location, "called from:", debugSource)
         console.log("[LOCATION] 🔍 Full gameOptions:", JSON.stringify(gameOptions))
+        console.trace("[LOCATION] 📍 Call stack:")
         setLoading(true)
         setShowAnswer(false)
         setPinPoint(null)
@@ -1961,7 +1962,7 @@ export default function Home({ }) {
             if (screen === "multiplayer" && multiplayerState?.connected && !multiplayerState?.inGame) {
                 return;
             }
-            if (!multiplayerState?.inGame) loadLocation()
+            if (!multiplayerState?.inGame) loadLocation("multiplayer-logic")
             else if (multiplayerState?.gameData?.state === "guess") {
 
             }
