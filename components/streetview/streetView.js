@@ -192,8 +192,13 @@ const StreetView = ({
       panoramaOptions
     );
 
+    // Set POV to point towards road (ignore any passed heading/pitch in JS SDK mode)
     setTimeout(() => {
-      panoramaRef.current.setPov(panoramaRef.current.getPhotographerPov());
+      const photographerPov = panoramaRef.current.getPhotographerPov();
+      panoramaRef.current.setPov({
+        heading: photographerPov.heading,
+        pitch: 0 // Always use level pitch for consistency
+      });
       panoramaRef.current.setZoom(0);
     }, 100);
       onLoad();
