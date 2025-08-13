@@ -196,14 +196,12 @@ const StreetView = ({
       panoramaOptions.position = { lat, lng: long };
     }
 
-    console.log("[STREETVIEW] 🔧 Creating StreetViewPanorama with options:", panoramaOptions);
+    console.log("Creating StreetViewPanorama with options:", panoramaOptions);
 
     panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById(googleMapsDivId),
       panoramaOptions
     );
-
-    console.log("[STREETVIEW] ✅ StreetViewPanorama created successfully");
 
     // Initial setup - will be properly set in pano_changed event
     setTimeout(() => {
@@ -332,24 +330,18 @@ const StreetView = ({
 
   // Main useEffect for handling embed or SDK
   useEffect(() => {
-    console.log("[STREETVIEW] 🔄 Main useEffect triggered with:", {
-      lat, long, panoId, nm, npz, showRoadLabels, shouldUseEmbed
-    });
-
     setLoading(true);
     initialPovSetRef.current = false; // Reset flag for new location
     panoChangedHandledRef.current = false; // Reset flag for new location
     fallbackExecutedRef.current = false; // Reset flag for new location
 
     if (shouldUseEmbed) {
-      console.log("[STREETVIEW] 🖼️ Using iframe embed mode");
       // Clean up the panorama if switching to embed
       if (panoramaRef.current) {
         panoramaRef.current.setVisible(false);
         panoramaRef.current = null;
       }
     } else {
-      console.log("[STREETVIEW] 🛠️ Using JS SDK mode");
       // Initialize SDK panorama
       initPanorama();
     }
@@ -384,7 +376,6 @@ const StreetView = ({
     showAnswerRef.current = showAnswer;
 
     if (!shouldUseEmbed && panoramaRef.current && !showAnswer) {
-      console.log("[STREETVIEW] 🎛️ Updating panorama options for nm/npz change:", { nm, npz });
       panoramaRef.current.setOptions({
         linksControl: showAnswer || !nm,
         clickToGo: showAnswer || !nm,
