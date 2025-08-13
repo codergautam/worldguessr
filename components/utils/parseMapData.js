@@ -2,15 +2,15 @@
 export function extractMapDetails(url) {
   // ex: https://www.google.com/maps/@48.8578055,2.2952078,3a,90y,-45h,128t/data=!3m7!1e1!3m5!1sAF1QipNIA4ndpD21zJIiwr-UPkpStYkHD1IkKysKrLc_!2e10!6shttps:%2F%2Flh5.googleusercontent.com%2Fp%2FAF1QipNIA4ndpD21zJIiwr-UPkpStYkHD1IkKysKrLc_%3Dw900-h600-k-no-pi-38-ya-11.956512451171875-ro0-fo90!7i5376!8i2688?coh=205410&entry=ttu
 
-  const regex = /@(-?\d+\.\d+),(-?\d+\.\d+)(?:,3a,(\d+)y,(-?\d+)h,(\d+)t)?/;
+  const regex = /@(-?\d+\.?\d*),(-?\d+\.?\d*)(?:,3a,(\d+\.?\d*)y,(-?\d+\.?\d*)h,(\d+\.?\d*)t)?/;
   const match = url.match(regex);
 
   if (match) {
       const lat = parseFloat(match[1]);
       const long = parseFloat(match[2]);
-      const fov = match[3] ? parseInt(match[3], 10) : null;
-      const heading = match[4] ? parseInt(match[4], 10) : null;
-      const pitch = match[5] ? parseInt(match[5], 10) - 90 : null;
+      const fov = match[3] ? parseFloat(match[3]) : null;
+      const heading = match[4] ? parseFloat(match[4]) : null;
+      const pitch = match[5] ? parseFloat(match[5]) - 90 : null;
 
       // Calculate zoom if fov is available
       const zoom = fov !== null ? Math.log2(180 / fov) : null;
