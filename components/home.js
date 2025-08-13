@@ -106,6 +106,9 @@ export default function Home({ }) {
     useEffect(() => {
         console.log("[LOCATION] 🔄 gameOptions.location changed to:", gameOptions.location);
     }, [gameOptions.location]);
+    
+    // Ref to track pending loadLocation timeout
+    const loadLocationTimeoutRef = useRef(null);
     const [pinPoint, setPinPoint] = useState(null)
     const [hintShown, setHintShown] = useState(false)
     const [countryStreak, setCountryStreak] = useState(0)
@@ -557,6 +560,13 @@ export default function Home({ }) {
         setShowCountryButtons(false)
     }
     function openMap(mapSlug) {
+        // Cancel any pending loadLocation timeout to prevent race conditions
+        if (loadLocationTimeoutRef.current) {
+            console.log("[LOCATION] ❌ Cancelling pending loadLocation timeout");
+            clearTimeout(loadLocationTimeoutRef.current);
+            loadLocationTimeoutRef.current = null;
+        }
+        
         const country = countries.find((c) => c === mapSlug.toUpperCase());
         let officialCountryMap = null;
         if (country) {
@@ -593,7 +603,7 @@ export default function Home({ }) {
             // For community maps or when extent is missing, trigger loadLocation to recalculate extent
             if (!country && mapSlug !== 'all') {
                 // Use longer delay to ensure both setAllLocsArray([]) and setGameOptions have been processed
-                setTimeout(() => {
+                loadLocationTimeoutRef.current = setTimeout(() => {
                     // Check current gameOptions.location value to prevent race conditions
                     setGameOptions(currentOptions => {
                         if (currentOptions.location === mapSlug) {
@@ -602,6 +612,7 @@ export default function Home({ }) {
                         } else {
                             console.log("[LOCATION] ⚠️ Skipping delayed loadLocation - map changed from", mapSlug, "to", currentOptions.location);
                         }
+                        loadLocationTimeoutRef.current = null; // Clear the ref
                         return currentOptions; // Return unchanged
                     });
                 }, 200);
