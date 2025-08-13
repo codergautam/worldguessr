@@ -295,9 +295,9 @@ const StreetView = ({
       const status = panoramaRef.current.getStatus();
 
       if (status === google.maps.StreetViewStatus.ZERO_RESULTS) {
-        console.error("[STREETVIEW] ❌ ZERO_RESULTS - No Street View data found for this location");
+        console.error("ZERO_RESULTS - No Street View data found for this location");
       } else if (status === google.maps.StreetViewStatus.UNKNOWN_ERROR) {
-        console.error("[STREETVIEW] ❌ UNKNOWN_ERROR - Street View request could not be processed");
+        console.error("UNKNOWN_ERROR - Street View request could not be processed");
       } else if (status === google.maps.StreetViewStatus.OK) {
 
         // Fallback: If pano_changed doesn't fire when using panoId directly
