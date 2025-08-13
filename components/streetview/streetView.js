@@ -58,6 +58,7 @@ const StreetView = ({
       },[])
 
   const panoramaRef = useRef(null);
+  const initialPovSetRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const googleMapsDivId = "googlemaps";
 
@@ -203,13 +204,16 @@ const StreetView = ({
       setLoading(false);
       cleanMetaTags();
 
-      // Set POV to point towards road (JS SDK mode should ignore passed heading/pitch)
-      const photographerPov = panoramaRef.current.getPhotographerPov();
-      if (photographerPov && photographerPov.heading !== undefined) {
-        panoramaRef.current.setPov({
-          heading: photographerPov.heading,
-          pitch: 0 // Always use level pitch for consistency
-        });
+      // Set POV to point towards road only on initial load (not when user moves)
+      if (!initialPovSetRef.current) {
+        const photographerPov = panoramaRef.current.getPhotographerPov();
+        if (photographerPov && photographerPov.heading !== undefined) {
+          panoramaRef.current.setPov({
+            heading: photographerPov.heading,
+            pitch: 0 // Always use level pitch for consistency
+          });
+          initialPovSetRef.current = true;
+        }
       }
 
       // Log pano change event
@@ -284,6 +288,7 @@ const StreetView = ({
   // Main useEffect for handling embed or SDK
   useEffect(() => {
     setLoading(true);
+    initialPovSetRef.current = false; // Reset flag for new location
 
     if (shouldUseEmbed) {
       // Clean up the panorama if switching to embed
