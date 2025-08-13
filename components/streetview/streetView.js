@@ -7,6 +7,7 @@ const StreetView = ({
   showRoadLabels = true,
   lat,
   long,
+  panoId,
   showAnswer = false,
   hidden = false,
   onLoad
@@ -79,16 +80,16 @@ const StreetView = ({
 
     // Check if we should log immediately (if last log was more than 500ms ago)
     if (!lastZoomlog.current || (now - lastZoomlog.current) >= 500) {
-      console.log('REPLAY_EVENT:', lastZoomData.current);
+      // console.log('REPLAY_EVENT:', lastZoomData.current);
       lastZoomlog.current = now;
     } else {
       // Set a timer to log the final state after 500ms of no changes
       zoomDebounceTimer.current = setTimeout(() => {
         if (lastZoomData.current) {
-          console.log('REPLAY_EVENT:', {
-            ...lastZoomData.current,
-            timestamp: Date.now() // Update timestamp to current time
-          });
+          // console.log('REPLAY_EVENT:', {
+          //   ...lastZoomData.current,
+          //   timestamp: Date.now() // Update timestamp to current time
+          // });
           lastZoomlog.current = Date.now();
           lastZoomData.current = null;
         }
@@ -116,16 +117,16 @@ const StreetView = ({
 
     // Check if we should log immediately (if last log was more than 500ms ago)
     if (!lastPovlog.current || (now - lastPovlog.current) >= 500) {
-      console.log('REPLAY_EVENT:', lastPovData.current);
+      // console.log('REPLAY_EVENT:', lastPovData.current);
       lastPovlog.current = now;
     } else {
       // Set a timer to log the final state after 500ms of no changes
       povDebounceTimer.current = setTimeout(() => {
         if (lastPovData.current) {
-          console.log('REPLAY_EVENT:', {
-            ...lastPovData.current,
-            timestamp: Date.now() // Update timestamp to current time
-          });
+          // console.log('REPLAY_EVENT:', {
+          //   ...lastPovData.current,
+          //   timestamp: Date.now() // Update timestamp to current time
+          // });
           lastPovlog.current = Date.now();
           lastPovData.current = null;
         }
@@ -163,22 +164,30 @@ const StreetView = ({
 
   // Initialize Google Maps SDK panorama
   const initPanorama = () => {
-    if (!lat || !long || !document.getElementById(googleMapsDivId)) return;
+    if ((!lat || !long) && !panoId || !document.getElementById(googleMapsDivId)) return;
+
+    const panoramaOptions = {
+      pov: { heading: 0, pitch: 0 },
+      zoom: 0,
+      motionTracking: false,
+      linksControl: !(nm && !showAnswer),
+      clickToGo: !(nm && !showAnswer),
+      panControl: !(npz && !showAnswer),
+      zoomControl: !(npz && !showAnswer),
+      showRoadLabels: showRoadLabels,
+      disableDefaultUI: true,
+    };
+
+    // Use panoId if available, otherwise use lat/lng position
+    if (panoId) {
+      panoramaOptions.pano = panoId;
+    } else {
+      panoramaOptions.position = { lat, lng: long };
+    }
 
     panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById(googleMapsDivId),
-      {
-        position: { lat, lng: long },
-        pov: { heading: 0, pitch: 0 },
-        zoom: 0,
-        motionTracking: false,
-        linksControl: !(nm && !showAnswer),
-        clickToGo: !(nm && !showAnswer),
-        panControl: !(npz && !showAnswer),
-        zoomControl: !(npz && !showAnswer),
-        showRoadLabels: showRoadLabels,
-        disableDefaultUI: true,
-      }
+      panoramaOptions
     );
 
     setTimeout(() => {
@@ -195,15 +204,15 @@ const StreetView = ({
       // Log pano change event
       const panoId = panoramaRef.current.getPano();
       const position = panoramaRef.current.getPosition();
-      console.log('REPLAY_EVENT:', {
-        type: 'pano_changed',
-        timestamp: Date.now(),
-        panoId: panoId,
-        position: {
-          lat: position.lat(),
-          lng: position.lng()
-        }
-      });
+      // console.log('REPLAY_EVENT:', {
+      //   type: 'pano_changed',
+      //   timestamp: Date.now(),
+      //   panoId: panoId,
+      //   position: {
+      //     lat: position.lat(),
+      //     lng: position.lng()
+      //   }
+      // });
     });
 
     panoramaRef.current.addListener("position_changed", () => {
@@ -212,14 +221,14 @@ const StreetView = ({
       const curLng = pos.lng();
 
       // Log position change event
-      console.log('REPLAY_EVENT:', {
-        type: 'position_changed',
-        timestamp: Date.now(),
-        position: {
-          lat: curLat,
-          lng: curLng
-        }
-      });
+      // console.log('REPLAY_EVENT:', {
+      //   type: 'position_changed',
+      //   timestamp: Date.now(),
+      //   position: {
+      //     lat: curLat,
+      //     lng: curLng
+      //   }
+      // });
 
       if(nm && !showAnswer && curLat !== lat && curLng !== long) {
         // If NM is enabled and position changed, move back to original position
@@ -240,24 +249,24 @@ const StreetView = ({
     });
 
     // Log when panorama becomes visible
-    panoramaRef.current.addListener("visible_changed", () => {
-      const visible = panoramaRef.current.getVisible();
-      console.log('REPLAY_EVENT:', {
-        type: 'visible_changed',
-        timestamp: Date.now(),
-        visible: visible
-      });
-    });
+    // panoramaRef.current.addListener("visible_changed", () => {
+    //   const visible = panoramaRef.current.getVisible();
+    //   console.log('REPLAY_EVENT:', {
+    //     type: 'visible_changed',
+    //     timestamp: Date.now(),
+    //     visible: visible
+    //   });
+    // });
 
     // Log status changes (for error handling)
-    panoramaRef.current.addListener("status_changed", () => {
-      const status = panoramaRef.current.getStatus();
-      console.log('REPLAY_EVENT:', {
-        type: 'status_changed',
-        timestamp: Date.now(),
-        status: status
-      });
-    });
+    // panoramaRef.current.addListener("status_changed", () => {
+    //   const status = panoramaRef.current.getStatus();
+    //   console.log('REPLAY_EVENT:', {
+    //     type: 'status_changed',
+    //     timestamp: Date.now(),
+    //     status: status
+    //   });
+    // });
 
   };
 
@@ -297,7 +306,7 @@ const StreetView = ({
         panoramaRef.current = null;
       }
     };
-  }, [lat, long, nm, npz, showRoadLabels, shouldUseEmbed]);
+  }, [lat, long, panoId, nm, npz, showRoadLabels, shouldUseEmbed]);
 
   useEffect(() => {
     if(showAnswer) {
@@ -314,7 +323,7 @@ const StreetView = ({
   }
   }, [showAnswer]);
 
-  if(!lat && !long) {
+  if((!lat || !long) && !panoId) {
     return null;
   }
 
@@ -322,12 +331,15 @@ const StreetView = ({
   return shouldUseEmbed ? (
     <iframe
   className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} streetview`}
-  src={`https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw`}
+  src={panoId ? 
+    `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw` :
+    `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw`
+  }
   referrerPolicy="no-referrer-when-downgrade"
   allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
   onLoad={() => {
     setLoading(false);
-      if (onLoad && lat && long) {
+      if (onLoad && (lat && long || panoId)) {
         onLoad(); // Ensure onLoad is called after 500ms delay
       }
   }}

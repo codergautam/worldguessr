@@ -9,6 +9,7 @@ const SvEmbed = () => {
     showRoadLabels: true,
     lat: null,
     long: null,
+    panoId: null,
     showAnswer: false,
     hidden: false,
   });
@@ -22,6 +23,7 @@ const SvEmbed = () => {
         showRoadLabels: searchParams.get("showRoadLabels") !== "false",
         lat: parseFloat(searchParams.get("lat")),
         long: parseFloat(searchParams.get("long")),
+        panoId: searchParams.get("pano") || searchParams.get("panoId"),
         showAnswer: searchParams.get("showAnswer") === "true",
         hidden: searchParams.get("hidden") === "true",
       });
@@ -64,6 +66,7 @@ const SvEmbed = () => {
       showRoadLabels={props.showRoadLabels}
       lat={props.lat}
       long={props.long}
+      panoId={props.panoId}
       showAnswer={props.showAnswer}
       hidden={props.hidden}
       onLoad={() => {
