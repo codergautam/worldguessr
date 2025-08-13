@@ -305,7 +305,6 @@ const StreetView = ({
           // Use requestAnimationFrame to wait for next frame when panorama data is ready
           requestAnimationFrame(() => {
             if (!panoChangedHandledRef.current && !fallbackExecutedRef.current && loading) {
-              console.log("[STREETVIEW] 🔧 Fallback: pano_changed didn't fire for panoId, handling manually");
               fallbackExecutedRef.current = true; // Prevent multiple executions
               setLoading(false);
               cleanMetaTags();
@@ -313,14 +312,12 @@ const StreetView = ({
               // Set initial POV if needed
               if (!initialPovSetRef.current) {
                 const photographerPov = panoramaRef.current.getPhotographerPov();
-                console.log("[STREETVIEW] 📷 Fallback photographer POV:", photographerPov);
 
                 if (photographerPov && photographerPov.heading !== undefined) {
                   const newPov = {
                     heading: photographerPov.heading,
                     pitch: 0
                   };
-                  console.log("[STREETVIEW] ➡️ Fallback setting POV to:", newPov);
                   panoramaRef.current.setPov(newPov);
                   initialPovSetRef.current = true;
                 }
