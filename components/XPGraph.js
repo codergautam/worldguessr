@@ -212,19 +212,26 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
         // Add some padding to the range (5% on each side)
         let range = maxValue - minValue;
+        let suggestedMin, suggestedMax;
 
         // If all values are the same (rank hasn't changed), create a small artificial range
         if (range === 0) {
             const baseValue = minValue;
             const artificialRange = Math.max(1, Math.abs(baseValue * 0.1)); // 10% of the value, minimum 1
 
-            const suggestedMin = baseValue - artificialRange;
-            const suggestedMax = baseValue + artificialRange;
+            suggestedMin = baseValue - artificialRange;
+            suggestedMax = baseValue + artificialRange;
 
+            console.log('[XPGraph] All values are the same, using artificial range:', {
+                baseValue,
+                artificialRange,
+                suggestedMin,
+                suggestedMax
+            });
         } else {
             const padding = range * 0.05;
-            var suggestedMin = minValue - padding;
-            var suggestedMax = maxValue + padding;
+            suggestedMin = minValue - padding;
+            suggestedMax = maxValue + padding;
         }
 
         const data = {
