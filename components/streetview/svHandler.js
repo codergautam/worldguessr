@@ -13,11 +13,16 @@ const SvEmbedIframe = (params) => {
       showRoadLabels: params.showRoadLabels ,
       lat: params.lat || null,
       long: params.long || null,
-      panoId: params.panoId || null,
-      heading: params.heading || null,
-      pitch: params.pitch || null,
       showAnswer: params.showAnswer || false,
       hidden: false, onLoad: undefined };
+    
+    // Only include panoId, heading, pitch if we have complete data
+    const shouldUsePanoId = params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
+    if (shouldUsePanoId) {
+      passableParams.panoId = params.panoId;
+      passableParams.heading = params.heading;
+      passableParams.pitch = params.pitch;
+    }
     if (iframeRef.current) {
       iframeRef.current.contentWindow.postMessage({ type: "updateProps", props: passableParams }, "*");
     }
@@ -26,9 +31,11 @@ const SvEmbedIframe = (params) => {
   useEffect(() => {
     // reload iframe when lat or long changes
     // console.log("lat or long changed", params.lat, params.long);
-    const panoParam = params.panoId ? `&pano=${params.panoId}` : '';
-    const headingParam = params.heading !== null && params.heading !== undefined ? `&heading=${params.heading}` : '';
-    const pitchParam = params.pitch !== null && params.pitch !== undefined ? `&pitch=${params.pitch}` : '';
+    // Only use panoId if we have proper heading/pitch data, otherwise fall back to lat/lng
+    const shouldUsePanoId = params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
+    const panoParam = shouldUsePanoId ? `&pano=${params.panoId}` : '';
+    const headingParam = shouldUsePanoId ? `&heading=${params.heading}` : '';
+    const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
     setIframeSrc(`/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`);
   }, [params?.lat, params?.long, params?.panoId, params?.heading, params?.pitch]);
 
