@@ -167,7 +167,16 @@ const StreetView = ({
 
   // Initialize Google Maps SDK panorama
   const initPanorama = () => {
-    if ((!lat || !long) && !panoId || !document.getElementById(googleMapsDivId)) return;
+    console.log("[STREETVIEW] 🚀 initPanorama called with:", { lat, long, panoId, heading, pitch });
+    
+    if ((!lat || !long) && !panoId || !document.getElementById(googleMapsDivId)) {
+      console.log("[STREETVIEW] ❌ Missing required data or DOM element:", {
+        hasLatLong: !!(lat && long),
+        hasPanoId: !!panoId,
+        hasDomElement: !!document.getElementById(googleMapsDivId)
+      });
+      return;
+    }
 
     const panoramaOptions = {
       pov: { heading: 0, pitch: 0 },
@@ -183,15 +192,21 @@ const StreetView = ({
 
     // Use panoId if available, otherwise use lat/lng position
     if (panoId) {
+      console.log("[STREETVIEW] 📍 Using panoId:", panoId);
       panoramaOptions.pano = panoId;
     } else {
+      console.log("[STREETVIEW] 🌍 Using lat/lng position:", { lat, lng: long });
       panoramaOptions.position = { lat, lng: long };
     }
 
+    console.log("[STREETVIEW] 🔧 Creating StreetViewPanorama with options:", panoramaOptions);
+    
     panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById(googleMapsDivId),
       panoramaOptions
     );
+    
+    console.log("[STREETVIEW] ✅ StreetViewPanorama created successfully");
 
     // Initial setup - will be properly set in pano_changed event
     setTimeout(() => {
@@ -201,18 +216,29 @@ const StreetView = ({
 
     // Event logging for replay system
     panoramaRef.current.addListener("pano_changed", () => {
+      console.log("[STREETVIEW] 📸 pano_changed event fired");
+      const currentPanoId = panoramaRef.current.getPano();
+      console.log("[STREETVIEW] 🆔 Current pano ID:", currentPanoId);
+      
       setLoading(false);
       cleanMetaTags();
 
       // Set POV to point towards road only on initial load (not when user moves)
       if (!initialPovSetRef.current) {
+        console.log("[STREETVIEW] 🧭 Setting initial POV to point towards road");
         const photographerPov = panoramaRef.current.getPhotographerPov();
+        console.log("[STREETVIEW] 📷 Photographer POV:", photographerPov);
+        
         if (photographerPov && photographerPov.heading !== undefined) {
-          panoramaRef.current.setPov({
+          const newPov = {
             heading: photographerPov.heading,
             pitch: 0 // Always use level pitch for consistency
-          });
+          };
+          console.log("[STREETVIEW] ➡️ Setting POV to:", newPov);
+          panoramaRef.current.setPov(newPov);
           initialPovSetRef.current = true;
+        } else {
+          console.log("[STREETVIEW] ⚠️ Photographer POV not available or invalid");
         }
       }
 
@@ -274,29 +300,39 @@ const StreetView = ({
     // });
 
     // Log status changes (for error handling)
-    // panoramaRef.current.addListener("status_changed", () => {
-    //   const status = panoramaRef.current.getStatus();
-    //   console.log('REPLAY_EVENT:', {
-    //     type: 'status_changed',
-    //     timestamp: Date.now(),
-    //     status: status
-    //   });
-    // });
+    panoramaRef.current.addListener("status_changed", () => {
+      const status = panoramaRef.current.getStatus();
+      console.log("[STREETVIEW] 📊 Status changed:", status);
+      
+      if (status === google.maps.StreetViewStatus.ZERO_RESULTS) {
+        console.error("[STREETVIEW] ❌ ZERO_RESULTS - No Street View data found for this location");
+      } else if (status === google.maps.StreetViewStatus.UNKNOWN_ERROR) {
+        console.error("[STREETVIEW] ❌ UNKNOWN_ERROR - Street View request could not be processed");
+      } else if (status === google.maps.StreetViewStatus.OK) {
+        console.log("[STREETVIEW] ✅ Status OK - Street View data loaded successfully");
+      }
+    });
 
   };
 
   // Main useEffect for handling embed or SDK
   useEffect(() => {
+    console.log("[STREETVIEW] 🔄 Main useEffect triggered with:", {
+      lat, long, panoId, nm, npz, showRoadLabels, shouldUseEmbed
+    });
+    
     setLoading(true);
     initialPovSetRef.current = false; // Reset flag for new location
 
     if (shouldUseEmbed) {
+      console.log("[STREETVIEW] 🖼️ Using iframe embed mode");
       // Clean up the panorama if switching to embed
       if (panoramaRef.current) {
         panoramaRef.current.setVisible(false);
         panoramaRef.current = null;
       }
     } else {
+      console.log("[STREETVIEW] 🛠️ Using JS SDK mode");
       // Initialize SDK panorama
       initPanorama();
     }
