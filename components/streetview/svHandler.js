@@ -13,6 +13,9 @@ const SvEmbedIframe = (params) => {
       showRoadLabels: params.showRoadLabels ,
       lat: params.lat || null,
       long: params.long || null,
+      panoId: params.panoId || null,
+      heading: params.heading || null,
+      pitch: params.pitch || null,
       showAnswer: params.showAnswer || false,
       hidden: false, onLoad: undefined };
     if (iframeRef.current) {
@@ -23,8 +26,11 @@ const SvEmbedIframe = (params) => {
   useEffect(() => {
     // reload iframe when lat or long changes
     // console.log("lat or long changed", params.lat, params.long);
-    setIframeSrc(`/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}&showAnswer=${params.showAnswer}&hidden=false`);
-  }, [params?.lat, params?.long]);
+    const panoParam = params.panoId ? `&pano=${params.panoId}` : '';
+    const headingParam = params.heading !== null && params.heading !== undefined ? `&heading=${params.heading}` : '';
+    const pitchParam = params.pitch !== null && params.pitch !== undefined ? `&pitch=${params.pitch}` : '';
+    setIframeSrc(`/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`);
+  }, [params?.lat, params?.long, params?.panoId, params?.heading, params?.pitch]);
 
   useEffect(() => {
     sendMessageToIframe();

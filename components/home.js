@@ -2113,6 +2113,9 @@ export default function Home({ }) {
                     showAnswer={showAnswer}
                     lat={latLong?.lat}
                     long={latLong?.long}
+                    panoId={latLong?.panoId}
+                    heading={latLong?.heading}
+                    pitch={latLong?.pitch}
                     showRoadLabels={screen === "onboarding" ? false : gameOptions?.showRoadName}
                     loading={loading}
                     setLoading={setLoading}
