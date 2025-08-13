@@ -880,8 +880,9 @@ export default class Game {
           location: {
             lat: actualLocation.lat,
             long: actualLocation.long,
-            country: null,
-            place: null
+            panoId: actualLocation.panoId || null,
+            country: actualLocation.country || null,
+            place: actualLocation.place || null
           },
           playerGuesses: [
             // Player 1 guess (including null values if they didn't guess)
@@ -1035,8 +1036,9 @@ export default class Game {
           location: {
             lat: actualLocation.lat,
             long: actualLocation.long,
+            panoId: actualLocation.panoId || null,
             country: actualLocation.country || null,
-            place: null
+            place: actualLocation.place || null
           },
           playerGuesses: allPlayers.map(player => ({
             playerId: player.id,

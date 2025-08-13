@@ -57,8 +57,9 @@ async function guess(req, res) {
             location: {
               lat: actualLat,
               long: actualLong,
-              country: null, // We don't have country data in the current structure
-              place: null
+              panoId: round.panoId || null,
+              country: round.country || null, // We don't have country data in the current structure
+              place: round.place || null
             },
             playerGuesses: [{
               playerId: user._id,

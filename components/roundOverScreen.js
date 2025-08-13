@@ -403,8 +403,13 @@ const GameSummary = ({
     return '#F44336';
   };
 
-  const openInGoogleMaps = (lat, lng) => {
-    const url = `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
+  const openInGoogleMaps = (lat, lng, panoId = null) => {
+    let url;
+    if (panoId) {
+      url = `http://maps.google.com/maps?q=&layer=c&panoid=${panoId}&cbp=11,0,0,0,0`;
+    } else {
+      url = `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
+    }
     window.open(url, '_blank');
   };
 
@@ -722,7 +727,7 @@ const GameSummary = ({
                             {text("actualLocation")}
                             <div style={{ marginTop: '8px' }}>
                               <button
-                                onClick={() => openInGoogleMaps(round.lat, round.long)}
+                                onClick={() => openInGoogleMaps(round.lat, round.long, round.panoId)}
                                 style={{
                                   background: '#4285f4',
                                   color: 'white',
@@ -917,7 +922,7 @@ const GameSummary = ({
                                 className="gmaps-icon"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openInGoogleMaps(round.lat, round.long);
+                                  openInGoogleMaps(round.lat, round.long, round.panoId);
                                 }}
                                 style={{
                                   background: 'none',
@@ -1071,7 +1076,7 @@ const GameSummary = ({
                       <div className="popup-actions">
                         <button
                           className="popup-btn gmaps"
-                          onClick={() => openInGoogleMaps(round.lat, round.long)}
+                          onClick={() => openInGoogleMaps(round.lat, round.long, round.panoId)}
                         >
                           📍 {text("openInMaps")}
                         </button>
@@ -1316,7 +1321,7 @@ const GameSummary = ({
                 const handleTileClick = () => {
                   if (isMobile) {
                     // On mobile, open Google Maps directly
-                    openInGoogleMaps(round.lat, round.long);
+                    openInGoogleMaps(round.lat, round.long, round.panoId);
                   } else {
                     // On desktop, focus on the round in the map
                     handleRoundClick(index);
@@ -1344,7 +1349,7 @@ const GameSummary = ({
                             className="gmaps-icon"
                             onClick={(e) => {
                               e.stopPropagation();
-                              openInGoogleMaps(round.lat, round.long);
+                              openInGoogleMaps(round.lat, round.long, round.panoId);
                             }}
                             style={{
                               background: 'none',
