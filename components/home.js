@@ -1821,8 +1821,15 @@ export default function Home({ }) {
 
     function loadLocation() {
         if (loading) return;
+        
+        // Prevent concurrent loadLocation calls
+        if (window.loadLocationInProgress) {
+            console.log("[LOCATION] ⚠️ loadLocation already in progress, skipping");
+            return;
+        }
+        window.loadLocationInProgress = true;
 
-        console.log("loading location")
+        console.log("[LOCATION] 🚀 loading location for:", gameOptions.location)
         setLoading(true)
         setShowAnswer(false)
         setPinPoint(null)
@@ -1841,7 +1848,8 @@ export default function Home({ }) {
                 console.log("[LOCATION] 🔄 USING DEFAULT METHOD - Random location generation for:", gameOptions.location);
                 findLatLongRandom(gameOptions).then((latLong) => {
                     console.log("[LOCATION] 🎲 Generated random location:", latLong);
-                    setLatLong(latLong)
+                    setLatLong(latLong);
+                    window.loadLocationInProgress = false;
                 });
             }
             function fetchMethod() {
@@ -1883,6 +1891,7 @@ export default function Home({ }) {
                             const loc = data.locations[0]
                             setLatLong(loc)
                             console.log("setting latlong", loc)
+                            window.loadLocationInProgress = false;
                         } else {
                             let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
@@ -1908,6 +1917,7 @@ export default function Home({ }) {
                                 }))
 
                             }
+                            window.loadLocationInProgress = false;
                         }
 
                     } else {
@@ -1916,11 +1926,13 @@ export default function Home({ }) {
                             toast(text("errorLoadingMap"), { type: 'error' })
                         }
                         console.log("[LOCATION] ⬇️ Falling back to defaultMethod() - map data not ready");
+                        window.loadLocationInProgress = false;
                         defaultMethod()
                     }
                 }).catch((e) => {
                     console.error("[LOCATION] ❌ Fetch failed, falling back to defaultMethod():", e)
                     toast(text("errorLoadingMap"), { type: 'error' })
+                    window.loadLocationInProgress = false;
                     defaultMethod()
                 });
             }
@@ -1938,7 +1950,8 @@ export default function Home({ }) {
                 } else {
                     if (gameOptions.location === "all") {
                         const loc = allLocsArray[locIndex + 1] ?? allLocsArray[0];
-                        setLatLong(loc)
+                        setLatLong(loc);
+                        window.loadLocationInProgress = false;
                     } else {
                         // prevent repeats: remove the prev location from the array
                         setAllLocsArray((prev) => {
@@ -1949,7 +1962,8 @@ export default function Home({ }) {
                             const loc = newArr[Math.floor(Math.random() * newArr.length)];
 
 
-                            setLatLong(loc)
+                            setLatLong(loc);
+                            window.loadLocationInProgress = false;
                             return newArr;
                         })
 
