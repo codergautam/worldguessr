@@ -173,14 +173,7 @@ const StreetView = ({
 
   // Initialize Google Maps SDK panorama
   const initPanorama = () => {
-    console.log("[STREETVIEW] 🚀 initPanorama called with:", { lat, long, panoId, heading, pitch });
-
     if ((!lat || !long) && !panoId || !document.getElementById(googleMapsDivId)) {
-      console.log("[STREETVIEW] ❌ Missing required data or DOM element:", {
-        hasLatLong: !!(lat && long),
-        hasPanoId: !!panoId,
-        hasDomElement: !!document.getElementById(googleMapsDivId)
-      });
       return;
     }
 
@@ -198,12 +191,12 @@ const StreetView = ({
 
     // Use panoId if available, otherwise use lat/lng position
     if (panoId) {
-      console.log("[STREETVIEW] 📍 Using panoId:", panoId);
       panoramaOptions.pano = panoId;
     } else {
-      console.log("[STREETVIEW] 🌍 Using lat/lng position:", { lat, lng: long });
       panoramaOptions.position = { lat, lng: long };
     }
+
+    console.log("[STREETVIEW] 🔧 Creating StreetViewPanorama with options:", panoramaOptions);
 
     console.log("[STREETVIEW] 🔧 Creating StreetViewPanorama with options:", panoramaOptions);
 
@@ -211,6 +204,8 @@ const StreetView = ({
       document.getElementById(googleMapsDivId),
       panoramaOptions
     );
+
+    console.log("[STREETVIEW] ✅ StreetViewPanorama created successfully");
 
     console.log("[STREETVIEW] ✅ StreetViewPanorama created successfully");
 
