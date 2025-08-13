@@ -198,14 +198,10 @@ const StreetView = ({
 
     console.log("[STREETVIEW] 🔧 Creating StreetViewPanorama with options:", panoramaOptions);
 
-    console.log("[STREETVIEW] 🔧 Creating StreetViewPanorama with options:", panoramaOptions);
-
     panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById(googleMapsDivId),
       panoramaOptions
     );
-
-    console.log("[STREETVIEW] ✅ StreetViewPanorama created successfully");
 
     console.log("[STREETVIEW] ✅ StreetViewPanorama created successfully");
 
