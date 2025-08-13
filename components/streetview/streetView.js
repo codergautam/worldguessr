@@ -278,7 +278,7 @@ const StreetView = ({
       //   }
       // });
 
-      if(nm && !showAnswer && curLat !== lat && curLng !== long) {
+      if(nmRef.current && !showAnswerRef.current && curLat !== lat && curLng !== long) {
         // If NM is enabled and position changed, move back to original position
         panoramaRef.current.setPosition({ lat, lng: long });
       }
