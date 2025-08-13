@@ -568,20 +568,24 @@ export default function Home({ }) {
             } catch (e) { }
         }
 
-        setGameOptions((prev) => ({
-            ...prev,
-            location: mapSlug,
-            official: (country || mapSlug === 'all') ? true : false,
-            countryMap: country,
-            communityMapName: (country || mapSlug === 'all') ? "" : prev.communityMapName, // Clear community map name for official maps
-            maxDist: country ? countryMaxDists[country] : 20000,
-            extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
-        }))
-
-        // For community maps or when extent is missing, trigger loadLocation to recalculate extent
-        if (!country && mapSlug !== 'all') {
-            setTimeout(() => loadLocation(), 0);
-        }
+        setGameOptions((prev) => {
+            const newOptions = {
+                ...prev,
+                location: mapSlug,
+                official: (country || mapSlug === 'all') ? true : false,
+                countryMap: country,
+                communityMapName: (country || mapSlug === 'all') ? "" : prev.communityMapName, // Clear community map name for official maps
+                maxDist: country ? countryMaxDists[country] : 20000,
+                extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
+            };
+            
+            // For community maps or when extent is missing, trigger loadLocation to recalculate extent
+            if (!country && mapSlug !== 'all') {
+                setTimeout(() => loadLocation(), 100); // Increased delay to ensure state is updated
+            }
+            
+            return newOptions;
+        })
     }
 
     useEffect(() => {
@@ -1825,7 +1829,13 @@ export default function Home({ }) {
             }
             function fetchMethod() {
                 //gameOptions.countryMap && gameOptions.offical
-                const url = clientConfig().apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
+                const config = clientConfig();
+                if (!config?.apiUrl) {
+                    console.error("clientConfig not available, falling back to default method");
+                    defaultMethod();
+                    return;
+                }
+                const url = config.apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
                     gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
                         `/mapLocations/${gameOptions.location}`);
                 console.log("fetching", url)
