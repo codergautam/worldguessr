@@ -142,7 +142,37 @@ export default function XPGraph({ session, mode = 'xp' }) {
             }
         });
 
-        console.log('aph] Final data points:', dataPoints);
+        console.log('[XPGraph] Final data points:', dataPoints.length, 'points');
+
+        // Ensure we have at least 2 data points for the chart to display properly
+        if (dataPoints.length === 1) {
+            // If we only have 1 data point, duplicate it with a slightly different timestamp
+            const singlePoint = dataPoints[0];
+            const now = new Date();
+
+            // Add a second point at the current time with the same Y value
+            dataPoints.push({
+                x: now,
+                y: singlePoint.y,
+                // Copy over any additional properties
+                ...(mode === 'xp' ? {
+                    xpGain: 0,
+                    rank: singlePoint.rank,
+                    rankGain: 0
+                } : {
+                    eloGain: 0,
+                    rank: singlePoint.rank,
+                    rankGain: 0
+                })
+            });
+
+            console.log('[XPGraph] Added duplicate point for single data point case:', dataPoints);
+        } else if (dataPoints.length === 0) {
+            // If no data points, don't render the chart
+            console.log('[XPGraph] No data points available');
+            setChartData(null);
+            return;
+        }
 
         // Calculate point radius for each data point based on whether the value actually changed
         const pointRadii = dataPoints.map((point, index) => {
@@ -185,10 +215,27 @@ export default function XPGraph({ session, mode = 'xp' }) {
         const maxValue = Math.max(...yValues);
 
         // Add some padding to the range (5% on each side)
-        const range = maxValue - minValue;
-        const padding = range * 0.05;
-        const suggestedMin = minValue - padding;
-        const suggestedMax = maxValue + padding;
+        let range = maxValue - minValue;
+
+        // If all values are the same (rank hasn't changed), create a small artificial range
+        if (range === 0) {
+            const baseValue = minValue;
+            const artificialRange = Math.max(1, Math.abs(baseValue * 0.1)); // 10% of the value, minimum 1
+
+            const suggestedMin = baseValue - artificialRange;
+            const suggestedMax = baseValue + artificialRange;
+
+            console.log('[XPGraph] All values are the same, using artificial range:', {
+                baseValue,
+                artificialRange,
+                suggestedMin,
+                suggestedMax
+            });
+        } else {
+            const padding = range * 0.05;
+            var suggestedMin = minValue - padding;
+            var suggestedMax = maxValue + padding;
+        }
 
         const data = {
             datasets: [{
