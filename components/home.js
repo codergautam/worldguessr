@@ -102,10 +102,6 @@ export default function Home({ }) {
     const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true }) // rate limit fix: showRoadName true
     const [showAnswer, setShowAnswer] = useState(false)
     
-    // Debug: Track gameOptions.location changes
-    useEffect(() => {
-        console.log("[LOCATION] 🔄 gameOptions.location changed to:", gameOptions.location);
-    }, [gameOptions.location]);
     const [pinPoint, setPinPoint] = useState(null)
     const [hintShown, setHintShown] = useState(false)
     const [countryStreak, setCountryStreak] = useState(0)
@@ -501,10 +497,6 @@ export default function Home({ }) {
 
     const [allLocsArray, setAllLocsArray] = useState([]);
     
-    // Debug: Track allLocsArray changes
-    useEffect(() => {
-        console.log("[LOCATION] 📋 allLocsArray changed, length:", allLocsArray.length, "content:", allLocsArray);
-    }, [allLocsArray]);
     function startOnboarding() {
 
         if (inCrazyGames) {
@@ -562,7 +554,6 @@ export default function Home({ }) {
         if (country) {
             officialCountryMap = officialCountryMaps.find((c) => c.countryCode === mapSlug);
         }
-        console.log("[LOCATION] 🗑️ Clearing allLocsArray for new map:", mapSlug);
         setAllLocsArray([])
 
         if (!country && mapSlug !== gameOptions.location) {
@@ -597,7 +588,7 @@ export default function Home({ }) {
 
     useEffect(() => {
         if (onboarding?.round > 1) {
-            loadLocation("onboarding-useEffect")
+            loadLocation()
         }
     }, [onboarding?.round])
 
@@ -1811,12 +1802,8 @@ export default function Home({ }) {
         setHintShown(false)
     }
 
-    function loadLocation(debugSource = "unknown") {
+    function loadLocation() {
         if (loading) return;
-
-        console.log("[LOCATION] 🚀 loading location for:", gameOptions.location, "called from:", debugSource)
-        console.log("[LOCATION] 🔍 Full gameOptions:", JSON.stringify(gameOptions))
-        console.trace("[LOCATION] 📍 Call stack:")
         setLoading(true)
         setShowAnswer(false)
         setPinPoint(null)
@@ -1832,30 +1819,23 @@ export default function Home({ }) {
             setOtherOptions(options)
         } else {
             function defaultMethod() {
-                console.log("[LOCATION] 🔄 USING DEFAULT METHOD - Random location generation for:", gameOptions.location);
                 findLatLongRandom(gameOptions).then((latLong) => {
-                    console.log("[LOCATION] 🎲 Generated random location:", latLong);
                     setLatLong(latLong);
                 });
             }
             function fetchMethod() {
-                console.log("[LOCATION] 🌐 USING FETCH METHOD for location:", gameOptions.location);
                 //gameOptions.countryMap && gameOptions.offical
                 const config = clientConfig();
                 if (!config?.apiUrl) {
-                    console.error("[LOCATION] ❌ clientConfig not available, falling back to default method");
                     defaultMethod();
                     return;
                 }
                 const url = config.apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
                     gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
                         `/mapLocations/${gameOptions.location}`);
-                console.log("[LOCATION] 📡 Fetching map data from:", url)
                 fetch(url).then((res) => {
-                    console.log("[LOCATION] 📥 Fetch response status:", res.status, res.statusText);
                     return res.json();
                 }).then((data) => {
-                    console.log("[LOCATION] 📦 Received map data:", data);
                     if (data.ready) {
                         // this uses long for lng
                         for (let i = 0; i < data.locations.length; i++) {
@@ -1868,9 +1848,7 @@ export default function Home({ }) {
                         // shuffle data.locations
                         data.locations = data.locations.sort(() => Math.random() - 0.5)
 
-                        console.log("[LOCATION] ✅ Got", data.locations.length, "locations from API:", data.locations)
 
-                        console.log("[LOCATION] 📝 Setting allLocsArray with", data.locations.length, "locations");
                         setAllLocsArray(data.locations)
 
                         if (gameOptions.location === "all") {
@@ -1905,29 +1883,22 @@ export default function Home({ }) {
                                 }
 
                     } else {
-                        console.error("[LOCATION] ❌ Map data not ready or invalid:", data);
                         if (gameOptions.location !== "all") {
                             toast(text("errorLoadingMap"), { type: 'error' })
                         }
-                        console.log("[LOCATION] ⬇️ Falling back to defaultMethod() - map data not ready");
                             defaultMethod()
                     }
                 }).catch((e) => {
-                    console.error("[LOCATION] ❌ Fetch failed, falling back to defaultMethod():", e)
                     toast(text("errorLoadingMap"), { type: 'error' })
                     defaultMethod()
                 });
             }
 
-            console.log("[LOCATION] 🔍 Checking allLocsArray length:", allLocsArray.length, "for location:", gameOptions.location);
             if (allLocsArray.length === 0) {
-                console.log("[LOCATION] 📋 allLocsArray is empty, calling fetchMethod()");
                 fetchMethod()
             } else if (allLocsArray.length > 0) {
-                console.log("[LOCATION] 📋 allLocsArray has", allLocsArray.length, "locations, using cached data");
                 const locIndex = allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long);
                 if ((locIndex === -1) || allLocsArray.length === 1) {
-                    console.log("[LOCATION] ⚠️ Could not find location in array, locIndex:", locIndex, "allLocsArray:", allLocsArray)
                     fetchMethod()
                 } else {
                     if (gameOptions.location === "all") {
@@ -1962,7 +1933,7 @@ export default function Home({ }) {
             if (screen === "multiplayer" && multiplayerState?.connected && !multiplayerState?.inGame) {
                 return;
             }
-            if (!multiplayerState?.inGame) loadLocation("multiplayer-logic")
+            if (!multiplayerState?.inGame) loadLocation()
             else if (multiplayerState?.gameData?.state === "guess") {
 
             }
