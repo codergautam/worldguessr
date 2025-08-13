@@ -23,7 +23,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
         if (customChooseMapCallback) {
             customChooseMapCallback(map);
         } else {
-            window.location.href = `/map?s=${map.slug}${window.location.search.includes("crazygames") ? "&crazygames=true" : ""}`;
+            window.location.href = `/map/${map.slug}${window.location.search.includes("crazygames") ? "&crazygames=true" : ""}`;
         }
     };
 
