@@ -24,6 +24,7 @@ const roundSchema = new mongoose.Schema({
   location: {
     lat: { type: Number, required: true },
     long: { type: Number, required: true },
+    panoId: { type: String, default: null },
     country: { type: String, default: null },
     place: { type: String, default: null } // city/region if available
   },

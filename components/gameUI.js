@@ -97,6 +97,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
                     long: location.guessLong,
                     actualLat: location.lat,
                     actualLong: location.long,
+                    panoId: location.panoId,
                     usedHint: false, // We don't track hints per round currently
                     maxDist: gameOptions.maxDist,
                     roundTime: location.timeTaken,
