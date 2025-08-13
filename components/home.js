@@ -594,8 +594,16 @@ export default function Home({ }) {
             if (!country && mapSlug !== 'all') {
                 // Use longer delay to ensure both setAllLocsArray([]) and setGameOptions have been processed
                 setTimeout(() => {
-                    console.log("[LOCATION] ⏰ Delayed loadLocation() call for community map:", mapSlug);
-                    loadLocation();
+                    // Check current gameOptions.location value to prevent race conditions
+                    setGameOptions(currentOptions => {
+                        if (currentOptions.location === mapSlug) {
+                            console.log("[LOCATION] ⏰ Delayed loadLocation() call for community map:", mapSlug);
+                            loadLocation();
+                        } else {
+                            console.log("[LOCATION] ⚠️ Skipping delayed loadLocation - map changed from", mapSlug, "to", currentOptions.location);
+                        }
+                        return currentOptions; // Return unchanged
+                    });
                 }, 200);
             }
             
@@ -1821,13 +1829,6 @@ export default function Home({ }) {
 
     function loadLocation() {
         if (loading) return;
-        
-        // Prevent concurrent loadLocation calls
-        if (window.loadLocationInProgress) {
-            console.log("[LOCATION] ⚠️ loadLocation already in progress, skipping");
-            return;
-        }
-        window.loadLocationInProgress = true;
 
         console.log("[LOCATION] 🚀 loading location for:", gameOptions.location)
         setLoading(true)
@@ -1849,7 +1850,6 @@ export default function Home({ }) {
                 findLatLongRandom(gameOptions).then((latLong) => {
                     console.log("[LOCATION] 🎲 Generated random location:", latLong);
                     setLatLong(latLong);
-                    window.loadLocationInProgress = false;
                 });
             }
             function fetchMethod() {
@@ -1891,8 +1891,7 @@ export default function Home({ }) {
                             const loc = data.locations[0]
                             setLatLong(loc)
                             console.log("setting latlong", loc)
-                            window.loadLocationInProgress = false;
-                        } else {
+                                } else {
                             let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
                             while (loc.lat === latLong.lat && loc.long === latLong.long) {
@@ -1917,8 +1916,7 @@ export default function Home({ }) {
                                 }))
 
                             }
-                            window.loadLocationInProgress = false;
-                        }
+                                }
 
                     } else {
                         console.error("[LOCATION] ❌ Map data not ready or invalid:", data);
@@ -1926,13 +1924,11 @@ export default function Home({ }) {
                             toast(text("errorLoadingMap"), { type: 'error' })
                         }
                         console.log("[LOCATION] ⬇️ Falling back to defaultMethod() - map data not ready");
-                        window.loadLocationInProgress = false;
-                        defaultMethod()
+                            defaultMethod()
                     }
                 }).catch((e) => {
                     console.error("[LOCATION] ❌ Fetch failed, falling back to defaultMethod():", e)
                     toast(text("errorLoadingMap"), { type: 'error' })
-                    window.loadLocationInProgress = false;
                     defaultMethod()
                 });
             }
@@ -1951,8 +1947,7 @@ export default function Home({ }) {
                     if (gameOptions.location === "all") {
                         const loc = allLocsArray[locIndex + 1] ?? allLocsArray[0];
                         setLatLong(loc);
-                        window.loadLocationInProgress = false;
-                    } else {
+                        } else {
                         // prevent repeats: remove the prev location from the array
                         setAllLocsArray((prev) => {
                             const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
@@ -1963,8 +1958,7 @@ export default function Home({ }) {
 
 
                             setLatLong(loc);
-                            window.loadLocationInProgress = false;
-                            return newArr;
+                                    return newArr;
                         })
 
                     }
