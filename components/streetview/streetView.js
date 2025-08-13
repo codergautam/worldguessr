@@ -310,6 +310,31 @@ const StreetView = ({
         console.error("[STREETVIEW] ❌ UNKNOWN_ERROR - Street View request could not be processed");
       } else if (status === google.maps.StreetViewStatus.OK) {
         console.log("[STREETVIEW] ✅ Status OK - Street View data loaded successfully");
+        
+        // Fallback: If pano_changed doesn't fire, handle it here
+        setTimeout(() => {
+          if (loading) {
+            console.log("[STREETVIEW] 🔧 Fallback: pano_changed didn't fire, handling manually");
+            setLoading(false);
+            cleanMetaTags();
+            
+            // Set initial POV if needed
+            if (!initialPovSetRef.current) {
+              const photographerPov = panoramaRef.current.getPhotographerPov();
+              console.log("[STREETVIEW] 📷 Fallback photographer POV:", photographerPov);
+              
+              if (photographerPov && photographerPov.heading !== undefined) {
+                const newPov = {
+                  heading: photographerPov.heading,
+                  pitch: 0
+                };
+                console.log("[STREETVIEW] ➡️ Fallback setting POV to:", newPov);
+                panoramaRef.current.setPov(newPov);
+                initialPovSetRef.current = true;
+              }
+            }
+          }
+        }, 500);
       }
     });
 
