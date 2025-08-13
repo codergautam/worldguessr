@@ -38,11 +38,12 @@ export default function XPGraph({ session, mode = 'xp' }) {
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
-        console.log(session?.token)
+        console.log('[XPGraph] Session token:', session?.token)
         if (!session?.token?.accountId || !window.cConfig?.apiUrl) return;
 
         setLoading(true);
         try {
+            console.log('[XPGraph] Fetching user progression for userId:', session.token.accountId);
             const response = await fetch(window.cConfig.apiUrl + '/api/userProgression', {
                 method: 'POST',
                 headers: {
@@ -55,6 +56,8 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('[XPGraph] Raw progression data received:', data);
+                console.log('[XPGraph] Number of progression entries:', data.progression?.length || 0);
                 setUserStats(data.progression);
                 calculateGraphData(data.progression);
             } else {
@@ -71,31 +74,34 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
     const calculateGraphData = (stats) => {
         const dataPoints = [];
-        
+
         // Filter stats based on date filter
         const now = new Date();
+        console.log('[XPGraph] Current date:', now);
+
         const filteredStats = stats.filter((stat) => {
             if (dateFilter === 'alltime') return true;
-            
+
             const statDate = new Date(stat.timestamp);
-            
+
             if (dateFilter === 'custom') {
                 if (!customStartDate && !customEndDate) return true;
-                
+
                 const startDate = customStartDate ? new Date(customStartDate) : new Date(0);
                 const endDate = customEndDate ? new Date(customEndDate) : now;
-                
+
                 return statDate >= startDate && statDate <= endDate;
             }
-            
+
             const daysDiff = Math.floor((now - statDate) / (1000 * 60 * 60 * 24));
-            
+
             if (dateFilter === '7days') return daysDiff <= 7;
             if (dateFilter === '30days') return daysDiff <= 30;
             return true;
         });
 
-        filteredStats.forEach((stat) => {
+
+        filteredStats.forEach((stat, index) => {
             const date = new Date(stat.timestamp);
 
             if (mode === 'xp') {
@@ -126,7 +132,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
                         rankGain: stat.eloChange ? (stat.eloChange > 0 ? Math.abs(stat.rankImprovement || 0) : -(Math.abs(stat.rankImprovement || 0))) : 0
                     });
                 } else {
-                    // ELO Rank mode  
+                    // ELO Rank mode
                     dataPoints.push({
                         x: date,
                         y: stat.eloRank,
@@ -136,21 +142,23 @@ export default function XPGraph({ session, mode = 'xp' }) {
             }
         });
 
+        console.log('aph] Final data points:', dataPoints);
+
         // Calculate point radius for each data point based on whether the value actually changed
         const pointRadii = dataPoints.map((point, index) => {
             let hasChange = false;
-            
+
             // Check if this is the first or last point (always show these for context)
             if (index === 0 || index === dataPoints.length - 1) {
                 return 4;
             }
-            
+
             // Check if the Y value changed from the previous point
             const prevPoint = dataPoints[index - 1];
             if (prevPoint && point.y !== prevPoint.y) {
                 hasChange = true;
             }
-            
+
             // Also check gain values as a fallback (for cases where Y value might be the same but there was activity)
             if (!hasChange) {
                 if (mode === 'xp') {
@@ -167,7 +175,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
                     }
                 }
             }
-            
+
             return hasChange ? 4 : 0;
         });
 
@@ -175,7 +183,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
         const yValues = dataPoints.map(point => point.y);
         const minValue = Math.min(...yValues);
         const maxValue = Math.max(...yValues);
-        
+
         // Add some padding to the range (5% on each side)
         const range = maxValue - minValue;
         const padding = range * 0.05;
@@ -184,7 +192,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
         const data = {
             datasets: [{
-                label: mode === 'xp' ? 
+                label: mode === 'xp' ?
                     (viewMode === 'xp' ? text('totalXP') : text('xpRank')) :
                     (viewMode === 'elo' ? text('elo') : text('eloRank')),
                 data: dataPoints,
@@ -202,10 +210,12 @@ export default function XPGraph({ session, mode = 'xp' }) {
             }]
         };
 
+
         setChartData(data);
     };
 
     useEffect(() => {
+
         if (userStats.length > 0) {
             calculateGraphData(userStats);
         }
@@ -232,8 +242,8 @@ export default function XPGraph({ session, mode = 'xp' }) {
                     title: (context) => {
                         return new Date(context[0].parsed.x).toLocaleDateString(undefined, {
                             weekday: 'short',
-                            year: 'numeric', 
-                            month: 'short', 
+                            year: 'numeric',
+                            month: 'short',
                             day: 'numeric',
                             hour: '2-digit',
                             minute: '2-digit'
@@ -404,10 +414,10 @@ export default function XPGraph({ session, mode = 'xp' }) {
     };
 
     const getTimeframeTitle = () => {
-        const baseTitle = mode === 'xp' ? 
+        const baseTitle = mode === 'xp' ?
             (viewMode === 'xp' ? text('xpOverTime') : text('rankOverTime')) :
             (viewMode === 'elo' ? text('eloOverTime') : text('eloRankOverTime'));
-        
+
         switch (dateFilter) {
             case '7days':
                 return `${baseTitle} (7 Days)`;
@@ -463,7 +473,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
                             Custom
                         </button>
                     </div>
-                    
+
                     {dateFilter === 'custom' && (
                         <div style={{
                             display: 'flex',
@@ -504,7 +514,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
                             />
                         </div>
                     )}
-                    
+
                     <div style={toggleStyle}>
                         <button
                             style={toggleButtonStyle(mode === 'xp' ? viewMode === 'xp' : viewMode === 'elo')}
@@ -535,11 +545,11 @@ export default function XPGraph({ session, mode = 'xp' }) {
             }}>
                 <span>{text('dataPoints', { count: chartData?.datasets[0]?.data?.length || 0 })}</span>
                 <span>
-                    {mode === 'xp' ? 
-                        (viewMode === 'xp' 
+                    {mode === 'xp' ?
+                        (viewMode === 'xp'
                             ? `${text('currentXP')}: ${getCurrentValue().toLocaleString()}`
                             : `${text('currentRank')}: #${getCurrentValue()}`
-                        ) : 
+                        ) :
                         (viewMode === 'elo'
                             ? `${text('currentElo')}: ${getCurrentValue()}`
                             : `${text('currentRank')}: #${getCurrentValue()}`
