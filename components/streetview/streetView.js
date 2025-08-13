@@ -213,9 +213,7 @@ const StreetView = ({
 
     // Event logging for replay system
     panoramaRef.current.addListener("pano_changed", () => {
-      console.log("[STREETVIEW] 📸 pano_changed event fired");
       const currentPanoId = panoramaRef.current.getPano();
-      console.log("[STREETVIEW] 🆔 Current pano ID:", currentPanoId);
 
       panoChangedHandledRef.current = true; // Mark that pano_changed has handled setup
       setLoading(false);
@@ -223,20 +221,15 @@ const StreetView = ({
 
       // Set POV to point towards road only on initial load (not when user moves)
       if (!initialPovSetRef.current) {
-        console.log("[STREETVIEW] 🧭 Setting initial POV to point towards road");
         const photographerPov = panoramaRef.current.getPhotographerPov();
-        console.log("[STREETVIEW] 📷 Photographer POV:", photographerPov);
 
         if (photographerPov && photographerPov.heading !== undefined) {
           const newPov = {
             heading: photographerPov.heading,
             pitch: 0 // Always use level pitch for consistency
           };
-          console.log("[STREETVIEW] ➡️ Setting POV to:", newPov);
           panoramaRef.current.setPov(newPov);
           initialPovSetRef.current = true;
-        } else {
-          console.log("[STREETVIEW] ⚠️ Photographer POV not available or invalid");
         }
       }
 
