@@ -392,7 +392,20 @@ const StreetView = ({
         panoramaRef.current = null;
       }
     };
-  }, [lat, long, panoId, nm, npz, showRoadLabels, shouldUseEmbed]);
+  }, [lat, long, panoId, showRoadLabels, shouldUseEmbed]);
+
+  // Handle nm/npz changes without reinitializing panorama
+  useEffect(() => {
+    if (!shouldUseEmbed && panoramaRef.current && !showAnswer) {
+      console.log("[STREETVIEW] 🎛️ Updating panorama options for nm/npz change:", { nm, npz });
+      panoramaRef.current.setOptions({
+        linksControl: !(nm && !showAnswer),
+        clickToGo: !(nm && !showAnswer),
+        panControl: !(npz && !showAnswer),
+        zoomControl: !(npz && !showAnswer),
+      });
+    }
+  }, [nm, npz, shouldUseEmbed, showAnswer]);
 
   useEffect(() => {
     if(showAnswer) {
