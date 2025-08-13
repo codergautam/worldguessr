@@ -10,6 +10,8 @@ const SvEmbed = () => {
     lat: null,
     long: null,
     panoId: null,
+    heading: null,
+    pitch: null,
     showAnswer: false,
     hidden: false,
   });
@@ -24,6 +26,8 @@ const SvEmbed = () => {
         lat: parseFloat(searchParams.get("lat")),
         long: parseFloat(searchParams.get("long")),
         panoId: searchParams.get("pano") || searchParams.get("panoId"),
+        heading: searchParams.get("heading") ? parseFloat(searchParams.get("heading")) : null,
+        pitch: searchParams.get("pitch") ? parseFloat(searchParams.get("pitch")) : null,
         showAnswer: searchParams.get("showAnswer") === "true",
         hidden: searchParams.get("hidden") === "true",
       });
@@ -67,6 +71,8 @@ const SvEmbed = () => {
       lat={props.lat}
       long={props.long}
       panoId={props.panoId}
+      heading={props.heading}
+      pitch={props.pitch}
       showAnswer={props.showAnswer}
       hidden={props.hidden}
       onLoad={() => {

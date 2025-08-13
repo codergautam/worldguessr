@@ -1825,7 +1825,7 @@ export default function Home({ }) {
             }
             function fetchMethod() {
                 //gameOptions.countryMap && gameOptions.offical
-                const url = window.cConfig.apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
+                const url = clientConfig().apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
                     gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
                         `/mapLocations/${gameOptions.location}`);
                 console.log("fetching", url)
