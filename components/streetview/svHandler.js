@@ -15,7 +15,7 @@ const SvEmbedIframe = (params) => {
       long: params.long || null,
       showAnswer: params.showAnswer || false,
       hidden: false, onLoad: undefined };
-    
+
     // Only include panoId, heading, pitch if we have complete data
     const shouldUsePanoId = params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
     if (shouldUsePanoId) {
@@ -29,6 +29,7 @@ const SvEmbedIframe = (params) => {
   };
 
   useEffect(() => {
+    console.log("SvEmbedIframe params changed", params);
     // reload iframe when lat or long changes
     // console.log("lat or long changed", params.lat, params.long);
     // Only use panoId if we have proper heading/pitch data, otherwise fall back to lat/lng

@@ -23,6 +23,10 @@ const StreetView = ({
   const lastZoomData = useRef(null);
   const lastPovData = useRef(null);
 
+  // Refs to track current state for event listeners
+  const nmRef = useRef(nm);
+  const showAnswerRef = useRef(showAnswer);
+
   useEffect(()=>{
 
     const originalAppendChild = Element.prototype.appendChild;
@@ -170,7 +174,7 @@ const StreetView = ({
   // Initialize Google Maps SDK panorama
   const initPanorama = () => {
     console.log("[STREETVIEW] 🚀 initPanorama called with:", { lat, long, panoId, heading, pitch });
-    
+
     if ((!lat || !long) && !panoId || !document.getElementById(googleMapsDivId)) {
       console.log("[STREETVIEW] ❌ Missing required data or DOM element:", {
         hasLatLong: !!(lat && long),
@@ -184,10 +188,10 @@ const StreetView = ({
       pov: { heading: 0, pitch: 0 },
       zoom: 0,
       motionTracking: false,
-      linksControl: !(nm && !showAnswer),
-      clickToGo: !(nm && !showAnswer),
-      panControl: !(npz && !showAnswer),
-      zoomControl: !(npz && !showAnswer),
+      linksControl: showAnswer || !nm,
+      clickToGo: showAnswer || !nm,
+      panControl: showAnswer || !npz,
+      zoomControl: showAnswer || !npz,
       showRoadLabels: showRoadLabels,
       disableDefaultUI: true,
     };
@@ -202,12 +206,12 @@ const StreetView = ({
     }
 
     console.log("[STREETVIEW] 🔧 Creating StreetViewPanorama with options:", panoramaOptions);
-    
+
     panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById(googleMapsDivId),
       panoramaOptions
     );
-    
+
     console.log("[STREETVIEW] ✅ StreetViewPanorama created successfully");
 
     // Initial setup - will be properly set in pano_changed event
@@ -221,7 +225,7 @@ const StreetView = ({
       console.log("[STREETVIEW] 📸 pano_changed event fired");
       const currentPanoId = panoramaRef.current.getPano();
       console.log("[STREETVIEW] 🆔 Current pano ID:", currentPanoId);
-      
+
       panoChangedHandledRef.current = true; // Mark that pano_changed has handled setup
       setLoading(false);
       cleanMetaTags();
@@ -231,7 +235,7 @@ const StreetView = ({
         console.log("[STREETVIEW] 🧭 Setting initial POV to point towards road");
         const photographerPov = panoramaRef.current.getPhotographerPov();
         console.log("[STREETVIEW] 📷 Photographer POV:", photographerPov);
-        
+
         if (photographerPov && photographerPov.heading !== undefined) {
           const newPov = {
             heading: photographerPov.heading,
@@ -305,15 +309,13 @@ const StreetView = ({
     // Log status changes (for error handling)
     panoramaRef.current.addListener("status_changed", () => {
       const status = panoramaRef.current.getStatus();
-      console.log("[STREETVIEW] 📊 Status changed:", status);
-      
+
       if (status === google.maps.StreetViewStatus.ZERO_RESULTS) {
         console.error("[STREETVIEW] ❌ ZERO_RESULTS - No Street View data found for this location");
       } else if (status === google.maps.StreetViewStatus.UNKNOWN_ERROR) {
         console.error("[STREETVIEW] ❌ UNKNOWN_ERROR - Street View request could not be processed");
       } else if (status === google.maps.StreetViewStatus.OK) {
-        console.log("[STREETVIEW] ✅ Status OK - Street View data loaded successfully");
-        
+
         // Fallback: If pano_changed doesn't fire when using panoId directly
         if (panoId && !fallbackExecutedRef.current) {
           // Use requestAnimationFrame to wait for next frame when panorama data is ready
@@ -323,12 +325,12 @@ const StreetView = ({
               fallbackExecutedRef.current = true; // Prevent multiple executions
               setLoading(false);
               cleanMetaTags();
-              
+
               // Set initial POV if needed
               if (!initialPovSetRef.current) {
                 const photographerPov = panoramaRef.current.getPhotographerPov();
                 console.log("[STREETVIEW] 📷 Fallback photographer POV:", photographerPov);
-                
+
                 if (photographerPov && photographerPov.heading !== undefined) {
                   const newPov = {
                     heading: photographerPov.heading,
@@ -352,7 +354,7 @@ const StreetView = ({
     console.log("[STREETVIEW] 🔄 Main useEffect triggered with:", {
       lat, long, panoId, nm, npz, showRoadLabels, shouldUseEmbed
     });
-    
+
     setLoading(true);
     initialPovSetRef.current = false; // Reset flag for new location
     panoChangedHandledRef.current = false; // Reset flag for new location
@@ -396,13 +398,17 @@ const StreetView = ({
 
   // Handle nm/npz changes without reinitializing panorama
   useEffect(() => {
+    // Update refs to current values
+    nmRef.current = nm;
+    showAnswerRef.current = showAnswer;
+
     if (!shouldUseEmbed && panoramaRef.current && !showAnswer) {
       console.log("[STREETVIEW] 🎛️ Updating panorama options for nm/npz change:", { nm, npz });
       panoramaRef.current.setOptions({
-        linksControl: !(nm && !showAnswer),
-        clickToGo: !(nm && !showAnswer),
-        panControl: !(npz && !showAnswer),
-        zoomControl: !(npz && !showAnswer),
+        linksControl: showAnswer || !nm,
+        clickToGo: showAnswer || !nm,
+        panControl: showAnswer || !npz,
+        zoomControl: showAnswer || !npz,
       });
     }
   }, [nm, npz, shouldUseEmbed, showAnswer]);
@@ -415,8 +421,8 @@ const StreetView = ({
         panoramaRef.current.setOptions({
           linksControl: true,
           clickToGo: true,
-          panControl: false,
-          zoomControl: false,
+          panControl: true,
+          zoomControl: true,
         });
       }
   }
@@ -430,7 +436,7 @@ const StreetView = ({
   return shouldUseEmbed ? (
     <iframe
   className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} streetview`}
-  src={panoId ? 
+  src={panoId ?
     `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}` :
     `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`
   }
