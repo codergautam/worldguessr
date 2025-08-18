@@ -148,6 +148,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
     return {
       lat: round.location.lat,
       long: round.location.long,
+      panoId: round.location.panoId, // Include panoId for Google Maps Street View
       guessLat: round.guess.guessLat,
       guessLong: round.guess.guessLong,
       points: round.guess.points,
@@ -213,7 +214,8 @@ export default function HistoricalGameView({ game, session, onBack }) {
           })),
           location: {
             lat: round.location.lat,
-            lng: round.location.long
+            lng: round.location.long,
+            panoId: round.location.panoId // Include panoId for multiplayer games too
           }
         }))
       }
