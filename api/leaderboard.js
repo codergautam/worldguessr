@@ -1,8 +1,9 @@
 import User from '../models/User.js';
 import UserStats from '../models/UserStats.js';
 
-// Improved caching with separate keys for different modes
-const CACHE_DURATION = 60000; // 1 minute cache
+// Production-scale caching for 2M+ users
+const CACHE_DURATION = 300000; // 5 minute cache for production performance
+const DAILY_CACHE_DURATION = 180000; // 3 minute cache for daily leaderboards (more frequent updates)
 const cache = new Map();
 
 function getCacheKey(mode, pastDay) {
@@ -11,7 +12,8 @@ function getCacheKey(mode, pastDay) {
 
 function getCachedData(key) {
   const cached = cache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+  const cacheDuration = key.includes('daily') ? DAILY_CACHE_DURATION : CACHE_DURATION;
+  if (cached && Date.now() - cached.timestamp < cacheDuration) {
     return cached.data;
   }
   return null;

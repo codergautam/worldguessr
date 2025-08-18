@@ -794,7 +794,7 @@ singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={co
   }} panoShown={showPanoOnResult} />
 
     {/* Critical timer screen warning effect */}
-    {((timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && multiplayerTimerShown && !showAnswer && !pinPoint && multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess') || 
+    {((timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && multiplayerTimerShown && !showAnswer && !pinPoint && multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess') ||
       (timeToNextRound <= 5 && timeToNextRound > 0 && onboardingTimerShown && !showAnswer && !pinPoint && onboarding)) && (
       <div className="screen-critical-warning" />
     )}

@@ -60,11 +60,18 @@ const userStatsSchema = new mongoose.Schema({
   }
 });
 
-// Compound indexes for efficient querying
+// Production-grade indexes for 2M+ users with 20k daily active
 userStatsSchema.index({ userId: 1, timestamp: -1 }); // User's stats over time (descending)
 userStatsSchema.index({ userId: 1, timestamp: 1 });  // User's stats over time (ascending)
 userStatsSchema.index({ timestamp: -1, xpRank: 1 });  // Leaderboard snapshots by XP
 userStatsSchema.index({ timestamp: -1, eloRank: 1 }); // Leaderboard snapshots by ELO
+
+// CRITICAL: Production performance indexes for daily leaderboards
+userStatsSchema.index({ timestamp: -1, userId: 1 }); // Efficient timestamp range + userId lookup
+userStatsSchema.index({ timestamp: -1, totalXp: -1 }); // Fast XP leaderboard by time
+userStatsSchema.index({ timestamp: -1, elo: -1 }); // Fast ELO leaderboard by time
+userStatsSchema.index({ timestamp: -1, userId: 1, totalXp: -1 }); // Compound for XP daily queries  
+userStatsSchema.index({ timestamp: -1, userId: 1, elo: -1 }); // Compound for ELO daily queries
 
 // Static methods for common queries
 userStatsSchema.statics = {

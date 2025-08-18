@@ -9,7 +9,8 @@
       "Bash(ls:*)",
       "Bash(git push:*)",
       "Bash(grep:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }
