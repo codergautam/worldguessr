@@ -29,6 +29,8 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                 }
             }}
             animationDuration={300}
+            closeOnEsc={true}
+            closeOnOverlayClick={false}
         >
             <div className="mapguessr-container">
                 {/* Header with close button */}
@@ -51,7 +53,8 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                         title="MapGuessr"
                         frameBorder="0"
                         allowFullScreen
-                        allow="geolocation; microphone; camera"
+                        allow="geolocation; microphone; camera; fullscreen"
+                        sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-presentation"
                     />
                 </div>
             </div>
@@ -64,6 +67,7 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     flex-direction: column;
                     background: #000;
                     position: relative;
+                    font-family: inherit;
                 }
 
                 .mapguessr-header {
@@ -71,12 +75,13 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     justify-content: space-between;
                     align-items: center;
                     padding: 15px 20px;
-                    background: rgba(0, 0, 0, 0.9);
+                    background: rgba(0, 0, 0, 0.95);
                     backdrop-filter: blur(10px);
                     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
                     position: relative;
                     z-index: 1000;
                     min-height: 60px;
+                    flex-shrink: 0;
                 }
 
                 .mapguessr-title {
@@ -85,6 +90,7 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     font-size: 24px;
                     font-weight: bold;
                     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+                    font-family: inherit;
                 }
 
                 .mapguessr-close-btn {
@@ -101,6 +107,8 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     font-size: 18px;
                     transition: all 0.3s ease;
                     backdrop-filter: blur(10px);
+                    font-family: inherit;
+                    user-select: none;
                 }
 
                 .mapguessr-close-btn:hover {
@@ -109,12 +117,16 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     transform: scale(1.05);
                 }
 
+                .mapguessr-close-btn:active {
+                    transform: scale(0.95);
+                }
+
                 .mapguessr-iframe-container {
                     flex: 1;
                     width: 100%;
-                    height: calc(100vh - 60px);
                     position: relative;
                     overflow: hidden;
+                    min-height: 0; /* Important for flex child */
                 }
 
                 .mapguessr-iframe {
@@ -122,13 +134,14 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     height: 100%;
                     border: none;
                     display: block;
+                    background: #000;
                 }
 
                 /* Mobile optimizations */
                 @media (max-width: 768px) {
                     .mapguessr-header {
-                        padding: 10px 15px;
-                        min-height: 50px;
+                        padding: 12px 16px;
+                        min-height: 54px;
                     }
 
                     .mapguessr-title {
@@ -136,13 +149,27 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     }
 
                     .mapguessr-close-btn {
-                        width: 35px;
-                        height: 35px;
+                        width: 36px;
+                        height: 36px;
                         font-size: 16px;
                     }
+                }
 
-                    .mapguessr-iframe-container {
-                        height: calc(100vh - 50px);
+                /* Small mobile screens */
+                @media (max-width: 480px) {
+                    .mapguessr-header {
+                        padding: 10px 12px;
+                        min-height: 48px;
+                    }
+
+                    .mapguessr-title {
+                        font-size: 18px;
+                    }
+
+                    .mapguessr-close-btn {
+                        width: 32px;
+                        height: 32px;
+                        font-size: 14px;
                     }
                 }
 
@@ -152,7 +179,7 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     overflow: hidden;
                 }
 
-                /* Global modal styles */
+                /* Global modal styles to prevent scrolling */
                 :global(.mapguessr-modal) {
                     overflow: hidden !important;
                 }
@@ -162,9 +189,24 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     padding: 0 !important;
                 }
 
-                /* Hide default scrollbars */
-                :global(body.ReactModal__Body--open) {
+                /* Prevent body scroll when modal is open */
+                :global(body:has(.mapguessr-modal)) {
                     overflow: hidden;
+                }
+
+                /* Handle iOS viewport issues */
+                @supports (-webkit-touch-callout: none) {
+                    .mapguessr-container {
+                        height: 100vh;
+                        height: -webkit-fill-available;
+                    }
+                }
+
+                /* Prevent zoom on iOS */
+                @media screen and (-webkit-min-device-pixel-ratio: 0) {
+                    .mapguessr-iframe {
+                        -webkit-overflow-scrolling: touch;
+                    }
                 }
             `}</style>
         </Modal>
