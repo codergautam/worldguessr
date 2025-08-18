@@ -185,7 +185,7 @@ function updateTotalCache() {
     }
   })
   .catch(error => {
-    console.error('Error fetching allCountries.json', error, currentDate());
+    console.error('Error fetching allCountries.json', currentDate());
   });
 }
 setInterval(() => {

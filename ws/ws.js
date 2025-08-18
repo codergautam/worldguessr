@@ -8,10 +8,7 @@ import mongoose from 'mongoose';
 import { Filter } from 'bad-words';
 import Game from './classes/Game.js';
 import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
-import findLatLongRandom from '../components/findLatLongServer.js';
-import { Webhook } from "discord-webhook-node";
 
-import cityGen from '../serverUtils/cityGen.js';
 import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
@@ -22,6 +19,8 @@ import { tmpdir } from 'os';
 
 import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
 config();
+
+console.log("[INFO] Starting ws.js")
 
 
 import { createClient } from 'redis';
