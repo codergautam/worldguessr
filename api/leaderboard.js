@@ -1,10 +1,25 @@
 import User from '../models/User.js';
 import UserStats from '../models/UserStats.js';
-const cache = { data: null, timestamp: null };
-const pastDayCache = { data: null, timestamp: null };
 
-const cacheElo = { data: null, timestamp: null };
-const pastDayCacheElo = { data: null, timestamp: null };
+// Improved caching with separate keys for different modes
+const CACHE_DURATION = 60000; // 1 minute cache
+const cache = new Map();
+
+function getCacheKey(mode, pastDay) {
+  return `${mode}_${pastDay ? 'daily' : 'alltime'}`;
+}
+
+function getCachedData(key) {
+  const cached = cache.get(key);
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedData(key, data) {
+  cache.set(key, { data, timestamp: Date.now() });
+}
 
 function sendableUser(user) {
   if (!user.username) {
@@ -20,460 +35,225 @@ function sendableUser(user) {
   };
 }
 
+// Improved 24h leaderboard calculation using UserStats model methods
+async function getDailyLeaderboard(isXp = true) {
+  const scoreField = isXp ? 'totalXp' : 'elo';
+  const now = new Date();
+  const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+  // Get all users who have stats in the last 24h with their deltas
+  const userDeltas = await UserStats.aggregate([
+    // Match users active in last 24h
+    {
+      $match: {
+        timestamp: { $gte: dayAgo }
+      }
+    },
+    // Sort by userId and timestamp to get latest first
+    {
+      $sort: { userId: 1, timestamp: -1 }
+    },
+    // Group by userId to get latest and earliest in 24h period
+    {
+      $group: {
+        _id: '$userId',
+        latestStat: { $first: '$$ROOT' },
+        earliestStat: { $last: '$$ROOT' }
+      }
+    },
+    // Calculate the actual 24h change
+    {
+      $project: {
+        userId: '$_id',
+        latestScore: `$latestStat.${scoreField}`,
+        earliestScore: `$earliestStat.${scoreField}`,
+        delta: {
+          $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`]
+        },
+        latestTimestamp: '$latestStat.timestamp',
+        earliestTimestamp: '$earliestStat.timestamp'
+      }
+    },
+    // Only include users with meaningful changes (positive for XP, any change for ELO)
+    {
+      $match: isXp ? { delta: { $gt: 0 } } : { delta: { $ne: 0 } }
+    },
+    // Sort by delta descending
+    {
+      $sort: { delta: -1 }
+    },
+    // Limit to top 100
+    {
+      $limit: 100
+    }
+  ]);
+
+  // Get user details for all users in the leaderboard
+  const userIds = userDeltas.map(delta => delta.userId);
+  const users = await User.find({
+    _id: { $in: userIds },
+    banned: false
+  }).select('_id username elo totalXp created_at games').lean();
+
+  const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+  // Build leaderboard with proper data
+  const leaderboard = userDeltas.map((delta, index) => {
+    const user = userMap.get(delta.userId);
+    if (!user || !user.username) return null;
+    
+    return {
+      username: user.username,
+      totalXp: isXp ? delta.delta : user.totalXp, // For XP show delta, for ELO show current total XP
+      createdAt: user.created_at,
+      gamesLen: user.games?.length || 0,
+      elo: isXp ? user.elo : delta.delta, // For ELO mode show delta in elo field
+      eloToday: delta.delta, // Always show the 24h change
+      rank: index + 1
+    };
+  }).filter(user => user !== null);
+
+  return { leaderboard, userDeltas };
+}
+
+// Get user's position in daily leaderboard
+async function getUserDailyRank(username, isXp = true) {
+  const user = await User.findOne({ username: username });
+  if (!user) return { rank: null, delta: null };
+
+  const scoreField = isXp ? 'totalXp' : 'elo';
+  const now = new Date();
+  const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+  // Get user's 24h change
+  const userStats = await UserStats.find({
+    userId: user._id.toString(),
+    timestamp: { $gte: dayAgo }
+  }).sort({ timestamp: -1 }).limit(1);
+
+  const oldestUserStats = await UserStats.find({
+    userId: user._id.toString(),
+    timestamp: { $gte: dayAgo }
+  }).sort({ timestamp: 1 }).limit(1);
+
+  if (!userStats[0] || !oldestUserStats[0]) {
+    return { rank: null, delta: 0 };
+  }
+
+  const userDelta = userStats[0][scoreField] - oldestUserStats[0][scoreField];
+
+  // Count how many users have better deltas
+  const betterUsersCount = await UserStats.aggregate([
+    // Match users active in last 24h
+    {
+      $match: {
+        timestamp: { $gte: dayAgo }
+      }
+    },
+    // Group by userId to get their 24h deltas
+    {
+      $sort: { userId: 1, timestamp: -1 }
+    },
+    {
+      $group: {
+        _id: '$userId',
+        latestStat: { $first: '$$ROOT' },
+        earliestStat: { $last: '$$ROOT' }
+      }
+    },
+    {
+      $project: {
+        delta: {
+          $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`]
+        }
+      }
+    },
+    // Count users with better deltas
+    {
+      $match: {
+        delta: { $gt: userDelta }
+      }
+    },
+    {
+      $count: "count"
+    }
+  ]);
+
+  const rank = betterUsersCount.length > 0 ? betterUsersCount[0].count + 1 : 1;
+  return { rank, delta: userDelta };
+}
+
 export default async function handler(req, res) {
   const myUsername = req.query.username;
   const pastDay = req.query.pastDay === 'true';
+  const isXp = req.query.mode === 'xp';
+
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const xp = req.query.mode === 'xp';
-
-  if(xp) {
   try {
-    // Fetch top 100 users by XP
+    const cacheKey = getCacheKey(isXp ? 'xp' : 'elo', pastDay);
+    let leaderboard = getCachedData(cacheKey);
+    let myRank = null;
+    let myScore = null;
 
-    // Format response data
-    let leaderboard;
-    if (pastDay) {
-      // get past day leaderboard
-
-      if (pastDayCache.data && pastDayCache.timestamp && Date.now() - pastDayCache.timestamp < 60000) {
-        leaderboard = pastDayCache.data;
+    if (!leaderboard) {
+      if (pastDay) {
+        // Use the new efficient daily leaderboard calculation
+        const dailyResult = await getDailyLeaderboard(isXp);
+        leaderboard = dailyResult.leaderboard;
+        setCachedData(cacheKey, leaderboard);
       } else {
-        // Get current time and 24 hours ago
-        const now = new Date();
-        const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-
-        // Optimized approach using facets to avoid processing all users
-        const xpChanges = await UserStats.aggregate([
-          {
-            // First get recent stats to identify active users
-            $match: {
-              timestamp: { $gte: dayAgo }
-            }
-          },
-          {
-            $sort: { userId: 1, timestamp: -1 }
-          },
-          {
-            $group: {
-              _id: '$userId',
-              latestStat: { $first: '$$ROOT' }
-            }
-          },
-          {
-            // Now get the historical stat for each active user
-            $lookup: {
-              from: 'userstats',
-              let: { userId: '$_id', cutoff: dayAgo },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $eq: ['$userId', '$$userId'] },
-                        { $lte: ['$timestamp', '$$cutoff'] }
-                      ]
-                    }
-                  }
-                },
-                { $sort: { timestamp: -1 } },
-                { $limit: 1 }
-              ],
-              as: 'historicalStat'
-            }
-          },
-          {
-            $match: {
-              'historicalStat.0': { $exists: true }
-            }
-          },
-          {
-            $project: {
-              userId: '$_id',
-              currentXp: '$latestStat.totalXp',
-              previousXp: { $arrayElemAt: ['$historicalStat.totalXp', 0] },
-              xpGained: {
-                $subtract: [
-                  '$latestStat.totalXp',
-                  { $arrayElemAt: ['$historicalStat.totalXp', 0] }
-                ]
-              }
-            }
-          },
-          {
-            $match: {
-              xpGained: { $gt: 0 }
-            }
-          },
-          {
-            $sort: { xpGained: -1 }
-          },
-          {
-            $limit: 100
-          }
-        ]);
-
-        // Get user details for the users with XP changes
-        const userIds = xpChanges.map(change => change.userId);
-        const users = await User.find({
-          _id: { $in: userIds },
-          banned: false
-        }).select('_id username elo totalXp created_at games').lean();
-
-        const userMap = new Map(users.map(u => [u._id.toString(), u]));
-
-        // Build leaderboard with user info and XP changes
-        leaderboard = xpChanges.map(change => {
-          const user = userMap.get(change.userId);
-          if (!user || !user.username) return null;
-          
-          return {
-            username: user.username,
-            totalXp: change.xpGained, // For past day, show the gained amount
-            createdAt: user.created_at,
-            gamesLen: user.games?.length || 0,
-            elo: user.elo,
-            eloToday: user.elo_today
-          };
-        }).filter(user => user !== null);
-
-        pastDayCache.data = leaderboard;
-        pastDayCache.timestamp = Date.now();
-      }
-
-    } else {
-
-      // get all time leaderboard
-      if (cache.data && cache.timestamp && Date.now() - cache.timestamp < 60000) {
-        leaderboard = cache.data;
-      } else {
-        const topUsers = await User.find({ banned: false }).sort({ totalXp: -1 }).limit(100);
+        // All-time leaderboard - simple and efficient
+        const sortField = isXp ? 'totalXp' : 'elo';
+        const topUsers = await User.find({ banned: false })
+          .sort({ [sortField]: -1 })
+          .limit(100)
+          .lean();
 
         leaderboard = topUsers.map(sendableUser).filter(user => user !== null);
-        cache.data = leaderboard;
-        cache.timestamp = Date.now();
+        setCachedData(cacheKey, leaderboard);
       }
     }
 
-
-    // Find the user's rank
-    let myRank = null;
-    let myXp = null;
+    // Get user's rank and score
     if (myUsername) {
-      const user = await User.findOne({ username: myUsername });
-      if (user) {
-        if (pastDay) {
-          // Calculate user's 24h XP gain and rank among daily gains
-          const dayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
-          
-          const userXpChange = await UserStats.aggregate([
-            {
-              $match: {
-                userId: user._id.toString(),
-                timestamp: { $gte: dayAgo }
-              }
-            },
-            {
-              $sort: { timestamp: -1 }
-            },
-            {
-              $group: {
-                _id: '$userId',
-                latestStats: { $first: '$$ROOT' },
-                earliestStats: { $last: '$$ROOT' }
-              }
-            },
-            {
-              $project: {
-                xpGained: { $subtract: ['$latestStats.totalXp', '$earliestStats.totalXp'] }
-              }
-            }
-          ]);
-
-          if (userXpChange.length > 0) {
-            myXp = userXpChange[0].xpGained;
-            
-            // Count users with better XP gains
-            const betterUsersCount = await UserStats.aggregate([
-              {
-                $match: {
-                  timestamp: { $gte: dayAgo }
-                }
-              },
-              {
-                $sort: { userId: 1, timestamp: -1 }
-              },
-              {
-                $group: {
-                  _id: '$userId',
-                  latestStats: { $first: '$$ROOT' },
-                  earliestStats: { $last: '$$ROOT' }
-                }
-              },
-              {
-                $project: {
-                  userId: '$_id',
-                  xpGained: { $subtract: ['$latestStats.totalXp', '$earliestStats.totalXp'] }
-                }
-              },
-              {
-                $match: {
-                  xpGained: { $gt: myXp }
-                }
-              },
-              {
-                $count: "count"
-              }
-            ]);
-            
-            myRank = betterUsersCount.length > 0 ? betterUsersCount[0].count + 1 : 1;
-          }
-        } else {
-          myXp = user.totalXp;
-          if (myXp) {
-            const myRankQuery = await User.find({ totalXp: { $gt: myXp }, banned: false }).countDocuments();
-            myRank = myRankQuery + 1;
-          }
-        }
-      }
-    }
-
-    // Return the leaderboard
-    return res.status(200).json({ leaderboard, myRank, myXp });
-  } catch (error) {
-    console.log("lb error", error);
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
-  }
-} else {
-  try {
-    let leaderboard;
-    if (pastDay) {
-      if (pastDayCacheElo.data && pastDayCacheElo.timestamp && Date.now() - pastDayCacheElo.timestamp < 60000) {
-        leaderboard = pastDayCacheElo.data;
+      if (pastDay) {
+        const userResult = await getUserDailyRank(myUsername, isXp);
+        myRank = userResult.rank;
+        myScore = userResult.delta;
       } else {
-        // Get current time and 24 hours ago
-        const now = new Date();
-        const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
-
-        // Optimized ELO changes calculation
-        const eloChanges = await UserStats.aggregate([
-          {
-            // First get recent stats to identify active users
-            $match: {
-              timestamp: { $gte: dayAgo }
-            }
-          },
-          {
-            $sort: { userId: 1, timestamp: -1 }
-          },
-          {
-            $group: {
-              _id: '$userId',
-              latestStat: { $first: '$$ROOT' }
-            }
-          },
-          {
-            // Now get the historical stat for each active user
-            $lookup: {
-              from: 'userstats',
-              let: { userId: '$_id', cutoff: dayAgo },
-              pipeline: [
-                {
-                  $match: {
-                    $expr: {
-                      $and: [
-                        { $eq: ['$userId', '$$userId'] },
-                        { $lte: ['$timestamp', '$$cutoff'] }
-                      ]
-                    }
-                  }
-                },
-                { $sort: { timestamp: -1 } },
-                { $limit: 1 }
-              ],
-              as: 'historicalStat'
-            }
-          },
-          {
-            $match: {
-              'historicalStat.0': { $exists: true }
-            }
-          },
-          {
-            $project: {
-              userId: '$_id',
-              currentElo: '$latestStat.elo',
-              previousElo: { $arrayElemAt: ['$historicalStat.elo', 0] },
-              eloChange: {
-                $subtract: [
-                  '$latestStat.elo',
-                  { $arrayElemAt: ['$historicalStat.elo', 0] }
-                ]
-              }
-            }
-          },
-          {
-            $match: {
-              eloChange: { $ne: 0 }
-            }
-          },
-          {
-            $sort: { eloChange: -1 }
-          },
-          {
-            $limit: 100
-          }
-        ]);
-
-        // Get user details for the users with ELO changes
-        const userIds = eloChanges.map(change => change.userId);
-        const users = await User.find({
-          _id: { $in: userIds },
-          banned: false
-        }).select('_id username elo totalXp created_at games').lean();
-
-        const userMap = new Map(users.map(u => [u._id.toString(), u]));
-
-        // Build leaderboard with user info and ELO changes
-        leaderboard = eloChanges.map(change => {
-          const user = userMap.get(change.userId);
-          if (!user || !user.username) return null;
-          
-          return {
-            username: user.username,
-            totalXp: user.totalXp || 0,
-            createdAt: user.created_at,
-            gamesLen: user.games?.length || 0,
-            elo: change.eloChange, // Show the delta for daily leaderboard
-            eloToday: change.eloChange // This represents the 24h change
-          };
-        }).filter(user => user !== null);
-
-        pastDayCacheElo.data = leaderboard;
-        pastDayCacheElo.timestamp = Date.now();
-      }
-    } else {
-      if (cacheElo.data && cacheElo.timestamp && Date.now() - cacheElo.timestamp < 60000) {
-        leaderboard = cacheElo.data;
-      } else {
-        const topUsers = await User.find({ banned: false }).sort({ elo: -1 }).limit(100); // Sort by Elo
-        leaderboard = topUsers.map(sendableUser).filter(user => user !== null);
-        cacheElo.data = leaderboard;
-        cacheElo.timestamp = Date.now();
-      }
-    }
-
-    let myRank = null;
-    let myElo = null;
-    if (myUsername) {
-      const user = await User.findOne({ username: myUsername });
-      if (user) {
-        if (pastDay) {
-          // Calculate user's 24h ELO change and rank among daily changes
-          const dayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
-          
-          // Get user's current and 24h ago stats using the same optimized approach
-          const currentStat = await UserStats.findOne({ userId: user._id.toString() })
-            .sort({ timestamp: -1 });
-          
-          const stat24hAgo = await UserStats.findOne({ 
-            userId: user._id.toString(),
-            timestamp: { $lte: dayAgo }
-          }).sort({ timestamp: -1 });
-          
-          if (currentStat && stat24hAgo) {
-            myElo = currentStat.elo - stat24hAgo.elo;
-            
-            // Count users with better ELO changes using the same optimized approach
-            const activeUserIds = await UserStats.distinct('userId', {
-              timestamp: { $gte: dayAgo }
+        // All-time ranking
+        const user = await User.findOne({ username: myUsername });
+        if (user) {
+          const sortField = isXp ? 'totalXp' : 'elo';
+          myScore = user[sortField];
+          if (myScore) {
+            const betterUsersCount = await User.countDocuments({ 
+              [sortField]: { $gt: myScore }, 
+              banned: false 
             });
-
-            const betterUsersCount = await UserStats.aggregate([
-              {
-                $match: {
-                  userId: { $in: activeUserIds }
-                }
-              },
-              {
-                $sort: { userId: 1, timestamp: -1 }
-              },
-              {
-                $group: {
-                  _id: '$userId',
-                  latestStat: { $first: '$$ROOT' }
-                }
-              },
-              {
-                $lookup: {
-                  from: 'userstats',
-                  let: { userId: '$_id', cutoff: dayAgo },
-                  pipeline: [
-                    {
-                      $match: {
-                        $expr: {
-                          $and: [
-                            { $eq: ['$userId', '$$userId'] },
-                            { $lte: ['$timestamp', '$$cutoff'] }
-                          ]
-                        }
-                      }
-                    },
-                    { $sort: { timestamp: -1 } },
-                    { $limit: 1 }
-                  ],
-                  as: 'historicalStat'
-                }
-              },
-              {
-                $match: {
-                  'historicalStat.0': { $exists: true }
-                }
-              },
-              {
-                $project: {
-                  eloChange: {
-                    $subtract: [
-                      '$latestStat.elo',
-                      { $arrayElemAt: ['$historicalStat.elo', 0] }
-                    ]
-                  }
-                }
-              },
-              {
-                $match: {
-                  eloChange: { $gt: myElo }
-                }
-              },
-              {
-                $count: "count"
-              }
-            ]);
-            
-            myRank = betterUsersCount.length > 0 ? betterUsersCount[0].count + 1 : 1;
-          } else {
-            // If user doesn't have historical data, set defaults
-            myElo = 0;
-            myRank = null;
-          }
-        } else {
-          // All-time ELO leaderboard
-          myElo = user.elo;
-          if (myElo) {
-            const myRankQuery = await User.find({ elo: { $gt: myElo }, banned: false }).countDocuments();
-            myRank = myRankQuery + 1;
+            myRank = betterUsersCount + 1;
           }
         }
       }
     }
 
-    return res.status(200).json({ leaderboard, myRank, myElo });
+    // Return consistent response format
+    const responseKey = isXp ? 'myXp' : 'myElo';
+    return res.status(200).json({ 
+      leaderboard, 
+      myRank, 
+      [responseKey]: myScore 
+    });
+
   } catch (error) {
-    console.log("elo error", error);
-    return res.status(500).json({ message: 'An error occurred', error: error.message });
+    console.error('Leaderboard API error:', error);
+    return res.status(500).json({ 
+      message: 'An error occurred', 
+      error: error.message 
+    });
   }
-}
 }
