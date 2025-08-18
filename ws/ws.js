@@ -90,14 +90,14 @@ const generateMainLocations = async () => {
       allLocations = data.locations;
 
     } else {
-      console.error('Failed to load locations', currentDate, data);
+      console.error('Failed to load locations', currentDate);
     }
 
   }).catch((e) => {
-    console.error('Failed to load locations', e, currentDate());
+    console.error('Failed to load locations', currentDate());
   });
 } catch(e) {
-  console.error('Failed to load locations', e, currentDate());
+  console.error('Failed to load locations', currentDate());
 }
 
 
