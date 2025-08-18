@@ -129,71 +129,102 @@ async function getDailyLeaderboard(isXp = true) {
   return { leaderboard, userDeltas: leaderboardData };
 }
 
-// Get user's position in daily leaderboard
+// Production-optimized user ranking for daily leaderboard
 async function getUserDailyRank(username, isXp = true) {
-  const user = await User.findOne({ username: username });
+  const user = await User.findOne({ username: username }).lean();
   if (!user) return { rank: null, delta: null };
 
   const scoreField = isXp ? 'totalXp' : 'elo';
-  const now = new Date();
-  const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+  const dayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
 
-  // Get user's 24h change
-  const userStats = await UserStats.find({
-    userId: user._id.toString(),
-    timestamp: { $gte: dayAgo }
-  }).sort({ timestamp: -1 }).limit(1);
+  console.time(`getUserDailyRank_${username}`);
 
-  const oldestUserStats = await UserStats.find({
-    userId: user._id.toString(),
-    timestamp: { $gte: dayAgo }
-  }).sort({ timestamp: 1 }).limit(1);
-
-  if (!userStats[0] || !oldestUserStats[0]) {
-    return { rank: null, delta: 0 };
-  }
-
-  const userDelta = userStats[0][scoreField] - oldestUserStats[0][scoreField];
-
-  // Count how many users have better deltas
-  const betterUsersCount = await UserStats.aggregate([
-    // Match users active in last 24h
+  // OPTIMIZED: Get user's stats and rank in one efficient query
+  const result = await UserStats.aggregate([
+    // Step 1: Get user's own delta first
     {
-      $match: {
-        timestamp: { $gte: dayAgo }
+      $facet: {
+        userDelta: [
+          {
+            $match: {
+              userId: user._id.toString(),
+              timestamp: { $gte: dayAgo }
+            }
+          },
+          { $sort: { timestamp: -1 } },
+          {
+            $group: {
+              _id: '$userId',
+              latest: { $first: `$${scoreField}` },
+              earliest: { $last: `$${scoreField}` }
+            }
+          },
+          {
+            $project: {
+              delta: { $subtract: ['$latest', '$earliest'] }
+            }
+          }
+        ],
+        betterUsers: [
+          {
+            $match: {
+              timestamp: { $gte: dayAgo }
+            }
+          },
+          { $sort: { userId: 1, timestamp: -1 } },
+          {
+            $group: {
+              _id: '$userId',
+              delta: {
+                $subtract: [
+                  { $first: `$${scoreField}` },
+                  { $last: `$${scoreField}` }
+                ]
+              }
+            }
+          },
+          {
+            $match: isXp ? { delta: { $gt: 0 } } : { delta: { $ne: 0 } }
+          }
+        ]
       }
     },
-    // Group by userId to get their 24h deltas
-    {
-      $sort: { userId: 1, timestamp: -1 }
-    },
-    {
-      $group: {
-        _id: '$userId',
-        latestStat: { $first: '$$ROOT' },
-        earliestStat: { $last: '$$ROOT' }
-      }
-    },
+    // Step 2: Count users with better deltas
     {
       $project: {
-        delta: {
-          $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`]
+        userDelta: { $arrayElemAt: ['$userDelta.delta', 0] },
+        rank: {
+          $add: [
+            {
+              $size: {
+                $filter: {
+                  input: '$betterUsers',
+                  cond: {
+                    $gt: [
+                      '$$this.delta',
+                      { $arrayElemAt: ['$userDelta.delta', 0] }
+                    ]
+                  }
+                }
+              }
+            },
+            1
+          ]
         }
       }
-    },
-    // Count users with better deltas
-    {
-      $match: {
-        delta: { $gt: userDelta }
-      }
-    },
-    {
-      $count: "count"
     }
   ]);
 
-  const rank = betterUsersCount.length > 0 ? betterUsersCount[0].count + 1 : 1;
-  return { rank, delta: userDelta };
+  let rank = null;
+  let delta = 0;
+
+  if (result.length > 0 && result[0].userDelta !== null) {
+    rank = result[0].rank;
+    delta = result[0].userDelta;
+  }
+
+  console.timeEnd(`getUserDailyRank_${username}`);
+  return { rank, delta };
 }
 
 export default async function handler(req, res) {
