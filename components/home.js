@@ -2293,13 +2293,15 @@ export default function Home({ }) {
                                                         }, 300);
                                                         }}>{text("communityMaps")}</button>}
 
-                                                <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
-                                                    setNavSlideOut(true);
-                                                    setTimeout(() => {
-                                                        setNavSlideOut(false); // Reset for next use
-                                                        setMapGuessrModal(true);
-                                                    }, 300);
-                                                    }}>MapGuessr</button>
+                                                {inCrazyGames && (
+                                                    <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
+                                                        setNavSlideOut(true);
+                                                        setTimeout(() => {
+                                                            setNavSlideOut(false); // Reset for next use
+                                                            setMapGuessrModal(true);
+                                                        }, 300);
+                                                        }}>MapGuessr</button>
+                                                )}
                                             </div>
                                         </>
                                     )}
