@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorldGuessr Explorer</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="world-map"></div>
+
+    <div class="game-overlay">
+        <!-- Stats panel moved to top right -->
+        <div id="game-stats" class="stats-panel top-right">
+            <div class="d-flex align-items-center gap-3">
+                <div class="time-display">⏱ <span id="timer">0:00</span></div>
+                <div class="score-stats d-flex align-items-center gap-2">
+                    <div class="score-display">🏆 <span id="score">0</span></div>
+                    <div class="progress-display">
+                        (<span id="progress">0/0</span>)
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Target country panel in top center -->
+        <div id="target-country" class="target-panel">
+            <div class="alert alert-info mb-0 d-flex align-items-center justify-content-between">
+                <div>Find: <span id="country-name"></span></div>
+                <button id="skip-country" class="btn btn-warning btn-sm">Skip</button>
+            </div>
+            <div id="feedback" class="alert d-none mt-2"></div>
+        </div>
+
+        <!-- Mode selector moved to bottom right -->
+        <div class="mode-selector bottom-right">
+            <select id="game-mode" class="form-select">
+                <option value="world">World Countries</option>
+                <option value="us">US States</option>
+            </select>
+            <button id="play-again" class="btn btn-secondary d-none mt-2 w-100">Play Again</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.14.2/dist/leaflet-geoman.min.js"></script>
+    <script src="{{ url_for('static', filename='js/countries.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+</body>
+</html>
