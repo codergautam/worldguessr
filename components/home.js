@@ -49,6 +49,7 @@ import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";
 import AlertModal from "@/components/ui/AlertModal";
 import WhatsNewModal from "@/components/ui/WhatsNewModal";
+import MapGuessrModal from "@/components/mapGuessrModal";
 import changelog from "@/components/changelog.json";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
@@ -101,7 +102,7 @@ export default function Home({ }) {
     // location aka map slug
     const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true }) // rate limit fix: showRoadName true
     const [showAnswer, setShowAnswer] = useState(false)
-    
+
     const [pinPoint, setPinPoint] = useState(null)
     const [hintShown, setHintShown] = useState(false)
     const [countryStreak, setCountryStreak] = useState(0)
@@ -109,6 +110,7 @@ export default function Home({ }) {
     const [mapModal, setMapModal] = useState(false)
     const [friendsModal, setFriendsModal] = useState(false)
     const [merchModal, setMerchModal] = useState(false)
+    const [mapGuessrModal, setMapGuessrModal] = useState(false)
     const [timeOffset, setTimeOffset] = useState(0)
     const [loginQueued, setLoginQueued] = useState(false);
     const [options, setOptions] = useState({
@@ -178,7 +180,7 @@ export default function Home({ }) {
         login = useGoogleLogin({
             onSuccess: tokenResponse => {
                 console.log("[Auth] Starting Google OAuth with retry mechanism");
-                
+
                 retryManager.fetchWithRetry(
                     clientConfig().apiUrl + "/api/googleAuth",
                     {
@@ -191,7 +193,7 @@ export default function Home({ }) {
                     'googleAuthLogin'
                 ).then((res) => res.json()).then((data) => {
                     console.log("[Auth] Google OAuth successful");
-                    
+
                     if (data.secret) {
                         setSession({ token: data })
                         window.localStorage.setItem("wg_secret", data.secret)
@@ -496,7 +498,7 @@ export default function Home({ }) {
     }, [screen])
 
     const [allLocsArray, setAllLocsArray] = useState([]);
-    
+
     function startOnboarding() {
 
         if (inCrazyGames) {
@@ -580,8 +582,8 @@ export default function Home({ }) {
                 maxDist: country ? countryMaxDists[country] : 20000,
                 extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
             };
-            
-            
+
+
             return newOptions;
         })
     }
@@ -2033,6 +2035,7 @@ export default function Home({ }) {
             <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
             <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
             {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
+            <MapGuessrModal isOpen={mapGuessrModal} onClose={() => setMapGuessrModal(false)} />
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
@@ -2289,6 +2292,14 @@ export default function Home({ }) {
                                                             setMapModal(true);
                                                         }, 300);
                                                         }}>{text("communityMaps")}</button>}
+
+                                                <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
+                                                    setNavSlideOut(true);
+                                                    setTimeout(() => {
+                                                        setNavSlideOut(false); // Reset for next use
+                                                        setMapGuessrModal(true);
+                                                    }, 300);
+                                                    }}>MapGuessr</button>
                                             </div>
                                         </>
                                     )}
@@ -2300,7 +2311,7 @@ export default function Home({ }) {
                         </div>
 
                         {/* Footer moved outside of sliding navigation */}
-                        <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen) ? "visible" : ""}`}>
+                        <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !mapGuessrModal) ? "visible" : ""}`}>
                             <div className="footer_btns">
                                 {!isApp && !inCoolMathGames && (
                                     <>
