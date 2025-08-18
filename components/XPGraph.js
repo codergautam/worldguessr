@@ -168,6 +168,32 @@ export default function XPGraph({ session, mode = 'xp' }) {
             console.log('[XPGraph] No data points available');
             setChartData(null);
             return;
+        } else if (dataPoints.length > 1) {
+            // Always extend the graph to today's date with the last value
+            const lastPoint = dataPoints[dataPoints.length - 1];
+            const now = new Date();
+            const lastPointDate = new Date(lastPoint.x);
+            
+            // Only add today's point if it's not already the last point (allow for some time tolerance)
+            const timeDiff = Math.abs(now.getTime() - lastPointDate.getTime());
+            const oneDayInMs = 24 * 60 * 60 * 1000;
+            
+            if (timeDiff > oneDayInMs) {
+                dataPoints.push({
+                    x: now,
+                    y: lastPoint.y,
+                    // Copy over properties with no change indicators
+                    ...(mode === 'xp' ? {
+                        xpGain: 0,
+                        rank: lastPoint.rank,
+                        rankGain: 0
+                    } : {
+                        eloGain: 0,
+                        rank: lastPoint.rank,
+                        rankGain: 0
+                    })
+                });
+            }
         }
 
         // Calculate point radius for each data point based on whether the value actually changed
