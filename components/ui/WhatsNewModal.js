@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Modal from './Modal';
 import { isVersionHigher } from '../utils/versionCompare';
+import { useSession } from '../auth/auth';
 
 // Get the latest version from changelog
 const getLatestVersion = (changelog) => {

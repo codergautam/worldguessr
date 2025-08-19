@@ -169,7 +169,7 @@ export default function MakeMapForm({ map, setMap, createMap }) {
 <li>Visit Google Maps on a desktop computer</li>
 <li>Drag the orange figure onto the map to open a streetview</li>
 <li>Copy the URL from the address bar of your browser into the textbox</li>
-<li>You can add also add JSON strings with {`{lat, lng, heading, pitch, zoom}`}</li>
+<li>You can add also add JSON strings with {`{lat, lng, heading, pitch, zoom, panoId}`}</li>
 
           </span>
 
