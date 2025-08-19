@@ -314,5 +314,6 @@
   "eloGain": "Эло изменения",
   "eloOverTime": "Эло со временем",
   "eloRankOverTime": "Эло ранга со временем",
-  "currentElo": "Текущий Эло"
+  "currentElo": "Текущий Эло",
+  "language": "Язык"
 }
