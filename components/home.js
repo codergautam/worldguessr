@@ -848,7 +848,33 @@ export default function Home({ }) {
 
                 const countryCode = json?.country_code;
                 let system = "metric";
-                if (countryCode && ["US", "LR", "MM", "UK"].includes(countryCode)) system = "imperial";
+                
+                if (countryCode && ["US", "LR", "MM", "UK"].includes(countryCode)) {
+                    system = "imperial";
+                } else if (!countryCode) {
+                    // Fallback: detect US timezone when API fails
+                    try {
+                        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                        const locale = navigator.language;
+                        
+                        // US timezone detection
+                        const isUSTimezone = timezone && (
+                            timezone.startsWith('America/') && 
+                            !timezone.startsWith('America/Argentina') &&
+                            !timezone.startsWith('America/Brazil') &&
+                            !timezone.includes('Mexico')
+                        );
+                        
+                        // US locale detection (more specific)
+                        const isUSLocale = locale && locale.startsWith('en-US');
+                        
+                        if (isUSTimezone || isUSLocale) {
+                            system = "imperial";
+                        }
+                    } catch (e) {
+                        // If everything fails, default to metric
+                    }
+                }
 
 
                 setOptions({
