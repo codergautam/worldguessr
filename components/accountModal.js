@@ -29,10 +29,12 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         textShadow: 'none'
     };
 
-    // Detect touch devices
+    // Detect touch devices (mobile and iPad)
     useEffect(() => {
         const checkTouchDevice = () => {
-            setIsTouchDevice(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+            const hasCoarsePointer = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+            const isTouchCapable = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            setIsTouchDevice(hasCoarsePointer || isTouchCapable);
         };
         
         checkTouchDevice();
@@ -83,10 +85,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         { key: "profile", label: text("profile"), icon: "👤" },
         { key: "history", label: text("history"), icon: "📜" },
         { key: "elo", label: text("ELO"), icon: "🏆" },
-        { key: "list", label: text("friends", {cnt: friends.length}), icon: "👥" },
-        { key: "sent", label: text("viewSentRequests", { cnt: sentRequests.length }), icon: "📤" },
-        { key: "received", label: text("viewReceivedRequests", { cnt: receivedRequests.length }), icon: "📥" },
-        { key: "add", label: text("addFriend"), icon: "➕" }
+        { key: "list", label: text("friends", {cnt: friends.length}), icon: "👥" }
     ];
 
 
@@ -126,16 +125,17 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 );
             case "elo":
                 return <EloView eloData={eloData} session={session} />;
+            case "list":
             default:
                 return (
                     <FriendsModal
                         ws={ws}
                         canSendInvite={canSendInvite}
                         sendInvite={sendInvite}
-                        accountModalPage={accountModalPage}
+                        accountModalPage="consolidated" // Always show consolidated view
                         setAccountModalPage={setAccountModalPage}
                         friends={friends}
-                        shown={accountModalPage !== "profile" && accountModalPage !== "elo"}
+                        shown={true}
                         setFriends={setFriends}
                         sentRequests={sentRequests}
                         setSentRequests={setSentRequests}

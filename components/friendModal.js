@@ -133,15 +133,16 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                 
 
                 <div className="friendsSection">
-                    {accountModalPage === "add" && (
-                        <div style={{ width: '100%' }}>
-                            <h1>{text("addFriend")}</h1>
-                            <p>
+                    {/* Consolidated Friends View */}
+                    <div style={{ width: '100%' }}>
+                        
+                        {/* Add Friend Section */}
+                        <div style={{ marginBottom: '30px', padding: '20px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px' }}>
+                            <h3>{text("addFriend")}</h3>
+                            <p style={{ fontSize: '0.9rem', opacity: 0.8, marginBottom: '15px' }}>
                                 {text("addFriendDescription")}
                             </p>
-                            <br />
                             <div className="input-group">
-
                                 <input
                                     type="text"
                                     value={newFriend}
@@ -152,9 +153,6 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                                 <button onClick={handleSendRequest} className="g2_green_button g2_button_style" disabled={friendReqProgress}>
                                     {friendReqProgress ? text("loading") : text("sendRequest")}
                                 </button>
-
-
-
                             </div>
                             <span className="friend-request-sent">
                                 {friendReqSendingState === 1 && text("friendReqSent")}
@@ -163,83 +161,87 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                                 {friendReqSendingState === 4 && text("friendReqAlreadySent")}
                                 {friendReqSendingState === 5 && text("friendReqAlreadyReceived")}
                                 {friendReqSendingState === 6 && text("alreadyFriends")}
-
                                 {friendReqSendingState > 6 && text("friendReqError")}
                             </span>
                         </div>
 
-                    )}
-
-
-                    {accountModalPage !== "add" && (
-                        <div className="friends-list-parent">
-                            <h3>
-                                {accountModalPage === 'list' && text("friends", { cnt: friends.length })}
-                                {accountModalPage === 'sent' && text("sentRequests", { cnt: sentRequests.length })}
-                                {accountModalPage === 'received' && text("receivedRequests", { cnt: receivedRequests.length })}
-                            </h3>
-
-                            {accountModalPage === 'received' && (
-                                <span>
-                                    {text("allowFriendRequests")}&nbsp;
-                                    {/* check box */}
-                                    <input type="checkbox" checked={allowFriendReq} onChange={(e) => ws?.send(JSON.stringify({ type: 'setAllowFriendReq', allow: e.target.checked }))} />
-
-                                </span>
-                            )}
-
-                            {accountModalPage === 'list' && friends.length === 0 && (
-                                <div>{text("noFriends")}</div>
-                            )}
-                            {accountModalPage === 'sent' && sentRequests.length === 0 && (
-                                <div>{text("noSentRequests")}</div>
-                            )}
-                            {accountModalPage === 'received' && receivedRequests.length === 0 && (
-                                <div>{text("noReceivedRequests")}</div>
-                            )}
-
-                            <div className="friends-list">
-                                {
-                                    (accountModalPage === 'list' ? friends : accountModalPage === 'sent' ? sentRequests : receivedRequests).sort((a, b) => b.online - a.online).map(friend => (
+                        {/* Received Requests Section */}
+                        {receivedRequests.length > 0 && (
+                            <div style={{ marginBottom: '30px' }}>
+                                <h3>{text("viewReceivedRequests", { cnt: receivedRequests.length })}</h3>
+                                <div style={{ marginBottom: '15px' }}>
+                                    <span>
+                                        {text("allowFriendRequests")}&nbsp;
+                                        <input type="checkbox" checked={allowFriendReq} onChange={(e) => ws?.send(JSON.stringify({ type: 'setAllowFriendReq', allow: e.target.checked }))} />
+                                    </span>
+                                </div>
+                                <div className="friends-list">
+                                    {receivedRequests.map(friend => (
                                         <div key={friend.id} className="friend-card">
                                             <div className="friend-details">
                                                 <span className="friend-name">
                                                     {friend?.name}
                                                     {friend?.supporter && <span className="badge">{text("supporter")}</span>}
                                                 </span>
-
-                                                {accountModalPage === 'list' && (
-                                                    <span className="friend-state">{friend?.online ? text("online") : text("offline")}</span>
-                                                )}
-
                                             </div>
-
-                                            {accountModalPage === 'sent' && (
-                                                <button onClick={() => handleCancel(friend.id)} className={"cancel-button"}>✖</button>
-                                            )}
-
-                                            {accountModalPage === 'list' && (
-                                                <div style={{ float: 'right' }}>
-                                                    {canSendInvite && friend.online && friend.socketId && (
-                                                        <button onClick={() => sendInvite(friend.socketId)} className={"invite-button"}>{text("invite")}</button>
-                                                    )}
-                                                    <button onClick={() => handleRemove(friend.id)} className={"cancel-button"}>✖</button>
-                                                </div>
-                                            )}
-
-                                            {accountModalPage === 'received' && (
-                                                <div style={{ float: 'right' }}>
-                                                    <button onClick={() => handleAccept(friend.id)} className={"accept-button"}>✔</button>
-                                                    <button onClick={() => handleDecline(friend.id)} className={"decline-button"}>✖</button>
-                                                </div>
-                                            )}
+                                            <div style={{ float: 'right' }}>
+                                                <button onClick={() => handleAccept(friend.id)} className={"accept-button"}>✔</button>
+                                                <button onClick={() => handleDecline(friend.id)} className={"decline-button"}>✖</button>
+                                            </div>
                                         </div>
-                                    ))
-                                }
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Sent Requests Section */}
+                        {sentRequests.length > 0 && (
+                            <div style={{ marginBottom: '30px' }}>
+                                <h3>{text("viewSentRequests", { cnt: sentRequests.length })}</h3>
+                                <div className="friends-list">
+                                    {sentRequests.map(friend => (
+                                        <div key={friend.id} className="friend-card">
+                                            <div className="friend-details">
+                                                <span className="friend-name">
+                                                    {friend?.name}
+                                                    {friend?.supporter && <span className="badge">{text("supporter")}</span>}
+                                                </span>
+                                            </div>
+                                            <button onClick={() => handleCancel(friend.id)} className={"cancel-button"}>✖</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Friends List Section */}
+                        <div>
+                            <h3>{text("friends", { cnt: friends.length })}</h3>
+                            {friends.length === 0 && (
+                                <div>{text("noFriends")}</div>
+                            )}
+                            <div className="friends-list">
+                                {friends.sort((a, b) => b.online - a.online).map(friend => (
+                                    <div key={friend.id} className="friend-card">
+                                        <div className="friend-details">
+                                            <span className="friend-name">
+                                                {friend?.name}
+                                                {friend?.supporter && <span className="badge">{text("supporter")}</span>}
+                                            </span>
+                                            <span className="friend-state">{friend?.online ? text("online") : text("offline")}</span>
+                                        </div>
+                                        <div style={{ float: 'right' }}>
+                                            {canSendInvite && friend.online && friend.socketId && (
+                                                <button onClick={() => sendInvite(friend.socketId)} className={"invite-button"}>{text("invite")}</button>
+                                            )}
+                                            <button onClick={() => handleRemove(friend.id)} className={"cancel-button"}>✖</button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
 
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>
