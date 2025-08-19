@@ -73,17 +73,10 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
           }, 400);
         }, 1500); // Show green for 1.5 seconds before sliding out
       } else {
-        // Fast connection - show green briefly then hide
-        setShowIcon(true);
+        // Fast connection - just stay hidden, no need to show anything
+        setShowIcon(false);
         setIsSliding(false);
         setIsSlideIn(false);
-        hideTimer.current = setTimeout(() => {
-          setIsSliding(true);
-          setTimeout(() => {
-            setShowIcon(false);
-            setIsSliding(false);
-          }, 400);
-        }, 2000);
       }
     } else if (connected) {
       // Already connected - hide immediately
