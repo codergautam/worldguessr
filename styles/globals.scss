@@ -188,7 +188,7 @@ html {
     .settingsModal {
         align-items: center; /* Center all children horizontally */
     }
-    
+
     .settingsModalInner {
         margin-left: auto;
         margin-right: auto;
@@ -196,13 +196,13 @@ html {
         justify-content: space-between; /* Spread label and input evenly */
         /* Remove max-content width on mobile for perfect alignment */
     }
-    
+
     .settingsModalInner label {
         flex: 1;
         text-align: left;
         white-space: nowrap;
     }
-    
+
     .settingsModalInner select,
     .settingsModalInner input[type="checkbox"] {
         flex-shrink: 0;
@@ -1143,6 +1143,7 @@ h1, h2, h3, span, label {
 .timer.duel {
     right: 50%;
     transform: translateX(50%);
+    margin-right: 0;
     top: 100px;
 }
 
