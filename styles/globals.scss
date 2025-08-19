@@ -2459,9 +2459,11 @@ img[alt="Google"] {
 }
 
 .onlineText.hide {
-    transform: translateX(0px);
-    opacity: 0;
-    animation: fadeOut 0.5s forwards;
+    transform: translateX(210px);
+}
+
+.onlineText.notHome.hide {
+    transform: translateX(210px);
 }
 
 .wiki {
