@@ -3,7 +3,7 @@
     "version": "1.0.0"
   },
   {
-    "version": "2.0.0",
+    "version": "2.0.2",
     "date": "8/20/2025",
     "change":"WorldGuessr just got a massive update.\n\n### 🎨 Major Improvements\n- Complete redesign of the user interface with a modern, sleek look.\n- Leaderboards fully functional including Past Day ELO.\n- Better multiplayer reconnect system\n- New round over screen for detailed postgame analysis!\n\n### 📈 Revamped Profile Page\n- Track your **ELO**, **XP**, and **ranks** over time with beautiful new graphs.\n- See your growth, streaks, and slumps in a glance.\n- Redesigned layout with better organization of your stats and achievements.\n\n### 🗺️ Better Maps!\n- Added support for **panoIds** (more precise control for creators)\n\n\nHuge thanks to the community for the feedback and ideas that made this update possible 💙\n\n",
     "postedBy": "gautam @ WorldGuessr"

@@ -46,7 +46,7 @@ export default function WhatsNewModal({ changelog, text }) {
 
   useEffect(() => {
     if (!changelog || changelog.length === 0) return;
-    
+
     // Only show modal for logged-in users
     if (!session || session === false) {
       console.log('User not logged in, skipping changelog modal');
@@ -65,7 +65,6 @@ export default function WhatsNewModal({ changelog, text }) {
         if (!latestEntry) return;
 
         // For testing - always show modal temporarily
-        console.log('Forcing modal to show for testing');
         setCurrentEntry(latestEntry);
         // setIsOpen(true);
 
