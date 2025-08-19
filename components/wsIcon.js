@@ -12,49 +12,45 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
   useEffect(() => {
     const wasConnected = prevConnected.current;
     const timeSinceMount = Date.now() - mountTime.current;
-    
+
     // Clear any existing timer
     if (hideTimer.current) {
       clearTimeout(hideTimer.current);
       hideTimer.current = null;
     }
 
-    // Don't show anything for the first 2 seconds if connecting fast
-    if (timeSinceMount < 2000 && connected) {
-      setShowIcon(false);
+    if (connecting) {
+      // Show connecting after 3 seconds, hide immediately if under 3 seconds
+      if (timeSinceMount >= 3000) {
+        setShowIcon(true);
+        setIsSliding(false);
+        setIsSlideIn(true);
+        setTimeout(() => setIsSlideIn(false), 400);
+      } else {
+        setShowIcon(false);
+        setIsSliding(false);
+        setIsSlideIn(false);
+      }
+    } else if (!connected) {
+      // Show red when disconnected immediately
+      setShowIcon(true);
+      setIsSliding(false);
+      setIsSlideIn(true);
+      setTimeout(() => setIsSlideIn(false), 400);
+    } else if (connected && !wasConnected) {
+      // Just connected - show green briefly then hide
+      setShowIcon(true);
       setIsSliding(false);
       setIsSlideIn(false);
-      prevConnected.current = connected;
-      return;
-    }
-
-    if (connecting) {
-      // Show yellow during connection attempts with slide in
-      setShowIcon(true);
-      setIsSliding(false);
-      setIsSlideIn(true);
-      setTimeout(() => setIsSlideIn(false), 300);
-    } else if (!connected) {
-      // Show red when disconnected with slide in
-      setShowIcon(true);
-      setIsSliding(false);
-      setIsSlideIn(true);
-      setTimeout(() => setIsSlideIn(false), 300);
-    } else if (connected && !wasConnected) {
-      // Just connected - smoothly transition to green, no slide-in animation
-      setShowIcon(true);
-      setIsSliding(false);
-      setIsSlideIn(false); // No slide-in when transitioning from connecting to connected
       hideTimer.current = setTimeout(() => {
         setIsSliding(true);
-        // Actually hide after slide animation completes
         setTimeout(() => {
           setShowIcon(false);
           setIsSliding(false);
-        }, 300);
+        }, 400);
       }, 2000);
-    } else {
-      // Already connected - hide
+    } else if (connected) {
+      // Already connected - hide immediately
       setShowIcon(false);
       setIsSliding(false);
       setIsSlideIn(false);
@@ -115,8 +111,8 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
           top: '100px',
           right: isSliding ? '-85px' : (isSlideIn ? '-85px' : '15px'),
           zIndex: 10000,
-          width: '70px',
-          height: '70px',
+          width: '50px',
+          height: '50px',
           borderRadius: '15px',
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
           backdropFilter: 'blur(10px)',
@@ -125,7 +121,7 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
           justifyContent: 'center',
           cursor: onClick ? 'pointer' : 'default',
           boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-          transition: (isSliding || isSlideIn) ? 'right 0.3s ease-out' : 'all 0.3s ease',
+          transition: 'right 0.4s ease-in-out, transform 0.4s ease-in-out, all 0.3s ease',
           border: `3px solid ${getColor()}`,
           pointerEvents: 'auto',
           animation: (!isSliding && !isSlideIn) ? getAnimation() : 'none',
