@@ -154,10 +154,18 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                             width: '100vw',
                             height: '100vh',
                             background: 'transparent',
-                            borderRadius: 0
+                            borderRadius: 0,
+                            overflow: 'hidden', // Prevent modal from scrolling
+                            display: 'flex',
+                            alignItems: 'stretch',
+                            justifyContent: 'stretch'
                         },
                         modalContainer: {
                             height: 'auto',
+                        },
+                        overlay: {
+                            // Disable library's overlay scroll behavior
+                            overflow: 'hidden'
                         }
                     }}
                     classNames={{ modal: "account-modal", modalContainer: "account-modal-p-container" }}
@@ -166,13 +174,20 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     onClose={() => setAccountModalOpen(false)}
                     showCloseIcon={false}
                     animationDuration={300}
+                    blockScroll={false} // Critical: prevent library from blocking body scroll
+                    closeOnOverlayClick={true}
                 >
                     <div className="account-modal-container">
                         {/* Background with overlay */}
                         <div className="account-modal-background"></div>
 
                         {/* Main content */}
-                        <div className="account-modal-content">
+                        <div className="account-modal-content" style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            height: '100%',
+                            overflow: 'hidden'
+                        }}>
                             {/* Header with prominent close button */}
                             <div className="account-modal-header">
                                 <h1 className="account-modal-title">{accountData?.username || text("account")} {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}</h1>
@@ -203,9 +218,31 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                                 </nav>
                             </div>
 
-                            {/* Content Area */}
-                            <div className="account-modal-body">
-                                {renderContent()}
+                            {/* Content Area - Single scroll container for iOS */}
+                            <div className="account-modal-body" style={{
+                                height: '100%',
+                                overflowY: 'scroll', // Force scroll instead of auto
+                                overflowX: 'hidden',
+                                WebkitOverflowScrolling: 'touch',
+                                touchAction: 'pan-y pinch-zoom', // Allow vertical pan and pinch
+                                overscrollBehavior: 'contain',
+                                scrollbarGutter: 'stable',
+                                transform: 'translateZ(0)', // Force hardware acceleration
+                                willChange: 'scroll-position', // Optimize for scroll performance
+                                flex: '1 1 auto',
+                                minHeight: 0,
+                                minWidth: 0,
+                                boxSizing: 'border-box'
+                            }}>
+                                <div style={{
+                                    width: '100%',
+                                    overflowY: 'visible',
+                                    overflowX: 'hidden',
+                                    minHeight: 'calc(100vh + 1px)', // Ensure content is always scrollable on iOS
+                                    paddingBottom: '40px'
+                                }}>
+                                    {renderContent()}
+                                </div>
                             </div>
                         </div>
                     </div>
