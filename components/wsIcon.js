@@ -8,35 +8,46 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
   const prevConnected = useRef(connected);
   const prevConnecting = useRef(connecting);
   const hideTimer = useRef(null);
+  const connectingTimer = useRef(null);
   const connectingStartTime = useRef(null);
 
   useEffect(() => {
     const wasConnected = prevConnected.current;
     const wasConnecting = prevConnecting.current;
 
-    // Track when connecting starts
-    if (connecting && !wasConnecting) {
-      connectingStartTime.current = Date.now();
-    }
-
-    // Clear any existing timer
+    // Clear any existing timers
     if (hideTimer.current) {
       clearTimeout(hideTimer.current);
       hideTimer.current = null;
     }
+    if (connectingTimer.current) {
+      clearTimeout(connectingTimer.current);
+      connectingTimer.current = null;
+    }
 
     if (connecting) {
-      // Show connecting after 3 seconds, hide immediately if under 3 seconds
-      const timeSinceConnecting = connectingStartTime.current ? Date.now() - connectingStartTime.current : 0;
-      if (timeSinceConnecting >= 3000) {
-        setShowIcon(true);
-        setIsSliding(false);
-        setIsSlideIn(true);
-        setTimeout(() => setIsSlideIn(false), 400);
-      } else {
+      if (!wasConnecting) {
+        // Just started connecting - hide icon and set timer
+        connectingStartTime.current = Date.now();
         setShowIcon(false);
         setIsSliding(false);
         setIsSlideIn(false);
+        
+        // Set timer to show connecting icon after 3 seconds
+        connectingTimer.current = setTimeout(() => {
+          setShowIcon(true);
+          setIsSliding(false);
+          setIsSlideIn(true);
+          setTimeout(() => setIsSlideIn(false), 400);
+        }, 3000);
+      } else {
+        // Still connecting - check if we should show icon now
+        const timeSinceConnecting = connectingStartTime.current ? Date.now() - connectingStartTime.current : 0;
+        if (timeSinceConnecting >= 3000) {
+          setShowIcon(true);
+          setIsSliding(false);
+          setIsSlideIn(false);
+        }
       }
     } else if (!connected) {
       // Show red when disconnected immediately
@@ -45,17 +56,35 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
       setIsSlideIn(true);
       setTimeout(() => setIsSlideIn(false), 400);
     } else if (connected && !wasConnected) {
-      // Just connected - show green briefly then hide
-      setShowIcon(true);
-      setIsSliding(false);
-      setIsSlideIn(false);
-      hideTimer.current = setTimeout(() => {
-        setIsSliding(true);
-        setTimeout(() => {
-          setShowIcon(false);
-          setIsSliding(false);
-        }, 400);
-      }, 2000);
+      // Just connected - check if we were connecting for 3+ seconds for cool effect
+      const timeSinceConnecting = connectingStartTime.current ? Date.now() - connectingStartTime.current : 0;
+      const wasShowingConnecting = timeSinceConnecting >= 3000;
+      
+      if (wasShowingConnecting) {
+        // Cool transition from yellow to green then slide out
+        setShowIcon(true);
+        setIsSliding(false);
+        setIsSlideIn(false);
+        hideTimer.current = setTimeout(() => {
+          setIsSliding(true);
+          setTimeout(() => {
+            setShowIcon(false);
+            setIsSliding(false);
+          }, 400);
+        }, 1500); // Show green for 1.5 seconds before sliding out
+      } else {
+        // Fast connection - show green briefly then hide
+        setShowIcon(true);
+        setIsSliding(false);
+        setIsSlideIn(false);
+        hideTimer.current = setTimeout(() => {
+          setIsSliding(true);
+          setTimeout(() => {
+            setShowIcon(false);
+            setIsSliding(false);
+          }, 400);
+        }, 2000);
+      }
     } else if (connected) {
       // Already connected - hide immediately
       setShowIcon(false);
@@ -67,11 +96,14 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
     prevConnecting.current = connecting;
   }, [connected, connecting]);
 
-  // Cleanup timer on unmount
+  // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       if (hideTimer.current) {
         clearTimeout(hideTimer.current);
+      }
+      if (connectingTimer.current) {
+        clearTimeout(connectingTimer.current);
       }
     };
   }, []);
