@@ -1,9 +1,8 @@
 import User from '../models/User.js';
 import UserStats from '../models/UserStats.js';
 
-// Production-scale caching for 2M+ users
-const CACHE_DURATION = 300000; // 5 minute cache for production performance
-const DAILY_CACHE_DURATION = 180000; // 3 minute cache for daily leaderboards (more frequent updates)
+// Improved caching with separate keys for different modes
+const CACHE_DURATION = 60000; // 1 minute cache
 const cache = new Map();
 
 function getCacheKey(mode, pastDay) {
@@ -12,8 +11,7 @@ function getCacheKey(mode, pastDay) {
 
 function getCachedData(key) {
   const cached = cache.get(key);
-  const cacheDuration = key.includes('daily') ? DAILY_CACHE_DURATION : CACHE_DURATION;
-  if (cached && Date.now() - cached.timestamp < cacheDuration) {
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
     return cached.data;
   }
   return null;
@@ -37,26 +35,25 @@ function sendableUser(user) {
   };
 }
 
+// Improved 24h leaderboard calculation using UserStats model methods
 async function getDailyLeaderboard(isXp = true) {
   const scoreField = isXp ? 'totalXp' : 'elo';
   const now = new Date();
   const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
-  console.time(`getDailyLeaderboard_${isXp ? 'xp' : 'elo'}`);
-
-  // PRODUCTION OPTIMIZATION: Single aggregation with user data included
-  const leaderboardData = await UserStats.aggregate([
-    // STEP 1: Filter to last 24h (uses timestamp index)
+  // Get all users who have stats in the last 24h with their deltas
+  const userDeltas = await UserStats.aggregate([
+    // Match users active in last 24h
     {
       $match: {
         timestamp: { $gte: dayAgo }
       }
     },
-    // STEP 2: Sort for efficient grouping (uses compound index)
+    // Sort by userId and timestamp to get latest first
     {
       $sort: { userId: 1, timestamp: -1 }
     },
-    // STEP 3: Get first/last stats per user in 24h window
+    // Group by userId to get latest and earliest in 24h period
     {
       $group: {
         _id: '$userId',
@@ -64,167 +61,126 @@ async function getDailyLeaderboard(isXp = true) {
         earliestStat: { $last: '$$ROOT' }
       }
     },
-    // STEP 4: Calculate deltas and add user lookup in single stage
+    // Calculate the actual 24h change
     {
-      $lookup: {
-        from: 'users',
-        localField: '_id',
-        foreignField: '_id',
-        pipeline: [
-          { $match: { banned: false } },
-          { $project: { username: 1, elo: 1, totalXp: 1, created_at: 1, games: 1 } }
-        ],
-        as: 'user'
+      $project: {
+        userId: '$_id',
+        latestScore: `$latestStat.${scoreField}`,
+        earliestScore: `$earliestStat.${scoreField}`,
+        delta: {
+          $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`]
+        },
+        latestTimestamp: '$latestStat.timestamp',
+        earliestTimestamp: '$earliestStat.timestamp'
       }
     },
-    // STEP 5: Filter out banned users and calculate deltas
+    // Only include users with meaningful changes (positive for XP, any change for ELO)
+    {
+      $match: isXp ? { delta: { $gt: 0 } } : { delta: { $ne: 0 } }
+    },
+    // Sort by delta descending
+    {
+      $sort: { delta: -1 }
+    },
+    // Limit to top 100
+    {
+      $limit: 100
+    }
+  ]);
+
+  // Get user details for all users in the leaderboard
+  const userIds = userDeltas.map(delta => delta.userId);
+  const users = await User.find({
+    _id: { $in: userIds },
+    banned: false
+  }).select('_id username elo totalXp created_at games').lean();
+
+  const userMap = new Map(users.map(u => [u._id.toString(), u]));
+
+  // Build leaderboard with proper data
+  const leaderboard = userDeltas.map((delta, index) => {
+    const user = userMap.get(delta.userId);
+    if (!user || !user.username) return null;
+
+    return {
+      username: user.username,
+      totalXp: isXp ? delta.delta : user.totalXp, // For XP show delta, for ELO show current total XP
+      createdAt: user.created_at,
+      gamesLen: user.games?.length || 0,
+      elo: isXp ? user.elo : delta.delta, // For ELO mode show delta in elo field
+      eloToday: delta.delta, // Always show the 24h change
+      rank: index + 1
+    };
+  }).filter(user => user !== null);
+
+  return { leaderboard, userDeltas };
+}
+
+// Get user's position in daily leaderboard
+async function getUserDailyRank(username, isXp = true) {
+  const user = await User.findOne({ username: username });
+  if (!user) return { rank: null, delta: null };
+
+  const scoreField = isXp ? 'totalXp' : 'elo';
+  const now = new Date();
+  const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+  // Get user's 24h change
+  const userStats = await UserStats.find({
+    userId: user._id.toString(),
+    timestamp: { $gte: dayAgo }
+  }).sort({ timestamp: -1 }).limit(1);
+
+  const oldestUserStats = await UserStats.find({
+    userId: user._id.toString(),
+    timestamp: { $gte: dayAgo }
+  }).sort({ timestamp: 1 }).limit(1);
+
+  if (!userStats[0] || !oldestUserStats[0]) {
+    return { rank: null, delta: 0 };
+  }
+
+  const userDelta = userStats[0][scoreField] - oldestUserStats[0][scoreField];
+
+  // Count how many users have better deltas
+  const betterUsersCount = await UserStats.aggregate([
+    // Match users active in last 24h
     {
       $match: {
-        'user.0': { $exists: true },
-        'user.0.username': { $exists: true }
+        timestamp: { $gte: dayAgo }
+      }
+    },
+    // Group by userId to get their 24h deltas
+    {
+      $sort: { userId: 1, timestamp: -1 }
+    },
+    {
+      $group: {
+        _id: '$userId',
+        latestStat: { $first: '$$ROOT' },
+        earliestStat: { $last: '$$ROOT' }
       }
     },
     {
-      $addFields: {
-        user: { $arrayElemAt: ['$user', 0] },
+      $project: {
         delta: {
           $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`]
         }
       }
     },
-    // STEP 6: Filter meaningful changes only
+    // Count users with better deltas
     {
-      $match: isXp ? { delta: { $gt: 0 } } : { delta: { $ne: 0 } }
-    },
-    // STEP 7: Sort by delta and limit (most expensive operation at the end)
-    {
-      $sort: { delta: -1 }
-    },
-    {
-      $limit: 100
-    },
-    // STEP 8: Format final output
-    {
-      $project: {
-        username: '$user.username',
-        totalXp: isXp ? '$delta' : '$user.totalXp',
-        createdAt: '$user.created_at',
-        gamesLen: { $size: { $ifNull: ['$user.games', []] } },
-        elo: isXp ? '$user.elo' : '$delta',
-        eloToday: '$delta',
-        rank: { $add: [{ $indexOfArray: [[], '$_id'] }, 1] } // Will be set after
+      $match: {
+        delta: { $gt: userDelta }
       }
+    },
+    {
+      $count: "count"
     }
   ]);
 
-  // Add rank numbers efficiently
-  const leaderboard = leaderboardData.map((user, index) => ({
-    ...user,
-    rank: index + 1
-  }));
-
-  console.timeEnd(`getDailyLeaderboard_${isXp ? 'xp' : 'elo'}`);
-  console.log(`Daily leaderboard generated: ${leaderboard.length} users`);
-
-  return { leaderboard, userDeltas: leaderboardData };
-}
-
-// Production-optimized user ranking for daily leaderboard
-async function getUserDailyRank(username, isXp = true) {
-  const user = await User.findOne({ username: username }).lean();
-  if (!user) return { rank: null, delta: null };
-
-  const scoreField = isXp ? 'totalXp' : 'elo';
-  const dayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
-
-  console.time(`getUserDailyRank_${username}`);
-
-  // OPTIMIZED: Get user's stats and rank in one efficient query
-  const result = await UserStats.aggregate([
-    // Step 1: Get user's own delta first
-    {
-      $facet: {
-        userDelta: [
-          {
-            $match: {
-              userId: user._id.toString(),
-              timestamp: { $gte: dayAgo }
-            }
-          },
-          { $sort: { timestamp: -1 } },
-          {
-            $group: {
-              _id: '$userId',
-              latest: { $first: `$${scoreField}` },
-              earliest: { $last: `$${scoreField}` }
-            }
-          },
-          {
-            $project: {
-              delta: { $subtract: ['$latest', '$earliest'] }
-            }
-          }
-        ],
-        betterUsers: [
-          {
-            $match: {
-              timestamp: { $gte: dayAgo }
-            }
-          },
-          { $sort: { userId: 1, timestamp: -1 } },
-          {
-            $group: {
-              _id: '$userId',
-              delta: {
-                $subtract: [
-                  { $first: `$${scoreField}` },
-                  { $last: `$${scoreField}` }
-                ]
-              }
-            }
-          },
-          {
-            $match: isXp ? { delta: { $gt: 0 } } : { delta: { $ne: 0 } }
-          }
-        ]
-      }
-    },
-    // Step 2: Count users with better deltas
-    {
-      $project: {
-        userDelta: { $arrayElemAt: ['$userDelta.delta', 0] },
-        rank: {
-          $add: [
-            {
-              $size: {
-                $filter: {
-                  input: '$betterUsers',
-                  cond: {
-                    $gt: [
-                      '$$this.delta',
-                      { $arrayElemAt: ['$userDelta.delta', 0] }
-                    ]
-                  }
-                }
-              }
-            },
-            1
-          ]
-        }
-      }
-    }
-  ]);
-
-  let rank = null;
-  let delta = 0;
-
-  if (result.length > 0 && result[0].userDelta !== null) {
-    rank = result[0].rank;
-    delta = result[0].userDelta;
-  }
-
-  console.timeEnd(`getUserDailyRank_${username}`);
-  return { rank, delta };
+  const rank = betterUsersCount.length > 0 ? betterUsersCount[0].count + 1 : 1;
+  return { rank, delta: userDelta };
 }
 
 export default async function handler(req, res) {
