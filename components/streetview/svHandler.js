@@ -55,10 +55,12 @@ const SvEmbedIframe = (params) => {
     };
 
     if (typeof window !== "undefined") {
-      window.onmessage = handleMessage;
+      window.addEventListener("message", handleMessage);
     }
     return () => {
-      window.onmessage = null;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("message", handleMessage);
+      }
     }
   }, []);
 
