@@ -11,31 +11,31 @@ export default function EloView({ eloData, session }) {
     const containerStyle = {
         display: 'flex',
         flexDirection: 'column',
-        gap: '30px',
+        gap: 'clamp(15px, 4vw, 30px)',
         color: '#fff',
         fontFamily: 'Arial, sans-serif',
     };
 
     const cardStyle = {
         background: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: '20px',
-        padding: '30px',
+        borderRadius: 'clamp(10px, 3vw, 20px)',
+        padding: 'clamp(15px, 4vw, 30px)',
         backdropFilter: 'blur(20px)',
         border: '1px solid rgba(255, 255, 255, 0.1)',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
     };
 
     const titleStyle = {
-        fontSize: '48px',
+        fontSize: 'clamp(24px, 6vw, 48px)',
         fontWeight: 600,
-        marginBottom: '20px',
+        marginBottom: 'clamp(10px, 3vw, 20px)',
         color: 'white',
         textAlign: 'center',
         textShadow: '2px 2px 4px rgba(0,0,0,0.3)'
     };
 
     const descriptionStyle = {
-        fontSize: '18px',
+        fontSize: 'clamp(14px, 3vw, 18px)',
         color: '#b0b0b0',
         marginBottom: '10px',
         textAlign: 'center',
@@ -44,31 +44,31 @@ export default function EloView({ eloData, session }) {
 
     const statsGridStyle = {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-        gap: '20px',
-        marginTop: '20px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        gap: 'clamp(10px, 3vw, 20px)',
+        marginTop: 'clamp(10px, 3vw, 20px)'
     };
 
     const statItemStyle = {
         background: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: '15px',
-        padding: '20px',
+        borderRadius: 'clamp(8px, 2vw, 15px)',
+        padding: 'clamp(12px, 3vw, 20px)',
         textAlign: 'center',
         border: '1px solid rgba(255, 255, 255, 0.1)',
         transition: 'all 0.3s ease'
     };
 
     const statLabelStyle = {
-        fontSize: '16px',
+        fontSize: 'clamp(12px, 2.5vw, 16px)',
         color: '#b0b0b0',
-        marginBottom: '8px',
+        marginBottom: 'clamp(4px, 1.5vw, 8px)',
         textTransform: 'uppercase',
         letterSpacing: '0.5px',
         fontWeight: '500'
     };
 
     const statValueStyle = {
-        fontSize: '28px',
+        fontSize: 'clamp(18px, 4vw, 28px)',
         color: '#ffd700',
         fontWeight: 'bold',
         textShadow: '0 0 10px rgba(255, 215, 0, 0.3)'
@@ -78,12 +78,12 @@ export default function EloView({ eloData, session }) {
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        gap: '15px',
+        gap: 'clamp(8px, 2vw, 15px)',
         flexWrap: 'wrap',
-        marginTop: '30px',
-        padding: '20px',
+        marginTop: 'clamp(15px, 4vw, 30px)',
+        padding: 'clamp(10px, 3vw, 20px)',
         background: 'rgba(0, 0, 0, 0.2)',
-        borderRadius: '20px',
+        borderRadius: 'clamp(10px, 3vw, 20px)',
         border: '1px solid rgba(255, 255, 255, 0.1)'
     };
 
@@ -105,9 +105,9 @@ export default function EloView({ eloData, session }) {
             {/* League System */}
             <div style={cardStyle}>
                 <h2 style={{
-                    fontSize: '32px',
+                    fontSize: 'clamp(20px, 4vw, 32px)',
                     fontWeight: 600,
-                    marginBottom: '20px',
+                    marginBottom: 'clamp(10px, 3vw, 20px)',
                     color: 'white',
                     textAlign: 'center'
                 }}>
@@ -140,15 +140,15 @@ export default function EloView({ eloData, session }) {
                             >
                                 {/* League Square with Shine Effect */}
                                 <div style={{
-                                    width: '80px',
-                                    height: '70px',
+                                    width: 'clamp(50px, 10vw, 80px)',
+                                    height: 'clamp(45px, 9vw, 70px)',
                                     display: 'flex',
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     backgroundColor: league.color,
                                     color: 'black',
-                                    borderRadius: '15px',
-                                    fontSize: '50px',
+                                    borderRadius: 'clamp(8px, 2vw, 15px)',
+                                    fontSize: 'clamp(25px, 6vw, 50px)',
                                     fontWeight: 'bold',
                                     position: 'relative',
                                     overflow: 'hidden',
@@ -173,8 +173,8 @@ export default function EloView({ eloData, session }) {
 
                                 {/* League Name */}
                                 <p style={{
-                                    fontSize: '16px',
-                                    marginTop: '8px',
+                                    fontSize: 'clamp(12px, 3vw, 16px)',
+                                    marginTop: 'clamp(6px, 1.5vw, 8px)',
                                     color: isCurrentLeague ? '#ffd700' : '#e0e0e0',
                                     fontWeight: isCurrentLeague ? 'bold' : '600',
                                     textShadow: isCurrentLeague ? '0px 0px 8px #ffd700' : 'none'
@@ -186,15 +186,15 @@ export default function EloView({ eloData, session }) {
                                 {eloNeeded > 0 && (
                                     <div style={{
                                         position: 'absolute',
-                                        top: '-18px',
+                                        top: 'clamp(-20px, -4vw, -16px)',
                                         left: '50%',
                                         transform: 'translateX(-50%)',
                                         backgroundColor: league.color,
                                         color: 'black',
                                         border: '2px solid black',
-                                        padding: '4px 8px',
-                                        borderRadius: '10px',
-                                        fontSize: '12px',
+                                        padding: 'clamp(3px, 1vw, 4px) clamp(6px, 2vw, 8px)',
+                                        borderRadius: 'clamp(8px, 2vw, 10px)',
+                                        fontSize: 'clamp(10px, 2.5vw, 12px)',
                                         fontWeight: 'bold',
                                         opacity: hoveredLeague === league.name ? 1 : 0,
                                         transition: 'opacity 0.3s',
@@ -214,9 +214,9 @@ export default function EloView({ eloData, session }) {
             {/* Stats Section */}
             <div style={cardStyle}>
                 <h2 style={{
-                    fontSize: '32px',
+                    fontSize: 'clamp(20px, 4vw, 32px)',
                     fontWeight: 600,
-                    marginBottom: '20px',
+                    marginBottom: 'clamp(10px, 3vw, 20px)',
                     color: 'white',
                     textAlign: 'center'
                 }}>
