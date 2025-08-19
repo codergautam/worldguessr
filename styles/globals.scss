@@ -439,13 +439,13 @@ html {
     // if height less than 500px
     @media screen and (max-height: 500px) {
         .home__footer {
-            bottom: 0px;
+            bottom: 10px;
             position: static;
-            align-items: normal !important;
+            align-items: center !important;
         }
         .footer_btns {
-            align-items: normal !important;
-            justify-content: normal !important;
+            align-items: center !important;
+            justify-content: center !important;
         }
     }
 
