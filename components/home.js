@@ -2167,11 +2167,9 @@ export default function Home({ }) {
                     onConnectionError={() => setConnectionErrorModalShown(true)}
                 />
 
-                {multiplayerState?.playerCount && (
-                    <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || (multiplayerState?.inGame && multiplayerState?.gameData?.state !== 'waitingForPlayers') || !multiplayerState?.connected) ? 'hide' : ''}`}>
-                        {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState.playerCount })}
-                    </span>
-                )}
+                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || (multiplayerState?.inGame && multiplayerState?.gameData?.state !== 'waitingForPlayers') || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
+                    {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
+                </span>
 
                 {/* reload button for public game */}
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
