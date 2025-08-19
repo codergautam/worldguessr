@@ -839,41 +839,33 @@ export default function Home({ }) {
             if (options) {
                 setOptions(JSON.parse(options))
             } else {
-                let json;
-
-                try {
-                    const res = await fetch("https://ipapi.co/json/");
-                    json = await res.json();
-                } catch (e) { }
-
-                const countryCode = json?.country_code;
                 let system = "metric";
                 
-                if (countryCode && ["US", "LR", "MM", "UK"].includes(countryCode)) {
-                    system = "imperial";
-                } else if (!countryCode) {
-                    // Fallback: detect US timezone when API fails
-                    try {
-                        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                        const locale = navigator.language;
-                        
-                        // US timezone detection
-                        const isUSTimezone = timezone && (
-                            timezone.startsWith('America/') && 
-                            !timezone.startsWith('America/Argentina') &&
-                            !timezone.startsWith('America/Brazil') &&
-                            !timezone.includes('Mexico')
-                        );
-                        
-                        // US locale detection (more specific)
-                        const isUSLocale = locale && locale.startsWith('en-US');
-                        
-                        if (isUSTimezone || isUSLocale) {
-                            system = "imperial";
-                        }
-                    } catch (e) {
-                        // If everything fails, default to metric
+                // Detect US/UK users for imperial units using timezone + locale
+                try {
+                    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    const locale = navigator.language;
+                    
+                    // US timezone detection
+                    const isUSTimezone = timezone && (
+                        timezone.startsWith('America/') && 
+                        !timezone.startsWith('America/Argentina') &&
+                        !timezone.startsWith('America/Brazil') &&
+                        !timezone.includes('Mexico')
+                    );
+                    
+                    // UK timezone detection
+                    const isUKTimezone = timezone && timezone.startsWith('Europe/London');
+                    
+                    // Locale detection
+                    const isUSLocale = locale && locale.startsWith('en-US');
+                    const isUKLocale = locale && locale.startsWith('en-GB');
+                    
+                    if (isUSTimezone || isUKTimezone || isUSLocale || isUKLocale) {
+                        system = "imperial";
                     }
+                } catch (e) {
+                    // If everything fails, default to metric
                 }
 
 
