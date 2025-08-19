@@ -87,6 +87,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
                 )} */}
 
 
+                {!makeMap.open && (
                 <div className="g2_nav_group map_categories">
                     <button className="g2_nav_text singleplayer comm_map_category_header"
                         onClick={() => document.getElementById("countryMaps_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
@@ -101,6 +102,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
                         onClick={() => document.getElementById("recent_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
                     >{text("recent")}</button>
                 </div>
+                )}
                 <div className="g2_nav_hr"></div>
                 {!makeMap.open && (
 
