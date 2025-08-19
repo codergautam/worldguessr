@@ -2987,7 +2987,7 @@ img[alt="Google"] {
 
     .game-summary-sidebar.mobile-expanded {
         grid-template-rows: auto 1fr;
-        max-height: 90vh;
+        max-height: 95vh;
     }
 
     .mobile-expand-btn {
@@ -3076,7 +3076,6 @@ img[alt="Google"] {
     .summary-header {
         padding: 15px 15px 10px;
         grid-row: 1;
-        min-height: 140px; /* Increased to accommodate game ID section */
     }
 
     .summary-header:not(.mobile-expanded) {
