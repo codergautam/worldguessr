@@ -71,6 +71,7 @@ const initialMultiplayerState = {
     enteringGameCode: false,
     nextGameType: null,
     maxRetries: 50,
+    currentRetry: 0,
     createOptions: {
         rounds: 5,
         timePerRound: 30,
@@ -1062,12 +1063,40 @@ export default function Home({ }) {
                     ...prev,
                     connecting: true,
                     shouldConnect: false,
+                    currentRetry: 1
                 }))
-                const ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 50)
+                
+                // Custom retry wrapper to track attempts
+                let ws = null;
+                let currentAttempt = 1;
+                const maxAttempts = 50;
+                
+                while (currentAttempt <= maxAttempts && !ws) {
+                    try {
+                        setMultiplayerState((prev) => ({
+                            ...prev,
+                            currentRetry: currentAttempt
+                        }))
+                        
+                        ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 0) // 0 retries, we handle it ourselves
+                        break;
+                    } catch (error) {
+                        console.log(`Connection attempt ${currentAttempt}/${maxAttempts} failed`);
+                        if (currentAttempt < maxAttempts) {
+                            currentAttempt++;
+                            await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
+                        } else {
+                            throw error;
+                        }
+                    }
+                }
                 if (ws && ws.readyState === 1) {
                     setWs(ws)
                     setMultiplayerState((prev) => ({
                         ...prev,
+                        connected: true,
+                        connecting: false,
+                        currentRetry: 0,
                         error: false
                     }))
 
@@ -1553,6 +1582,7 @@ export default function Home({ }) {
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
                 maxRetries: prev.maxRetries,
+                currentRetry: prev.currentRetry,
             }));
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
                 setMultiplayerError(true)
@@ -1574,6 +1604,7 @@ export default function Home({ }) {
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
                 maxRetries: prev.maxRetries,
+                currentRetry: prev.currentRetry,
             }));
 
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
@@ -2411,6 +2442,7 @@ export default function Home({ }) {
                     title={multiplayerState.connecting ? text("multiplayerConnecting") : text("multiplayerNotConnected")}
                     message={multiplayerState.connecting
                         ? text("connectingMessage", {
+                            currentRetry: multiplayerState.currentRetry,
                             maxRetries: multiplayerState.maxRetries
                           })
                         : text("multiplayerConnectionErrorMessage")
