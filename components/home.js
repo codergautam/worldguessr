@@ -2636,7 +2636,7 @@ if(window.inCrazyGames) {
   `}
                 </Script>
 
-                <WhatsNewModal changelog={changelog} />
+                <WhatsNewModal changelog={changelog} text={text} />
             </main>
         </>
     )

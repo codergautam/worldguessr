@@ -38,7 +38,7 @@ const renderMarkdown = (text) => {
     .replace(/$/, '</p>');
 };
 
-export default function WhatsNewModal({ changelog }) {
+export default function WhatsNewModal({ changelog, text }) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentEntry, setCurrentEntry] = useState(null);
 
@@ -95,7 +95,7 @@ export default function WhatsNewModal({ changelog }) {
 
   const actions = (
     <button onClick={handleClose}>
-      Got it!
+     {text("ok")}
     </button>
   );
 
