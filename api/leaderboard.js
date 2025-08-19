@@ -61,7 +61,30 @@ async function getDailyLeaderboard(isXp = true) {
       $group: {
         _id: '$userId',
         latestStat: { $first: '$$ROOT' },
-        earliestStat: { $last: '$$ROOT' }
+        earliestStat: { $last: '$$ROOT' },
+        statCount: { $sum: 1 }
+      }
+    },
+    // STEP 3.5: For users with only one stat in 24h, get their oldest ever stat
+    {
+      $lookup: {
+        from: 'userstats',
+        let: { userId: '$_id', statCount: '$statCount' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$userId', '$$userId'] },
+                  { $eq: ['$$statCount', 1] }
+                ]
+              }
+            }
+          },
+          { $sort: { timestamp: 1 } },
+          { $limit: 1 }
+        ],
+        as: 'oldestStat'
       }
     },
     // STEP 4: Calculate deltas and add user lookup in single stage
@@ -88,7 +111,17 @@ async function getDailyLeaderboard(isXp = true) {
       $addFields: {
         user: { $arrayElemAt: ['$user', 0] },
         delta: {
-          $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`]
+          $cond: {
+            if: { $gt: ['$statCount', 1] },
+            then: { $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`] },
+            else: {
+              $cond: {
+                if: { $gt: [{ $size: '$oldestStat' }, 0] },
+                then: { $subtract: [`$latestStat.${scoreField}`, { $arrayElemAt: [`$oldestStat.${scoreField}`, 0] }] },
+                else: 0
+              }
+            }
+          }
         }
       }
     },
