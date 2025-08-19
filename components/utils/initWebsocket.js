@@ -160,10 +160,13 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
   });
   
   // Add global error handler to the promise to prevent unhandled rejections
-  promise.catch(error => {
-      console.error(`[WS] Unhandled WebSocket error for ${url}:`, error);
-      // Don't rethrow here - just log it
-  });
+  // But only if retries are enabled (numberOfRetries > 0)
+  if (numberOfRetries > 0) {
+    promise.catch(error => {
+        console.error(`[WS] Unhandled WebSocket error for ${url}:`, error);
+        // Don't rethrow here - just log it
+    });
+  }
   
   return promise;
 };
