@@ -225,7 +225,7 @@ export default function MapTile({
                                     {map.accepted && (
                                         <span>
                                             <FaMapMarkerAlt size={12} />
-                                            &nbsp;{formatNumber(map.locations, 2)} places
+                                            &nbsp;{formatNumber(map.locations, 2)}
                                         </span>
                                     )}
                                 </div>
