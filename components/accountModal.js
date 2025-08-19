@@ -17,6 +17,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
     const [receivedRequests, setReceivedRequests] = useState([]);
     const [selectedGame, setSelectedGame] = useState(null);
     const [showingGameAnalysis, setShowingGameAnalysis] = useState(false);
+    const [isTouchDevice, setIsTouchDevice] = useState(false);
     const badgeStyle = {
         marginLeft: '15px',
         color: 'black',
@@ -27,6 +28,21 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         fontWeight: 'bold',
         textShadow: 'none'
     };
+
+    // Detect touch devices
+    useEffect(() => {
+        const checkTouchDevice = () => {
+            setIsTouchDevice(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+        };
+        
+        checkTouchDevice();
+        const mediaQuery = window.matchMedia('(pointer: coarse)');
+        mediaQuery.addListener(checkTouchDevice);
+        
+        return () => {
+            mediaQuery.removeListener(checkTouchDevice);
+        };
+    }, []);
 
     useEffect(() => {
         if (shown) {
@@ -189,7 +205,11 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                             overflow: 'hidden'
                         }}>
                             {/* Header with prominent close button */}
-                            <div className="account-modal-header">
+                            <div className="account-modal-header" style={{
+                                // Make header more compact on touch devices
+                                padding: isTouchDevice ? '10px 20px' : undefined,
+                                minHeight: isTouchDevice ? '50px' : undefined
+                            }}>
                                 <h1 className="account-modal-title">{accountData?.username || text("account")} {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}</h1>
 
 
@@ -203,13 +223,21 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                             </div>
 
                             {/* Navigation */}
-                            <div className="account-modal-nav-container">
+                            <div className="account-modal-nav-container" style={{
+                                // Make navigation more compact on touch devices
+                                padding: isTouchDevice ? '5px 0' : undefined
+                            }}>
                                 <nav className="account-modal-nav">
                                     {navigationItems.map((item) => (
                                         <button
                                             key={item.key}
                                             className={`account-nav-item ${accountModalPage === item.key ? 'active' : ''}`}
                                             onClick={() => setAccountModalPage(item.key)}
+                                            style={{
+                                                // Make nav buttons more compact on touch devices
+                                                padding: isTouchDevice ? '8px 12px' : undefined,
+                                                fontSize: isTouchDevice ? '0.9rem' : undefined
+                                            }}
                                         >
                                             <span className="nav-icon">{item.icon}</span>
                                             <span className="nav-label">{item.label}</span>
