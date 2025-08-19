@@ -276,6 +276,7 @@ export default function EloView({ eloData, session }) {
                         <div style={statValueStyle}>{eloData.duels_losses}</div>
                     </div>
 
+                    {eloData.duels_tied > 0 && (
                     <div style={statItemStyle}
                          onMouseEnter={(e) => {
                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
@@ -288,6 +289,7 @@ export default function EloView({ eloData, session }) {
                         <div style={statLabelStyle}>{text("duels_tied")}</div>
                         <div style={statValueStyle}>{eloData.duels_tied}</div>
                     </div>
+                    )}
 
                     {eloData.win_rate && (
                         <div style={statItemStyle}
