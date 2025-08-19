@@ -874,7 +874,7 @@ const GameSummary = ({
                 </div>
               )}
 
-              {gameId && (
+              {/* {gameId && (
                 <div className="game-id-container" style={{
                   margin: '12px 0',
                   padding: '8px 12px',
@@ -903,7 +903,7 @@ const GameSummary = ({
                     {copiedGameId ? '✓' : '📋'}
                   </button>
                 </div>
-              )}
+              )} */}
 
               <div className="summary-actions">
                 <button
@@ -1329,7 +1329,7 @@ const GameSummary = ({
               {text("outOf")} {maxPoints} {text("points")}
             </div>
 
-            {gameId && (
+            {/* {gameId && (
               <div className="game-id-container" style={{
                 margin: '12px 0',
                 padding: '8px 12px',
@@ -1358,7 +1358,7 @@ const GameSummary = ({
                   {copiedGameId ? '✓' : '📋'}
                 </button>
               </div>
-            )}
+            )} */}
 
           <div className="summary-actions">
             <button
