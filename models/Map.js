@@ -41,7 +41,7 @@ const mapSchema = new mongoose.Schema({
   },
   description_long: {
     type: String,
-    required: true
+    required: false
   },
   accepted: {
     type: Boolean,

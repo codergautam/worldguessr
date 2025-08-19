@@ -45,8 +45,8 @@ export default function MakeMapForm({ map, setMap, createMap }) {
       return;
     }
 
-    if(!formData.name || !formData.description_short || !formData.description_long) {
-      toast.error("Missing fields");
+    if(!formData.name || !formData.description_short) {
+      toast.error("Missing required fields");
       return;
     }
 
@@ -128,7 +128,7 @@ export default function MakeMapForm({ map, setMap, createMap }) {
         </label>
         <label>
           <div style={{ display: 'flex', alignItems: 'center' }}>
-          Long Description <span style={{ color: formData.description_long.length < mapConst.MIN_LONG_DESCRIPTION_LENGTH ? 'red' : 'green', marginLeft: '8px' }}>({formData.description_long.length} / {mapConst.MAX_LONG_DESCRIPTION_LENGTH})</span>
+          Long Description (Optional) <span style={{ color: formData.description_long.length > mapConst.MAX_LONG_DESCRIPTION_LENGTH ? 'red' : 'gray', marginLeft: '8px' }}>({formData.description_long.length} / {mapConst.MAX_LONG_DESCRIPTION_LENGTH})</span>
           </div>
           <textarea
             name="description_long"

@@ -38,13 +38,13 @@ function calculateDistance(cart1, cart2) {
 
 async function validateMap(name, data, description_short, description_long, edit=false, mapId=null) {
 
-  if(!name || !data || !description_short || !description_long) {
-    return 'Missing name, data, description_short, or description_long';
+  if(!name || !data || !description_short) {
+    return 'Missing name, data, or description_short';
   }
 
   name = name.trim();
   description_short = description_short.trim();
-  description_long = description_long.trim();
+  description_long = description_long ? description_long.trim() : '';
 
   // name cannot include crazygamesdue to a url detection bug
   if(name.toLowerCase().includes('crazygames')) {
