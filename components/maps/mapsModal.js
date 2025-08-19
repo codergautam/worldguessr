@@ -168,6 +168,7 @@ const styles = {
     // Sole scrollable area - critical iOS fixes
     scrollWrap: {
         height: "100%", // Use 100% instead of 100vh to avoid iOS viewport issues
+        width: "100%",
         overflowY: "scroll", // Force scroll instead of auto to prevent iOS boundary confusion
         overflowX: "hidden",
         WebkitOverflowScrolling: "touch",
