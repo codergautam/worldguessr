@@ -48,6 +48,7 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
   console.log(`[WS ${attemptId}] Initializing WebSocket connection to ${url} (timeout: ${timeoutMs}ms, retries: ${numberOfRetries})`);
   
   var promise = new Promise((resolve, reject) => {
+    try {
       var websocket = null;
       
       // Cleanup function to clear timeouts and close websocket
@@ -75,7 +76,13 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
           }
           
           console.log(`[WS ${attemptId}] Creating new WebSocket connection`);
-          websocket = new WebSocket(url);
+          try {
+              websocket = new WebSocket(url);
+          } catch (wsError) {
+              console.error(`[WS ${attemptId}] Failed to create WebSocket:`, wsError);
+              rejectInternal('creation_error');
+              return;
+          }
           
           // Register this attempt with the connection manager
           connectionManager.register(url, websocket, cleanup);
@@ -115,29 +122,48 @@ export default function initWebsocket(url, existingWebsocket, timeoutMs, numberO
       }
 
       function rejectInternal(reason) {
-          if(hasReturned) {
-              console.log(`[WS ${attemptId}] Reject called but already returned (reason: ${reason})`);
-              return;
-          }
-          hasReturned = true;
-          cleanup();
-          connectionManager.complete(url);
-          
-          console.log(`[WS ${attemptId}] Connection failed (reason: ${reason}), retries remaining: ${numberOfRetries}`);
-          
-          if(numberOfRetries <= 0) {
-              console.error(`[WS ${attemptId}] No more retries, rejecting promise`);
+          try {
+              if(hasReturned) {
+                  console.log(`[WS ${attemptId}] Reject called but already returned (reason: ${reason})`);
+                  return;
+              }
+              hasReturned = true;
+              cleanup();
+              connectionManager.complete(url);
+              
+              console.log(`[WS ${attemptId}] Connection failed (reason: ${reason}), retries remaining: ${numberOfRetries}`);
+              
+              if(numberOfRetries <= 0) {
+                  console.error(`[WS ${attemptId}] No more retries, connection failed gracefully`);
+                  reject(new Error(`WebSocket connection failed: ${reason}`));
+              } else if(!window.dontReconnect) {
+                  console.info(`[WS ${attemptId}] Retrying connection in 5 seconds (${numberOfRetries - 1} retries remaining)`);
+                  setTimeout(() => {
+                      initWebsocket(url, null, timeoutMs, numberOfRetries-1)
+                          .then(resolve)
+                          .catch(reject);
+                  }, 5000);
+              } else {
+                  console.log(`[WS ${attemptId}] Reconnection disabled by window.dontReconnect flag`);
+                  reject(new Error(`WebSocket connection failed and reconnection disabled: ${reason}`));
+              }
+          } catch (error) {
+              console.error(`[WS ${attemptId}] Error in rejectInternal:`, error);
               reject(new Error(`WebSocket connection failed: ${reason}`));
-          } else if(!window.dontReconnect) {
-              console.info(`[WS ${attemptId}] Retrying connection in 5 seconds (${numberOfRetries - 1} retries remaining)`);
-              setTimeout(() => {
-                  initWebsocket(url, null, timeoutMs, numberOfRetries-1).then(resolve, reject);
-              }, 5000);
-          } else {
-              console.log(`[WS ${attemptId}] Reconnection disabled by window.dontReconnect flag`);
-              reject(new Error(`WebSocket connection failed and reconnection disabled: ${reason}`));
           }
       }
+    } catch (error) {
+        console.error(`[WS ${attemptId}] Unexpected error in initWebsocket:`, error);
+        connectionManager.complete(url);
+        reject(new Error(`WebSocket initialization failed: ${error.message}`));
+    }
   });
+  
+  // Add global error handler to the promise to prevent unhandled rejections
+  promise.catch(error => {
+      console.error(`[WS] Unhandled WebSocket error for ${url}:`, error);
+      // Don't rethrow here - just log it
+  });
+  
   return promise;
 };
