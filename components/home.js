@@ -2168,7 +2168,7 @@ export default function Home({ }) {
                 />
 
                 {multiplayerState?.playerCount && (
-                    <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || multiplayerState?.inGame || !multiplayerState?.connected) ? 'hide' : ''}`}>
+                    <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || (multiplayerState?.inGame && multiplayerState?.gameData?.state !== 'waitingForPlayers') || !multiplayerState?.connected) ? 'hide' : ''}`}>
                         {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState.playerCount })}
                     </span>
                 )}
