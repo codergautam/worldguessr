@@ -605,7 +605,6 @@ const GameSummary = ({
           color: 'white',
           fontSize: '1.5rem'
         }}>
-          {text("loadingMap")}
         </div>
       </div>
     );
@@ -876,10 +875,10 @@ const GameSummary = ({
               )}
 
               {gameId && (
-                <div className="game-id-container" style={{ 
-                  margin: '12px 0', 
-                  padding: '8px 12px', 
-                  backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+                <div className="game-id-container" style={{
+                  margin: '12px 0',
+                  padding: '8px 12px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   borderRadius: '6px',
                   display: 'flex',
                   alignItems: 'center',
@@ -1331,10 +1330,10 @@ const GameSummary = ({
             </div>
 
             {gameId && (
-              <div className="game-id-container" style={{ 
-                margin: '12px 0', 
-                padding: '8px 12px', 
-                backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+              <div className="game-id-container" style={{
+                margin: '12px 0',
+                padding: '8px 12px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
                 borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
