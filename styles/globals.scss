@@ -182,6 +182,19 @@ html {
 .settingsModalInner.g2_input {
     width: min-content;
 }
+
+/* Mobile centering for settings options */
+@media (max-width: 1024px) {
+    .settingsModal {
+        align-items: center; /* Center all children horizontally */
+    }
+    
+    .settingsModalInner {
+        margin-left: auto;
+        margin-right: auto;
+        /* Keep max-content width but center the element */
+    }
+}
 .g2_modal {
     width: 100vw;
     height: 100vh;
