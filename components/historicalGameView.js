@@ -245,6 +245,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
         button2Press={null}
         button2Text=""
         hidden={false}
+        gameId={game?.gameId || game?._id}
       />
     </div>
   );

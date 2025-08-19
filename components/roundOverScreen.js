@@ -68,7 +68,8 @@ const GameSummary = ({
     data,
     hidden,
     multiplayerState,
-    session
+    session,
+    gameId
 }) => {
   const { t: text } = useTranslation("common");
   const [activeRound, setActiveRound] = useState(null); // null = no round selected
@@ -78,6 +79,7 @@ const GameSummary = ({
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [headerCompact, setHeaderCompact] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false); // Track if user has manually moved the map
+  const [copiedGameId, setCopiedGameId] = useState(false);
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
@@ -411,6 +413,25 @@ const GameSummary = ({
       url = `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
     }
     window.open(url, '_blank');
+  };
+
+  const copyGameId = () => {
+    if (gameId) {
+      navigator.clipboard.writeText(gameId).then(() => {
+        setCopiedGameId(true);
+        setTimeout(() => setCopiedGameId(false), 2000);
+      }).catch(() => {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = gameId;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        setCopiedGameId(true);
+        setTimeout(() => setCopiedGameId(false), 2000);
+      });
+    }
   };
 
   const getOptimalZoom = (distance) => {
@@ -854,6 +875,37 @@ const GameSummary = ({
                 </div>
               )}
 
+              {gameId && (
+                <div className="game-id-container" style={{ 
+                  margin: '12px 0', 
+                  padding: '8px 12px', 
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '0.9rem'
+                }}>
+                  <span style={{ color: 'white', marginRight: '8px' }}>ID: {gameId}</span>
+                  <button
+                    onClick={copyGameId}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: 'white',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      transition: 'all 0.2s'
+                    }}
+                    title="Copy Game ID"
+                  >
+                    {copiedGameId ? '✓' : '📋'}
+                  </button>
+                </div>
+              )}
+
               <div className="summary-actions">
                 <button
                   className="action-btn mobile-expand-btn"
@@ -1277,6 +1329,37 @@ const GameSummary = ({
             >
               {text("outOf")} {maxPoints} {text("points")}
             </div>
+
+            {gameId && (
+              <div className="game-id-container" style={{ 
+                margin: '12px 0', 
+                padding: '8px 12px', 
+                backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '0.9rem'
+              }}>
+                <span style={{ color: 'white', marginRight: '8px' }}>ID: {gameId}</span>
+                <button
+                  onClick={copyGameId}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: 'white',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    transition: 'all 0.2s'
+                  }}
+                  title="Copy Game ID"
+                >
+                  {copiedGameId ? '✓' : '📋'}
+                </button>
+              </div>
+            )}
 
           <div className="summary-actions">
             <button
