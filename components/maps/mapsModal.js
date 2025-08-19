@@ -68,7 +68,19 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
     }
 
     return (
-        <Modal classNames={{ modal: "g2_modal" }} styles={{ modal: styles.overlay }} open={shown} onClose={onClose} showCloseIcon={false} animationDuration={0}>
+        <Modal
+            classNames={{ modal: "g2_modal" }}
+            styles={{
+                modal: styles.modalShell,
+                overlay: styles.overlayDisable // Disable library's overlay scroll behavior
+            }}
+            open={shown}
+            onClose={onClose}
+            showCloseIcon={false}
+            animationDuration={0}
+            blockScroll={false} // Critical: prevent library from blocking body scroll
+            closeOnOverlayClick={true}
+        >
             <div className={`g2_nav_ui map-modal-sidebar ${mapModalClosing ? "g2_slide_out" : ""} desktop`}>
                 <div className="g2_nav_hr desktop"></div>
                 {/* {!makeMap.open && (
@@ -109,7 +121,8 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
                 <button className="g2_nav_text singleplayer red" onClick={onClose}>{text("back")}</button>
                 )}
             </div>
-            <div className="g2_content map-modal-content" style={styles.modal}>
+            {/* Single scroll container: only this element scrolls on iOS */}
+            <div className="g2_content map-modal-content" style={styles.scrollWrap}>
                 <div style={styles.modalContent}>
                     <MapView
                     mapModalClosing={mapModalClosing}
@@ -134,51 +147,51 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 }
 
 const styles = {
-    overlay: {
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
+    // Full-viewport modal wrapper - fixed container, no scrolling
+    modalShell: {
         background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("/street2.jpg")`,
-        padding: 0,
-        margin: 0,
-        objectFit: "cover",
         backgroundSize: "cover",
         backgroundPosition: "center",
-        zIndex: 1200,
+        boxShadow: "none",
+        padding: 0,
+        margin: 0,
+        width: "100%",
+        maxWidth: "100%",
+        height: "100vh",
+        maxHeight: "100vh",
         display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
+        alignItems: "stretch",
+        justifyContent: "stretch",
+        overflow: "hidden",
+        position: "relative",
     },
-    modal: {
-        //backgroundColor: "#3A3B3C",
-        //width: "100%",
-        height: "100%",
-        overflowY: "auto",
+    // Sole scrollable area - critical iOS fixes
+    scrollWrap: {
+        height: "100%", // Use 100% instead of 100vh to avoid iOS viewport issues
+        overflowY: "scroll", // Force scroll instead of auto to prevent iOS boundary confusion
+        overflowX: "hidden",
+        WebkitOverflowScrolling: "touch",
+        touchAction: "pan-y pinch-zoom", // Allow vertical pan and pinch
+        overscrollBehavior: "contain",
+        scrollbarGutter: "stable", // Prevent layout shift from scrollbar
         padding: "20px",
         position: "relative",
-        pointerEvents: "all",
         zIndex: 1130,
-        width: "100%",
-        WebkitOverflowScrolling: "touch",
-       },
+        flex: "1 1 auto",
+        minHeight: 0,
+        minWidth: 0,
+        boxSizing: "border-box",
+        // iOS-specific boundary handling
+        transform: "translateZ(0)", // Force hardware acceleration
+        willChange: "scroll-position", // Optimize for scroll performance
+    },
+    // Content inside the scroll area - ensure it can be longer than container
     modalContent: {
         width: "100%",
-        overflowY: "auto",
-        paddingBottom: "40px",
+        overflowY: "visible",
         overflowX: "hidden",
+        paddingBottom: "40px",
+        minHeight: "calc(100vh + 1px)", // Ensure content is always scrollable on iOS
         zIndex: 1130,
-        WebkitOverflowScrolling: "touch",
-    },
-    closeButton: {
-        position: "absolute",
-        top: "10px",
-        right: "10px",
-        background: "transparent",
-        border: "none",
-        fontSize: "20px",
-        color: "#fff",
-        cursor: "pointer",
     },
 };
