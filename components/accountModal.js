@@ -238,7 +238,11 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                                     width: '100%',
                                     overflowY: 'visible',
                                     overflowX: 'hidden',
-                                    minHeight: 'calc(100vh + 1px)', // Ensure content is always scrollable on iOS
+                                    // Only apply large minHeight for pages that can have lots of content (history, profile)
+                                    // For friends tabs (list, add, sent, received), use natural height to prevent unnecessary scroll space
+                                    minHeight: (accountModalPage === 'history' || accountModalPage === 'profile' || accountModalPage === 'elo') 
+                                        ? 'calc(100vh + 1px)' 
+                                        : 'calc(100% + 1px)', // Minimal height for iOS scroll to work
                                     paddingBottom: '40px'
                                 }}>
                                     {renderContent()}
