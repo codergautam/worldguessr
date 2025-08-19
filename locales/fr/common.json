@@ -314,5 +314,6 @@
   "eloGain": "Changement Elo",
   "eloOverTime": "Elo au fil du temps",
   "eloRankOverTime": "ELO RAND AUT TEMPS",
-  "currentElo": "ELO actuel"
+  "currentElo": "ELO actuel",
+  "language": "Langue"
 }
