@@ -1058,80 +1058,93 @@ export default function Home({ }) {
 
 
             if (!ws && !multiplayerState.connecting && !multiplayerState.connected && !window?.dontReconnect) {
-
-                setMultiplayerState((prev) => ({
-                    ...prev,
-                    connecting: true,
-                    shouldConnect: false,
-                    currentRetry: 1
-                }))
-                
-                // Custom retry wrapper to track attempts
-                let ws = null;
-                let currentAttempt = 1;
-                const maxAttempts = 50;
-                
-                while (currentAttempt <= maxAttempts && !ws) {
-                    try {
-                        setMultiplayerState((prev) => ({
-                            ...prev,
-                            currentRetry: currentAttempt
-                        }))
-                        
-                        ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 0) // 0 retries, we handle it ourselves
-                        break;
-                    } catch (error) {
-                        console.log(`Connection attempt ${currentAttempt}/${maxAttempts} failed`);
-                        if (currentAttempt < maxAttempts) {
-                            currentAttempt++;
-                            await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
-                        } else {
-                            throw error;
-                        }
-                    }
-                }
-                if (ws && ws.readyState === 1) {
-                    setWs(ws)
+                try {
                     setMultiplayerState((prev) => ({
                         ...prev,
-                        connected: true,
-                        connecting: false,
-                        currentRetry: 0,
-                        error: false
+                        connecting: true,
+                        shouldConnect: false,
+                        currentRetry: 1
                     }))
-
-
-                    console.log("connected to ws", window.verifyPayload)
-                    if (!inCrazyGames && !window.location.search.includes("crazygames")) {
-
-                        const tz = moment.tz.guess();
-                        let secret = "not_logged_in";
+                    
+                    // Custom retry wrapper to track attempts
+                    let ws = null;
+                    let currentAttempt = 1;
+                    const maxAttempts = 50;
+                    
+                    while (currentAttempt <= maxAttempts && !ws) {
                         try {
-                            const s = window.localStorage.getItem("wg_secret");
-                            if (s) {
-                                secret = s;
+                            setMultiplayerState((prev) => ({
+                                ...prev,
+                                currentRetry: currentAttempt
+                            }))
+                            
+                            ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 0) // 0 retries, we handle it ourselves
+                            break;
+                        } catch (error) {
+                            console.log(`Connection attempt ${currentAttempt}/${maxAttempts} failed`);
+                            if (currentAttempt < maxAttempts) {
+                                currentAttempt++;
+                                await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
+                            } else {
+                                throw error;
                             }
-                        } catch (e) {
                         }
-                        if (session?.token?.secret) {
-                            secret = session.token.secret;
-                        }
-
-
-                        if (secret !== "not_logged_in") {
-                            window.verified = true;
-                        }
-                        ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode") }))
-                    } else if (window.verifyPayload) {
-                        console.log("sending verify from verifyPayload")
-                        ws.send(window.verifyPayload)
-
-
                     }
-                } else {
-                    alert("could not connect to server")
-                }
+                    
+                    if (ws && ws.readyState === 1) {
+                        setWs(ws)
+                        setMultiplayerState((prev) => ({
+                            ...prev,
+                            connected: true,
+                            connecting: false,
+                            currentRetry: 0,
+                            error: false
+                        }))
 
+                        console.log("connected to ws", window.verifyPayload)
+                        if (!inCrazyGames && !window.location.search.includes("crazygames")) {
+
+                            const tz = moment.tz.guess();
+                            let secret = "not_logged_in";
+                            try {
+                                const s = window.localStorage.getItem("wg_secret");
+                                if (s) {
+                                    secret = s;
+                                }
+                            } catch (e) {
+                            }
+                            if (session?.token?.secret) {
+                                secret = session.token.secret;
+                            }
+
+                            if (secret !== "not_logged_in") {
+                                window.verified = true;
+                            }
+                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode") }))
+                        } else if (window.verifyPayload) {
+                            console.log("sending verify from verifyPayload")
+                            ws.send(window.verifyPayload)
+                        }
+                    } else {
+                        // Connection failed - set disconnected state to show red wsIcon
+                        console.error("WebSocket connection failed after all retries");
+                        setMultiplayerState((prev) => ({
+                            ...prev,
+                            connected: false,
+                            connecting: false,
+                            error: true
+                        }))
+                    }
+                } catch (error) {
+                    // All retries exhausted - set disconnected state to show red wsIcon
+                    console.error("WebSocket connection failed:", error);
+                    setMultiplayerState((prev) => ({
+                        ...prev,
+                        connected: false,
+                        connecting: false,
+                        error: true
+                    }))
+                }
             }
         })();
     }, [multiplayerState, ws, screen])
