@@ -42,9 +42,16 @@ const renderMarkdown = (text) => {
 export default function WhatsNewModal({ changelog, text }) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentEntry, setCurrentEntry] = useState(null);
+  const { data: session } = useSession();
 
   useEffect(() => {
     if (!changelog || changelog.length === 0) return;
+    
+    // Only show modal for logged-in users
+    if (!session || session === false) {
+      console.log('User not logged in, skipping changelog modal');
+      return;
+    }
 
     // Check if we should show the modal
     const checkVersion = () => {
@@ -81,7 +88,7 @@ export default function WhatsNewModal({ changelog, text }) {
     };
 
     checkVersion();
-  }, [changelog]);
+  }, [changelog, session]);
 
   const handleClose = () => {
     setIsOpen(false);
