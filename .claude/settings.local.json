@@ -10,7 +10,10 @@
       "Bash(git push:*)",
       "Bash(grep:*)",
       "Bash(mkdir:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(for lang in de es fr ru)",
+      "Bash(do echo \"=== $lang ===\")",
+      "Bash(done)"
     ],
     "deny": []
   }
