@@ -27,11 +27,11 @@ function sendableUser(user) {
   }
   return {
     username: user.username,
-    totalXp: user.totalXp ?? user.xpGained,
+    totalXp: user.totalXp ?? user.xpGained ?? 0,
     createdAt: user.created_at,
     gamesLen: user.totalGamesPlayed ?? 0,
-    elo: user.elo,
-    eloToday: user.elo_today,
+    elo: user.elo ?? 1000,
+    eloToday: user.elo_today ?? 0,
   };
 }
 
