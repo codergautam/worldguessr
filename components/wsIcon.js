@@ -6,12 +6,18 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
   const [isSliding, setIsSliding] = useState(false);
   const [isSlideIn, setIsSlideIn] = useState(false);
   const prevConnected = useRef(connected);
+  const prevConnecting = useRef(connecting);
   const hideTimer = useRef(null);
-  const mountTime = useRef(Date.now());
+  const connectingStartTime = useRef(null);
 
   useEffect(() => {
     const wasConnected = prevConnected.current;
-    const timeSinceMount = Date.now() - mountTime.current;
+    const wasConnecting = prevConnecting.current;
+
+    // Track when connecting starts
+    if (connecting && !wasConnecting) {
+      connectingStartTime.current = Date.now();
+    }
 
     // Clear any existing timer
     if (hideTimer.current) {
@@ -21,7 +27,8 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
 
     if (connecting) {
       // Show connecting after 3 seconds, hide immediately if under 3 seconds
-      if (timeSinceMount >= 3000) {
+      const timeSinceConnecting = connectingStartTime.current ? Date.now() - connectingStartTime.current : 0;
+      if (timeSinceConnecting >= 3000) {
         setShowIcon(true);
         setIsSliding(false);
         setIsSlideIn(true);
@@ -57,6 +64,7 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
     }
 
     prevConnected.current = connected;
+    prevConnecting.current = connecting;
   }, [connected, connecting]);
 
   // Cleanup timer on unmount
