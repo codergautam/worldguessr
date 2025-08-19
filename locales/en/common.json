@@ -270,7 +270,7 @@
   "multiplayerNotConnected": "Not Connected to Server",
   "multiplayerConnectionErrorMessage": "This can happen for a variety of reasons. Please check your internet connection, make sure nobody else is using your account and try refreshing the site.",
   "multiplayerConnecting": "Connecting to Server",
-  "connectingMessage": "Connecting to multiplayer server...\n\nIf this persists:\n• Check your internet connection\n• Server may be under maintenance or experiencing issues",
+  "connectingMessage": "Connecting to multiplayer server... (attempt {{currentRetry}}/{{maxRetries}})\n\nIf this persists:\n• Check your internet connection\n• Server may be under maintenance or experiencing issues",
   "ok": "Ok",
   "gameHistory": "Game History",
   "totalGames": "{{count}} games stored",
