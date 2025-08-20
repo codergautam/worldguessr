@@ -876,6 +876,28 @@ html {
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
     transform: scale(1.05);
 }
+
+/* Fix for game options button overflow in navbar */
+.gameBtn.navBtn.g2_green_button.g2_lexend {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gameBtn.navBtn.g2_green_button.g2_lexend svg {
+    flex-shrink: 0; /* Prevent the pencil icon from shrinking */
+}
+
+@media screen and (max-width: 600px) {
+    .gameBtn.navBtn.g2_green_button.g2_lexend {
+        max-width: 200px; /* Smaller max-width on mobile */
+    }
+}
+
 .g2_red_button {
     border: 1.4px solid #85200c;
     background: var(--gradRed);
