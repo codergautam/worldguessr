@@ -1414,11 +1414,11 @@ try {
         const player = players.get(playerId[0]);
         const queueData = playerId[1];
         if(!queueData.guest && queueData.duel && Date.now() - queueData.queueTime > 10000) {
-          playersInQueue.set(playerId[0], { ...queueData, min: 0, max: 10000, queueTime: Date.now() });
+          playersInQueue.set(playerId[0], { ...queueData, min: 0, max: 20000, queueTime: Date.now() });
 
           player.send({
             type: 'publicDuelRange',
-            range: [0, 10000]
+            range: [0, 20000]
           });
         }
       }

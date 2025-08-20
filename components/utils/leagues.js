@@ -23,7 +23,7 @@ export const leagues = {
   },
   'nomad': {
     min: 8000,
-    max: Infinity,
+    max: 20000,
     name: 'Nomad',
     emoji: '🌍',
     color: '#b9f2ff' // diamond
