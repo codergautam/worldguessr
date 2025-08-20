@@ -81,6 +81,15 @@
     "extent": [-79.0, -4.231687, -66.876325, 12.437303]
   },
   {
+    "name": "Cyprus",
+    "slug": "cyprus",
+    "longDescription": "Explore Cyprus in WorldGuessr! Discover the rich history, beautiful beaches, and vibrant culture of this Mediterranean island.",
+    "shortDescription": "Explore Cyprus's 6 districts and rich cultural heritage!",
+    "maxDist": 257.473,
+    "countryCode": "CY",
+    "extent": [32.275, 34.565, 34.635, 35.75]
+  },
+  {
     "name": "Czech Republic",
     "slug": "czech-republic",
     "longDescription": "Explore the Czech Republic in WorldGuessr! Discover the historic castles, charming towns, and vibrant culture of this Central European country.",
@@ -445,7 +454,7 @@
     "slug": "bhutan",
     "longDescription": "Explore Bhutan in WorldGuessr! From the stunning monasteries perched on cliffs to the vibrant festivals, discover the spiritual beauty and culture of the 'Land of the Thunder Dragon'.",
     "shortDescription": "Experience Bhutan's unique culture and landscapes!",
-    "maxDist": 336.05,
+    "maxDist": 50.05,
     "countryCode": "BT",
     "extent": [88.745, 26.702, 92.125, 28.325]
   },
@@ -511,5 +520,23 @@
     "maxDist": 63.278,
     "countryCode": "SG",
     "extent": [103.638, 1.257, 104.082, 1.47]
+  },
+  {
+    "name": "Namibia",
+    "slug": "namibia",
+    "longDescription": "Explore Namibia in WorldGuessr! From the stunning deserts to the wildlife-rich national parks, discover the natural beauty and cultural diversity of this southern African country.",
+    "shortDescription": "Experience the breathtaking landscapes of Namibia!",
+    "maxDist": 1522.395,
+    "countryCode": "NA",
+    "extent": [11.654, -29.268, 25.037, -17.128]
+  },
+  {
+    "name": "Vietnam",
+    "slug": "vietnam",
+    "longDescription": "Explore Vietnam in WorldGuessr! From the bustling streets of Hanoi to the serene landscapes of Ha Long Bay, discover the rich culture and history of this Southeast Asian country.",
+    "shortDescription": "Experience the vibrant culture and stunning landscapes of Vietnam!",
+    "maxDist": 1800.49,
+    "countryCode": "VN",
+    "extent": [102.144, 8.343, 109.455, 23.392]
   }
 ]
