@@ -8,10 +8,10 @@ dotenv.config();
 
 async function updateAllUserStats() {
     console.log('Starting bulk UserStats update...');
-    
+
     try {
         // Connect to MongoDB
-        await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URL);
+        await mongoose.connect(process.env.MONGODB);
         console.log('Connected to MongoDB');
 
         // Get all users (in batches to avoid memory issues)
@@ -58,7 +58,7 @@ async function updateAllUserStats() {
             }
 
             skip += batchSize;
-            
+
             // Small delay between batches to avoid overwhelming the database
             await new Promise(resolve => setTimeout(resolve, 100));
         }
@@ -66,7 +66,7 @@ async function updateAllUserStats() {
         console.log(`\nBulk UserStats update completed!`);
         console.log(`✅ Successfully updated: ${totalUpdated} users`);
         console.log(`❌ Errors: ${totalErrors} users`);
-        
+
     } catch (error) {
         console.error('Bulk update failed:', error);
         process.exit(1);
