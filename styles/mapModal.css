@@ -510,7 +510,7 @@
 }
 
 .map-tile__name {
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: white;
   margin: 0 0 6px 0;
@@ -840,7 +840,7 @@
   }
 
   .map-tile__name {
-    font-size: 1rem;
+    font-size: 0.85rem;
   }
 
   .map-tile__actions {
@@ -1290,7 +1290,7 @@
     height: 80px;
   }
   .map-tile__name {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     margin: 0;
   }
   .map-tile__author {
@@ -1332,7 +1332,7 @@
     height: 75px;
   }
   .map-tile__name {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     margin: 0;
   }
   .map-tile__author {
@@ -1381,7 +1381,7 @@
   }
   
   .map-tile__name {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     line-height: 1.2;
     margin: 0;
     display: -webkit-box;
@@ -1391,7 +1391,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     word-break: break-word;
-    max-height: 43px; /* 3 lines at 1.2 line height */
+    max-height: 38px; /* 3 lines at 1.2 line height with smaller font */
   }
   
   .map-tile__bottom-section {
@@ -1453,7 +1453,7 @@
   }
   
   .map-tile__name {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     display: -webkit-box;
     -webkit-box-orient: vertical;
     margin: 0;
@@ -1462,7 +1462,7 @@
     word-break: break-word;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-height: 38px; /* 3 lines at smaller font */
+    max-height: 36px; /* 3 lines at smaller font */
   }
   
   .map-tile__bottom-section {
@@ -1498,7 +1498,7 @@
     height: 70px;
   }
   .map-tile__name {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
   }
   .map-tile__author {
     font-size: 0.55rem;
