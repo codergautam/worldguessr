@@ -454,18 +454,27 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
               console.log("reward ad available")
             },
             beforeAd: () => {
-              // Hide Street View iframe to prevent AdSense navigation interference on mobile
-              setAdPlaying(true);
+              // Hide Street View iframe to prevent AdSense navigation interference on iOS
+              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+              if (isIOS) {
+                setAdPlaying(true);
+              }
             },
             adDismissed: () => {
-              // Show Street View iframe back after ad dismissed
-              setAdPlaying(false);
+              // Show Street View iframe back after ad dismissed (iOS only)
+              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+              if (isIOS) {
+                setAdPlaying(false);
+              }
               toast.error(text("adDismissed"));
               sendEvent('reward_ad_dismissed', { countryStreak });
             },
             adViewed: () => {
-              // Show Street View iframe back after ad viewed
-              setAdPlaying(false);
+              // Show Street View iframe back after ad viewed (iOS only)
+              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+              if (isIOS) {
+                setAdPlaying(false);
+              }
               setCountryStreak(countryStreak);
               setLostCountryStreak(0);
               toast.success(text("streakRestored"));
@@ -473,8 +482,11 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
             },       // Reward granted - continue game at current score.
             afterAd: () => {
               setShowStreakAdBanner(false);
-              // Ensure Street View is shown after any ad completion
-              setAdPlaying(false);
+              // Ensure Street View is shown after any ad completion (iOS only)
+              const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+              if (isIOS) {
+                setAdPlaying(false);
+              }
             },
           });
         }
