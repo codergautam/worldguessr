@@ -616,30 +616,29 @@ export default function XPGraph({ session, mode = 'xp' }) {
                     display: flex;
                     background: rgba(255, 255, 255, 0.1);
                     border-radius: 25px;
-                    padding: 4px;
-                    gap: 2px;
-                    overflow-x: auto;
+                    padding: 2px;
+                    gap: 1px;
                     width: 100%;
                     max-width: 100%;
                     justify-content: center;
                 }
 
                 .toggle-btn {
-                    padding: 12px 16px;
+                    padding: 10px 8px;
                     border-radius: 20px;
                     border: none;
                     background: transparent;
                     color: #fff;
                     cursor: pointer;
-                    font-size: 14px;
+                    font-size: 13px;
                     font-weight: 600;
                     transition: all 0.3s ease;
                     text-transform: uppercase;
-                    letter-spacing: 0.5px;
+                    letter-spacing: 0.3px;
                     white-space: nowrap;
-                    min-width: 60px;
                     flex: 1;
-                    max-width: 80px;
+                    min-width: 0;
+                    text-align: center;
                 }
 
                 .toggle-btn.active {
@@ -781,10 +780,8 @@ export default function XPGraph({ session, mode = 'xp' }) {
                     }
 
                     .toggle-btn {
-                        padding: 10px 12px;
-                        font-size: 12px;
-                        min-width: 50px;
-                        max-width: 70px;
+                        padding: 8px 6px;
+                        font-size: 11px;
                     }
 
                     .custom-date-picker {
