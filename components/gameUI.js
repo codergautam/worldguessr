@@ -680,7 +680,7 @@ session={session}/>
         }
         }} />
       )}
-      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+      <span className={`timer ${multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public ? 'duel' : ''} ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
 
 {/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
       {
@@ -726,16 +726,6 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
             backBtnPressed()
           }} />
         )}
-
-        {/* Debug multiplayer state */}
-        {multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === "end" && console.log("Debug: Game ended, multiplayerState:", {
-          inGame: multiplayerState.inGame,
-          state: multiplayerState?.gameData?.state,
-          duel: multiplayerState?.gameData?.duel,
-          history: multiplayerState?.gameData?.history,
-          rounds: multiplayerState?.gameData?.rounds,
-          players: multiplayerState?.gameData?.players
-        })}
 
         {/* Private game over screen */}
         {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "end" && (

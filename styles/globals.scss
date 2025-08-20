@@ -2282,12 +2282,28 @@ body:has(.timer.critical)::before {
 .chatboxParent {
     position: fixed;
     bottom: 20px;
+    left: 20px; /* Default bottom-left position */
     opacity: 0;
     transition: all 0.5s;
     border-radius: 10px;
     transform: translateY(100%);
     z-index: 2000;
 }
+
+/* Move chat to bottom-right when round over screen is shown */
+.chatboxParent.roundOverScreen {
+    left: auto;
+    right: 20px;
+}
+
+/* Adjust chat button positioning when on right side */
+.chatboxParent.roundOverScreen .chatboxBtn {
+    transform: translate(-60px, 5px); /* Mirror the original transform */
+}
+.chatboxParent.roundOverScreen .chatboxBtn.open {
+    transform: translate(0,0); /* Mirror the original transform */
+}
+
 
 .chatbox {
     display: none;
@@ -2497,6 +2513,8 @@ input[placeholder="Please login to chat"] {
 }
 
 #playerCnt {
+    font-size: 1.5em;
+    margin-top: 5px;
 }
 
 img[alt="Google"] {

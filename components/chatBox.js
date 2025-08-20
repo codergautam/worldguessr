@@ -136,10 +136,9 @@ export default function ChatBox({ ws, open, onToggle, enabled, myId, inGame, min
 
   // Hide chat button on mobile when RoundOverScreen is showing
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-  const shouldHideChatButton = isMobile && roundOverScreenShown;
-
+  const shouldHideChatButton = false;
   return (
-    <div className={`chatboxParent ${enabled ? 'enabled' : ''} ${notGuestChatDisabled ? 'guest' : ''}`}>
+    <div className={`chatboxParent ${enabled ? 'enabled' : ''} ${notGuestChatDisabled ? 'guest' : ''} ${roundOverScreenShown ? 'roundOverScreen' : ''}`}>
       {!shouldHideChatButton && (
         <button
         className={`chatboxBtn ${open ? 'open' : ''} ${miniMapShown ? 'minimap' : ''}`} style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer' }} onClick={onToggle}>
