@@ -456,15 +456,40 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
             beforeAd: () => {
               // Hide Street View iframe to prevent AdSense navigation interference
               setAdPlaying(true);
+              
+              // Prevent any navigation during ad on iOS
+              window.originalLocation = window.location;
+              const originalPushState = window.history.pushState;
+              const originalReplaceState = window.history.replaceState;
+              
+              window.history.pushState = function() {
+                console.warn('Blocked navigation during ad (pushState)');
+              };
+              window.history.replaceState = function() {
+                console.warn('Blocked navigation during ad (replaceState)');
+              };
+              
+              // Store original functions to restore later
+              window.adBlockedFunctions = { originalPushState, originalReplaceState };
             },
             adDismissed: () => {
-              // Show Street View iframe back after ad dismissed
+              // Restore navigation functions and show iframe back
+              if (window.adBlockedFunctions) {
+                window.history.pushState = window.adBlockedFunctions.originalPushState;
+                window.history.replaceState = window.adBlockedFunctions.originalReplaceState;
+                delete window.adBlockedFunctions;
+              }
               setAdPlaying(false);
               toast.error(text("adDismissed"));
               sendEvent('reward_ad_dismissed', { countryStreak });
             },
             adViewed: () => {
-              // Show Street View iframe back after ad viewed
+              // Restore navigation functions and show iframe back
+              if (window.adBlockedFunctions) {
+                window.history.pushState = window.adBlockedFunctions.originalPushState;
+                window.history.replaceState = window.adBlockedFunctions.originalReplaceState;
+                delete window.adBlockedFunctions;
+              }
               setAdPlaying(false);
               setCountryStreak(countryStreak);
               setLostCountryStreak(0);
@@ -472,8 +497,13 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
               sendEvent('reward_ad_viewed', { countryStreak });
             },       // Reward granted - continue game at current score.
             afterAd: () => {
+              // Restore navigation functions and ensure iframe shown
+              if (window.adBlockedFunctions) {
+                window.history.pushState = window.adBlockedFunctions.originalPushState;
+                window.history.replaceState = window.adBlockedFunctions.originalReplaceState;
+                delete window.adBlockedFunctions;
+              }
               setShowStreakAdBanner(false);
-              // Ensure Street View is shown after any ad completion
               setAdPlaying(false);
             },
           });
