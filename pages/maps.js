@@ -72,10 +72,10 @@ const styles = {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "rgba(0, 0, 0, 0)", // Adjust according to your design
+        background: "linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 30, 15, 0.9) 50%, rgba(0, 0, 0, 0.95) 100%)",
     },
     pageContent: {
-        backgroundColor: "rgba(0, 0, 0, 0)",
+        background: "linear-gradient(135deg, rgba(20, 65, 25, 0.95) 0%, rgba(10, 40, 15, 0.98) 100%)",
         width: "calc(100vw - 40px)",
         height: "100vh",
         overflowY: "auto",
