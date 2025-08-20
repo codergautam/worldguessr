@@ -13,7 +13,6 @@ function countryDiv({country, onPress}) {
 
 }
 export default function CountryBtns({ countries, onCountryPress, shown }) {
-
   return (
     <div className={`countryGuessrOptions ${shown?"shown":""}`}>
     {countries.map((country) => {
