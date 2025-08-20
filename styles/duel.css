@@ -185,6 +185,31 @@
 
 /* Mobile responsive */
 @media (max-width: 1024px) {
+  /* Make duel header compact on mobile like regular games */
+  .duel-header {
+    padding: 15px 15px 10px !important;
+    position: relative !important; /* Override sticky positioning on mobile */
+  }
+
+  .duel-header .summary-title {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  .elo-container {
+    margin: 0.5rem 0 !important;
+  }
+
+  .elo-title {
+    font-size: 1rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+
+  .time-elapsed {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+
   .duel-round-details {
     flex-direction: column;
     gap: 0.5rem;
@@ -205,5 +230,39 @@
 
   .elo-change {
     font-size: 1.2rem;
+  }
+}
+
+/* Extra compact for very small screens */
+@media (max-width: 480px) {
+  .duel-header {
+    padding: 10px 10px 8px !important;
+  }
+
+  .duel-header .summary-title {
+    font-size: 1.3rem !important;
+    margin-bottom: 0.3rem !important;
+  }
+
+  .elo-container {
+    margin: 0.3rem 0 !important;
+  }
+
+  .elo-title {
+    font-size: 0.9rem !important;
+  }
+
+  .elo-value {
+    font-size: 1.3rem !important;
+  }
+
+  .elo-change {
+    font-size: 1rem !important;
+  }
+
+  .time-elapsed {
+    margin-top: 0.3rem !important;
+    margin-bottom: 0.3rem !important;
+    font-size: 0.9rem;
   }
 }
