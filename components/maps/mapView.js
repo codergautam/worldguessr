@@ -256,7 +256,7 @@ export default function MapView({
     };
 
     const getRowsForSection = (section) => {
-        if (section === "popular") return 3;
+        if (section === "popular") return 2;
         if (section === "spotlight") return 1; // Spotlight should show 1 row by default
         return 2;
     };

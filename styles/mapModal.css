@@ -297,9 +297,9 @@
 }
 
 .map-grid.collapsed.popular-maps {
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Reduced from 240px */
-  max-height: calc(3 * (120px + 16px)); /* Updated height for popular section */
+  max-height: calc(2 * (120px + 16px)); /* Reduced to 2 rows like other sections */
 }
 
 .map-grid.collapsed.spotlight-maps {
