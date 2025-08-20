@@ -1279,8 +1279,6 @@
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-
-160px, 1fr)); }
 }
 
 @media (max-height: 600px) {
@@ -1320,8 +1318,6 @@
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-
-150px, 1fr)); }
 }
 
 /* ≤ 768 px */
@@ -1396,8 +1392,6 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
   .show-more-btn { padding: 14px 20px; font-size: 0.95rem; }
-
-150px, 1fr)); }
 }
 
 /* ≤ 480 px */
@@ -1459,8 +1453,6 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
   .show-more-btn { padding: 12px 16px; font-size: 0.9rem; margin-top: 12px; }
-
-120px, 1fr)); }
 }
 
 /* Extra small screens */
@@ -1481,8 +1473,6 @@
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
-
-100px, 1fr)); }
 }
 
 /* iOS Safari specific fixes */
