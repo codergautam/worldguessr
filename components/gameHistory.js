@@ -162,7 +162,7 @@ export default function GameHistory({ session, onGameClick }) {
                       <span className={styles.statValue} style={{
                         color: (game.userStats?.elo?.change >= 0 || game.userPlayer?.elo?.change >= 0) ? '#4CAF50' : '#F44336'
                       }}>
-                        {((game.userStats?.elo?.change || game.userPlayer?.elo?.change) > 0) ? '+' : ''}{game.userStats?.elo?.change || game.userPlayer?.elo?.change}
+                        {((game.userStats?.elo?.change || game.userPlayer?.elo?.change) > 0) ? '+' : ''}{(game.userStats?.elo?.change || game.userPlayer?.elo?.change) ?? 0}
                       </span>
                     </div>
                     <div className={styles.statItem}>
