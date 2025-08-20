@@ -308,8 +308,8 @@
   max-height: calc(1 * (120px + 16px)); /* Updated height for bigger tiles */
 }
 
-/* Mobile: spotlight shows one tile per row */
-@media (max-width: 768px) {
+/* Small Mobile: spotlight shows one tile per row */
+@media (max-width: 480px) {
   .map-grid.collapsed.spotlight-maps {
     grid-template-columns: 1fr;
     grid-template-rows: none;
@@ -1417,10 +1417,10 @@
   }
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
+  .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: 1fr !important; }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .show-more-btn { padding: 14px 20px; font-size: 0.95rem; }
 }
 
@@ -1481,10 +1481,10 @@
   }
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
-  .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
+  .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: 1fr !important; }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
   .show-more-btn { padding: 12px 16px; font-size: 0.9rem; margin-top: 12px; }
 }
 
