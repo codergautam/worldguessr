@@ -1172,8 +1172,13 @@ h1, h2, h3, span, label {
         top: 40px;
     }
 }
+@media screen and (max-width: 600px) {
+    .timer.duel {
+        font-size: 14px;
+    }
+}
 
-@media screen and (max-width: 500px) {
+@media screen and (max-width: 540px) {
     .timer.duel {
         top: 110px;
         font-size: 14px;
