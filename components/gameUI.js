@@ -26,7 +26,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, adPlaying, setAdPlaying, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -438,8 +438,9 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
           setCountryStreak(0);
           setLostCountryStreak(countryStreak);
 
-          // remove rewarded ads temporarily
-          if(countryStreak > 0 && window.adBreak && !inCrazyGames && !inCoolMathGames) {
+          // disable rewarded ads for iOS users due to navigation interference
+          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+          if(countryStreak > 0 && window.adBreak && !inCrazyGames && !inCoolMathGames && !isIOS) {
           console.log("requesting reward ad")
           window.adBreak({
             type: 'reward',  // rewarded ad
@@ -453,59 +454,18 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
               sendEvent('reward_ad_available', { countryStreak });
               console.log("reward ad available")
             },
-            beforeAd: () => {
-              // Hide Street View iframe to prevent AdSense navigation interference
-              setAdPlaying(true);
-              
-              // Prevent any navigation during ad on iOS
-              window.originalLocation = window.location;
-              const originalPushState = window.history.pushState;
-              const originalReplaceState = window.history.replaceState;
-              
-              window.history.pushState = function() {
-                console.warn('Blocked navigation during ad (pushState)');
-              };
-              window.history.replaceState = function() {
-                console.warn('Blocked navigation during ad (replaceState)');
-              };
-              
-              // Store original functions to restore later
-              window.adBlockedFunctions = { originalPushState, originalReplaceState };
-            },
+            beforeAd: () => { },
             adDismissed: () => {
-              // Restore navigation functions and show iframe back
-              if (window.adBlockedFunctions) {
-                window.history.pushState = window.adBlockedFunctions.originalPushState;
-                window.history.replaceState = window.adBlockedFunctions.originalReplaceState;
-                delete window.adBlockedFunctions;
-              }
-              setAdPlaying(false);
               toast.error(text("adDismissed"));
               sendEvent('reward_ad_dismissed', { countryStreak });
             },
             adViewed: () => {
-              // Restore navigation functions and show iframe back
-              if (window.adBlockedFunctions) {
-                window.history.pushState = window.adBlockedFunctions.originalPushState;
-                window.history.replaceState = window.adBlockedFunctions.originalReplaceState;
-                delete window.adBlockedFunctions;
-              }
-              setAdPlaying(false);
               setCountryStreak(countryStreak);
               setLostCountryStreak(0);
               toast.success(text("streakRestored"));
               sendEvent('reward_ad_viewed', { countryStreak });
             },       // Reward granted - continue game at current score.
-            afterAd: () => {
-              // Restore navigation functions and ensure iframe shown
-              if (window.adBlockedFunctions) {
-                window.history.pushState = window.adBlockedFunctions.originalPushState;
-                window.history.replaceState = window.adBlockedFunctions.originalReplaceState;
-                delete window.adBlockedFunctions;
-              }
-              setShowStreakAdBanner(false);
-              setAdPlaying(false);
-            },
+            afterAd: () => { setShowStreakAdBanner(false) },
           });
         }
         }

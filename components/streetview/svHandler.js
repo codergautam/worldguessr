@@ -48,12 +48,6 @@ const SvEmbedIframe = (params) => {
   useEffect(() => {
     // listen to events from iframe (onLoad) call params.onLoad
     const handleMessage = (event) => {
-      // Only handle messages from our Street View iframe, ignore AdSense/Google messages
-      if (!event.origin.includes(window.location.origin) && !event.origin.includes('/svEmbed')) {
-        console.log("Ignoring message from external origin:", event.origin, event.data);
-        return;
-      }
-      
       console.log("Received message from iframe", event.data);
       if (event.data && typeof event.data === "object" && event.data.type === "onLoad") {
         params.onLoad();
