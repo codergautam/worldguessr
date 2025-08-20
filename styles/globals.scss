@@ -4606,6 +4606,34 @@ div[dir="ltr"] {
     overflow: hidden;
 }
 
+/* AAA Game Style VS element for ALL screen sizes */
+.vs-divider,
+.hb-bars p {
+    font-family: lexend, sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 32px !important;
+    color: #ffffff !important;
+    text-shadow: 
+        0 0 25px #00ffff,
+        0 0 50px #00ffff,
+        0 0 75px #00ffff,
+        3px 3px 0 #000000,
+        -3px -3px 0 #000000,
+        3px -3px 0 #000000,
+        -3px 3px 0 #000000 !important;
+    letter-spacing: 8px !important;
+    animation: vsGlow 2s ease-in-out infinite alternate !important;
+    margin: 12px 0 !important;
+    text-align: center !important;
+    background: linear-gradient(45deg, rgba(0, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+    border-radius: 12px;
+    padding: 12px 24px !important;
+    border: 3px solid rgba(0, 255, 255, 0.4);
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+}
+
 /* AAA Game Style Duel Intro for Mobile */
 @media (max-width: 830px) {
     .hb-bars {
@@ -4614,7 +4642,7 @@ div[dir="ltr"] {
         animation: duelIntroSlide 0.8s ease-out;
     }
 
-    /* Style the existing VS element for better contrast and AAA game feel */
+    /* Style the existing VS element for better contrast and AAA game feel - MOBILE ONLY */
     .vs-divider,
     .hb-bars p {
         font-family: lexend, sans-serif !important;
@@ -4731,7 +4759,8 @@ div[dir="ltr"] {
 
 @media (max-width: 600px) {
     .health-bar-container.modern {
-        width: 140px; /* Even smaller for tiny screens */
+        width: calc(100vw - 40px); /* Full width minus padding */
+        max-width: 300px; /* Reasonable max width */
         margin: 8px;
     }
 
@@ -4747,20 +4776,20 @@ div[dir="ltr"] {
         font-size: 10px;
     }
 
-    .player-name {
-        font-size: 14px;
-    }
-
-    .player-elo {
-        font-size: 12px;
-    }
-
-    /* Keep player names readable on small screens */
+    /* Better long name support - no more cutoffs */
     .player-name {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 150px; /* Slightly larger for better readability */
+        max-width: calc(100vw - 60px); /* Almost full screen width */
+        font-size: 14px;
+        display: block;
+        text-align: center;
+        min-width: 0; /* Allow flex shrinking */
+    }
+
+    .player-elo {
+        font-size: 12px;
     }
 }
 
