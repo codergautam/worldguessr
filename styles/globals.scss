@@ -187,18 +187,17 @@ html {
     width: min-content;
 }
 
-/* Mobile centering for settings options */
+/* Mobile left spacing for settings options */
 @media (max-width: 1024px) {
     .settingsModal {
-        align-items: center; /* Center all children horizontally */
+        align-items: flex-start; /* Align all children to the left */
     }
 
     .settingsModalInner {
-        margin-left: auto;
-        margin-right: auto;
-        width: 280px; /* Fixed width for perfect alignment */
+        margin-left: 20px; /* Add 20px left spacing */
+        margin-right: 10px;
+        width: calc(100% - 30px); /* Adjust width to account for margins */
         justify-content: space-between; /* Spread label and input evenly */
-        /* Remove max-content width on mobile for perfect alignment */
     }
 
     .settingsModalInner label {
