@@ -1159,19 +1159,24 @@ h1, h2, h3, span, label {
     .player-info-modern {
         margin-top: 6px; /* Reduced from 12px */
     }
-    .timer.duel {
-        top: 120px;
-    }
+
     .health-bar-container.modern {
         margin: 10px; /* Reduced overall container margin */
     }
 }
 
-@media screen and (max-width: 600px) {
+@media screen and (max-width: 830px) {
     .timer.duel {
-        font-size: 14px; /* Slightly smaller font */
+        font-size: 18px; /* Slightly smaller font */
         padding: 8px 16px; /* Reduced padding */
-        top: 100px;
+        top: 40px;
+    }
+}
+
+@media screen and (max-width: 500px) {
+    .timer.duel {
+        top: 110px;
+        font-size: 14px;
     }
 }
 
@@ -4613,7 +4618,7 @@ div[dir="ltr"] {
     font-weight: 900 !important;
     font-size: 32px !important;
     color: #ffffff !important;
-    text-shadow: 
+    text-shadow:
         0 0 25px #00ffff,
         0 0 50px #00ffff,
         0 0 75px #00ffff,
@@ -4629,7 +4634,7 @@ div[dir="ltr"] {
     border-radius: 12px;
     padding: 12px 24px !important;
     border: 3px solid rgba(0, 255, 255, 0.4);
-    box-shadow: 
+    box-shadow:
         0 0 20px rgba(0, 255, 255, 0.3),
         inset 0 0 20px rgba(0, 255, 255, 0.1);
 }
@@ -4649,7 +4654,7 @@ div[dir="ltr"] {
         font-weight: 900 !important;
         font-size: 28px !important;
         color: #ffffff !important;
-        text-shadow: 
+        text-shadow:
             0 0 20px #00ffff,
             0 0 40px #00ffff,
             0 0 60px #00ffff,
@@ -4678,7 +4683,7 @@ div[dir="ltr"] {
         order: 2;
         animation: playerSlideUp 0.6s ease-out 0.4s both;
     }
-    
+
     /* Constrain player names in VS container */
     .hb-bars .player-name {
         max-width: 120px !important; /* Smaller in VS container */
@@ -4692,8 +4697,8 @@ div[dir="ltr"] {
 }
 
 @keyframes vsGlow {
-    0% { 
-        text-shadow: 
+    0% {
+        text-shadow:
             0 0 20px #00ffff,
             0 0 40px #00ffff,
             2px 2px 0 #000000,
@@ -4703,8 +4708,8 @@ div[dir="ltr"] {
         transform: scale(1);
         border-color: rgba(0, 255, 255, 0.3);
     }
-    100% { 
-        text-shadow: 
+    100% {
+        text-shadow:
             0 0 30px #00ffff,
             0 0 60px #00ffff,
             0 0 80px #00ffff,
@@ -4763,7 +4768,7 @@ div[dir="ltr"] {
     }
 }
 
-@media (max-width: 600px) {
+@media (max-width:830px) {
     .health-bar-container.modern {
         width: 160px; /* Back to compact mobile size */
         margin: 8px;
