@@ -424,7 +424,7 @@
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
-  height: 140px; /* Fixed height for consistency */
+  height: 95px; /* More compact mobile tiles */
   display: flex;
   flex-direction: column;
   color: white;
@@ -1297,19 +1297,53 @@
   .make-map-form > div[style*="alignItems"] { flex-direction: column; align-items: flex-start; gap: 8px; }
 
   .map-tile {
-    height: 120px; /* Fixed height for consistency */
-    padding: 12px;
+    height: 85px; /* Shorter tiles for mobile */
+    padding: 6px;
+    gap: 2px; /* Very tight internal spacing */
+    display: flex; /* Ensure flexbox on mobile */
+    flex-direction: column; /* Stack content vertically */
+  }
+  
+  .map-tile__header {
+    height: 100%; /* Fill the tile */
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .map-tile__mapdetails {
+    height: 100%; /* Fill the header */
+    display: flex;
+    flex-direction: column;
   }
   .map-tile.country {
-    height: 100px;
+    height: 75px; /* Compact country maps on mobile */
   }
   .map-tile__name {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     -webkit-line-clamp: 2;
     line-clamp: 2;
+    margin: 0 0 4px 0; /* Reduce spacing between title and content */
   }
   .map-tile__author {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
+    margin-top: 4px; /* Add consistent spacing */
+  }
+  
+  .map-tile__top-section {
+    margin-bottom: 4px; /* Reduce gap between sections */
+  }
+  
+  .map-tile__content {
+    height: 100%; /* Ensure content fills the full tile height */
+    display: flex; /* Explicitly set flex */
+    flex-direction: column; /* Stack vertically */
+    justify-content: space-between; /* Distribute space evenly */
+  }
+  
+  .map-tile__bottom-section {
+    margin-top: auto; /* Push to bottom */
+    gap: 6px; /* Tighter gap on mobile */
+    flex-shrink: 0; /* Don't shrink the bottom section */
   }
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
@@ -1327,20 +1361,47 @@
   .add-button { width: 100%; justify-content: center; }
 
   .map-tile {
-    height: 100px; /* Fixed height for small screens */
-    padding: 8px;
+    height: 90px; /* Shorter tiles for small mobile screens */
+    padding: 6px;
+    display: flex; /* Force flexbox layout */
+    flex-direction: column;
+  }
+  
+  .map-tile__header {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .map-tile__mapdetails {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
   .map-tile.country {
-    height: 85px;
+    height: 80px; /* Even more compact country tiles */
   }
   .map-tile__name {
     font-size: 0.8rem;
     display: -webkit-box;
     -webkit-box-orient: vertical;
+    margin: 0 0 3px 0; /* Tight spacing for small screens */
     -webkit-line-clamp: 1;
     line-clamp: 1;
     word-break: break-word;
     hyphens: auto;
+  }
+  
+  .map-tile__content {
+    height: 100%; /* Fill tile height on small screens */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Proper space distribution */
+  }
+  
+  .map-tile__bottom-section {
+    margin-top: auto;
+    flex-shrink: 0; /* Don't shrink bottom content */
   }
   .map-tile__author {
     font-size: 0.6rem;
