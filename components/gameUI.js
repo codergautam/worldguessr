@@ -456,18 +456,29 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
               sendEvent('reward_ad_available', { countryStreak });
               console.log("reward ad available")
             },
-            beforeAd: () => { },     // You may also want to mute the game's sound.
+            beforeAd: () => { 
+              // Hide Street View iframe to prevent AdSense navigation interference on mobile
+              setStreetViewShown(false);
+            },
             adDismissed: () => {
+              // Show Street View iframe back after ad dismissed
+              setStreetViewShown(true);
               toast.error(text("adDismissed"));
               sendEvent('reward_ad_dismissed', { countryStreak });
             },
             adViewed: () => {
+              // Show Street View iframe back after ad viewed  
+              setStreetViewShown(true);
               setCountryStreak(countryStreak);
               setLostCountryStreak(0);
               toast.success(text("streakRestored"));
               sendEvent('reward_ad_viewed', { countryStreak });
             },       // Reward granted - continue game at current score.
-            afterAd: () => { setShowStreakAdBanner(false) },       // Resume the game flow.
+            afterAd: () => { 
+              setShowStreakAdBanner(false);
+              // Ensure Street View is shown after any ad completion
+              setStreetViewShown(true);
+            },
           });
         }
         }

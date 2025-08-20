@@ -840,27 +840,27 @@ export default function Home({ }) {
                 setOptions(JSON.parse(options))
             } else {
                 let system = "metric";
-                
+
                 // Detect US/UK users for imperial units using timezone + locale
                 try {
                     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
                     const locale = navigator.language;
-                    
+
                     // US timezone detection
                     const isUSTimezone = timezone && (
-                        timezone.startsWith('America/') && 
+                        timezone.startsWith('America/') &&
                         !timezone.startsWith('America/Argentina') &&
                         !timezone.startsWith('America/Brazil') &&
                         !timezone.includes('Mexico')
                     );
-                    
+
                     // UK timezone detection
                     const isUKTimezone = timezone && timezone.startsWith('Europe/London');
-                    
+
                     // Locale detection
                     const isUSLocale = locale && locale.startsWith('en-US');
                     const isUKLocale = locale && locale.startsWith('en-GB');
-                    
+
                     if (isUSTimezone || isUKTimezone || isUSLocale || isUKLocale) {
                         system = "imperial";
                     }
@@ -1083,19 +1083,19 @@ export default function Home({ }) {
                         shouldConnect: false,
                         currentRetry: 1
                     }))
-                    
+
                     // Custom retry wrapper to track attempts
                     let ws = null;
                     let currentAttempt = 1;
                     const maxAttempts = 50;
-                    
+
                     while (currentAttempt <= maxAttempts && !ws) {
                         try {
                             setMultiplayerState((prev) => ({
                                 ...prev,
                                 currentRetry: currentAttempt
                             }))
-                            
+
                             ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 0) // 0 retries, we handle it ourselves
                             break;
                         } catch (error) {
@@ -1108,7 +1108,7 @@ export default function Home({ }) {
                             }
                         }
                     }
-                    
+
                     if (ws && ws.readyState === 1) {
                         setWs(ws)
                         setMultiplayerState((prev) => ({
