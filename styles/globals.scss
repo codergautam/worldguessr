@@ -4611,8 +4611,8 @@ div[dir="ltr"] {
     overflow: hidden;
 }
 
-/* AAA Game Style VS element for ALL screen sizes */
-.vs-divider,
+/* AAA Game Style VS element for DUEL INTRO ONLY - not round over screen */
+.hb-bars .vs-divider,
 .hb-bars p {
     font-family: lexend, sans-serif !important;
     font-weight: 900 !important;
@@ -4647,8 +4647,8 @@ div[dir="ltr"] {
         animation: duelIntroSlide 0.8s ease-out;
     }
 
-    /* Style the existing VS element for better contrast and AAA game feel - MOBILE ONLY */
-    .vs-divider,
+    /* Override desktop styling for mobile - DUEL INTRO ONLY */
+    .hb-bars .vs-divider,
     .hb-bars p {
         font-family: lexend, sans-serif !important;
         font-weight: 900 !important;
