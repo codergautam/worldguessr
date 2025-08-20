@@ -836,7 +836,7 @@
 
   .map-tile {
     padding: 12px;
-    min-height: 130px;
+    min-height: 75px;
   }
 
   .map-tile__name {
@@ -1329,7 +1329,7 @@
   }
   
   .map-tile.country {
-    height: 75px;
+    height: 60px;
   }
   .map-tile__name {
     font-size: 0.75rem;
@@ -1356,7 +1356,8 @@
 
   /* Completely redesigned compact mobile tiles */
   .map-tile {
-    height: 95px; /* Bigger for 3 lines on mobile */
+    height: 75px; /* Compact for mobile */
+    min-height: 75px; /* Override any larger min-height */
     padding: 8px;
     position: relative;
   }
@@ -1413,7 +1414,7 @@
   }
   
   .map-tile.country {
-    height: 70px;
+    height: 55px;
   }
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
@@ -1431,7 +1432,8 @@
   .add-button { width: 100%; justify-content: center; }
 
   .map-tile {
-    height: 90px; /* Bigger for 3 lines on small screens */
+    height: 70px; /* Compact for small screens */
+    min-height: 70px; /* Override any larger min-height */
     padding: 6px;
   }
   
@@ -1491,11 +1493,12 @@
 /* Extra small screens */
 @media (max-width: 360px) {
   .map-tile {
-    height: 85px; /* Fixed height for very small screens */
+    height: 65px; /* Compact for very small screens */
+    min-height: 65px; /* Override any larger min-height */
     padding: 6px;
   }
   .map-tile.country {
-    height: 70px;
+    height: 50px;
   }
   .map-tile__name {
     font-size: 0.7rem;
