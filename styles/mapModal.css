@@ -286,7 +286,7 @@
   scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
   scroll-behavior: smooth;
   padding-bottom: 8px;
-  max-height: calc(2 * (140px + 16px)); /* Fixed height calculation */
+  max-height: calc(2 * (120px + 16px)); /* Updated height calculation */
   -webkit-overflow-scrolling: touch;
 }
 
@@ -299,13 +299,13 @@
 .map-grid.collapsed.popular-maps {
   grid-template-rows: repeat(3, 1fr);
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Reduced from 240px */
-  max-height: calc(3 * (140px + 16px)); /* Fixed height for popular section */
+  max-height: calc(3 * (120px + 16px)); /* Updated height for popular section */
 }
 
 .map-grid.collapsed.spotlight-maps {
   grid-template-rows: repeat(1, 1fr);
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  max-height: calc(1 * (140px + 16px)); /* Fixed height for spotlight */
+  max-height: calc(1 * (120px + 16px)); /* Updated height for bigger tiles */
 }
 
 /* Mobile: spotlight shows one tile per row */
@@ -424,7 +424,7 @@
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
-  height: 95px; /* More compact mobile tiles */
+  height: 120px; /* Support 3 lines of text */
   display: flex;
   flex-direction: column;
   color: white;
@@ -492,9 +492,8 @@
 
 .map-tile__content {
   flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  height: 100%;
+  position: relative;
 }
 
 .map-tile__name {
@@ -519,11 +518,15 @@
 }
 
 .map-tile__bottom-section {
-  margin-top: auto;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
   gap: 8px;
+  margin: 0;
 }
 
 .map-tile__author {
@@ -1244,20 +1247,40 @@
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
 }
 
-/* Height-based media queries for smaller tiles on short screens */
+/* Height-based media queries for shorter screens */
 @media (max-height: 700px) {
   .map-tile {
-    height: 120px; /* Fixed height instead of min() */
-    padding: 12px;
+    height: 105px; /* Support 3 lines on short screens */
+    padding: 8px;
   }
+  
+  .map-tile__content {
+    height: 100%;
+    position: relative;
+  }
+  
+  .map-tile__top-section {
+    margin: 0;
+  }
+  
+  .map-tile__bottom-section {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+  }
+  
   .map-tile.country {
-    height: 100px;
+    height: 80px;
   }
   .map-tile__name {
     font-size: 0.9rem;
+    margin: 0;
   }
   .map-tile__author {
     font-size: 0.65rem;
+    margin: 0;
   }
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
@@ -1269,17 +1292,37 @@
 
 @media (max-height: 600px) {
   .map-tile {
-    height: 100px; /* Fixed height instead of min() */
-    padding: 10px;
+    height: 100px; /* Support 3 lines on very short screens */
+    padding: 8px;
   }
+  
+  .map-tile__content {
+    height: 100%;
+    position: relative;
+  }
+  
+  .map-tile__top-section {
+    margin: 0;
+  }
+  
+  .map-tile__bottom-section {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+  }
+  
   .map-tile.country {
-    height: 85px;
+    height: 75px;
   }
   .map-tile__name {
     font-size: 0.8rem;
+    margin: 0;
   }
   .map-tile__author {
     font-size: 0.6rem;
+    margin: 0;
   }
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
@@ -1296,54 +1339,66 @@
   .delete-button { align-self: flex-end; width: auto; padding: 8px 16px; }
   .make-map-form > div[style*="alignItems"] { flex-direction: column; align-items: flex-start; gap: 8px; }
 
+  /* Completely redesigned compact mobile tiles */
   .map-tile {
-    height: 85px; /* Shorter tiles for mobile */
-    padding: 6px;
-    gap: 2px; /* Very tight internal spacing */
-    display: flex; /* Ensure flexbox on mobile */
-    flex-direction: column; /* Stack content vertically */
+    height: 95px; /* Bigger for 3 lines on mobile */
+    padding: 8px;
+    position: relative;
   }
   
   .map-tile__header {
-    height: 100%; /* Fill the tile */
-    display: flex;
-    flex-direction: column;
+    height: 100%;
+    position: relative;
   }
   
   .map-tile__mapdetails {
-    height: 100%; /* Fill the header */
-    display: flex;
-    flex-direction: column;
-  }
-  .map-tile.country {
-    height: 75px; /* Compact country maps on mobile */
-  }
-  .map-tile__name {
-    font-size: 0.85rem;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    margin: 0 0 4px 0; /* Reduce spacing between title and content */
-  }
-  .map-tile__author {
-    font-size: 0.7rem;
-    margin-top: 4px; /* Add consistent spacing */
-  }
-  
-  .map-tile__top-section {
-    margin-bottom: 4px; /* Reduce gap between sections */
+    height: 100%;
+    position: relative;
   }
   
   .map-tile__content {
-    height: 100%; /* Ensure content fills the full tile height */
-    display: flex; /* Explicitly set flex */
-    flex-direction: column; /* Stack vertically */
-    justify-content: space-between; /* Distribute space evenly */
+    height: 100%;
+    position: relative;
+  }
+  
+  .map-tile__top-section {
+    margin: 0;
+  }
+  
+  .map-tile__name {
+    font-size: 0.85rem;
+    line-height: 1.2;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3; /* Allow 3 lines max */
+    line-clamp: 3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: break-word;
+    max-height: 43px; /* 3 lines at 1.2 line height */
   }
   
   .map-tile__bottom-section {
-    margin-top: auto; /* Push to bottom */
-    gap: 6px; /* Tighter gap on mobile */
-    flex-shrink: 0; /* Don't shrink the bottom section */
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+  }
+  
+  .map-tile__author {
+    font-size: 0.7rem;
+    margin: 0 !important;
+    height: 16px; /* Fixed height */
+    line-height: 16px; /* Consistent line height */
+    white-space: nowrap; /* Prevent wrapping that causes movement */
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .map-tile.country {
+    height: 70px;
   }
   .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
@@ -1361,47 +1416,50 @@
   .add-button { width: 100%; justify-content: center; }
 
   .map-tile {
-    height: 90px; /* Shorter tiles for small mobile screens */
+    height: 90px; /* Bigger for 3 lines on small screens */
     padding: 6px;
-    display: flex; /* Force flexbox layout */
-    flex-direction: column;
   }
   
   .map-tile__header {
     height: 100%;
-    display: flex;
-    flex-direction: column;
   }
   
   .map-tile__mapdetails {
     height: 100%;
-    display: flex;
-    flex-direction: column;
   }
-  .map-tile.country {
-    height: 80px; /* Even more compact country tiles */
+  
+  .map-tile__content {
+    height: 100%;
+    position: relative;
   }
+  
+  .map-tile__top-section {
+    margin: 0;
+  }
+  
   .map-tile__name {
     font-size: 0.8rem;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    margin: 0 0 3px 0; /* Tight spacing for small screens */
-    -webkit-line-clamp: 1;
-    line-clamp: 1;
+    margin: 0;
+    -webkit-line-clamp: 3; /* Allow 3 lines */
+    line-clamp: 3;
     word-break: break-word;
-    hyphens: auto;
-  }
-  
-  .map-tile__content {
-    height: 100%; /* Fill tile height on small screens */
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between; /* Proper space distribution */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-height: 38px; /* 3 lines at smaller font */
   }
   
   .map-tile__bottom-section {
-    margin-top: auto;
-    flex-shrink: 0; /* Don't shrink bottom content */
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: 0;
+  }
+  
+  .map-tile.country {
+    height: 65px;
   }
   .map-tile__author {
     font-size: 0.6rem;
