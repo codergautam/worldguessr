@@ -318,21 +318,14 @@
 }
 
 
-/* Expanded view - normal grid */
+/* Expanded view - just remove constraints, keep same grid */
 .map-grid.expanded {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Match collapsed grid */
-  grid-auto-flow: row;
   overflow: visible;
   max-height: none;
+  grid-template-rows: none; /* Remove row constraints */
 }
 
-.map-grid.expanded.country-maps {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Match collapsed grid */
-}
-
-.map-grid.expanded.spotlight-maps {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important; /* Force match collapsed spotlight grid */
-}
+/* Don't need separate expanded rules - they inherit the same grid-template-columns from collapsed */
 
 /* Custom scrollbar for horizontal scrolling */
 .map-grid.collapsed::-webkit-scrollbar {
@@ -1229,6 +1222,7 @@
 @media (max-width: 1400px) {
     .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
     .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    
   }
 
 /* ≤ 1200 px */
@@ -1237,9 +1231,6 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 
-  /* Make expanded maps match collapsed */
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important; }
 }
 
 /* ≤ 1000 px - Small desktop screens */
@@ -1248,9 +1239,6 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 
-  /* Make expanded maps match collapsed */
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important; }
 }
 
 /* Height-based media queries for shorter screens */
@@ -1292,9 +1280,7 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 
-  /* Make expanded maps match collapsed */
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important; }
+160px, 1fr)); }
 }
 
 @media (max-height: 600px) {
@@ -1335,9 +1321,7 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 
-  /* Make expanded maps match collapsed */
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important; }
+150px, 1fr)); }
 }
 
 /* ≤ 768 px */
@@ -1413,9 +1397,7 @@
   .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
   .show-more-btn { padding: 14px 20px; font-size: 0.95rem; }
 
-  /* Make expanded maps match collapsed */
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: 1fr !important; }
+150px, 1fr)); }
 }
 
 /* ≤ 480 px */
@@ -1478,9 +1460,7 @@
   .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
   .show-more-btn { padding: 12px 16px; font-size: 0.9rem; margin-top: 12px; }
 
-  /* Make expanded maps match collapsed */
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: 1fr !important; }
+120px, 1fr)); }
 }
 
 /* Extra small screens */
@@ -1502,9 +1482,7 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
 
-  /* Make expanded maps match collapsed */
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: 1fr !important; }
+100px, 1fr)); }
 }
 
 /* iOS Safari specific fixes */
