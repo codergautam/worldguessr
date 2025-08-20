@@ -379,8 +379,10 @@ export default function XPGraph({ session, mode = 'xp' }) {
                 },
                 ticks: {
                     color: 'rgba(255, 255, 255, 0.7)',
-                    maxTicksLimit: 8,
-                    autoSkip: true
+                    maxTicksLimit: window.innerWidth < 768 ? 4 : 8,
+                    autoSkip: true,
+                    maxRotation: window.innerWidth < 768 ? 45 : 0,
+                    minRotation: window.innerWidth < 768 ? 45 : 0
                 }
             },
             y: {
@@ -414,28 +416,6 @@ export default function XPGraph({ session, mode = 'xp' }) {
         marginTop: '20px'
     };
 
-    const toggleStyle = {
-        display: 'flex',
-        background: 'rgba(255, 255, 255, 0.1)',
-        borderRadius: '25px',
-        padding: '4px',
-        marginBottom: '20px',
-        width: 'fit-content'
-    };
-
-    const toggleButtonStyle = (active) => ({
-        padding: '10px 20px',
-        borderRadius: '20px',
-        border: 'none',
-        background: active ? '#4CAF50' : 'transparent',
-        color: '#fff',
-        cursor: 'pointer',
-        fontSize: '14px',
-        fontWeight: '600',
-        transition: 'all 0.3s ease',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px'
-    });
 
     if (loading) {
         return (
@@ -510,34 +490,34 @@ export default function XPGraph({ session, mode = 'xp' }) {
     };
 
     return (
-        <div style={graphStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                <h3 style={{ color: '#fff', margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
+        <div style={graphStyle} className="xp-graph-container">
+            <div className="xp-graph-header">
+                <h3 className="xp-graph-title">
                     {getTimeframeTitle()}
                 </h3>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
-                    <div style={toggleStyle}>
+                <div className="xp-graph-controls">
+                    <div className="date-filter-toggle">
                         <button
-                            style={toggleButtonStyle(dateFilter === '7days')}
+                            className={`toggle-btn ${dateFilter === '7days' ? 'active' : ''}`}
                             onClick={() => setDateFilter('7days')}
                         >
-                            7 Days
+                            7D
                         </button>
                         <button
-                            style={toggleButtonStyle(dateFilter === '30days')}
+                            className={`toggle-btn ${dateFilter === '30days' ? 'active' : ''}`}
                             onClick={() => setDateFilter('30days')}
                         >
-                            30 Days
+                            30D
                         </button>
                         <button
-                            style={toggleButtonStyle(dateFilter === 'alltime')}
+                            className={`toggle-btn ${dateFilter === 'alltime' ? 'active' : ''}`}
                             onClick={() => setDateFilter('alltime')}
                         >
-                            All Time
+                            All
                         </button>
                         <button
-                            style={toggleButtonStyle(dateFilter === 'custom')}
+                            className={`toggle-btn ${dateFilter === 'custom' ? 'active' : ''}`}
                             onClick={() => setDateFilter('custom')}
                         >
                             Custom
@@ -545,55 +525,34 @@ export default function XPGraph({ session, mode = 'xp' }) {
                     </div>
 
                     {dateFilter === 'custom' && (
-                        <div style={{
-                            display: 'flex',
-                            gap: '10px',
-                            alignItems: 'center',
-                            background: 'rgba(255, 255, 255, 0.1)',
-                            borderRadius: '10px',
-                            padding: '10px'
-                        }}>
+                        <div className="custom-date-picker">
                             <input
                                 type="date"
                                 value={customStartDate}
                                 onChange={(e) => setCustomStartDate(e.target.value)}
-                                style={{
-                                    background: 'rgba(255, 255, 255, 0.1)',
-                                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                                    borderRadius: '5px',
-                                    padding: '5px',
-                                    color: '#fff',
-                                    fontSize: '12px'
-                                }}
+                                className="date-input"
                                 placeholder="Start Date"
                             />
-                            <span style={{ color: '#fff', fontSize: '12px' }}>to</span>
+                            <span className="date-separator">to</span>
                             <input
                                 type="date"
                                 value={customEndDate}
                                 onChange={(e) => setCustomEndDate(e.target.value)}
-                                style={{
-                                    background: 'rgba(255, 255, 255, 0.1)',
-                                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                                    borderRadius: '5px',
-                                    padding: '5px',
-                                    color: '#fff',
-                                    fontSize: '12px'
-                                }}
+                                className="date-input"
                                 placeholder="End Date"
                             />
                         </div>
                     )}
 
-                    <div style={toggleStyle}>
+                    <div className="view-mode-toggle">
                         <button
-                            style={toggleButtonStyle(mode === 'xp' ? viewMode === 'xp' : viewMode === 'elo')}
+                            className={`toggle-btn ${mode === 'xp' ? (viewMode === 'xp' ? 'active' : '') : (viewMode === 'elo' ? 'active' : '')}`}
                             onClick={() => setViewMode(mode === 'xp' ? 'xp' : 'elo')}
                         >
                             {mode === 'xp' ? text('xp') : text('elo')}
                         </button>
                         <button
-                            style={toggleButtonStyle(mode === 'xp' ? viewMode === 'rank' : viewMode === 'eloRank')}
+                            className={`toggle-btn ${mode === 'xp' ? (viewMode === 'rank' ? 'active' : '') : (viewMode === 'eloRank' ? 'active' : '')}`}
                             onClick={() => setViewMode(mode === 'xp' ? 'rank' : 'eloRank')}
                         >
                             {text('rank')}
@@ -602,19 +561,13 @@ export default function XPGraph({ session, mode = 'xp' }) {
                 </div>
             </div>
 
-            <div style={{ height: '400px', position: 'relative' }}>
+            <div className="chart-container">
                 {chartData && <Line data={chartData} options={chartOptions} />}
             </div>
 
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                marginTop: '15px',
-                color: 'rgba(255,255,255,0.7)',
-                fontSize: '14px'
-            }}>
-                <span>{text('dataPoints', { count: chartData?.datasets[0]?.data?.length || 0 })}</span>
-                <span>
+            <div className="chart-stats">
+                <span className="data-points">{text('dataPoints', { count: chartData?.datasets[0]?.data?.length || 0 })}</span>
+                <span className="current-value">
                     {mode === 'xp' ?
                         (viewMode === 'xp'
                             ? `${text('currentXP')}: ${getCurrentValue().toLocaleString()}`
@@ -632,6 +585,218 @@ export default function XPGraph({ session, mode = 'xp' }) {
                 @keyframes spin {
                     0% { transform: rotate(0deg); }
                     100% { transform: rotate(360deg); }
+                }
+
+                .xp-graph-header {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 20px;
+                    margin-bottom: 20px;
+                }
+
+                .xp-graph-title {
+                    color: #fff;
+                    margin: 0;
+                    font-size: 20px;
+                    font-weight: bold;
+                    text-align: center;
+                    line-height: 1.3;
+                }
+
+                .xp-graph-controls {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 15px;
+                    align-items: center;
+                    width: 100%;
+                }
+
+                .date-filter-toggle,
+                .view-mode-toggle {
+                    display: flex;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 25px;
+                    padding: 4px;
+                    gap: 2px;
+                    overflow-x: auto;
+                    width: 100%;
+                    max-width: 100%;
+                    justify-content: center;
+                }
+
+                .toggle-btn {
+                    padding: 12px 16px;
+                    border-radius: 20px;
+                    border: none;
+                    background: transparent;
+                    color: #fff;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    white-space: nowrap;
+                    min-width: 60px;
+                    flex: 1;
+                    max-width: 80px;
+                }
+
+                .toggle-btn.active {
+                    background: #4CAF50;
+                    transform: scale(1.05);
+                }
+
+                .toggle-btn:hover:not(.active) {
+                    background: rgba(255, 255, 255, 0.1);
+                    transform: scale(1.02);
+                }
+
+                .custom-date-picker {
+                    display: flex;
+                    gap: 12px;
+                    align-items: center;
+                    background: rgba(255, 255, 255, 0.1);
+                    border-radius: 12px;
+                    padding: 15px;
+                    width: 100%;
+                    max-width: 100%;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                }
+
+                .date-input {
+                    background: rgba(255, 255, 255, 0.1);
+                    border: 1px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 8px;
+                    padding: 12px;
+                    color: #fff;
+                    font-size: 14px;
+                    min-width: 140px;
+                    flex: 1;
+                    max-width: 200px;
+                }
+
+                .date-input:focus {
+                    outline: none;
+                    border-color: #4CAF50;
+                    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+                }
+
+                .date-separator {
+                    color: #fff;
+                    font-size: 14px;
+                    font-weight: 500;
+                    white-space: nowrap;
+                }
+
+                .chart-container {
+                    height: 300px;
+                    position: relative;
+                    margin: 20px 0;
+                }
+
+                .chart-stats {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    margin-top: 15px;
+                    color: rgba(255,255,255,0.7);
+                    font-size: 14px;
+                    text-align: center;
+                }
+
+                .data-points,
+                .current-value {
+                    display: block;
+                }
+
+                /* Desktop styles */
+                @media (min-width: 768px) {
+                    .xp-graph-header {
+                        flex-direction: row;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                    }
+
+                    .xp-graph-title {
+                        font-size: 24px;
+                        text-align: left;
+                        flex: 1;
+                    }
+
+                    .xp-graph-controls {
+                        align-items: flex-end;
+                        flex-shrink: 0;
+                        width: auto;
+                        max-width: 400px;
+                    }
+
+                    .date-filter-toggle,
+                    .view-mode-toggle {
+                        width: fit-content;
+                        justify-content: flex-end;
+                    }
+
+                    .toggle-btn {
+                        padding: 10px 20px;
+                        flex: none;
+                        min-width: auto;
+                        max-width: none;
+                    }
+
+                    .custom-date-picker {
+                        flex-wrap: nowrap;
+                        width: fit-content;
+                        justify-content: flex-end;
+                    }
+
+                    .date-input {
+                        min-width: 120px;
+                        flex: none;
+                    }
+
+                    .chart-container {
+                        height: 400px;
+                    }
+
+                    .chart-stats {
+                        flex-direction: row;
+                        justify-content: space-between;
+                        text-align: left;
+                    }
+                }
+
+                /* Large desktop styles */
+                @media (min-width: 1024px) {
+                    .xp-graph-controls {
+                        max-width: 500px;
+                    }
+                }
+
+                /* Small mobile adjustments */
+                @media (max-width: 480px) {
+                    .xp-graph-title {
+                        font-size: 18px;
+                    }
+
+                    .toggle-btn {
+                        padding: 10px 12px;
+                        font-size: 12px;
+                        min-width: 50px;
+                        max-width: 70px;
+                    }
+
+                    .custom-date-picker {
+                        padding: 12px;
+                        gap: 8px;
+                    }
+
+                    .date-input {
+                        padding: 10px;
+                        font-size: 12px;
+                        min-width: 120px;
+                    }
                 }
             `}</style>
         </div>
