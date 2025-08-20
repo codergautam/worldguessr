@@ -1151,11 +1151,24 @@ h1, h2, h3, span, label {
     top: 100px;
 }
 
-// if width is less than 830 move the timer duel a bit down
-
+// Timer positioning for mobile to avoid overlap with health bars
 @media screen and (max-width: 830px) {
     .timer.duel {
-        top: 70px;
+        top: 120px; /* Moved further down to avoid HP bar overlap */
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .timer.duel {
+        top: 140px; /* Even further down on very small screens */
+    }
+}
+
+@media screen and (max-width: 400px) {
+    .timer.duel {
+        top: 160px; /* Maximum spacing for tiny screens */
+        font-size: 14px; /* Slightly smaller font */
+        padding: 8px 16px; /* Reduced padding */
     }
 }
 
@@ -4584,6 +4597,9 @@ div[dir="ltr"] {
     justify-content: center;
     align-items: center;
     gap: 40px;
+    flex-wrap: wrap; /* Allow wrapping on very small screens */
+    max-width: 100vw;
+    overflow: hidden;
 }
 
 /* Enhanced Media Queries */
@@ -4612,16 +4628,16 @@ div[dir="ltr"] {
 
 @media (max-width: 400px) {
     .health-bar-container.modern {
-        width: 160px;
-        margin: 12px;
+        width: 140px; /* Even smaller for tiny screens */
+        margin: 8px;
     }
 
     .health-bar-track {
-        height: 20px;
+        height: 18px; /* Smaller track */
     }
 
     .health-number {
-        font-size: 14px;
+        font-size: 12px;
     }
 
     .health-max {
@@ -4638,6 +4654,20 @@ div[dir="ltr"] {
 
     .hb-bars {
         gap: 20px;
+        padding: 0 10px; /* Add padding to prevent edge overflow */
+    }
+    
+    /* Make player names more responsive */
+    .player-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 120px; /* Limit name width on small screens */
+    }
+    
+    .hb-bars {
+        gap: 10px !important; /* Much smaller gap for tiny screens */
+        padding: 0 5px;
     }
 }
 
