@@ -4610,22 +4610,33 @@ div[dir="ltr"] {
 @media (max-width: 830px) {
     .hb-bars {
         flex-direction: column;
-        gap: 15px;
+        gap: 5px; /* Much closer spacing */
         animation: duelIntroSlide 0.8s ease-out;
     }
 
-    /* Create VS divider between players */
-    .hb-bars::after {
-        content: "VS";
-        font-family: lexend, sans-serif;
-        font-weight: 900;
-        font-size: 24px;
-        color: #ff6b35;
-        text-shadow: 0 0 20px #ff6b35, 0 0 40px #ff6b35;
-        letter-spacing: 4px;
-        animation: vsGlow 1.5s ease-in-out infinite alternate;
-        order: 1; /* Place VS in the middle */
-        z-index: 1000;
+    /* Style the existing VS element for better contrast and AAA game feel */
+    .vs-divider,
+    .hb-bars p {
+        font-family: lexend, sans-serif !important;
+        font-weight: 900 !important;
+        font-size: 28px !important;
+        color: #ffffff !important;
+        text-shadow: 
+            0 0 20px #00ffff,
+            0 0 40px #00ffff,
+            0 0 60px #00ffff,
+            2px 2px 0 #000000,
+            -2px -2px 0 #000000,
+            2px -2px 0 #000000,
+            -2px 2px 0 #000000 !important;
+        letter-spacing: 6px !important;
+        animation: vsGlow 2s ease-in-out infinite alternate !important;
+        margin: 8px 0 !important;
+        text-align: center !important;
+        background: linear-gradient(45deg, rgba(0, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+        border-radius: 8px;
+        padding: 8px 16px !important;
+        border: 2px solid rgba(0, 255, 255, 0.3);
     }
 
     /* First player at top */
@@ -4647,13 +4658,28 @@ div[dir="ltr"] {
 }
 
 @keyframes vsGlow {
-    0% {
-        text-shadow: 0 0 20px #ff6b35, 0 0 40px #ff6b35;
+    0% { 
+        text-shadow: 
+            0 0 20px #00ffff,
+            0 0 40px #00ffff,
+            2px 2px 0 #000000,
+            -2px -2px 0 #000000,
+            2px -2px 0 #000000,
+            -2px 2px 0 #000000;
         transform: scale(1);
+        border-color: rgba(0, 255, 255, 0.3);
     }
-    100% {
-        text-shadow: 0 0 30px #ff6b35, 0 0 60px #ff6b35, 0 0 80px #ff6b35;
-        transform: scale(1.05);
+    100% { 
+        text-shadow: 
+            0 0 30px #00ffff,
+            0 0 60px #00ffff,
+            0 0 80px #00ffff,
+            2px 2px 0 #000000,
+            -2px -2px 0 #000000,
+            2px -2px 0 #000000,
+            -2px 2px 0 #000000;
+        transform: scale(1.08);
+        border-color: rgba(0, 255, 255, 0.6);
     }
 }
 
