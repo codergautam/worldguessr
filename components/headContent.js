@@ -32,7 +32,7 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
       script2.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972";
       script2.async = true;
       // add attribute data-adbreak-test=on
-      script2.setAttribute("data-adbreak-test", "on");
+      // script2.setAttribute("data-adbreak-test", "on");
       script2.crossorigin = "anonymous";
       document.body.appendChild(script2);
 
