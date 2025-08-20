@@ -330,6 +330,10 @@
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Match collapsed grid */
 }
 
+.map-grid.expanded.spotlight-maps {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Match collapsed spotlight grid */
+}
+
 /* Custom scrollbar for horizontal scrolling */
 .map-grid.collapsed::-webkit-scrollbar {
   height: 6px;
@@ -1233,8 +1237,9 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 
-  /* Make expanded country maps match collapsed */
+  /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 }
 
 /* ≤ 1000 px - Small desktop screens */
@@ -1243,8 +1248,9 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 
-  /* Make expanded country maps match collapsed */
+  /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
 }
 
 /* Height-based media queries for shorter screens */
@@ -1286,8 +1292,9 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 
-  /* Make expanded country maps match collapsed */
+  /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 }
 
 @media (max-height: 600px) {
@@ -1328,8 +1335,9 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 
-  /* Make expanded country maps match collapsed */
+  /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 }
 
 /* ≤ 768 px */
@@ -1405,8 +1413,9 @@
   .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
   .show-more-btn { padding: 14px 20px; font-size: 0.95rem; }
 
-  /* Make expanded country maps match collapsed */
+  /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: 1fr !important; }
 }
 
 /* ≤ 480 px */
@@ -1469,8 +1478,9 @@
   .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
   .show-more-btn { padding: 12px 16px; font-size: 0.9rem; margin-top: 12px; }
 
-  /* Make expanded country maps match collapsed */
+  /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: 1fr !important; }
 }
 
 /* Extra small screens */
@@ -1492,8 +1502,9 @@
   .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
   .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
 
-  /* Make expanded country maps match collapsed */
+  /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: 1fr !important; }
 }
 
 /* iOS Safari specific fixes */
