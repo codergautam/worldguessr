@@ -331,7 +331,7 @@
 }
 
 .map-grid.expanded.spotlight-maps {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Match collapsed spotlight grid */
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important; /* Force match collapsed spotlight grid */
 }
 
 /* Custom scrollbar for horizontal scrolling */
@@ -1239,7 +1239,7 @@
 
   /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important; }
 }
 
 /* ≤ 1000 px - Small desktop screens */
@@ -1250,7 +1250,7 @@
 
   /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important; }
 }
 
 /* Height-based media queries for shorter screens */
@@ -1294,7 +1294,7 @@
 
   /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important; }
 }
 
 @media (max-height: 600px) {
@@ -1337,7 +1337,7 @@
 
   /* Make expanded maps match collapsed */
   .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)) !important; }
 }
 
 /* ≤ 768 px */
