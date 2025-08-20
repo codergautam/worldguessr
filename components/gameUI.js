@@ -26,7 +26,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, streetViewShown, setStreetViewShown, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, adPlaying, setAdPlaying, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -288,7 +288,6 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
     if(multiplayerState?.inGame) return;
     if (!latLong) {
       setLoading(true)
-      setStreetViewShown(false)
     } else {
       setRoundStartTime(Date.now());
     }
@@ -456,28 +455,28 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
               sendEvent('reward_ad_available', { countryStreak });
               console.log("reward ad available")
             },
-            beforeAd: () => { 
+            beforeAd: () => {
               // Hide Street View iframe to prevent AdSense navigation interference on mobile
-              setStreetViewShown(false);
+              setAdPlaying(true);
             },
             adDismissed: () => {
               // Show Street View iframe back after ad dismissed
-              setStreetViewShown(true);
+              setAdPlaying(false);
               toast.error(text("adDismissed"));
               sendEvent('reward_ad_dismissed', { countryStreak });
             },
             adViewed: () => {
-              // Show Street View iframe back after ad viewed  
-              setStreetViewShown(true);
+              // Show Street View iframe back after ad viewed
+              setAdPlaying(false);
               setCountryStreak(countryStreak);
               setLostCountryStreak(0);
               toast.success(text("streakRestored"));
               sendEvent('reward_ad_viewed', { countryStreak });
             },       // Reward granted - continue game at current score.
-            afterAd: () => { 
+            afterAd: () => {
               setShowStreakAdBanner(false);
               // Ensure Street View is shown after any ad completion
-              setStreetViewShown(true);
+              setAdPlaying(false);
             },
           });
         }
