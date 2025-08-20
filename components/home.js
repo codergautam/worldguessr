@@ -2127,6 +2127,8 @@ export default function Home({ }) {
                 position: 'fixed',
                 width: '100vw',
                 height: '100vh',
+                height: '100dvh', // Modern browsers dynamic viewport
+                height: '-webkit-fill-available', // iOS Safari fix
                 transition: 'opacity 0.5s',
                 opacity: 0.5,
                 userSelect: 'none',
