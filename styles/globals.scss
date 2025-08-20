@@ -41,7 +41,18 @@ button {
     width: 100vw;
     box-sizing: border-box;
     height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for modern browsers */
     display: flex;
+    overflow: hidden; /* Prevent unwanted scrolling on iOS */
+}
+
+/* iOS Safari viewport fix */
+@supports (-webkit-touch-callout: none) {
+    .home {
+        height: 100vh;
+        height: -webkit-fill-available;
+        overflow: hidden;
+    }
 }
 
 body,
