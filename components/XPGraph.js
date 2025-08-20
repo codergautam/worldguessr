@@ -42,7 +42,6 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
         setLoading(true);
         try {
-            console.log('[XPGraph] Fetching user progression for userId:', session.token.accountId);
             const response = await fetch(window.cConfig.apiUrl + '/api/userProgression', {
                 method: 'POST',
                 headers: {
@@ -55,8 +54,6 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
             if (response.ok) {
                 const data = await response.json();
-                console.log('[XPGraph] Raw progression data received:', data);
-                console.log('[XPGraph] Number of progression entries:', data.progression?.length || 0);
                 setUserStats(data.progression);
                 calculateGraphData(data.progression);
             } else {
@@ -173,11 +170,11 @@ export default function XPGraph({ session, mode = 'xp' }) {
             const lastPoint = dataPoints[dataPoints.length - 1];
             const now = new Date();
             const lastPointDate = new Date(lastPoint.x);
-            
+
             // Only add today's point if it's not already the last point (allow for some time tolerance)
             const timeDiff = Math.abs(now.getTime() - lastPointDate.getTime());
             const oneDayInMs = 24 * 60 * 60 * 1000;
-            
+
             if (timeDiff > oneDayInMs) {
                 dataPoints.push({
                     x: now,

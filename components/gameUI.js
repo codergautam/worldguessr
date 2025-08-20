@@ -181,11 +181,6 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
   }
 
-  useEffect(() => {
-console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!showPanoOnResult && showAnswer) || (!showAnswer))))
-  console.log("10","minimapshown", miniMapShown, "showAnswer", showAnswer);
-  console.log("10","showpanoOnResult", showPanoOnResult, "singlePlayerRound.done", singlePlayerRound?.done);
-  }, [miniMapShown, showAnswer, singlePlayerRound?.done, showPanoOnResult])
 
   const { width, height } = useWindowDimensions();
   // how to determine if touch screen?
@@ -241,7 +236,6 @@ console.log("10",(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && ((!sho
     // only if learn mode
     if(window.location.search.includes("learn=true")) {
 
-      console.log("fetching clue")
     fetch(window.cConfig.apiUrl+'/api/clues/getClue'+(latLong ? `?lat=${latLong.lat}&lng=${latLong.long}` : '')).then(res => res.json()).then(data => {
 
       if(data.error) {

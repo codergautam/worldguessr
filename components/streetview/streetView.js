@@ -196,7 +196,7 @@ const StreetView = ({
       panoramaOptions.position = { lat, lng: long };
     }
 
-    console.log("Creating StreetViewPanorama with options:", panoramaOptions);
+    // console.log("Creating StreetViewPanorama with options:", panoramaOptions);
 
     panoramaRef.current = new google.maps.StreetViewPanorama(
       document.getElementById(googleMapsDivId),

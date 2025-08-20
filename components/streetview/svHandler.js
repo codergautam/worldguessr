@@ -29,7 +29,7 @@ const SvEmbedIframe = (params) => {
   };
 
   useEffect(() => {
-    console.log("SvEmbedIframe params changed", params);
+    // console.log("SvEmbedIframe params changed", params);
     // reload iframe when lat or long changes
     // console.log("lat or long changed", params.lat, params.long);
     // Only use panoId if we have proper heading/pitch data, otherwise fall back to lat/lng
@@ -48,7 +48,7 @@ const SvEmbedIframe = (params) => {
   useEffect(() => {
     // listen to events from iframe (onLoad) call params.onLoad
     const handleMessage = (event) => {
-      console.log("Received message from iframe", event.data);
+      // console.log("Received message from iframe", event.data);
       if (event.data && typeof event.data === "object" && event.data.type === "onLoad") {
         params.onLoad();
       }
