@@ -37,11 +37,11 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
 
 
 
-                <WsIcon 
-                    connected={multiplayerState?.connected} 
+                <WsIcon
+                    connected={multiplayerState?.connected}
                     connecting={multiplayerState?.connecting}
-                    shown={true} 
-                    onClick={!multiplayerState?.connected ? onConnectionError : undefined} 
+                    shown={true}
+                    onClick={!multiplayerState?.connected ? onConnectionError : undefined}
                 />
 
 
@@ -77,7 +77,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
 
                     {session?.token?.secret && !accountModalOpen && !gameOptionsModalShown && !mapModalOpen && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && (
                         <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected}>
-                            <FaUserFriends size={40} className="friendBtnIcon" />
+                            <FaUserFriends size={40} className={`friendBtnIcon ${screen === "home" ? "friendBtnIconFixed" : ""}`} />
                         </button>
                     )}
                 </div>
