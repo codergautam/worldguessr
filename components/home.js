@@ -2079,7 +2079,7 @@ export default function Home({ }) {
             />
             <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
             <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
-            <DiscordModal shown={showDiscordModal} setOpen={setShowDiscordModal} />
+            <DiscordModal shown={showDiscordModal && (typeof window !== 'undefined' && window.innerWidth >= 768)} setOpen={setShowDiscordModal} />
             {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
             <MapGuessrModal isOpen={mapGuessrModal} onClose={() => setMapGuessrModal(false)} />
             {ChatboxMemo}
