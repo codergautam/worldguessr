@@ -2298,7 +2298,7 @@ body:has(.timer.critical)::before {
 
 /* Adjust chat button positioning when on right side */
 .chatboxParent.roundOverScreen .chatboxBtn {
-    transform: translate(-60px, 5px); /* Mirror the original transform */
+    transform: translate(0px, 5px); /* Mirror the original transform */
 }
 .chatboxParent.roundOverScreen .chatboxBtn.open {
     transform: translate(0,0); /* Mirror the original transform */
@@ -4709,7 +4709,7 @@ div[dir="ltr"] {
 
     /* Constrain player names in VS container */
     .hb-bars .player-name {
-        max-width: 120px !important; /* Smaller in VS container */
+        max-width: 180px !important; /* Increased from 120px for better long name support */
         font-size: 13px !important;
     }
 }
@@ -4814,7 +4814,7 @@ div[dir="ltr"] {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 140px; /* Compact width for mobile */
+        max-width: 200px; /* Increased from 140px for better long name support */
         font-size: 14px;
         display: block;
         text-align: center;
