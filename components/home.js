@@ -880,6 +880,12 @@ export default function Home({ }) {
     }
     useEffect(() => { loadOptions() }, [])
 
+    // Log commit hash on app startup
+    useEffect(() => {
+        console.log(`🌍 WorldGuessr build: ${process.env.NEXT_PUBLIC_COMMIT_HASH || 'unknown'}`);
+        console.log(`📅 Build time: ${process.env.NEXT_PUBLIC_BUILD_TIME || 'unknown'}`);
+    }, [])
+
     useEffect(() => {
         if (options && options.units && options.mapType) {
             try {
