@@ -1431,11 +1431,7 @@ export default function Home({ }) {
                     }
                 })
 
-                if (data.state === "getready") {
-                    setStreetViewShown(false)
-                } else if (data.state === "guess") {
-                    setStreetViewShown(true)
-                }
+
             } else if (data.type === "duelEnd") {
                 console.log("duel end", data)
                 // { draw: boolean, newElo: number, oldElo: number, winner: boolean, timeElapsed: number }
@@ -2063,21 +2059,6 @@ export default function Home({ }) {
         }, 10000);
         return () => clearInterval(i);
     }, [])
-    //   useEffect(() => {
-    // //!(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
-    //     // debug this condition:
-    //     console.log("isHidden", !(latLong && multiplayerState?.gameData?.state !== 'end')) || (!streetViewShown || loading || (showAnswer && !showPanoOnResult) ||  (multiplayerState?.gameData?.state === 'getready') || !latLong)
-
-    //     console.log("latLong", latLong)
-    //     console.log("multiplayerState?.gameData?.state", multiplayerState?.gameData?.state)
-    //     console.log("streetViewShown", streetViewShown)
-    //     console.log("loading", loading)
-    //     console.log("showAnswer", showAnswer)
-    //     console.log("showPanoOnResult", showPanoOnResult)
-
-
-    //   }, [latLong, multiplayerState?.gameData?.state, streetViewShown, loading, showAnswer, showPanoOnResult])
-
 
     return (
         <>

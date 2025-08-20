@@ -57,7 +57,6 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
           return completedOnboarding;
         })
         setShowAnswer(false)
-        setStreetViewShown(false)
       } else {
       setOnboarding((prev) => {
         return {
@@ -72,7 +71,6 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
       // display the results
       setShowAnswer(false)
-        setStreetViewShown(false)
 
         setSinglePlayerRound((prev) => {
           const completedGame = {
