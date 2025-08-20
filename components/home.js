@@ -2162,7 +2162,7 @@ export default function Home({ }) {
                     showRoadLabels={screen === "onboarding" ? false : gameOptions?.showRoadName}
                     loading={loading}
                     setLoading={setLoading}
-                    hidden={((!latLong || !latLong.lat || !latLong.long) || loading || adPlaying) || (
+                    hidden={((!latLong || !latLong.lat || !latLong.long) || loading) || (
                         screen === "home" || (screen === "multiplayer" && (multiplayerState?.gameData?.state === "waiting" || multiplayerState?.enteringGameCode))
                     )}
                     onLoad={() => {

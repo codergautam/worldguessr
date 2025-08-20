@@ -94,11 +94,6 @@ const SvEmbedIframe = (params) => {
     return null;
   }
 
-  // Completely remove iframe from DOM when hidden (prevents AdSense interference)
-  if(params?.hidden) {
-    return <div style={{ border: "none", position: "fixed", top: 0, left: 0, width: "100%", height: "100%" }}></div>;
-  }
-
   return (
     <div>
       <iframe
@@ -106,7 +101,7 @@ const SvEmbedIframe = (params) => {
         src={iframeSrc} // Dynamically update the iframe src
         width="100%"
         height="100%"
-        className="svframe"
+        className={`svframe ${params?.hidden ? "svhidden" : ""}`}
         style={{ border: "none", position: "fixed", top: 0, left: 0}}
         title="Street View Embed"
         frameBorder="0"
