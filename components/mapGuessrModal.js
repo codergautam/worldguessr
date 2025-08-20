@@ -35,14 +35,16 @@ export default function MapGuessrModal({ isOpen, onClose }) {
             <div className="mapguessr-container">
                 {/* Header with close button */}
                 <div className="mapguessr-header">
-                    <h1 className="mapguessr-title">MapGuessr</h1>
-                    <button
-                        className="mapguessr-close-btn"
-                        onClick={onClose}
-                        aria-label="Close MapGuessr"
-                    >
-                        ✕
-                    </button>
+                    <div className="mapguessr-title-section">
+                        <button
+                            className="mapguessr-close-btn"
+                            onClick={onClose}
+                            aria-label="Close MapGuessr"
+                        >
+                            ✕
+                        </button>
+                        <h1 className="mapguessr-title">MapGuessr</h1>
+                    </div>
                 </div>
 
                 {/* Embedded iframe */}
@@ -72,7 +74,6 @@ export default function MapGuessrModal({ isOpen, onClose }) {
 
                 .mapguessr-header {
                     display: flex;
-                    justify-content: space-between;
                     align-items: center;
                     padding: 15px 20px;
                     background: rgba(0, 0, 0, 0.95);
@@ -82,6 +83,12 @@ export default function MapGuessrModal({ isOpen, onClose }) {
                     z-index: 1000;
                     min-height: 60px;
                     flex-shrink: 0;
+                }
+
+                .mapguessr-title-section {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
                 }
 
                 .mapguessr-title {
