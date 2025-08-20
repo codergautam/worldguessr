@@ -15,6 +15,10 @@ const mapSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  lastUpdated: {
+    type: Date,
+    default: Date.now,
+  },
   created_by: {
     type: String,
     required: true

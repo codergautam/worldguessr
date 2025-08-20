@@ -167,7 +167,8 @@ export default async function handler(req, res) {
       // accepted: user.instant_accept_maps ? true : false,
       in_review: false,
       accepted: true,
-      map_creator_name: user.username
+      map_creator_name: user.username,
+      lastUpdated: new Date()
     });
 
     return res.status(200).json({ message: 'Map created', map });
@@ -202,6 +203,7 @@ export default async function handler(req, res) {
     // map.accepted = !map.in_review;
 
     map.maxDist = validation.maxDist;
+    map.lastUpdated = new Date();
 
     await map.save();
 

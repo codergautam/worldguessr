@@ -83,6 +83,7 @@ export default async function handler(req, res) {
     // created_at, slug, name, hearts,plays, description_short, map_creator_name, _id, in_review, official, accepted, reject_reason, resubmittable, locationsCnt
     let myMaps = await Map.find({ created_by: user._id.toString() }).select({
       created_at: 1,
+      lastUpdated: 1,
       slug: 1,
       name: 1,
       hearts: 1,
@@ -147,11 +148,12 @@ export default async function handler(req, res) {
       // retrieve from db
       let maps = [];
       if(method === "recent") {
-        maps = await Map.find({ accepted: true }).sort({ created_at: -1 }).limit(100);
+        maps = await Map.find({ accepted: true }).sort({ lastUpdated: -1 }).limit(100);
       } else if(method === "popular") {
         maps = await Map.find({ accepted: true })        .select({
           locationsCnt: { $size: "$data" },
           created_at: 1,
+          lastUpdated: 1,
           slug: 1,
           name: 1,
           hearts: 1,

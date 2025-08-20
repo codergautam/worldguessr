@@ -38,6 +38,7 @@ export default async function handler(req, res) {
     // Approve the map
     map.accepted = true;
     map.in_review = false;
+    map.lastUpdated = new Date();
     await map.save();
     return res.status(200).json({ message: 'Map approved successfully' });
   } else if (action === 'reject') {
@@ -51,6 +52,7 @@ export default async function handler(req, res) {
     map.accepted = false;
     map.reject_reason = rejectReason;
     map.resubmittable = resubmittable;
+    map.lastUpdated = new Date();
     await map.save();
     return res.status(200).json({ message: 'Map rejected successfully with reason: ' + rejectReason });
   } else {
