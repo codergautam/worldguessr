@@ -5,7 +5,7 @@ import styles from '../styles/gameHistory.module.css';
 
 const GameSummary = dynamic(() => import('./roundOverScreen'), { ssr: false });
 
-export default function HistoricalGameView({ game, session, onBack }) {
+export default function HistoricalGameView({ game, session, onBack, options }) {
   const { t: text } = useTranslation("common");
   const [fullGameData, setFullGameData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -246,6 +246,7 @@ export default function HistoricalGameView({ game, session, onBack }) {
         button2Text=""
         hidden={false}
         gameId={game?.gameId || game?._id}
+        options={options}
       />
     </div>
   );

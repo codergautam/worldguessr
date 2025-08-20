@@ -9,7 +9,7 @@ import { signOut } from "@/components/auth/auth";
 import { useTranslation } from '@/components/useTranslations';
 import FriendsModal from "@/components/friendModal";
 
-export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite }) {
+export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
     const { t: text } = useTranslation("common");
     const [accountData, setAccountData] = useState({});
     const [friends, setFriends] = useState([]);
@@ -153,6 +153,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 <HistoricalGameView 
                     game={selectedGame}
                     session={session}
+                    options={options}
                     onBack={() => {
                         setShowingGameAnalysis(false);
                         setSelectedGame(null);

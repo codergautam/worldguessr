@@ -740,6 +740,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
             button2Text={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? text("back") : null}
             button2Press={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? () => backBtnPressed() : null}
             session={session}
+            options={options}
           />
         )}
 
@@ -755,6 +756,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
             button2Text={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? text("back") : null}
             button2Press={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? () => backBtnPressed() : null}
             session={session}
+            options={options}
           />
         )}
 

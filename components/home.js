@@ -2074,7 +2074,7 @@ export default function Home({ }) {
                 ws={ws} canSendInvite={
                     // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a Party
                     multiplayerState?.inGame && !multiplayerState?.gameData?.public
-                } sendInvite={sendInvite}
+                } sendInvite={sendInvite} options={options}
 
             />
             <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
@@ -2499,7 +2499,7 @@ export default function Home({ }) {
                                 }
                             })
                         }} shown={!onboarding?.finalOnboardingShown} />
-                        <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} history={onboarding.locations || []} button1Press={() => {
+                        <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} history={onboarding.locations || []} options={options} button1Press={() => {
                             if (onboarding) {
                                 sendEvent("tutorial_end");
                                 try {
@@ -2517,7 +2517,7 @@ export default function Home({ }) {
                 </div>
                 }
 
-                <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")}
+                <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")} options={options}
 
                     button1Press={() => {
                         backBtnPressed(true, "ranked")

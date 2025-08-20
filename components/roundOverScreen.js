@@ -69,7 +69,8 @@ const GameSummary = ({
     hidden,
     multiplayerState,
     session,
-    gameId
+    gameId,
+    options
 }) => {
   const { t: text } = useTranslation("common");
   const [activeRound, setActiveRound] = useState(null); // null = no round selected
@@ -259,12 +260,25 @@ const GameSummary = ({
   };
 
   const formatDistance = (distance) => {
-    if (distance < 1) {
-      return `${Math.round(distance * 1000)}m`;
-    } else if (distance < 10) {
-      return `${distance.toFixed(1)}km`;
+    const isImperial = options?.units === "imperial";
+    
+    if (isImperial) {
+      const miles = distance * 0.621371;
+      if (miles < 0.1) {
+        return `${Math.round(distance * 1000 * 3.28084)}ft`;
+      } else if (miles < 10) {
+        return `${miles.toFixed(1)}mi`;
+      } else {
+        return `${Math.round(miles)}mi`;
+      }
     } else {
-      return `${Math.round(distance)}km`;
+      if (distance < 1) {
+        return `${Math.round(distance * 1000)}m`;
+      } else if (distance < 10) {
+        return `${distance.toFixed(1)}km`;
+      } else {
+        return `${Math.round(distance)}km`;
+      }
     }
   };
 
