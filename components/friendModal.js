@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from '@/components/useTranslations';
 
 export default function FriendsModal({ shown, onClose, session, ws, canSendInvite, sendInvite, accountModalPage, setAccountModalPage, friends, setFriends, sentRequests, setSentRequests, receivedRequests, setReceivedRequests }) {
-   
+
     const [friendReqSendingState, setFriendReqSendingState] = useState(0);
 
     const [friendReqProgress, setFriendReqProgress] = useState(false);
@@ -45,7 +45,7 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
             if (messageTimeoutRef.current) {
                 clearTimeout(messageTimeoutRef.current);
             }
-            
+
             // Set new timeout
             messageTimeoutRef.current = setTimeout(() => {
                 setFriendReqSendingState(0);
@@ -130,12 +130,12 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
 
             <div className="friendsContent">
 
-                
+
 
                 <div className="friendsSection">
                     {/* Consolidated Friends View */}
                     <div style={{ width: '100%' }}>
-                        
+
                         {/* Add Friend Section */}
                         <div style={{ marginBottom: '30px', padding: '20px', background: 'rgba(255,255,255,0.1)', borderRadius: '10px' }}>
                             <h3>{text("addFriend")}</h3>
@@ -165,16 +165,20 @@ export default function FriendsModal({ shown, onClose, session, ws, canSendInvit
                             </span>
                         </div>
 
+                        {/* Friend Request Settings */}
+                        <div style={{ marginBottom: '30px', padding: '15px', background: 'rgba(255,255,255,0.05)', borderRadius: '10px' }}>
+                            <div style={{ marginBottom: '15px' }}>
+                                <span>
+                                    {text("allowFriendRequests")}&nbsp;
+                                    <input type="checkbox" checked={allowFriendReq} onChange={(e) => ws?.send(JSON.stringify({ type: 'setAllowFriendReq', allow: e.target.checked }))} />
+                                </span>
+                            </div>
+                        </div>
+
                         {/* Received Requests Section */}
                         {receivedRequests.length > 0 && (
                             <div style={{ marginBottom: '30px' }}>
                                 <h3>{text("viewReceivedRequests", { cnt: receivedRequests.length })}</h3>
-                                <div style={{ marginBottom: '15px' }}>
-                                    <span>
-                                        {text("allowFriendRequests")}&nbsp;
-                                        <input type="checkbox" checked={allowFriendReq} onChange={(e) => ws?.send(JSON.stringify({ type: 'setAllowFriendReq', allow: e.target.checked }))} />
-                                    </span>
-                                </div>
                                 <div className="friends-list">
                                     {receivedRequests.map(friend => (
                                         <div key={friend.id} className="friend-card">
