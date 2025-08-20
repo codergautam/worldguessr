@@ -1156,21 +1156,26 @@ h1, h2, h3, span, label {
     .timer.duel {
         top: 120px; /* Moved further down to avoid HP bar overlap */
     }
+    
+    /* Make health bars more compact on mobile */
+    .player-info-modern {
+        margin-top: 6px; /* Reduced from 12px */
+    }
+    
+    .health-bar-container.modern {
+        margin: 10px; /* Reduced overall container margin */
+    }
 }
 
 @media screen and (max-width: 600px) {
     .timer.duel {
-        top: 140px; /* Even further down on very small screens */
-    }
-}
-
-@media screen and (max-width: 400px) {
-    .timer.duel {
-        top: 160px; /* Maximum spacing for tiny screens */
+        top: 200px; /* Much further down due to vertical layout */
         font-size: 14px; /* Slightly smaller font */
         padding: 8px 16px; /* Reduced padding */
     }
 }
+
+
 
 // Critical timer states for under 5 seconds - softer red
 .timer.critical {
@@ -4597,9 +4602,81 @@ div[dir="ltr"] {
     justify-content: center;
     align-items: center;
     gap: 40px;
-    flex-wrap: wrap; /* Allow wrapping on very small screens */
     max-width: 100vw;
     overflow: hidden;
+}
+
+/* AAA Game Style Duel Intro for Mobile */
+@media (max-width: 830px) {
+    .hb-bars {
+        flex-direction: column;
+        gap: 15px;
+        animation: duelIntroSlide 0.8s ease-out;
+    }
+    
+    /* Create VS divider between players */
+    .hb-bars::after {
+        content: "VS";
+        font-family: lexend, sans-serif;
+        font-weight: 900;
+        font-size: 24px;
+        color: #ff6b35;
+        text-shadow: 0 0 20px #ff6b35, 0 0 40px #ff6b35;
+        letter-spacing: 4px;
+        animation: vsGlow 1.5s ease-in-out infinite alternate;
+        order: 1; /* Place VS in the middle */
+        z-index: 1000;
+    }
+    
+    /* First player at top */
+    .hb-bars > div:first-child {
+        order: 0;
+        animation: playerSlideDown 0.6s ease-out 0.2s both;
+    }
+    
+    /* Second player at bottom */
+    .hb-bars > div:last-child {
+        order: 2;
+        animation: playerSlideUp 0.6s ease-out 0.4s both;
+    }
+}
+
+@keyframes duelIntroSlide {
+    0% { opacity: 0; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes vsGlow {
+    0% { 
+        text-shadow: 0 0 20px #ff6b35, 0 0 40px #ff6b35;
+        transform: scale(1);
+    }
+    100% { 
+        text-shadow: 0 0 30px #ff6b35, 0 0 60px #ff6b35, 0 0 80px #ff6b35;
+        transform: scale(1.05);
+    }
+}
+
+@keyframes playerSlideDown {
+    0% { 
+        opacity: 0; 
+        transform: translateY(-50px) scale(0.9);
+    }
+    100% { 
+        opacity: 1; 
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes playerSlideUp {
+    0% { 
+        opacity: 0; 
+        transform: translateY(50px) scale(0.9);
+    }
+    100% { 
+        opacity: 1; 
+        transform: translateY(0) scale(1);
+    }
 }
 
 /* Enhanced Media Queries */
@@ -4652,22 +4729,12 @@ div[dir="ltr"] {
         font-size: 12px;
     }
 
-    .hb-bars {
-        gap: 20px;
-        padding: 0 10px; /* Add padding to prevent edge overflow */
-    }
-    
-    /* Make player names more responsive */
+    /* Keep player names readable on small screens */
     .player-name {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 120px; /* Limit name width on small screens */
-    }
-    
-    .hb-bars {
-        gap: 10px !important; /* Much smaller gap for tiny screens */
-        padding: 0 5px;
+        max-width: 150px; /* Slightly larger for better readability */
     }
 }
 
