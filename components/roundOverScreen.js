@@ -261,7 +261,7 @@ const GameSummary = ({
 
   const formatDistance = (distance) => {
     const isImperial = options?.units === "imperial";
-    
+
     if (isImperial) {
       const miles = distance * 0.621371;
       if (miles < 0.1) {
@@ -1400,7 +1400,7 @@ const GameSummary = ({
           {multiplayerState?.gameData && finalHistory[0]?.players && Object.keys(finalHistory[0].players).length > 1 && (
             <>
               <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("finalScores")}</h3>
-              {renderLeaderboard(false)}
+              {renderLeaderboard(true)}
             </>
           )}
 
