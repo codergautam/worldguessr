@@ -48,7 +48,6 @@ export default async function handler(req, res) {
   const ticket = await client.verifyIdToken({
     idToken: tokens.id_token,
     audience: clientId,
-    redirectUri: 'worldguessr.com',
   });
 
   if(!ticket) {
