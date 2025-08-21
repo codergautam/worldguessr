@@ -11,7 +11,7 @@ export default function formatNumber(number, identifyingDigits) {
   const scaledNumber = number / scale;
 
   // Calculate significant digits by fixing the decimal places to (identifyingDigits - 1)
-  const precision = identifyingDigits - Math.floor(Math.log10(scaledNumber)) - 1;
+  const precision = Math.max(0, Math.min(100, identifyingDigits - Math.floor(Math.log10(scaledNumber)) - 1));
 
   let formattedNumber = scaledNumber.toFixed(precision);
 
