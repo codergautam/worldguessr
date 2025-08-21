@@ -328,10 +328,10 @@ export default function XPGraph({ session, mode = 'xp' }) {
                             } else {
                                 const rankGain = context.raw.rankGain || 0;
                                 const tooltip = [`${text('xpRank')}: #${context.parsed.y}`];
-                                if (rankGain !== 0) {
-                                    const rankText = rankGain > 0 ? `+${rankGain}` : `${rankGain}`;
-                                    tooltip.push(`${text('rankGain')}: ${rankText}`);
-                                }
+                                // if (rankGain !== 0) {
+                                //     const rankText = rankGain > 0 ? `+${rankGain}` : `${rankGain}`;
+                                //     tooltip.push(`${text('rankGain')}: ${rankText}`);
+                                // }
                                 return tooltip;
                             }
                         } else {
@@ -347,10 +347,10 @@ export default function XPGraph({ session, mode = 'xp' }) {
                             } else {
                                 const rankGain = context.raw.rankGain || 0;
                                 const tooltip = [`${text('eloRank')}: #${context.parsed.y}`];
-                                if (rankGain !== 0) {
-                                    const rankText = rankGain > 0 ? `+${rankGain}` : `${rankGain}`;
-                                    tooltip.push(`${text('rankGain')}: ${rankText}`);
-                                }
+                                // if (rankGain !== 0) {
+                                //     const rankText = rankGain > 0 ? `+${rankGain}` : `${rankGain}`;
+                                //     tooltip.push(`${text('rankGain')}: ${rankText}`);
+                                // }
                                 return tooltip;
                             }
                         }
