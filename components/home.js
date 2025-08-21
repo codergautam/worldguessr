@@ -2340,7 +2340,7 @@ export default function Home({ }) {
                                                         }}>{text("communityMaps")}</button>}
 
                                                 {/* Twitch Streamer Link */}
-                                                <a
+                                                {/* <a
                                                     href="https://www.twitch.tv/krillinfp"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
@@ -2349,7 +2349,7 @@ export default function Home({ }) {
                                                     aria-label="Watch KrillinFP on Twitch"
                                                 >
                                                     🔴 Watch KrillinFP Live
-                                                </a>
+                                                </a> */}
 
                                                 {inCrazyGames && (
                                                     <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
