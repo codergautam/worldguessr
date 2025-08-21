@@ -2,6 +2,7 @@ export default function formatNumber(number, identifyingDigits) {
   if(!number || isNaN(number)) {
     return '0';
   }
+  if(!identifyingDigits) identifyingDigits = 2;
   const units = ['K', 'M', 'B', 'T'];
   if (number < 1000) return number.toString();
 
