@@ -38,41 +38,45 @@ export default async function handler(req, res) {
 
   } else {
     // first login
+    try {
+      // verify the access token
+      const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
-  // verify the access token
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+      const { tokens } = await client.getToken(code);
+      client.setCredentials(tokens);
 
-  const { tokens } = await client.getToken(code);
-  client.setCredentials(tokens);
+      const ticket = await client.verifyIdToken({
+        idToken: tokens.id_token,
+        audience: clientId,
+      });
 
-  const ticket = await client.verifyIdToken({
-    idToken: tokens.id_token,
-    audience: clientId,
-  });
+      if(!ticket) {
+        return res.status(400).json({ error: 'Invalid token verification' });
+      }
 
-  if(!ticket) {
-    return res.status(400).json({ error: 'Invalid' });
+      const email = ticket.getPayload()?.email;
+
+      if (!email) {
+        return res.status(400).json({ error: 'No email in token' });
+      }
+
+      const existingUser = await User.findOne({ email });
+      let secret = null;
+      if (!existingUser) {
+        secret = createUUID();
+        const newUser = new User({ email, secret });
+        await newUser.save();
+
+        output = { secret: secret, username: undefined, email: email, staff:false, canMakeClues: false, supporter: false, accountId: newUser._id };
+      } else {
+        output = { secret: existingUser.secret, username: existingUser.username, email: existingUser.email, staff: existingUser.staff, canMakeClues: existingUser.canMakeClues, supporter: existingUser.supporter, accountId: existingUser._id };
+      }
+
+      return res.status(200).json(output);
+    } catch (error) {
+      console.error('Google OAuth error:', error.message);
+      return res.status(400).json({ error: 'Authentication failed' });
+    }
   }
-
-  const email = ticket.getPayload()?.email;
-
-  if (!email) {
-    return res.status(400).json({ error: 'Invalid' });
-  }
-
-  const existingUser = await User.findOne({ email });
-  let secret = null;
-  if (!existingUser) {
-    secret = createUUID();
-    const newUser = new User({ email, secret });
-    await newUser.save();
-
-    output = { secret: secret, username: undefined, email: email, staff:false, canMakeClues: false, supporter: false, accountId: newUser._id };
-  } else {
-    output = { secret: existingUser.secret, username: existingUser.username, email: existingUser.email, staff: existingUser.staff, canMakeClues: existingUser.canMakeClues, supporter: existingUser.supporter, accountId: existingUser._id };
-  }
-
-  return res.status(200).json(output);
-}
 
 }
