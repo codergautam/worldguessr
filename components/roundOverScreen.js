@@ -344,12 +344,24 @@ const GameSummary = ({
 
   // Get current user's rank
   const getCurrentUserRank = () => {
-    if (!finalHistory[0]?.players || !multiplayerState?.gameData?.myId) return null;
+    if (!finalHistory.length || !multiplayerState?.gameData?.myId) return null;
 
-    const players = Object.entries(finalHistory[0].players)
-      .map(([playerId, player]) => ({
+    // Collect all unique players from all rounds
+    const allPlayers = new Map();
+    finalHistory.forEach(round => {
+      if (round.players) {
+        Object.entries(round.players).forEach(([playerId, player]) => {
+          if (!allPlayers.has(playerId)) {
+            allPlayers.set(playerId, player.username);
+          }
+        });
+      }
+    });
+
+    const players = Array.from(allPlayers.entries())
+      .map(([playerId, username]) => ({
         playerId,
-        username: player.username,
+        username,
         totalScore: finalHistory.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
       }))
       .sort((a, b) => b.totalScore - a.totalScore);
@@ -360,12 +372,24 @@ const GameSummary = ({
 
   // Reusable leaderboard rendering function
   const renderLeaderboard = (showAll = false) => {
-    if (!finalHistory[0]?.players) return null;
+    if (!finalHistory.length) return null;
 
-    const players = Object.entries(finalHistory[0].players)
-      .map(([playerId, player]) => ({
+    // Collect all unique players from all rounds
+    const allPlayers = new Map();
+    finalHistory.forEach(round => {
+      if (round.players) {
+        Object.entries(round.players).forEach(([playerId, player]) => {
+          if (!allPlayers.has(playerId)) {
+            allPlayers.set(playerId, player.username);
+          }
+        });
+      }
+    });
+
+    const players = Array.from(allPlayers.entries())
+      .map(([playerId, username]) => ({
         playerId,
-        username: player.username,
+        username,
         totalScore: finalHistory.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
       }))
       .sort((a, b) => b.totalScore - a.totalScore);
@@ -1073,7 +1097,7 @@ const GameSummary = ({
               )}
 
               {/* For private games and unranked multiplayer (including 10 player games) */}
-              {(!multiplayerState?.gameData?.duel || Object.keys(finalHistory[0]?.players || {}).length > 2) && (
+              {(!multiplayerState?.gameData?.duel || finalHistory.length > 0) && (
                 <>
                   <h3>{text("finalScores")}</h3>
                   {renderLeaderboard(true)}
