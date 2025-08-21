@@ -48,6 +48,7 @@ export default class Game {
     this.roundStartTimes = {}; // Track when each round started for each player
     this.disconnectedPlayer = null; // Track disconnected player for ranked duels
     this.rankedDuelPersistentData = {}; // Store persistent player data for ranked duels only
+    this.saveInProgress = false; // Track if MongoDB save is in progress
 
     if(this.public) {
       this.showRoadName = false;
@@ -90,6 +91,7 @@ export default class Game {
       accountIds: this.accountIds,
       gameCount: this.gameCount,
       location: this.location,
+      saveInProgress: this.saveInProgress,
     }
   }
   static fromJSON(json) {
@@ -676,8 +678,12 @@ export default class Game {
 
     // Save all non-ranked duel games to MongoDB for history tracking
     if(!this.duel && Object.keys(this.players).length >= 2) {
-      this.saveUnrankedMultiplayerToMongoDB().catch(error => {
+      this.saveInProgress = true; // Mark save as in progress
+      this.saveUnrankedMultiplayerToMongoDB().then(() => {
+        this.saveInProgress = false; // Mark save as complete
+      }).catch(error => {
         console.error('❌ Error saving multiplayer game to MongoDB:', error);
+        this.saveInProgress = false; // Mark save as complete even on error
       });
     }
 
@@ -800,13 +806,16 @@ export default class Game {
 
     // Save duel game to MongoDB for history tracking
     if(this.duel && this.accountIds?.p1 && this.accountIds?.p2) {
-      this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo).catch(error => {
-        console.error('Error saving duel game to MongoDB:', error);
-      });
+      this.saveInProgress = true; // Mark save as in progress
 
-      // Create userstats documents for both users
-      this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo).catch(error => {
-        console.error('Error creating duel user stats:', error);
+      const saveDuelPromise = this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo);
+      const saveUserStatsPromise = this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo);
+
+      Promise.all([saveDuelPromise, saveUserStatsPromise]).then(() => {
+        this.saveInProgress = false; // Mark save as complete
+      }).catch(error => {
+        console.error('Error saving duel game to MongoDB:', error);
+        this.saveInProgress = false; // Mark save as complete even on error
       });
     }
 

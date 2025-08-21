@@ -1278,7 +1278,11 @@ try {
       if(game.state === 'end' && Date.now() > game.nextEvtTime) {
         // remove game if public
         if(game.public) {
-        game.shutdown()
+          // Wait for any pending save operations before shutdown
+          if(game.saveInProgress) {
+            continue; // Skip this iteration, try again next time
+          }
+          game.shutdown()
         } else {
           game.resetGame(allLocations);
         }
