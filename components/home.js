@@ -2339,6 +2339,18 @@ export default function Home({ }) {
                                                         }, 300);
                                                         }}>{text("communityMaps")}</button>}
 
+                                                {/* Twitch Streamer Link */}
+                                                <a
+                                                    href="https://www.twitch.tv/krillinfp"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="g2_nav_text"
+                                                    style={{ color: '#ff4444', textDecoration: 'none' }}
+                                                    aria-label="Watch KrillinFP on Twitch"
+                                                >
+                                                    🔴 Watch KrillinFP Live
+                                                </a>
+
                                                 {inCrazyGames && (
                                                     <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
                                                         setNavSlideOut(true);
