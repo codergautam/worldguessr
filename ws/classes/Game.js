@@ -24,6 +24,7 @@ export default class Game {
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
     this.duel = isDuel;
+    this.gameCount = 1; // Track how many times this game has been played
     this.timePerRound = 30000;
     this.waitBetweenRounds = 10000;
     if(isDuel) {
@@ -87,6 +88,7 @@ export default class Game {
       eloChanges: this.eloChanges,
       pIds: this.pIds,
       accountIds: this.accountIds,
+      gameCount: this.gameCount,
       location: this.location,
     }
   }
@@ -172,6 +174,8 @@ export default class Game {
     this.locations = [];
     // clear round history
     this.roundHistory = [];
+    // increment game count for party games
+    this.gameCount++;
     // start generating new locations
     this.generateLocations(allLocations);
     this.sendStateUpdate();
@@ -1079,9 +1083,9 @@ export default class Game {
           finalRank: index + 1
         }));
 
-      // Create the game document
+      // Create the game document with game count for party games to prevent duplicate key errors
       const gameDoc = new GameModel({
-        gameId: `${this.public ? 'unranked' : 'party'}_${this.id}`,
+        gameId: `${this.public ? 'unranked' : 'party'}_${this.id}${!this.public ? `_${this.gameCount}` : ''}`,
         gameType: this.public ? 'unranked_multiplayer' : 'private_multiplayer',
 
         settings: {
@@ -1139,7 +1143,7 @@ export default class Game {
 
           await UserStatsService.recordGameStats(
             player.accountId,
-            `${this.public ? 'unranked' : 'party'}_${this.id}`,
+            `${this.public ? 'unranked' : 'party'}_${this.id}${!this.public ? `_${this.gameCount}` : ''}`,
             {
               gameType: this.public ? 'unranked_multiplayer' : 'private_multiplayer',
               result: playerSummary.finalRank === 1 ? 'win' : 'loss', // First place wins, others lose
