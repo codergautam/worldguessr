@@ -865,7 +865,7 @@ export default class Game {
       const user2 = await User.findOne({ _id: this.accountIds.p2 });
 
       if (!user1 || !user2 || !player1Data || !player2Data) {
-        console.error('Could not find users or player data for duel game save');
+        console.error('Could not find users or player data for duel game save', this.accountIds, player1Data, player2Data);
         return;
       }
 
