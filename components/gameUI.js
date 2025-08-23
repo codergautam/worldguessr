@@ -549,7 +549,7 @@ multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameDat
 )}
 
 {/* Duel Anti-Cheat Warning */}
-{true && (
+{multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && isStartingDuel && (
   <div className="duel-warning-container">
     <div className="duel-warning-content">
       <div className="warning-icon">⚠️</div>
