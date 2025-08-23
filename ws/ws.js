@@ -21,6 +21,7 @@ import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
 config();
 
 console.log("[INFO] Starting ws.js")
+global.serverStartTime = Date.now();
 
 
 import { createClient } from 'redis';
@@ -427,6 +428,11 @@ app.ws('/wg', {
   open: (ws, req) => {
     const ip = ws.ip;
     const id = ws.id;
+    const connectTime = Date.now();
+    
+    // Store connection time for disconnect analysis
+    ws.connectTime = connectTime;
+    
     const player = new Player(ws, id, ip);
     if(ip !== 'unknown') ipConnectionCount.set(ip, (ipConnectionCount.get(ip) || 0) + 1);
 
@@ -1083,7 +1089,10 @@ app.ws('/wg', {
     console.log('WebSocket backpressure: ' + ws.getBufferedAmount());
   },
   close: (ws, code, message) => {
-    console.log('WebSocket disconnect code:', code);
+    const connectionDuration = ws.connectTime ? Date.now() - ws.connectTime : 0;
+    const durationSeconds = (connectionDuration / 1000).toFixed(1);
+    
+    console.log(`WebSocket disconnect code: ${code} (${durationSeconds}s) - ${message ? message.toString() : 'no message'}`);
     
     ipConnectionCount.set(ws.ip, ipConnectionCount.get(ws.ip) - 1);
     if(ipConnectionCount.get(ws.ip) < 1) {
