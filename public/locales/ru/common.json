@@ -315,5 +315,6 @@
   "eloOverTime": "Эло со временем",
   "eloRankOverTime": "Эло ранга со временем",
   "currentElo": "Текущий Эло",
-  "language": "Язык"
+  "language": "Язык",
+  "duelWarningText": "Использование Google или любая внешняя помощь запрещено и приведет к запрету."
 }
