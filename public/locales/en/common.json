@@ -316,6 +316,5 @@
   "eloRankOverTime": "ELO Rank Over Time",
   "currentElo": "Current ELO",
   "language": "Language",
-  "duelWarningTitle": "FAIR PLAY REQUIRED",
-  "duelWarningText": "Using Google or any external help is prohibited and will result in a BAN."
+  "duelWarningText": "Using Google or any external help while playing ranked is prohibited and will result in a BAN."
 }

@@ -4912,8 +4912,8 @@ div:hover .elo-badge {
 }
 
 .duel-warning-content {
-    background: linear-gradient(135deg, rgba(220, 53, 69, 0.95) 0%, rgba(156, 39, 39, 0.9) 100%);
-    border: 2px solid rgba(220, 53, 69, 0.8);
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 12px;
     padding: 15px 25px;
     display: flex;
@@ -4942,8 +4942,8 @@ div:hover .elo-badge {
 }
 
 .warning-subtitle {
-    font-size: 12px;
-    font-weight: 400;
+    font-size: 16px;
+    font-weight: 500;
     opacity: 0.95;
 }
 
@@ -4974,11 +4974,13 @@ div:hover .elo-badge {
         left: 15px;
         right: 15px;
         transform: none;
+        animation: slideInFromBottomMobile 0.5s ease-out;
     }
     
     .duel-warning-content {
         padding: 12px 20px;
         gap: 12px;
+        width: 100%;
     }
     
     .warning-icon {
@@ -4991,6 +4993,17 @@ div:hover .elo-badge {
     }
     
     .warning-subtitle {
-        font-size: 11px;
+        font-size: 14px;
+    }
+}
+
+@keyframes slideInFromBottomMobile {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
     }
 }
