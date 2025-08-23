@@ -315,5 +315,6 @@
   "eloOverTime": "Elo im Laufe der Zeit",
   "eloRankOverTime": "ELO Rang im Laufe der Zeit",
   "currentElo": "Aktueller Elo",
-  "language": "Sprache"
+  "language": "Sprache",
+  "duelWarningText": "Die Verwendung von Google oder einer externen Hilfe ist verboten und führt zu einem Verbot."
 }
