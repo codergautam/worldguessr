@@ -4899,3 +4899,98 @@ div:hover .elo-badge {
         align-items: center;
     }
 }
+
+/* Duel Anti-Cheat Warning */
+.duel-warning-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    pointer-events: none;
+    animation: slideInFromBottom 0.5s ease-out;
+}
+
+.duel-warning-content {
+    background: linear-gradient(135deg, rgba(220, 53, 69, 0.95) 0%, rgba(156, 39, 39, 0.9) 100%);
+    border: 2px solid rgba(220, 53, 69, 0.8);
+    border-radius: 12px;
+    padding: 15px 25px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+}
+
+.warning-icon {
+    font-size: 24px;
+    animation: pulse 1.5s infinite;
+}
+
+.warning-text {
+    color: white;
+    font-family: "Lexend", sans-serif;
+}
+
+.warning-title {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.warning-subtitle {
+    font-size: 12px;
+    font-weight: 400;
+    opacity: 0.95;
+}
+
+@keyframes slideInFromBottom {
+    from {
+        transform: translate(-50%, 100px);
+        opacity: 0;
+    }
+    to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .duel-warning-container {
+        bottom: 15px;
+        left: 15px;
+        right: 15px;
+        transform: none;
+    }
+    
+    .duel-warning-content {
+        padding: 12px 20px;
+        gap: 12px;
+    }
+    
+    .warning-icon {
+        font-size: 20px;
+    }
+    
+    .warning-title {
+        font-size: 13px;
+        margin-bottom: 3px;
+    }
+    
+    .warning-subtitle {
+        font-size: 11px;
+    }
+}
