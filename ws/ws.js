@@ -1083,6 +1083,8 @@ app.ws('/wg', {
     console.log('WebSocket backpressure: ' + ws.getBufferedAmount());
   },
   close: (ws, code, message) => {
+    console.log('WebSocket disconnect code:', code);
+    
     ipConnectionCount.set(ws.ip, ipConnectionCount.get(ws.ip) - 1);
     if(ipConnectionCount.get(ws.ip) < 1) {
       ipConnectionCount.delete(ws.ip);
