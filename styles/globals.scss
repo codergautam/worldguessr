@@ -4919,6 +4919,7 @@ div:hover .elo-badge {
     display: flex;
     align-items: center;
     gap: 15px;
+    max-width: 500px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(8px);
 }
@@ -4976,24 +4977,32 @@ div:hover .elo-badge {
         transform: none;
         animation: slideInFromBottomMobile 0.5s ease-out;
     }
-    
+
     .duel-warning-content {
         padding: 12px 20px;
         gap: 12px;
-        width: 100%;
+        // center horiz
+        margin: 0 auto;
+        width: 60%;
     }
-    
+
     .warning-icon {
         font-size: 20px;
     }
-    
+
     .warning-title {
         font-size: 13px;
         margin-bottom: 3px;
     }
-    
+
     .warning-subtitle {
         font-size: 14px;
+    }
+}
+@media (max-width: 400px) {
+     .duel-warning-content {
+
+        width: 100%;
     }
 }
 
