@@ -490,7 +490,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
 
   const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
-  const onboardingTimerShown = !((loading||showAnswer||!onboarding));
+  const onboardingTimerShown = !((showAnswer||!onboarding));
   return (
     <div className="gameUI">
 
