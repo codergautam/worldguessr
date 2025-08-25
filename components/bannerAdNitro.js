@@ -119,7 +119,7 @@ export default function Ad({
                 width: "100%",
                 color: "white",
                 zIndex: 2,
-                backgroundColor: "rgba(0, 0, 0, 0.5)",
+                backgroundColor: `rgba(0, 0, 0, ${isClient === "debug"?0.5:0})`,
               }}
             >
               <h3>Banner Ad Here (Nitro)</h3>
