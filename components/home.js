@@ -2242,7 +2242,7 @@ export default function Home({ }) {
 
                 {screen == "home" &&
                     <div className={`home__content g2_modal ${screen !== "home" ? "hidden" : "cshown"} `}>
-                        <div className={`g2_nav_ui ${navSlideOut ? 'g2_slide_out' : ''}`} >
+                        <div className={`g2_nav_ui ${navSlideOut ? 'g2_slide_out' : ''} ${onboardingCompleted !== true ? 'hide' : ''}`} >
 
 
                             {onboardingCompleted === null ? (
@@ -2371,7 +2371,7 @@ export default function Home({ }) {
                         </div>
 
                         {/* Footer moved outside of sliding navigation */}
-                        <div className={`home__footer ${(screen === "home" && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !mapGuessrModal) ? "visible" : ""}`}>
+                        <div className={`home__footer ${(screen === "home" && onboardingCompleted === true && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !mapGuessrModal) ? "visible" : ""}`}>
                             <div className="footer_btns">
                                 {!isApp && !inCoolMathGames && (
                                     <>
