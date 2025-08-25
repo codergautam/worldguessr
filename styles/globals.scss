@@ -51,6 +51,7 @@ button {
 body,
 html {
     touch-action: pan-x, pan-y !important;
+    background-color: #000000 !important;
 }
 
 /* Leaflet map optimizations for sharp rendering */
@@ -4265,6 +4266,7 @@ div[dir="ltr"] {
 .mainBody {
     overflow: hidden;
     user-select: none;
+    background-color: #000000 !important;
 }
 
 .mapSearch {
