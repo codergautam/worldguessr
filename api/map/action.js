@@ -63,14 +63,18 @@ async function validateMap(name, data, description_short, description_long, edit
     return `Short description must be between ${mapConst.MIN_SHORT_DESCRIPTION_LENGTH} and ${mapConst.MAX_SHORT_DESCRIPTION_LENGTH} characters`;
   }
 
-  // validate long description
-  if(typeof description_long !== 'string' || description_long.length < mapConst.MIN_LONG_DESCRIPTION_LENGTH || description_long.length > mapConst.MAX_LONG_DESCRIPTION_LENGTH) {
-    // return res.status(400).json({ message: `Long description must be between ${mapConst.MIN_LONG_DESCRIPTION_LENGTH} and ${mapConst.MAX_LONG_DESCRIPTION_LENGTH} characters` });
-    return `Long description must be between ${mapConst.MIN_LONG_DESCRIPTION_LENGTH} and ${mapConst.MAX_LONG_DESCRIPTION_LENGTH} characters`;
+  // validate long description (only if provided)
+  if(typeof description_long !== 'string' || description_long.length > mapConst.MAX_LONG_DESCRIPTION_LENGTH) {
+    return `Long description must be under ${mapConst.MAX_LONG_DESCRIPTION_LENGTH} characters`;
+  }
+  
+  // if long description is provided, it must meet minimum length
+  if(description_long.length > 0 && description_long.length < mapConst.MIN_LONG_DESCRIPTION_LENGTH) {
+    return `Long description must be at least ${mapConst.MIN_LONG_DESCRIPTION_LENGTH} characters or left empty`;
   }
 
-  // make sure short and long descriptions are different
-  if(description_short === description_long) {
+  // make sure short and long descriptions are different (only if long description is provided)
+  if(description_long.length > 0 && description_short === description_long) {
     // return res.status(400).json({ message: 'Short and long descriptions must be different' });
     return 'Short and long descriptions must be different';
   }
