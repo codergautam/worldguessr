@@ -1250,7 +1250,7 @@ try {
   setInterval(() => {
 
 
-    const minRoundsRemaining = 3;
+    const minRoundsRemaining = 4;
     for (const game of games.values()) {
 
       const playerCnt = Object.keys(game.players).length;
