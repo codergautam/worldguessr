@@ -2340,16 +2340,16 @@ export default function Home({ }) {
                                                         }}>{text("communityMaps")}</button>}
 
                                                 {/* Twitch Streamer Link */}
-                                                {/* <a
-                                                    href="https://www.twitch.tv/krillinfp"
+                                                 <a
+                                                    href="https://kick.com/ulkuemre"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="g2_nav_text"
                                                     style={{ color: '#ff4444', textDecoration: 'none' }}
-                                                    aria-label="Watch KrillinFP on Twitch"
+                                                    aria-label="Watch UlkuEmre Live"
                                                 >
-                                                    🔴 Watch KrillinFP Live
-                                                </a> */}
+                                                    🔴 Watch UlkuEmre Live
+                                                </a>
 
                                                 {inCrazyGames && (
                                                     <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
