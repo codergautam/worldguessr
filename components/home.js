@@ -2340,7 +2340,7 @@ export default function Home({ }) {
                                                         }}>{text("communityMaps")}</button>}
 
                                                 {/* Twitch Streamer Link */}
-                                                 <a
+                                                 {/* <a
                                                     href="https://kick.com/ulkuemre"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
@@ -2349,7 +2349,7 @@ export default function Home({ }) {
                                                     aria-label="Watch UlkuEmre Live"
                                                 >
                                                     🔴 Watch UlkuEmre Live
-                                                </a>
+                                                </a> */}
 
                                                 {inCrazyGames && (
                                                     <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
