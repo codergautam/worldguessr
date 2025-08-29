@@ -166,16 +166,34 @@ export default function XPGraph({ session, mode = 'xp' }) {
             setChartData(null);
             return;
         } else if (dataPoints.length > 1) {
-            // Always extend the graph to today's date with the last value
+            // Only extend the graph to today's date if current date is within the selected range
             const lastPoint = dataPoints[dataPoints.length - 1];
             const now = new Date();
             const lastPointDate = new Date(lastPoint.x);
 
-            // Only add today's point if it's not already the last point (allow for some time tolerance)
+            // Check if current date should be included based on date filter
+            let shouldIncludeToday = false;
+            
+            if (dateFilter === 'alltime') {
+                shouldIncludeToday = true;
+            } else if (dateFilter === 'custom') {
+                if (!customStartDate && !customEndDate) {
+                    shouldIncludeToday = true;
+                } else {
+                    const startDate = customStartDate ? new Date(customStartDate) : new Date(0);
+                    const endDate = customEndDate ? new Date(customEndDate) : now;
+                    shouldIncludeToday = now >= startDate && now <= endDate;
+                }
+            } else {
+                // For 7days and 30days, today is always included
+                shouldIncludeToday = true;
+            }
+
+            // Only add today's point if it should be included and it's not already the last point
             const timeDiff = Math.abs(now.getTime() - lastPointDate.getTime());
             const oneDayInMs = 24 * 60 * 60 * 1000;
 
-            if (timeDiff > oneDayInMs) {
+            if (shouldIncludeToday && timeDiff > oneDayInMs) {
                 dataPoints.push({
                     x: now,
                     y: lastPoint.y,
