@@ -1174,27 +1174,31 @@ export default function Home({ }) {
 
 
     useEffect(() => {
-
         if (inCrazyGames || window.poki) {
-            if (screen === "home") {
-                console.log("gameplay stop")
-                try {
-                    window.CrazyGames.SDK.game.gameplayStop();
-                } catch (e) { }
-                try {
-                    if (window.poki) window.PokiSDK.gameplayStop();
-                } catch (e) { }
-            } else {
-                console.log("gameplay start")
+            // Determine if actual gameplay is happening
+            const isInGameplay = (screen === "singleplayer" && singlePlayerRound && !singlePlayerRound.done) || 
+                                (screen === "onboarding" && onboarding && !onboarding.completed) ||
+                                (multiplayerState?.inGame && multiplayerState?.gameData?.state === "guess");
+
+            if (isInGameplay) {
+                console.log("gameplay start - actual gameplay detected")
                 try {
                     window.CrazyGames.SDK.game.gameplayStart();
                 } catch (e) { }
                 try {
                     if (window.poki) window.PokiSDK.gameplayStart();
                 } catch (e) { }
+            } else {
+                console.log("gameplay stop - not in actual gameplay")
+                try {
+                    window.CrazyGames.SDK.game.gameplayStop();
+                } catch (e) { }
+                try {
+                    if (window.poki) window.PokiSDK.gameplayStop();
+                } catch (e) { }
             }
         }
-    }, [screen, inCrazyGames])
+    }, [screen, inCrazyGames, singlePlayerRound, onboarding, multiplayerState?.inGame, multiplayerState?.gameData?.state])
 
     useEffect(() => {
         if (multiplayerState?.connected && inCrazyGames) {
