@@ -1461,13 +1461,8 @@ const GameSummary = ({
                 const isMobile = typeof window !== 'undefined' && window.innerWidth <= 1024;
 
                 const handleTileClick = () => {
-                  if (isMobile) {
-                    // On mobile, open Google Maps directly
-                    openInGoogleMaps(round.lat, round.long, round.panoId);
-                  } else {
-                    // On desktop, focus on the round in the map
-                    handleRoundClick(index);
-                  }
+                  // Always just focus on the round in the map, don't auto-open Google Maps
+                  handleRoundClick(index);
                 };
 
                 return (
