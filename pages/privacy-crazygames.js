@@ -66,7 +66,7 @@ const PrivacyPolicy = () => {
 
       <h2>Contact Us</h2>
       <p>
-        If you have any questions or concerns about this Privacy Policy, please contact us at <Link href="mailto:support@worldguessr.com">support@worldguessr.com</Link>.
+        If you have any questions or concerns about this Privacy Policy, or are interested in a custom partnership, please contact us at <Link href="mailto:support@worldguessr.com">support@worldguessr.com</Link>. We love to work with schools and districts to provide a fun and educational experience for students.
       </p>
     </div>
   );
