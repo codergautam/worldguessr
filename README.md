@@ -1,5 +1,6 @@
 
-[![WorldGuessr](https://raw.githubusercontent.com/codergautam/worldguessr/master/public/logo.png)](https://worldguessr.com)
+[![WorldGuessr](https://raw.githubusercontent.com/codergautam/worldguessr/master/public/logo-readme-light.png#gh-light-mode-only)](https://worldguessr.com)
+[![WorldGuessr](https://raw.githubusercontent.com/codergautam/worldguessr/master/public/logo-readme-dark.png#gh-dark-mode-only)](https://worldguessr.com)
 
 
 A free and open-source version of the popular geography game inspired by GeoGuessr. This project is built with Next.js and aims to provide a fun and educational way to explore the world through random street views.
@@ -72,4 +73,4 @@ Distributed under the MIT License. You are free to use, modify, and distribute t
 
 Join the Discord community [here](https://discord.gg/yenVspFmkB) to discuss new features, report bugs, talk to the developers and connect with other players.
 
-You can email me privately at gautam@codergautam.dev
+You can email me privately at gautam@worldguessr.com
