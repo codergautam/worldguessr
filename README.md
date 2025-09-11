@@ -8,7 +8,7 @@
 </a>
 
 
-A free and open-source version of the popular geography game inspired by GeoGuessr. This project is built with Next.js and aims to provide a fun and educational way to explore the world through random street views.
+A free and open-source version of the popular geography game inspired by GeoGuessr. This React based project aims to provide a fun and educational way to explore the world through Google Street View imagery.
 
 ### Play now [here](https://worldguessr.com)!
 #### [Join the Discord community](https://discord.gg/yenVspFmkB)
