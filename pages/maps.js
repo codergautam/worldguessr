@@ -72,10 +72,10 @@ const styles = {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        background: "linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 30, 15, 0.9) 50%, rgba(0, 0, 0, 0.95) 100%)",
+        background: "linear-gradient(135deg, rgba(0, 0, 0, 0.98) 0%, rgba(0, 10, 5, 0.95) 50%, rgba(0, 0, 0, 0.98) 100%)",
     },
     pageContent: {
-        background: "linear-gradient(135deg, rgba(20, 65, 25, 0.95) 0%, rgba(10, 40, 15, 0.98) 100%)",
+        background: "linear-gradient(135deg, rgba(5, 15, 8, 0.98) 0%, rgba(2, 8, 4, 0.99) 100%)",
         width: "calc(100vw - 40px)",
         height: "100vh",
         overflowY: "auto",
