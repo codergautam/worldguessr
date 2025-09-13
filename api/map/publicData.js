@@ -40,6 +40,11 @@ export default async function handler(req, res) {
 
   console.log('Raw map.created_at from DB/cache:', map.created_at, 'Type:', typeof map.created_at);
 
+  // if map.created_at is string, convert to Date
+  if (typeof map.created_at === 'string') {
+    map.created_at = new Date(map.created_at);
+    console.log('Converted map.created_at to Date:', map.created_at);
+  }
   // Get total location count efficiently without loading the array
   const countResult = await Map.aggregate([
     { $match: { slug } },
