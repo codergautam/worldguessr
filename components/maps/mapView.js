@@ -5,6 +5,7 @@ import MakeMapForm from "./makeMap";
 import MapTile from "./mapTile";
 import { backupMapHome } from "../utils/backupMapHome.js";
 import config from "@/clientConfig";
+import { useMapSearch } from "../hooks/useMapSearch";
 
 export default function MapView({
     gameOptions,
@@ -31,6 +32,12 @@ export default function MapView({
     const [heartingMap, setHeartingMap] = useState("");
     const [isLoading, setIsLoading] = useState(true);
     const [expandedSections, setExpandedSections] = useState({});
+
+    const { handleSearch } = useMapSearch(session, setSearchResults);
+
+    useEffect(() => {
+        handleSearch(searchTerm);
+    }, [searchTerm, handleSearch]);
 
     function refreshHome(removeMapId) {
         if (removeMapId) {

@@ -3,6 +3,7 @@ import MapView from "./mapView";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { Modal } from "react-responsive-modal";
+import { useMapSearch } from "../hooks/useMapSearch";
 
 const initMakeMap = {
     open: false,
@@ -19,6 +20,8 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
 
+    const { handleSearch } = useMapSearch(session, setSearchResults);
+
     const handleMapClick = (map) => {
         if (customChooseMapCallback) {
             customChooseMapCallback(map);
@@ -26,38 +29,6 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
             window.location.href = `/map/${map.slug}${window.location.search.includes("crazygames") ? "&crazygames=true" : ""}`;
         }
     };
-
-    const debounce = (func, delay) => {
-        let timer;
-        return (...args) => {
-            clearTimeout(timer);
-            timer = setTimeout(() => func(...args), delay);
-        };
-    };
-
-    const handleSearch = useCallback(
-        debounce((term) => {
-            if (term.length > 3 && !process.env.NEXT_PUBLIC_COOLMATH) {
-                fetch(window.cConfig.apiUrl + "/api/map/searchMap", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ query: term, secret: session?.token?.secret }),
-                })
-                    .then((res) => res.json())
-                    .then((data) => {
-                        setSearchResults(data);
-                    })
-                    .catch(() => {
-                        toast.error("Failed to search maps");
-                    });
-            } else {
-                setSearchResults([]);
-            }
-        }, 300),
-        []
-    );
 
     useEffect(() => {
         handleSearch(searchTerm);
