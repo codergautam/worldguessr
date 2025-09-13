@@ -38,6 +38,8 @@ export default async function handler(req, res) {
     return res.status(404).json({ message: 'Map not found' });
   }
 
+  console.log('Raw map.created_at from DB/cache:', map.created_at, 'Type:', typeof map.created_at);
+
   // Get total location count efficiently without loading the array
   const countResult = await Map.aggregate([
     { $match: { slug } },
@@ -56,14 +58,15 @@ export default async function handler(req, res) {
     return res.status(404).json({ message: 'Map not accepted or no permission to view' });
   }
 
-  // Store the original timestamp for proper time calculation
-  const originalCreatedAt = map.created_at;
-
-  map.created_by = authorUser?.username;
-  map.created_at = msToTime(Date.now() - originalCreatedAt);
-  map.locationcnt = locationcnt;
+  // Don't mutate the cached object - create a new response object
+  const responseData = {
+    ...map,
+    created_by: authorUser?.username,
+    created_at: msToTime(Date.now() - map.created_at),
+    locationcnt: locationcnt
+  };
 
   return res.json({
-    mapData: map
+    mapData: responseData
   });
 }
