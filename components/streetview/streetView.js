@@ -183,10 +183,13 @@ const StreetView = ({
       motionTracking: false,
       linksControl: showAnswer || !nm,
       clickToGo: showAnswer || !nm,
-      panControl: showAnswer || !npz,
-      zoomControl: showAnswer || !npz,
+      panControl: true, // Always show pan control (includes compass)
+      zoomControl: showAnswer || !npz, // Only show zoom when allowed
+      addressControl: false,
       showRoadLabels: showRoadLabels,
-      disableDefaultUI: true,
+      disableDefaultUI: false,
+      fullscreenControl: false,
+      imageDateControl: false,
     };
 
     // Use panoId if available, otherwise use lat/lng position
@@ -379,8 +382,11 @@ const StreetView = ({
       panoramaRef.current.setOptions({
         linksControl: showAnswer || !nm,
         clickToGo: showAnswer || !nm,
-        panControl: showAnswer || !npz,
-        zoomControl: showAnswer || !npz,
+        panControl: true, // Always show pan control (includes compass)
+        zoomControl: showAnswer || !npz, // Only show zoom when allowed
+        addressControl: false,
+        fullscreenControl: false,
+        imageDateControl: false,
       });
     }
   }, [nm, npz, shouldUseEmbed, showAnswer]);
@@ -395,6 +401,9 @@ const StreetView = ({
           clickToGo: true,
           panControl: true,
           zoomControl: true,
+          addressControl: false,
+          fullscreenControl: false,
+          imageDateControl: false,
         });
       }
   }
