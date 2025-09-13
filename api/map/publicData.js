@@ -56,8 +56,11 @@ export default async function handler(req, res) {
     return res.status(404).json({ message: 'Map not accepted or no permission to view' });
   }
 
+  // Store the original timestamp for proper time calculation
+  const originalCreatedAt = map.created_at;
+
   map.created_by = authorUser?.username;
-  map.created_at = msToTime(Date.now() - map.created_at);
+  map.created_at = msToTime(Date.now() - originalCreatedAt);
   map.locationcnt = locationcnt;
 
   return res.json({
