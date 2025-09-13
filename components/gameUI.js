@@ -334,6 +334,10 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
   useEffect(() => {
     function keydown(e) {
+      // Don't trigger game actions if user is typing in an input field
+      if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+        return;
+      }
 
       if(explanationModalShown) return;
       if(singlePlayerRound?.done && e.key === ' ') {
