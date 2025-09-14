@@ -5027,6 +5027,7 @@ div:hover .elo-badge {
     position: fixed;
     bottom: 90px;
     right: 20px;
+    z-index: 999;
 }
 
 // under 600px, center the home_ad horiz
