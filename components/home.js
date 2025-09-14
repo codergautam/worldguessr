@@ -59,6 +59,7 @@ import Stats from "stats.js";
 import SvEmbedIframe from "./streetview/svHandler";
 import HomeNotice from "./homeNotice";
 import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
+import Ad from "./bannerAdNitro";
 
 
 const initialMultiplayerState = {
@@ -1176,7 +1177,7 @@ export default function Home({ }) {
     useEffect(() => {
         if (inCrazyGames || window.poki) {
             // Determine if actual gameplay is happening
-            const isInGameplay = (screen === "singleplayer" && singlePlayerRound && !singlePlayerRound.done) || 
+            const isInGameplay = (screen === "singleplayer" && singlePlayerRound && !singlePlayerRound.done) ||
                                 (screen === "onboarding" && onboarding && !onboarding.completed) ||
                                 (multiplayerState?.inGame && multiplayerState?.gameData?.state === "guess");
 
@@ -2219,6 +2220,13 @@ export default function Home({ }) {
                     onConnectionError={() => setConnectionErrorModalShown(true)}
                 />
 
+
+                                                        <div className={`home_ad `} style={{ display: (screen === 'home' && ( !inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH)) ? '' : 'none' }}>
+                                                          <Ad
+                                                          unit={"worldguessr_home_ad"}
+                                                        inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[300,250]]} screenW={width} vertThresh={width < 600 ? 0.33 : 0.5} />
+                                                        </div>
+
                 <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>
@@ -2364,6 +2372,7 @@ export default function Home({ }) {
                                                         }, 300);
                                                         }}>MapGuessr</button>
                                                 )}
+
                                             </div>
                                         </>
                                     )}

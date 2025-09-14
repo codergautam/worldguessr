@@ -5022,3 +5022,17 @@ div:hover .elo-badge {
         opacity: 1;
     }
 }
+
+.home_ad {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+}
+
+// under 600px, center the home_ad horiz
+@media (max-width: 600px) {
+    .home_ad {
+        right: 50%;
+        transform: translateX(50%);
+    }
+}
