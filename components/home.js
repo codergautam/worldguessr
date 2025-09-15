@@ -2221,12 +2221,14 @@ export default function Home({ }) {
                 />
 
 
+                                {!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH &&
+
                                                         <div className={`home_ad `} style={{ display: (screen === 'home' && ( !inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH)) ? '' : 'none' }}>
                                                           <Ad
                                                           unit={"worldguessr_home_ad"}
                                                         inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[300,250]]} screenW={width} vertThresh={width < 600 ? 0.33 : 0.5} />
                                                         </div>
-
+                                }
                 <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>

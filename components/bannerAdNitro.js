@@ -67,7 +67,11 @@ export default function Ad({
       },
     };
 
-    window.nitroAds.createAd(unit, config);
+    try {
+      window.nitroAds.createAd(unit, config);
+    } catch (error) {
+      console.error("Error creating Nitro ad:", error);
+    } 
 
     return () => {
       // window.nitroAds.destroy(unit);
