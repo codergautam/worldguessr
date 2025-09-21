@@ -92,7 +92,7 @@ export default function MakeMapForm({ map, setMap, createMap }) {
         <li>Keep all details in English (no NSFW)</li>
         {/*  no bullet */}
         <li style={{marginTop: '10px',fontSize: '1.4em', listStyleType: 'none'}}
-        >Need help? <a style={{color: 'cyan'}} href="https://discord.gg/ubdJHjKtrC" target="_blank" rel="noreferrer">Join our Discord</a></li>
+        >Need help? <a style={{color: 'cyan'}} href="https://discord.gg/ADw47GAyS5" target="_blank" rel="noreferrer">Join our Discord</a></li>
       </div>
 
       <form className="make-map-form" onSubmit={handleSubmit}>

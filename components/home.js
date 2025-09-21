@@ -2390,7 +2390,7 @@ export default function Home({ }) {
                             <div className="footer_btns">
                                 {!isApp && !inCoolMathGames && (
                                     <>
-                                        <Link target="_blank" href={"https://discord.gg/ubdJHjKtrC"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                                        <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
 
                                         {!inCrazyGames && (
                                             <>
