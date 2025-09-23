@@ -5,7 +5,7 @@ import MakeMapForm from "./makeMap";
 import MapTile from "./mapTile";
 import { backupMapHome } from "../utils/backupMapHome.js";
 import config from "@/clientConfig";
-import { useMapSearch } from "../hooks/useMapSearch";
+// import { useMapSearch } from "../hooks/useMapSearch"; // REMOVED TO FIX DUPLICATE SEARCH CALLS
 
 export default function MapView({
     gameOptions,
@@ -33,11 +33,8 @@ export default function MapView({
     const [isLoading, setIsLoading] = useState(true);
     const [expandedSections, setExpandedSections] = useState({});
 
-    const { handleSearch } = useMapSearch(session, setSearchResults);
-
-    useEffect(() => {
-        handleSearch(searchTerm);
-    }, [searchTerm, handleSearch]);
+    // REMOVED: const { handleSearch } = useMapSearch(session, setSearchResults);
+    // REMOVED: useEffect that called handleSearch - this was causing duplicate API calls since mapsModal.js already handles search
 
     function refreshHome(removeMapId) {
         if (removeMapId) {
