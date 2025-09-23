@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 
   // If map is not official, check user-created maps
   const map = await Map.findOne({ slug })
-    .select({ 'data': { $slice: 0 } }) // Slice the data to limit to 0 items - REDUCED FROM 5000 TO REDUCE SERVER OVERHEAD
+    .select({ 'data': { $slice: 5 } }) // Slice the data to limit to 5 items - REDUCED FROM 5000 TO REDUCE SERVER OVERHEAD
     .lean().cache(10000);
 
   if (!map) {
