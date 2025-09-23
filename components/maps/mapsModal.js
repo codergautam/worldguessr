@@ -3,7 +3,7 @@ import MapView from "./mapView";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { Modal } from "react-responsive-modal";
-import { useMapSearch } from "../hooks/useMapSearch";
+// import { useMapSearch } from "../hooks/useMapSearch"; // REMOVED TO FIX DUPLICATE SEARCH CALLS - MapView handles search
 
 const initMakeMap = {
     open: false,
@@ -20,7 +20,8 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
 
-    const { handleSearch } = useMapSearch(session, setSearchResults);
+    // REMOVED: const { handleSearch } = useMapSearch(session, setSearchResults);
+    // REMOVED: useEffect for handleSearch - MapView now handles all search logic to avoid duplicate API calls
 
     const handleMapClick = (map) => {
         if (customChooseMapCallback) {
@@ -29,10 +30,6 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
             window.location.href = `/map/${map.slug}${window.location.search.includes("crazygames") ? "&crazygames=true" : ""}`;
         }
     };
-
-    useEffect(() => {
-        handleSearch(searchTerm);
-    }, [searchTerm, handleSearch]);
 
     if (!shown) {
         return null;
