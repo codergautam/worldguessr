@@ -20,7 +20,8 @@ class UserStatsService {
 
       // Get current rankings
       const xpRank = await this.calculateXPRank(user.totalXp);
-      const eloRank = await this.calculateELORank(user.elo || 1000);
+      const eloRankResult = await this.calculateELORank(user.elo || 1000, userId);
+      const eloRank = typeof eloRankResult === 'object' ? eloRankResult.rank : eloRankResult;
 
       // Record the stats snapshot
       const statsEntry = await UserStats.create({
@@ -61,15 +62,23 @@ class UserStatsService {
   /**
    * Calculate user's ELO rank among all users
    */
-  static async calculateELORank(userElo) {
+  static async calculateELORank(userElo, userId = null) {
     try {
       const higherEloCount = await User.countDocuments({
         elo: { $gt: userElo },
         banned: { $ne: true }
       });
-      return higherEloCount + 1;
+      const rank = higherEloCount + 1;
+
+      if (userId) {
+        return { rank, userId };
+      }
+      return rank;
     } catch (error) {
       console.error('Error calculating ELO rank:', error);
+      if (userId) {
+        return { rank: 1, userId };
+      }
       return 1;
     }
   }
