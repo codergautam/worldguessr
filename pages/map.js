@@ -68,7 +68,7 @@ export default function MapPage({ }) {
       setTimeout(() => {
         const newIndex = Math.floor(Math.random() * urls.length);
         setCurrentLocationIndex(newIndex);
-        updateSelectedMarker(newIndex);
+        // updateSelectedMarker(newIndex); // COMMENTED OUT - NO LONGER NEEDED
         setFadeClass(styles.iframe + ' ' + styles.fadeIn);
       }, 1000);
     }, 5000);
@@ -78,8 +78,8 @@ export default function MapPage({ }) {
     return () => clearInterval(intervalId);
   }, [mapData.data]);
 
-  // Function to update selected marker without re-rendering map
-  const updateSelectedMarker = (newIndex) => {
+  // Function to update selected marker without re-rendering map - COMMENTED OUT TO REDUCE SERVER OVERHEAD
+  /*const updateSelectedMarker = (newIndex) => {
     setSelectedLocationIndex(newIndex);
 
     // Update marker styles without re-creating the map
@@ -110,10 +110,10 @@ export default function MapPage({ }) {
     if (clusterGroupRef.current) {
       clusterGroupRef.current.refreshClusters();
     }
-  };
+  };*/
 
-  // Initialize Leaflet Map
-  useEffect(() => {
+  // Initialize Leaflet Map - COMMENTED OUT TO REDUCE SERVER OVERHEAD
+  /*useEffect(() => {
     if (!mapData.data || mapInstanceRef.current) return;
 
     // Load Leaflet CSS and JS if not already loaded
@@ -283,7 +283,7 @@ export default function MapPage({ }) {
         clusterGroupRef.current = null;
       }
     };
-  }, [mapData.data]);
+  }, [mapData.data]);*/
 
   const handlePlayButtonClick = () => {
     window.location.href = `/?map=${mapData.countryCode || mapData.slug}${window.location.search.includes('crazygames') ? '&crazygames=true' : ''}`;
@@ -417,14 +417,14 @@ export default function MapPage({ }) {
               PLAY
             </button>
 
-            {/* World Map Section */}
-            {mapData.data && mapData.data.length > 0 && (
+            {/* World Map Section - COMMENTED OUT TO REDUCE SERVER OVERHEAD */}
+            {/* {mapData.data && mapData.data.length > 0 && (
               <div className={styles.worldMapSection}>
                 <div className={styles.worldMapContainer}>
                   <div ref={mapRef} style={{ width: '100%', height: '100%' }}></div>
                 </div>
               </div>
-            )}
+            )} */}
 
             <div className={styles.mapStats}>
               {typeof mapData.plays !== "undefined" && (
