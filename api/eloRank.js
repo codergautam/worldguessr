@@ -38,9 +38,14 @@ export default async function handler(req, res) {
     }).cache(2000)) + 1;
 
     // Return the user's elo and rank
-    return res.status(200).json({ elo: user.elo, rank, league: getLeague(user.elo),
-      duels_wins: user.duels_wins, duels_losses: user.duels_losses,
-        duels_tied: user.duels_tied,
+    return res.status(200).json({
+      id: user._id,
+      elo: user.elo,
+      rank,
+      league: getLeague(user.elo),
+      duels_wins: user.duels_wins,
+      duels_losses: user.duels_losses,
+      duels_tied: user.duels_tied,
       win_rate: user.duels_wins / (user.duels_wins + user.duels_losses + user.duels_tied)
      });
   } catch (error) {
