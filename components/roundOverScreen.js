@@ -451,11 +451,11 @@ const GameSummary = ({
     } else {
       url = `http://maps.google.com/maps?q=&layer=c&cbll=${lat},${lng}&cbp=11,0,0,0,0`;
     }
-    
+
     // Check if we're on CrazyGames or CoolMathGames platforms
     const isCrazyGames = typeof window !== 'undefined' && window.inCrazyGames;
     const isCoolMathGames = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_COOLMATH === "true";
-    
+
     if (isCrazyGames || isCoolMathGames) {
       // Copy URL to clipboard instead of opening
       navigator.clipboard.writeText(url).then(() => {
@@ -685,10 +685,10 @@ const GameSummary = ({
             padding: '2rem',
             textAlign: 'center'
           }}>
-            <div>No game history available</div>
+            {/* <div>No game history available</div>
             <div style={{ fontSize: '1rem', marginTop: '1rem', opacity: 0.7 }}>
               Debug: history={JSON.stringify(history)}, roundHistory length={multiplayerState?.gameData?.roundHistory?.length}
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
