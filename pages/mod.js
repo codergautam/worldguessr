@@ -1,37 +1,17 @@
-import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
+import { useSession } from '@/components/auth/auth';
 import ModDashboard from '../components/modDashboard';
 
 export default function ModPage() {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const session = useSession();
   const router = useRouter();
 
-  useEffect(() => {
-    // Check for session in localStorage or your session management system
-    const checkSession = () => {
-      if (typeof window !== 'undefined') {
-        const sessionData = localStorage.getItem('wg_session');
-        if (sessionData) {
-          try {
-            const parsed = JSON.parse(sessionData);
-            setSession(parsed);
-          } catch (error) {
-            console.error('Failed to parse session:', error);
-            router.push('/');
-          }
-        } else {
-          router.push('/');
-        }
-      }
-      setLoading(false);
-    };
-
-    checkSession();
-  }, [router]);
-
-  if (loading) {
+  // If no session, redirect to home
+  if (!session?.token?.secret) {
+    if (typeof window !== 'undefined') {
+      router.push('/');
+    }
     return (
       <div style={{
         display: 'flex',
@@ -41,13 +21,9 @@ export default function ModPage() {
         background: 'linear-gradient(135deg, #1a1a2e, #16213e)',
         color: '#fff'
       }}>
-        <div>Loading mod dashboard...</div>
+        <div>Redirecting...</div>
       </div>
     );
-  }
-
-  if (!session) {
-    return null; // Will redirect
   }
 
   return (
