@@ -3,7 +3,7 @@ import { useTranslation } from '@/components/useTranslations';
 import formatTime from '../utils/formatTime';
 import styles from '../styles/gameHistory.module.css';
 
-export default function GameHistory({ session, onGameClick }) {
+export default function GameHistory({ session, onGameClick, targetUserSecret = null, targetUserData = null }) {
   const { t: text } = useTranslation("common");
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ export default function GameHistory({ session, onGameClick }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          secret: session?.token?.secret,
+          secret: targetUserSecret || session?.token?.secret,
           page,
           limit: 10
         }),
@@ -51,7 +51,7 @@ export default function GameHistory({ session, onGameClick }) {
     if (typeof window !== 'undefined' && session?.token?.secret && window.cConfig?.apiUrl) {
       fetchGames(1);
     }
-  }, [session?.token?.secret]);
+  }, [session?.token?.secret, targetUserSecret]);
 
   const getGameTypeDisplay = (gameType) => {
     const types = {
@@ -115,7 +115,25 @@ export default function GameHistory({ session, onGameClick }) {
   return (
     <div className={styles.gameHistory}>
       <div className={styles.gameHistoryHeader}>
-        <h3>{text('gameHistory')}</h3>
+        <h3>{targetUserData ? `Game History for ${targetUserData.username}` : text('gameHistory')}</h3>
+        {targetUserData && (
+          <div className="mod-user-info" style={{
+            fontSize: '0.9rem',
+            color: '#666',
+            marginTop: '5px',
+            display: 'flex',
+            gap: '15px',
+            flexWrap: 'wrap'
+          }}>
+            <span>Total XP: {targetUserData.totalXp?.toLocaleString()}</span>
+            <span>Elo: {targetUserData.elo}</span>
+            <span>Games: {targetUserData.totalGamesPlayed}</span>
+            <span>Joined: {new Date(targetUserData.created_at).toLocaleDateString()}</span>
+            {targetUserData.banned && <span style={{color: '#f44336', fontWeight: 'bold'}}>BANNED</span>}
+            {targetUserData.staff && <span style={{color: '#2196f3', fontWeight: 'bold'}}>STAFF</span>}
+            {targetUserData.supporter && <span style={{color: '#ff9800', fontWeight: 'bold'}}>SUPPORTER</span>}
+          </div>
+        )}
         <span className={styles.totalGames}>
           {text('totalGames', { count: pagination.totalGames })}
         </span>
