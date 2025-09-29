@@ -883,7 +883,19 @@ const GameSummary = ({
                           >
                             <Popup>
                               <div>
-                                <strong>{player.username || text("opponent")}</strong><br />
+                                <strong
+                                  style={{
+                                    cursor: options?.onUsernameLookup && player.username ? 'pointer' : 'default',
+                                    textDecoration: options?.onUsernameLookup && player.username ? 'underline' : 'none'
+                                  }}
+                                  onClick={() => {
+                                    if (options?.onUsernameLookup && player.username) {
+                                      options.onUsernameLookup(player.username);
+                                    }
+                                  }}
+                                >
+                                  {player.username || text("opponent")}
+                                </strong><br />
                                 {text("roundNo", { r: index + 1 })}<br />
                                 {player.points} {text("points")}
                               </div>
@@ -1085,7 +1097,22 @@ const GameSummary = ({
                             )}
 
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{opponentData?.username || text("opponent")}</span>
+                              <span
+                                className="player-name"
+                                style={{
+                                  fontSize: '0.9em',
+                                  opacity: '0.8',
+                                  cursor: options?.onUsernameLookup && opponentData?.username ? 'pointer' : 'default',
+                                  textDecoration: options?.onUsernameLookup && opponentData?.username ? 'underline' : 'none'
+                                }}
+                                onClick={() => {
+                                  if (options?.onUsernameLookup && opponentData?.username) {
+                                    options.onUsernameLookup(opponentData.username);
+                                  }
+                                }}
+                              >
+                                {opponentData?.username || text("opponent")}
+                              </span>
                               <span className="score-points" style={{ color: getPointsColor(opponentPoints), fontWeight: 'bold' }}>
                                 {opponentPoints} {text("pts")}
                               </span>
@@ -1257,7 +1284,19 @@ const GameSummary = ({
                         >
                           <Popup>
                             <div>
-                              <strong>{player.username || text("opponent")}</strong><br />
+                              <strong
+                                style={{
+                                  cursor: options?.onUsernameLookup && player.username ? 'pointer' : 'default',
+                                  textDecoration: options?.onUsernameLookup && player.username ? 'underline' : 'none'
+                                }}
+                                onClick={() => {
+                                  if (options?.onUsernameLookup && player.username) {
+                                    options.onUsernameLookup(player.username);
+                                  }
+                                }}
+                              >
+                                {player.username || text("opponent")}
+                              </strong><br />
                               {text("roundNo", { r: index + 1 })}<br />
                               {player.points} {text("points")}
                             </div>
