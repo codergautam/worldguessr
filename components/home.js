@@ -990,7 +990,8 @@ export default function Home({ }) {
                     }
                 }));
                 // join Party
-                ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0] }))
+                const displayName = args[1] || undefined;
+                ws.send(JSON.stringify({ type: "joinPrivateGame", gameCode: args[0], displayName }))
                 sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
 
             } else {
@@ -1484,6 +1485,16 @@ export default function Home({ }) {
                         gameData: {
                             ...prev.gameData,
                             players: [...prev.gameData.players, data.player]
+                        }
+                    }))
+                } else if (data.action === "update") {
+                    setMultiplayerState((prev) => ({
+                        ...prev,
+                        gameData: {
+                            ...prev.gameData,
+                            players: prev.gameData.players.map((p) => 
+                                p.id === data.player.id ? { ...p, ...data.player } : p
+                            )
                         }
                     }))
                 }

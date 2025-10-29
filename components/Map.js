@@ -187,7 +187,8 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         if(!player.guess) return null;
 
 
-        const name = process.env.NEXT_PUBLIC_COOLMATH?guestNameString(player.username):player.username;
+        const displayedName = player.displayName || player.username;
+        const name = process.env.NEXT_PUBLIC_COOLMATH?guestNameString(displayedName):displayedName;
         const latLong = [player.guess[0], player.guess[1]];
 
         const tIcon = customPins[name]==="polandball" ? icons.polandball : icons.src2;

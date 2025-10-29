@@ -108,6 +108,7 @@ export default class Game {
     }
     const playerObj = {
       username: player.username,
+      displayName: player.displayName || null, // Use custom display name if set
       accountId: player.accountId,
       id: player.id,
       score: this.duel ? 5000 : 0,
@@ -324,6 +325,7 @@ export default class Game {
 
           roundData.players[playerId] = {
             username: player.username,
+            displayName: player.displayName || null,
             lat: player.guess[0],
             long: player.guess[1],
             points: points,
@@ -334,6 +336,7 @@ export default class Game {
           // Player didn't make a guess - still record them with null values
           roundData.players[playerId] = {
             username: player.username,
+            displayName: player.displayName || null,
             lat: null,
             long: null,
             points: 0,

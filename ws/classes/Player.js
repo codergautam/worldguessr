@@ -13,6 +13,7 @@ export default class Player {
     this.ip = ip;
     this.ws = ws;
     this.username = null;
+    this.displayName = null; // Custom display name for party games
     this.accountId = null;
     this.gameId = null;
     this.inQueue = false;
@@ -40,6 +41,7 @@ export default class Player {
       ip: this.ip,
       ws: null,
       username: this.username,
+      displayName: this.displayName,
       accountId: this.accountId,
       gameId: this.gameId,
       inQueue: false,

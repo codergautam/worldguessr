@@ -52,7 +52,21 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
                         <h2 className="join-party-title">{text("joinGame")}</h2>
 
                         <div className="join-party-form">
-                            <div className="join-party-input-group">
+                            <div className="join-party-input-group" style={{flexDirection: 'column', gap: '10px'}}>
+                                <input
+                                    type="text"
+                                    className="join-party-input"
+                                    placeholder={text("displayName")}
+                                    value={multiplayerState.joinOptions.displayName || ""}
+                                    maxLength={20}
+                                    onChange={(e) => setMultiplayerState((prev) => ({
+                                        ...prev,
+                                        joinOptions: {
+                                            ...prev.joinOptions,
+                                            displayName: e.target.value
+                                        }
+                                    }))}
+                                />
                                 <input
                                     type="text"
                                     className="join-party-input"
@@ -70,7 +84,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
                                 <button
                                     className="join-party-button"
                                     disabled={multiplayerState?.joinOptions?.gameCode?.length !== 6 || multiplayerState?.joinOptions?.progress}
-                                    onClick={() => handleAction("joinPrivateGame", multiplayerState?.joinOptions?.gameCode)}
+                                    onClick={() => handleAction("joinPrivateGame", multiplayerState?.joinOptions?.gameCode, multiplayerState?.joinOptions?.displayName)}
                                 >
                                     {multiplayerState?.joinOptions?.progress ? "..." : text("go")}
                                 </button>
@@ -94,7 +108,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
             <BannerText  position={"auto"} text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />
 
             {multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && !multiplayerState.gameData?.public && (
-                <PlayerList multiplayerState={multiplayerState} startGameHost={() => handleAction("startGameHost")} onEditClick={() => setPartyModalShown(true)} />
+                <PlayerList multiplayerState={multiplayerState} startGameHost={() => handleAction("startGameHost")} onEditClick={() => setPartyModalShown(true)} ws={ws} />
             )}
 
             <PartyModal selectCountryModalShown={selectCountryModalShown} setSelectCountryModalShown={setSelectCountryModalShown} ws={ws} setWs={setWs} multiplayerError={multiplayerError} multiplayerState={multiplayerState} setMultiplayerState={setMultiplayerState} session={session} handleAction={handleAction} gameOptions={gameOptions} setGameOptions={setGameOptions} onClose={() => setPartyModalShown(false)} shown={partyModalShown} />

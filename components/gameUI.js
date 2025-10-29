@@ -736,7 +736,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
             backBtnPressed(true, "unranked")
           }} backBtn={() => {
             backBtnPressed()
-          }} />
+          }} ws={ws} />
         )}
 
         {/* Private game over screen */}

@@ -353,7 +353,8 @@ const GameSummary = ({
       if (round.players) {
         Object.entries(round.players).forEach(([playerId, player]) => {
           if (!allPlayers.has(playerId)) {
-            allPlayers.set(playerId, player.username);
+            // Use displayName if available, fallback to username
+            allPlayers.set(playerId, player.displayName || player.username);
           }
         });
       }
