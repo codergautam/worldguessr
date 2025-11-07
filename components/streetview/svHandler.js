@@ -42,8 +42,7 @@ const SvEmbedIframe = (params) => {
 
   useEffect(() => {
     sendMessageToIframe();
-
-  }, [JSON.stringify(params)]);
+  }, [params?.nm, params?.npz, params?.showRoadLabels, params?.showAnswer]);
 
   useEffect(() => {
     // listen to events from iframe (onLoad) call params.onLoad
