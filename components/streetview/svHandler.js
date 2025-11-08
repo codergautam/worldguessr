@@ -29,13 +29,7 @@ const SvEmbedIframe = (params) => {
   };
 
   useEffect(() => {
-    console.log("[SvEmbedIframe] Location change triggered at", new Date().toISOString(), {
-      lat: params.lat,
-      long: params.long,
-      panoId: params.panoId,
-      heading: params.heading,
-      pitch: params.pitch
-    });
+
     // reload iframe when lat or long changes
     // Only use panoId if we have proper heading/pitch data, otherwise fall back to lat/lng
     const shouldUsePanoId = params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
@@ -44,7 +38,6 @@ const SvEmbedIframe = (params) => {
     const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
     const newSrc = `/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`;
 
-    console.log("[SvEmbedIframe] Starting iframe reload with new src:", newSrc);
 
     // Update state for initial render
     setIframeSrc(newSrc);

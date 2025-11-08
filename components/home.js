@@ -1426,11 +1426,9 @@ export default function Home({ }) {
                         console.log("[Multiplayer] Round starting - state transition to 'guess' at", new Date().toISOString());
                         setPinPoint(null)
                         if (!prev?.gameData?.locations && data.locations) {
-                            console.log("[Multiplayer] Setting location from new data:", data.locations[data.curRound - 1]);
                             setLatLong(data.locations[data.curRound - 1])
 
                         } else {
-                            console.log("[Multiplayer] Setting location from prev data:", prev?.gameData?.locations[data.curRound - 1]);
                             setLatLong(prev?.gameData?.locations[data.curRound - 1])
                         }
                     }
