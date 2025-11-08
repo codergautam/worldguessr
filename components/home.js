@@ -1288,6 +1288,11 @@ export default function Home({ }) {
         ws.onmessage = (msg) => {
             const data = JSON.parse(msg.data);
 
+            // Log socket messages related to game state changes
+            if (data.type === "gameData") {
+                console.log("[Socket] Received gameData message at", new Date().toISOString(), "state:", data.state);
+            }
+
             if (data.type === "restartQueued") {
                 setMaintenance(data.value ? true : false)
                 if (data.value) {
@@ -1418,11 +1423,14 @@ export default function Home({ }) {
                     }
 
                     if ((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") {
+                        console.log("[Multiplayer] Round starting - state transition to 'guess' at", new Date().toISOString());
                         setPinPoint(null)
                         if (!prev?.gameData?.locations && data.locations) {
+                            console.log("[Multiplayer] Setting location from new data:", data.locations[data.curRound - 1]);
                             setLatLong(data.locations[data.curRound - 1])
 
                         } else {
+                            console.log("[Multiplayer] Setting location from prev data:", prev?.gameData?.locations[data.curRound - 1]);
                             setLatLong(prev?.gameData?.locations[data.curRound - 1])
                         }
                     }
