@@ -306,7 +306,7 @@
   "rankGain": "Cambio de rango",
   "noStatsAvailable": "No hay estadísticas disponibles",
   "playGamesToSeeProgression": "Juega para ver tu progresión con el tiempo",
-  "dataPoints": "{{Count}} Puntos de datos",
+  "dataPoints": "{{count}} Puntos de datos",
   "currentXP": "XP actual",
   "currentRank": "Rango actual",
   "xpRank": "Rango XP",
@@ -315,5 +315,6 @@
   "eloOverTime": "Elo con el tiempo",
   "eloRankOverTime": "Elo rango con el tiempo",
   "currentElo": "ELO actual",
-  "language": "Idioma"
+  "language": "Idioma",
+  "duelWarningText": "El uso de Google o cualquier ayuda externa está prohibido y dará como resultado una prohibición."
 }
