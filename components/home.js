@@ -2144,10 +2144,17 @@ export default function Home({ }) {
             }}>
                 <NextImage.default src={'./street2.jpg'}
                     draggable={false}
-                    fill alt="Game Background" style={{
+                    width={1920}
+                    height={1080}
+                    alt="Game Background" style={{
                         objectFit: "cover", userSelect: 'none',
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100vw",
+                        height: "100vh",
                         backgroundSize: "cover",
-                        backgroundPosition: "center"
+                        backgroundPosition: "center",
                     }}
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
