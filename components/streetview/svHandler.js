@@ -38,7 +38,6 @@ const SvEmbedIframe = (params) => {
     const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
     const newSrc = `/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`;
 
-
     // Update state for initial render
     setIframeSrc(newSrc);
 

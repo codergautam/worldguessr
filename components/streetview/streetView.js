@@ -65,6 +65,7 @@ const StreetView = ({
   const initialPovSetRef = useRef(false);
   const panoChangedHandledRef = useRef(false);
   const fallbackExecutedRef = useRef(false);
+  const panoIdFallbackAttemptedRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const googleMapsDivId = "googlemaps";
 
@@ -192,12 +193,8 @@ const StreetView = ({
       imageDateControl: false,
     };
 
-    // Use panoId if available, otherwise use lat/lng position
-    if (panoId) {
-      panoramaOptions.pano = panoId;
-    } else {
-      panoramaOptions.position = { lat, lng: long };
-    }
+    // Don't set pano or position in options - we'll set them after creation
+    // to enable the fallback mechanism for dead panos
 
     // console.log("Creating StreetViewPanorama with options:", panoramaOptions);
 
@@ -205,6 +202,13 @@ const StreetView = ({
       document.getElementById(googleMapsDivId),
       panoramaOptions
     );
+
+    // Use panoId if available, otherwise use lat/lng position
+    if (panoId) {
+      panoramaRef.current.setPano(panoId);
+    } else {
+      panoramaRef.current.setPosition({ lat, lng: long });
+    }
 
     // Initial setup - will be properly set in pano_changed event
     setTimeout(() => {
@@ -294,11 +298,38 @@ const StreetView = ({
     // Log status changes (for error handling)
     panoramaRef.current.addListener("status_changed", () => {
       const status = panoramaRef.current.getStatus();
+      console.log("[StreetView Status]", status);
 
       if (status === google.maps.StreetViewStatus.ZERO_RESULTS) {
         console.error("ZERO_RESULTS - No Street View data found for this location");
+        // If panoId failed and we have lat/long, fallback to location-based search (only once)
+        if (panoId && lat && long && !panoIdFallbackAttemptedRef.current) {
+          panoIdFallbackAttemptedRef.current = true;
+          console.log(`Pano ${panoId} not found, falling back to lat/long position`);
+          // Use StreetViewService to find nearby pano, then set it
+          const sv = new google.maps.StreetViewService();
+          sv.getPanorama({ location: { lat, lng: long }, radius: 50 }, (data, status) => {
+            if (status === google.maps.StreetViewStatus.OK && data && data.location && data.location.pano) {
+              console.log(`Found nearby pano: ${data.location.pano}`);
+              panoramaRef.current.setPano(data.location.pano);
+            }
+          });
+        }
       } else if (status === google.maps.StreetViewStatus.UNKNOWN_ERROR) {
         console.error("UNKNOWN_ERROR - Street View request could not be processed");
+        // If panoId failed and we have lat/long, fallback to location-based search (only once)
+        if (panoId && lat && long && !panoIdFallbackAttemptedRef.current) {
+          panoIdFallbackAttemptedRef.current = true;
+          console.log(`Pano ${panoId} error, falling back to lat/long position`);
+          // Use StreetViewService to find nearby pano, then set it
+          const sv = new google.maps.StreetViewService();
+          sv.getPanorama({ location: { lat, lng: long }, radius: 50 }, (data, status) => {
+            if (status === google.maps.StreetViewStatus.OK && data && data.location && data.location.pano) {
+              console.log(`Found nearby pano: ${data.location.pano}`);
+              panoramaRef.current.setPano(data.location.pano);
+            }
+          });
+        }
       } else if (status === google.maps.StreetViewStatus.OK) {
 
         // Fallback: If pano_changed doesn't fire when using panoId directly
@@ -337,6 +368,7 @@ const StreetView = ({
     initialPovSetRef.current = false; // Reset flag for new location
     panoChangedHandledRef.current = false; // Reset flag for new location
     fallbackExecutedRef.current = false; // Reset flag for new location
+    panoIdFallbackAttemptedRef.current = false; // Reset fallback flag for new location
 
     if (shouldUseEmbed) {
       // Clean up the panorama if switching to embed
