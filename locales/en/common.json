@@ -316,5 +316,6 @@
   "eloRankOverTime": "ELO Rank Over Time",
   "currentElo": "Current ELO",
   "language": "Language",
+  "degradedMaps": "Disabling Road Labels and NMPZ features are temporarily unavailable. We are working to fix this as soon as possible.",
   "duelWarningText": "Using Google or any external help is prohibited and will result in a BAN."
 }
