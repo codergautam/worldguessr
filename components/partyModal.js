@@ -97,7 +97,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                             <label>
 
                                 <div style={{ display: "flex", gap: "10px", flexDirection: 'column', alignItems: 'center', marginBottom: '5px', marginTop: '5px' }}>
-                                    <div>
+                                    {/* <div>
                                         <label htmlFor="nm">{text('nm')}</label>
                                         <input type="checkbox" checked={gameOptions.nm}
                                             id="nm"
@@ -133,7 +133,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                             })
                                         }
                                         } />
-                                    </div>
+                                    </div> */}
+
+                                    <label>{text('degradedMaps')}</label>
                                 </div>
 
                             </label>

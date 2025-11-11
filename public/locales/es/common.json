@@ -316,5 +316,6 @@
   "eloRankOverTime": "Elo rango con el tiempo",
   "currentElo": "ELO actual",
   "language": "Idioma",
+  "degradedMaps": "La desactivación de etiquetas de carreteras y funciones NMPZ no está disponible temporalmente. Estamos trabajando para solucionar este problema lo antes posible.",
   "duelWarningText": "El uso de Google o cualquier ayuda externa está prohibido y dará como resultado una prohibición."
 }

@@ -43,7 +43,6 @@ import { boundingExtent } from "ol/extent";
 import countries from "@/public/countries.json";
 import officialCountryMaps from "@/public/officialCountryMaps.json";
 
-import fixBranding from "@/components/utils/fixBranding";
 import gameStorage from "@/components/utils/localStorage";
 import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";

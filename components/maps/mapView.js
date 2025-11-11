@@ -369,7 +369,7 @@ export default function MapView({
             {/* Game Options */}
             {showOptions && (
                 <div className="map-options">
-                    <div className="map-option">
+                    {/* <div className="map-option">
                         <input
                             type="checkbox"
                             id="nm"
@@ -395,7 +395,11 @@ export default function MapView({
                             onChange={(e) => setGameOptions({ ...gameOptions, showRoadName: e.target.checked })}
                         />
                         <label htmlFor="showRoadName">{text('showRoadName')}</label>
-                    </div>
+
+                    </div> */}
+
+<label>{text('degradedMaps')}</label>
+
                 </div>
             )}
 
