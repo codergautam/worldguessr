@@ -1,11 +1,12 @@
 import { useTranslation } from '@/components/useTranslations'
 import guestNameString from '@/serverUtils/guestNameFromString';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { FaCopy } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 
-export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick }) {
+export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick, ws }) {
   const { t: text } = useTranslation("common");
+  const [displayNameInput, setDisplayNameInput] = useState("");
 
   const players = (multiplayerState?.gameData?.finalPlayers ?? multiplayerState?.gameData?.players).sort((a, b) => b.score - a.score);
   const myId = multiplayerState?.gameData?.myId;
@@ -38,6 +39,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
 
       { waitingForStart && (
 
+        <div style={{display: "flex", flexDirection: "column", alignItems: "center", gap: "10px"}}>
         <div style={{display: "flex", flexDirection: "row", alignItems: "center"}}>
         <h2 style={{color: "orange", pointerEvents: "all"}}>{text("gameCode")}: {multiplayerState.gameData?.code}</h2>
         {/* copy */}
@@ -82,9 +84,53 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
         )}
 
         </div>
+        
+        {/* Display Name Input for Host */}
+        {host && (
+          <div style={{display: "flex", flexDirection: "row", alignItems: "center", gap: "10px", pointerEvents: "all"}}>
+            <input
+              type="text"
+              className="join-party-input"
+              placeholder={text("displayName")}
+              value={displayNameInput}
+              maxLength={20}
+              onChange={(e) => setDisplayNameInput(e.target.value)}
+              style={{
+                padding: "8px",
+                borderRadius: "5px",
+                border: "1px solid #ccc",
+                fontSize: "14px",
+                width: "200px"
+              }}
+            />
+            <button
+              onClick={() => {
+                if (displayNameInput.trim() && ws) {
+                  ws.send(JSON.stringify({ type: "setDisplayName", displayName: displayNameInput.trim() }));
+                  setDisplayNameInput("");
+                  toast.success(text("nameUpdated") || "Name updated!");
+                }
+              }}
+              disabled={!displayNameInput.trim()}
+              style={{
+                padding: "8px 15px",
+                backgroundColor: displayNameInput.trim() ? "green" : "gray",
+                color: "white",
+                border: "none",
+                cursor: displayNameInput.trim() ? "pointer" : "not-allowed",
+                borderRadius: "5px",
+                fontSize: "14px"
+              }}
+            >
+              {text("setName") || "Set Name"}
+            </button>
+          </div>
+        )}
+        </div>
       )}
 
       {players.slice(0, N).map((player, i) => {
+        const displayedName = player.displayName || player.username;
         return (
           <div key={i} className={`multiplayerLeaderboard__player ${player.id === myId ? 'me' : ''}`}>
             { waitingForStart ? (
@@ -92,8 +138,8 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
               <div className="multiplayerLeaderboard__player__username">
 
                 {
-                process.env.NEXT_PUBLIC_COOLMATH?guestNameString(player.username):
-                player.username}
+                process.env.NEXT_PUBLIC_COOLMATH?guestNameString(displayedName):
+                displayedName}
                 {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
                 {player.host && <span style={{color: "red"}}> ({text("host")})</span>}
 
@@ -102,8 +148,8 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
             ) : (
               <>
             <div className="multiplayerLeaderboard__player__username">#{i + 1} -      {
-                process.env.NEXT_PUBLIC_COOLMATH?guestNameString(player.username):
-                player.username}
+                process.env.NEXT_PUBLIC_COOLMATH?guestNameString(displayedName):
+                displayedName}
 
             {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
 
@@ -120,7 +166,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
         <span className="multiplayerLeaderboard__separator">...</span>
 
         <div className="multiplayerLeaderboard__player me">
-          <div className="multiplayerLeaderboard__player__username">#{myIndex + 1} - {players[myIndex].username}</div>
+          <div className="multiplayerLeaderboard__player__username">#{myIndex + 1} - {players[myIndex].displayName || players[myIndex].username}</div>
           <div className="multiplayerLeaderboard__player__score">{players[myIndex].score}</div>
         </div>
         </>

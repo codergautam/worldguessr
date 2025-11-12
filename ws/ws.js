@@ -846,6 +846,17 @@ app.ws('/wg', {
 
       if (json.type === 'joinPrivateGame' && !player.gameId) {
         let code = json.gameCode;
+        let displayName = json.displayName;
+
+        // Sanitize and validate displayName
+        if (displayName && typeof displayName === 'string') {
+          displayName = displayName.trim().substring(0, 20);
+          // Remove any special characters that could cause issues
+          displayName = displayName.replace(/[<>]/g, '');
+          if (displayName.length > 0) {
+            player.displayName = displayName;
+          }
+        }
 
         // find game by code
         joinGameByCode(code, () => {
@@ -861,6 +872,36 @@ app.ws('/wg', {
         }, (game) => {
           game.addPlayer(player);
         });
+      }
+
+      if (json.type === 'setDisplayName' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        let displayName = json.displayName;
+
+        // Only allow changing display name in private (party) games that haven't started
+        if (!game.public && game.state === 'waiting') {
+          // Sanitize and validate displayName
+          if (displayName && typeof displayName === 'string') {
+            displayName = displayName.trim().substring(0, 20);
+            // Remove any special characters that could cause issues
+            displayName = displayName.replace(/[<>]/g, '');
+            if (displayName.length > 0) {
+              player.displayName = displayName;
+              
+              // Update the player's display name in the game
+              if (game.players[player.id]) {
+                game.players[player.id].displayName = displayName;
+                
+                // Notify all players in the game about the name change
+                game.sendAllPlayers({
+                  type: 'player',
+                  action: 'update',
+                  player: game.players[player.id]
+                });
+              }
+            }
+          }
+        }
       }
 
       if (json.type === 'startGameHost' && player.gameId && games.has(player.gameId)) {
