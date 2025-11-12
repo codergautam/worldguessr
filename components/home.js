@@ -1418,6 +1418,8 @@ export default function Home({ }) {
 
                     if ((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") {
                         setPinPoint(null)
+                        // Set loading state when new round starts to show loading animation
+                        setLoading(true)
                         if (!prev?.gameData?.locations && data.locations) {
                             setLatLong(data.locations[data.curRound - 1])
 

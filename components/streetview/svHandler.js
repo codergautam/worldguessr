@@ -1,12 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 const SvEmbedIframe = (params) => {
   const iframeRef = useRef(null);
   const [iframeSrc, setIframeSrc] = useState(null);
-
+  const [fadeClass, setFadeClass] = useState("svframe-fade-in");
+  const prevLocationRef = useRef(null);
 
   // Function to send updated params via postMessage to the iframe
-  const sendMessageToIframe = () => {
+  const sendMessageToIframe = useCallback(() => {
     let passableParams = {
       nm: params.nm,
       npz: params.npz,
@@ -26,23 +27,26 @@ const SvEmbedIframe = (params) => {
     if (iframeRef.current) {
       iframeRef.current.contentWindow.postMessage({ type: "updateProps", props: passableParams }, "*");
     }
-  };
+  }, [params.nm, params.npz, params.showRoadLabels, params.lat, params.long, params.panoId, params.heading, params.pitch, params.showAnswer]);
 
+  // Set iframe src only once initially when we first have lat/long
   useEffect(() => {
-    // console.log("SvEmbedIframe params changed", params);
-    // reload iframe when lat or long changes
-    // console.log("lat or long changed", params.lat, params.long);
-    // Only use panoId if we have proper heading/pitch data, otherwise fall back to lat/lng
-    const shouldUsePanoId = params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
-    const panoParam = shouldUsePanoId ? `&pano=${params.panoId}` : '';
-    const headingParam = shouldUsePanoId ? `&heading=${params.heading}` : '';
-    const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
-    setIframeSrc(`/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`);
-  }, [params?.lat, params?.long, params?.panoId, params?.heading, params?.pitch]);
+    if (!iframeSrc && params.lat && params.long) {
+      // Only use panoId if we have proper heading/pitch data, otherwise fall back to lat/lng. Update: disable panoId entirely
+      const shouldUsePanoId = false && params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
+      const panoParam = shouldUsePanoId ? `&pano=${params.panoId}` : '';
+      const headingParam = shouldUsePanoId ? `&heading=${params.heading}` : '';
+      const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
+      setIframeSrc(`/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`);
+    }
+  }, [params?.lat, params?.long, params?.panoId, params?.heading, params?.pitch, params?.nm, params?.npz, params?.showRoadLabels, params?.showAnswer]);
 
+  // Send postMessage for all prop updates (including location changes)
   useEffect(() => {
-    sendMessageToIframe();
-  }, [params?.nm, params?.npz, params?.showRoadLabels, params?.showAnswer]);
+    if (iframeSrc && iframeRef.current) {
+      sendMessageToIframe();
+    }
+  }, [iframeSrc, sendMessageToIframe]);
 
   useEffect(() => {
     // listen to events from iframe (onLoad) call params.onLoad
@@ -79,6 +83,25 @@ const SvEmbedIframe = (params) => {
 
 
 
+  // Handle fade transitions when location changes
+  useEffect(() => {
+    if (!params.lat || !params.long) return;
+
+    const currentLocation = `${params.lat}-${params.long}-${params.panoId}`;
+    if (prevLocationRef.current && prevLocationRef.current !== currentLocation) {
+      // Fade out
+      setFadeClass("svframe-fade-out");
+      // After fade out completes, update location and fade in
+      setTimeout(() => {
+        setFadeClass("svframe-fade-in");
+      }, 500); // Match transition duration
+    } else if (!prevLocationRef.current) {
+      // Initial load
+      setFadeClass("svframe-fade-in");
+    }
+    prevLocationRef.current = currentLocation;
+  }, [params?.lat, params?.long, params?.panoId]);
+
   if(!params.lat && !params.long) {
     return null;
   }
@@ -94,7 +117,7 @@ const SvEmbedIframe = (params) => {
         src={iframeSrc} // Dynamically update the iframe src
         width="100%"
         height="100%"
-        className={`svframe ${params?.hidden ? "svhidden" : ""}`}
+        className={`svframe ${params?.hidden ? "svhidden" : ""} ${fadeClass}`}
         style={{ border: "none", position: "fixed", top: 0, left: 0}}
         title="Street View Embed"
         frameBorder="0"

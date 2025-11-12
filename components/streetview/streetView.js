@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 const StreetView = ({
   nm = false,
@@ -14,6 +14,27 @@ const StreetView = ({
   onLoad
 }) => {
   const [loading, setLoading] = useState(true);
+  const iframeRef = useRef(null);
+
+  // Reset loading state when location changes
+  useEffect(() => {
+    setLoading(true);
+  }, [lat, long, panoId]);
+
+  // Update iframe src when location changes
+  useEffect(() => {
+    if (iframeRef.current && (lat && long || panoId)) {
+      const newSrc = panoId ?
+        `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}` :
+        `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
+
+      // Only update if src actually changed to avoid unnecessary reloads
+      if (iframeRef.current.src !== newSrc) {
+        setLoading(true);
+        iframeRef.current.src = newSrc;
+      }
+    }
+  }, [lat, long, panoId, heading, pitch]);
 
   // Reload location logic
   const reloadLocation = () => {
@@ -26,13 +47,15 @@ const StreetView = ({
     return null;
   }
 
+  const iframeSrc = panoId ?
+    `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}` :
+    `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
+
   return (
     <iframe
+      ref={iframeRef}
       className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} streetview`}
-      src={panoId ?
-        `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}` :
-        `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`
-      }
+      src={iframeSrc}
       referrerPolicy="no-referrer-when-downgrade"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
       onLoad={() => {
