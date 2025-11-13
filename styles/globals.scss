@@ -1839,6 +1839,19 @@ h1, h2, h3, span, label {
     position: fixed !important;
 }
 
+.svframe {
+    transition: opacity 0.5s ease-in-out;
+    opacity: 1;
+}
+
+.svframe-fade-out {
+    opacity: 0;
+}
+
+.svframe-fade-in {
+    opacity: 1;
+}
+
 #googlemaps.hidden,
 #streetview.hidden {
     // transform: translateY(-105%);

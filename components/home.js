@@ -43,7 +43,6 @@ import { boundingExtent } from "ol/extent";
 import countries from "@/public/countries.json";
 import officialCountryMaps from "@/public/officialCountryMaps.json";
 
-import fixBranding from "@/components/utils/fixBranding";
 import gameStorage from "@/components/utils/localStorage";
 import DiscordModal from "@/components/discordModal";
 import MerchModal from "@/components/merchModal";
@@ -1419,6 +1418,8 @@ export default function Home({ }) {
 
                     if ((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") {
                         setPinPoint(null)
+                        // Set loading state when new round starts to show loading animation
+                        setLoading(true)
                         if (!prev?.gameData?.locations && data.locations) {
                             setLatLong(data.locations[data.curRound - 1])
 
@@ -2144,10 +2145,17 @@ export default function Home({ }) {
             }}>
                 <NextImage.default src={'./street2.jpg'}
                     draggable={false}
-                    fill alt="Game Background" style={{
+                    width={1920}
+                    height={1080}
+                    alt="Game Background" style={{
                         objectFit: "cover", userSelect: 'none',
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100vw",
+                        height: "100vh",
                         backgroundSize: "cover",
-                        backgroundPosition: "center"
+                        backgroundPosition: "center",
                     }}
                     sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />

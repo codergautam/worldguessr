@@ -18,7 +18,6 @@ import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAdNitro";
 // import Ad from "./bannerAdAdinplay";
-import fixBranding from "./utils/fixBranding";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
@@ -479,16 +478,6 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
     }
   }
 
-
-
-  useEffect(() => {
-    const int= setInterval(() => {
-      fixBranding();
-    },500)
-    return () => {
-      clearInterval(int)
-    }
-  },[])
 
 
 
