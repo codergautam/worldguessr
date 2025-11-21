@@ -6,7 +6,8 @@ export default function Modal({
   title,
   children,
   actions = null,
-  variant = "default"
+  variant = "default",
+  disableBackdropClose = false
 }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -39,7 +40,7 @@ export default function Modal({
   };
 
   const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
+    if (e.target === e.currentTarget && !disableBackdropClose) {
       handleClose();
     }
   };

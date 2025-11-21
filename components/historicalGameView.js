@@ -245,6 +245,7 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         button2Press={null}
         button2Text=""
         hidden={false}
+        session={session}
         gameId={game?.gameId || game?._id}
         options={{
           ...options,

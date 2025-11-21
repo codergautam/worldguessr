@@ -2,11 +2,12 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
-import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt } from "react-icons/fa";
+import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag } from "react-icons/fa";
 import msToTime from "./msToTime";
 import formatTime from "../utils/formatTime";
 import { toast } from "react-toastify";
 import 'leaflet/dist/leaflet.css';
+import ReportModal from './reportModal';
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -82,6 +83,8 @@ const GameSummary = ({
   const [headerCompact, setHeaderCompact] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false); // Track if user has manually moved the map
   const [copiedGameId, setCopiedGameId] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
@@ -758,13 +761,73 @@ const GameSummary = ({
   // Use the constructed or provided history
   const finalHistory = gameHistory;
 
+  // Helper function to open report modal
+  const handleReportUser = (accountId, username) => {
+    setReportTarget({ accountId, username });
+    setReportModalOpen(true);
+  };
+
   // DUEL SCREEN IMPLEMENTATION
   if (duel && data) {
     const { winner, draw, oldElo, newElo } = data;
     const eloChange = newElo - oldElo;
 
+    // Get opponent information for ranked duels
+    const getOpponentInfo = () => {
+      const myId = multiplayerState?.gameData?.myId;
+
+      // Try to get from roundHistory first (for ranked duels)
+      if (multiplayerState?.gameData?.roundHistory?.length > 0) {
+        const firstRound = multiplayerState.gameData.roundHistory[0];
+        if (firstRound?.players) {
+          const opponentEntries = Object.entries(firstRound.players).filter(([id]) => id !== myId);
+          if (opponentEntries.length > 0) {
+            const [opponentId, opponentData] = opponentEntries[0];
+            return {
+              accountId: opponentId,
+              username: opponentData.username
+            };
+          }
+        }
+      }
+
+      // Fallback to finalHistory
+      if (finalHistory.length > 0) {
+        const firstRound = finalHistory[0];
+        if (firstRound?.players) {
+          const opponentEntries = Object.entries(firstRound.players).filter(([id]) => id !== myId);
+          if (opponentEntries.length > 0) {
+            const [opponentId, opponentData] = opponentEntries[0];
+            return {
+              accountId: opponentId,
+              username: opponentData.username
+            };
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const opponentInfo = getOpponentInfo();
+
     return (
       <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
+        {/* Report Modal */}
+        {reportTarget && (
+          <ReportModal
+            isOpen={reportModalOpen}
+            onClose={() => {
+              setReportModalOpen(false);
+              setReportTarget(null);
+            }}
+            reportedUser={reportTarget}
+            gameId={gameId}
+            gameType={multiplayerState?.gameData?.public ? 'unranked_multiplayer' : 'ranked_duel'}
+            session={session}
+          />
+        )}
+
         <div className="game-summary-container">
           <div className="game-summary-map">
             <MapContainer
@@ -993,6 +1056,27 @@ const GameSummary = ({
                 {button2Text && (
                   <button className="action-btn secondary" onClick={button2Press}>
                     {button2Text}
+                  </button>
+                )}
+
+                {/* Report button for ranked duels - only show if logged in, in a ranked game, and opponent exists */}
+                {(multiplayerState?.gameData?.public === false || (multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public !== true)) && opponentInfo && session?.token?.secret && (
+                  <button
+                    className="action-btn report-btn"
+                    onClick={() => handleReportUser(opponentInfo.accountId, opponentInfo.username)}
+                    style={{
+                      background: 'rgba(255, 69, 58, 0.2)',
+                      border: '1px solid rgba(255, 69, 58, 0.4)',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.9rem'
+                    }}
+                    title="Report player"
+                  >
+                    <FaFlag size={14} />
+                    Report
                   </button>
                 )}
               </div>
