@@ -5058,7 +5058,7 @@ div:hover .elo-badge {
     left: 50%;
     transform: translateX(-50%);
     z-index: 9999;
-    padding: 10px 20px;
+    padding: 12px 40px 12px 20px; // extra right padding for close button
     border-radius: 8px;
     display: flex;
     flex-direction: column;

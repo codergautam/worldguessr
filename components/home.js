@@ -2288,60 +2288,27 @@ export default function Home({ }) {
 
                 {/* Account Banned Banner */}
                 {session?.token?.banned && !session?.token?.pendingNameChange && screen === 'home' && !dismissedBanBanner && (
-                  <div style={{
-                    position: 'fixed',
-                    top: '60px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 9999,
-                    backgroundColor: '#f85149',
-                    color: '#fff',
-                    padding: '10px 20px',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                    maxWidth: '90vw'
-                  }}>
+                  <div className="modBanner modBanner--error">
                     <button
                       onClick={() => setDismissedBanBanner(true)}
-                      style={{
-                        position: 'absolute',
-                        top: '6px',
-                        right: '8px',
-                        background: 'none',
-                        border: 'none',
-                        color: '#fff',
-                        fontSize: '18px',
-                        cursor: 'pointer',
-                        opacity: 0.7,
-                        padding: '0',
-                        lineHeight: 1
-                      }}
+                      className="modBanner__close"
                       title="Dismiss"
                     >
                       ×
                     </button>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="modBanner__content">
                       <span>⛔</span>
-                      <span style={{ fontWeight: 500 }}>
+                      <span className="modBanner__text">
                         {text("accountSuspended")}
                         {session?.token?.banType === 'temporary' && session?.token?.banExpiresAt && (
-                          <span style={{ marginLeft: '8px', opacity: 0.9 }}>
+                          <span className="modBanner__expires">
                             (Expires: {new Date(session.token.banExpiresAt).toLocaleDateString()})
                           </span>
                         )}
                       </span>
                     </div>
                     {session?.token?.banPublicNote && (
-                      <div style={{
-                        fontSize: '0.85rem',
-                        opacity: 0.95,
-                        textAlign: 'center',
-                        maxWidth: '400px'
-                      }}>
+                      <div className="modBanner__note">
                         {session.token.banPublicNote}
                       </div>
                     )}
