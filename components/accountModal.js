@@ -86,7 +86,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         { key: "profile", label: text("profile"), icon: "👤" },
         { key: "history", label: text("history"), icon: "📜" },
         { key: "elo", label: text("ELO"), icon: "🏆" },
-        { key: "list", label: text("friends", {cnt: friends.length}), icon: "👥" },
+        { key: "list", label: text("friendsText"), icon: "👥" },
         { key: "moderation", label: text("moderationTab"), icon: "⚖️" }
     ];
 
