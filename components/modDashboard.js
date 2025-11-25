@@ -19,6 +19,7 @@ export default function ModDashboard({ session }) {
   const [reportsError, setReportsError] = useState(null);
   const [reportsStats, setReportsStats] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('pending');
+  const [gameLoading, setGameLoading] = useState(false);
 
   // Debug logging for staff check
   console.log('ModDashboard session:', session);
@@ -85,6 +86,42 @@ export default function ModDashboard({ session }) {
 
   const handleGameClick = (game) => {
     setSelectedGame(game);
+  };
+
+  // Fetch game details by ID (for mod dashboard - can access any game)
+  const fetchGameById = async (gameId, targetUserId = null) => {
+    if (!gameId) return;
+    
+    setGameLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(window.cConfig.apiUrl + '/api/mod/gameDetails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          secret: session?.token?.secret,
+          gameId: gameId,
+          targetUserId: targetUserId
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Set the game with the data needed for HistoricalGameView
+        setSelectedGame({ gameId: data.game.gameId, ...data.game });
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to fetch game details');
+      }
+    } catch (error) {
+      console.error('Error fetching game:', error);
+      setError('Failed to fetch game details');
+    } finally {
+      setGameLoading(false);
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -187,6 +224,7 @@ export default function ModDashboard({ session }) {
             setSelectedGame(null);
           }}
           onUsernameLookup={handleUsernameLookup}
+          options={{ isModView: true }}
         />
       )}
 
@@ -346,9 +384,19 @@ export default function ModDashboard({ session }) {
                 </button>
               </div>
 
+              {/* Game Loading Overlay */}
+              {gameLoading && (
+                <div className={styles.gameLoadingOverlay}>
+                  <div className={styles.gameLoadingContent}>
+                    <div className={styles.loadingSpinner}></div>
+                    <p>Loading game details...</p>
+                  </div>
+                </div>
+              )}
+
               {/* Reports List */}
               {reportsLoading ? (
-                <div className={styles.loading}>Loading reports...</div>
+                <div className={styles.loadingText}>Loading reports...</div>
               ) : reportsError ? (
                 <div className={styles.error}>❌ {reportsError}</div>
               ) : reports.length === 0 ? (
@@ -415,7 +463,16 @@ export default function ModDashboard({ session }) {
                         </div>
 
                         <div className={styles.reportGameInfo}>
-                          <span><strong>Game ID:</strong> {report.gameId}</span>
+                          <span>
+                            <strong>Game ID:</strong>{' '}
+                            <span
+                              className={styles.gameIdLink}
+                              onClick={() => fetchGameById(report.gameId, report.reportedUser.accountId)}
+                              title="Click to view game details"
+                            >
+                              {report.gameId}
+                            </span>
+                          </span>
                           <span><strong>Type:</strong> {report.gameType.replace('_', ' ')}</span>
                         </div>
                       </div>

@@ -73,7 +73,11 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
       }
     };
 
-    if (typeof window !== 'undefined' && game && session?.token?.secret && window.cConfig?.apiUrl) {
+    // Check if game already has full data (from mod dashboard pre-fetch)
+    if (game && game.rounds && game.players && options?.isModView) {
+      setFullGameData(game);
+      setLoading(false);
+    } else if (typeof window !== 'undefined' && game && session?.token?.secret && window.cConfig?.apiUrl) {
       fetchFullGameData();
     }
   }, [game, session?.token?.secret]);
@@ -249,7 +253,8 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         gameId={game?.gameId || game?._id}
         options={{
           ...options,
-          onUsernameLookup: onUsernameLookup
+          onUsernameLookup: onUsernameLookup,
+          isModView: options?.isModView
         }}
       />
     </div>

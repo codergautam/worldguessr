@@ -638,6 +638,22 @@
   color: #e6edf3;
 }
 
+.gameIdLink {
+  color: #58a6ff;
+  font-family: monospace;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: all 0.2s ease;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(88, 166, 255, 0.1);
+}
+
+.gameIdLink:hover {
+  color: #79c0ff;
+  background: rgba(88, 166, 255, 0.2);
+}
+
 .noReports {
   text-align: center;
   padding: 60px 20px;
@@ -654,6 +670,51 @@
   padding: 40px 20px;
   color: #f85149;
   font-size: 1.1rem;
+}
+
+.loadingText {
+  text-align: center;
+  padding: 40px 20px;
+  color: #b1bac4;
+  font-size: 1.1rem;
+}
+
+.gameLoadingOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(13, 17, 23, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.gameLoadingContent {
+  text-align: center;
+  padding: 40px;
+  background: #161b22;
+  border-radius: 12px;
+  border: 1px solid #30363d;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.gameLoadingContent p {
+  margin: 16px 0 0 0;
+  font-size: 1.1rem;
+  color: #e6edf3;
+}
+
+.loadingSpinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(63, 185, 80, 0.2);
+  border-radius: 50%;
+  border-top-color: #3fb950;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
 }
 
 @media (max-width: 768px) {

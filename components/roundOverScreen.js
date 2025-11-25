@@ -429,7 +429,7 @@ const GameSummary = ({
                   {index === 2 && <FaTrophy style={{ color: '#CD7F32', fontSize: '1rem', filter: 'drop-shadow(0 2px 4px rgba(205, 127, 50, 0.3))' }} />}
                 </div>
                 <span className="round-number">
-                  #{index + 1} {player.username} {isCurrentPlayer && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
+                  #{index + 1} {player.username} {isCurrentPlayer && !options?.isModView && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
                 </span>
               </div>
               {renderPoints(player.totalScore)}
@@ -908,7 +908,7 @@ const GameSummary = ({
                         >
                           <Popup>
                             <div>
-                              <strong>{text("yourGuess")}</strong><br />
+                              <strong>{options?.isModView ? (round.players?.[multiplayerState?.gameData?.myId]?.username || text("player")) : text("yourGuess")}</strong><br />
                               {text("roundNo", { r: index + 1 })}<br />
                               {round.points} {text("points")}
                             </div>
@@ -1059,8 +1059,8 @@ const GameSummary = ({
                   </button>
                 )}
 
-                {/* Report button for ranked duels - only show if logged in, in a ranked game, and opponent exists */}
-                {(multiplayerState?.gameData?.public === false || (multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public !== true)) && opponentInfo && session?.token?.secret && (
+                {/* Report button for ranked duels - only show if logged in, in a ranked game, opponent exists, and not in mod view */}
+                {!options?.isModView && (multiplayerState?.gameData?.public === false || (multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public !== true)) && opponentInfo && session?.token?.secret && (
                   <button
                     className="action-btn report-btn"
                     onClick={() => handleReportUser(opponentInfo.accountId, opponentInfo.username)}
@@ -1160,7 +1160,7 @@ const GameSummary = ({
                         <div className="round-details">
                           <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{text("you")}</span>
+                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{options?.isModView ? (myData?.username || text("player1")) : text("you")}</span>
                               <span className="score-points" style={{ color: getPointsColor(myPoints), fontWeight: 'bold' }}>
                                 {myPoints} {text("pts")}
                               </span>
@@ -1316,7 +1316,7 @@ const GameSummary = ({
                     >
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
-                          <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("yourGuess")}</div>
+                          <div className="popup-round">{text("roundNumber", {number: index + 1})} - {options?.isModView ? (multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.username || text("player")) : text("yourGuess")}</div>
                           <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
                             {round.points} {text("points")}
                           </div>
