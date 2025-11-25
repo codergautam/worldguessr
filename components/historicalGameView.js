@@ -254,7 +254,8 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         options={{
           ...options,
           onUsernameLookup: onUsernameLookup,
-          isModView: options?.isModView
+          isModView: options?.isModView,
+          reportedUserId: options?.reportedUserId
         }}
       />
     </div>

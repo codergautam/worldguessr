@@ -403,6 +403,7 @@ const GameSummary = ({
     return displayPlayers.map((player, index) => {
       const isCurrentPlayer = player.playerId === multiplayerState?.gameData?.myId;
       const isSelected = selectedPlayer === player.playerId;
+      const isReportedUser = options?.reportedUserId && player.playerId === options.reportedUserId;
 
       return (
         <React.Fragment key={player.playerId}>
@@ -410,7 +411,8 @@ const GameSummary = ({
             className={`round-item round-animation ${isSelected ? 'active' : ''}`}
             style={{
               animationDelay: `${index * 0.1}s`,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              ...(isReportedUser && { borderLeft: '3px solid #f44336' })
             }}
             onClick={() => handlePlayerSelect(player.playerId)}
           >
@@ -428,8 +430,9 @@ const GameSummary = ({
                   {index === 1 && <FaTrophy style={{ color: '#C0C0C0', fontSize: '1.1rem', filter: 'drop-shadow(0 2px 4px rgba(192, 192, 192, 0.3))' }} />}
                   {index === 2 && <FaTrophy style={{ color: '#CD7F32', fontSize: '1rem', filter: 'drop-shadow(0 2px 4px rgba(205, 127, 50, 0.3))' }} />}
                 </div>
-                <span className="round-number">
+                <span className="round-number" style={isReportedUser ? { color: '#f44336', fontWeight: 'bold' } : {}}>
                   #{index + 1} {player.username} {isCurrentPlayer && !options?.isModView && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
+                  {isReportedUser && <span style={{ color: '#f44336', fontStyle: 'italic', marginLeft: '4px' }}>(reported)</span>}
                 </span>
               </div>
               {renderPoints(player.totalScore)}
@@ -938,6 +941,7 @@ const GameSummary = ({
                       }
 
                       const playerColor = getPlayerColor(playerId, false);
+                      const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
                       return (
                         <React.Fragment key={`${index}-${playerId}`}>
                           <Marker
@@ -948,16 +952,12 @@ const GameSummary = ({
                               <div>
                                 <strong
                                   style={{
-                                    cursor: options?.onUsernameLookup && player.username ? 'pointer' : 'default',
-                                    textDecoration: options?.onUsernameLookup && player.username ? 'underline' : 'none'
-                                  }}
-                                  onClick={() => {
-                                    if (options?.onUsernameLookup && player.username) {
-                                      options.onUsernameLookup(player.username);
-                                    }
+                                    cursor: 'default',
+                                    textDecoration: 'none',
+                                    color: 'inherit'
                                   }}
                                 >
-                                  {player.username || text("opponent")}
+                                  {player.username || text("opponent")}{isPlayerReported && ' (reported)'}
                                 </strong><br />
                                 {text("roundNo", { r: index + 1 })}<br />
                                 {player.points} {text("points")}
@@ -1093,7 +1093,9 @@ const GameSummary = ({
 
                     // Find opponent more robustly
                     const opponentEntries = Object.entries(round.players || {}).filter(([id]) => id !== myId);
+                    const opponentId = opponentEntries.length > 0 ? opponentEntries[0][0] : null;
                     const opponentData = opponentEntries.length > 0 ? opponentEntries[0][1] : null;
+                    const isOpponentReported = options?.reportedUserId && opponentId === options.reportedUserId;
 
                     const myPoints = myData?.points || 0;
                     const opponentPoints = opponentData?.points || 0;
@@ -1185,17 +1187,11 @@ const GameSummary = ({
                                 className="player-name"
                                 style={{
                                   fontSize: '0.9em',
-                                  opacity: '0.8',
-                                  cursor: options?.onUsernameLookup && opponentData?.username ? 'pointer' : 'default',
-                                  textDecoration: options?.onUsernameLookup && opponentData?.username ? 'underline' : 'none'
                                 }}
-                                onClick={() => {
-                                  if (options?.onUsernameLookup && opponentData?.username) {
-                                    options.onUsernameLookup(opponentData.username);
-                                  }
-                                }}
+ 
                               >
                                 {opponentData?.username || text("opponent")}
+                                {isOpponentReported && ' (reported)'}
                               </span>
                               <span className="score-points" style={{ color: getPointsColor(opponentPoints), fontWeight: 'bold' }}>
                                 {opponentPoints} {text("pts")}
@@ -1360,6 +1356,7 @@ const GameSummary = ({
                     }
 
                     const playerColor = getPlayerColor(playerId, false);
+                    const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
                     return (
                       <React.Fragment key={`${index}-${playerId}`}>
                         <Marker
@@ -1370,16 +1367,12 @@ const GameSummary = ({
                             <div>
                               <strong
                                 style={{
-                                  cursor: options?.onUsernameLookup && player.username ? 'pointer' : 'default',
-                                  textDecoration: options?.onUsernameLookup && player.username ? 'underline' : 'none'
-                                }}
-                                onClick={() => {
-                                  if (options?.onUsernameLookup && player.username) {
-                                    options.onUsernameLookup(player.username);
-                                  }
+                                  cursor:  'default',
+                                  textDecoration:  'none',
+                                  color: 'inherit'
                                 }}
                               >
-                                {player.username || text("opponent")}
+                                {player.username || text("opponent")}{isPlayerReported && ' (reported)'}
                               </strong><br />
                               {text("roundNo", { r: index + 1 })}<br />
                               {player.points} {text("points")}

@@ -20,6 +20,7 @@ export default function ModDashboard({ session }) {
   const [reportsStats, setReportsStats] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('pending');
   const [gameLoading, setGameLoading] = useState(false);
+  const [reportedUserId, setReportedUserId] = useState(null);
 
   // Debug logging for staff check
   console.log('ModDashboard session:', session);
@@ -89,11 +90,12 @@ export default function ModDashboard({ session }) {
   };
 
   // Fetch game details by ID (for mod dashboard - can access any game)
-  const fetchGameById = async (gameId, targetUserId = null) => {
+  const fetchGameById = async (gameId, targetUserId = null, reportedAccountId = null) => {
     if (!gameId) return;
     
     setGameLoading(true);
     setError(null);
+    setReportedUserId(reportedAccountId);
 
     try {
       const response = await fetch(window.cConfig.apiUrl + '/api/mod/gameDetails', {
@@ -222,9 +224,10 @@ export default function ModDashboard({ session }) {
           session={session}
           onBack={() => {
             setSelectedGame(null);
+            setReportedUserId(null);
           }}
           onUsernameLookup={handleUsernameLookup}
-          options={{ isModView: true }}
+          options={{ isModView: true, reportedUserId: reportedUserId }}
         />
       )}
 
@@ -467,7 +470,7 @@ export default function ModDashboard({ session }) {
                             <strong>Game ID:</strong>{' '}
                             <span
                               className={styles.gameIdLink}
-                              onClick={() => fetchGameById(report.gameId, report.reportedUser.accountId)}
+                              onClick={() => fetchGameById(report.gameId, report.reportedUser.accountId, report.reportedUser.accountId)}
                               title="Click to view game details"
                             >
                               {report.gameId}
