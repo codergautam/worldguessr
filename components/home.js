@@ -99,6 +99,7 @@ export default function Home({ }) {
     const [loading, setLoading] = useState(false);
     // game state
     const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
+    const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
     const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
     // location aka map slug
     const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true }) // rate limit fix: showRoadName true
@@ -1422,9 +1423,12 @@ export default function Home({ }) {
                         setPinPoint(null)
                         // Set loading state when new round starts to show loading animation
                         setLoading(true)
+                        // Increment key to force refresh even if coords are the same
+                        setLatLongKey(k => k + 1)
                         if (!prev?.gameData?.locations && data.locations) {
                             setLatLong(data.locations[data.curRound - 1])
 
+                            
                         } else {
                             setLatLong(prev?.gameData?.locations[data.curRound - 1])
                         }
@@ -2011,13 +2015,25 @@ export default function Home({ }) {
         }
     }
 
-    const ChatboxMemo = React.useMemo(() => <ChatBox miniMapShown={miniMapShown} ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={
-        session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH
-    }
+    // Stable callback for chat toggle to prevent ChatBox re-renders
+    const handleChatToggle = React.useCallback(() => {
+        setMultiplayerChatOpen(prev => !prev);
+    }, []);
+
+    // Memoized ChatBox - uses stable function references (handleChatToggle) and
+    // internal useCallback hooks to prevent chat input from resetting between rounds
+    const ChatboxMemo = React.useMemo(() => <ChatBox
+        miniMapShown={miniMapShown}
+        ws={ws}
+        open={multiplayerChatOpen}
+        onToggle={handleChatToggle}
+        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH}
         isGuest={session?.token?.secret ? false : true}
         publicGame={multiplayerState?.gameData?.public}
-        myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame}
-        roundOverScreenShown={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, miniMapShown, session?.token?.secret])
+        myId={multiplayerState?.gameData?.myId}
+        inGame={multiplayerState?.inGame}
+        roundOverScreenShown={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
+    />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, session?.token?.secret, handleChatToggle, miniMapShown, multiplayerState?.gameData?.state])
 
     // Send pong every 10 seconds if websocket is connected
     useEffect(() => {
@@ -2187,8 +2203,9 @@ export default function Home({ }) {
                     showRoadLabels={screen === "onboarding" ? false : gameOptions?.showRoadName}
                     loading={loading}
                     setLoading={setLoading}
-                    hidden={((!latLong || !latLong.lat || !latLong.long) || loading) || (
-                        screen === "home" || (screen === "multiplayer" && (multiplayerState?.gameData?.state === "waiting" || multiplayerState?.enteringGameCode))
+                    latLongKey={latLongKey}
+                    hidden={!!((!latLong || !latLong.lat || !latLong.long) || loading) || (
+                        screen === "home" || !!(screen === "multiplayer" && (multiplayerState?.gameData?.state === "waiting" || multiplayerState?.enteringGameCode || multiplayerState?.gameQueued))
                     )}
                     onLoad={() => {
                         console.log("loaded")

@@ -42,11 +42,13 @@ const SvEmbedIframe = (params) => {
   }, [params?.lat, params?.long, params?.panoId, params?.heading, params?.pitch, params?.nm, params?.npz, params?.showRoadLabels, params?.showAnswer]);
 
   // Send postMessage for all prop updates (including location changes)
+  // latLongKey forces refresh even when coords are the same (e.g., returning to same round)
   useEffect(() => {
-    if (iframeSrc && iframeRef.current) {
+    // Only send message if we have valid coordinates
+    if (iframeSrc && iframeRef.current && params.lat && params.long) {
       sendMessageToIframe();
     }
-  }, [iframeSrc, sendMessageToIframe]);
+  }, [iframeSrc, sendMessageToIframe, params.lat, params.long, params.latLongKey]);
 
   useEffect(() => {
     // listen to events from iframe (onLoad) call params.onLoad
@@ -102,10 +104,9 @@ const SvEmbedIframe = (params) => {
     prevLocationRef.current = currentLocation;
   }, [params?.lat, params?.long, params?.panoId]);
 
-  if(!params.lat && !params.long) {
-    return null;
-  }
-
+  // Don't unmount iframe when lat/long is temporarily null (during map changes)
+  // This keeps the iframe loaded so postMessage can update it
+  // Only return null if we've never had a valid iframeSrc
   if(!iframeSrc) {
     return null;
   }
@@ -121,7 +122,12 @@ const SvEmbedIframe = (params) => {
         style={{ border: "none", position: "fixed", top: 0, left: 0}}
         title="Street View Embed"
         frameBorder="0"
-        onLoad={() => sendMessageToIframe()}
+        onLoad={() => {
+          // Only send message if we have valid coordinates
+          if (params.lat && params.long) {
+            sendMessageToIframe();
+          }
+        }}
       ></iframe>
     </div>
   );

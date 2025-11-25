@@ -11,30 +11,37 @@ const StreetView = ({
   pitch,
   showAnswer = false,
   hidden = false,
+  refreshKey = 0,
   onLoad
 }) => {
   const [loading, setLoading] = useState(true);
   const iframeRef = useRef(null);
+  const prevLocationRef = useRef(null);
+  const prevRefreshKeyRef = useRef(refreshKey);
 
   // Reset loading state when location changes
   useEffect(() => {
     setLoading(true);
   }, [lat, long, panoId]);
 
-  // Update iframe src when location changes
+  // Update iframe src when location or refreshKey changes
   useEffect(() => {
     if (iframeRef.current && (lat && long || panoId)) {
-      const newSrc = panoId ?
-        `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}` :
-        `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
+      const newSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
 
-      // Only update if src actually changed to avoid unnecessary reloads
-      if (iframeRef.current.src !== newSrc) {
+      const locationKey = `${lat}-${long}-${panoId}`;
+      const locationChanged = prevLocationRef.current !== null && prevLocationRef.current !== locationKey;
+      const refreshKeyChanged = prevRefreshKeyRef.current !== refreshKey;
+
+      // Update if location changed, refreshKey changed, or first time
+      if (locationChanged || refreshKeyChanged || !prevLocationRef.current) {
         setLoading(true);
         iframeRef.current.src = newSrc;
       }
+      prevLocationRef.current = locationKey;
+      prevRefreshKeyRef.current = refreshKey;
     }
-  }, [lat, long, panoId, heading, pitch]);
+  }, [lat, long, panoId, heading, pitch, refreshKey]);
 
   // Reload location logic
   const reloadLocation = () => {
@@ -47,9 +54,12 @@ const StreetView = ({
     return null;
   }
 
-  const iframeSrc = panoId ?
-    `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}` :
-    `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
+  // const iframeSrc = panoId ?
+  //   `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}` :
+  //   `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
+
+  // disable panoId
+  const iframeSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
 
   return (
     <iframe

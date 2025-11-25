@@ -15,6 +15,7 @@ const SvEmbed = () => {
     showAnswer: false,
     hidden: false,
   });
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -38,9 +39,10 @@ const SvEmbed = () => {
   useEffect(() => {
     const handleMessage = (event) => {
       if (event.data && typeof event.data === "object" && event.data.type === "updateProps") {
-        // console.log("Received message from parent", event.data);
-        const newProps = { ...props, ...event.data.props };
-        setProps(newProps);
+        // Use functional update to avoid stale closure
+        setProps(prev => ({ ...prev, ...event.data.props }));
+        // Increment refreshKey to force StreetView update even with same coords
+        setRefreshKey(k => k + 1);
       }
     };
 
@@ -53,7 +55,7 @@ const SvEmbed = () => {
         window.removeEventListener("message", handleMessage);
       }
     };
-  }, [props]);
+  }, []);
 
   return (
     <>
@@ -75,8 +77,8 @@ const SvEmbed = () => {
       pitch={props.pitch}
       showAnswer={props.showAnswer}
       hidden={props.hidden}
+      refreshKey={refreshKey}
       onLoad={() => {
-        console.log("StreetView Loaded");
         // send to parent window that the iframe has loaded
         if (typeof window !== "undefined") {
           window.parent.postMessage({ type: "onLoad" }, "*");
