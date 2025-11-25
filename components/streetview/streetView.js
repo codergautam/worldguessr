@@ -11,40 +11,37 @@ const StreetView = ({
   pitch,
   showAnswer = false,
   hidden = false,
+  refreshKey = 0,
   onLoad
 }) => {
   const [loading, setLoading] = useState(true);
   const iframeRef = useRef(null);
   const prevLocationRef = useRef(null);
+  const prevRefreshKeyRef = useRef(refreshKey);
 
   // Reset loading state when location changes
   useEffect(() => {
     setLoading(true);
   }, [lat, long, panoId]);
 
-  // Update iframe src when location changes
+  // Update iframe src when location or refreshKey changes
   useEffect(() => {
     if (iframeRef.current && (lat && long || panoId)) {
-      // const newSrc = panoId ?
-      //   `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}` :
-      //   `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
-
-      // disable panoId
       const newSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
 
-      // Track location changes using a simple string key to avoid URL comparison issues
       const locationKey = `${lat}-${long}-${panoId}`;
       const locationChanged = prevLocationRef.current !== null && prevLocationRef.current !== locationKey;
+      const refreshKeyChanged = prevRefreshKeyRef.current !== refreshKey;
 
-      // Update if location changed OR if this is the first time we have a location
-      if (locationChanged || !prevLocationRef.current) {
+      // Update if location changed, refreshKey changed, or first time
+      if (locationChanged || refreshKeyChanged || !prevLocationRef.current) {
         setLoading(true);
-        // Force reload by setting src directly on the DOM element
         iframeRef.current.src = newSrc;
       }
       prevLocationRef.current = locationKey;
+      prevRefreshKeyRef.current = refreshKey;
     }
-  }, [lat, long, panoId, heading, pitch]);
+  }, [lat, long, panoId, heading, pitch, refreshKey]);
 
   // Reload location logic
   const reloadLocation = () => {

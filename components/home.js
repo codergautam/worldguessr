@@ -98,6 +98,7 @@ export default function Home({ }) {
     const [loading, setLoading] = useState(false);
     // game state
     const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
+    const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
     const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
     // location aka map slug
     const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true }) // rate limit fix: showRoadName true
@@ -1420,9 +1421,12 @@ export default function Home({ }) {
                         setPinPoint(null)
                         // Set loading state when new round starts to show loading animation
                         setLoading(true)
+                        // Increment key to force refresh even if coords are the same
+                        setLatLongKey(k => k + 1)
                         if (!prev?.gameData?.locations && data.locations) {
                             setLatLong(data.locations[data.curRound - 1])
 
+                            
                         } else {
                             setLatLong(prev?.gameData?.locations[data.curRound - 1])
                         }
@@ -2188,8 +2192,9 @@ export default function Home({ }) {
                     showRoadLabels={screen === "onboarding" ? false : gameOptions?.showRoadName}
                     loading={loading}
                     setLoading={setLoading}
-                    hidden={((!latLong || !latLong.lat || !latLong.long) || loading) || (
-                        screen === "home" || (screen === "multiplayer" && (multiplayerState?.gameData?.state === "waiting" || multiplayerState?.enteringGameCode))
+                    latLongKey={latLongKey}
+                    hidden={!!((!latLong || !latLong.lat || !latLong.long) || loading) || (
+                        screen === "home" || !!(screen === "multiplayer" && (multiplayerState?.gameData?.state === "waiting" || multiplayerState?.enteringGameCode || multiplayerState?.gameQueued))
                     )}
                     onLoad={() => {
                         console.log("loaded")

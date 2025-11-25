@@ -42,12 +42,13 @@ const SvEmbedIframe = (params) => {
   }, [params?.lat, params?.long, params?.panoId, params?.heading, params?.pitch, params?.nm, params?.npz, params?.showRoadLabels, params?.showAnswer]);
 
   // Send postMessage for all prop updates (including location changes)
+  // latLongKey forces refresh even when coords are the same (e.g., returning to same round)
   useEffect(() => {
     // Only send message if we have valid coordinates
     if (iframeSrc && iframeRef.current && params.lat && params.long) {
       sendMessageToIframe();
     }
-  }, [iframeSrc, sendMessageToIframe, params.lat, params.long]);
+  }, [iframeSrc, sendMessageToIframe, params.lat, params.long, params.latLongKey]);
 
   useEffect(() => {
     // listen to events from iframe (onLoad) call params.onLoad
