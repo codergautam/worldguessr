@@ -347,7 +347,7 @@ export default function ModDashboard({ session }) {
   };
 
   // Fetch audit logs
-  const fetchAuditLogs = async (page = 1) => {
+  const fetchAuditLogs = async (page = 1, filterOverrides = {}) => {
     setAuditLogsLoading(true);
     try {
       const response = await fetch(window.cConfig.apiUrl + '/api/mod/auditLogs', {
@@ -355,8 +355,8 @@ export default function ModDashboard({ session }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           secret: session.token.secret,
-          moderatorId: auditLogsFilter.moderatorId,
-          actionType: auditLogsFilter.actionType,
+          moderatorId: filterOverrides.moderatorId ?? auditLogsFilter.moderatorId,
+          actionType: filterOverrides.actionType ?? auditLogsFilter.actionType,
           page,
           limit: 50
         })
@@ -1736,8 +1736,9 @@ export default function ModDashboard({ session }) {
                 <select
                   value={auditLogsFilter.moderatorId}
                   onChange={(e) => {
-                    setAuditLogsFilter(prev => ({ ...prev, moderatorId: e.target.value }));
-                    setTimeout(() => fetchAuditLogs(1), 0);
+                    const newValue = e.target.value;
+                    setAuditLogsFilter(prev => ({ ...prev, moderatorId: newValue }));
+                    fetchAuditLogs(1, { moderatorId: newValue });
                   }}
                   className={styles.filterSelect}
                 >
@@ -1752,8 +1753,9 @@ export default function ModDashboard({ session }) {
                 <select
                   value={auditLogsFilter.actionType}
                   onChange={(e) => {
-                    setAuditLogsFilter(prev => ({ ...prev, actionType: e.target.value }));
-                    setTimeout(() => fetchAuditLogs(1), 0);
+                    const newValue = e.target.value;
+                    setAuditLogsFilter(prev => ({ ...prev, actionType: newValue }));
+                    fetchAuditLogs(1, { actionType: newValue });
                   }}
                   className={styles.filterSelect}
                 >
@@ -1765,6 +1767,7 @@ export default function ModDashboard({ session }) {
                   <option value="name_change_approved">👍 Name Change Approved</option>
                   <option value="name_change_rejected">👎 Name Change Rejected</option>
                   <option value="report_ignored">🚫 Report Ignored</option>
+                  <option value="warning">⚠️ Warning</option>
                 </select>
 
                 <button onClick={() => fetchAuditLogs(1)} className={styles.refreshBtn}>

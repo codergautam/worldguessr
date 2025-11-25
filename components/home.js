@@ -114,6 +114,8 @@ export default function Home({ }) {
     const [merchModal, setMerchModal] = useState(false)
     const [mapGuessrModal, setMapGuessrModal] = useState(false)
     const [pendingNameChangeModal, setPendingNameChangeModal] = useState(false)
+    const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(false)
+    const [dismissedBanBanner, setDismissedBanBanner] = useState(false)
     const [timeOffset, setTimeOffset] = useState(0)
     const [loginQueued, setLoginQueued] = useState(false);
     const [options, setOptions] = useState({
@@ -2257,50 +2259,27 @@ export default function Home({ }) {
                 />
 
                 {/* Pending Name Change Banner */}
-                {session?.token?.pendingNameChange && screen === 'home' && (
-                  <div style={{
-                    position: 'fixed',
-                    top: '60px',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                    zIndex: 9999,
-                    backgroundColor: '#d29922',
-                    color: '#000',
-                    padding: '10px 20px',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                    maxWidth: '90vw'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {session?.token?.pendingNameChange && screen === 'home' && !dismissedNameChangeBanner && (
+                  <div className="modBanner modBanner--warning">
+                    <button
+                      onClick={() => setDismissedNameChangeBanner(true)}
+                      className="modBanner__close"
+                      title="Dismiss"
+                    >
+                      ×
+                    </button>
+                    <div className="modBanner__content">
                       <span>⚠️</span>
-                      <span style={{ fontWeight: 500 }}>Username change required - Multiplayer disabled</span>
+                      <span className="modBanner__text">{text("usernameChangeRequired")}</span>
                       <button
                         onClick={() => setPendingNameChangeModal(true)}
-                        style={{
-                          backgroundColor: '#000',
-                          color: '#d29922',
-                          border: 'none',
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          fontSize: '0.9rem'
-                        }}
+                        className="modBanner__btn modBanner__btn--dark"
                       >
                         Change Name
                       </button>
                     </div>
                     {session?.token?.pendingNameChangePublicNote && (
-                      <div style={{
-                        fontSize: '0.85rem',
-                        opacity: 0.9,
-                        textAlign: 'center',
-                        maxWidth: '400px'
-                      }}>
+                      <div className="modBanner__note">
                         {session.token.pendingNameChangePublicNote}
                       </div>
                     )}
@@ -2308,7 +2287,7 @@ export default function Home({ }) {
                 )}
 
                 {/* Account Banned Banner */}
-                {session?.token?.banned && !session?.token?.pendingNameChange && screen === 'home' && (
+                {session?.token?.banned && !session?.token?.pendingNameChange && screen === 'home' && !dismissedBanBanner && (
                   <div style={{
                     position: 'fixed',
                     top: '60px',
@@ -2326,30 +2305,35 @@ export default function Home({ }) {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
                     maxWidth: '90vw'
                   }}>
+                    <button
+                      onClick={() => setDismissedBanBanner(true)}
+                      style={{
+                        position: 'absolute',
+                        top: '6px',
+                        right: '8px',
+                        background: 'none',
+                        border: 'none',
+                        color: '#fff',
+                        fontSize: '18px',
+                        cursor: 'pointer',
+                        opacity: 0.7,
+                        padding: '0',
+                        lineHeight: 1
+                      }}
+                      title="Dismiss"
+                    >
+                      ×
+                    </button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <span>⛔</span>
                       <span style={{ fontWeight: 500 }}>
-                        Account suspended - Multiplayer disabled
+                        {text("accountSuspended")}
                         {session?.token?.banType === 'temporary' && session?.token?.banExpiresAt && (
                           <span style={{ marginLeft: '8px', opacity: 0.9 }}>
                             (Expires: {new Date(session.token.banExpiresAt).toLocaleDateString()})
                           </span>
                         )}
                       </span>
-                      <a
-                        href="mailto:support@worldguessr.com"
-                        style={{
-                          backgroundColor: '#fff',
-                          color: '#f85149',
-                          padding: '6px 12px',
-                          borderRadius: '4px',
-                          fontWeight: 600,
-                          fontSize: '0.9rem',
-                          textDecoration: 'none'
-                        }}
-                      >
-                        Contact Support
-                      </a>
                     </div>
                     {session?.token?.banPublicNote && (
                       <div style={{

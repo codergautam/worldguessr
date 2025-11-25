@@ -5050,3 +5050,92 @@ div:hover .elo-badge {
         transform: translateX(50%);
     }
 }
+
+// Moderation banners (name change required, account suspended)
+.modBanner {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    padding: 10px 20px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    max-width: 90vw;
+
+    &.modBanner--warning {
+        background-color: #d29922;
+        color: #000;
+    }
+
+    &.modBanner--error {
+        background-color: #f85149;
+        color: #fff;
+    }
+}
+
+.modBanner__close {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    opacity: 0.6;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: opacity 0.15s;
+
+    &:hover {
+        opacity: 1;
+    }
+
+    .modBanner--warning & {
+        color: #000;
+    }
+
+    .modBanner--error & {
+        color: #fff;
+    }
+}
+
+.modBanner__content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.modBanner__text {
+    font-weight: 500;
+}
+
+.modBanner__expires {
+    margin-left: 8px;
+    opacity: 0.9;
+}
+
+.modBanner__note {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    text-align: center;
+    max-width: 400px;
+}
+
+.modBanner__btn {
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+
+    &.modBanner__btn--dark {
+        background-color: #000;
+        color: #d29922;
+    }
+}
