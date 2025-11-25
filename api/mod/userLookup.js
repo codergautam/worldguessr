@@ -173,10 +173,10 @@ export default async function handler(req, res) {
           username: { $regex: new RegExp(`^${escapedSearchTerm}$`, 'i') } 
         });
         
-        // 2. Find users who previously had this EXACT username (from name changes)
+        // 2. Find users who previously had this EXACT username (from name changes - including voluntary)
         const pastNameLogs = await ModerationLog.find({
           'nameChange.oldName': { $regex: new RegExp(`^${escapedSearchTerm}$`, 'i') },
-          actionType: { $in: ['name_change_approved', 'name_change_forced', 'force_name_change'] }
+          actionType: { $in: ['name_change_approved', 'name_change_forced', 'force_name_change', 'name_change_manual'] }
         }).sort({ createdAt: -1 }).limit(20).lean();
         
         // Get unique account IDs from past name logs (filter out nulls)
