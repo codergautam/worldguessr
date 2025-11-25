@@ -89,10 +89,12 @@ async function getDailyLeaderboard(isXp = true) {
   ]);
 
   // Get user details for all users in the leaderboard
+  // Exclude banned users AND users with pending name changes (keep leaderboard family-friendly)
   const userIds = userDeltas.map(delta => delta.userId);
   const users = await User.find({
     _id: { $in: userIds },
-    banned: false
+    banned: { $ne: true },
+    pendingNameChange: { $ne: true }
   }).select('_id username elo totalXp created_at games').lean();
 
   const userMap = new Map(users.map(u => [u._id.toString(), u]));
@@ -207,8 +209,12 @@ export default async function handler(req, res) {
         setCachedData(cacheKey, leaderboard);
       } else {
         // All-time leaderboard - simple and efficient
+        // Exclude banned users AND users with pending name changes (keep leaderboard family-friendly)
         const sortField = isXp ? 'totalXp' : 'elo';
-        const topUsers = await User.find({ banned: false })
+        const topUsers = await User.find({ 
+          banned: { $ne: true },
+          pendingNameChange: { $ne: true }
+        })
           .sort({ [sortField]: -1 })
           .limit(100)
           .lean();
@@ -233,7 +239,8 @@ export default async function handler(req, res) {
           if (myScore) {
             const betterUsersCount = await User.countDocuments({
               [sortField]: { $gt: myScore },
-              banned: false
+              banned: { $ne: true },
+              pendingNameChange: { $ne: true }
             });
             myRank = betterUsersCount + 1;
           }

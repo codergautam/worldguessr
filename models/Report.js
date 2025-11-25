@@ -45,6 +45,27 @@ const reportSchema = new mongoose.Schema({
     enum: ['pending', 'reviewed', 'dismissed', 'action_taken']
   },
 
+  // Action taken on this report
+  actionTaken: {
+    type: String,
+    default: null,
+    enum: [
+      null,
+      'ignored',           // Report was ignored (counts against reporter)
+      'ban_permanent',     // User was permanently banned
+      'ban_temporary',     // User was temporarily banned
+      'force_name_change', // User was forced to change name
+      'warning'            // Warning issued (future use)
+    ]
+  },
+
+  // Reference to the moderation log entry for this action
+  moderationLogId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ModerationLog',
+    default: null
+  },
+
   // Moderator notes (for internal use)
   moderatorNotes: {
     type: String,
@@ -71,10 +92,10 @@ const reportSchema = new mongoose.Schema({
 // Indexes for efficient querying
 reportSchema.index({ status: 1, createdAt: -1 });
 reportSchema.index({ 'reportedUser.accountId': 1, createdAt: -1 });
+reportSchema.index({ 'reportedUser.accountId': 1, status: 1 }); // For grouping pending reports by user
 reportSchema.index({ 'reportedBy.accountId': 1, createdAt: -1 });
 reportSchema.index({ gameId: 1 });
 
 const Report = mongoose.models.Report || mongoose.model('Report', reportSchema);
 
 export default Report;
-

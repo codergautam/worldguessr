@@ -746,3 +746,885 @@
     gap: 8px;
   }
 }
+
+/* Success Message */
+.successMessage {
+  text-align: center;
+  margin: 16px auto;
+  padding: 12px 16px;
+  background: rgba(63, 185, 80, 0.15);
+  border: 1px solid #3fb950;
+  border-radius: 8px;
+  color: #3fb950;
+  font-weight: 500;
+  max-width: 600px;
+}
+
+/* User Card */
+.userCard {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.userCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.userCardHeader h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #e6edf3;
+}
+
+.userBadges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.staffBadge {
+  background: #58a6ff;
+  color: #0d1117;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.supporterBadge {
+  background: #ffa657;
+  color: #0d1117;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.bannedBadge {
+  background: #f85149;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pendingNameBadge {
+  background: #d29922;
+  color: #0d1117;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.userStats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  color: #b1bac4;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.banInfo {
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid #f85149;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #f85149;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.userActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #30363d;
+}
+
+/* Action Buttons */
+.banBtn, .tempBanBtn, .forceNameBtn, .ignoreBtn, .unbanBtn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: "Lexend", sans-serif;
+}
+
+.banBtn {
+  background: #f85149;
+  color: white;
+}
+
+.banBtn:hover {
+  background: #da3633;
+}
+
+.tempBanBtn {
+  background: #d29922;
+  color: #0d1117;
+}
+
+.tempBanBtn:hover {
+  background: #e3b341;
+}
+
+.forceNameBtn {
+  background: #58a6ff;
+  color: #0d1117;
+}
+
+.forceNameBtn:hover {
+  background: #79c0ff;
+}
+
+.ignoreBtn {
+  background: #6e7681;
+  color: white;
+}
+
+.ignoreBtn:hover {
+  background: #8b949e;
+}
+
+.unbanBtn {
+  background: #3fb950;
+  color: #0d1117;
+}
+
+.unbanBtn:hover {
+  background: #56d364;
+}
+
+/* Report Group */
+.reportGroup {
+  background: #161b22;
+  border: 2px solid #30363d;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.reportGroupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #0d1117;
+  border-bottom: 1px solid #30363d;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.reportGroupUser {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reportCountBadge {
+  background: #f85149;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.groupActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reportGroup .reportCard {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid #30363d;
+}
+
+.reportGroup .reportCard:last-child {
+  border-bottom: none;
+}
+
+.reportGroup .reportCard:hover {
+  border-color: transparent;
+  box-shadow: none;
+  background: #1c2128;
+}
+
+/* Reporter Stats */
+.reporterStats {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.reporterStatsNew {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(110, 118, 129, 0.2);
+  color: #8b949e;
+}
+
+.goodReporter {
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+}
+
+.badReporter {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+}
+
+/* Action Badge */
+.actionBadge {
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+  border: 1px solid #3fb950;
+  text-transform: capitalize;
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.modal {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #30363d;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  color: #e6edf3;
+  font-size: 1.2rem;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  color: #6e7681;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.modalClose:hover {
+  color: #e6edf3;
+}
+
+.modalBody {
+  padding: 20px;
+}
+
+.modalBody p {
+  margin: 0 0 16px 0;
+  color: #b1bac4;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 8px;
+  color: #e6edf3;
+  font-weight: 500;
+}
+
+.select, .textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: "Lexend", sans-serif;
+  outline: none;
+}
+
+.select:focus, .textarea:focus {
+  border-color: #3fb950;
+  box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.2);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.warning {
+  background: rgba(210, 153, 34, 0.1);
+  border: 1px solid #d29922;
+  border-radius: 6px;
+  padding: 12px;
+  color: #d29922;
+  font-size: 0.9rem;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid #30363d;
+}
+
+.cancelBtn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: transparent;
+  color: #e6edf3;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+}
+
+.cancelBtn:hover {
+  background: #21262d;
+}
+
+.actionBtn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actionBtn.ignore {
+  background: #6e7681;
+  color: white;
+}
+
+.actionBtn.banpermanent {
+  background: #f85149;
+  color: white;
+}
+
+.actionBtn.bantemporary {
+  background: #d29922;
+  color: #0d1117;
+}
+
+.actionBtn.forcenamechange {
+  background: #58a6ff;
+  color: #0d1117;
+}
+
+.actionBtn.unban {
+  background: #3fb950;
+  color: #0d1117;
+}
+
+/* History Section */
+.historySection {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.historySection h3 {
+  margin: 0 0 16px 0;
+  color: #e6edf3;
+  font-size: 1.1rem;
+}
+
+.historySummary {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px;
+  background: #161b22;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  color: #b1bac4;
+}
+
+.historySubsection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #30363d;
+}
+
+.historySubsection h4 {
+  margin: 0 0 12px 0;
+  color: #e6edf3;
+  font-size: 0.95rem;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #161b22;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.historyBadge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.historyBadge.ban_permanent {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+}
+
+.historyBadge.ban_temporary {
+  background: rgba(210, 153, 34, 0.2);
+  color: #d29922;
+}
+
+.historyBadge.unban {
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+}
+
+.historyReason {
+  color: #e6edf3;
+  flex: 1;
+}
+
+.historyDuration {
+  color: #b1bac4;
+}
+
+.historyMeta {
+  color: #6e7681;
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+.noHistory {
+  text-align: center;
+  padding: 20px;
+  color: #b1bac4;
+}
+
+.noHistory p {
+  margin: 0 0 8px 0;
+}
+
+.nameChange {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.historyBadge.banpermanent,
+.historyBadge.permanent {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+}
+
+.historyBadge.bantemporary,
+.historyBadge.temporary {
+  background: rgba(210, 153, 34, 0.2);
+  color: #d29922;
+}
+
+.historyBadge.unban {
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+}
+
+.historyBadge.forcenamechange,
+.historyBadge.namechangeapproved,
+.historyBadge.namechangerejected,
+.historyBadge.namechange {
+  background: rgba(88, 166, 255, 0.2);
+  color: #58a6ff;
+}
+
+.historyBadge.reportignored {
+  background: rgba(110, 118, 129, 0.2);
+  color: #8b949e;
+}
+
+/* User status badges for reports */
+.userStatusBadges {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.statusBadgeWarning {
+  background: rgba(210, 153, 34, 0.2);
+  color: #d29922;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.statusBadgeTempBan {
+  background: rgba(136, 87, 44, 0.3);
+  color: #f0883e;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.statusBadgeBanned {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Account ID display */
+.accountId {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #0d1117;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #b1bac4;
+  margin-bottom: 12px;
+}
+
+.accountId code {
+  font-family: monospace;
+  background: #161b22;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #58a6ff;
+  font-size: 0.8rem;
+}
+
+.accountId code:hover {
+  background: #21262d;
+}
+
+/* Clickable reports in history */
+.clickableReport {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.clickableReport:hover {
+  background: #21262d;
+  border-left: 3px solid #58a6ff;
+  padding-left: 9px;
+}
+
+.viewLink {
+  color: #58a6ff;
+  font-size: 0.8rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  margin-left: auto;
+}
+
+.clickableReport:hover .viewLink {
+  opacity: 1;
+}
+
+/* Focused Report Modal */
+.focusedReportOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.focusedReportCard {
+  background: #161b22;
+  border: 2px solid #58a6ff;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.focusedReportHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #0d1117;
+  border-bottom: 1px solid #30363d;
+  border-radius: 10px 10px 0 0;
+}
+
+.focusedReportHeader h3 {
+  margin: 0;
+  color: #e6edf3;
+}
+
+.focusedReportClose {
+  background: none;
+  border: none;
+  color: #6e7681;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.focusedReportClose:hover {
+  color: #e6edf3;
+}
+
+.focusedReportBody {
+  padding: 20px;
+}
+
+/* Name Review Card */
+.nameReviewCard {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.nameReviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.oldName {
+  color: #f85149;
+  font-weight: 600;
+  text-decoration: line-through;
+}
+
+.nameArrow {
+  color: #6e7681;
+  margin: 0 8px;
+}
+
+.newName {
+  color: #3fb950;
+  font-weight: 600;
+}
+
+.rejectionCount {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+.nameReviewBody {
+  color: #b1bac4;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.nameReviewBody p {
+  margin: 0 0 8px 0;
+}
+
+.nameReviewActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #30363d;
+}
+
+.approveBtn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #3fb950;
+  color: #0d1117;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+}
+
+.approveBtn:hover {
+  background: #56d364;
+}
+
+.approveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rejectSection {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+
+.rejectInput {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #161b22;
+  color: #e6edf3;
+  font-family: "Lexend", sans-serif;
+  outline: none;
+}
+
+.rejectInput:focus {
+  border-color: #f85149;
+}
+
+.rejectBtn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #f85149;
+  color: white;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+}
+
+.rejectBtn:hover {
+  background: #da3633;
+}
+
+.rejectBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .userCardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .userActions {
+    flex-direction: column;
+  }
+
+  .userActions button {
+    width: 100%;
+  }
+
+  .reportGroupHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .groupActions {
+    width: 100%;
+  }
+
+  .groupActions button {
+    flex: 1;
+  }
+
+  .modalFooter {
+    flex-direction: column;
+  }
+
+  .modalFooter button {
+    width: 100%;
+  }
+
+  .nameReviewActions {
+    flex-direction: column;
+  }
+
+  .rejectSection {
+    width: 100%;
+  }
+}

@@ -59,6 +59,7 @@ import SvEmbedIframe from "./streetview/svHandler";
 import HomeNotice from "./homeNotice";
 import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 import Ad from "./bannerAdNitro";
+import PendingNameChangeModal from "./pendingNameChangeModal";
 
 
 const initialMultiplayerState = {
@@ -111,6 +112,7 @@ export default function Home({ }) {
     const [friendsModal, setFriendsModal] = useState(false)
     const [merchModal, setMerchModal] = useState(false)
     const [mapGuessrModal, setMapGuessrModal] = useState(false)
+    const [pendingNameChangeModal, setPendingNameChangeModal] = useState(false)
     const [timeOffset, setTimeOffset] = useState(0)
     const [loginQueued, setLoginQueued] = useState(false);
     const [options, setOptions] = useState({
@@ -2071,6 +2073,10 @@ export default function Home({ }) {
         return () => clearInterval(i);
     }, [])
 
+    // Note: Both banned users and users with pending name change CAN still play singleplayer
+    // They just can't do multiplayer - the check is done in the websocket server
+    // Banned users are also excluded from leaderboards (handled in api/leaderboard.js)
+
     return (
         <>
             <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} />
@@ -2088,6 +2094,11 @@ export default function Home({ }) {
             <DiscordModal shown={showDiscordModal && (typeof window !== 'undefined' && window.innerWidth >= 768)} setOpen={setShowDiscordModal} />
             {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
             <MapGuessrModal isOpen={mapGuessrModal} onClose={() => setMapGuessrModal(false)} />
+            <PendingNameChangeModal 
+              session={session} 
+              isOpen={pendingNameChangeModal} 
+              onClose={() => setPendingNameChangeModal(false)} 
+            />
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
@@ -2228,6 +2239,113 @@ export default function Home({ }) {
                     onConnectionError={() => setConnectionErrorModalShown(true)}
                 />
 
+                {/* Pending Name Change Banner */}
+                {session?.token?.pendingNameChange && screen === 'home' && (
+                  <div style={{
+                    position: 'fixed',
+                    top: '60px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 9999,
+                    backgroundColor: '#d29922',
+                    color: '#000',
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    maxWidth: '90vw'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span>⚠️</span>
+                      <span style={{ fontWeight: 500 }}>Username change required - Multiplayer disabled</span>
+                      <button 
+                        onClick={() => setPendingNameChangeModal(true)}
+                        style={{
+                          backgroundColor: '#000',
+                          color: '#d29922',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          fontSize: '0.9rem'
+                        }}
+                      >
+                        Change Name
+                      </button>
+                    </div>
+                    {session?.token?.pendingNameChangePublicNote && (
+                      <div style={{ 
+                        fontSize: '0.85rem', 
+                        opacity: 0.9,
+                        textAlign: 'center',
+                        maxWidth: '400px'
+                      }}>
+                        {session.token.pendingNameChangePublicNote}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Account Banned Banner */}
+                {session?.token?.banned && !session?.token?.pendingNameChange && screen === 'home' && (
+                  <div style={{
+                    position: 'fixed',
+                    top: '60px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 9999,
+                    backgroundColor: '#f85149',
+                    color: '#fff',
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    maxWidth: '90vw'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span>⛔</span>
+                      <span style={{ fontWeight: 500 }}>
+                        Account suspended - Multiplayer disabled
+                        {session?.token?.banType === 'temporary' && session?.token?.banExpiresAt && (
+                          <span style={{ marginLeft: '8px', opacity: 0.9 }}>
+                            (Expires: {new Date(session.token.banExpiresAt).toLocaleDateString()})
+                          </span>
+                        )}
+                      </span>
+                      <a 
+                        href="mailto:support@worldguessr.com"
+                        style={{
+                          backgroundColor: '#fff',
+                          color: '#f85149',
+                          padding: '6px 12px',
+                          borderRadius: '4px',
+                          fontWeight: 600,
+                          fontSize: '0.9rem',
+                          textDecoration: 'none'
+                        }}
+                      >
+                        Contact Support
+                      </a>
+                    </div>
+                    {session?.token?.banPublicNote && (
+                      <div style={{ 
+                        fontSize: '0.85rem', 
+                        opacity: 0.95,
+                        textAlign: 'center',
+                        maxWidth: '400px'
+                      }}>
+                        {session.token.banPublicNote}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                                 {!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH &&
 

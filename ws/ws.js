@@ -704,6 +704,16 @@ app.ws('/wg', {
 
 
       if (json.type === 'acceptInvite' && json.code && player.accountId) {
+        // Block banned users and users with pending name changes from multiplayer
+        if (player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'accountSuspended',
+            toastType: 'error'
+          });
+          return;
+        }
+
         joinGameByCode(json.code, () => {
           player.send({
             type: 'toast',
@@ -778,6 +788,16 @@ app.ws('/wg', {
 
       if (json.type === 'createPrivateGame' && !player.gameId) {
 
+        // Block banned users and users with pending name changes from multiplayer
+        if (player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'accountSuspended',
+            toastType: 'error'
+          });
+          return;
+        }
+
         // send toast if maintenance
         if (maintenanceMode) {
           player.send({
@@ -845,6 +865,16 @@ app.ws('/wg', {
       }
 
       if (json.type === 'joinPrivateGame' && !player.gameId) {
+        // Block banned users and users with pending name changes from multiplayer
+        if (player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'accountSuspended',
+            toastType: 'error'
+          });
+          return;
+        }
+
         let code = json.gameCode;
 
         // find game by code
