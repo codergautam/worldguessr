@@ -2,10 +2,103 @@ import User from '../../models/User.js';
 import Report from '../../models/Report.js';
 import ModerationLog from '../../models/ModerationLog.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
+import Game from '../../models/Game.js';
+import UserStats from '../../models/UserStats.js';
+
+/**
+ * Refund ELO to opponents who lost ELO playing against a banned user
+ *
+ * @param {string} bannedUserId - The MongoDB _id of the banned user
+ * @param {string} bannedUsername - The username of the banned user
+ * @param {string} moderationLogId - The ID of the moderation log entry (optional, set after log is created)
+ * @returns {Object} Summary of refunds: { totalRefunded, opponentsAffected, gamesProcessed }
+ */
+async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogId = null) {
+  const bannedAccountId = bannedUserId.toString();
+
+  // Find all ranked_duel games where the banned user participated
+  const games = await Game.find({
+    gameType: 'ranked_duel',
+    'players.accountId': bannedAccountId
+  }).lean();
+
+  let totalRefunded = 0;
+  let gamesProcessed = 0;
+  const opponentRefunds = {}; // { opponentAccountId: totalRefund }
+
+  for (const game of games) {
+    // Find the opponent(s) who lost ELO in this game
+    for (const player of game.players) {
+      // Skip the banned user
+      if (player.accountId === bannedAccountId) continue;
+
+      // Skip if no ELO data or no loss
+      if (!player.elo || !player.elo.change || player.elo.change >= 0) continue;
+
+      // Skip guests (no accountId)
+      if (!player.accountId) continue;
+
+      // Calculate refund amount (absolute value of loss)
+      const refundAmount = Math.abs(player.elo.change);
+
+      // Track refund per opponent
+      if (!opponentRefunds[player.accountId]) {
+        opponentRefunds[player.accountId] = 0;
+      }
+      opponentRefunds[player.accountId] += refundAmount;
+      totalRefunded += refundAmount;
+      gamesProcessed++;
+    }
+  }
+
+  // Apply refunds to each affected opponent
+  const refundPromises = [];
+  for (const [opponentAccountId, refundAmount] of Object.entries(opponentRefunds)) {
+    // Update User model - add back the lost ELO
+    refundPromises.push(
+      User.findByIdAndUpdate(opponentAccountId, {
+        $inc: { elo: refundAmount }
+      }, { new: true }).then(async (updatedUser) => {
+        if (updatedUser) {
+          // Get current rank (approximate - we just need a reasonable value)
+          const higherEloCount = await User.countDocuments({ elo: { $gt: updatedUser.elo } });
+          const newRank = higherEloCount + 1;
+
+          // Create UserStats entry to record the ELO refund
+          await UserStats.create({
+            userId: opponentAccountId,
+            timestamp: new Date(),
+            totalXp: updatedUser.totalXp || 0,
+            xpRank: 1, // Will be recalculated on next proper update
+            elo: updatedUser.elo,
+            eloRank: newRank,
+            triggerEvent: 'elo_refund',
+            gameId: null,
+            eloRefundDetails: {
+              amount: refundAmount,
+              bannedUserId: bannedAccountId,
+              bannedUsername: bannedUsername,
+              moderationLogId: moderationLogId ? moderationLogId.toString() : null
+            }
+          });
+        }
+      })
+    );
+  }
+
+  await Promise.all(refundPromises);
+
+  return {
+    totalRefunded,
+    opponentsAffected: Object.keys(opponentRefunds).length,
+    gamesProcessed,
+    refundDetails: opponentRefunds // { accountId: refundAmount }
+  };
+}
 
 /**
  * Moderation Action API
- * 
+ *
  * Handles all moderation actions:
  * - ignore: Ignore a report (counts against reporter)
  * - ban_permanent: Permanently ban a user
@@ -18,8 +111,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { 
-    secret, 
+  const {
+    secret,
     action,           // 'ignore', 'ban_permanent', 'ban_temporary', 'force_name_change', 'unban'
     targetUserId,     // MongoDB _id of user to take action on
     reportIds,        // Array of report IDs being acted upon (can be multiple for same user)
@@ -78,14 +171,15 @@ export default async function handler(req, res) {
     if (action === 'force_name_change') {
       const hasInappropriateUsernameReport = reports.some(r => r.reason === 'inappropriate_username');
       if (!hasInappropriateUsernameReport && reports.length > 0) {
-        return res.status(400).json({ 
-          message: 'Force name change can only be used for inappropriate username reports' 
+        return res.status(400).json({
+          message: 'Force name change can only be used for inappropriate username reports'
         });
       }
     }
 
     let moderationLog = null;
     let expiresAt = null;
+    let eloRefundResult = null;
 
     // Handle each action type
     switch (action) {
@@ -138,6 +232,9 @@ export default async function handler(req, res) {
           banPublicNote: publicNote || null // Shown to user
         });
 
+        // Refund ELO to opponents who lost ELO playing against this user
+        eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
+
         // Update reports
         for (const report of reports) {
           await Report.findByIdAndUpdate(report._id, {
@@ -170,7 +267,8 @@ export default async function handler(req, res) {
           actionType: 'ban_permanent',
           reason: reason, // Internal reason
           relatedReports: reportIds || [],
-          notes: publicNote || '' // Public note for reference
+          notes: publicNote || '', // Public note for reference
+          eloRefund: eloRefundResult // Store refund details in log
         });
 
         break;
@@ -187,6 +285,9 @@ export default async function handler(req, res) {
           banReason: reason, // INTERNAL - never exposed to user
           banPublicNote: publicNote || null // Shown to user
         });
+
+        // Refund ELO to opponents who lost ELO playing against this user
+        eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
 
         // Update reports
         for (const report of reports) {
@@ -223,7 +324,8 @@ export default async function handler(req, res) {
           expiresAt: expiresAt,
           reason: reason, // Internal reason
           relatedReports: reportIds || [],
-          notes: publicNote || '' // Public note for reference
+          notes: publicNote || '', // Public note for reference
+          eloRefund: eloRefundResult // Store refund details in log
         });
 
         break;
@@ -322,7 +424,8 @@ export default async function handler(req, res) {
       },
       moderationLogId: moderationLog?._id,
       expiresAt: expiresAt,
-      message: getSuccessMessage(action, targetUser.username)
+      eloRefund: eloRefundResult, // ELO refund summary (null if no refunds)
+      message: getSuccessMessage(action, targetUser.username, eloRefundResult)
     });
 
   } catch (error) {
@@ -334,20 +437,33 @@ export default async function handler(req, res) {
   }
 }
 
-function getSuccessMessage(action, username) {
+function getSuccessMessage(action, username, eloRefundResult = null) {
+  let message;
   switch (action) {
     case 'ignore':
-      return `Reports against ${username} have been ignored`;
+      message = `Reports against ${username} have been ignored`;
+      break;
     case 'ban_permanent':
-      return `${username} has been permanently banned`;
+      message = `${username} has been permanently banned`;
+      break;
     case 'ban_temporary':
-      return `${username} has been temporarily banned`;
+      message = `${username} has been temporarily banned`;
+      break;
     case 'force_name_change':
-      return `${username} has been forced to change their username`;
+      message = `${username} has been forced to change their username`;
+      break;
     case 'unban':
-      return `${username} has been unbanned`;
+      message = `${username} has been unbanned`;
+      break;
     default:
-      return 'Action completed';
+      message = 'Action completed';
   }
+
+  // Add ELO refund info to message if applicable
+  if (eloRefundResult && eloRefundResult.totalRefunded > 0) {
+    message += `. Refunded ${eloRefundResult.totalRefunded} ELO to ${eloRefundResult.opponentsAffected} opponent(s) across ${eloRefundResult.gamesProcessed} game(s)`;
+  }
+
+  return message;
 }
 

@@ -4,6 +4,7 @@ import AccountView from "./accountView";
 import EloView from "./eloView";
 import GameHistory from "./gameHistory";
 import HistoricalGameView from "./historicalGameView";
+import ModerationView from "./moderationView";
 import { getLeague, leagues } from "./utils/leagues";
 import { signOut } from "@/components/auth/auth";
 import { useTranslation } from '@/components/useTranslations';
@@ -85,7 +86,8 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         { key: "profile", label: text("profile"), icon: "👤" },
         { key: "history", label: text("history"), icon: "📜" },
         { key: "elo", label: text("ELO"), icon: "🏆" },
-        { key: "list", label: text("friends", {cnt: friends.length}), icon: "👥" }
+        { key: "list", label: text("friends", {cnt: friends.length}), icon: "👥" },
+        { key: "moderation", label: "Moderation", icon: "⚖️" }
     ];
 
 
@@ -125,6 +127,8 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 );
             case "elo":
                 return <EloView eloData={eloData} session={session} />;
+            case "moderation":
+                return <ModerationView session={session} />;
             case "list":
             default:
                 return (
@@ -267,9 +271,9 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                                     width: '100%',
                                     overflowY: 'visible',
                                     overflowX: 'hidden',
-                                    // Only apply large minHeight for pages that can have lots of content (history, profile)
+                                    // Only apply large minHeight for pages that can have lots of content (history, profile, elo, moderation)
                                     // For friends tabs (list, add, sent, received), use natural height to prevent unnecessary scroll space
-                                    minHeight: (accountModalPage === 'history' || accountModalPage === 'profile' || accountModalPage === 'elo') 
+                                    minHeight: (accountModalPage === 'history' || accountModalPage === 'profile' || accountModalPage === 'elo' || accountModalPage === 'moderation') 
                                         ? 'calc(100vh + 1px)' 
                                         : 'calc(100% + 1px)', // Minimal height for iOS scroll to work
                                     paddingBottom: '40px'

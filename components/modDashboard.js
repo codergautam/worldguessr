@@ -115,7 +115,7 @@ export default function ModDashboard({ session }) {
 
       if (response.ok) {
         const data = await response.json();
-        
+
         // Check if multiple matches were found (ban evader detection)
         if (data.multipleMatches) {
           setMultipleMatches(data);
@@ -123,7 +123,7 @@ export default function ModDashboard({ session }) {
         } else {
           setTargetUser(data.targetUser);
           setUserHistory(data.history);
-          
+
           // Show notice if found by past name
           if (data.foundByPastName) {
             setSuccessMessage(`Found user by past name "${data.searchedName}" → Current name: "${data.targetUser.username}"`);
@@ -147,7 +147,7 @@ export default function ModDashboard({ session }) {
 
   const fetchGameById = async (gameId, targetUserId = null, reportedAccountId = null) => {
     if (!gameId) return;
-    
+
     setGameLoading(true);
     setError(null);
     setReportedUserId(reportedAccountId);
@@ -207,7 +207,7 @@ export default function ModDashboard({ session }) {
 
       if (response.ok) {
         const data = await response.json();
-        
+
         // Check if multiple matches were found
         if (data.multipleMatches) {
           setMultipleMatches(data);
@@ -292,7 +292,7 @@ export default function ModDashboard({ session }) {
         const data = await response.json();
         setReportsStats(data.stats);
         setIsGrouped(data.isGrouped);
-        
+
         if (data.isGrouped) {
           setGroupedReports(data.groupedReports || []);
           setFlatReports([]);
@@ -408,7 +408,7 @@ export default function ModDashboard({ session }) {
   // Delete user permanently
   const deleteUser = async () => {
     if (!deleteModal) return;
-    
+
     if (deleteConfirmUsername.toLowerCase() !== deleteModal.username.toLowerCase()) {
       setError(`Username confirmation does not match. Type "${deleteModal.username}" to confirm.`);
       return;
@@ -541,10 +541,10 @@ export default function ModDashboard({ session }) {
     if (!stats) return null;
     const total = (stats.helpfulReports || 0) + (stats.unhelpfulReports || 0);
     if (total === 0) return <span className={styles.reporterStatsNew}>new reporter</span>;
-    
+
     const helpfulPercent = total > 0 ? Math.round((stats.helpfulReports / total) * 100) : 0;
     const isGoodReporter = helpfulPercent >= 50;
-    
+
     return (
       <span className={`${styles.reporterStats} ${isGoodReporter ? styles.goodReporter : styles.badReporter}`}>
         ✓{stats.helpfulReports || 0} ✗{stats.unhelpfulReports || 0}
@@ -556,7 +556,7 @@ export default function ModDashboard({ session }) {
   const renderUserStatusBadges = (status) => {
     if (!status) return null;
     const badges = [];
-    
+
     if (status.pendingNameChange) {
       badges.push(
         <span key="namechange" className={styles.statusBadgeWarning} title="Pending name change">
@@ -564,7 +564,7 @@ export default function ModDashboard({ session }) {
         </span>
       );
     }
-    
+
     if (status.banned) {
       if (status.banType === 'temporary' && status.banExpiresAt) {
         const expiresDate = new Date(status.banExpiresAt);
@@ -583,7 +583,7 @@ export default function ModDashboard({ session }) {
         );
       }
     }
-    
+
     return badges.length > 0 ? <span className={styles.userStatusBadges}>{badges}</span> : null;
   };
 
@@ -609,12 +609,12 @@ export default function ModDashboard({ session }) {
 
           <div className={styles.modalBody}>
             <p><strong>Target User:</strong> {targetUser.username}</p>
-            
+
             {type === 'ban_temporary' && (
               <div className={styles.formGroup}>
                 <label>Ban Duration (days):</label>
-                <select 
-                  value={tempBanDuration} 
+                <select
+                  value={tempBanDuration}
                   onChange={(e) => setTempBanDuration(e.target.value)}
                   className={styles.select}
                 >
@@ -675,8 +675,8 @@ export default function ModDashboard({ session }) {
           </div>
 
           <div className={styles.modalFooter}>
-            <button 
-              className={styles.cancelBtn} 
+            <button
+              className={styles.cancelBtn}
               onClick={() => setActionModal(null)}
               disabled={actionLoading}
             >
@@ -705,7 +705,7 @@ export default function ModDashboard({ session }) {
   const renderUserHistory = () => {
     if (!userHistory) return null;
 
-    const hasAnyHistory = 
+    const hasAnyHistory =
       (userHistory.banHistory && userHistory.banHistory.length > 0) ||
       (userHistory.usernameHistory && userHistory.usernameHistory.length > 0) ||
       (userHistory.reportsAgainst && userHistory.reportsAgainst.length > 0) ||
@@ -714,7 +714,7 @@ export default function ModDashboard({ session }) {
     return (
       <div className={styles.historySection}>
         <h3>📋 Moderation History</h3>
-        
+
         {/* Summary */}
         <div className={styles.historySummary}>
           <span>Mod Actions: {userHistory.summary?.totalModerationActions || 0}</span>
@@ -779,8 +779,8 @@ export default function ModDashboard({ session }) {
           <div className={styles.historySubsection}>
             <h4>🚩 Reports Against ({userHistory.reportsAgainst.length})</h4>
             {userHistory.reportsAgainst.slice(0, 10).map((report, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className={`${styles.historyItem} ${styles.clickableReport}`}
                 onClick={() => viewReportInTab(report)}
                 title="Click to view report details"
@@ -809,8 +809,8 @@ export default function ModDashboard({ session }) {
           <div className={styles.historySubsection}>
             <h4>📝 Reports Made ({userHistory.reportsMade.length})</h4>
             {userHistory.reportsMade.slice(0, 5).map((report, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className={`${styles.historyItem} ${styles.clickableReport}`}
                 onClick={() => viewReportInTab(report)}
                 title="Click to view report details"
@@ -888,8 +888,8 @@ export default function ModDashboard({ session }) {
             </div>
 
             <div className={styles.modalBody}>
-              <div style={{ 
-                background: 'rgba(218, 54, 51, 0.15)', 
+              <div style={{
+                background: 'rgba(218, 54, 51, 0.15)',
                 border: '2px solid #da3633',
                 borderRadius: '8px',
                 padding: '16px',
@@ -936,8 +936,8 @@ export default function ModDashboard({ session }) {
             </div>
 
             <div className={styles.modalFooter}>
-              <button 
-                className={styles.cancelBtn} 
+              <button
+                className={styles.cancelBtn}
                 onClick={() => {
                   setDeleteModal(null);
                   setDeleteConfirmUsername('');
@@ -951,7 +951,7 @@ export default function ModDashboard({ session }) {
                 className={styles.deleteUserBtn}
                 onClick={deleteUser}
                 disabled={
-                  deleteLoading || 
+                  deleteLoading ||
                   deleteConfirmUsername.toLowerCase() !== deleteModal.username.toLowerCase() ||
                   deleteReason.trim().length < 10
                 }
@@ -1050,11 +1050,11 @@ export default function ModDashboard({ session }) {
                       This could indicate <span style={{ color: '#f85149' }}>ban evasion</span>.
                     </p>
                   </div>
-                  
+
                   <div className={styles.matchesList}>
                     {multipleMatches.matches.map((match, index) => (
-                      <div 
-                        key={match._id} 
+                      <div
+                        key={match._id}
                         className={`${styles.matchCard} ${match.banned ? styles.matchCardBanned : ''}`}
                         onClick={() => handleUserLookupById(match._id, match.username)}
                       >
@@ -1094,8 +1094,8 @@ export default function ModDashboard({ session }) {
                       </div>
                     ))}
                   </div>
-                  
-                  <button 
+
+                  <button
                     className={styles.clearMatchesBtn}
                     onClick={() => setMultipleMatches(null)}
                   >
@@ -1123,17 +1123,17 @@ export default function ModDashboard({ session }) {
                         )}
                       </div>
                     </div>
-                    
+
                     <div className={styles.userStats}>
                       <span>XP: {targetUser.totalXp?.toLocaleString()}</span>
                       <span>Elo: {targetUser.elo}</span>
                       <span>Games: {targetUser.totalGamesPlayed}</span>
                       <span>Joined: {new Date(targetUser.created_at).toLocaleDateString()}</span>
                     </div>
-                    
+
                     <div className={styles.accountId}>
                       <span>Account ID: </span>
-                      <code 
+                      <code
                         onClick={() => {
                           navigator.clipboard.writeText(targetUser._id);
                           setSuccessMessage('Account ID copied to clipboard');
@@ -1148,7 +1148,7 @@ export default function ModDashboard({ session }) {
                     {targetUser.email && (
                       <div className={styles.accountId}>
                         <span>Email: </span>
-                        <code 
+                        <code
                           onClick={() => {
                             navigator.clipboard.writeText(targetUser.email);
                             setSuccessMessage('Email copied to clipboard');
@@ -1214,7 +1214,7 @@ export default function ModDashboard({ session }) {
                           </button>
                         </>
                       )}
-                      
+
                       {/* Delete User Button - Dangerous Action */}
                       {!targetUser.staff && (
                         <button
@@ -1332,7 +1332,7 @@ export default function ModDashboard({ session }) {
                       <div className={styles.reportUsers} style={{ marginBottom: '16px' }}>
                         <div className={styles.userInfo}>
                           <strong>Reporter:</strong>
-                          <span 
+                          <span
                             className={styles.username}
                             onClick={() => {
                               setFocusedReport(null);
@@ -1344,7 +1344,7 @@ export default function ModDashboard({ session }) {
                         </div>
                         <div className={styles.userInfo}>
                           <strong>Reported:</strong>
-                          <span 
+                          <span
                             className={styles.username}
                             onClick={() => {
                               setFocusedReport(null);
@@ -1416,7 +1416,7 @@ export default function ModDashboard({ session }) {
                     <div key={group.reportedUser.accountId} className={styles.reportGroup}>
                       <div className={styles.reportGroupHeader}>
                         <div className={styles.reportGroupUser}>
-                          <span 
+                          <span
                             className={styles.username}
                             onClick={() => handleUserLookupById(group.reportedUser.accountId, group.reportedUser.username)}
                           >
@@ -1427,7 +1427,7 @@ export default function ModDashboard({ session }) {
                             {group.reportCount} report{group.reportCount !== 1 ? 's' : ''}
                           </span>
                         </div>
-                        
+
                         {/* Action Buttons for Group */}
                         <div className={styles.groupActions}>
                           <button
@@ -1438,7 +1438,7 @@ export default function ModDashboard({ session }) {
                               reportIds: group.reports.map(r => r._id)
                             })}
                           >
-                            🚫 Ignore All
+                            🚫 Ignore
                           </button>
                           <button
                             className={styles.banBtn}

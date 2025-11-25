@@ -2,13 +2,13 @@ import mongoose from 'mongoose';
 
 /**
  * ModerationLog - Permanent record of all moderation actions
- * 
+ *
  * This model stores:
  * - Ban actions (permanent and temporary)
  * - Unban actions
  * - Force name change actions
  * - Name change approvals/rejections
- * 
+ *
  * NOTHING IS EVER DELETED - all records are permanent for audit purposes
  */
 const moderationLogSchema = new mongoose.Schema({
@@ -80,6 +80,14 @@ const moderationLogSchema = new mongoose.Schema({
   notes: {
     type: String,
     default: ''
+  },
+
+  // ELO refund details (for bans)
+  eloRefund: {
+    totalRefunded: { type: Number, default: 0 },
+    opponentsAffected: { type: Number, default: 0 },
+    gamesProcessed: { type: Number, default: 0 },
+    refundDetails: { type: Map, of: Number, default: {} } // { accountId: refundAmount }
   },
 
   // Timestamp
