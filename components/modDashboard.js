@@ -42,6 +42,15 @@ export default function ModDashboard({ session }) {
   // Focused report state (for viewing specific reports)
   const [focusedReport, setFocusedReport] = useState(null);
 
+  // Delete user state
+  const [deleteModal, setDeleteModal] = useState(null);
+  const [deleteConfirmUsername, setDeleteConfirmUsername] = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Multiple matches state (for ban evader detection)
+  const [multipleMatches, setMultipleMatches] = useState(null);
+
   // View a specific report in the reports tab
   const viewReportInTab = (report) => {
     setFocusedReport(report);
@@ -91,6 +100,7 @@ export default function ModDashboard({ session }) {
     setError(null);
     setTargetUser(null);
     setUserHistory(null);
+    setMultipleMatches(null);
 
     try {
       const response = await fetch(window.cConfig?.apiUrl + '/api/mod/userLookup', {
@@ -105,8 +115,20 @@ export default function ModDashboard({ session }) {
 
       if (response.ok) {
         const data = await response.json();
-        setTargetUser(data.targetUser);
-        setUserHistory(data.history);
+        
+        // Check if multiple matches were found (ban evader detection)
+        if (data.multipleMatches) {
+          setMultipleMatches(data);
+          setError(null);
+        } else {
+          setTargetUser(data.targetUser);
+          setUserHistory(data.history);
+          
+          // Show notice if found by past name
+          if (data.foundByPastName) {
+            setSuccessMessage(`Found user by past name "${data.searchedName}" → Current name: "${data.targetUser.username}"`);
+          }
+        }
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'User not found');
@@ -170,6 +192,7 @@ export default function ModDashboard({ session }) {
     setError(null);
     setTargetUser(null);
     setUserHistory(null);
+    setMultipleMatches(null);
 
     try {
       const response = await fetch(window.cConfig.apiUrl + '/api/mod/userLookup', {
@@ -184,12 +207,19 @@ export default function ModDashboard({ session }) {
 
       if (response.ok) {
         const data = await response.json();
-        setTargetUser(data.targetUser);
-        setUserHistory(data.history);
-        // Update input if user was found by past name
-        if (data.foundByPastName) {
-          setUsernameInput(data.targetUser.username);
-          setSuccessMessage(`Found user by past name "${data.searchedName}" → Current name: "${data.targetUser.username}"`);
+        
+        // Check if multiple matches were found
+        if (data.multipleMatches) {
+          setMultipleMatches(data);
+          setError(null);
+        } else {
+          setTargetUser(data.targetUser);
+          setUserHistory(data.history);
+          // Update input if user was found by past name
+          if (data.foundByPastName) {
+            setUsernameInput(data.targetUser.username);
+            setSuccessMessage(`Found user by past name "${data.searchedName}" → Current name: "${data.targetUser.username}"`);
+          }
         }
       } else {
         const errorData = await response.json();
@@ -372,6 +402,55 @@ export default function ModDashboard({ session }) {
       setError('Network error occurred');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Delete user permanently
+  const deleteUser = async () => {
+    if (!deleteModal) return;
+    
+    if (deleteConfirmUsername.toLowerCase() !== deleteModal.username.toLowerCase()) {
+      setError(`Username confirmation does not match. Type "${deleteModal.username}" to confirm.`);
+      return;
+    }
+
+    if (!deleteReason.trim() || deleteReason.trim().length < 10) {
+      setError('Please provide a reason (minimum 10 characters)');
+      return;
+    }
+
+    setDeleteLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(window.cConfig.apiUrl + '/api/mod/deleteUser', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: session?.token?.secret,
+          targetUserId: deleteModal.id,
+          confirmUsername: deleteConfirmUsername,
+          reason: deleteReason.trim()
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSuccessMessage(data.message);
+        setDeleteModal(null);
+        setDeleteConfirmUsername('');
+        setDeleteReason('');
+        setTargetUser(null);
+        setUserHistory(null);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || 'Failed to delete user');
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      setError('Network error occurred');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -795,6 +874,98 @@ export default function ModDashboard({ session }) {
       {/* Action Modal */}
       {renderActionModal()}
 
+      {/* Delete User Confirmation Modal */}
+      {deleteModal && (
+        <div className={styles.modalOverlay}>
+          <div className={styles.modal} style={{ borderColor: '#da3633' }}>
+            <div className={styles.modalHeader} style={{ background: 'linear-gradient(135deg, #da3633, #8b0000)' }}>
+              <h3>🗑️ DELETE USER PERMANENTLY</h3>
+              <button className={styles.modalClose} onClick={() => {
+                setDeleteModal(null);
+                setDeleteConfirmUsername('');
+                setDeleteReason('');
+              }}>×</button>
+            </div>
+
+            <div className={styles.modalBody}>
+              <div style={{ 
+                background: 'rgba(218, 54, 51, 0.15)', 
+                border: '2px solid #da3633',
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '20px'
+              }}>
+                <h4 style={{ color: '#f85149', margin: '0 0 12px 0' }}>⚠️ DANGER: This action is IRREVERSIBLE!</h4>
+                <p style={{ color: '#f0883e', margin: '0 0 8px 0', fontSize: '0.9rem' }}>
+                  Deleting user <strong style={{ color: '#fff' }}>{deleteModal.username}</strong> will permanently:
+                </p>
+                <ul style={{ color: '#b1bac4', margin: '0', paddingLeft: '20px', fontSize: '0.85rem' }}>
+                  <li>Delete the user account and all profile data</li>
+                  <li>Delete all user statistics and progression history</li>
+                  <li>Delete all maps created by this user</li>
+                  <li>Anonymize user data in games (games preserved for other players)</li>
+                  <li>Remove user from all friend lists</li>
+                  <li>Anonymize all reports made by/against this user</li>
+                </ul>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label style={{ color: '#f85149' }}>
+                  Type <strong>"{deleteModal.username}"</strong> to confirm:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmUsername}
+                  onChange={(e) => setDeleteConfirmUsername(e.target.value)}
+                  placeholder={`Type "${deleteModal.username}" exactly`}
+                  className={styles.usernameInput}
+                  style={{ borderColor: deleteConfirmUsername.toLowerCase() === deleteModal.username.toLowerCase() ? '#3fb950' : '#da3633' }}
+                />
+              </div>
+
+              <div className={styles.formGroup}>
+                <label>🔒 Reason for deletion (internal, minimum 10 characters):</label>
+                <textarea
+                  value={deleteReason}
+                  onChange={(e) => setDeleteReason(e.target.value)}
+                  placeholder="GDPR request, user request, spam account, etc..."
+                  className={styles.textarea}
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className={styles.modalFooter}>
+              <button 
+                className={styles.cancelBtn} 
+                onClick={() => {
+                  setDeleteModal(null);
+                  setDeleteConfirmUsername('');
+                  setDeleteReason('');
+                }}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className={styles.deleteUserBtn}
+                onClick={deleteUser}
+                disabled={
+                  deleteLoading || 
+                  deleteConfirmUsername.toLowerCase() !== deleteModal.username.toLowerCase() ||
+                  deleteReason.trim().length < 10
+                }
+                style={{
+                  opacity: (deleteConfirmUsername.toLowerCase() === deleteModal.username.toLowerCase() && deleteReason.trim().length >= 10) ? 1 : 0.5
+                }}
+              >
+                {deleteLoading ? 'Deleting...' : '🗑️ PERMANENTLY DELETE USER'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Dashboard */}
       {!selectedGame && (
         <div className={styles.modDashboard}>
@@ -852,7 +1023,7 @@ export default function ModDashboard({ session }) {
                 value={usernameInput}
                 onChange={(e) => setUsernameInput(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Search player by username..."
+                placeholder="Search by username, email, or account ID..."
                 className={styles.usernameInput}
                 disabled={loading}
               />
@@ -869,6 +1040,70 @@ export default function ModDashboard({ session }) {
           {/* User Lookup Tab */}
           {activeTab === 'users' && (
             <>
+              {/* Multiple Matches Warning (Ban Evader Detection) */}
+              {multipleMatches && (
+                <div className={styles.multipleMatchesSection}>
+                  <div className={styles.multipleMatchesWarning}>
+                    <h3>⚠️ Multiple Accounts Found!</h3>
+                    <p>
+                      <strong>{multipleMatches.matchCount} accounts</strong> are associated with the username "<strong>{multipleMatches.searchTerm}</strong>".
+                      This could indicate <span style={{ color: '#f85149' }}>ban evasion</span>.
+                    </p>
+                  </div>
+                  
+                  <div className={styles.matchesList}>
+                    {multipleMatches.matches.map((match, index) => (
+                      <div 
+                        key={match._id} 
+                        className={`${styles.matchCard} ${match.banned ? styles.matchCardBanned : ''}`}
+                        onClick={() => handleUserLookupById(match._id, match.username)}
+                      >
+                        <div className={styles.matchCardHeader}>
+                          <span className={styles.matchNumber}>#{index + 1}</span>
+                          <span className={styles.matchUsername}>{match.username}</span>
+                          <div className={styles.matchBadges}>
+                            {match.staff && <span className={styles.staffBadge}>STAFF</span>}
+                            {match.banned && (
+                              <span className={styles.bannedBadge}>
+                                {match.banType === 'temporary' ? 'TEMP BANNED' : 'BANNED'}
+                              </span>
+                            )}
+                            {match.pendingNameChange && (
+                              <span className={styles.pendingNameBadge}>NAME CHANGE</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className={styles.matchInfo}>
+                          <span className={match.matchType === 'current_username' ? styles.matchTypeCurrent : styles.matchTypePast}>
+                            {match.matchInfo}
+                          </span>
+                        </div>
+                        <div className={styles.matchStats}>
+                          <span>XP: {match.totalXp?.toLocaleString() || 0}</span>
+                          <span>Elo: {match.elo || 1000}</span>
+                          <span>Joined: {new Date(match.created_at).toLocaleDateString()}</span>
+                        </div>
+                        {match.email && (
+                          <div className={styles.matchEmail}>
+                            📧 {match.email}
+                          </div>
+                        )}
+                        <div className={styles.matchAction}>
+                          Click to view full details →
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <button 
+                    className={styles.clearMatchesBtn}
+                    onClick={() => setMultipleMatches(null)}
+                  >
+                    Clear Results
+                  </button>
+                </div>
+              )}
+
               {targetUser ? (
                 <div className={styles.gameHistorySection}>
                   {/* User Info Card */}
@@ -909,6 +1144,22 @@ export default function ModDashboard({ session }) {
                         {targetUser._id}
                       </code>
                     </div>
+
+                    {targetUser.email && (
+                      <div className={styles.accountId}>
+                        <span>Email: </span>
+                        <code 
+                          onClick={() => {
+                            navigator.clipboard.writeText(targetUser.email);
+                            setSuccessMessage('Email copied to clipboard');
+                          }}
+                          title="Click to copy"
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {targetUser.email}
+                        </code>
+                      </div>
+                    )}
 
                     {targetUser.banned && targetUser.banExpiresAt && (
                       <div className={styles.banInfo}>
@@ -962,6 +1213,19 @@ export default function ModDashboard({ session }) {
                             ✏️ Force Name Change
                           </button>
                         </>
+                      )}
+                      
+                      {/* Delete User Button - Dangerous Action */}
+                      {!targetUser.staff && (
+                        <button
+                          className={styles.deleteUserBtn}
+                          onClick={() => setDeleteModal({
+                            id: targetUser._id,
+                            username: targetUser.username
+                          })}
+                        >
+                          🗑️ Delete User
+                        </button>
                       )}
                     </div>
                   </div>

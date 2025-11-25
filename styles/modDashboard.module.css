@@ -1352,6 +1352,170 @@
   gap: 4px;
 }
 
+/* Delete User Button - Dangerous Action */
+.deleteUserBtn {
+  background: linear-gradient(135deg, #8b0000, #5a0000);
+  color: #fff;
+  border: 2px solid #da3633;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.deleteUserBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #da3633, #8b0000);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(218, 54, 51, 0.4);
+}
+
+.deleteUserBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Multiple Matches Section (Ban Evader Detection) */
+.multipleMatchesSection {
+  background: #0d1117;
+  border: 2px solid #f0883e;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.multipleMatchesWarning {
+  background: rgba(240, 136, 62, 0.15);
+  border: 1px solid #f0883e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.multipleMatchesWarning h3 {
+  color: #f0883e;
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+.multipleMatchesWarning p {
+  color: #b1bac4;
+  margin: 0;
+}
+
+.matchesList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.matchCard {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.matchCard:hover {
+  border-color: #58a6ff;
+  background: #1c2128;
+  transform: translateX(4px);
+}
+
+.matchCardBanned {
+  border-left: 4px solid #f85149;
+}
+
+.matchCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.matchNumber {
+  background: #30363d;
+  color: #8b949e;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.matchUsername {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e6edf3;
+}
+
+.matchBadges {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.matchInfo {
+  margin-bottom: 8px;
+}
+
+.matchTypeCurrent {
+  color: #3fb950;
+  font-size: 0.85rem;
+  background: rgba(63, 185, 80, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.matchTypePast {
+  color: #f0883e;
+  font-size: 0.85rem;
+  background: rgba(240, 136, 62, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.matchStats {
+  display: flex;
+  gap: 16px;
+  color: #8b949e;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.matchEmail {
+  color: #6e7681;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+
+.matchAction {
+  color: #58a6ff;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.clearMatchesBtn {
+  margin-top: 16px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.clearMatchesBtn:hover {
+  background: #30363d;
+  color: #e6edf3;
+}
+
 /* Account ID display */
 .accountId {
   display: flex;

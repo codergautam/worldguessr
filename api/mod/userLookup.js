@@ -24,6 +24,7 @@ export default async function handler(req, res) {
     }
 
     let targetUser;
+    let searchType = null; // Track how we found the user
 
     // If accountId is provided, use it directly (more reliable)
     if (accountId) {
@@ -40,36 +41,67 @@ export default async function handler(req, res) {
       if (!targetUser) {
         return res.status(404).json({ message: `User not found by ID: ${accountId}` });
       }
+      searchType = 'accountId';
     }
     // If username is 'self', return the requesting user's data
     else if (username === 'self') {
       targetUser = requestingUser;
+      searchType = 'self';
     }
-    // Search mode - find all matching users by current or past names
+    // Search mode - find all matching users by current or past names, email, or account ID
     else if (searchMode && username) {
       const searchTerm = username.trim();
       if (searchTerm.length < 2) {
         return res.status(400).json({ message: 'Search term must be at least 2 characters' });
       }
 
-      // Find users by current username (case-insensitive partial match)
-      const currentNameMatches = await User.find({
-        username: { $regex: new RegExp(searchTerm, 'i') }
-      })
-        .select('_id username totalXp elo banned banType pendingNameChange staff supporter created_at')
-        .limit(10)
-        .lean();
+      // Check if search term looks like a MongoDB ObjectId
+      const isObjectId = mongoose.Types.ObjectId.isValid(searchTerm) && searchTerm.length === 24;
+      
+      // Check if search term looks like an email
+      const isEmail = searchTerm.includes('@');
 
-      // Find users by past names in ModerationLog
-      const pastNameLogs = await ModerationLog.find({
-        $or: [
-          { 'nameChange.oldName': { $regex: new RegExp(searchTerm, 'i') } },
-          { 'targetUser.username': { $regex: new RegExp(searchTerm, 'i') } }
-        ]
-      })
-        .select('targetUser.accountId targetUser.username nameChange')
-        .limit(20)
-        .lean();
+      let currentNameMatches = [];
+
+      if (isObjectId) {
+        // Search by account ID
+        const userById = await User.findById(searchTerm)
+          .select('_id username email totalXp elo banned banType pendingNameChange staff supporter created_at')
+          .lean();
+        if (userById) {
+          currentNameMatches = [userById];
+        }
+      } else if (isEmail) {
+        // Search by email (case-insensitive)
+        currentNameMatches = await User.find({
+          email: { $regex: new RegExp(searchTerm, 'i') }
+        })
+          .select('_id username email totalXp elo banned banType pendingNameChange staff supporter created_at')
+          .limit(10)
+          .lean();
+      } else {
+        // Find users by current username (case-insensitive partial match)
+        currentNameMatches = await User.find({
+          username: { $regex: new RegExp(searchTerm, 'i') }
+        })
+          .select('_id username email totalXp elo banned banType pendingNameChange staff supporter created_at')
+          .limit(10)
+          .lean();
+      }
+
+      // Find users by past names in ModerationLog (only for non-ID/email searches)
+      let pastNameLogs = [];
+      if (!isObjectId && !isEmail) {
+        pastNameLogs = await ModerationLog.find({
+          $or: [
+            { 'nameChange.oldName': { $regex: new RegExp(searchTerm, 'i') } },
+            { 'targetUser.username': { $regex: new RegExp(searchTerm, 'i') } }
+          ]
+        })
+          .select('targetUser.accountId targetUser.username nameChange')
+          .limit(20)
+          .lean();
+      }
 
       // Get unique account IDs from past name matches
       const pastNameAccountIds = [...new Set(pastNameLogs.map(log => log.targetUser.accountId))];
@@ -108,31 +140,128 @@ export default async function handler(req, res) {
         totalMatches: allMatches.length
       });
     }
-    // Exact username lookup
+    // Exact username lookup (also supports account ID and email)
+    // IMPORTANT: Also checks for multiple matches (ban evader detection)
     else if (username) {
-      // First try exact match
-      targetUser = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
+      const searchTerm = username.trim();
       
-      // If not found, check if this was a past username
-      if (!targetUser) {
-        const pastNameLog = await ModerationLog.findOne({
-          'nameChange.oldName': { $regex: new RegExp(`^${username}$`, 'i') }
-        }).sort({ createdAt: -1 });
+      // Check if search term looks like a MongoDB ObjectId (24 hex characters)
+      const isObjectId = mongoose.Types.ObjectId.isValid(searchTerm) && searchTerm.length === 24;
+      
+      // Check if search term looks like an email
+      const isEmail = searchTerm.includes('@');
 
-        if (pastNameLog) {
-          targetUser = await User.findById(pastNameLog.targetUser.accountId);
-          if (targetUser) {
-            // Return with a note that this was found by past name
+      if (isObjectId) {
+        // Search by account ID - exact match, no multiple results possible
+        targetUser = await User.findById(searchTerm);
+        if (targetUser) {
+          searchType = 'accountId';
+        }
+      } else if (isEmail) {
+        // Search by email (exact match, case-insensitive)
+        targetUser = await User.findOne({ email: { $regex: new RegExp(`^${searchTerm}$`, 'i') } });
+        if (targetUser) {
+          searchType = 'email';
+        }
+      } else {
+        // Username search - check for MULTIPLE matches to catch ban evaders!
+        // Escape regex special characters to prevent injection
+        const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // 1. Find current user with this exact username
+        const currentUserWithName = await User.findOne({ 
+          username: { $regex: new RegExp(`^${escapedSearchTerm}$`, 'i') } 
+        });
+        
+        // 2. Find users who previously had this EXACT username (from name changes)
+        const pastNameLogs = await ModerationLog.find({
+          'nameChange.oldName': { $regex: new RegExp(`^${escapedSearchTerm}$`, 'i') },
+          actionType: { $in: ['name_change_approved', 'name_change_forced', 'force_name_change'] }
+        }).sort({ createdAt: -1 }).limit(20).lean();
+        
+        // Get unique account IDs from past name logs (filter out nulls)
+        const pastUserIds = [...new Set(
+          pastNameLogs
+            .filter(log => log.targetUser?.accountId)
+            .map(log => log.targetUser.accountId)
+        )];
+        
+        // Fetch those users (excluding current user if they're in the list)
+        let pastUsers = [];
+        if (pastUserIds.length > 0) {
+          const excludeId = currentUserWithName?._id;
+          pastUsers = await User.find({
+            _id: { $in: pastUserIds },
+            ...(excludeId ? { _id: { $ne: excludeId } } : {})
+          }).limit(10).lean();
+        }
+        
+        // Build list of all matches
+        const allMatches = [];
+        
+        if (currentUserWithName) {
+          allMatches.push({
+            user: currentUserWithName,
+            matchType: 'current_username',
+            matchInfo: `Currently using "${searchTerm}"`
+          });
+        }
+        
+        for (const pastUser of pastUsers) {
+          const relevantLogs = pastNameLogs.filter(log => log.targetUser.accountId === pastUser._id.toString());
+          const changeDate = relevantLogs[0]?.createdAt;
+          allMatches.push({
+            user: pastUser,
+            matchType: 'past_username',
+            matchInfo: `Previously used "${searchTerm}" (changed ${changeDate ? new Date(changeDate).toLocaleDateString() : 'unknown'})`
+          });
+        }
+        
+        // If multiple matches found, return them all for review
+        if (allMatches.length > 1) {
+          // Build detailed info for each match
+          const multipleMatches = await Promise.all(allMatches.map(async (match) => {
+            return {
+              _id: match.user._id,
+              username: match.user.username,
+              email: match.user.email,
+              totalXp: match.user.totalXp,
+              elo: match.user.elo,
+              banned: match.user.banned,
+              banType: match.user.banType,
+              pendingNameChange: match.user.pendingNameChange,
+              staff: match.user.staff,
+              supporter: match.user.supporter,
+              created_at: match.user.created_at,
+              matchType: match.matchType,
+              matchInfo: match.matchInfo
+            };
+          }));
+          
+          return res.status(200).json({
+            multipleMatches: true,
+            searchTerm: searchTerm,
+            matchCount: multipleMatches.length,
+            matches: multipleMatches,
+            warning: '⚠️ Multiple accounts associated with this username - possible ban evasion!'
+          });
+        }
+        
+        // Single match or no match
+        if (allMatches.length === 1) {
+          targetUser = allMatches[0].user;
+          searchType = allMatches[0].matchType === 'current_username' ? 'username' : 'past_username';
+          if (searchType === 'past_username') {
             const response = await buildUserResponse(targetUser);
             response.foundByPastName = true;
-            response.searchedName = username;
+            response.searchedName = searchTerm;
             return res.status(200).json(response);
           }
         }
       }
 
       if (!targetUser) {
-        return res.status(404).json({ message: 'User not found' });
+        return res.status(404).json({ message: `User not found. Searched by: ${isObjectId ? 'Account ID' : isEmail ? 'Email' : 'Username'}` });
       }
     } else {
       return res.status(400).json({ message: 'Username or accountId is required' });
@@ -155,6 +284,7 @@ async function buildUserResponse(targetUser) {
   const response = {
     targetUser: {
       username: targetUser.username,
+      email: targetUser.email || null, // Include email for staff lookup
       secret: targetUser.secret,
       _id: targetUser._id,
       totalXp: targetUser.totalXp,
