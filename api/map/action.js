@@ -67,7 +67,7 @@ async function validateMap(name, data, description_short, description_long, edit
   if(typeof description_long !== 'string' || description_long.length > mapConst.MAX_LONG_DESCRIPTION_LENGTH) {
     return `Long description must be under ${mapConst.MAX_LONG_DESCRIPTION_LENGTH} characters`;
   }
-  
+
   // if long description is provided, it must meet minimum length
   if(description_long.length > 0 && description_long.length < mapConst.MIN_LONG_DESCRIPTION_LENGTH) {
     return `Long description must be at least ${mapConst.MIN_LONG_DESCRIPTION_LENGTH} characters or left empty`;
@@ -148,6 +148,11 @@ export default async function handler(req, res) {
   const user = await User.findOne({ secret: secret });
   if(!user) {
     return res.status(404).json({ message: 'User not found' });
+  }
+
+  // prevent banned users from creating/editing maps
+  if(user.banned) {
+    return res.status(403).json({ message: 'Your account is suspended. You cannot create or edit maps.' });
   }
 
   // creating map
