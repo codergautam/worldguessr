@@ -3,26 +3,18 @@ import { useTranslation } from '@/components/useTranslations';
 
 /**
  * PendingNameChangeModal
- * 
+ *
  * Shown to users who have been forced to change their username due to an
  * inappropriate username report. They can still play singleplayer but not
  * multiplayer until their new name is approved.
  */
 export default function PendingNameChangeModal({ session, onClose, isOpen = true }) {
-  
-  // Don't render if not open
-  if (!isOpen) return null;
   const { t: text } = useTranslation("common");
   const [newUsername, setNewUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [existingRequest, setExistingRequest] = useState(null);
-
-  // Check if there's an existing pending request
-  useEffect(() => {
-    checkExistingRequest();
-  }, []);
 
   const checkExistingRequest = async () => {
     try {
@@ -42,6 +34,16 @@ export default function PendingNameChangeModal({ session, onClose, isOpen = true
       console.error('Error checking name change status:', err);
     }
   };
+
+  // Check if there's an existing pending request
+  useEffect(() => {
+    if (isOpen) {
+      checkExistingRequest();
+    }
+  }, [isOpen]);
+
+  // Don't render if not open
+  if (!isOpen) return null;
 
   const submitNameChange = async () => {
     if (!newUsername.trim()) {
@@ -114,12 +116,12 @@ export default function PendingNameChangeModal({ session, onClose, isOpen = true
             <div style={styles.pendingBox}>
               <h3 style={styles.pendingTitle}>⏳ Awaiting Approval</h3>
               <p style={styles.pendingText}>
-                Your requested username <strong>"{existingRequest.requestedUsername}"</strong> is being reviewed by our moderation team.
+                Your requested username <strong>&quot;{existingRequest.requestedUsername}&quot;</strong> is being reviewed by our moderation team.
               </p>
               <p style={styles.pendingNote}>
                 You will be able to play multiplayer once your new username is approved. This usually takes less than 7 days.
               </p>
-              
+
               <div style={styles.divider}>
                 <span>or submit a different name</span>
               </div>
@@ -128,7 +130,7 @@ export default function PendingNameChangeModal({ session, onClose, isOpen = true
             <div style={styles.rejectedBox}>
               <h3 style={styles.rejectedTitle}>❌ Name Rejected</h3>
               <p style={styles.rejectedText}>
-                Your requested username <strong>"{existingRequest.requestedUsername}"</strong> was rejected.
+                Your requested username <strong>&quot;{existingRequest.requestedUsername}&quot;</strong> was rejected.
               </p>
               {existingRequest.rejectionReason && (
                 <p style={styles.rejectedReason}>

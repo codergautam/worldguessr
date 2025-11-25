@@ -51,6 +51,22 @@ export default function ModDashboard({ session }) {
   // Multiple matches state (for ban evader detection)
   const [multipleMatches, setMultipleMatches] = useState(null);
 
+  // Audit logs state
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+  const [auditLogsModerators, setAuditLogsModerators] = useState([]);
+  const [auditLogsStats, setAuditLogsStats] = useState(null);
+  const [auditLogsFilter, setAuditLogsFilter] = useState({ moderatorId: 'all', actionType: 'all' });
+  const [auditLogsPagination, setAuditLogsPagination] = useState({ page: 1, totalPages: 1, totalCount: 0 });
+
+  // Clear messages after delay
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
   // View a specific report in the reports tab
   const viewReportInTab = (report) => {
     setFocusedReport(report);
@@ -60,7 +76,7 @@ export default function ModDashboard({ session }) {
     fetchReports(report.status === 'pending' ? 'pending' : 'all');
   };
 
-  // Check if user is staff
+  // Check if user is staff - must be after all hooks
   if (!session?.token?.staff) {
     return (
       <div className={styles.unauthorized}>
@@ -78,14 +94,6 @@ export default function ModDashboard({ session }) {
       </div>
     );
   }
-
-  // Clear messages after delay
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => setSuccessMessage(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
 
   const lookupUser = async () => {
     if (!usernameInput.trim()) {
@@ -338,6 +346,38 @@ export default function ModDashboard({ session }) {
     }
   };
 
+  // Fetch audit logs
+  const fetchAuditLogs = async (page = 1) => {
+    setAuditLogsLoading(true);
+    try {
+      const response = await fetch(window.cConfig.apiUrl + '/api/mod/auditLogs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: session.token.secret,
+          moderatorId: auditLogsFilter.moderatorId,
+          actionType: auditLogsFilter.actionType,
+          page,
+          limit: 50
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch audit logs');
+      }
+
+      const data = await response.json();
+      setAuditLogs(data.logs);
+      setAuditLogsModerators(data.moderators);
+      setAuditLogsStats(data.stats);
+      setAuditLogsPagination(data.pagination);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAuditLogsLoading(false);
+    }
+  };
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (tab === 'reports' && groupedReports.length === 0 && flatReports.length === 0) {
@@ -345,6 +385,9 @@ export default function ModDashboard({ session }) {
     }
     if (tab === 'nameReview' && nameRequests.length === 0) {
       fetchNameReviewQueue();
+    }
+    if (tab === 'auditLogs' && auditLogs.length === 0) {
+      fetchAuditLogs();
     }
   };
 
@@ -663,7 +706,7 @@ export default function ModDashboard({ session }) {
 
             {type === 'ignore' && (
               <p className={styles.warning}>
-                ⚠️ This will mark the report(s) as ignored and increment the reporter's unhelpful report count.
+                ⚠️ This will mark the report(s) as ignored and increment the reporter&apos;s unhelpful report count.
               </p>
             )}
 
@@ -911,7 +954,7 @@ export default function ModDashboard({ session }) {
 
               <div className={styles.formGroup}>
                 <label style={{ color: '#f85149' }}>
-                  Type <strong>"{deleteModal.username}"</strong> to confirm:
+                  Type <strong>&quot;{deleteModal.username}&quot;</strong> to confirm:
                 </label>
                 <input
                   type="text"
@@ -1014,6 +1057,12 @@ export default function ModDashboard({ session }) {
                 <span className={styles.badge}>{nameReviewStats.pending}</span>
               )}
             </button>
+            <button
+              className={`${styles.tab} ${activeTab === 'auditLogs' ? styles.activeTab : ''}`}
+              onClick={() => handleTabChange('auditLogs')}
+            >
+              📋 Audit Logs
+            </button>
           </div>
 
           <div className={styles.searchSection}>
@@ -1046,7 +1095,7 @@ export default function ModDashboard({ session }) {
                   <div className={styles.multipleMatchesWarning}>
                     <h3>⚠️ Multiple Accounts Found!</h3>
                     <p>
-                      <strong>{multipleMatches.matchCount} accounts</strong> are associated with the username "<strong>{multipleMatches.searchTerm}</strong>".
+                      <strong>{multipleMatches.matchCount} accounts</strong> are associated with the username &quot;<strong>{multipleMatches.searchTerm}</strong>&quot;.
                       This could indicate <span style={{ color: '#f85149' }}>ban evasion</span>.
                     </p>
                   </div>
@@ -1246,7 +1295,7 @@ export default function ModDashboard({ session }) {
                   <div className={styles.instructions}>
                     <h3>Moderator Tools</h3>
                     <ul>
-                      <li><span>🔍</span><span>Enter a player's username to view their complete profile and history</span></li>
+                      <li><span>🔍</span><span>Enter a player&apos;s username to view their complete profile and history</span></li>
                       <li><span>📊</span><span>View detailed moderation history, bans, and username changes</span></li>
                       <li><span>⚖️</span><span>Take moderation actions: Ban, Temp Ban, Force Name Change, Unban</span></li>
                       <li><span>🎮</span><span>Review game history and investigate suspicious gameplay</span></li>
@@ -1657,6 +1706,181 @@ export default function ModDashboard({ session }) {
                             ❌ Reject
                           </button>
                         </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Audit Logs Tab */}
+          {activeTab === 'auditLogs' && (
+            <div className={styles.reportsSection}>
+              {/* Stats */}
+              {auditLogsStats && (
+                <div className={styles.statsBar}>
+                  <div className={styles.statItem}>
+                    <span className={styles.statLabel}>Total Actions</span>
+                    <span className={styles.statValue}>{auditLogsStats.totalActions}</span>
+                  </div>
+                  <div className={styles.statItem}>
+                    <span className={styles.statLabel}>Unique Moderators</span>
+                    <span className={styles.statValue}>{auditLogsStats.uniqueModerators}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Filters */}
+              <div className={styles.filterBar}>
+                <select
+                  value={auditLogsFilter.moderatorId}
+                  onChange={(e) => {
+                    setAuditLogsFilter(prev => ({ ...prev, moderatorId: e.target.value }));
+                    setTimeout(() => fetchAuditLogs(1), 0);
+                  }}
+                  className={styles.filterSelect}
+                >
+                  <option value="all">All Moderators</option>
+                  {auditLogsModerators.map(mod => (
+                    <option key={mod.accountId} value={mod.accountId}>
+                      {mod.username} ({mod.actionCount} actions)
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={auditLogsFilter.actionType}
+                  onChange={(e) => {
+                    setAuditLogsFilter(prev => ({ ...prev, actionType: e.target.value }));
+                    setTimeout(() => fetchAuditLogs(1), 0);
+                  }}
+                  className={styles.filterSelect}
+                >
+                  <option value="all">All Action Types</option>
+                  <option value="ban_permanent">⛔ Permanent Ban</option>
+                  <option value="ban_temporary">⏱️ Temporary Ban</option>
+                  <option value="unban">✅ Unban</option>
+                  <option value="force_name_change">✏️ Force Name Change</option>
+                  <option value="name_change_approved">👍 Name Change Approved</option>
+                  <option value="name_change_rejected">👎 Name Change Rejected</option>
+                  <option value="report_ignored">🚫 Report Ignored</option>
+                </select>
+
+                <button onClick={() => fetchAuditLogs(1)} className={styles.refreshBtn}>
+                  🔄 Refresh
+                </button>
+              </div>
+
+              {/* Pagination */}
+              {auditLogsPagination.totalPages > 1 && (
+                <div className={styles.pagination}>
+                  <button
+                    onClick={() => fetchAuditLogs(auditLogsPagination.page - 1)}
+                    disabled={auditLogsPagination.page <= 1 || auditLogsLoading}
+                    className={styles.pageBtn}
+                  >
+                    ← Previous
+                  </button>
+                  <span className={styles.pageInfo}>
+                    Page {auditLogsPagination.page} of {auditLogsPagination.totalPages}
+                    {' '}({auditLogsPagination.totalCount} total)
+                  </span>
+                  <button
+                    onClick={() => fetchAuditLogs(auditLogsPagination.page + 1)}
+                    disabled={auditLogsPagination.page >= auditLogsPagination.totalPages || auditLogsLoading}
+                    className={styles.pageBtn}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+
+              {auditLogsLoading ? (
+                <div className={styles.loadingText}>Loading audit logs...</div>
+              ) : auditLogs.length === 0 ? (
+                <div className={styles.noReports}>
+                  <span style={{ fontSize: '48px', marginBottom: '16px' }}>📋</span>
+                  <p>No audit logs found</p>
+                </div>
+              ) : (
+                <div className={styles.reportsList}>
+                  {auditLogs.map((log) => (
+                    <div key={log._id} className={styles.auditLogCard}>
+                      <div className={styles.auditLogHeader}>
+                        <span className={styles.auditLogAction}>
+                          {log.actionType === 'ban_permanent' && '⛔ Permanent Ban'}
+                          {log.actionType === 'ban_temporary' && '⏱️ Temporary Ban'}
+                          {log.actionType === 'unban' && '✅ Unban'}
+                          {log.actionType === 'force_name_change' && '✏️ Force Name Change'}
+                          {log.actionType === 'name_change_approved' && '👍 Name Approved'}
+                          {log.actionType === 'name_change_rejected' && '👎 Name Rejected'}
+                          {log.actionType === 'report_ignored' && '🚫 Report Ignored'}
+                          {log.actionType === 'warning' && '⚠️ Warning'}
+                        </span>
+                        <span className={styles.auditLogDate}>
+                          {new Date(log.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className={styles.auditLogBody}>
+                        <div className={styles.auditLogRow}>
+                          <span className={styles.auditLogLabel}>Target:</span>
+                          <span
+                            className={styles.auditLogValue}
+                            style={{ cursor: 'pointer', color: '#58a6ff' }}
+                            onClick={() => {
+                              setUsernameInput(log.targetUser.accountId);
+                              lookupUser();
+                            }}
+                          >
+                            {log.targetUser.username}
+                          </span>
+                        </div>
+                        <div className={styles.auditLogRow}>
+                          <span className={styles.auditLogLabel}>Moderator:</span>
+                          <span className={styles.auditLogValue}>{log.moderator.username}</span>
+                        </div>
+                        {log.reason && (
+                          <div className={styles.auditLogRow}>
+                            <span className={styles.auditLogLabel}>Reason:</span>
+                            <span className={styles.auditLogValue}>{log.reason}</span>
+                          </div>
+                        )}
+                        {log.durationString && (
+                          <div className={styles.auditLogRow}>
+                            <span className={styles.auditLogLabel}>Duration:</span>
+                            <span className={styles.auditLogValue}>{log.durationString}</span>
+                          </div>
+                        )}
+                        {log.nameChange?.oldName && (
+                          <div className={styles.auditLogRow}>
+                            <span className={styles.auditLogLabel}>Name Change:</span>
+                            <span className={styles.auditLogValue}>
+                              {log.nameChange.oldName} → {log.nameChange.newName || '(pending)'}
+                            </span>
+                          </div>
+                        )}
+                        {log.eloRefund?.totalRefunded > 0 && (
+                          <div className={styles.auditLogRow}>
+                            <span className={styles.auditLogLabel}>ELO Refunded:</span>
+                            <span className={styles.auditLogValue} style={{ color: '#3fb950' }}>
+                              +{log.eloRefund.totalRefunded} to {log.eloRefund.opponentsAffected} player(s)
+                            </span>
+                          </div>
+                        )}
+                        {log.notes && (
+                          <div className={styles.auditLogRow}>
+                            <span className={styles.auditLogLabel}>Public Note:</span>
+                            <span className={styles.auditLogValue} style={{ color: '#d29922' }}>{log.notes}</span>
+                          </div>
+                        )}
+                        {log.relatedReports > 0 && (
+                          <div className={styles.auditLogRow}>
+                            <span className={styles.auditLogLabel}>Related Reports:</span>
+                            <span className={styles.auditLogValue}>{log.relatedReports}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}

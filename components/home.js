@@ -1428,7 +1428,7 @@ export default function Home({ }) {
                         if (!prev?.gameData?.locations && data.locations) {
                             setLatLong(data.locations[data.curRound - 1])
 
-                            
+
                         } else {
                             setLatLong(prev?.gameData?.locations[data.curRound - 1])
                         }
@@ -2110,10 +2110,10 @@ export default function Home({ }) {
             <DiscordModal shown={showDiscordModal && (typeof window !== 'undefined' && window.innerWidth >= 768)} setOpen={setShowDiscordModal} />
             {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
             <MapGuessrModal isOpen={mapGuessrModal} onClose={() => setMapGuessrModal(false)} />
-            <PendingNameChangeModal 
-              session={session} 
-              isOpen={pendingNameChangeModal} 
-              onClose={() => setPendingNameChangeModal(false)} 
+            <PendingNameChangeModal
+              session={session}
+              isOpen={pendingNameChangeModal}
+              onClose={() => setPendingNameChangeModal(false)}
             />
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
@@ -2278,7 +2278,7 @@ export default function Home({ }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <span>⚠️</span>
                       <span style={{ fontWeight: 500 }}>Username change required - Multiplayer disabled</span>
-                      <button 
+                      <button
                         onClick={() => setPendingNameChangeModal(true)}
                         style={{
                           backgroundColor: '#000',
@@ -2295,8 +2295,8 @@ export default function Home({ }) {
                       </button>
                     </div>
                     {session?.token?.pendingNameChangePublicNote && (
-                      <div style={{ 
-                        fontSize: '0.85rem', 
+                      <div style={{
+                        fontSize: '0.85rem',
                         opacity: 0.9,
                         textAlign: 'center',
                         maxWidth: '400px'
@@ -2336,7 +2336,7 @@ export default function Home({ }) {
                           </span>
                         )}
                       </span>
-                      <a 
+                      <a
                         href="mailto:support@worldguessr.com"
                         style={{
                           backgroundColor: '#fff',
@@ -2352,8 +2352,8 @@ export default function Home({ }) {
                       </a>
                     </div>
                     {session?.token?.banPublicNote && (
-                      <div style={{ 
-                        fontSize: '0.85rem', 
+                      <div style={{
+                        fontSize: '0.85rem',
                         opacity: 0.95,
                         textAlign: 'center',
                         maxWidth: '400px'
@@ -2687,12 +2687,18 @@ export default function Home({ }) {
                 </div>
                 }
 
-                <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")} options={options}
-
+                <RoundOverScreen
+                    hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)}
+                    duel={true}
+                    data={multiplayerState?.gameData?.duelEnd}
+                    multiplayerState={multiplayerState}
+                    session={session}
+                    gameId={multiplayerState?.gameData?.code}
+                    button1Text={text("playAgain")}
+                    options={options}
                     button1Press={() => {
                         backBtnPressed(true, "ranked")
                     }}
-
                     button2Text={text("home")}
                     button2Press={() => {
                         backBtnPressed()

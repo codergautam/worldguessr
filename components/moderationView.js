@@ -53,15 +53,19 @@ export default function ModerationView({ session }) {
         const expires = new Date(expiresAt);
         const diff = expires - now;
 
-        if (diff <= 0) return 'Expired';
+        if (diff <= 0) return text("expired");
 
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
 
-        if (days > 0) return `${days} day${days > 1 ? 's' : ''}, ${hours} hour${hours !== 1 ? 's' : ''}`;
-        if (hours > 0) return `${hours} hour${hours !== 1 ? 's' : ''}, ${minutes} minute${minutes !== 1 ? 's' : ''}`;
-        return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+        const dayText = days > 1 ? text("daysPlural") : text("daysSingular");
+        const hourText = hours !== 1 ? text("hourPlural") : text("hourSingular");
+        const minuteText = minutes !== 1 ? text("minutePlural") : text("minuteSingular");
+
+        if (days > 0) return `${days} ${dayText}, ${hours} ${hourText}`;
+        if (hours > 0) return `${hours} ${hourText}, ${minutes} ${minuteText}`;
+        return `${minutes} ${minuteText}`;
     };
 
     const containerStyle = {
@@ -159,18 +163,18 @@ export default function ModerationView({ session }) {
 
     const getStatusText = (status) => {
         switch (status) {
-            case 'open': return 'Under Review';
-            case 'action_taken': return 'Action Taken';
-            case 'ignored': return 'No Action Needed';
+            case 'open': return text("reportStatusOpen");
+            case 'action_taken': return text("reportStatusActionTaken");
+            case 'ignored': return text("reportStatusIgnored");
             default: return status;
         }
     };
 
     const getReasonText = (reason) => {
         switch (reason) {
-            case 'inappropriate_username': return 'Inappropriate Username';
-            case 'cheating': return 'Cheating';
-            case 'other': return 'Other';
+            case 'inappropriate_username': return text("reportReasonInappropriateUsername");
+            case 'cheating': return text("reportReasonCheating");
+            case 'other': return text("reportReasonOther");
             default: return reason;
         }
     };
@@ -180,7 +184,7 @@ export default function ModerationView({ session }) {
             <div style={containerStyle}>
                 <div style={cardStyle}>
                     <div style={{ textAlign: 'center', padding: '40px', color: '#b0b0b0' }}>
-                        Loading moderation data...
+                        {text("loadingModerationData")}
                     </div>
                 </div>
             </div>
@@ -236,7 +240,7 @@ export default function ModerationView({ session }) {
                         textTransform: 'uppercase',
                         letterSpacing: '2px'
                     }}>
-                        {banType === 'temporary' ? 'Account Temporarily Suspended' : 'Account Suspended'}
+                        {banType === 'temporary' ? text("accountTempSuspended") : text("accountSuspended")}
                     </h2>
 
                     {banType === 'temporary' && banExpiresAt && (
@@ -248,13 +252,13 @@ export default function ModerationView({ session }) {
                             marginBottom: '15px'
                         }}>
                             <div style={{ color: '#b0b0b0', fontSize: 'clamp(12px, 2.5vw, 14px)', marginBottom: '5px' }}>
-                                TIME REMAINING
+                                {text("timeRemaining").toUpperCase()}
                             </div>
                             <div style={{ color: '#ffd700', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 'bold' }}>
                                 {getTimeRemaining(banExpiresAt)}
                             </div>
                             <div style={{ color: '#888', fontSize: 'clamp(11px, 2.5vw, 13px)', marginTop: '5px' }}>
-                                Expires: {new Date(banExpiresAt).toLocaleString()}
+                                {text("expires")}: {new Date(banExpiresAt).toLocaleString()}
                             </div>
                         </div>
                     )}
@@ -269,7 +273,7 @@ export default function ModerationView({ session }) {
                             margin: '15px auto 0'
                         }}>
                             <div style={{ color: '#b0b0b0', fontSize: 'clamp(11px, 2.5vw, 13px)', marginBottom: '8px' }}>
-                                REASON
+                                {text("reason").toUpperCase()}
                             </div>
                             <div style={{ color: '#e0e0e0', fontSize: 'clamp(14px, 3vw, 16px)', lineHeight: '1.5' }}>
                                 {banPublicNote}
@@ -286,8 +290,8 @@ export default function ModerationView({ session }) {
                         lineHeight: '1.6'
                     }}>
                         {banType === 'temporary'
-                            ? 'Your account access is temporarily restricted. You cannot participate in multiplayer games until the suspension expires.'
-                            : 'Your account has been permanently suspended due to violations of our community guidelines. You cannot participate in multiplayer games.'}
+                            ? text("suspensionExplanationTemp")
+                            : text("suspensionExplanationPerm")}
                     </p>
                 </div>
             )}
@@ -304,7 +308,7 @@ export default function ModerationView({ session }) {
                         fontWeight: 'bold',
                         marginBottom: '15px'
                     }}>
-                        Username Change Required
+                        {text("usernameChangeRequired")}
                     </h2>
 
                     {pendingNameChangePublicNote && (
@@ -317,7 +321,7 @@ export default function ModerationView({ session }) {
                             margin: '0 auto 20px'
                         }}>
                             <div style={{ color: '#b0b0b0', fontSize: 'clamp(11px, 2.5vw, 13px)', marginBottom: '8px' }}>
-                                REASON
+                                {text("reason").toUpperCase()}
                             </div>
                             <div style={{ color: '#e0e0e0', fontSize: 'clamp(14px, 3vw, 16px)', lineHeight: '1.5' }}>
                                 {pendingNameChangePublicNote}
@@ -332,26 +336,26 @@ export default function ModerationView({ session }) {
                         margin: '0 auto 15px',
                         lineHeight: '1.6'
                     }}>
-                        Your username has been flagged as inappropriate. You must change your username before you can continue playing multiplayer games.
+                        {text("usernameChangeExplanation")}
                     </p>
 
                     <p style={{
                         color: '#888',
                         fontSize: 'clamp(12px, 2.5vw, 14px)'
                     }}>
-                        Go to your Profile tab to change your username.
+                        {text("goToProfileToChange")}
                     </p>
                 </div>
             )}
 
             {/* Header Card with Stats */}
             <div style={cardStyle}>
-                <h2 style={titleStyle}>⚖️ Moderation</h2>
+                <h2 style={titleStyle}>⚖️ {text("moderation")}</h2>
 
                 <div style={statsGridStyle}>
                     <div style={statItemStyle}>
                         <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#b0b0b0', marginBottom: '4px' }}>
-                            ELO REFUNDED
+                            {text("eloRefunded").toUpperCase()}
                         </div>
                         <div style={{ fontSize: 'clamp(18px, 4vw, 24px)', color: '#4caf50', fontWeight: 'bold' }}>
                             +{data?.totalEloRefunded || 0}
@@ -359,7 +363,7 @@ export default function ModerationView({ session }) {
                     </div>
                     <div style={statItemStyle}>
                         <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#b0b0b0', marginBottom: '4px' }}>
-                            REPORTS FILED
+                            {text("reportsFiled").toUpperCase()}
                         </div>
                         <div style={{ fontSize: 'clamp(18px, 4vw, 24px)', color: '#ffd700', fontWeight: 'bold' }}>
                             {data?.reportStats?.total || 0}
@@ -367,7 +371,7 @@ export default function ModerationView({ session }) {
                     </div>
                     <div style={statItemStyle}>
                         <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#b0b0b0', marginBottom: '4px' }}>
-                            EFFECTIVE REPORTS
+                            {text("effectiveReports").toUpperCase()}
                         </div>
                         <div style={{ fontSize: 'clamp(18px, 4vw, 24px)', color: '#4caf50', fontWeight: 'bold' }}>
                             {data?.reportStats?.actionTaken || 0}
@@ -381,19 +385,19 @@ export default function ModerationView({ session }) {
                         style={tabStyle(activeSection === 'refunds')}
                         onClick={() => setActiveSection('refunds')}
                     >
-                        💰 ELO Refunds ({data?.eloRefunds?.length || 0})
+                        💰 {text("eloRefundsTab")} ({data?.eloRefunds?.length || 0})
                     </button>
                     <button
                         style={tabStyle(activeSection === 'history')}
                         onClick={() => setActiveSection('history')}
                     >
-                        📋 Account History ({data?.moderationHistory?.length || 0})
+                        📋 {text("accountHistoryTab")} ({data?.moderationHistory?.length || 0})
                     </button>
                     <button
                         style={tabStyle(activeSection === 'reports')}
                         onClick={() => setActiveSection('reports')}
                     >
-                        🚩 My Reports ({data?.submittedReports?.length || 0})
+                        🚩 {text("myReportsTab")} ({data?.submittedReports?.length || 0})
                     </button>
                 </div>
             </div>
@@ -404,10 +408,10 @@ export default function ModerationView({ session }) {
                 {activeSection === 'refunds' && (
                     <>
                         <h3 style={{ ...titleStyle, fontSize: 'clamp(16px, 3.5vw, 24px)' }}>
-                            ELO Refunds from Banned Players
+                            {text("eloRefundsTitle")}
                         </h3>
                         <p style={{ color: '#888', textAlign: 'center', marginBottom: '20px', fontSize: 'clamp(12px, 2.5vw, 14px)' }}>
-                            When a cheater is banned, ELO lost against them is automatically refunded.
+                            {text("eloRefundsDesc")}
                         </p>
 
                         {data?.eloRefunds?.length > 0 ? (
@@ -417,10 +421,10 @@ export default function ModerationView({ session }) {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                                             <div>
                                                 <span style={{ color: '#4caf50', fontWeight: 'bold', fontSize: 'clamp(16px, 3.5vw, 20px)' }}>
-                                                    +{refund.amount} ELO
+                                                    {text("eloRefundAmount", { amount: refund.amount })}
                                                 </span>
                                                 <span style={{ color: '#888', marginLeft: '10px', fontSize: 'clamp(12px, 2.5vw, 14px)' }}>
-                                                    from banned player: <span style={{ color: '#f44336' }}>{refund.bannedUsername}</span>
+                                                    {text("fromBannedPlayer")}: <span style={{ color: '#f44336' }}>{refund.bannedUsername}</span>
                                                 </span>
                                             </div>
                                             <div style={{ color: '#888', fontSize: 'clamp(11px, 2.5vw, 13px)' }}>
@@ -432,7 +436,7 @@ export default function ModerationView({ session }) {
                             </div>
                         ) : (
                             <div style={emptyStyle}>
-                                No ELO refunds yet. You'll see refunds here if you ever lose ELO to a player who later gets banned for cheating.
+                                {text("noEloRefundsYet")}
                             </div>
                         )}
                     </>
@@ -442,7 +446,7 @@ export default function ModerationView({ session }) {
                 {activeSection === 'history' && (
                     <>
                         <h3 style={{ ...titleStyle, fontSize: 'clamp(16px, 3.5vw, 24px)' }}>
-                            Account Moderation History
+                            {text("accountModerationHistory")}
                         </h3>
 
                         {data?.moderationHistory?.length > 0 ? (
@@ -466,7 +470,7 @@ export default function ModerationView({ session }) {
                                                 )}
                                                 {item.expiresAt && new Date(item.expiresAt) > new Date() && (
                                                     <div style={{ color: '#ffd700', marginTop: '8px', fontSize: 'clamp(11px, 2.5vw, 13px)' }}>
-                                                        Expires: {formatDate(item.expiresAt)} ({item.durationString})
+                                                        {text("expires")}: {formatDate(item.expiresAt)} ({item.durationString})
                                                     </div>
                                                 )}
                                             </div>
@@ -479,7 +483,7 @@ export default function ModerationView({ session }) {
                             </div>
                         ) : (
                             <div style={emptyStyle}>
-                                ✅ No moderation actions on your account. Keep playing fair!
+                                ✅ {text("noModerationActions")}
                             </div>
                         )}
                     </>
@@ -489,10 +493,10 @@ export default function ModerationView({ session }) {
                 {activeSection === 'reports' && (
                     <>
                         <h3 style={{ ...titleStyle, fontSize: 'clamp(16px, 3.5vw, 24px)' }}>
-                            Reports You've Submitted
+                            {text("reportsYouSubmitted")}
                         </h3>
                         <p style={{ color: '#888', textAlign: 'center', marginBottom: '20px', fontSize: 'clamp(12px, 2.5vw, 14px)' }}>
-                            Track the status of your reports. For privacy, specific actions taken are not disclosed.
+                            {text("reportsPrivacyNote")}
                         </p>
 
                         {data?.submittedReports?.length > 0 ? (
@@ -533,7 +537,7 @@ export default function ModerationView({ session }) {
                             </div>
                         ) : (
                             <div style={emptyStyle}>
-                                You haven't submitted any reports yet. If you encounter cheaters or inappropriate usernames, you can report them after a multiplayer game.
+                                {text("noReportsSubmitted")}
                             </div>
                         )}
                     </>
