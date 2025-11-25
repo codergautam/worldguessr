@@ -2009,13 +2009,25 @@ export default function Home({ }) {
         }
     }
 
-    const ChatboxMemo = React.useMemo(() => <ChatBox miniMapShown={miniMapShown} ws={ws} open={multiplayerChatOpen} onToggle={() => setMultiplayerChatOpen(!multiplayerChatOpen)} enabled={
-        session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH
-    }
+    // Stable callback for chat toggle to prevent ChatBox re-renders
+    const handleChatToggle = React.useCallback(() => {
+        setMultiplayerChatOpen(prev => !prev);
+    }, []);
+
+    // Memoized ChatBox - uses stable function references (handleChatToggle) and
+    // internal useCallback hooks to prevent chat input from resetting between rounds
+    const ChatboxMemo = React.useMemo(() => <ChatBox
+        miniMapShown={miniMapShown}
+        ws={ws}
+        open={multiplayerChatOpen}
+        onToggle={handleChatToggle}
+        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH}
         isGuest={session?.token?.secret ? false : true}
         publicGame={multiplayerState?.gameData?.public}
-        myId={multiplayerState?.gameData?.myId} inGame={multiplayerState?.inGame}
-        roundOverScreenShown={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'} />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, miniMapShown, session?.token?.secret])
+        myId={multiplayerState?.gameData?.myId}
+        inGame={multiplayerState?.inGame}
+        roundOverScreenShown={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
+    />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, session?.token?.secret, handleChatToggle, miniMapShown, multiplayerState?.gameData?.state])
 
     // Send pong every 10 seconds if websocket is connected
     useEffect(() => {
