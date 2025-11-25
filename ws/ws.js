@@ -28,7 +28,7 @@ import { createClient } from 'redis';
 
 let redisClient;
 if(!process.env.REDIS_URI) {
-  console.log("[MISSING-ENV WARN] REDIS_URI env variable not set".yellow);
+  console.log("[MISSING-ENV WARN] REDIS_URI env variable not set");
 } else {
 redisClient = createClient({
   url: process.env.REDIS_URI,
@@ -124,7 +124,7 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
 
 // connect to db
 if (!process.env.MONGODB) {
-  console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
+  console.log("[MISSING-ENV WARN] MONGODB env variable not set");
   dbEnabled = false;
 } else {
   // Connect to MongoDB
@@ -133,7 +133,7 @@ if (!process.env.MONGODB) {
       await mongoose.connect(process.env.MONGODB);
       console.log('[INFO] Database Connected');
     } catch (error) {
-      console.error('[ERROR] Database connection failed!'.red, error.message);
+      console.error('[ERROR] Database connection failed!', error.message);
       console.log(error);
       dbEnabled = false;
     }
