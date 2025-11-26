@@ -8,7 +8,7 @@ import NameChangeRequest from '../../models/NameChangeRequest.js';
 
 /**
  * Delete User API - Staff Only
- * 
+ *
  * Permanently deletes a user and all associated data.
  * This action is IRREVERSIBLE.
  */
@@ -17,8 +17,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { 
-    secret, 
+  const {
+    secret,
     targetUserId,
     confirmUsername,  // Must match the target user's username for safety
     reason
@@ -28,7 +28,10 @@ export default async function handler(req, res) {
   if (!secret || typeof secret !== 'string') {
     return res.status(400).json({ message: 'Invalid secret' });
   }
-
+  // username of mod has to be codergautam
+  if (moderator.username !== 'codergautam') {
+    return res.status(403).json({ message: 'Unauthorized - admin access required' });
+  }
   if (!targetUserId) {
     return res.status(400).json({ message: 'Target user ID is required' });
   }
@@ -61,8 +64,8 @@ export default async function handler(req, res) {
 
     // Verify username confirmation matches
     if (confirmUsername.toLowerCase() !== targetUser.username.toLowerCase()) {
-      return res.status(400).json({ 
-        message: `Username confirmation does not match. Expected "${targetUser.username}"` 
+      return res.status(400).json({
+        message: `Username confirmation does not match. Expected "${targetUser.username}"`
       });
     }
 
@@ -118,7 +121,7 @@ export default async function handler(req, res) {
       // Anonymize player summary data
       await Game.updateMany(
         { 'players.accountId': targetUser._id },
-        { 
+        {
           $set: {
             'players.$[elem].username': '[Deleted User]',
             'players.$[elem].accountId': null
@@ -130,7 +133,7 @@ export default async function handler(req, res) {
       // Anonymize round guess data
       const roundResult = await Game.updateMany(
         { 'rounds.playerGuesses.accountId': targetUser._id },
-        { 
+        {
           $set: {
             'rounds.$[].playerGuesses.$[guess].username': '[Deleted User]',
             'rounds.$[].playerGuesses.$[guess].accountId': null
@@ -172,7 +175,7 @@ export default async function handler(req, res) {
     if (counts.reportsMade > 0) {
       const result = await Report.updateMany(
         { 'reportedBy.accountId': targetUser._id.toString() },
-        { 
+        {
           $set: {
             'reportedBy.username': '[Deleted User]',
             'reportedBy.accountId': null
@@ -186,7 +189,7 @@ export default async function handler(req, res) {
     if (counts.reportsAgainst > 0) {
       const result = await Report.updateMany(
         { 'reportedUser.accountId': targetUser._id.toString() },
-        { 
+        {
           $set: {
             'reportedUser.username': '[Deleted User]',
             'reportedUser.accountId': null

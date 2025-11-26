@@ -52,7 +52,8 @@ export default async function handler(req, res) {
       .lean();
 
     // Get list of all moderators who have taken actions (for filter dropdown)
-    const moderatorsList = await ModerationLog.aggregate([
+    // First get unique moderator IDs from logs
+    const allModeratorsFromLogs = await ModerationLog.aggregate([
       {
         $group: {
           _id: '$moderator.accountId',
@@ -62,6 +63,15 @@ export default async function handler(req, res) {
       },
       { $sort: { actionCount: -1 } }
     ]);
+
+    // Filter to only include actual staff members (not users who just changed their own name)
+    const staffUserIds = await User.find(
+      { _id: { $in: allModeratorsFromLogs.map(m => m._id) }, staff: true },
+      { _id: 1 }
+    ).lean();
+    const staffIdSet = new Set(staffUserIds.map(u => u._id.toString()));
+
+    const moderatorsList = allModeratorsFromLogs.filter(m => staffIdSet.has(m._id));
 
     // Get action type counts for stats
     const actionTypeCounts = await ModerationLog.aggregate([
