@@ -7,5 +7,11 @@
     "date": "8/20/2025",
     "change":"WorldGuessr just got a massive update.\n\n### 🎨 Major Improvements\n- Complete redesign of the user interface with a modern, sleek look.\n- Leaderboards fully functional including Past Day ELO.\n- Better multiplayer reconnect system\n- New round over screen for detailed postgame analysis!\n\n### 📈 Revamped Profile Page\n- Track your **ELO**, **XP**, and **ranks** over time with beautiful new graphs.\n- See your growth, streaks, and slumps in a glance.\n- Redesigned layout with better organization of your stats and achievements.\n\n### 🗺️ Better Maps!\n- Added support for **panoIds** (more precise control for creators)\n\n\nHuge thanks to the community for the feedback and ideas that made this update possible 💙\n\n",
     "postedBy": "gautam @ WorldGuessr"
+  },
+  {
+    "version": "2.1.0",
+    "date": "11/26/2025",
+    "change":"Happy Thanksgiving! WorldGuessr just received a new update.\n\n### ✨ Minor Improvements\n- Upgraded Minimap with higher resolution tiles for a sharper and more readable view.\n- Faster overall loading times for a smoother gameplay experience.\n- Small stability fixes throughout the game.\n\n### 🛡️ Moderation Enhancements\n- You can now report suspicious players or inappropriate nicknames directly from your ranked duel history. This feature is rolling out gradually.\n- Automatic elo refunds for matches impacted by confirmed cheaters or external googlers.\n\n",
+    "postedBy": "gautam @ WorldGuessr"
   }
 ]
