@@ -1804,7 +1804,6 @@ export default function ModDashboard({ session }) {
                   <option value="force_name_change">✏️ Force Name Change</option>
                   <option value="name_change_approved">👍 Name Change Approved</option>
                   <option value="name_change_rejected">👎 Name Change Rejected</option>
-                  <option value="name_change_manual">📝 Name Change (User)</option>
                   <option value="report_ignored">🚫 Report Ignored</option>
                   <option value="report_resolved">✔️ Report Resolved</option>
                   <option value="warning">⚠️ Warning</option>

@@ -30,13 +30,16 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: 'Unauthorized - staff access required' });
     }
 
-    // Build query
-    const query = {};
+    // Build query - exclude voluntary name changes (name_change_manual) by default
+    const query = {
+      actionType: { $ne: 'name_change_manual' } // Exclude user-initiated name changes
+    };
 
     if (moderatorId && moderatorId !== 'all') {
       query['moderator.accountId'] = moderatorId;
     }
 
+    // If filtering by specific action type, override the exclusion
     if (actionType && actionType !== 'all') {
       query.actionType = actionType;
     }
@@ -73,8 +76,11 @@ export default async function handler(req, res) {
 
     const moderatorsList = allModeratorsFromLogs.filter(m => staffIdSet.has(m._id));
 
-    // Get action type counts for stats
+    // Get action type counts for stats (exclude voluntary name changes)
     const actionTypeCounts = await ModerationLog.aggregate([
+      {
+        $match: { actionType: { $ne: 'name_change_manual' } }
+      },
       {
         $group: {
           _id: '$actionType',
