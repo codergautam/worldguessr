@@ -317,5 +317,55 @@
   "currentElo": "Current ELO",
   "language": "Language",
   "degradedMaps": "Disabling Road Labels and NMPZ features are temporarily unavailable. We are working to fix this as soon as possible.",
-  "duelWarningText": "Using Google or any external help is prohibited and will result in a BAN."
+  "duelWarningText": "Using Google or any external help is prohibited and will result in a BAN.",
+
+  "moderation": "Moderation",
+  "moderationTab": "Moderation",
+
+  "accountSuspended": "Account Suspended",
+  "accountTempSuspended": "Account Temporarily Suspended",
+  "timeRemaining": "Time Remaining",
+  "expires": "Expires",
+  "reason": "Reason",
+  "suspensionExplanationTemp": "Your account access is temporarily restricted. You cannot participate in multiplayer games until the suspension expires.",
+  "suspensionExplanationPerm": "Your account has been permanently suspended due to violations of our community guidelines. You cannot participate in multiplayer games.",
+
+  "usernameChangeRequired": "Username Change Required",
+  "usernameChangeExplanation": "Your username has been flagged as inappropriate. You must change your username before you can continue playing multiplayer games.",
+  "goToProfileToChange": "Go to your Profile tab to change your username.",
+
+  "eloRefunded": "ELO Refunded",
+  "reportsFiled": "Reports Filed",
+  "effectiveReports": "Effective Reports",
+
+  "eloRefundsTab": "ELO Refunds",
+  "accountHistoryTab": "Account History",
+  "myReportsTab": "My Reports",
+
+  "eloRefundsTitle": "ELO Refunds from Banned Players",
+  "eloRefundsDesc": "When a cheater is banned, ELO lost against them is automatically refunded.",
+  "eloRefundAmount": "+{{amount}} ELO",
+  "fromBannedPlayer": "from banned player",
+  "noEloRefundsYet": "No ELO refunds yet. You'll see refunds here if you ever lose ELO to a player who later gets banned for cheating.",
+
+  "accountModerationHistory": "Account Moderation History",
+  "noModerationActions": "No moderation actions on your account. Keep playing fair!",
+
+  "reportsYouSubmitted": "Reports You've Submitted",
+  "reportsPrivacyNote": "Track the status of your reports. For privacy, specific actions taken are not disclosed.",
+  "noReportsSubmitted": "You haven't submitted any reports yet. If you encounter cheaters or inappropriate usernames, you can report them after a multiplayer game.",
+
+  "reportStatusOpen": "Under Review",
+  "reportStatusActionTaken": "Action Taken",
+  "reportStatusIgnored": "No Action Needed",
+
+  "reportReasonInappropriateUsername": "Inappropriate Username",
+  "reportReasonCheating": "Cheating",
+  "reportReasonOther": "Other",
+
+  "loadingModerationData": "Loading moderation data...",
+
+  "daysSingular": "day",
+  "daysPlural": "days",
+  "expired": "Expired"
 }
