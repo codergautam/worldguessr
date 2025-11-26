@@ -22,10 +22,10 @@ A free and open-source version of the popular geography game inspired by GeoGues
 
 ## Acknowledgements
 
-- [OpenStreetMap](https://www.openstreetmap.org/)
-- [OpenLayers](https://openlayers.org/)
-- [Google Maps API](https://developers.google.com/maps)
-- [Next.js](https://nextjs.org/)
+- [Leaflet](https://leafletjs.com/) for the minimap display.
+- [Google Maps API](https://developers.google.com/maps) for the generous free-tier on street view imagery.
+- [Vali](https://github.com/slashP/Vali) by @SlashP for generating balanced locations distributions for all countries.
+- [Next.js](https://nextjs.org/) for the web application.
 - All contributors who helped bring this project to life!
 
 ## Running Locally

@@ -6,20 +6,19 @@ import UserStatsService from './components/utils/userStatsService.js';
 var app = express();
 import cors from 'cors';
 app.use(cors());
-import lookup from "coordinate_to_country"
 
 import express from 'express';
 import countries from './public/countries.json' with { type: "json" };
-import findLatLongRandom from './components/findLatLongServer.js';
-import cityGen from './serverUtils/cityGen.js';
 import fs from 'fs';
 import path from 'path';
 
 import mainWorld from './public/world-main.json' with { type: "json" };
 import arbitraryWorld from './data/world-arbitrary.json' with { type: "json" };
+import pinpointableWorld from './data/world-pinpointable.json' with { type: "json" };
 
 console.log("Locations in mainWorld", mainWorld.length);
 console.log("Locations in arbitraryWorld", arbitraryWorld.length);
+console.log("Locations in pinpointableWorld", pinpointableWorld.length);
 configDotenv();
 
 console.log('[INFO] Starting cron.js...');
@@ -184,133 +183,153 @@ const startWeeklyUserStatsTimer = () => {
 // Start the weekly timer
 startWeeklyUserStatsTimer();
 
-let countryLocations = {};
-const locationCnt = 2000;
-const batchSize = 10;
+// ============================================================================
+// COUNTRY LOCATIONS SYSTEM - Uses pre-processed JSON files with embedded country codes
+// No runtime geo lookups needed - just shuffling and rotation for freshness
+// ============================================================================
 
+const SERVE_SIZE = 2000; // How many locations to serve per request
+const SHUFFLE_INTERVAL = 30 * 1000; // Reshuffle every 30 seconds for freshness
+
+// Get override countries (countries with manual map overrides)
 const overrideCountries = [];
-// get all file names of files in ./public/mapOverrides
 const mapOverridesDir = path.join(process.cwd(), 'public', 'mapOverrides');
 const mapOverrideFiles = fs.readdirSync(mapOverridesDir).filter(file => file.endsWith('.json'));
-
 for (const file of mapOverrideFiles) {
   overrideCountries.push(file.split('.')[0]);
 }
+console.log(`[INIT] Found override for countries: ${overrideCountries.join(', ')}`);
 
-console.log(`Found override for countries: ${overrideCountries.join(', ')}`);
+// Master pools - ALL locations grouped by country (never modified after init)
+const countryPools = {};
+// Served locations - rotating window into the pools
+let countryLocations = {};
+// Current offset per country for rotation
+const countryOffsets = {};
 
-for (const country of countries) {
-  if(overrideCountries.includes(country)) {
-    // Skip countries with manual overrides
-    console.log(`Skipping ${country} due to manual override`);
-    continue;
+// Fisher-Yates shuffle (in-place, fast)
+const shuffle = (arr) => {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  countryLocations[country] = [];
-}
+  return arr;
+};
 
-// Pre-populate country locations from mainWorld.json and arbitraryWorld.json (has embedded country codes)
-const initializeCountryLocations = () => {
-  console.log('[INIT] Pre-populating country locations from mainWorld.json...');
+// Initialize country pools from both JSON files
+const initializeCountryPools = () => {
+  console.log('[INIT] Building country location pools from JSON files...');
   const startTime = Date.now();
 
-  // Shuffle mainWorld and arbitraryWorld for random distribution
-  const shuffled = [...mainWorld, ...arbitraryWorld].sort(() => Math.random() - 0.5);
+  // Combine all locations
+  const allLocations = [...mainWorld, ...arbitraryWorld, ...pinpointableWorld];
 
-  let totalAdded = 0;
-  const countryCounts = {};
-
-  for (const loc of shuffled) {
+  // Group by country
+  for (const loc of allLocations) {
     const { lat, lng, country } = loc;
-    if (country && countryLocations[country]) {
-      if (countryLocations[country].length < locationCnt) {
-        countryLocations[country].push({ lat, long: lng, country });
-        totalAdded++;
-        countryCounts[country] = (countryCounts[country] || 0) + 1;
-      }
+    if (!country) continue;
+    if (overrideCountries.includes(country)) continue; // Skip overridden countries
+
+    if (!countryPools[country]) {
+      countryPools[country] = [];
     }
+    countryPools[country].push({ lat, long: lng, country });
   }
+
+  // Shuffle each pool and initialize offsets
+  const countryCounts = {};
+  for (const country of Object.keys(countryPools)) {
+    shuffle(countryPools[country]);
+    countryOffsets[country] = 0;
+    countryCounts[country] = countryPools[country].length;
+  }
+
+  // Initialize served locations (first window)
+  refreshCountryLocations();
 
   const duration = Date.now() - startTime;
-  const countriesWithData = Object.keys(countryCounts).length;
+  const totalLocs = Object.values(countryPools).reduce((sum, arr) => sum + arr.length, 0);
+  const countryCount = Object.keys(countryPools).length;
+
+  // Filter to only include countries in countries.json
+  const validCountries = new Set(countries);
+  const filteredCountryCounts = Object.fromEntries(
+    Object.entries(countryCounts).filter(([country]) => validCountries.has(country))
+  );
 
   // Log stats
-  const sorted = Object.entries(countryCounts).sort((a, b) => b[1] - a[1]);
-  const top5 = sorted.map(([c, n]) => `${c}:${n}`).join(', ');
-  const missingCountries = Object.keys(countryLocations).filter(c => !countryCounts[c]);
+  const sorted = Object.entries(filteredCountryCounts).sort((a, b) => b[1] - a[1]);
+  const top10 = sorted.slice(0, 10).map(([c, n]) => `${c}:${n}`).join(', ');
+  const bottom5 = sorted.slice(-5).map(([c, n]) => `${c}:${n}`).join(', ');
 
   console.log('━'.repeat(60));
-  console.log(`[INIT] ✅ Pre-populated ${totalAdded} locations across ${countriesWithData} countries in ${duration}ms`);
-  console.log(`[INIT] Most: ${top5}`);
-  if (missingCountries.length > 0) {
-    console.log(`[INIT] ⚠️ No data for: ${missingCountries.join(', ')}`);
-  }
+  console.log(`[INIT] ✅ Built pools: ${totalLocs.toLocaleString()} locations across ${countryCount} countries in ${duration}ms`);
+  console.log(`[INIT] Most locations: ${top10}`);
+  console.log(`[INIT] Least locations: ${bottom5}`);
+  console.log('━'.repeat(60));
+  console.log('[INIT] Total available locations per country (from countries.json):');
+  sorted.forEach(([country, count]) => {
+    console.log(`[INIT]   ${country}: ${count.toLocaleString()} locations`);
+  });
   console.log('━'.repeat(60));
 };
 
-// Initialize instantly from mainWorld
-initializeCountryLocations();
+// Refresh served locations by rotating through pools
+const refreshCountryLocations = () => {
+  for (const country of Object.keys(countryPools)) {
+    const pool = countryPools[country];
+    if (pool.length === 0) continue;
 
-const generateBalancedLocations = async () => {
-  console.log('[GENERATOR] Starting background location generator (keeps locations fresh)...');
-  while (true) {
-    const batchPromises = [];
+    // Get current offset
+    let offset = countryOffsets[country];
 
-    // Loop through each country and start generating one batch for each
-    for (const country of countries) {
-      if(!countryLocations[country]) {
-        continue;
-      }
+    // Build served array by rotating through pool
+    const served = [];
+    const count = Math.min(SERVE_SIZE, pool.length);
 
-      for (let i = 0; i < batchSize; i++) {
-      const startTime = Date.now(); // Start time for each country
-      const locationPromise = new Promise((resolve, reject) => {
-        findLatLongRandom({ location: country }, cityGen, lookup)
-          .then((latLong) => {
-            const endTime = Date.now(); // End time after fetching location
-            const duration = endTime - startTime; // Duration calculation
-
-            resolve({ country: latLong.country, latLong });
-
-          })
-          .catch(reject);
-      });
-
-      batchPromises.push(locationPromise);
-    }
+    for (let i = 0; i < count; i++) {
+      served.push(pool[(offset + i) % pool.length]);
     }
 
-    try {
-      // Await the results of generating locations for all countries in parallel
-      const batchResults = await Promise.all(batchPromises);
+    // Advance offset for next refresh (with some randomness)
+    countryOffsets[country] = (offset + Math.floor(count / 4) + Math.floor(Math.random() * 50)) % pool.length;
 
-      for (const { country, latLong } of batchResults) {
-        // Update country-specific locations, ensuring a max of locationCnt
-        try {
-          if(countryLocations[country]) {
-        countryLocations[country].unshift(latLong);
-        if (countryLocations[country].length > locationCnt) {
-          countryLocations[country].pop();
-        }
-      }
-      } catch (error) {
-        console.error('Error updating country locations', error, country, latLong);
-      }
-      }
-
-
-
-    } catch (error) {
-      console.error('Error generating locations', error);
-    }
-
-    // Delay before starting the next round of generation
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    countryLocations[country] = served;
   }
 };
 
-// Start generating balanced locations for all countries
-generateBalancedLocations();
+// Initialize pools on startup
+initializeCountryPools();
 
+// Background shuffler - keeps locations fresh by rotating and reshuffling
+const startCountryLocationShuffler = () => {
+  console.log(`[SHUFFLER] Started - refreshing every ${SHUFFLE_INTERVAL / 1000}s`);
+
+  setInterval(() => {
+    const startTime = Date.now();
+
+    // Occasionally reshuffle entire pools for variety (every 10 intervals)
+    if (Math.random() < 0.1) {
+      for (const pool of Object.values(countryPools)) {
+        shuffle(pool);
+      }
+      console.log('[SHUFFLER] Full pool reshuffle');
+    }
+
+    // Refresh served locations
+    refreshCountryLocations();
+
+    const duration = Date.now() - startTime;
+    console.log(`[SHUFFLER] Refreshed country locations in ${duration}ms`);
+  }, SHUFFLE_INTERVAL);
+};
+
+startCountryLocationShuffler();
+
+
+// ============================================================================
+// ALL COUNTRIES (World Map) CACHE - Random sampling from mainWorld
+// ============================================================================
 
 let allCountriesCache = [];
 let lastAllCountriesCacheUpdate = 0;
@@ -327,15 +346,15 @@ const updateAllCountriesCache = async () => {
   console.log('[CACHE] Starting allCountries cache update...');
 
   try {
-    // new world
-    // pick 2k locations randomly from mainWorld, calculate country based on lat/long
-    // prevent duplicates
+    // Pick 2k locations randomly from mainWorld, prevent duplicates
     const totalLocs = mainWorld.length;
     const neededLocs = 2000;
     const indexes = new Set();
+
     while (indexes.size < neededLocs) {
       indexes.add(Math.floor(Math.random() * totalLocs));
     }
+
     const locations = [];
     for (const index of indexes) {
       try {
@@ -348,7 +367,6 @@ const updateAllCountriesCache = async () => {
     }
 
     console.log(`[CACHE] Generated ${locations.length} locations from mainWorld which has ${totalLocs} total locations.`);
-
     allCountriesCache = locations;
     lastAllCountriesCacheUpdate = Date.now();
   } catch (error) {
@@ -393,10 +411,10 @@ app.get('/countryLocations/:country', (req, res) => {
      locations: countryLocations[country] });
 });
 
-// Endpoint for /clueCountries.json
+// Endpoint for /clueCountries.json (stub - clue locations not implemented in cron.js)
+const clueLocations = []; // TODO: Implement clue locations if needed
 app.get('/clueCountries.json', (req, res) => {
   if (clueLocations.length === 0) {
-    // send json {ready: false}
     return res.json({ ready: false });
   } else {
     return res.json({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) });
