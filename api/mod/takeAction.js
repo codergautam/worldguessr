@@ -258,7 +258,8 @@ export default async function handler(req, res) {
         break;
 
       case 'mark_resolved':
-        // Mark reports as resolved without taking action (neutral - doesn't affect reporter stats)
+        // Mark reports as resolved without taking punitive action
+        // The report was helpful (valid concern) but no action needed on the user
         const resolvedReportsNeutral = [];
         for (const report of reports) {
           // Atomically claim the report - only succeeds if still pending
@@ -281,8 +282,12 @@ export default async function handler(req, res) {
           if (!claimedReport) continue;
 
           resolvedReportsNeutral.push(report._id);
-          // Note: We intentionally don't increment helpful or unhelpful reports
-          // This is a neutral resolution - the report was valid but no action needed
+
+          // Increment helpful reports for reporter - the report was valid/helpful
+          // even though no punitive action was taken on the reported user
+          await User.findByIdAndUpdate(claimedReport.reportedBy.accountId, {
+            $inc: { 'reporterStats.helpfulReports': 1 }
+          });
         }
 
         // Create moderation log

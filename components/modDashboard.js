@@ -707,8 +707,8 @@ export default function ModDashboard({ session }) {
 
             {type === 'mark_resolved' && (
               <p className={styles.info}>
-                ℹ️ This will mark the report(s) as resolved without taking any action.
-                The reporter&apos;s stats will NOT be affected (neutral outcome).
+                ℹ️ This will mark the report(s) as resolved without taking punitive action on the user.
+                The reporter will receive credit for a helpful report.
               </p>
             )}
 
