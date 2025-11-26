@@ -11,7 +11,7 @@
   {
     "version": "2.1.0",
     "date": "11/26/2025",
-    "change":"Happy Thanksgiving! WorldGuessr just received a new update.\n\n### ✨ Minor Improvements\n- Upgraded Minimap with higher resolution tiles for a sharper and more readable view.\n- Faster overall loading times for a smoother gameplay experience.\n- Small stability fixes throughout the game.\n\n### 🛡️ Moderation Enhancements\n- You can now report suspicious players or inappropriate nicknames directly from your ranked duel history. This feature is rolling out gradually.\n- Automatic elo refunds for matches impacted by confirmed cheaters or external googlers.\n\n",
+    "change":"Happy Thanksgiving! WorldGuessr just received a new update.\n\n### ✨ Minor Improvements\n- Upgraded Minimap with higher resolution tiles for a sharper and more readable view.\n- Faster overall loading times for a smoother gameplay experience.\n- Small stability fixes throughout the game.\n\n### 🛡️ Moderation Enhancements\n- You can now report suspicious players or inappropriate nicknames directly from your ranked duel history. This feature is rolling out gradually.\n- Automatic elo refunds for matches impacted by confirmed cheaters or external googlers.\n- Check the newly added **Moderation** section in your profile page to track your reports and check whether you've received any ELO!\n\n",
     "postedBy": "gautam @ WorldGuessr"
   }
 ]
