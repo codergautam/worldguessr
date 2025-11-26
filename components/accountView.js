@@ -2,6 +2,7 @@ import msToTime from "./msToTime";
 import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { FaClock, FaGamepad, FaStar } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
@@ -213,13 +214,14 @@ export default function AccountView({ accountData, supporter, eloData, session }
 
             <XPGraph session={session} />
 
-            {/* Forced Name Change Modal */}
-            {showForcedNameChangeModal && (
+            {/* Forced Name Change Modal - use portal to escape parent container's backdrop-filter */}
+            {showForcedNameChangeModal && typeof document !== 'undefined' && createPortal(
                 <PendingNameChangeModal
                     session={session}
                     isOpen={showForcedNameChangeModal}
                     onClose={() => setShowForcedNameChangeModal(false)}
-                />
+                />,
+                document.body
             )}
         </div>
     );
