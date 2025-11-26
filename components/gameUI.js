@@ -734,6 +734,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
             history={multiplayerState?.gameData?.history || []}
             duel={false}
             multiplayerState={multiplayerState}
+            gameId={multiplayerState?.gameData?.code}
             points={multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.score || 0}
             maxPoints={multiplayerState?.gameData?.rounds * 5000}
             button1Text={multiplayerState?.gameData?.public ? text("playAgain") : null}
@@ -752,6 +753,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
             duel={true}
             data={multiplayerState?.gameData?.duelEnd}
             multiplayerState={multiplayerState}
+            gameId={multiplayerState?.gameData?.code}
             button1Text={multiplayerState?.gameData?.public ? text("playAgain") : null}
             button1Press={multiplayerState?.gameData?.public ? () => backBtnPressed(true, "ranked") : null}
             button2Text={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? text("back") : null}

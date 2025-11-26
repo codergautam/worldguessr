@@ -26,10 +26,52 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  
+  // ===== MODERATION FIELDS =====
+  // Ban status - replaces simple banned: boolean
   banned: {
     type: Boolean,
     default: false,
   },
+  banType: {
+    type: String,
+    enum: ['none', 'permanent', 'temporary'],
+    default: 'none'
+  },
+  banExpiresAt: {
+    type: Date,
+    default: null // null for permanent bans, date for temp bans
+  },
+  banReason: {
+    type: String,
+    default: null // INTERNAL reason, NEVER shown to user - for mod reference only
+  },
+  banPublicNote: {
+    type: String,
+    default: null // Public note shown to user explaining their ban
+  },
+  
+  // Pending name change - user must change name before playing
+  pendingNameChange: {
+    type: Boolean,
+    default: false
+  },
+  pendingNameChangeReason: {
+    type: String,
+    default: null // INTERNAL reason, NEVER shown to user - for mod reference only
+  },
+  pendingNameChangePublicNote: {
+    type: String,
+    default: null // Public note shown to user explaining why they need to change name
+  },
+  
+  // Reporter statistics - track quality of reports
+  reporterStats: {
+    helpfulReports: { type: Number, default: 0 },   // Reports that led to action
+    unhelpfulReports: { type: Number, default: 0 }  // Reports that were ignored/dismissed
+  },
+  // ===== END MODERATION FIELDS =====
+  
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   sentReq: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   receivedReq: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -116,6 +158,11 @@ const userSchema = new mongoose.Schema({
     default: 0
   }
 });
+
+// Index for finding users with expired temp bans
+userSchema.index({ banned: 1, banType: 1, banExpiresAt: 1 });
+// Index for finding users with pending name changes
+userSchema.index({ pendingNameChange: 1 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 

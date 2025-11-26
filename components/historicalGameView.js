@@ -5,7 +5,7 @@ import styles from '../styles/gameHistory.module.css';
 
 const GameSummary = dynamic(() => import('./roundOverScreen'), { ssr: false });
 
-export default function HistoricalGameView({ game, session, onBack, options }) {
+export default function HistoricalGameView({ game, session, onBack, options, onUsernameLookup }) {
   const { t: text } = useTranslation("common");
   const [fullGameData, setFullGameData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +73,11 @@ export default function HistoricalGameView({ game, session, onBack, options }) {
       }
     };
 
-    if (typeof window !== 'undefined' && game && session?.token?.secret && window.cConfig?.apiUrl) {
+    // Check if game already has full data (from mod dashboard pre-fetch)
+    if (game && game.rounds && game.players && options?.isModView) {
+      setFullGameData(game);
+      setLoading(false);
+    } else if (typeof window !== 'undefined' && game && session?.token?.secret && window.cConfig?.apiUrl) {
       fetchFullGameData();
     }
   }, [game, session?.token?.secret]);
@@ -245,8 +249,14 @@ export default function HistoricalGameView({ game, session, onBack, options }) {
         button2Press={null}
         button2Text=""
         hidden={false}
+        session={session}
         gameId={game?.gameId || game?._id}
-        options={options}
+        options={{
+          ...options,
+          onUsernameLookup: onUsernameLookup,
+          isModView: options?.isModView,
+          reportedUserId: options?.reportedUserId
+        }}
       />
     </div>
   );

@@ -28,7 +28,7 @@ import { createClient } from 'redis';
 
 let redisClient;
 if(!process.env.REDIS_URI) {
-  console.log("[MISSING-ENV WARN] REDIS_URI env variable not set".yellow);
+  console.log("[MISSING-ENV WARN] REDIS_URI env variable not set");
 } else {
 redisClient = createClient({
   url: process.env.REDIS_URI,
@@ -124,7 +124,7 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
 
 // connect to db
 if (!process.env.MONGODB) {
-  console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
+  console.log("[MISSING-ENV WARN] MONGODB env variable not set");
   dbEnabled = false;
 } else {
   // Connect to MongoDB
@@ -133,7 +133,7 @@ if (!process.env.MONGODB) {
       await mongoose.connect(process.env.MONGODB);
       console.log('[INFO] Database Connected');
     } catch (error) {
-      console.error('[ERROR] Database connection failed!'.red, error.message);
+      console.error('[ERROR] Database connection failed!', error.message);
       console.log(error);
       dbEnabled = false;
     }
@@ -704,6 +704,16 @@ app.ws('/wg', {
 
 
       if (json.type === 'acceptInvite' && json.code && player.accountId) {
+        // Block banned users and users with pending name changes from multiplayer
+        if (player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'accountSuspended',
+            toastType: 'error'
+          });
+          return;
+        }
+
         joinGameByCode(json.code, () => {
           player.send({
             type: 'toast',
@@ -778,6 +788,16 @@ app.ws('/wg', {
 
       if (json.type === 'createPrivateGame' && !player.gameId) {
 
+        // Block banned users and users with pending name changes from multiplayer
+        if (player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'accountSuspended',
+            toastType: 'error'
+          });
+          return;
+        }
+
         // send toast if maintenance
         if (maintenanceMode) {
           player.send({
@@ -845,6 +865,16 @@ app.ws('/wg', {
       }
 
       if (json.type === 'joinPrivateGame' && !player.gameId) {
+        // Block banned users and users with pending name changes from multiplayer
+        if (player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'accountSuspended',
+            toastType: 'error'
+          });
+          return;
+        }
+
         let code = json.gameCode;
 
         // find game by code

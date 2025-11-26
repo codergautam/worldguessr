@@ -1,0 +1,1905 @@
+/* WorldGuessr Mod Dashboard */
+
+.modDashboard {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+  min-height: 100vh;
+  color: #e6edf3;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 30px 20px;
+  background: #161b22;
+  border-radius: 12px;
+  border: 1px solid #30363d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.worldGuessrLogo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.logoIcon {
+  width: 45px;
+  height: 45px;
+  background: #3fb950;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #0d1117;
+}
+
+.header h1 {
+  font-size: 2.4rem;
+  margin: 0;
+  font-weight: 700;
+  color: #3fb950;
+  font-family: "Lexend", sans-serif;
+}
+
+.subHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.header p {
+  font-size: 1.1rem;
+  margin: 0;
+  color: #b1bac4;
+}
+
+.badge {
+  background: #3fb950;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0d1117;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.searchSection {
+  margin-bottom: 30px;
+}
+
+.searchBox {
+  display: flex;
+  gap: 12px;
+  max-width: 600px;
+  margin: 0 auto;
+  background: #161b22;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #30363d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.usernameInput {
+  flex: 1;
+  padding: 12px 16px;
+  font-size: 15px;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: #0d1117;
+  color: #e6edf3;
+  transition: all 0.2s ease;
+  font-family: "Lexend", sans-serif;
+  outline: none;
+}
+
+.usernameInput:focus {
+  border-color: #3fb950;
+  background: #161b22;
+  box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.2);
+}
+
+.usernameInput::placeholder {
+  color: #6e7681;
+}
+
+.searchBtn {
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  background: #3fb950;
+  color: #0d1117;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: "Lexend", sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.searchBtn:hover:not(:disabled) {
+  background: #56d364;
+  box-shadow: 0 4px 12px rgba(63, 185, 80, 0.4);
+}
+
+.searchBtn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.searchBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.errorMessage {
+  text-align: center;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #3d1f1f;
+  border: 1px solid #da3633;
+  border-radius: 8px;
+  color: #f85149;
+  font-weight: 500;
+}
+
+.gameHistorySection {
+  background: #161b22;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #30363d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.instructionsSection {
+  text-align: center;
+  margin-top: 30px;
+}
+
+.instructions {
+  background: #161b22;
+  border-radius: 12px;
+  padding: 30px;
+  border: 1px solid #30363d;
+  max-width: 700px;
+  margin: 0 auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.instructions h3 {
+  font-size: 1.6rem;
+  margin-bottom: 20px;
+  color: #3fb950;
+  font-weight: 600;
+}
+
+.instructions ul {
+  text-align: left;
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.instructions li {
+  padding: 12px 16px;
+  font-size: 1rem;
+  background: #0d1117;
+  border-radius: 8px;
+  border-left: 3px solid #3fb950;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.instructions li:hover {
+  background: #1c2128;
+  transform: translateX(3px);
+}
+
+.unauthorized {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+}
+
+.unauthorizedContent {
+  text-align: center;
+  padding: 40px;
+  background: #161b22;
+  border-radius: 12px;
+  border: 1px solid #30363d;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  max-width: 500px;
+}
+
+.unauthorizedIcon {
+  font-size: 4rem;
+  display: block;
+  margin-bottom: 20px;
+}
+
+.unauthorizedContent h2 {
+  font-size: 2rem;
+  margin-bottom: 15px;
+  color: #f85149;
+  font-weight: 700;
+}
+
+.unauthorizedContent p {
+  font-size: 1.1rem;
+  margin: 0 0 10px 0;
+  color: #b1bac4;
+}
+
+.backBtn {
+  margin-top: 25px;
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  background: #da3633;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: "Lexend", sans-serif;
+}
+
+.backBtn:hover {
+  background: #f85149;
+  box-shadow: 0 4px 12px rgba(248, 81, 73, 0.4);
+}
+
+.loading {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 768px) {
+  .modDashboard {
+    padding: 12px;
+  }
+
+  .header {
+    padding: 24px 16px;
+  }
+
+  .header h1 {
+    font-size: 1.8rem;
+  }
+
+  .searchBox {
+    flex-direction: column;
+    padding: 12px;
+  }
+
+  .usernameInput,
+  .searchBtn {
+    width: 100%;
+  }
+
+  .instructions {
+    padding: 20px 16px;
+  }
+
+  .unauthorizedContent {
+    padding: 30px 20px;
+  }
+}
+
+/* Tab Navigation */
+.tabNavigation {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  background: #161b22;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid #30363d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.tab {
+  flex: 1;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #b1bac4;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: "Lexend", sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tab:hover {
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+.activeTab {
+  background: #3fb950 !important;
+  color: #0d1117 !important;
+  box-shadow: 0 2px 8px rgba(63, 185, 80, 0.3);
+}
+
+.activeTab .badge {
+  background: #0d1117;
+  color: #3fb950;
+}
+
+.tab .badge {
+  background: #3fb950;
+  color: #0d1117;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  margin-left: 4px;
+}
+
+/* Reports Section */
+.reportsSection {
+  background: #161b22;
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid #30363d;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.statsBar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #0d1117;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+}
+
+.statItem {
+  text-align: center;
+  padding: 12px;
+  background: #161b22;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+}
+
+.statLabel {
+  display: block;
+  font-size: 0.85rem;
+  color: #b1bac4;
+  margin-bottom: 8px;
+}
+
+.statValue {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #e6edf3;
+}
+
+.statValue.pending {
+  color: #f85149;
+}
+
+.statValue.actionTaken {
+  color: #3fb950;
+}
+
+.filterBar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 16px;
+  background: #0d1117;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+}
+
+.filterBar label {
+  font-weight: 600;
+  color: #e6edf3;
+}
+
+.statusFilter {
+  flex: 1;
+  max-width: 200px;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #161b22;
+  color: #e6edf3;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: "Lexend", sans-serif;
+  outline: none;
+}
+
+.statusFilter:focus {
+  border-color: #3fb950;
+  box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.2);
+}
+
+.refreshBtn {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #161b22;
+  color: #e6edf3;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: "Lexend", sans-serif;
+}
+
+.refreshBtn:hover {
+  background: #3fb950;
+  color: #0d1117;
+  border-color: #3fb950;
+}
+
+.reportsList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reportCard {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 20px;
+  transition: all 0.2s ease;
+}
+
+.reportCard:hover {
+  border-color: #3fb950;
+  box-shadow: 0 4px 12px rgba(63, 185, 80, 0.2);
+}
+
+.reportHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #30363d;
+}
+
+.reportMeta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statusBadge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statusBadge.pending {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+  border: 1px solid #f85149;
+}
+
+.statusBadge.reviewed {
+  background: rgba(56, 139, 253, 0.2);
+  color: #58a6ff;
+  border: 1px solid #58a6ff;
+}
+
+.statusBadge.dismissed {
+  background: rgba(110, 118, 129, 0.2);
+  color: #8b949e;
+  border: 1px solid #8b949e;
+}
+
+.statusBadge.action_taken {
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+  border: 1px solid #3fb950;
+}
+
+.reportDate {
+  font-size: 0.85rem;
+  color: #b1bac4;
+}
+
+.reportId {
+  font-size: 0.8rem;
+  color: #6e7681;
+  font-family: monospace;
+}
+
+.reportBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reportUsers {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.userInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.userInfo strong {
+  color: #b1bac4;
+  font-size: 0.9rem;
+}
+
+.username {
+  color: #3fb950;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: all 0.2s ease;
+}
+
+.username:hover {
+  color: #56d364;
+}
+
+.reportReason {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reportReason strong {
+  color: #b1bac4;
+  font-size: 0.9rem;
+}
+
+.reasonBadge {
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: rgba(255, 152, 0, 0.2);
+  color: #ffa657;
+  border: 1px solid #ffa657;
+  text-transform: capitalize;
+}
+
+.reportDescription {
+  padding: 12px;
+  background: #161b22;
+  border-radius: 6px;
+  border: 1px solid #30363d;
+}
+
+.reportDescription strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #b1bac4;
+  font-size: 0.9rem;
+}
+
+.reportDescription p {
+  margin: 0;
+  color: #e6edf3;
+  line-height: 1.6;
+}
+
+.reportGameInfo {
+  display: flex;
+  gap: 20px;
+  padding-top: 12px;
+  border-top: 1px solid #30363d;
+  font-size: 0.85rem;
+  color: #b1bac4;
+}
+
+.reportGameInfo strong {
+  color: #e6edf3;
+}
+
+.gameIdLink {
+  color: #58a6ff;
+  font-family: monospace;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: all 0.2s ease;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(88, 166, 255, 0.1);
+}
+
+.gameIdLink:hover {
+  color: #79c0ff;
+  background: rgba(88, 166, 255, 0.2);
+}
+
+.noReports {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6e7681;
+}
+
+.noReports p {
+  font-size: 1.2rem;
+  margin: 0;
+}
+
+.error {
+  text-align: center;
+  padding: 40px 20px;
+  color: #f85149;
+  font-size: 1.1rem;
+}
+
+.loadingText {
+  text-align: center;
+  padding: 40px 20px;
+  color: #b1bac4;
+  font-size: 1.1rem;
+}
+
+.gameLoadingOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(13, 17, 23, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.gameLoadingContent {
+  text-align: center;
+  padding: 40px;
+  background: #161b22;
+  border-radius: 12px;
+  border: 1px solid #30363d;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.gameLoadingContent p {
+  margin: 16px 0 0 0;
+  font-size: 1.1rem;
+  color: #e6edf3;
+}
+
+.loadingSpinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(63, 185, 80, 0.2);
+  border-radius: 50%;
+  border-top-color: #3fb950;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .tabNavigation {
+    flex-direction: column;
+  }
+
+  .statsBar {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .filterBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .statusFilter {
+    max-width: 100%;
+  }
+
+  .reportUsers {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .reportGameInfo {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* Success Message */
+.successMessage {
+  text-align: center;
+  margin: 16px auto;
+  padding: 12px 16px;
+  background: rgba(63, 185, 80, 0.15);
+  border: 1px solid #3fb950;
+  border-radius: 8px;
+  color: #3fb950;
+  font-weight: 500;
+  max-width: 600px;
+}
+
+/* User Card */
+.userCard {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.userCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.userCardHeader h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #e6edf3;
+}
+
+.userBadges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.staffBadge {
+  background: #58a6ff;
+  color: #0d1117;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.supporterBadge {
+  background: #ffa657;
+  color: #0d1117;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.bannedBadge {
+  background: #f85149;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.pendingNameBadge {
+  background: #d29922;
+  color: #0d1117;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.userStats {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  color: #b1bac4;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.banInfo {
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid #f85149;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #f85149;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.userActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid #30363d;
+}
+
+/* Action Buttons */
+.banBtn, .tempBanBtn, .forceNameBtn, .ignoreBtn, .unbanBtn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: "Lexend", sans-serif;
+}
+
+.banBtn {
+  background: #f85149;
+  color: white;
+}
+
+.banBtn:hover {
+  background: #da3633;
+}
+
+.tempBanBtn {
+  background: #d29922;
+  color: #0d1117;
+}
+
+.tempBanBtn:hover {
+  background: #e3b341;
+}
+
+.forceNameBtn {
+  background: #58a6ff;
+  color: #0d1117;
+}
+
+.forceNameBtn:hover {
+  background: #79c0ff;
+}
+
+.ignoreBtn {
+  background: #6e7681;
+  color: white;
+}
+
+.ignoreBtn:hover {
+  background: #8b949e;
+}
+
+.unbanBtn {
+  background: #3fb950;
+  color: #0d1117;
+}
+
+.unbanBtn:hover {
+  background: #56d364;
+}
+
+/* Report Group */
+.reportGroup {
+  background: #161b22;
+  border: 2px solid #30363d;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.reportGroupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #0d1117;
+  border-bottom: 1px solid #30363d;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.reportGroupUser {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reportCountBadge {
+  background: #f85149;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.groupActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reportGroup .reportCard {
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid #30363d;
+}
+
+.reportGroup .reportCard:last-child {
+  border-bottom: none;
+}
+
+.reportGroup .reportCard:hover {
+  border-color: transparent;
+  box-shadow: none;
+  background: #1c2128;
+}
+
+/* Reporter Stats */
+.reporterStats {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.reporterStatsNew {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(110, 118, 129, 0.2);
+  color: #8b949e;
+}
+
+.goodReporter {
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+}
+
+.badReporter {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+}
+
+/* Action Badge */
+.actionBadge {
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+  border: 1px solid #3fb950;
+  text-transform: capitalize;
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.modal {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #30363d;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  color: #e6edf3;
+  font-size: 1.2rem;
+}
+
+.modalClose {
+  background: none;
+  border: none;
+  color: #6e7681;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.modalClose:hover {
+  color: #e6edf3;
+}
+
+.modalBody {
+  padding: 20px;
+}
+
+.modalBody p {
+  margin: 0 0 16px 0;
+  color: #b1bac4;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.formGroup label {
+  display: block;
+  margin-bottom: 8px;
+  color: #e6edf3;
+  font-weight: 500;
+}
+
+.select, .textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: "Lexend", sans-serif;
+  outline: none;
+}
+
+.select:focus, .textarea:focus {
+  border-color: #3fb950;
+  box-shadow: 0 0 0 3px rgba(63, 185, 80, 0.2);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.warning {
+  background: rgba(210, 153, 34, 0.1);
+  border: 1px solid #d29922;
+  border-radius: 6px;
+  padding: 12px;
+  color: #d29922;
+  font-size: 0.9rem;
+}
+
+.modalFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px;
+  border-top: 1px solid #30363d;
+}
+
+.cancelBtn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: transparent;
+  color: #e6edf3;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+}
+
+.cancelBtn:hover {
+  background: #21262d;
+}
+
+.actionBtn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+}
+
+.actionBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.actionBtn.ignore {
+  background: #6e7681;
+  color: white;
+}
+
+.actionBtn.banpermanent {
+  background: #f85149;
+  color: white;
+}
+
+.actionBtn.bantemporary {
+  background: #d29922;
+  color: #0d1117;
+}
+
+.actionBtn.forcenamechange {
+  background: #58a6ff;
+  color: #0d1117;
+}
+
+.actionBtn.unban {
+  background: #3fb950;
+  color: #0d1117;
+}
+
+/* History Section */
+.historySection {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.historySection h3 {
+  margin: 0 0 16px 0;
+  color: #e6edf3;
+  font-size: 1.1rem;
+}
+
+.historySummary {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px;
+  background: #161b22;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  color: #b1bac4;
+}
+
+.historySubsection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #30363d;
+}
+
+.historySubsection h4 {
+  margin: 0 0 12px 0;
+  color: #e6edf3;
+  font-size: 0.95rem;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #161b22;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.historyBadge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.historyBadge.ban_permanent {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+}
+
+.historyBadge.ban_temporary {
+  background: rgba(210, 153, 34, 0.2);
+  color: #d29922;
+}
+
+.historyBadge.unban {
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+}
+
+.historyReason {
+  color: #e6edf3;
+  flex: 1;
+}
+
+.historyDuration {
+  color: #b1bac4;
+}
+
+.historyMeta {
+  color: #6e7681;
+  font-size: 0.8rem;
+  margin-left: auto;
+}
+
+.noHistory {
+  text-align: center;
+  padding: 20px;
+  color: #b1bac4;
+}
+
+.noHistory p {
+  margin: 0 0 8px 0;
+}
+
+.nameChange {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.historyBadge.banpermanent,
+.historyBadge.permanent {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+}
+
+.historyBadge.bantemporary,
+.historyBadge.temporary {
+  background: rgba(210, 153, 34, 0.2);
+  color: #d29922;
+}
+
+.historyBadge.unban {
+  background: rgba(63, 185, 80, 0.2);
+  color: #3fb950;
+}
+
+.historyBadge.forcenamechange,
+.historyBadge.namechangeapproved,
+.historyBadge.namechangerejected,
+.historyBadge.namechange {
+  background: rgba(88, 166, 255, 0.2);
+  color: #58a6ff;
+}
+
+.historyBadge.reportignored {
+  background: rgba(110, 118, 129, 0.2);
+  color: #8b949e;
+}
+
+/* User status badges for reports */
+.userStatusBadges {
+  display: inline-flex;
+  gap: 6px;
+  margin-left: 6px;
+}
+
+.statusBadgeWarning {
+  background: rgba(210, 153, 34, 0.2);
+  color: #d29922;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.statusBadgeTempBan {
+  background: rgba(136, 87, 44, 0.3);
+  color: #f0883e;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.statusBadgeBanned {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Delete User Button - Dangerous Action */
+.deleteUserBtn {
+  background: linear-gradient(135deg, #8b0000, #5a0000);
+  color: #fff;
+  border: 2px solid #da3633;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.deleteUserBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #da3633, #8b0000);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(218, 54, 51, 0.4);
+}
+
+.deleteUserBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Multiple Matches Section (Ban Evader Detection) */
+.multipleMatchesSection {
+  background: #0d1117;
+  border: 2px solid #f0883e;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.multipleMatchesWarning {
+  background: rgba(240, 136, 62, 0.15);
+  border: 1px solid #f0883e;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.multipleMatchesWarning h3 {
+  color: #f0883e;
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+.multipleMatchesWarning p {
+  color: #b1bac4;
+  margin: 0;
+}
+
+.matchesList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.matchCard {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.matchCard:hover {
+  border-color: #58a6ff;
+  background: #1c2128;
+  transform: translateX(4px);
+}
+
+.matchCardBanned {
+  border-left: 4px solid #f85149;
+}
+
+.matchCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.matchNumber {
+  background: #30363d;
+  color: #8b949e;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.matchUsername {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e6edf3;
+}
+
+.matchBadges {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.matchInfo {
+  margin-bottom: 8px;
+}
+
+.matchTypeCurrent {
+  color: #3fb950;
+  font-size: 0.85rem;
+  background: rgba(63, 185, 80, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.matchTypePast {
+  color: #f0883e;
+  font-size: 0.85rem;
+  background: rgba(240, 136, 62, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.matchStats {
+  display: flex;
+  gap: 16px;
+  color: #8b949e;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.matchEmail {
+  color: #6e7681;
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+
+.matchAction {
+  color: #58a6ff;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.clearMatchesBtn {
+  margin-top: 16px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #8b949e;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  transition: all 0.2s ease;
+}
+
+.clearMatchesBtn:hover {
+  background: #30363d;
+  color: #e6edf3;
+}
+
+/* Account ID display */
+.accountId {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #0d1117;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #b1bac4;
+  margin-bottom: 12px;
+}
+
+.accountId code {
+  font-family: monospace;
+  background: #161b22;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #58a6ff;
+  font-size: 0.8rem;
+}
+
+.accountId code:hover {
+  background: #21262d;
+}
+
+/* Clickable reports in history */
+.clickableReport {
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.clickableReport:hover {
+  background: #21262d;
+  border-left: 3px solid #58a6ff;
+  padding-left: 9px;
+}
+
+.viewLink {
+  color: #58a6ff;
+  font-size: 0.8rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  margin-left: auto;
+}
+
+.clickableReport:hover .viewLink {
+  opacity: 1;
+}
+
+/* Focused Report Modal */
+.focusedReportOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.focusedReportCard {
+  background: #161b22;
+  border: 2px solid #58a6ff;
+  border-radius: 12px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.focusedReportHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #0d1117;
+  border-bottom: 1px solid #30363d;
+  border-radius: 10px 10px 0 0;
+}
+
+.focusedReportHeader h3 {
+  margin: 0;
+  color: #e6edf3;
+}
+
+.focusedReportClose {
+  background: none;
+  border: none;
+  color: #6e7681;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.focusedReportClose:hover {
+  color: #e6edf3;
+}
+
+.focusedReportBody {
+  padding: 20px;
+}
+
+/* Name Review Card */
+.nameReviewCard {
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.nameReviewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.oldName {
+  color: #f85149;
+  font-weight: 600;
+  text-decoration: line-through;
+}
+
+.nameArrow {
+  color: #6e7681;
+  margin: 0 8px;
+}
+
+.newName {
+  color: #3fb950;
+  font-weight: 600;
+}
+
+.rejectionCount {
+  background: rgba(248, 81, 73, 0.2);
+  color: #f85149;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+.nameReviewBody {
+  color: #b1bac4;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}
+
+.nameReviewBody p {
+  margin: 0 0 8px 0;
+}
+
+.nameReviewActions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #30363d;
+}
+
+.approveBtn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #3fb950;
+  color: #0d1117;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+}
+
+.approveBtn:hover {
+  background: #56d364;
+}
+
+.approveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rejectSection {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+}
+
+.rejectInput {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #161b22;
+  color: #e6edf3;
+  font-family: "Lexend", sans-serif;
+  outline: none;
+}
+
+.rejectInput:focus {
+  border-color: #f85149;
+}
+
+.rejectBtn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #f85149;
+  color: white;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+}
+
+.rejectBtn:hover {
+  background: #da3633;
+}
+
+.rejectBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Audit Logs Styles */
+.auditLogCard {
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.auditLogCard:hover {
+  border-color: #58a6ff;
+}
+
+.auditLogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #30363d;
+}
+
+.auditLogAction {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #e6edf3;
+}
+
+.auditLogDate {
+  color: #6e7681;
+  font-size: 0.85rem;
+}
+
+.auditLogBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auditLogRow {
+  display: flex;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.auditLogLabel {
+  color: #6e7681;
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+.auditLogValue {
+  color: #b1bac4;
+  word-break: break-word;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin: 16px 0;
+  padding: 12px;
+  background: #161b22;
+  border-radius: 8px;
+}
+
+.pageBtn {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #21262d;
+  color: #e6edf3;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+  transition: all 0.2s ease;
+}
+
+.pageBtn:hover:not(:disabled) {
+  background: #30363d;
+  border-color: #58a6ff;
+}
+
+.pageBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pageInfo {
+  color: #b1bac4;
+  font-size: 0.9rem;
+}
+
+.filterSelect {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  background: #21262d;
+  color: #e6edf3;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+  outline: none;
+}
+
+.filterSelect:focus {
+  border-color: #58a6ff;
+}
+
+@media (max-width: 768px) {
+  .userCardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .userActions {
+    flex-direction: column;
+  }
+
+  .userActions button {
+    width: 100%;
+  }
+
+  .reportGroupHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .groupActions {
+    width: 100%;
+  }
+
+  .groupActions button {
+    flex: 1;
+  }
+
+  .modalFooter {
+    flex-direction: column;
+  }
+
+  .modalFooter button {
+    width: 100%;
+  }
+
+  .nameReviewActions {
+    flex-direction: column;
+  }
+
+  .rejectSection {
+    width: 100%;
+  }
+}

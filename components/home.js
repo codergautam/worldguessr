@@ -59,6 +59,7 @@ import SvEmbedIframe from "./streetview/svHandler";
 import HomeNotice from "./homeNotice";
 import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 import Ad from "./bannerAdNitro";
+import PendingNameChangeModal from "./pendingNameChangeModal";
 
 
 const initialMultiplayerState = {
@@ -112,6 +113,9 @@ export default function Home({ }) {
     const [friendsModal, setFriendsModal] = useState(false)
     const [merchModal, setMerchModal] = useState(false)
     const [mapGuessrModal, setMapGuessrModal] = useState(false)
+    const [pendingNameChangeModal, setPendingNameChangeModal] = useState(false)
+    const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(false)
+    const [dismissedBanBanner, setDismissedBanBanner] = useState(false)
     const [timeOffset, setTimeOffset] = useState(0)
     const [loginQueued, setLoginQueued] = useState(false);
     const [options, setOptions] = useState({
@@ -1426,7 +1430,7 @@ export default function Home({ }) {
                         if (!prev?.gameData?.locations && data.locations) {
                             setLatLong(data.locations[data.curRound - 1])
 
-                            
+
                         } else {
                             setLatLong(prev?.gameData?.locations[data.curRound - 1])
                         }
@@ -2087,6 +2091,10 @@ export default function Home({ }) {
         return () => clearInterval(i);
     }, [])
 
+    // Note: Both banned users and users with pending name change CAN still play singleplayer
+    // They just can't do multiplayer - the check is done in the websocket server
+    // Banned users are also excluded from leaderboards (handled in api/leaderboard.js)
+
     return (
         <>
             <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} />
@@ -2104,6 +2112,11 @@ export default function Home({ }) {
             <DiscordModal shown={showDiscordModal && (typeof window !== 'undefined' && window.innerWidth >= 768)} setOpen={setShowDiscordModal} />
             {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
             <MapGuessrModal isOpen={mapGuessrModal} onClose={() => setMapGuessrModal(false)} />
+            <PendingNameChangeModal
+              session={session}
+              isOpen={pendingNameChangeModal}
+              onClose={() => setPendingNameChangeModal(false)}
+            />
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
@@ -2245,6 +2258,62 @@ export default function Home({ }) {
                     onConnectionError={() => setConnectionErrorModalShown(true)}
                 />
 
+                {/* Pending Name Change Banner */}
+                {session?.token?.pendingNameChange && screen === 'home' && !dismissedNameChangeBanner && (
+                  <div className="modBanner modBanner--warning">
+                    <button
+                      onClick={() => setDismissedNameChangeBanner(true)}
+                      className="modBanner__close"
+                      title="Dismiss"
+                    >
+                      ×
+                    </button>
+                    <div className="modBanner__content">
+                      <span>⚠️</span>
+                      <span className="modBanner__text">{text("usernameChangeRequired")}</span>
+                      <button
+                        onClick={() => setPendingNameChangeModal(true)}
+                        className="modBanner__btn modBanner__btn--dark"
+                      >
+                        Change Name
+                      </button>
+                    </div>
+                    {session?.token?.pendingNameChangePublicNote && (
+                      <div className="modBanner__note">
+                        {session.token.pendingNameChangePublicNote}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Account Banned Banner */}
+                {session?.token?.banned && !session?.token?.pendingNameChange && screen === 'home' && !dismissedBanBanner && (
+                  <div className="modBanner modBanner--error">
+                    <button
+                      onClick={() => setDismissedBanBanner(true)}
+                      className="modBanner__close"
+                      title="Dismiss"
+                    >
+                      ×
+                    </button>
+                    <div className="modBanner__content">
+                      <span>⛔</span>
+                      <span className="modBanner__text">
+                        {text("accountSuspended")}
+                        {session?.token?.banType === 'temporary' && session?.token?.banExpiresAt && (
+                          <span className="modBanner__expires">
+                            (Expires: {new Date(session.token.banExpiresAt).toLocaleDateString()})
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    {session?.token?.banPublicNote && (
+                      <div className="modBanner__note">
+                        {session.token.banPublicNote}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                                 {!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH &&
 
@@ -2569,12 +2638,18 @@ export default function Home({ }) {
                 </div>
                 }
 
-                <RoundOverScreen hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)} duel={true} data={multiplayerState?.gameData?.duelEnd} button1Text={text("playAgain")} options={options}
-
+                <RoundOverScreen
+                    hidden={!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end' && multiplayerState?.gameData?.duelEnd)}
+                    duel={true}
+                    data={multiplayerState?.gameData?.duelEnd}
+                    multiplayerState={multiplayerState}
+                    session={session}
+                    gameId={multiplayerState?.gameData?.code}
+                    button1Text={text("playAgain")}
+                    options={options}
                     button1Press={() => {
                         backBtnPressed(true, "ranked")
                     }}
-
                     button2Text={text("home")}
                     button2Press={() => {
                         backBtnPressed()
