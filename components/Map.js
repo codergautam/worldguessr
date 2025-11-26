@@ -242,6 +242,8 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}
         zoomOffset={0}
+        detectRetina={true}
+        tileSize={256}
       />
 
     <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
