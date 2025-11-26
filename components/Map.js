@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Popup, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
@@ -95,8 +95,21 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
 const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, round, focused, gameOptions }) => {
   const mapRef = React.useRef(null);
   const plopSound = React.useRef();
+  const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
 
   const { t: text } = useTranslation("common");
+
+  // Detect mobile/tablet devices
+  useEffect(() => {
+    const checkDevice = () => {
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isSmallScreen = window.innerWidth <= 1024;
+      setIsMobileOrTablet(isTouchDevice || isSmallScreen);
+    };
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
 
   // Cache icons to prevent repeated requests
   const icons = useMemo(() => ({
@@ -236,13 +249,15 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
       )}
 
       <TileLayer
+        key={isMobileOrTablet ? 'mobile' : 'desktop'}
         noWrap={true}
         url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
         subdomains={['0', '1', '2', '3']}
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}
-        tileSize={512}
-        zoomOffset={-1}
+        tileSize={isMobileOrTablet ? 512 : 256}
+        zoomOffset={isMobileOrTablet ? -1 : 0}
+        detectRetina={true}
       />
 
     <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
