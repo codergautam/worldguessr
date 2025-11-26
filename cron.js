@@ -291,6 +291,9 @@ const refreshCountryLocations = () => {
       served.push(pool[(offset + i) % pool.length]);
     }
 
+    // Shuffle the served locations for randomness
+    shuffle(served);
+
     // Advance offset for next refresh (with some randomness)
     countryOffsets[country] = (offset + Math.floor(count / 4) + Math.floor(Math.random() * 50)) % pool.length;
 
