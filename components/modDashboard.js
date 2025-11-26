@@ -641,6 +641,7 @@ export default function ModDashboard({ session }) {
         <div className={styles.modal}>
           <div className={styles.modalHeader}>
             <h3>
+              {type === 'mark_resolved' && '✅ Mark Resolved'}
               {type === 'ignore' && '🚫 Ignore Reports'}
               {type === 'ban_permanent' && '⛔ Permanent Ban'}
               {type === 'ban_temporary' && '⏱️ Temporary Ban'}
@@ -687,8 +688,8 @@ export default function ModDashboard({ session }) {
               </small>
             </div>
 
-            {/* Only show public note for ban/force name change actions - not for unban or ignore */}
-            {!['unban', 'ignore'].includes(type) && (
+            {/* Only show public note for ban/force name change actions - not for unban, ignore, or resolve */}
+            {!['unban', 'ignore', 'mark_resolved'].includes(type) && (
               <div className={styles.formGroup}>
                 <label>📢 Public Note (optional, SHOWN to user on their ban/name change banner):</label>
                 <textarea
@@ -702,6 +703,13 @@ export default function ModDashboard({ session }) {
                   ⚠️ This message WILL be displayed to the user. Keep it professional.
                 </small>
               </div>
+            )}
+
+            {type === 'mark_resolved' && (
+              <p className={styles.info}>
+                ℹ️ This will mark the report(s) as resolved without taking any action.
+                The reporter&apos;s stats will NOT be affected (neutral outcome).
+              </p>
             )}
 
             {type === 'ignore' && (
@@ -1479,6 +1487,16 @@ export default function ModDashboard({ session }) {
 
                         {/* Action Buttons for Group */}
                         <div className={styles.groupActions}>
+                          <button
+                            className={styles.resolveBtn}
+                            onClick={() => setActionModal({
+                              type: 'mark_resolved',
+                              targetUser: { id: group.reportedUser.accountId, username: group.reportedUser.username },
+                              reportIds: group.reports.map(r => r._id)
+                            })}
+                          >
+                            ✅ Resolve
+                          </button>
                           <button
                             className={styles.ignoreBtn}
                             onClick={() => setActionModal({

@@ -125,6 +125,7 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
  *
  * Handles all moderation actions:
  * - ignore: Ignore a report (counts against reporter)
+ * - mark_resolved: Mark report as resolved without action (neutral - doesn't affect reporter stats)
  * - ban_permanent: Permanently ban a user
  * - ban_temporary: Temporarily ban a user for a specified duration
  * - force_name_change: Force user to change their username
@@ -137,7 +138,7 @@ export default async function handler(req, res) {
 
   const {
     secret,
-    action,           // 'ignore', 'ban_permanent', 'ban_temporary', 'force_name_change', 'unban'
+    action,           // 'ignore', 'mark_resolved', 'ban_permanent', 'ban_temporary', 'force_name_change', 'unban'
     targetUserId,     // MongoDB _id of user to take action on
     reportIds,        // Array of report IDs being acted upon (can be multiple for same user)
     reason,           // INTERNAL reason - NEVER shown to user, for mod reference only
@@ -151,7 +152,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'Invalid secret' });
   }
 
-  if (!action || !['ignore', 'ban_permanent', 'ban_temporary', 'force_name_change', 'unban'].includes(action)) {
+  if (!action || !['ignore', 'mark_resolved', 'ban_permanent', 'ban_temporary', 'force_name_change', 'unban'].includes(action)) {
     return res.status(400).json({ message: 'Invalid action' });
   }
 
@@ -252,6 +253,52 @@ export default async function handler(req, res) {
           reason: reason, // Internal reason
           relatedReports: resolvedReportsIgnore, // Only include reports we actually resolved
           notes: publicNote || '' // Public note for reference (though ignored reports don't notify user)
+        });
+
+        break;
+
+      case 'mark_resolved':
+        // Mark reports as resolved without taking action (neutral - doesn't affect reporter stats)
+        const resolvedReportsNeutral = [];
+        for (const report of reports) {
+          // Atomically claim the report - only succeeds if still pending
+          const claimedReport = await Report.findOneAndUpdate(
+            { _id: report._id, status: 'pending' },
+            {
+              status: 'action_taken',
+              actionTaken: 'resolved_no_action',
+              reviewedBy: {
+                accountId: moderator._id.toString(),
+                username: moderator.username
+              },
+              reviewedAt: new Date(),
+              moderatorNotes: reason
+            },
+            { new: false }
+          );
+
+          // If null, another mod already processed this report - skip
+          if (!claimedReport) continue;
+
+          resolvedReportsNeutral.push(report._id);
+          // Note: We intentionally don't increment helpful or unhelpful reports
+          // This is a neutral resolution - the report was valid but no action needed
+        }
+
+        // Create moderation log
+        moderationLog = await ModerationLog.create({
+          targetUser: {
+            accountId: targetUser._id.toString(),
+            username: targetUser.username
+          },
+          moderator: {
+            accountId: moderator._id.toString(),
+            username: moderator.username
+          },
+          actionType: 'report_resolved',
+          reason: reason, // Internal reason
+          relatedReports: resolvedReportsNeutral,
+          notes: publicNote || ''
         });
 
         break;
@@ -529,6 +576,9 @@ function getSuccessMessage(action, username, eloRefundResult = null) {
   switch (action) {
     case 'ignore':
       message = `Reports against ${username} have been ignored`;
+      break;
+    case 'mark_resolved':
+      message = `Reports against ${username} have been marked as resolved (no action taken)`;
       break;
     case 'ban_permanent':
       message = `${username} has been permanently banned`;

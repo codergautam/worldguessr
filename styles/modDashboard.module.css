@@ -854,7 +854,7 @@
 }
 
 /* Action Buttons */
-.banBtn, .tempBanBtn, .forceNameBtn, .ignoreBtn, .unbanBtn {
+.banBtn, .tempBanBtn, .forceNameBtn, .ignoreBtn, .unbanBtn, .resolveBtn {
   padding: 8px 16px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -890,6 +890,15 @@
 
 .forceNameBtn:hover {
   background: #79c0ff;
+}
+
+.resolveBtn {
+  background: #238636;
+  color: white;
+}
+
+.resolveBtn:hover {
+  background: #2ea043;
 }
 
 .ignoreBtn {
@@ -1107,6 +1116,15 @@
   border-radius: 6px;
   padding: 12px;
   color: #d29922;
+  font-size: 0.9rem;
+}
+
+.info {
+  background: rgba(88, 166, 255, 0.1);
+  border: 1px solid #58a6ff;
+  border-radius: 6px;
+  padding: 12px;
+  color: #58a6ff;
   font-size: 0.9rem;
 }
 

@@ -51,11 +51,12 @@ const reportSchema = new mongoose.Schema({
     default: null,
     enum: [
       null,
-      'ignored',           // Report was ignored (counts against reporter)
-      'ban_permanent',     // User was permanently banned
-      'ban_temporary',     // User was temporarily banned
-      'force_name_change', // User was forced to change name
-      'warning'            // Warning issued (future use)
+      'ignored',             // Report was ignored (counts against reporter)
+      'resolved_no_action',  // Report was resolved but no action needed (neutral - doesn't affect reporter)
+      'ban_permanent',       // User was permanently banned
+      'ban_temporary',       // User was temporarily banned
+      'force_name_change',   // User was forced to change name
+      'warning'              // Warning issued (future use)
     ]
   },
 
