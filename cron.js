@@ -204,7 +204,52 @@ for (const country of countries) {
   countryLocations[country] = [];
 }
 
+// Pre-populate country locations from mainWorld.json (has embedded country codes)
+const initializeCountryLocations = () => {
+  console.log('[INIT] Pre-populating country locations from mainWorld.json...');
+  const startTime = Date.now();
+
+  // Shuffle mainWorld for random distribution
+  const shuffled = [...mainWorld].sort(() => Math.random() - 0.5);
+
+  let totalAdded = 0;
+  const countryCounts = {};
+
+  for (const loc of shuffled) {
+    const { lat, lng, country } = loc;
+    if (country && countryLocations[country]) {
+      if (countryLocations[country].length < locationCnt) {
+        countryLocations[country].push({ lat, long: lng, country });
+        totalAdded++;
+        countryCounts[country] = (countryCounts[country] || 0) + 1;
+      }
+    }
+  }
+
+  const duration = Date.now() - startTime;
+  const countriesWithData = Object.keys(countryCounts).length;
+
+  // Log stats
+  const sorted = Object.entries(countryCounts).sort((a, b) => b[1] - a[1]);
+  const top5 = sorted.slice(0, 5).map(([c, n]) => `${c}:${n}`).join(', ');
+  const bottom5 = sorted.slice(-5).map(([c, n]) => `${c}:${n}`).join(', ');
+  const missingCountries = Object.keys(countryLocations).filter(c => !countryCounts[c]);
+
+  console.log('━'.repeat(60));
+  console.log(`[INIT] ✅ Pre-populated ${totalAdded} locations across ${countriesWithData} countries in ${duration}ms`);
+  console.log(`[INIT] Most: ${top5}`);
+  console.log(`[INIT] Least: ${bottom5}`);
+  if (missingCountries.length > 0) {
+    console.log(`[INIT] ⚠️ No data for: ${missingCountries.join(', ')}`);
+  }
+  console.log('━'.repeat(60));
+};
+
+// Initialize instantly from mainWorld
+initializeCountryLocations();
+
 const generateBalancedLocations = async () => {
+  console.log('[GENERATOR] Starting background location generator (keeps locations fresh)...');
   while (true) {
     const batchPromises = [];
 
@@ -292,8 +337,7 @@ const updateAllCountriesCache = async () => {
     const locations = [];
     for (const index of indexes) {
       try {
-        const { lat, lng } = mainWorld[index];
-        const country = lookup(lat, lng, true)[0];
+        const { lat, lng, country } = mainWorld[index];
         locations.push({ lat, long: lng, country });
       } catch (error) {
         locations.push({ lat, long: lng });
