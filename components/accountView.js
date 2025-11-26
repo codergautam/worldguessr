@@ -4,10 +4,22 @@ import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
 import { FaClock, FaGamepad, FaStar } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
+import PendingNameChangeModal from "./pendingNameChangeModal";
 
 export default function AccountView({ accountData, supporter, eloData, session }) {
     const { t: text } = useTranslation("common");
+    const [showForcedNameChangeModal, setShowForcedNameChangeModal] = useState(false);
+
+    // Check if user is forced to change their name
+    const isForcedNameChange = session?.token?.pendingNameChange;
+
     const changeName = async () => {
+        // If forced to change name, open the proper modal instead of prompt
+        if (isForcedNameChange) {
+            setShowForcedNameChangeModal(true);
+            return;
+        }
+
         if (window.settingName) return;
         const secret = session?.token?.secret;
         if (!secret) return alert("An error occurred (log out and log back in)");
@@ -149,7 +161,27 @@ export default function AccountView({ accountData, supporter, eloData, session }
                 </div>
 
                 {/* change name button */}
-                {accountData.canChangeUsername ? (
+                {isForcedNameChange ? (
+                    // Forced name change - always show button, ignore cooldowns
+                    <button
+                        style={{
+                            ...buttonStyle,
+                            background: 'linear-gradient(135deg, #f0883e, #d29922)',
+                            boxShadow: '0 4px 15px rgba(240, 136, 62, 0.3)',
+                        }}
+                        onClick={changeName}
+                        onMouseEnter={(e) => {
+                            e.target.style.transform = 'translateY(-2px)';
+                            e.target.style.boxShadow = '0 6px 20px rgba(240, 136, 62, 0.4)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = '0 4px 15px rgba(240, 136, 62, 0.3)';
+                        }}
+                    >
+                        ⚠️ {text("changeName")} ({text("required") || "Required"})
+                    </button>
+                ) : accountData.canChangeUsername ? (
                     <button
                         style={buttonStyle}
                         onClick={changeName}
@@ -171,7 +203,7 @@ export default function AccountView({ accountData, supporter, eloData, session }
                     </div>
                 ) : null}
 
-                {accountData.daysUntilNameChange > 0 && (
+                {!isForcedNameChange && accountData.daysUntilNameChange > 0 && (
                     <div style={warningStyle}>
                         <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
                         {text("nameChangeCooldown", { days: accountData.daysUntilNameChange })}
@@ -180,6 +212,15 @@ export default function AccountView({ accountData, supporter, eloData, session }
             </div>
 
             <XPGraph session={session} />
+
+            {/* Forced Name Change Modal */}
+            {showForcedNameChangeModal && (
+                <PendingNameChangeModal
+                    session={session}
+                    isOpen={showForcedNameChangeModal}
+                    onClose={() => setShowForcedNameChangeModal(false)}
+                />
+            )}
         </div>
     );
 }
