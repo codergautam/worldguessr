@@ -36,7 +36,8 @@ const moderationLogSchema = new mongoose.Schema({
       'name_change_approved', // Approved a pending name change
       'name_change_rejected', // Rejected a pending name change
       'name_change_manual',   // User-initiated name change (voluntary)
-      'report_ignored',     // Report was ignored (no action)
+      'report_ignored',     // Report was ignored (counts against reporter)
+      'report_resolved',    // Report was resolved without action (neutral)
       'warning'             // Warning issued (future use)
     ]
   },
