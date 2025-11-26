@@ -235,6 +235,7 @@ export default function Home({ }) {
     const [inCrazyGames, setInCrazyGames] = useState(false);
     const [maintenance, setMaintenance] = useState(false);
 
+
     useEffect(() => {
 
         if (!inCrazyGames) {
@@ -909,6 +910,7 @@ export default function Home({ }) {
     );
     const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
     const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
+
 
     // Auto-close connection error modal when connected
     useEffect(() => {

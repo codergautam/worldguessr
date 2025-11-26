@@ -1188,7 +1188,7 @@ const GameSummary = ({
                                 style={{
                                   fontSize: '0.9em',
                                 }}
- 
+
                               >
                                 {opponentData?.username || text("opponent")}
                                 {isOpponentReported && ' (reported)'}
@@ -1242,7 +1242,9 @@ const GameSummary = ({
   // REGULAR GAME SCREEN IMPLEMENTATION
 
   return (
-    <div className="game-summary-container">
+    <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
+
+    <div className={`game-summary-container `}>
       <div className="game-summary-map">
         <MapContainer
           center={[0, 0]}
@@ -1669,6 +1671,7 @@ const GameSummary = ({
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 };
