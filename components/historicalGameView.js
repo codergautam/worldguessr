@@ -129,8 +129,30 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   }
 
   // Transform the historical game data to match the format expected by GameSummary
+  const isModView = options?.isModView;
+  const reportedUserId = options?.reportedUserId;
+
   const transformedHistory = fullGameData.rounds.map((round, index) => {
-    if (!round.guess) {
+    // For mod view, if round.guess is null, try to use data from allGuesses
+    let guessData = round.guess;
+
+    if (!guessData && isModView && round.allGuesses && round.allGuesses.length > 0) {
+      // For mod view, use reported user's guess if available, otherwise first player's guess
+      const reportedUserGuess = reportedUserId ?
+        round.allGuesses.find(g => g.playerId === reportedUserId) : null;
+      const fallbackGuess = reportedUserGuess || round.allGuesses[0];
+
+      guessData = {
+        guessLat: fallbackGuess.guessLat,
+        guessLong: fallbackGuess.guessLong,
+        points: fallbackGuess.points,
+        timeTaken: fallbackGuess.timeTaken,
+        xpEarned: fallbackGuess.xpEarned || 0,
+        usedHint: fallbackGuess.usedHint || false
+      };
+    }
+
+    if (!guessData) {
       // User didn't participate in this round
       return null;
     }
@@ -153,12 +175,12 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
       lat: round.location.lat,
       long: round.location.long,
       panoId: round.location.panoId, // Include panoId for Google Maps Street View
-      guessLat: round.guess.guessLat,
-      guessLong: round.guess.guessLong,
-      points: round.guess.points,
-      timeTaken: round.guess.timeTaken,
-      xpEarned: round.guess.xpEarned,
-      usedHint: round.guess.usedHint,
+      guessLat: guessData.guessLat,
+      guessLong: guessData.guessLong,
+      points: guessData.points,
+      timeTaken: guessData.timeTaken,
+      xpEarned: guessData.xpEarned,
+      usedHint: guessData.usedHint,
       players: players // Include players data for duels/multiplayer
     };
   }).filter(round => round !== null); // Remove null entries
@@ -170,11 +192,31 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   // Determine if this is a duel
   const isDuel = fullGameData.gameType === 'ranked_duel';
 
+  // Find the perspective player (the user whose view we're showing)
+  // For mod view, use reported user if available, otherwise first player
+  const findPerspectivePlayer = () => {
+    // First try to match by currentUserId
+    let player = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
+    if (player) return player;
+
+    // For mod view, try to use reported user
+    if (isModView && reportedUserId) {
+      player = fullGameData.players.find(p => p.accountId === reportedUserId || p.playerId === reportedUserId);
+      if (player) return player;
+    }
+
+    // Fallback to first player
+    return fullGameData.players[0];
+  };
+
+  const perspectivePlayer = findPerspectivePlayer();
+
   // For duels, prepare the data structure
   let duelData = null;
   if (isDuel) {
     // Support both data structures: userPlayer (gameDetails API) and userStats (gameHistory API)
-    const playerData = fullGameData.userPlayer || fullGameData.userStats;
+    // For mod view, use the perspective player if userPlayer is not available
+    const playerData = fullGameData.userPlayer || fullGameData.userStats || perspectivePlayer;
 
     if (playerData) {
       const eloData = playerData.elo || {};
@@ -184,8 +226,8 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
         eloDiff: eloData.change || 0,
         winner: playerData.finalRank === 1,
         draw: fullGameData.result?.isDraw || false,
-        // Add opponent info if available
-        opponent: fullGameData.players?.find(p => p.accountId !== fullGameData.currentUserId)
+        // Add opponent info if available (find player that isn't the perspective player)
+        opponent: fullGameData.players?.find(p => p.accountId !== perspectivePlayer?.accountId && p.playerId !== perspectivePlayer?.playerId)
       };
     }
   }
@@ -193,9 +235,8 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   // For multiplayer games, prepare the state
   let multiplayerState = null;
   if (fullGameData.gameType !== 'singleplayer') {
-    // Find the current user's playerId from the players array
-    const currentUserPlayer = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
-    const myPlayerId = currentUserPlayer ? currentUserPlayer.playerId : fullGameData.currentUserId;
+    // Use the perspective player's ID
+    const myPlayerId = perspectivePlayer?.playerId || perspectivePlayer?.accountId || fullGameData.currentUserId;
 
     multiplayerState = {
       gameData: {

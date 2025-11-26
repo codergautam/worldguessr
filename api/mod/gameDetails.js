@@ -33,9 +33,16 @@ export default async function handler(req, res) {
     }
 
     // Determine which user's perspective to use (for displaying the game)
-    // Use targetUserId if provided, otherwise use first player with an accountId
+    // Use targetUserId if provided AND it matches a player in the game
+    // Otherwise fall back to first player with an accountId
     let perspectiveUserId = targetUserId;
-    if (!perspectiveUserId) {
+
+    // Validate that targetUserId is actually a player in this game
+    const targetPlayerMatch = perspectiveUserId ?
+      game.players.find(p => p.accountId === perspectiveUserId || p.playerId === perspectiveUserId) : null;
+
+    if (!targetPlayerMatch) {
+      // targetUserId not in game (e.g., moderator viewing) - use first player as perspective
       const firstAccountPlayer = game.players.find(p => p.accountId);
       perspectiveUserId = firstAccountPlayer?.accountId || game.players[0]?.playerId;
     }
@@ -47,21 +54,21 @@ export default async function handler(req, res) {
       startedAt: game.startedAt,
       endedAt: game.endedAt,
       totalDuration: game.totalDuration,
-      
+
       // Game settings
       settings: game.settings,
-      
+
       // All rounds with locations and guesses
       rounds: game.rounds.map((round, index) => {
         // Find the perspective user's guess for this round
-        const userGuess = round.playerGuesses.find(guess => 
+        const userGuess = round.playerGuesses.find(guess =>
           guess.accountId === perspectiveUserId || guess.playerId === perspectiveUserId
         );
-        
+
         return {
           roundNumber: round.roundNumber,
           location: round.location,
-          
+
           // User's guess data (from perspective user)
           guess: userGuess ? {
             guessLat: userGuess.guessLat,
@@ -72,7 +79,7 @@ export default async function handler(req, res) {
             usedHint: userGuess.usedHint,
             guessedAt: userGuess.guessedAt
           } : null,
-          
+
           // All player guesses (for multiplayer games)
           allGuesses: round.playerGuesses.map(guess => ({
             playerId: guess.accountId || guess.playerId,
@@ -84,13 +91,13 @@ export default async function handler(req, res) {
             xpEarned: guess.xpEarned,
             usedHint: guess.usedHint
           })),
-          
+
           startedAt: round.startedAt,
           endedAt: round.endedAt,
           roundTimeLimit: round.roundTimeLimit
         };
       }),
-      
+
       // All players
       players: game.players.map(player => ({
         playerId: player.accountId || player.playerId,
@@ -102,18 +109,18 @@ export default async function handler(req, res) {
         finalRank: player.finalRank,
         elo: player.elo
       })),
-      
+
       // Game result
       result: game.result,
-      
+
       // Multiplayer info
       multiplayer: game.multiplayer,
-      
+
       // Find the perspective user's player data
-      userPlayer: game.players.find(player => 
+      userPlayer: game.players.find(player =>
         player.accountId === perspectiveUserId || player.playerId === perspectiveUserId
       ),
-      
+
       // Add perspective user's ID for frontend comparisons
       currentUserId: perspectiveUserId
     };
@@ -122,9 +129,9 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Mod game details error:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       message: 'An error occurred while fetching game details',
-      error: error.message 
+      error: error.message
     });
   }
 }
