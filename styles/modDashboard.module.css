@@ -1921,3 +1921,48 @@
     width: 100%;
   }
 }
+
+/* Moderation Info Section - for resolved/dismissed reports */
+.moderationInfo {
+  margin-top: 15px;
+  padding: 12px;
+  background: rgba(88, 166, 255, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid #58a6ff;
+}
+
+.modInfoHeader {
+  font-size: 0.9rem;
+  color: #58a6ff;
+  margin-bottom: 8px;
+}
+
+.modInfoHeader strong {
+  color: #8b949e;
+}
+
+.reviewDate {
+  color: #6e7681;
+  font-size: 0.85rem;
+}
+
+.modNotes {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(48, 54, 61, 0.5);
+}
+
+.modNotes strong {
+  color: #f0883e;
+  font-size: 0.85rem;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.modNotes p {
+  margin: 0;
+  color: #c9d1d9;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

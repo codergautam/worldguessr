@@ -1634,6 +1634,26 @@ export default function ModDashboard({ session }) {
                         <div className={styles.reportDescription}>
                           <p>{report.description}</p>
                         </div>
+
+                        {/* Moderation Info - shown for resolved/dismissed reports */}
+                        {report.reviewedBy?.username && (
+                          <div className={styles.moderationInfo}>
+                            <div className={styles.modInfoHeader}>
+                              <strong>Reviewed by:</strong> {report.reviewedBy.username}
+                              {report.reviewedAt && (
+                                <span className={styles.reviewDate}>
+                                  {' '}on {new Date(report.reviewedAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                            {report.moderatorNotes && (
+                              <div className={styles.modNotes}>
+                                <strong>Internal Notes:</strong>
+                                <p>{report.moderatorNotes}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1784,7 +1804,9 @@ export default function ModDashboard({ session }) {
                   <option value="force_name_change">✏️ Force Name Change</option>
                   <option value="name_change_approved">👍 Name Change Approved</option>
                   <option value="name_change_rejected">👎 Name Change Rejected</option>
+                  <option value="name_change_manual">📝 Name Change (User)</option>
                   <option value="report_ignored">🚫 Report Ignored</option>
+                  <option value="report_resolved">✔️ Report Resolved</option>
                   <option value="warning">⚠️ Warning</option>
                 </select>
 
