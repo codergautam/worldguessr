@@ -17,16 +17,21 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
   const bannedAccountId = bannedUserId.toString();
 
   // Find all ranked_duel games where the banned user participated
+  // Skip games that have already been refunded (to prevent double refunds on re-ban)
   const games = await Game.find({
     gameType: 'ranked_duel',
-    'players.accountId': bannedAccountId
-  }).lean();
+    'players.accountId': bannedAccountId,
+    eloRefunded: { $ne: true }
+  });
 
   let totalRefunded = 0;
   let gamesProcessed = 0;
   const opponentRefunds = {}; // { opponentAccountId: totalRefund }
+  const gameIdsToMarkRefunded = []; // Track game IDs to mark as refunded
 
   for (const game of games) {
+    let gameHadRefund = false;
+
     // Find the opponent(s) who lost ELO in this game
     for (const player of game.players) {
       // Skip the banned user
@@ -48,7 +53,23 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
       opponentRefunds[player.accountId] += refundAmount;
       totalRefunded += refundAmount;
       gamesProcessed++;
+      gameHadRefund = true;
     }
+
+    // Mark this game for refund status update (even if no refunds were made,
+    // to prevent re-processing on future bans)
+    gameIdsToMarkRefunded.push(game._id);
+  }
+
+  // Mark all processed games as refunded to prevent double refunds
+  if (gameIdsToMarkRefunded.length > 0) {
+    await Game.updateMany(
+      { _id: { $in: gameIdsToMarkRefunded } },
+      {
+        eloRefunded: true,
+        eloRefundedAt: new Date()
+      }
+    );
   }
 
   // Apply refunds to each affected opponent
@@ -92,6 +113,7 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
     totalRefunded,
     opponentsAffected: Object.keys(opponentRefunds).length,
     gamesProcessed,
+    gamesMarkedRefunded: gameIdsToMarkRefunded.length,
     refundDetails: opponentRefunds // { accountId: refundAmount }
   };
 }
@@ -186,6 +208,9 @@ export default async function handler(req, res) {
       case 'ignore':
         // Mark reports as dismissed and update reporter stats
         for (const report of reports) {
+          // Only increment unhelpful reports if this report hasn't already been reviewed
+          const shouldIncrementReporterStats = report.status !== 'dismissed' && report.status !== 'action_taken';
+
           // Update report status
           await Report.findByIdAndUpdate(report._id, {
             status: 'dismissed',
@@ -198,10 +223,12 @@ export default async function handler(req, res) {
             moderatorNotes: reason // Store internal reason in report for mod reference
           });
 
-          // Increment unhelpful reports for reporter
-          await User.findByIdAndUpdate(report.reportedBy.accountId, {
-            $inc: { 'reporterStats.unhelpfulReports': 1 }
-          });
+          // Increment unhelpful reports for reporter (only if not already counted)
+          if (shouldIncrementReporterStats) {
+            await User.findByIdAndUpdate(report.reportedBy.accountId, {
+              $inc: { 'reporterStats.unhelpfulReports': 1 }
+            });
+          }
         }
 
         // Create moderation log
@@ -235,8 +262,14 @@ export default async function handler(req, res) {
         // Refund ELO to opponents who lost ELO playing against this user
         eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
 
-        // Update reports
-        for (const report of reports) {
+        // Find ALL pending reports against this user (not just the ones passed in)
+        const allPendingReportsBan = await Report.find({
+          'reportedUser.accountId': targetUserId.toString(),
+          status: 'pending'
+        });
+
+        // Update all pending reports against this user
+        for (const report of allPendingReportsBan) {
           await Report.findByIdAndUpdate(report._id, {
             status: 'action_taken',
             actionTaken: 'ban_permanent',
@@ -266,7 +299,7 @@ export default async function handler(req, res) {
           },
           actionType: 'ban_permanent',
           reason: reason, // Internal reason
-          relatedReports: reportIds || [],
+          relatedReports: allPendingReportsBan.map(r => r._id), // Include all resolved reports
           notes: publicNote || '', // Public note for reference
           eloRefund: eloRefundResult // Store refund details in log
         });
@@ -289,8 +322,14 @@ export default async function handler(req, res) {
         // Refund ELO to opponents who lost ELO playing against this user
         eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
 
-        // Update reports
-        for (const report of reports) {
+        // Find ALL pending reports against this user (not just the ones passed in)
+        const allPendingReportsTempBan = await Report.find({
+          'reportedUser.accountId': targetUserId.toString(),
+          status: 'pending'
+        });
+
+        // Update all pending reports against this user
+        for (const report of allPendingReportsTempBan) {
           await Report.findByIdAndUpdate(report._id, {
             status: 'action_taken',
             actionTaken: 'ban_temporary',
@@ -323,7 +362,7 @@ export default async function handler(req, res) {
           durationString: durationString || `${Math.round(duration / (1000 * 60 * 60 * 24))} days`,
           expiresAt: expiresAt,
           reason: reason, // Internal reason
-          relatedReports: reportIds || [],
+          relatedReports: allPendingReportsTempBan.map(r => r._id), // Include all resolved reports
           notes: publicNote || '', // Public note for reference
           eloRefund: eloRefundResult // Store refund details in log
         });
@@ -338,8 +377,16 @@ export default async function handler(req, res) {
           pendingNameChangePublicNote: publicNote || null // Shown to user
         });
 
-        // Update reports
-        for (const report of reports) {
+        // Find ALL pending inappropriate_username reports against this user
+        // (only resolve username reports, not cheating reports)
+        const allPendingUsernameReports = await Report.find({
+          'reportedUser.accountId': targetUserId.toString(),
+          status: 'pending',
+          reason: 'inappropriate_username'
+        });
+
+        // Update all pending username reports against this user
+        for (const report of allPendingUsernameReports) {
           await Report.findByIdAndUpdate(report._id, {
             status: 'action_taken',
             actionTaken: 'force_name_change',
@@ -369,7 +416,7 @@ export default async function handler(req, res) {
           },
           actionType: 'force_name_change',
           reason: reason, // Internal reason
-          relatedReports: reportIds || [],
+          relatedReports: allPendingUsernameReports.map(r => r._id), // Include all resolved reports
           nameChange: {
             oldName: targetUser.username,
             newName: null // Will be filled when they submit new name
@@ -377,10 +424,10 @@ export default async function handler(req, res) {
           notes: publicNote || '' // Public note for reference
         });
 
-        // Update the moderation log ID on reports
-        if (reportIds && reportIds.length > 0) {
+        // Update the moderation log ID on all resolved reports
+        if (allPendingUsernameReports.length > 0) {
           await Report.updateMany(
-            { _id: { $in: reportIds } },
+            { _id: { $in: allPendingUsernameReports.map(r => r._id) } },
             { moderationLogId: moderationLog._id }
           );
         }
