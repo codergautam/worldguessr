@@ -199,7 +199,7 @@ function ChatBox({ ws, open, onToggle, enabled, myId, inGame, miniMapShown, isGu
       {!shouldHideChatButton && (
         <button
         className={`chatboxBtn ${open ? 'open' : ''} ${miniMapShown ? 'minimap' : ''}`} style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', background: 'green', border: 'none', borderRadius: '5px', padding: '10px 20px', cursor: 'pointer' }} onClick={onToggle}>
-          {open ? <FaXmark onClick={onToggle} /> : `${text("chat")}${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
+          {open ? <FaXmark style={{ pointerEvents: 'none' }} /> : `${text("chat")}${unreadCount > 0 ? ` (${unreadCount})` : ''}`}
         </button>
       )}
       <div className={`chatbox ${open ? 'open' : ''}`}>
