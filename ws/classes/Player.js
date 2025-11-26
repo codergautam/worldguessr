@@ -92,7 +92,7 @@ export default class Player {
           const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange');
           if (freshUserData) {
             let isBanned = freshUserData.banned;
-            
+
             // Handle temp ban expiration
             if (freshUserData.banned && freshUserData.banType === 'temporary' && freshUserData.banExpiresAt) {
               if (new Date() >= new Date(freshUserData.banExpiresAt)) {
@@ -104,10 +104,10 @@ export default class Player {
                 }).catch(err => console.error('Error auto-unbanning on reconnect:', err));
               }
             }
-            
+
             dcPlayer.banned = isBanned;
             dcPlayer.pendingNameChange = freshUserData.pendingNameChange;
-            
+
             // Also set banned if pending name change
             if (dcPlayer.pendingNameChange) {
               dcPlayer.banned = true;
@@ -225,8 +225,7 @@ export default class Player {
             this.username = valid.username;
             this.accountId = valid._id.toString();
             this.elo = valid.elo;
-            console.log('verifying user', valid); // debug
-            
+
             // Check ban status - handle temp bans that may have expired
             let isBanned = valid.banned;
             if (valid.banned) {
@@ -250,14 +249,13 @@ export default class Player {
               }
             }
             this.banned = isBanned;
-            
+
             // Also block users who need to change their name
             this.pendingNameChange = valid.pendingNameChange;
-            console.log('pendingNameChange', this.pendingNameChange, valid); // debug
             if (this.pendingNameChange) {
               this.banned = true; // Treat as banned for gameplay purposes
             }
-            
+
             this.league = getLeague(this.elo).name;
             this.send({
             type: 'verify'
