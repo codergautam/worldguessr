@@ -50,9 +50,11 @@ function wrapLines(start, end) {
   });
 }
 
-function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, multiplayerState, playSound }) {
+function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, multiplayerState, playSound, focused }) {
   const multiplayerStateRef = React.useRef(multiplayerState);
   const wsRef = React.useRef(ws);
+  const savedViewRef = React.useRef(null);
+  const isTransitioningRef = React.useRef(false);
 
   useEffect(() => { multiplayerStateRef.current = multiplayerState; }, [multiplayerState]);
   useEffect(() => { wsRef.current = ws; }, [ws]);
@@ -75,6 +77,65 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
       }
     },
   });
+
+  // Handle hover expansion/collapse - preserve center during CSS transition
+  useEffect(() => {
+    if (!map) return;
+
+    // Save current view before transition starts
+    try {
+      savedViewRef.current = {
+        center: map.getCenter(),
+        zoom: map.getZoom()
+      };
+    } catch (e) {
+      // Map not ready yet
+      return;
+    }
+
+    isTransitioningRef.current = true;
+
+    // Animate invalidateSize calls during the 250ms CSS transition
+    // Using requestAnimationFrame for smooth updates
+    const startTime = performance.now();
+    const transitionDuration = 300; // Slightly longer than CSS 250ms to ensure complete
+
+    const animateResize = (currentTime) => {
+      if (!isTransitioningRef.current) return;
+
+      const elapsed = currentTime - startTime;
+
+      try {
+        map.invalidateSize({ animate: false });
+        if (savedViewRef.current) {
+          map.setView(savedViewRef.current.center, savedViewRef.current.zoom, { animate: false });
+        }
+      } catch (e) {
+        // Ignore errors during transition
+      }
+
+      if (elapsed < transitionDuration) {
+        requestAnimationFrame(animateResize);
+      } else {
+        // Final update after transition completes
+        isTransitioningRef.current = false;
+        try {
+          map.invalidateSize({ animate: false });
+          if (savedViewRef.current) {
+            map.setView(savedViewRef.current.center, savedViewRef.current.zoom, { animate: false });
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+    };
+
+    requestAnimationFrame(animateResize);
+
+    return () => {
+      isTransitioningRef.current = false;
+    };
+  }, [map, focused]);
 
   // initial extent / view
   useEffect(() => {
@@ -128,10 +189,14 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
     return () => clearTimeout(t);
   }, [map, answerShown, pinPoint, dest]);
 
-  // reduce the frequency of invalidateSize; 5ms is far too aggressive
+  // Periodic invalidateSize for general container changes (not during hover transition)
   useEffect(() => {
     if (!map) return;
-    const i = setInterval(() => { map.invalidateSize(); }, 500); // 500ms
+    const i = setInterval(() => {
+      // Skip if we're in the middle of a hover transition
+      if (isTransitioningRef.current) return;
+      map.invalidateSize();
+    }, 500);
     return () => clearInterval(i);
   }, [map]);
 
@@ -139,7 +204,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
   return null;
 }
 
-const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, multiplayerState, showHint, gameOptions }) => {
+const MapComponent = ({ shown, focused, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, multiplayerState, showHint, gameOptions }) => {
   const mapRef = React.useRef(null);
   const plopSound = React.useRef();
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
@@ -203,6 +268,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         gameOptions={gameOptions}
         ws={ws}
         multiplayerState={multiplayerState}
+        focused={focused}
       />
 
       {location && answerShown && wrapPositions({ lat: location.lat, lng: location.long ?? location.lng }).map((pos, idx) => (
