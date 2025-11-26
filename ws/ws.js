@@ -52,7 +52,7 @@ function pick5RandomArb() {
   while(rand.size < 5) {
     rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
   }
-  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: lookup(r.lat, r.lng, true) ? lookup(r.lat, r.lng, true)[0] : 'unknown' }));
+  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: r.country || 'unknown' }));
 }
 
 
@@ -429,10 +429,10 @@ app.ws('/wg', {
     const ip = ws.ip;
     const id = ws.id;
     const connectTime = Date.now();
-    
+
     // Store connection time for disconnect analysis
     ws.connectTime = connectTime;
-    
+
     const player = new Player(ws, id, ip);
     if(ip !== 'unknown') ipConnectionCount.set(ip, (ipConnectionCount.get(ip) || 0) + 1);
 
@@ -1121,9 +1121,9 @@ app.ws('/wg', {
   close: (ws, code, message) => {
     const connectionDuration = ws.connectTime ? Date.now() - ws.connectTime : 0;
     const durationSeconds = (connectionDuration / 1000).toFixed(1);
-    
+
     console.log(`WebSocket disconnect code: ${code} (${durationSeconds}s) - ${message ? message.toString() : 'no message'}`);
-    
+
     ipConnectionCount.set(ws.ip, ipConnectionCount.get(ws.ip) - 1);
     if(ipConnectionCount.get(ws.ip) < 1) {
       ipConnectionCount.delete(ws.ip);
