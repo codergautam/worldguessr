@@ -57,6 +57,45 @@ Before you start, ensure you have the following installed:
 
    Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Deploying to a VPS / External Server
+
+If you're deploying WorldGuessr on a VPS or any server with an external IP (not localhost), you **must** configure these environment variables in your `.env` file:
+
+```bash
+# Replace YOUR_IP with your server's IP address or domain
+NEXT_PUBLIC_API_URL=YOUR_IP:3001
+NEXT_PUBLIC_WS_HOST=YOUR_IP:3002
+```
+
+**Example with IP:**
+```bash
+NEXT_PUBLIC_API_URL=123.45.67.89:3001
+NEXT_PUBLIC_WS_HOST=123.45.67.89:3002
+```
+
+**Example with domain (after setting up nginx):**
+```bash
+NEXT_PUBLIC_API_URL=api.yourdomain.com
+NEXT_PUBLIC_WS_HOST=ws.yourdomain.com
+```
+
+### Quick Setup Checklist
+
+1. **MongoDB** - Create a cluster on [MongoDB Atlas](https://www.mongodb.com/atlas) (free tier available) and add the connection string:
+   ```bash
+   MONGODB=mongodb+srv://username:password@cluster.mongodb.net/worldguessr
+   ```
+
+2. **Google OAuth** - Create credentials at [Google Cloud Console](https://console.cloud.google.com/):
+   ```bash
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=your_client_secret
+   ```
+
+3. **API/WS URLs** - Point to your external IP or domain (see above)
+
+For detailed environment variable documentation, see [docs/environment-variables.md](docs/environment-variables.md).
+
 ## Contributing
 
 Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
