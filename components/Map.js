@@ -251,13 +251,13 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
       <TileLayer
         key={isMobileOrTablet ? 'mobile' : 'desktop'}
         noWrap={true}
-        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
+        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=1`}
         subdomains={['0', '1', '2', '3']}
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}
-        tileSize={isMobileOrTablet ? 512 : 256}
-        zoomOffset={isMobileOrTablet ? -1 : 0}
-        detectRetina={true}
+        // tileSize={isMobileOrTablet ? 512 : 256}
+        // zoomOffset={isMobileOrTablet ? -1 : 0}
+        // detectRetina={true}
       />
 
     <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
