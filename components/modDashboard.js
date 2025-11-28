@@ -1160,11 +1160,11 @@ export default function ModDashboard({ session }) {
                           <span>Elo: {match.elo || 1000}</span>
                           <span>Joined: {new Date(match.created_at).toLocaleDateString()}</span>
                         </div>
-                        {match.email && (
+                        {/* {match.email && (
                           <div className={styles.matchEmail}>
                             📧 {match.email}
                           </div>
-                        )}
+                        )} */}
                         <div className={styles.matchAction}>
                           Click to view full details →
                         </div>
@@ -1222,7 +1222,7 @@ export default function ModDashboard({ session }) {
                       </code>
                     </div>
 
-                    {targetUser.email && (
+                    {/* {targetUser.email && (
                       <div className={styles.accountId}>
                         <span>Email: </span>
                         <code
@@ -1236,7 +1236,7 @@ export default function ModDashboard({ session }) {
                           {targetUser.email}
                         </code>
                       </div>
-                    )}
+                    )} */}
 
                     {targetUser.banned && targetUser.banExpiresAt && (
                       <div className={styles.banInfo}>
