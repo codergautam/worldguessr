@@ -542,8 +542,8 @@
   {
     "name": "Nepal",
     "slug": "nepal",
-    "longDescription": "Explore Nepal in WorldGuessr! From the majestic peaks of the Himalayas including Mount Everest to the ancient temples of Kathmandu, discover the breathtaking landscapes and rich spiritual heritage of this mountain kingdom.",
-    "shortDescription": "Explore Nepal's Himalayan peaks and ancient temples!",
+    "longDescription": "Explore Nepal in WorldGuessr! Navigate the dramatic elevation changes from the subtropical Terai lowlands to the world's highest peaks in the Himalayas. Identify locations by the terraced hillsides carved into steep mountain slopes, winding mountain roads with hairpin turns, distinctive Newari architecture in the Kathmandu Valley, and prayer flags fluttering against snowy backdrops. Challenge yourself with Nepal's diverse geography spanning 8 of the world's 14 highest mountains.",
+    "shortDescription": "From Terai plains to Everest - master Nepal's extreme terrain!",
     "maxDist": 885.5,
     "countryCode": "NP",
     "extent": [80.058, 26.347, 88.201, 30.447]
@@ -551,8 +551,8 @@
   {
     "name": "Bosnia and Herzegovina",
     "slug": "bosnia-and-herzegovina",
-    "longDescription": "Explore Bosnia and Herzegovina in WorldGuessr! From the historic streets of Sarajevo to the iconic Stari Most bridge in Mostar, discover the rich cultural heritage and stunning natural beauty of this Balkan gem.",
-    "shortDescription": "Explore Bosnia's historic cities and mountain landscapes!",
+    "longDescription": "Explore Bosnia and Herzegovina in WorldGuessr! Navigate the rugged Dinaric Alps that dominate the landscape, the turquoise rivers cutting through deep limestone gorges, and the narrow coastal strip near Neum on the Adriatic. Learn to spot the distinctive mix of Ottoman minarets and Austro-Hungarian facades, red-roofed villages nestled in forested valleys, and the unique road infrastructure winding through mountainous terrain. A fascinating Balkan challenge where Central European and Mediterranean influences collide.",
+    "shortDescription": "Master the Dinaric Alps and Balkan crossroads!",
     "maxDist": 329.8,
     "countryCode": "BA",
     "extent": [15.718, 42.558, 19.622, 45.276]
