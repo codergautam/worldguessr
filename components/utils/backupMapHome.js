@@ -361,6 +361,24 @@ export const backupMapHome = {
             "description_short": "Explore Portugal's 18 districts and 800 km of coastline!"
         },
         {
+            "name": "Vietnam",
+            "slug": "vietnam",
+            "longDescription": "Explore Vietnam in WorldGuessr! From the bustling streets of Hanoi to the serene landscapes of Ha Long Bay, discover the rich culture and history of this Southeast Asian country.",
+            "shortDescription": "Experience the vibrant culture and stunning landscapes of Vietnam!",
+            "maxDist": 1800.49,
+            "countryCode": "VN",
+            "extent": [
+                102.144,
+                8.343,
+                109.455,
+                23.392
+            ],
+            "created_by_name": "WorldGuessr",
+            "official": true,
+            "countryMap": "VN",
+            "description_short": "Experience the vibrant culture and stunning landscapes of Vietnam!"
+        },
+        {
             "name": "Turkey",
             "slug": "turkey",
             "longDescription": "Explore Turkey in WorldGuessr! Discover the rich history, vibrant cities, and diverse landscapes of this transcontinental country.",
@@ -413,6 +431,24 @@ export const backupMapHome = {
             "official": true,
             "countryMap": "SE",
             "description_short": "Explore Sweden's 21 counties and over 100,000 lakes!"
+        },
+        {
+            "name": "Namibia",
+            "slug": "namibia",
+            "longDescription": "Explore Namibia in WorldGuessr! From the stunning deserts to the wildlife-rich national parks, discover the natural beauty and cultural diversity of this southern African country.",
+            "shortDescription": "Experience the breathtaking landscapes of Namibia!",
+            "maxDist": 1522.395,
+            "countryCode": "NA",
+            "extent": [
+                11.654,
+                -29.268,
+                25.037,
+                -17.128
+            ],
+            "created_by_name": "WorldGuessr",
+            "official": true,
+            "countryMap": "NA",
+            "description_short": "Experience the breathtaking landscapes of Namibia!"
         },
         {
             "name": "Nigeria",
@@ -559,6 +595,24 @@ export const backupMapHome = {
             "description_short": "Explore Germany's 16 states and 300+ types of bread!"
         },
         {
+            "name": "Nepal",
+            "slug": "nepal",
+            "longDescription": "Explore Nepal in WorldGuessr! From the majestic peaks of the Himalayas including Mount Everest to the ancient temples of Kathmandu, discover the breathtaking landscapes and rich spiritual heritage of this mountain kingdom.",
+            "shortDescription": "Explore Nepal's Himalayan peaks and ancient temples!",
+            "maxDist": 885.5,
+            "countryCode": "NP",
+            "extent": [
+                80.058,
+                26.347,
+                88.201,
+                30.447
+            ],
+            "created_by_name": "WorldGuessr",
+            "official": true,
+            "countryMap": "NP",
+            "description_short": "Explore Nepal's Himalayan peaks and ancient temples!"
+        },
+        {
             "name": "Ghana",
             "slug": "ghana",
             "longDescription": "Explore Ghana in WorldGuessr! From the historical sites of Cape Coast to the colorful markets of Accra, experience the warmth and hospitality of this West African nation.",
@@ -647,6 +701,24 @@ export const backupMapHome = {
             "official": true,
             "countryMap": "KR",
             "description_short": "Explore South Korea's 9 provinces and over 5,000 years of history!"
+        },
+        {
+            "name": "Paraguay",
+            "slug": "paraguay",
+            "longDescription": "Explore Paraguay in WorldGuessr! From the vibrant capital of Asunción to the vast Chaco wilderness, discover the unique culture and diverse landscapes of this landlocked South American country.",
+            "shortDescription": "Explore Paraguay's diverse landscapes and rich culture!",
+            "maxDist": 682.4,
+            "countryCode": "PY",
+            "extent": [
+                -62.638,
+                -27.588,
+                -54.259,
+                -19.294
+            ],
+            "created_by_name": "WorldGuessr",
+            "official": true,
+            "countryMap": "PY",
+            "description_short": "Explore Paraguay's diverse landscapes and rich culture!"
         },
         {
             "name": "Panama",
@@ -829,6 +901,24 @@ export const backupMapHome = {
             "description_short": "Explore the Czech Republic's 14 regions and over 2,000 castles!"
         },
         {
+            "name": "Costa Rica",
+            "slug": "costa-rica",
+            "longDescription": "Explore Costa Rica in WorldGuessr! From the stunning beaches of both coasts to the lush rainforests and active volcanoes, discover the incredible biodiversity and Pura Vida lifestyle of this Central American paradise.",
+            "shortDescription": "Explore Costa Rica's rainforests, beaches, and wildlife!",
+            "maxDist": 464.2,
+            "countryCode": "CR",
+            "extent": [
+                -85.95,
+                8.032,
+                -82.555,
+                11.217
+            ],
+            "created_by_name": "WorldGuessr",
+            "official": true,
+            "countryMap": "CR",
+            "description_short": "Explore Costa Rica's rainforests, beaches, and wildlife!"
+        },
+        {
             "name": "Israel",
             "slug": "israel",
             "longDescription": "Explore Israel in WorldGuessr! Discover the ancient cities, religious sites, and diverse culture of this Middle Eastern country.",
@@ -919,22 +1009,22 @@ export const backupMapHome = {
             "description_short": "Explore Belgium's 3 regions and over 800 types of beer!"
         },
         {
-            "name": "Bhutan",
-            "slug": "bhutan",
-            "longDescription": "Explore Bhutan in WorldGuessr! From the stunning monasteries perched on cliffs to the vibrant festivals, discover the spiritual beauty and culture of the 'Land of the Thunder Dragon'.",
-            "shortDescription": "Experience Bhutan's unique culture and landscapes!",
-            "maxDist": 336.05,
-            "countryCode": "BT",
+            "name": "Bosnia and Herzegovina",
+            "slug": "bosnia-and-herzegovina",
+            "longDescription": "Explore Bosnia and Herzegovina in WorldGuessr! From the historic streets of Sarajevo to the iconic Stari Most bridge in Mostar, discover the rich cultural heritage and stunning natural beauty of this Balkan gem.",
+            "shortDescription": "Explore Bosnia's historic cities and mountain landscapes!",
+            "maxDist": 329.8,
+            "countryCode": "BA",
             "extent": [
-                88.745,
-                26.702,
-                92.125,
-                28.325
+                15.718,
+                42.558,
+                19.622,
+                45.276
             ],
             "created_by_name": "WorldGuessr",
             "official": true,
-            "countryMap": "BT",
-            "description_short": "Experience Bhutan's unique culture and landscapes!"
+            "countryMap": "BA",
+            "description_short": "Explore Bosnia's historic cities and mountain landscapes!"
         },
         {
             "name": "Netherlands",
@@ -971,6 +1061,24 @@ export const backupMapHome = {
             "official": true,
             "countryMap": "SI",
             "description_short": "Discover Slovenia's enchanting landscapes and cities!"
+        },
+        {
+            "name": "Cyprus",
+            "slug": "cyprus",
+            "longDescription": "Explore Cyprus in WorldGuessr! Discover the rich history, beautiful beaches, and vibrant culture of this Mediterranean island.",
+            "shortDescription": "Explore Cyprus's 6 districts and rich cultural heritage!",
+            "maxDist": 257.473,
+            "countryCode": "CY",
+            "extent": [
+                32.275,
+                34.565,
+                34.635,
+                35.75
+            ],
+            "created_by_name": "WorldGuessr",
+            "official": true,
+            "countryMap": "CY",
+            "description_short": "Explore Cyprus's 6 districts and rich cultural heritage!"
         },
         {
             "name": "Lesotho",
@@ -1025,6 +1133,24 @@ export const backupMapHome = {
             "official": true,
             "countryMap": "SG",
             "description_short": "Discover the dynamic city of Singapore!"
+        },
+        {
+            "name": "Bhutan",
+            "slug": "bhutan",
+            "longDescription": "Explore Bhutan in WorldGuessr! From the stunning monasteries perched on cliffs to the vibrant festivals, discover the spiritual beauty and culture of the 'Land of the Thunder Dragon'.",
+            "shortDescription": "Experience Bhutan's unique culture and landscapes!",
+            "maxDist": 50.05,
+            "countryCode": "BT",
+            "extent": [
+                88.745,
+                26.702,
+                92.125,
+                28.325
+            ],
+            "created_by_name": "WorldGuessr",
+            "official": true,
+            "countryMap": "BT",
+            "description_short": "Experience Bhutan's unique culture and landscapes!"
         }
     ]
 };

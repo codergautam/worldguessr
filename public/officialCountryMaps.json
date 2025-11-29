@@ -538,5 +538,41 @@
     "maxDist": 1800.49,
     "countryCode": "VN",
     "extent": [102.144, 8.343, 109.455, 23.392]
+  },
+  {
+    "name": "Nepal",
+    "slug": "nepal",
+    "longDescription": "Explore Nepal in WorldGuessr! From the majestic peaks of the Himalayas including Mount Everest to the ancient temples of Kathmandu, discover the breathtaking landscapes and rich spiritual heritage of this mountain kingdom.",
+    "shortDescription": "Explore Nepal's Himalayan peaks and ancient temples!",
+    "maxDist": 885.5,
+    "countryCode": "NP",
+    "extent": [80.058, 26.347, 88.201, 30.447]
+  },
+  {
+    "name": "Bosnia and Herzegovina",
+    "slug": "bosnia-and-herzegovina",
+    "longDescription": "Explore Bosnia and Herzegovina in WorldGuessr! From the historic streets of Sarajevo to the iconic Stari Most bridge in Mostar, discover the rich cultural heritage and stunning natural beauty of this Balkan gem.",
+    "shortDescription": "Explore Bosnia's historic cities and mountain landscapes!",
+    "maxDist": 329.8,
+    "countryCode": "BA",
+    "extent": [15.718, 42.558, 19.622, 45.276]
+  },
+  {
+    "name": "Paraguay",
+    "slug": "paraguay",
+    "longDescription": "Explore Paraguay in WorldGuessr! From the vibrant capital of Asunción to the vast Chaco wilderness, discover the unique culture and diverse landscapes of this landlocked South American country.",
+    "shortDescription": "Explore Paraguay's diverse landscapes and rich culture!",
+    "maxDist": 682.4,
+    "countryCode": "PY",
+    "extent": [-62.638, -27.588, -54.259, -19.294]
+  },
+  {
+    "name": "Costa Rica",
+    "slug": "costa-rica",
+    "longDescription": "Explore Costa Rica in WorldGuessr! From the stunning beaches of both coasts to the lush rainforests and active volcanoes, discover the incredible biodiversity and Pura Vida lifestyle of this Central American paradise.",
+    "shortDescription": "Explore Costa Rica's rainforests, beaches, and wildlife!",
+    "maxDist": 464.2,
+    "countryCode": "CR",
+    "extent": [-85.95, 8.032, -82.555, 11.217]
   }
 ]
