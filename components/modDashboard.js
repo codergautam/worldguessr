@@ -23,6 +23,7 @@ export default function ModDashboard({ session }) {
   const [reportsError, setReportsError] = useState(null);
   const [reportsStats, setReportsStats] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('pending');
+  const [selectedReason, setSelectedReason] = useState('all'); // 'all', 'cheating', 'inappropriate_username', 'other'
   const [gameLoading, setGameLoading] = useState(false);
   const [reportedUserId, setReportedUserId] = useState(null);
 
@@ -73,7 +74,8 @@ export default function ModDashboard({ session }) {
     setActiveTab('reports');
     // Set status filter to match the report's status or 'all' to ensure it's visible
     setSelectedStatus(report.status === 'pending' ? 'pending' : 'all');
-    fetchReports(report.status === 'pending' ? 'pending' : 'all');
+    setSelectedReason('all'); // Reset reason filter when viewing a specific report
+    fetchReports(report.status === 'pending' ? 'pending' : 'all', 'all');
   };
 
   // Check if user is staff - must be after all hooks
@@ -279,7 +281,7 @@ export default function ModDashboard({ session }) {
   };
 
   // Fetch reports
-  const fetchReports = async (status = 'pending') => {
+  const fetchReports = async (status = 'pending', reason = 'all') => {
     setReportsLoading(true);
     setReportsError(null);
 
@@ -290,6 +292,7 @@ export default function ModDashboard({ session }) {
         body: JSON.stringify({
           secret: session?.token?.secret,
           status: status === 'all' ? undefined : status,
+          reason: reason === 'all' ? undefined : reason,
           showAll: status === 'all',
           limit: 50,
           skip: 0
@@ -298,6 +301,14 @@ export default function ModDashboard({ session }) {
 
       if (response.ok) {
         const data = await response.json();
+        // Ensure pendingByReason exists for backward compatibility with old server
+        if (data.stats && !data.stats.pendingByReason) {
+          data.stats.pendingByReason = {
+            cheating: 0,
+            inappropriate_username: 0,
+            other: 0
+          };
+        }
         setReportsStats(data.stats);
         setIsGrouped(data.isGrouped);
 
@@ -381,7 +392,7 @@ export default function ModDashboard({ session }) {
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (tab === 'reports' && groupedReports.length === 0 && flatReports.length === 0) {
-      fetchReports(selectedStatus);
+      fetchReports(selectedStatus, selectedReason);
     }
     if (tab === 'nameReview' && nameRequests.length === 0) {
       fetchNameReviewQueue();
@@ -393,7 +404,16 @@ export default function ModDashboard({ session }) {
 
   const handleStatusFilterChange = (status) => {
     setSelectedStatus(status);
-    fetchReports(status);
+    // Reset reason filter when changing status (reason filter only applies to pending)
+    if (status !== 'pending') {
+      setSelectedReason('all');
+    }
+    fetchReports(status, status === 'pending' ? selectedReason : 'all');
+  };
+
+  const handleReasonFilterChange = (reason) => {
+    setSelectedReason(reason);
+    fetchReports(selectedStatus, reason);
   };
 
   // Take moderation action
@@ -435,7 +455,7 @@ export default function ModDashboard({ session }) {
         setActionModal(null);
         setActionReason('');
         setActionPublicNote('');
-        fetchReports(selectedStatus); // Refresh reports
+        fetchReports(selectedStatus, selectedReason); // Refresh reports
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to take action');
@@ -1140,11 +1160,11 @@ export default function ModDashboard({ session }) {
                           <span>Elo: {match.elo || 1000}</span>
                           <span>Joined: {new Date(match.created_at).toLocaleDateString()}</span>
                         </div>
-                        {match.email && (
+                        {/* {match.email && (
                           <div className={styles.matchEmail}>
                             📧 {match.email}
                           </div>
-                        )}
+                        )} */}
                         <div className={styles.matchAction}>
                           Click to view full details →
                         </div>
@@ -1202,7 +1222,7 @@ export default function ModDashboard({ session }) {
                       </code>
                     </div>
 
-                    {targetUser.email && (
+                    {/* {targetUser.email && (
                       <div className={styles.accountId}>
                         <span>Email: </span>
                         <code
@@ -1216,7 +1236,7 @@ export default function ModDashboard({ session }) {
                           {targetUser.email}
                         </code>
                       </div>
-                    )}
+                    )} */}
 
                     {targetUser.banned && targetUser.banExpiresAt && (
                       <div className={styles.banInfo}>
@@ -1341,18 +1361,36 @@ export default function ModDashboard({ session }) {
 
               {/* Status Filter */}
               <div className={styles.filterBar}>
-                <label>Filter:</label>
+                <label>Status:</label>
                 <select
                   value={selectedStatus}
                   onChange={(e) => handleStatusFilterChange(e.target.value)}
                   className={styles.statusFilter}
                 >
-                  <option value="pending">Pending</option>
-                  <option value="all">All Reports</option>
-                  <option value="dismissed">Dismissed</option>
-                  <option value="action_taken">Action Taken</option>
+                  <option value="pending">Pending ({reportsStats?.pending || 0})</option>
+                  <option value="all">All Reports ({reportsStats?.total || 0})</option>
+                  <option value="dismissed">Dismissed ({reportsStats?.dismissed || 0})</option>
+                  <option value="action_taken">Action Taken ({reportsStats?.action_taken || 0})</option>
                 </select>
-                <button onClick={() => fetchReports(selectedStatus)} className={styles.refreshBtn}>
+
+                {/* Report Type Filter - only show for pending */}
+                {selectedStatus === 'pending' && (
+                  <>
+                    <label>Type:</label>
+                    <select
+                      value={selectedReason}
+                      onChange={(e) => handleReasonFilterChange(e.target.value)}
+                      className={styles.statusFilter}
+                    >
+                      <option value="all">All Types ({reportsStats?.pending || 0})</option>
+                      <option value="cheating">🎮 Cheating ({reportsStats?.pendingByReason?.cheating || 0})</option>
+                      <option value="inappropriate_username">📛 Inap. Name ({reportsStats?.pendingByReason?.inappropriate_username || 0})</option>
+                      <option value="other">❓ Other ({reportsStats?.pendingByReason?.other || 0})</option>
+                    </select>
+                  </>
+                )}
+
+                <button onClick={() => fetchReports(selectedStatus, selectedReason)} className={styles.refreshBtn}>
                   🔄 Refresh
                 </button>
               </div>

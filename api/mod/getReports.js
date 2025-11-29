@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { secret, status, limit = 50, skip = 0, showAll = false } = req.body;
+  const { secret, status, reason, limit = 50, skip = 0, showAll = false } = req.body;
 
   // Validate secret
   if (!secret || typeof secret !== 'string') {
@@ -24,6 +24,11 @@ export default async function handler(req, res) {
     const matchQuery = {};
     if (status && ['pending', 'reviewed', 'dismissed', 'action_taken'].includes(status)) {
       matchQuery.status = status;
+    }
+    
+    // Add reason filter if provided
+    if (reason && ['inappropriate_username', 'cheating', 'other'].includes(reason)) {
+      matchQuery.reason = reason;
     }
     
     // If showAll is true, we want all reports regardless of status
@@ -54,15 +59,46 @@ export default async function handler(req, res) {
       stats.total += item.count;
     });
 
+    // Get counts by reason for pending reports (for the filter dropdown)
+    const reasonCounts = await Report.aggregate([
+      { $match: { status: 'pending' } },
+      {
+        $group: {
+          _id: '$reason',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const pendingReasonCounts = {
+      cheating: 0,
+      inappropriate_username: 0,
+      other: 0
+    };
+
+    reasonCounts.forEach(item => {
+      if (item._id in pendingReasonCounts) {
+        pendingReasonCounts[item._id] = item.count;
+      }
+    });
+
+    stats.pendingByReason = pendingReasonCounts;
+
     // For pending reports, we want to group by reported user and order by:
     // 1. Number of reports against user (descending)
     // 2. Oldest report date (ascending) - so oldest reports are seen first
     
     // If filtering by pending status (and not requesting all), use the special grouping logic
     if (status === 'pending' && !wantAllReports) {
+      // Build match query for pending reports (including optional reason filter)
+      const pendingMatchQuery = { status: 'pending' };
+      if (reason && ['inappropriate_username', 'cheating', 'other'].includes(reason)) {
+        pendingMatchQuery.reason = reason;
+      }
+      
       // Get pending reports grouped by reported user
       const groupedReports = await Report.aggregate([
-        { $match: { status: 'pending' } },
+        { $match: pendingMatchQuery },
         {
           $group: {
             _id: '$reportedUser.accountId',
@@ -144,9 +180,9 @@ export default async function handler(req, res) {
         }))
       }));
 
-      // Get total count of users with pending reports
+      // Get total count of users with pending reports (with optional reason filter)
       const totalUsersWithPendingReports = await Report.aggregate([
-        { $match: { status: 'pending' } },
+        { $match: pendingMatchQuery },
         { $group: { _id: '$reportedUser.accountId' } },
         { $count: 'total' }
       ]);

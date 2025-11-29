@@ -389,8 +389,7 @@ export default async function handler(req, res) {
           banPublicNote: publicNote || null // Shown to user
         });
 
-        // Refund ELO to opponents who lost ELO playing against this user
-        eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
+        // ELO refunds are only issued for permanent bans, not temporary bans
 
         // Find ALL pending reports against this user (not just the ones passed in)
         const pendingReportIdsTempBan = await Report.find({
@@ -444,8 +443,8 @@ export default async function handler(req, res) {
           expiresAt: expiresAt,
           reason: reason, // Internal reason
           relatedReports: resolvedReportsTempBan, // Only include reports we actually resolved
-          notes: publicNote || '', // Public note for reference
-          eloRefund: eloRefundResult // Store refund details in log
+          notes: publicNote || '' // Public note for reference
+          // No ELO refund for temporary bans
         });
 
         break;
