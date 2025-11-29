@@ -112,7 +112,7 @@ for stat in opponent_stats:
 # Sort by games played (descending) then by win rate (ascending for hardest opponents first)
 opponent_stats.sort(key=lambda x: (-x['gamesPlayed'], x['win_rate']))
 
-print("=== GEOGUESSR OPPONENT ANALYSIS ===")
+print("=== WORLDGUESSR OPPONENT ANALYSIS ===")
 print(f"Total opponents analyzed: {len(opponent_stats)}")
 print()
 
