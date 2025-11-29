@@ -3,8 +3,8 @@ export const backupMapHome = {
         {
             "name": "Russia",
             "slug": "russia",
-            "longDescription": "Explore Russia in WorldGuessr! From the historic cities of Moscow and St. Petersburg to the vast wilderness of Siberia, discover the diverse landscapes and culture of Russia.",
-            "shortDescription": "Explore Russia's 85 federal subjects and the largest country in the world!",
+            "longDescription": "Explore Russia in WorldGuessr! The world's largest country spans 11 time zones, from European cities to Siberian wilderness to Pacific coasts. Navigate the endless taiga forests, Arctic tundra, steppe grasslands, and the Ural Mountains dividing Europe from Asia. Cyrillic signage, distinctive Soviet-era architecture, onion-domed Orthodox churches, and vast empty roads through birch forests define the landscape. Russia's scale means climate and vegetation zones shift dramatically from subtropical Black Sea to frozen Arctic.",
+            "shortDescription": "Conquer 11 time zones from European Russia to the Pacific!",
             "maxDist": 8224.333,
             "countryCode": "RU",
             "extent": [
@@ -21,8 +21,8 @@ export const backupMapHome = {
         {
             "name": "United States",
             "slug": "united-states",
-            "longDescription": "Explore the United States in WorldGuessr! From the bustling cities to the stunning national parks, discover the diverse landscapes and cultures of this vast country.",
-            "shortDescription": "Explore the USA's 50 states and over 400 national parks!",
+            "longDescription": "Explore the United States in WorldGuessr! From Atlantic to Pacific, navigate the Appalachian forests, Great Plains prairies, Rocky Mountain peaks, southwestern deserts, and Pacific coast ranges. Each of the 50 states has distinctive road signs, license plates, and landscapes. Master regional clues: New England stone walls, Midwest corn fields, Southern pine forests, Texas rangelands, and California's diverse terrain. America's scale and variety make state-level identification both challenging and rewarding.",
+            "shortDescription": "Coast to coast across 50 states of geographic diversity!",
             "maxDist": 6000,
             "countryCode": "US",
             "extent": [
@@ -39,8 +39,8 @@ export const backupMapHome = {
         {
             "name": "Canada",
             "slug": "canada",
-            "longDescription": "Explore Canada in WorldGuessr! From the Rocky Mountains to the French-speaking province of Quebec, explore the vast and diverse landscapes of Canada.",
-            "shortDescription": "Explore Canada's 10 provinces and 3 territories!",
+            "longDescription": "Explore Canada in WorldGuessr! The world's second-largest country spans from the maritime provinces to the Pacific coast, through the boreal forests, prairies, and Arctic tundra. Master the differences between provinces through road signs, language (French in Quebec, English elsewhere), and landscape - from BC's mountains and rainforests to the flat Saskatchewan prairies to the rugged Canadian Shield. Canada's extreme seasonal variations and vast wilderness roads make every region a unique challenge.",
+            "shortDescription": "From Atlantic to Pacific - conquer the world's second largest country!",
             "maxDist": 5656.416,
             "countryCode": "CA",
             "extent": [
@@ -57,8 +57,8 @@ export const backupMapHome = {
         {
             "name": "Indonesia",
             "slug": "indonesia",
-            "longDescription": "Explore Indonesia in WorldGuessr! Discover the stunning islands, active volcanoes, and rich culture of this Southeast Asian archipelago.",
-            "shortDescription": "Explore Indonesia's 17,000+ islands and 300+ ethnic groups!",
+            "longDescription": "Explore Indonesia in WorldGuessr! The world's largest archipelago spans 5,000 km across 17,000 islands straddling the equator. Navigate from Sumatra's jungles and volcanic peaks through densely populated Java to the savannas of eastern islands and the rainforests of Papua. Each island group has distinct architecture, vegetation, and terrain. Learn to identify regions by mosque styles, volcanic cones, rice terrace patterns, and the distinctive Indonesian road signage amid tropical landscapes.",
+            "shortDescription": "Island-hop across the world's largest archipelago!",
             "maxDist": 5642.759,
             "countryCode": "ID",
             "extent": [
@@ -75,8 +75,8 @@ export const backupMapHome = {
         {
             "name": "Chile",
             "slug": "chile",
-            "longDescription": "Explore Chile in WorldGuessr! From the Atacama Desert to the fjords of Patagonia, discover the diverse and stunning landscapes of Chile.",
-            "shortDescription": "Explore Chile's 16 regions and the world's driest desert!",
+            "longDescription": "Explore Chile in WorldGuessr! This ribbon of a nation stretches 4,300 km along South America's Pacific coast, creating one of Earth's most geographically diverse countries. Navigate from the Mars-like Atacama Desert in the north (the world's driest), through Mediterranean central valleys with vineyards, to the lake districts, Patagonian fjords, and glacial south. The ever-present Andes to the east and Pacific to the west help orient you, while vegetation zones shift dramatically with latitude.",
+            "shortDescription": "Master the world's longest country from desert to glacier!",
             "maxDist": 4815.36,
             "countryCode": "CL",
             "extent": [
@@ -93,8 +93,8 @@ export const backupMapHome = {
         {
             "name": "Brazil",
             "slug": "brazil",
-            "longDescription": "Explore Brazil in WorldGuessr! From the Amazon rainforest to the vibrant city of Rio de Janeiro, immerse yourself in the diverse culture and natural beauty of Brazil.",
-            "shortDescription": "Explore Brazil's 26 states and the world's largest rainforest!",
+            "longDescription": "Explore Brazil in WorldGuessr! The world's fifth-largest country spans the Amazon rainforest, the dry Caatinga scrublands of the northeast, the vast Cerrado savanna, the Atlantic coastal mountains, and the subtropical grasslands of the south. Learn to identify regions by red laterite soil, distinctive palm species, Portuguese colonial architecture, and the transition from lush green tropics to temperate southern states. Brazil's scale means dramatic climate and vegetation changes as you move through this continental nation.",
+            "shortDescription": "From Amazon jungle to southern highlands - master Brazil's immense diversity!",
             "maxDist": 4670.419,
             "countryCode": "BR",
             "extent": [
@@ -111,8 +111,8 @@ export const backupMapHome = {
         {
             "name": "Australia",
             "slug": "australia",
-            "longDescription": "Explore Australia in WorldGuessr! Travel through the Outback, visit the iconic Sydney Opera House, and experience the unique wildlife of this vast island continent.",
-            "shortDescription": "Explore Australia's 8 states and territories!",
+            "longDescription": "Explore Australia in WorldGuessr! Master the world's sixth-largest country, from the tropical rainforests of Queensland to the red desert Outback and the temperate coasts of Victoria and Tasmania. Learn to distinguish states by road markings, vegetation zones, and distinctive bollard styles. Navigate the endless straight roads of the interior, the eucalyptus-lined highways, and the coastal cities. Australia's isolation has created unique landscapes found nowhere else on Earth.",
+            "shortDescription": "Master the island continent's diverse terrain and endless horizons!",
             "maxDist": 4600.556,
             "countryCode": "AU",
             "extent": [
@@ -129,8 +129,8 @@ export const backupMapHome = {
         {
             "name": "India",
             "slug": "india",
-            "longDescription": "Explore India in WorldGuessr! From the Himalayas to the bustling streets of Delhi, experience the diverse culture, languages, and landscapes of India.",
-            "shortDescription": "Explore India's 28 states and over 1,600 languages spoken!",
+            "longDescription": "Explore India in WorldGuessr! From the Himalayan peaks of the north to the tropical coasts of Kerala, India's geography is staggering in scale and diversity. Navigate the Thar Desert of Rajasthan, the fertile Gangetic Plain, the Deccan Plateau, and the Western and Eastern Ghats. Each state has distinct scripts, architecture, and landscapes - from golden sandstone forts to Portuguese Goan churches to Dravidian temples. India's chaotic roads and multilingual signage create an unforgettable geographic challenge.",
+            "shortDescription": "From Himalayas to tropical coasts across a subcontinent of diversity!",
             "maxDist": 3828.242,
             "countryCode": "IN",
             "extent": [
@@ -147,8 +147,8 @@ export const backupMapHome = {
         {
             "name": "Argentina",
             "slug": "argentina",
-            "longDescription": "Explore Argentina in WorldGuessr! From the bustling streets of Buenos Aires to the breathtaking landscapes of Patagonia, discover the vast beauty and culture of this South American gem.",
-            "shortDescription": "Explore Argentina's 23 provinces and diverse landscapes!",
+            "longDescription": "Explore Argentina in WorldGuessr! Spanning from subtropical Misiones to the glaciers of Tierra del Fuego, Argentina offers incredible geographic diversity. Navigate the endless Pampas grasslands, the arid Patagonian steppe, the towering Andes along the Chilean border, and the wine country of Mendoza. Learn to recognize the distinctive road signs, the European-influenced architecture of Buenos Aires, and the dramatic shifts in vegetation as you move through the country's vast north-south extent.",
+            "shortDescription": "From Pampas to Patagonia - conquer South America's second largest country!",
             "maxDist": 3720.101,
             "countryCode": "AR",
             "extent": [
@@ -165,8 +165,8 @@ export const backupMapHome = {
         {
             "name": "Mexico",
             "slug": "mexico",
-            "longDescription": "Explore Mexico in WorldGuessr! Discover the rich history, vibrant culture, and diverse landscapes of this North American country.",
-            "shortDescription": "Explore Mexico's 32 states and over 60 indigenous languages!",
+            "longDescription": "Explore Mexico in WorldGuessr! From the Sonoran Desert to the Yucatán jungle, Mexico spans coastal lowlands, volcanic highlands, and the vast central plateau. Navigate the Sierra Madre mountain ranges, the cactus-studded north, the colonial silver cities, and tropical coasts on both oceans. Distinctive speed bumps (topes), Spanish colonial architecture with bright colors, agave fields, and the transition from arid north to lush south help identify regions in this geographically complex nation.",
+            "shortDescription": "From deserts to jungles across two Sierra Madre ranges!",
             "maxDist": 3493.148,
             "countryCode": "MX",
             "extent": [
@@ -183,8 +183,8 @@ export const backupMapHome = {
         {
             "name": "Japan",
             "slug": "japan",
-            "longDescription": "Explore Japan in WorldGuessr! Discover the blend of ancient traditions and modern technology in the Land of the Rising Sun.",
-            "shortDescription": "Explore Japan's 47 prefectures and over 6,800 islands!",
+            "longDescription": "Explore Japan in WorldGuessr! An archipelago stretching from subarctic Hokkaido to subtropical Okinawa, Japan is 73% mountainous with population concentrated in coastal plains. Navigate the volcanic landscapes, dense urban sprawl of the Pacific coast, terraced rice paddies, and forested mountain interiors. Japanese script in three forms (kanji, hiragana, katakana), distinctive road infrastructure with abundant signage, temple gates, and the contrast between ultra-modern cities and traditional rural areas define this unique nation.",
+            "shortDescription": "From snowy Hokkaido to tropical Okinawa across 47 prefectures!",
             "maxDist": 3020.565,
             "countryCode": "JP",
             "extent": [
@@ -201,8 +201,8 @@ export const backupMapHome = {
         {
             "name": "Spain",
             "slug": "spain",
-            "longDescription": "Explore Spain in WorldGuessr! Discover the historic cities, beautiful beaches, and rich cultural heritage of this Southern European country.",
-            "shortDescription": "Explore Spain's 17 autonomous communities and over 47 UNESCO World Heritage sites!",
+            "longDescription": "Explore Spain in WorldGuessr! The Iberian Peninsula's largest country features the high central Meseta plateau, surrounded by mountain ranges and coastal lowlands. Navigate from the green, rainy Basque Country and Galicia to the arid plains of Castile, the Mediterranean coast, and the Canary Islands off Africa. Regional languages (Catalan, Basque, Galician) appear on signage in their territories. Distinctive architecture varies from northern stone houses to southern whitewashed pueblos blancos to Moorish influences in Andalusia.",
+            "shortDescription": "From Atlantic Galicia to Mediterranean coasts to the Canary Islands!",
             "maxDist": 2607.001,
             "countryCode": "ES",
             "extent": [
@@ -219,8 +219,8 @@ export const backupMapHome = {
         {
             "name": "New Zealand",
             "slug": "new-zealand",
-            "longDescription": "Explore New Zealand in WorldGuessr! Discover the stunning landscapes, from mountains to beaches, in this beautiful island nation.",
-            "shortDescription": "Explore New Zealand's 2 main islands and over 600 smaller islands!",
+            "longDescription": "Explore New Zealand in WorldGuessr! The North Island features volcanic plateaus, geothermal areas, and rolling green farmland, while the South Island boasts the dramatic Southern Alps, fjords, and glaciers. Navigate between these contrasting islands, identifying regions by vegetation, terrain, and the unique flora found nowhere else on Earth. British-influenced left-hand driving, distinctive road signs, silver fern symbols, and the ever-present sheep pastures help orient you in Aotearoa.",
+            "shortDescription": "From volcanic North to alpine South - conquer Middle-earth!",
             "maxDist": 2473.615,
             "countryCode": "NZ",
             "extent": [
@@ -237,8 +237,8 @@ export const backupMapHome = {
         {
             "name": "Colombia",
             "slug": "colombia",
-            "longDescription": "Explore Colombia in WorldGuessr! Discover the vibrant cities, lush rainforests, and rich culture of this South American country.",
-            "shortDescription": "Explore Colombia's 32 departments and diverse ecosystems!",
+            "longDescription": "Explore Colombia in WorldGuessr! Where the Andes split into three cordilleras, Colombia offers extraordinary topographic variety. Navigate from Caribbean beaches and lowland jungles to coffee-growing highlands, high-altitude páramo grasslands, and the vast eastern Llanos plains. Learn to identify regions by the dramatic elevation changes, colonial Spanish architecture in highland cities, and the transition from tropical lowlands to cool mountain valleys. Colombia's position at South America's northwest corner creates unique biodiversity.",
+            "shortDescription": "Navigate three Andean ranges and two coastlines!",
             "maxDist": 2352.2,
             "countryCode": "CO",
             "extent": [
@@ -255,8 +255,8 @@ export const backupMapHome = {
         {
             "name": "Malaysia",
             "slug": "malaysia",
-            "longDescription": "Explore Malaysia in WorldGuessr! Discover the vibrant cities, stunning beaches, and rich cultural diversity of this Southeast Asian country.",
-            "shortDescription": "Explore Malaysia's 13 states and 3 federal territories!",
+            "longDescription": "Explore Malaysia in WorldGuessr! Split between Peninsular Malaysia and East Malaysia on Borneo, this tropical nation offers diverse challenges. Navigate palm oil plantations stretching to the horizon, ancient rainforests, limestone karst landscapes, and bustling multicultural cities. Malay, Chinese, Tamil, and English signage reflect the diverse population. Left-hand driving from British colonial days, distinctive mosque architecture, and the contrast between developed west coast and rural east coast define the peninsula.",
+            "shortDescription": "From peninsula to Borneo - explore tropical diversity!",
             "maxDist": 2239.742,
             "countryCode": "MY",
             "extent": [
@@ -273,8 +273,8 @@ export const backupMapHome = {
         {
             "name": "Peru",
             "slug": "peru",
-            "longDescription": "Explore Peru in WorldGuessr! From the ancient ruins of Machu Picchu to the vibrant city of Lima, discover the rich history and culture of Peru.",
-            "shortDescription": "Explore Peru's 25 regions and the world's largest rainforest!",
+            "longDescription": "Explore Peru in WorldGuessr! Three distinct regions define Peru: the arid coastal desert strip, the towering Andes with peaks over 6,000 meters, and the Amazon rainforest covering the eastern lowlands. Navigate from Pacific beaches through mountain passes to jungle rivers. The dramatic elevation changes create wildly different climates and vegetation within short distances. Colonial Spanish architecture, Incan stonework, distinctive Andean adobe villages, and mototaxi-filled towns help identify your location.",
+            "shortDescription": "From Pacific desert to Amazon jungle across the Andes!",
             "maxDist": 2114.034,
             "countryCode": "PE",
             "extent": [
@@ -291,8 +291,8 @@ export const backupMapHome = {
         {
             "name": "Philippines",
             "slug": "philippines",
-            "longDescription": "Explore the Philippines in WorldGuessr! Discover the stunning beaches, vibrant cities, and rich culture of this Southeast Asian archipelago.",
-            "shortDescription": "Explore the Philippines' 7,641 islands and over 175 languages!",
+            "longDescription": "Explore the Philippines in WorldGuessr! Over 7,600 islands span this tropical archipelago from Luzon in the north to Mindanao in the south. Navigate volcanic mountains, terraced rice paddies carved by hand over millennia, coconut palm coastlines, and dense urban areas with characteristic jeepneys. Filipino and English bilingual signage, Spanish colonial churches, distinctive tricycle transport, and the varied island geography from mountainous Cordillera to flat Visayan islands make this a rewarding challenge.",
+            "shortDescription": "Island-hop through 7,600 tropical islands!",
             "maxDist": 1976.332,
             "countryCode": "PH",
             "extent": [
@@ -309,8 +309,8 @@ export const backupMapHome = {
         {
             "name": "Norway",
             "slug": "norway",
-            "longDescription": "Explore Norway in WorldGuessr! Discover the stunning fjords, Northern Lights, and rich cultural heritage of this Scandinavian country.",
-            "shortDescription": "Explore Norway's 11 counties and over 1,000 fjords!",
+            "longDescription": "Explore Norway in WorldGuessr! A long, narrow country hugging the Scandinavian coast, dominated by mountains, fjords, and Arctic tundra. Navigate from the relatively flat southern farmland through the dramatic western fjords to the treeless northern reaches above the Arctic Circle. Identify regions by vegetation zones, distinctive wooden stave churches, red-painted houses, tunnels carved through mountains, and the characteristic Norwegian road design. The midnight sun and polar night create unique lighting conditions.",
+            "shortDescription": "Master the fjords from temperate south to Arctic north!",
             "maxDist": 1942.584,
             "countryCode": "NO",
             "extent": [
@@ -327,8 +327,8 @@ export const backupMapHome = {
         {
             "name": "South Africa",
             "slug": "south-africa",
-            "longDescription": "Explore South Africa in WorldGuessr! Discover the diverse cultures, stunning landscapes, and vibrant cities of this southernmost African country.",
-            "shortDescription": "Explore South Africa's 9 provinces and 11 official languages!",
+            "longDescription": "Explore South Africa in WorldGuessr! From the Drakensberg escarpment to the Kalahari semi-desert, Cape fynbos shrubland to subtropical KwaZulu-Natal, South Africa offers remarkable diversity. Navigate the high interior plateau (highveld), the dry Karoo, wine country around the Cape, and the Indian Ocean coast. British colonial-era left-hand driving, distinctive township layouts, Afrikaans-English bilingual signage, and the contrast between developed infrastructure and rural areas help identify regions.",
+            "shortDescription": "From the Cape to the Drakensberg across the Rainbow Nation!",
             "maxDist": 1905.569,
             "countryCode": "ZA",
             "extent": [
@@ -345,8 +345,8 @@ export const backupMapHome = {
         {
             "name": "Portugal",
             "slug": "portugal",
-            "longDescription": "Explore Portugal in WorldGuessr! Discover the historic cities, beautiful beaches, and rich cultural heritage of this Southern European country.",
-            "shortDescription": "Explore Portugal's 18 districts and 800 km of coastline!",
+            "longDescription": "Explore Portugal in WorldGuessr! On the Iberian Peninsula's Atlantic edge, Portugal ranges from the green, rainy Minho region in the north to the sun-baked Algarve in the south, plus the volcanic Azores and Madeira islands. Navigate the terraced Douro wine valley, cork oak forests of the Alentejo, and the rugged Atlantic coastline. Distinctive blue-and-white azulejo tiles, whitewashed buildings with terracotta roofs, and Portuguese road signage help identify this compact but diverse nation.",
+            "shortDescription": "From green Minho to sunny Algarve along the Atlantic edge!",
             "maxDist": 1837.279,
             "countryCode": "PT",
             "extent": [
@@ -363,8 +363,8 @@ export const backupMapHome = {
         {
             "name": "Vietnam",
             "slug": "vietnam",
-            "longDescription": "Explore Vietnam in WorldGuessr! From the bustling streets of Hanoi to the serene landscapes of Ha Long Bay, discover the rich culture and history of this Southeast Asian country.",
-            "shortDescription": "Experience the vibrant culture and stunning landscapes of Vietnam!",
+            "longDescription": "Explore Vietnam in WorldGuessr! This S-shaped country stretches 1,650 km along the South China Sea, from the Chinese border to the Mekong Delta. Navigate the limestone karsts of the north, the narrow central highlands along the Annamite Range, and the flat rice paddies of the southern delta. Vietnamese script with distinctive diacritics, French colonial architecture, dense motorbike traffic, terraced rice fields, and the dramatic contrast between mountainous north and flat south help identify regions.",
+            "shortDescription": "From Ha Long Bay to the Mekong Delta along the S-curve!",
             "maxDist": 1800.49,
             "countryCode": "VN",
             "extent": [
@@ -381,8 +381,8 @@ export const backupMapHome = {
         {
             "name": "Turkey",
             "slug": "turkey",
-            "longDescription": "Explore Turkey in WorldGuessr! Discover the rich history, vibrant cities, and diverse landscapes of this transcontinental country.",
-            "shortDescription": "Explore Turkey's 81 provinces and over 2,000 years of history!",
+            "longDescription": "Explore Turkey in WorldGuessr! Bridging Europe and Asia across the Bosphorus, Turkey spans Mediterranean coasts, the high Anatolian plateau, and the mountainous east. Navigate the rugged Black Sea coast, the fairy chimneys of Cappadocia, the agricultural Aegean lowlands, and the remote eastern highlands near Mount Ararat. Turkish signage in Latin script, distinctive mosque minarets, tea gardens, and the dramatic transition from green western regions to the arid interior help identify locations in this transcontinental nation.",
+            "shortDescription": "Bridge Europe and Asia from Mediterranean to the Armenian highlands!",
             "maxDist": 1696.647,
             "countryCode": "TR",
             "extent": [
@@ -399,8 +399,8 @@ export const backupMapHome = {
         {
             "name": "Thailand",
             "slug": "thailand",
-            "longDescription": "Explore Thailand in WorldGuessr! Discover the stunning beaches, vibrant cities, and rich cultural heritage of this Southeast Asian country.",
-            "shortDescription": "Explore Thailand's 77 provinces and the world's longest reign by a monarch!",
+            "longDescription": "Explore Thailand in WorldGuessr! From the mountainous north near the Golden Triangle to the tropical southern peninsula between two seas, Thailand offers diverse landscapes. Navigate the flat central Chao Phraya rice plains, the arid Khorat Plateau of Isan in the northeast, and the limestone karst islands of the Andaman coast. Thai script signage, ornate Buddhist temples with distinctive spires, tropical vegetation, and the characteristic Thai road infrastructure with distance markers in kilometers help identify regions.",
+            "shortDescription": "From northern mountains to tropical islands across the Land of Smiles!",
             "maxDist": 1657.708,
             "countryCode": "TH",
             "extent": [
@@ -417,8 +417,8 @@ export const backupMapHome = {
         {
             "name": "Sweden",
             "slug": "sweden",
-            "longDescription": "Explore Sweden in WorldGuessr! Discover the stunning landscapes, vibrant cities, and rich cultural heritage of this Scandinavian country.",
-            "shortDescription": "Explore Sweden's 21 counties and over 100,000 lakes!",
+            "longDescription": "Explore Sweden in WorldGuessr! Scandinavia's largest country stretches from the agricultural south to the Arctic tundra of Lapland. Navigate through dense boreal forests, around countless lakes, past the dramatic Scandinavian Mountains along the Norwegian border, and through the island-studded archipelagos. Distinctive Swedish red-painted wooden houses (faluröd), yellow road distance markers, well-maintained forest roads, and the characteristic Nordic infrastructure help identify locations across this elongated nation.",
+            "shortDescription": "From fertile south to Arctic Lapland through endless forests!",
             "maxDist": 1592.015,
             "countryCode": "SE",
             "extent": [
@@ -435,8 +435,8 @@ export const backupMapHome = {
         {
             "name": "Namibia",
             "slug": "namibia",
-            "longDescription": "Explore Namibia in WorldGuessr! From the stunning deserts to the wildlife-rich national parks, discover the natural beauty and cultural diversity of this southern African country.",
-            "shortDescription": "Experience the breathtaking landscapes of Namibia!",
+            "longDescription": "Explore Namibia in WorldGuessr! One of Africa's least densely populated countries, dominated by the ancient Namib Desert along the Atlantic coast, the Kalahari in the east, and the central highlands between. Navigate endless gravel roads through otherworldly landscapes of red dunes, salt pans, and dramatic canyons. German colonial architecture in Windhoek and Swakopmund, distinctive road signage in English and Afrikaans, and the stark beauty of the Skeleton Coast define this arid nation.",
+            "shortDescription": "Navigate ancient deserts and endless horizons in Africa's empty quarter!",
             "maxDist": 1522.395,
             "countryCode": "NA",
             "extent": [
@@ -453,8 +453,8 @@ export const backupMapHome = {
         {
             "name": "Nigeria",
             "slug": "nigeria",
-            "longDescription": "Explore Nigeria in WorldGuessr! Discover the diverse culture, vibrant cities, and rich history of Africa's most populous country.",
-            "shortDescription": "Explore Nigeria's 36 states and over 500 ethnic groups!",
+            "longDescription": "Explore Nigeria in WorldGuessr! Africa's most populous nation spans from the Sahel savanna in the north to the tropical rainforests and Niger Delta mangroves in the south. Navigate the contrast between the arid, dusty north with its mud-brick architecture and the lush, humid south. The Jos Plateau rises in the center. Chaotic urban traffic, colorful market scenes, distinctive yellow buses in Lagos, and British colonial-era left-hand driving help identify locations in this diverse nation.",
+            "shortDescription": "From Sahel to rainforest across Africa's giant!",
             "maxDist": 1470.5,
             "countryCode": "NG",
             "extent": [
@@ -471,8 +471,8 @@ export const backupMapHome = {
         {
             "name": "France",
             "slug": "france",
-            "longDescription": "Explore France in WorldGuessr! Discover the Eiffel Tower, the French Riviera, and the diverse culture and landscapes of France.",
-            "shortDescription": "Explore France's 18 regions and 1,200+ cheeses!",
+            "longDescription": "Explore France in WorldGuessr! Western Europe's largest country spans from the Channel coast to the Mediterranean, from Atlantic beaches to Alpine peaks. Master the regional diversity: Brittany's granite villages, Provence's terracotta and lavender, the volcanic Massif Central, Alsace's Germanic half-timbered houses, and the flat northern plains. France's distinctive road signage, plane tree-lined routes nationales, and varied architectural traditions make regional identification both challenging and rewarding.",
+            "shortDescription": "From Normandy to Provence - master France's legendary diversity!",
             "maxDist": 1400,
             "countryCode": "FR",
             "extent": [
@@ -489,8 +489,8 @@ export const backupMapHome = {
         {
             "name": "United Kingdom",
             "slug": "united-kingdom",
-            "longDescription": "Explore the United Kingdom in WorldGuessr! Discover the historic cities, beautiful countryside, and rich cultural heritage of England, Scotland, Wales, and Northern Ireland.",
-            "shortDescription": "Explore the UK's 4 nations and over 32 UNESCO World Heritage sites!",
+            "longDescription": "Explore the United Kingdom in WorldGuessr! Four nations with distinct geography: England's rolling downs and industrial midlands, Scotland's dramatic Highlands and islands, Wales's rugged mountains and valleys, and Northern Ireland's drumlin-studded landscape. Navigate through green patchwork farmland, stone-walled moors, and dense urban areas. Left-hand driving, distinctive British road markings, Welsh bilingual signage, Scottish Gaelic in the Highlands, and varied regional architecture from Tudor to Victorian help identify locations.",
+            "shortDescription": "Master England, Scotland, Wales, and Northern Ireland!",
             "maxDist": 1400,
             "countryCode": "GB",
             "extent": [
@@ -507,8 +507,8 @@ export const backupMapHome = {
         {
             "name": "Italy",
             "slug": "italy",
-            "longDescription": "Explore Italy in WorldGuessr! From the ruins of Rome to the canals of Venice, experience the rich history, culture, and cuisine of Italy.",
-            "shortDescription": "Explore Italy's 20 regions and 55 UNESCO World Heritage sites!",
+            "longDescription": "Explore Italy in WorldGuessr! The boot-shaped peninsula stretches from the Alps to the Mediterranean, with the Apennine Mountains forming its spine. Navigate the industrial Po Valley, the Tuscan hill towns, the volcanic south, and the islands of Sicily and Sardinia. Each region has distinct architecture - from northern Alpine influences to southern Mediterranean styles. Cypress-lined roads, terracotta rooftops, historic stone villages, and the dramatic coastal Amalfi-style terrain make Italy endlessly varied.",
+            "shortDescription": "From the Alps to Sicily - master Italy's legendary landscapes!",
             "maxDist": 1317.252,
             "countryCode": "IT",
             "extent": [
@@ -525,8 +525,8 @@ export const backupMapHome = {
         {
             "name": "Finland",
             "slug": "finland",
-            "longDescription": "Explore Finland in WorldGuessr! From the Northern Lights to the thousands of lakes, immerse yourself in the natural beauty and unique culture of Finland.",
-            "shortDescription": "Explore Finland's 19 regions and over 188,000 lakes!",
+            "longDescription": "Explore Finland in WorldGuessr! The land of 188,000 lakes stretches from the Baltic archipelago to the Arctic tundra of Lapland. Navigate through endless boreal forests of pine, spruce, and birch, past countless lakes and bogs, and across the sparsely populated northern wilderness. Finnish-Swedish bilingual signage appears in coastal areas, while the distinctive wooden architecture, well-maintained gravel roads, and characteristic red-painted summer cottages help identify this Nordic nation.",
+            "shortDescription": "Navigate the land of lakes from Baltic coast to Arctic Lapland!",
             "maxDist": 1266.549,
             "countryCode": "FI",
             "extent": [
@@ -543,8 +543,8 @@ export const backupMapHome = {
         {
             "name": "Kenya",
             "slug": "kenya",
-            "longDescription": "Explore Kenya in WorldGuessr! From the savannas to the bustling city of Nairobi, discover the diverse wildlife and landscapes of Kenya.",
-            "shortDescription": "Explore Kenya's 47 counties and the Great Rift Valley!",
+            "longDescription": "Explore Kenya in WorldGuessr! Straddling the equator, Kenya features the dramatic Great Rift Valley cutting north-south, flanked by highlands including Mount Kenya. Navigate the iconic savanna grasslands of the Maasai Mara, the arid north, the Indian Ocean coastline, and the densely populated central highlands. Distinctive red laterite roads, acacia-dotted landscapes, British colonial-era left-hand driving, and the dramatic escarpments of the Rift Valley help orient you in this East African nation.",
+            "shortDescription": "Safari through the Great Rift Valley and iconic savannas!",
             "maxDist": 1208.97,
             "countryCode": "KE",
             "extent": [
@@ -561,8 +561,8 @@ export const backupMapHome = {
         {
             "name": "Greece",
             "slug": "greece",
-            "longDescription": "Explore Greece in WorldGuessr! Discover the ancient ruins, beautiful islands, and rich culture of this Mediterranean country.",
-            "shortDescription": "Explore Greece's 13 regions and 6,000+ islands!",
+            "longDescription": "Explore Greece in WorldGuessr! A mountainous peninsula and thousands of islands where the Mediterranean, Aegean, and Ionian seas meet. Navigate from the rugged Pindus Mountains to the olive-covered Peloponnese, the volcanic Cyclades, and the forested north near the Balkans. Greek script on signs, whitewashed Cycladic architecture, Byzantine churches with terracotta domes, and the characteristic dry Mediterranean scrubland help identify this ancient land. Island-hopping adds an extra layer of challenge.",
+            "shortDescription": "Island-hop and mountain-climb through the cradle of civilization!",
             "maxDist": 1005.522,
             "countryCode": "GR",
             "extent": [
@@ -579,8 +579,8 @@ export const backupMapHome = {
         {
             "name": "Germany",
             "slug": "germany",
-            "longDescription": "Explore Germany in WorldGuessr! From the Black Forest to Berlin, discover the rich history, culture, and landscapes of Germany.",
-            "shortDescription": "Explore Germany's 16 states and 300+ types of bread!",
+            "longDescription": "Explore Germany in WorldGuessr! From the North Sea and Baltic coasts through the Central Uplands to the Bavarian Alps, Germany offers remarkable geographic variety. Learn to distinguish the 16 Bundesländer by architecture - half-timbered houses in the center, brick Gothic in the north, alpine styles in Bavaria. Navigate the famous Autobahn network, identify the characteristic German road signage, and spot the contrast between historic city centers and efficient modern infrastructure.",
+            "shortDescription": "From Baltic beaches to Alpine peaks across 16 diverse states!",
             "maxDist": 906.917,
             "countryCode": "DE",
             "extent": [
@@ -597,8 +597,8 @@ export const backupMapHome = {
         {
             "name": "Nepal",
             "slug": "nepal",
-            "longDescription": "Explore Nepal in WorldGuessr! From the majestic peaks of the Himalayas including Mount Everest to the ancient temples of Kathmandu, discover the breathtaking landscapes and rich spiritual heritage of this mountain kingdom.",
-            "shortDescription": "Explore Nepal's Himalayan peaks and ancient temples!",
+            "longDescription": "Explore Nepal in WorldGuessr! Navigate the dramatic elevation changes from the subtropical Terai lowlands to the world's highest peaks in the Himalayas. Identify locations by the terraced hillsides carved into steep mountain slopes, winding mountain roads with hairpin turns, distinctive Newari architecture in the Kathmandu Valley, and prayer flags fluttering against snowy backdrops. Challenge yourself with Nepal's diverse geography spanning 8 of the world's 14 highest mountains.",
+            "shortDescription": "From Terai plains to Everest - master Nepal's extreme terrain!",
             "maxDist": 885.5,
             "countryCode": "NP",
             "extent": [
@@ -615,8 +615,8 @@ export const backupMapHome = {
         {
             "name": "Ghana",
             "slug": "ghana",
-            "longDescription": "Explore Ghana in WorldGuessr! From the historical sites of Cape Coast to the colorful markets of Accra, experience the warmth and hospitality of this West African nation.",
-            "shortDescription": "Discover the vibrant culture and history of Ghana!",
+            "longDescription": "Explore Ghana in WorldGuessr! Centered on the Gulf of Guinea coast, Ghana transitions from the tropical rainforest south to the savanna-covered north. Navigate the cocoa-growing forest zone, the vast Lake Volta reservoir, and the drier northern regions. Red laterite roads, colonial-era architecture from the British Gold Coast period, distinctive colorful signage, tro-tro minibuses, and the contrast between the humid coast and the dry northern interior help identify locations in this West African nation.",
+            "shortDescription": "From Atlantic coast to northern savanna across the Gold Coast!",
             "maxDist": 854.901,
             "countryCode": "GH",
             "extent": [
@@ -633,8 +633,8 @@ export const backupMapHome = {
         {
             "name": "Poland",
             "slug": "poland",
-            "longDescription": "Explore Poland in WorldGuessr! Discover the historic cities, beautiful countryside, and rich cultural heritage of this Central European country.",
-            "shortDescription": "Explore Poland's 16 voivodeships and over 100 castles!",
+            "longDescription": "Explore Poland in WorldGuessr! A mostly flat country on the North European Plain, rising to the Carpathian and Sudeten mountains in the south. Navigate the Baltic coast, the lake-dotted Masurian region, vast agricultural plains, and primeval forests like Białowieża. Polish road signs with distinctive formatting, red-brick Gothic churches, communist-era apartment blocks, and traditional wooden villages in the highlands help identify regions. Poland's position between East and West Europe shows in its varied architecture.",
+            "shortDescription": "From Baltic coast to Carpathian peaks across the great plain!",
             "maxDist": 827.137,
             "countryCode": "PL",
             "extent": [
@@ -651,8 +651,8 @@ export const backupMapHome = {
         {
             "name": "Bangladesh",
             "slug": "bangladesh",
-            "longDescription": "Explore Bangladesh in WorldGuessr! From the lush landscapes of the Sundarbans to the vibrant streets of Dhaka, discover the rich culture and natural beauty of this South Asian gem.",
-            "shortDescription": "Discover the beauty of Bangladesh's diverse landscapes!",
+            "longDescription": "Explore Bangladesh in WorldGuessr! One of the world's most densely populated countries, defined by the vast Ganges-Brahmaputra river delta. Navigate endless flat plains crisscrossed by rivers, the Sundarbans mangrove forest, the hilly Chittagong region in the southeast, and densely packed villages everywhere. Bengali script signage, distinctive colorful rickshaws, brick houses raised above flood levels, and the omnipresent water - rivers, ponds, and rice paddies - characterize this riverine nation.",
+            "shortDescription": "Navigate the world's largest river delta!",
             "maxDist": 809.854,
             "countryCode": "BD",
             "extent": [
@@ -669,8 +669,8 @@ export const backupMapHome = {
         {
             "name": "Romania",
             "slug": "romania",
-            "longDescription": "Explore Romania in WorldGuessr! Discover the historic castles, beautiful mountains, and rich culture of this Eastern European country.",
-            "shortDescription": "Explore Romania's 41 counties and the legend of Dracula!",
+            "longDescription": "Explore Romania in WorldGuessr! The Carpathian Mountains arc through the country's center, dividing Transylvania's plateau from the surrounding lowlands and the Black Sea coast. Navigate from the Danube Delta's wetlands to forested mountain passes and the agricultural plains of Wallachia. Distinctive painted monasteries in Bukovina, fortified Saxon churches in Transylvania, traditional hay meadows, and horse-drawn carts on rural roads help identify regions in this land of dramatic geographic contrasts.",
+            "shortDescription": "From the Danube Delta to Carpathian peaks through Transylvania!",
             "maxDist": 770.108,
             "countryCode": "RO",
             "extent": [
@@ -687,8 +687,8 @@ export const backupMapHome = {
         {
             "name": "South Korea",
             "slug": "south-korea",
-            "longDescription": "Explore South Korea in WorldGuessr! Discover the blend of ancient traditions and modern technology in this East Asian country.",
-            "shortDescription": "Explore South Korea's 9 provinces and over 5,000 years of history!",
+            "longDescription": "Explore South Korea in WorldGuessr! A mountainous peninsula where 70% of the terrain is uplands, forcing population into river valleys and coastal plains. Navigate from the volcanic island of Jeju to the demilitarized zone near the north, through forested mountains and the dense Seoul metropolitan area. Korean Hangul script, distinctive apartment tower complexes, well-maintained highways with excellent signage, Buddhist temples, and the contrast between ultra-modern cities and traditional rural villages define this nation.",
+            "shortDescription": "From volcanic Jeju to mountainous mainland - decode Hangul!",
             "maxDist": 683,
             "countryCode": "KR",
             "extent": [
@@ -705,8 +705,8 @@ export const backupMapHome = {
         {
             "name": "Paraguay",
             "slug": "paraguay",
-            "longDescription": "Explore Paraguay in WorldGuessr! From the vibrant capital of Asunción to the vast Chaco wilderness, discover the unique culture and diverse landscapes of this landlocked South American country.",
-            "shortDescription": "Explore Paraguay's diverse landscapes and rich culture!",
+            "longDescription": "Explore Paraguay in WorldGuessr! This landlocked heart of South America is divided by the Paraguay River into two distinct regions: the eastern Paraná Plateau with rolling hills, forests, and most of the population, and the western Gran Chaco - a vast, flat, semi-arid wilderness of scrub and cattle ranches. Navigate red dirt roads, Jesuit mission ruins, Mennonite colonies in the Chaco, and the contrast between humid eastern forests and the dry western plains. Guaraní-Spanish bilingual signage reflects the indigenous heritage.",
+            "shortDescription": "Discover the landlocked heart of South America from forest to Chaco!",
             "maxDist": 682.4,
             "countryCode": "PY",
             "extent": [
@@ -723,8 +723,8 @@ export const backupMapHome = {
         {
             "name": "Panama",
             "slug": "panama",
-            "longDescription": "Explore Panama in WorldGuessr! From the iconic Panama Canal to the lush rainforests, discover the diverse ecosystems and vibrant culture of this Central American country.",
-            "shortDescription": "Experience the wonders of Panama's natural beauty!",
+            "longDescription": "Explore Panama in WorldGuessr! The isthmus connecting North and South America features the continental divide, dense rainforests, and coastlines on both the Caribbean and Pacific. Navigate from the modern Panama City skyline to indigenous Guna Yala territories, through the Canal Zone and the mountainous Chiriquí highlands. The unique geography where two continents meet creates diverse microclimates. Spanish signage, tropical vegetation, and the ever-present influence of the Canal help identify locations.",
+            "shortDescription": "Bridge two continents and two oceans at the famous Canal!",
             "maxDist": 655.405,
             "countryCode": "PA",
             "extent": [
@@ -741,8 +741,8 @@ export const backupMapHome = {
         {
             "name": "Bulgaria",
             "slug": "bulgaria",
-            "longDescription": "Explore Bulgaria in WorldGuessr! Discover the rich history, beautiful mountains, and cultural diversity of this Eastern European country.",
-            "shortDescription": "Explore Bulgaria's 28 provinces and rich history!",
+            "longDescription": "Explore Bulgaria in WorldGuessr! Nestled in the Balkans between the Danube River and the Black Sea coast, Bulgaria features the dramatic Balkan Mountains bisecting the country, the fertile Thracian Plain, and the rugged Rhodope Mountains along the Greek border. Identify locations by Cyrillic signage, Ottoman-era mosques alongside Orthodox churches, communist-era apartment blocks, and the distinctive rose valleys that produce most of the world's rose oil. The Black Sea resorts contrast sharply with remote mountain villages.",
+            "shortDescription": "Navigate the Balkans from the Danube to the Black Sea!",
             "maxDist": 582.029,
             "countryCode": "BG",
             "extent": [
@@ -759,8 +759,8 @@ export const backupMapHome = {
         {
             "name": "Austria",
             "slug": "austria",
-            "longDescription": "Explore Austria in WorldGuessr! From the Alps to the historic cities like Vienna, discover the rich cultural heritage and stunning landscapes of Austria.",
-            "shortDescription": "Explore Austria's 9 federal states!",
+            "longDescription": "Explore Austria in WorldGuessr! A landlocked Alpine nation where dramatic mountain passes, glacier-fed valleys, and pristine lakes dominate the western regions, while the Danube plains stretch east toward Vienna. Recognize the distinctive Austrian road signs, traditional alpine chalets with wooden balconies, onion-domed church steeples, and immaculately maintained mountain villages. The contrast between the rugged Tyrolean Alps and the rolling vineyards of Burgenland makes Austria a rewarding geographic challenge.",
+            "shortDescription": "Navigate the Alps, Danube valley, and picture-perfect villages!",
             "maxDist": 577.829,
             "countryCode": "AT",
             "extent": [
@@ -777,8 +777,8 @@ export const backupMapHome = {
         {
             "name": "Ireland",
             "slug": "ireland",
-            "longDescription": "Explore Ireland in WorldGuessr! Discover the lush green landscapes, historic castles, and vibrant culture of the Emerald Isle.",
-            "shortDescription": "Explore Ireland's 4 provinces and over 30,000 castles!",
+            "longDescription": "Explore Ireland in WorldGuessr! The Emerald Isle earns its name from the lush green pastures maintained by abundant Atlantic rainfall. Navigate the rugged western coastline with its dramatic cliffs, the boglands of the midlands, the gentle hills of the east, and the mountainous southwest. Irish-English bilingual signage, distinctive white-painted cottages, endless stone walls dividing green fields, and narrow hedgerow-lined roads define the landscape. The constant greenery and overcast skies create Ireland's unique atmosphere.",
+            "shortDescription": "Navigate the Emerald Isle's green fields and rugged Atlantic coast!",
             "maxDist": 570.923,
             "countryCode": "IE",
             "extent": [
@@ -795,8 +795,8 @@ export const backupMapHome = {
         {
             "name": "Croatia",
             "slug": "croatia",
-            "longDescription": "Explore Croatia in WorldGuessr! From the historic cities of Dubrovnik to the beautiful Plitvice Lakes, discover the rich culture and stunning landscapes of this Mediterranean country.",
-            "shortDescription": "Experience the beauty and history of Croatia!",
+            "longDescription": "Explore Croatia in WorldGuessr! This crescent-shaped country wraps around Bosnia with an extensive Adriatic coastline of over 1,000 islands. Navigate from the flat Pannonian plains in the east through the Dinaric Alps to the dramatic Dalmatian coast. Venetian stone architecture dominates coastal towns, while continental Croatia shows Central European influences. The distinctive Croatian checkerboard pattern, terracotta rooftops, limestone karst landscapes, and Mediterranean cypress trees help identify locations.",
+            "shortDescription": "From Pannonian plains to Dalmatian islands along the Adriatic!",
             "maxDist": 537.169,
             "countryCode": "HR",
             "extent": [
@@ -813,8 +813,8 @@ export const backupMapHome = {
         {
             "name": "Latvia",
             "slug": "latvia",
-            "longDescription": "Explore Latvia in WorldGuessr! From the picturesque streets of Riga to the stunning coastline, experience the beauty and culture of this Baltic state.",
-            "shortDescription": "Discover the enchanting landscapes of Latvia!",
+            "longDescription": "Explore Latvia in WorldGuessr! The central Baltic state features a flat to gently rolling landscape of forests, lakes, and the wide Gulf of Riga coastline. Navigate the Art Nouveau architecture of Riga, sandy Baltic beaches, and the forested interior dotted with lakes and bogs. Latvian language signage, distinctive red-brick medieval churches, wooden fishing villages, and the characteristic Northern European landscape of birch and pine forests help identify locations in this compact Baltic nation.",
+            "shortDescription": "From Riga's Art Nouveau to Baltic beaches and forest lakes!",
             "maxDist": 532.265,
             "countryCode": "LV",
             "extent": [
@@ -831,8 +831,8 @@ export const backupMapHome = {
         {
             "name": "Hungary",
             "slug": "hungary",
-            "longDescription": "Explore Hungary in WorldGuessr! Discover the historic cities, thermal baths, and rich cultural heritage of this Central European country.",
-            "shortDescription": "Explore Hungary's 19 counties and 1,500+ thermal springs!",
+            "longDescription": "Explore Hungary in WorldGuessr! Dominated by the Great Hungarian Plain (Alföld), one of Europe's largest grasslands, with hills only in the north and west. The Danube and Tisza rivers divide the country into distinct regions. Navigate the flat agricultural expanses of the Puszta, the wine regions around Tokaj and Eger, and the rolling Transdanubian hills. Distinctive Hungarian signage, ornate village churches, and traditional whitewashed farmhouses with thatched roofs characterize the countryside.",
+            "shortDescription": "Master the Great Plain and Danube heartland of Central Europe!",
             "maxDist": 525.881,
             "countryCode": "HU",
             "extent": [
@@ -849,8 +849,8 @@ export const backupMapHome = {
         {
             "name": "Denmark",
             "slug": "denmark",
-            "longDescription": "Explore Denmark in WorldGuessr! From the historic city of Copenhagen to the scenic coastal landscapes, discover the charm of this Scandinavian country.",
-            "shortDescription": "Explore Denmark's 5 regions and over 400 islands!",
+            "longDescription": "Explore Denmark in WorldGuessr! The flattest Scandinavian country consists of the Jutland peninsula and over 400 islands connected by impressive bridges. Navigate the gently rolling glacial moraines, extensive coastlines, and some of Europe's highest cycling infrastructure density. Identify Denmark by red-brick farmhouses, distinctive white-painted churches, meticulously maintained countryside, and the characteristic Scandinavian road design. Wind turbines dot the horizon across this renewable energy pioneer.",
+            "shortDescription": "Master Denmark's flat landscapes and island archipelago!",
             "maxDist": 518.274,
             "countryCode": "DK",
             "extent": [
@@ -867,8 +867,8 @@ export const backupMapHome = {
         {
             "name": "Sri Lanka",
             "slug": "sri-lanka",
-            "longDescription": "Explore Sri Lanka in WorldGuessr! From the ancient cities to the lush tea plantations, experience the island's rich history and natural beauty.",
-            "shortDescription": "Discover the diverse landscapes of Sri Lanka!",
+            "longDescription": "Explore Sri Lanka in WorldGuessr! This teardrop-shaped island south of India features a mountainous central highlands surrounded by coastal plains. Navigate the famous tea plantations of the hill country, tropical beaches, ancient Buddhist ruins, and the dry zone of the north. Sinhala and Tamil bilingual signage, British colonial-era left-hand driving, distinctive Buddhist stupas and Hindu kovils, and the contrast between the wet southwest and dry north help identify locations on this compact but diverse island.",
+            "shortDescription": "From tea highlands to tropical beaches on the teardrop island!",
             "maxDist": 505.193,
             "countryCode": "LK",
             "extent": [
@@ -885,8 +885,8 @@ export const backupMapHome = {
         {
             "name": "Czech Republic",
             "slug": "czech-republic",
-            "longDescription": "Explore the Czech Republic in WorldGuessr! Discover the historic castles, charming towns, and vibrant culture of this Central European country.",
-            "shortDescription": "Explore the Czech Republic's 14 regions and over 2,000 castles!",
+            "longDescription": "Explore the Czech Republic in WorldGuessr! Landlocked in the heart of Europe, Czechia features the Bohemian Basin ringed by forested mountains, the Moravian highlands to the east, and a dense network of historic towns. Identify locations by distinctive red-roofed villages, baroque and gothic church spires, yellow road distance markers, and the characteristic Central European landscape of rolling farmland interspersed with dense forests. The well-preserved medieval architecture and orderly countryside make this a rewarding challenge.",
+            "shortDescription": "Navigate Bohemia and Moravia's castles and countryside!",
             "maxDist": 490.955,
             "countryCode": "CZ",
             "extent": [
@@ -903,8 +903,8 @@ export const backupMapHome = {
         {
             "name": "Costa Rica",
             "slug": "costa-rica",
-            "longDescription": "Explore Costa Rica in WorldGuessr! From the stunning beaches of both coasts to the lush rainforests and active volcanoes, discover the incredible biodiversity and Pura Vida lifestyle of this Central American paradise.",
-            "shortDescription": "Explore Costa Rica's rainforests, beaches, and wildlife!",
+            "longDescription": "Explore Costa Rica in WorldGuessr! A narrow country with coastlines on both the Pacific and Caribbean, bisected by volcanic mountain ranges. Navigate from misty cloud forests and active volcanoes to lowland rainforests and tropical beaches. The dramatic topography creates diverse microclimates within short distances. Identify locations by the lush vegetation, distinctive road infrastructure without street addresses, coffee plantations on mountain slopes, and the contrast between the drier Pacific northwest and the wet Caribbean lowlands.",
+            "shortDescription": "Two coasts, volcanoes, and cloud forests in a compact paradise!",
             "maxDist": 464.2,
             "countryCode": "CR",
             "extent": [
@@ -921,8 +921,8 @@ export const backupMapHome = {
         {
             "name": "Israel",
             "slug": "israel",
-            "longDescription": "Explore Israel in WorldGuessr! Discover the ancient cities, religious sites, and diverse culture of this Middle Eastern country.",
-            "shortDescription": "Explore Israel's 6 districts and the Dead Sea, the lowest point on Earth!",
+            "longDescription": "Explore Israel in WorldGuessr! Despite its small size, Israel packs remarkable geographic diversity - from the Mediterranean coast to the Negev Desert, the Galilee highlands to the Jordan Rift Valley and Dead Sea (Earth's lowest point). Navigate between lush northern forests, arid southern deserts, and the densely built coastal plain. Hebrew and Arabic signage, distinctive white limestone buildings, modern urban sprawl alongside ancient sites, and the dramatic desert-to-green transitions define this landscape.",
+            "shortDescription": "From Mediterranean coast to desert - explore compact geographic extremes!",
             "maxDist": 439.764,
             "countryCode": "IL",
             "extent": [
@@ -939,8 +939,8 @@ export const backupMapHome = {
         {
             "name": "Slovakia",
             "slug": "slovakia",
-            "longDescription": "Explore Slovakia in WorldGuessr! From the majestic Tatra Mountains to the historic castles, discover the rich history and stunning landscapes of this Central European country.",
-            "shortDescription": "Experience Slovakia's beautiful nature and history!",
+            "longDescription": "Explore Slovakia in WorldGuessr! A landlocked Central European country dominated by the Carpathian Mountains, with the dramatic High Tatras forming the backbone. Navigate from the Danube lowlands near Bratislava through forested mountain ranges to the eastern valleys. Distinctive wooden folk churches in the east, medieval castle ruins on hilltops, Slovak road signage with characteristic formatting, and traditional mountain villages with timber architecture help identify regions across this mountainous nation.",
+            "shortDescription": "From the Danube to the High Tatras through the Carpathians!",
             "maxDist": 427.884,
             "countryCode": "SK",
             "extent": [
@@ -957,8 +957,8 @@ export const backupMapHome = {
         {
             "name": "Lithuania",
             "slug": "lithuania",
-            "longDescription": "Explore Lithuania in WorldGuessr! From the historic capital of Vilnius to the beautiful Curonian Spit, discover the rich heritage and nature of this Baltic nation.",
-            "shortDescription": "Experience the charm of Lithuania's cities and landscapes!",
+            "longDescription": "Explore Lithuania in WorldGuessr! The southernmost and largest Baltic state features a landscape of gentle hills, extensive forests, and thousands of lakes. Navigate from the unique Curonian Spit sand dunes to the medieval old town of Vilnius, through rolling agricultural plains and dense pine forests. Lithuanian language signage with distinctive diacritical marks, characteristic wooden village architecture, Soviet-era collective farm remnants, and Catholic church steeples help identify locations in this Baltic nation.",
+            "shortDescription": "From the Curonian Spit to Vilnius across the Baltic landscape!",
             "maxDist": 395.23,
             "countryCode": "LT",
             "extent": [
@@ -975,8 +975,8 @@ export const backupMapHome = {
         {
             "name": "Switzerland",
             "slug": "switzerland",
-            "longDescription": "Explore Switzerland in WorldGuessr! Discover the stunning Alps, charming cities, and rich cultural heritage of this Central European country.",
-            "shortDescription": "Explore Switzerland's 26 cantons and over 7,000 lakes!",
+            "longDescription": "Explore Switzerland in WorldGuessr! A landlocked Alpine nation where the dramatic Alps dominate the south, the Jura Mountains line the northwest, and the densely populated Swiss Plateau lies between. Navigate glacier-carved valleys, pristine mountain lakes, and immaculately maintained villages. Four official languages (German, French, Italian, Romansch) create distinct regional character. Distinctive Swiss road design, characteristic wooden chalets with flower boxes, and the orderly precision visible everywhere help identify locations.",
+            "shortDescription": "Master the Alps, Jura, and Swiss Plateau in four languages!",
             "maxDist": 358.077,
             "countryCode": "CH",
             "extent": [
@@ -993,8 +993,8 @@ export const backupMapHome = {
         {
             "name": "Belgium",
             "slug": "belgium",
-            "longDescription": "Explore Belgium in WorldGuessr! Discover the medieval towns, vibrant cities, and rich cultural heritage in the heart of Europe.",
-            "shortDescription": "Explore Belgium's 3 regions and over 800 types of beer!",
+            "longDescription": "Explore Belgium in WorldGuessr! This densely populated crossroads of Europe features flat coastal polders in the north, the rolling Ardennes hills in the south, and some of Europe's most urbanized landscapes in between. Master the differences between Dutch-speaking Flanders and French-speaking Wallonia through signage and architecture. Spot the distinctive Belgian road infrastructure, medieval market squares with ornate guild houses, and the characteristic brick rowhouses that line countless streets.",
+            "shortDescription": "Decode Flanders and Wallonia in Europe's crossroads!",
             "maxDist": 344.702,
             "countryCode": "BE",
             "extent": [
@@ -1011,8 +1011,8 @@ export const backupMapHome = {
         {
             "name": "Bosnia and Herzegovina",
             "slug": "bosnia-and-herzegovina",
-            "longDescription": "Explore Bosnia and Herzegovina in WorldGuessr! From the historic streets of Sarajevo to the iconic Stari Most bridge in Mostar, discover the rich cultural heritage and stunning natural beauty of this Balkan gem.",
-            "shortDescription": "Explore Bosnia's historic cities and mountain landscapes!",
+            "longDescription": "Explore Bosnia and Herzegovina in WorldGuessr! Navigate the rugged Dinaric Alps that dominate the landscape, the turquoise rivers cutting through deep limestone gorges, and the narrow coastal strip near Neum on the Adriatic. Learn to spot the distinctive mix of Ottoman minarets and Austro-Hungarian facades, red-roofed villages nestled in forested valleys, and the unique road infrastructure winding through mountainous terrain. A fascinating Balkan challenge where Central European and Mediterranean influences collide.",
+            "shortDescription": "Master the Dinaric Alps and Balkan crossroads!",
             "maxDist": 329.8,
             "countryCode": "BA",
             "extent": [
@@ -1029,8 +1029,8 @@ export const backupMapHome = {
         {
             "name": "Netherlands",
             "slug": "netherlands",
-            "longDescription": "Explore the Netherlands in WorldGuessr! Discover the iconic windmills, tulip fields, and vibrant cities of this European country.",
-            "shortDescription": "Explore the Netherlands' 12 provinces and over 4,000 km of canals!",
+            "longDescription": "Explore the Netherlands in WorldGuessr! One of the world's flattest and most densely populated countries, where much of the land lies below sea level protected by dikes. Navigate the intricate canal systems, reclaimed polders, endless cycling infrastructure, and orderly urban planning. Distinctive Dutch brick architecture, characteristic church steeples, greenhouse complexes, and the remarkably flat horizon punctuated by wind turbines define this water-managed landscape. Every centimeter of land is purposefully used.",
+            "shortDescription": "Master the Low Countries' canals, polders, and cycling paths!",
             "maxDist": 300,
             "countryCode": "NL",
             "extent": [
@@ -1047,8 +1047,8 @@ export const backupMapHome = {
         {
             "name": "Slovenia",
             "slug": "slovenia",
-            "longDescription": "Explore Slovenia in WorldGuessr! From the stunning Lake Bled to the charming streets of Ljubljana, experience the natural beauty and cultural heritage of this picturesque country.",
-            "shortDescription": "Discover Slovenia's enchanting landscapes and cities!",
+            "longDescription": "Explore Slovenia in WorldGuessr! This compact Alpine-Mediterranean nation packs remarkable diversity into a small area. Navigate from the Julian Alps and glacier-carved valleys to the Karst limestone plateau, the Pannonian plains in the east, and a brief Adriatic coastline. Distinctive hayracks (kozolci) dot the countryside, alpine villages feature characteristic church steeples, and well-maintained roads wind through forested mountains. Slovenia sits at the crossroads of Germanic, Slavic, and Mediterranean influences.",
+            "shortDescription": "Alpine peaks to Adriatic coast in one compact nation!",
             "maxDist": 262.014,
             "countryCode": "SI",
             "extent": [
@@ -1065,8 +1065,8 @@ export const backupMapHome = {
         {
             "name": "Cyprus",
             "slug": "cyprus",
-            "longDescription": "Explore Cyprus in WorldGuessr! Discover the rich history, beautiful beaches, and vibrant culture of this Mediterranean island.",
-            "shortDescription": "Explore Cyprus's 6 districts and rich cultural heritage!",
+            "longDescription": "Explore Cyprus in WorldGuessr! This Mediterranean island features the Troodos Mountains rising in the center, surrounded by coastal plains and rugged coastlines. Navigate between Greek Cypriot and Turkish Cypriot areas with their distinct signage and architecture. Spot British colonial influences in driving on the left, limestone villages with terracotta roofs, ancient olive groves, and the distinctive dry Mediterranean landscape. The mix of Greek, Turkish, and British heritage creates a unique geographic puzzle.",
+            "shortDescription": "Decode this Mediterranean crossroads of cultures!",
             "maxDist": 257.473,
             "countryCode": "CY",
             "extent": [
@@ -1083,8 +1083,8 @@ export const backupMapHome = {
         {
             "name": "Lesotho",
             "slug": "lesotho",
-            "longDescription": "Explore Lesotho in WorldGuessr! Known as the 'Kingdom in the Sky', experience its breathtaking mountain scenery and vibrant culture.",
-            "shortDescription": "Discover the unique beauty of Lesotho's highlands!",
+            "longDescription": "Explore Lesotho in WorldGuessr! The 'Kingdom in the Sky' is the only country entirely above 1,000 meters, landlocked within South Africa. Navigate the rugged Maluti Mountains, high-altitude grasslands, and dramatic Drakensberg escarpment. This highland nation features winding mountain roads, traditional rondavel huts with thatched roofs, Basotho blankets worn by locals, and sparse vegetation on windswept peaks. The challenging mountain terrain and distinctive Basotho culture set Lesotho apart from its surrounding neighbor.",
+            "shortDescription": "Conquer Africa's mountain kingdom entirely above 1,000 meters!",
             "maxDist": 242.916,
             "countryCode": "LS",
             "extent": [
@@ -1101,8 +1101,8 @@ export const backupMapHome = {
         {
             "name": "Montenegro",
             "slug": "montenegro",
-            "longDescription": "Explore Montenegro in WorldGuessr! From the stunning fjords of Kotor to the beautiful beaches, experience the breathtaking landscapes and rich history of this Balkan nation.",
-            "shortDescription": "Discover the scenic beauty of Montenegro!",
+            "longDescription": "Explore Montenegro in WorldGuessr! The 'Black Mountain' lives up to its name with dramatic peaks plunging into the Adriatic. Navigate the stunning Bay of Kotor (Europe's southernmost fjord), the rugged Durmitor Mountains, glacial lakes, and the narrow coastal strip. Venetian-influenced stone architecture on the coast contrasts with Ottoman influences inland. Cyrillic and Latin script appear on signs, and the dramatic topography means winding mountain roads with spectacular views around every turn.",
+            "shortDescription": "From Adriatic fjords to mountain peaks in the Black Mountain!",
             "maxDist": 193.061,
             "countryCode": "ME",
             "extent": [
@@ -1119,8 +1119,8 @@ export const backupMapHome = {
         {
             "name": "Singapore",
             "slug": "singapore",
-            "longDescription": "Explore Singapore in WorldGuessr! From the iconic skyline to the lush gardens, experience the vibrant culture and modern attractions of this city-state.",
-            "shortDescription": "Discover the dynamic city of Singapore!",
+            "longDescription": "Explore Singapore in WorldGuessr! This tiny island city-state packs incredible density into its limited space. Navigate from gleaming Marina Bay skyscrapers to colonial-era shophouses, public housing estates (HDB flats), and preserved nature reserves. English, Chinese, Malay, and Tamil signage reflect the multicultural population. Left-hand driving from British colonial days, distinctive public housing architecture, tropical vegetation, and the unique blend of modern towers and heritage neighborhoods define this urban maze.",
+            "shortDescription": "Decode the layers of this ultra-modern city-state!",
             "maxDist": 63.278,
             "countryCode": "SG",
             "extent": [
@@ -1137,8 +1137,8 @@ export const backupMapHome = {
         {
             "name": "Bhutan",
             "slug": "bhutan",
-            "longDescription": "Explore Bhutan in WorldGuessr! From the stunning monasteries perched on cliffs to the vibrant festivals, discover the spiritual beauty and culture of the 'Land of the Thunder Dragon'.",
-            "shortDescription": "Experience Bhutan's unique culture and landscapes!",
+            "longDescription": "Explore Bhutan in WorldGuessr! The 'Land of the Thunder Dragon' rises from subtropical southern plains to Himalayan peaks over 7,000 meters. Navigate the steep, winding mountain roads through deep valleys, past Buddhist dzong fortresses, and around prayer flag-adorned passes. Traditional Bhutanese architecture with distinctive whitewashed walls and ornate wooden details is mandated by law, creating a uniquely consistent visual landscape. Dense forests, terraced fields, and dramatic elevation changes define this isolated kingdom.",
+            "shortDescription": "Navigate the Himalayan kingdom of Gross National Happiness!",
             "maxDist": 50.05,
             "countryCode": "BT",
             "extent": [
