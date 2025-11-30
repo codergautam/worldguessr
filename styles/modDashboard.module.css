@@ -1003,6 +1003,16 @@
   color: #f85149;
 }
 
+.reporterBanHistory {
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(210, 153, 34, 0.2);
+  color: #d29922;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
 /* Action Badge */
 .actionBadge {
   padding: 3px 10px;

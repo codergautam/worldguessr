@@ -1,5 +1,6 @@
 import User from '../../models/User.js';
 import Report from '../../models/Report.js';
+import ModerationLog from '../../models/ModerationLog.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -134,6 +135,19 @@ export default async function handler(req, res) {
         { _id: 1, username: 1, reporterStats: 1, banned: 1, banType: 1, banExpiresAt: 1, pendingNameChange: 1 }
       ).lean();
 
+      // Check ban history for all reporters
+      const reporterBanHistory = await ModerationLog.find(
+        {
+          'targetUser.accountId': { $in: Array.from(reporterIds) },
+          actionType: { $in: ['ban_permanent', 'ban_temporary'] }
+        },
+        { 'targetUser.accountId': 1 }
+      ).lean();
+
+      const reportersWithBanHistory = new Set(
+        reporterBanHistory.map(log => log.targetUser.accountId)
+      );
+
       const reporterDataMap = {};
       reporters.forEach(reporter => {
         reporterDataMap[reporter._id.toString()] = {
@@ -142,7 +156,8 @@ export default async function handler(req, res) {
           banned: reporter.banned,
           banType: reporter.banType,
           banExpiresAt: reporter.banExpiresAt,
-          pendingNameChange: reporter.pendingNameChange
+          pendingNameChange: reporter.pendingNameChange,
+          hasBanHistory: reportersWithBanHistory.has(reporter._id.toString())
         };
       });
 
@@ -218,6 +233,19 @@ export default async function handler(req, res) {
       { _id: 1, reporterStats: 1, banned: 1, banType: 1, banExpiresAt: 1, pendingNameChange: 1 }
     ).lean();
 
+    // Check ban history for all reporters
+    const reporterBanHistory = await ModerationLog.find(
+      {
+        'targetUser.accountId': { $in: reporterIds },
+        actionType: { $in: ['ban_permanent', 'ban_temporary'] }
+      },
+      { 'targetUser.accountId': 1 }
+    ).lean();
+
+    const reportersWithBanHistory = new Set(
+      reporterBanHistory.map(log => log.targetUser.accountId)
+    );
+
     const userDataMap = {};
     users.forEach(user => {
       userDataMap[user._id.toString()] = {
@@ -226,7 +254,8 @@ export default async function handler(req, res) {
         banned: user.banned,
         banType: user.banType,
         banExpiresAt: user.banExpiresAt,
-        pendingNameChange: user.pendingNameChange
+        pendingNameChange: user.pendingNameChange,
+        hasBanHistory: reportersWithBanHistory.has(user._id.toString())
       };
     });
 
