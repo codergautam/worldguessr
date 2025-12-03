@@ -144,7 +144,8 @@ export default async function handler(req, res) {
     reason,           // INTERNAL reason - NEVER shown to user, for mod reference only
     duration,         // For temp bans: duration in milliseconds
     durationString,   // For temp bans: human readable duration ("7 days", "30 days", etc.)
-    publicNote        // PUBLIC note - shown to user explaining the action (optional)
+    publicNote,       // PUBLIC note - shown to user explaining the action (optional)
+    skipEloRefund     // For permanent bans: skip ELO refund to opponents (optional)
   } = req.body;
 
   // Validate required fields
@@ -318,8 +319,10 @@ export default async function handler(req, res) {
           banPublicNote: publicNote || null // Shown to user
         });
 
-        // Refund ELO to opponents who lost ELO playing against this user
-        eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
+        // Refund ELO to opponents who lost ELO playing against this user (unless skipped)
+        if (!skipEloRefund) {
+          eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
+        }
 
         // Find ALL pending reports against this user (not just the ones passed in)
         const pendingReportIdsBan = await Report.find({

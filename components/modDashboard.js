@@ -33,6 +33,7 @@ export default function ModDashboard({ session }) {
   const [tempBanDuration, setTempBanDuration] = useState('7');
   const [actionReason, setActionReason] = useState(''); // Internal reason - NEVER shown to user
   const [actionPublicNote, setActionPublicNote] = useState(''); // Public note - shown to user
+  const [skipEloRefund, setSkipEloRefund] = useState(false); // Option to skip ELO refund on permanent bans
 
   // Name review queue state
   const [nameRequests, setNameRequests] = useState([]);
@@ -443,6 +444,11 @@ export default function ModDashboard({ session }) {
         body.durationString = `${days} day${days !== 1 ? 's' : ''}`;
       }
 
+      // Add skipEloRefund flag for permanent bans
+      if (action === 'ban_permanent') {
+        body.skipEloRefund = skipEloRefund;
+      }
+
       const response = await fetch(window.cConfig.apiUrl + '/api/mod/takeAction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -455,6 +461,7 @@ export default function ModDashboard({ session }) {
         setActionModal(null);
         setActionReason('');
         setActionPublicNote('');
+        setSkipEloRefund(false);
         fetchReports(selectedStatus, selectedReason); // Refresh reports
       } else {
         const errorData = await response.json();
@@ -546,6 +553,7 @@ export default function ModDashboard({ session }) {
         setActionModal(null);
         setActionReason('');
         setActionPublicNote('');
+        setSkipEloRefund(false);
         // Refresh user data
         lookupUser();
       } else {
@@ -684,7 +692,10 @@ export default function ModDashboard({ session }) {
               {type === 'force_name_change' && '✏️ Force Name Change'}
               {type === 'unban' && '✅ Unban User'}
             </h3>
-            <button className={styles.modalClose} onClick={() => setActionModal(null)}>×</button>
+            <button className={styles.modalClose} onClick={() => {
+              setActionModal(null);
+              setSkipEloRefund(false);
+            }}>×</button>
           </div>
 
           <div className={styles.modalBody}>
@@ -707,6 +718,23 @@ export default function ModDashboard({ session }) {
                   <option value="180">180 days</option>
                   <option value="365">1 year</option>
                 </select>
+              </div>
+            )}
+
+            {type === 'ban_permanent' && (
+              <div className={styles.formGroup}>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={skipEloRefund}
+                    onChange={(e) => setSkipEloRefund(e.target.checked)}
+                    style={{ marginRight: '8px', cursor: 'pointer' }}
+                  />
+                  Skip ELO refund (do not refund ELO to opponents)
+                </label>
+                <small style={{ color: '#6e7681', marginTop: '4px', display: 'block' }}>
+                  By default, opponents who lost ELO to this user will be refunded. Check this to skip the refund.
+                </small>
               </div>
             )}
 
@@ -764,7 +792,10 @@ export default function ModDashboard({ session }) {
           <div className={styles.modalFooter}>
             <button
               className={styles.cancelBtn}
-              onClick={() => setActionModal(null)}
+              onClick={() => {
+                setActionModal(null);
+                setSkipEloRefund(false);
+              }}
               disabled={actionLoading}
             >
               Cancel
