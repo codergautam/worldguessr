@@ -2174,7 +2174,7 @@ export default function Home({ }) {
                 msUserSelect: 'none',
                 pointerEvents: 'none',
             }}>
-                <NextImage.default src={'./street2.jpg'}
+                <NextImage.default src={'./street2christmas.jpg'}
                     draggable={false}
                     width={1920}
                     height={1080}

@@ -31,7 +31,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 maxWidth: '500px',
                 textAlign: 'center',
                 position: "absolute",
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("/street2.jpg")`,
+                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("/street2christmas.jpg")`,
                 objectFit: "cover",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
@@ -53,7 +53,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 <button className="g2_nav_text singleplayer red" onClick={onClose}>{text("back")}</button>
             </div>
             <div className="g2_content settingsModal">
-                <div style={{ height: "50px" }}></div> 
+                <div style={{ height: "50px" }}></div>
 
 
                 <div className="settingsModalInner">
