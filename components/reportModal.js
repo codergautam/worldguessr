@@ -61,7 +61,6 @@ export default function ReportModal({
         body: JSON.stringify({
           secret: session.token.secret,
           reportedUserAccountId: reportedUser.accountId,
-          reportedUsername: reportedUser.username,
           reason,
           description: description.trim(),
           gameId,
