@@ -39,7 +39,7 @@ export default function ModDashboard({ session }) {
   const [nameRequests, setNameRequests] = useState([]);
   const [nameReviewStats, setNameReviewStats] = useState(null);
   const [nameReviewLoading, setNameReviewLoading] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState('');
+  const [rejectionReasons, setRejectionReasons] = useState({}); // Object to track reasons by request ID
 
   // Focused report state (for viewing specific reports)
   const [focusedReport, setFocusedReport] = useState(null);
@@ -570,6 +570,8 @@ export default function ModDashboard({ session }) {
 
   // Review name change
   const reviewNameChange = async (requestId, action) => {
+    const rejectionReason = rejectionReasons[requestId] || '';
+
     if (action === 'reject' && !rejectionReason.trim()) {
       setError('Please provide a rejection reason');
       return;
@@ -593,7 +595,12 @@ export default function ModDashboard({ session }) {
       if (response.ok) {
         const data = await response.json();
         setSuccessMessage(data.message);
-        setRejectionReason('');
+        // Clear the rejection reason for this specific request
+        setRejectionReasons(prev => {
+          const updated = { ...prev };
+          delete updated[requestId];
+          return updated;
+        });
         fetchNameReviewQueue(); // Refresh queue
       } else {
         const errorData = await response.json();
@@ -1817,14 +1824,14 @@ export default function ModDashboard({ session }) {
                           <input
                             type="text"
                             placeholder="Rejection reason..."
-                            value={rejectionReason}
-                            onChange={(e) => setRejectionReason(e.target.value)}
+                            value={rejectionReasons[request._id] || ''}
+                            onChange={(e) => setRejectionReasons(prev => ({ ...prev, [request._id]: e.target.value }))}
                             className={styles.rejectInput}
                           />
                           <button
                             className={styles.rejectBtn}
                             onClick={() => reviewNameChange(request._id, 'reject')}
-                            disabled={actionLoading || !rejectionReason.trim()}
+                            disabled={actionLoading || !(rejectionReasons[request._id] || '').trim()}
                           >
                             ❌ Reject
                           </button>
