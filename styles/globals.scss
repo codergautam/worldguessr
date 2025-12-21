@@ -2853,7 +2853,9 @@ img[alt="Google"] {
     width: 100% !important;
     cursor: crosshair !important;
 }
-
+.hintCircle {
+    cursor: crosshair !important;
+}
 .game-summary-map .leaflet-container {
     height: 100vh !important;
 }

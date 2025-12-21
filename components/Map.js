@@ -245,7 +245,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   } */}
 
       {showHint && location && (
-        <Circle center={{ lat: location.lat, lng: location.long }} radius={hintMul * (gameOptions?.maxDist) ?? 0} />
+        <Circle center={{ lat: location.lat, lng: location.long }} radius={hintMul * (gameOptions?.maxDist) ?? 0} className="hintCircle" />
       )}
 
       <TileLayer
