@@ -965,18 +965,6 @@ export default function ModDashboard({ session }) {
                 >
                   View →
                 </span>
-                {/* Action buttons for pending reports */}
-                {report.status === 'pending' && (
-                  <div className={styles.historyReportActions}>
-                    <ReportActionButtons
-                      targetUser={{ id: targetUser._id, username: targetUser.username }}
-                      reportIds={[report._id]}
-                      reports={[report]}
-                      onAction={handleReportAction}
-                      compact={true}
-                    />
-                  </div>
-                )}
               </div>
             ))}
             {/* Pagination for reports */}
@@ -1177,6 +1165,20 @@ export default function ModDashboard({ session }) {
                   />
                 </div>
               )}
+
+              {/* Open in Reports Page button */}
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #30363d', textAlign: 'center' }}>
+                <button
+                  className={styles.refreshBtn}
+                  onClick={() => {
+                    setFocusedReport(null);
+                    viewReportInTab(focusedReport);
+                  }}
+                  style={{ width: '100%' }}
+                >
+                  📋 Open in Reports Page
+                </button>
+              </div>
             </div>
           </div>
         </div>
