@@ -1907,11 +1907,13 @@ h1, h2, h3, span, label {
    HINT BUTTON - Secondary action matching green theme
    ═══════════════════════════════════════════════════════════════════════════ */
 .hintBtn {
-    width: 25%;
+    width: auto;
+    padding-right: 12px;
     background: var(--gradGreenBtn);
     border: 2px solid var(--primaryDark);
     border-radius: 12px;
     font-weight: 600;
+    font-size: 1.2em;
     letter-spacing: 0.3px;
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     box-shadow: 
@@ -1921,6 +1923,7 @@ h1, h2, h3, span, label {
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    white-space: nowrap;
 }
 
 /* Glow pulse animation */
