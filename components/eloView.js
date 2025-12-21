@@ -291,7 +291,7 @@ export default function EloView({ eloData, session }) {
                     </div>
                     )}
 
-                    {eloData.win_rate && (
+                    {eloData.win_rate ? (
                         <div style={statItemStyle}
                              onMouseEnter={(e) => {
                                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
@@ -304,7 +304,7 @@ export default function EloView({ eloData, session }) {
                             <div style={statLabelStyle}>{text("win_rate")}</div>
                             <div style={statValueStyle}>{(eloData.win_rate * 100).toFixed(2)}%</div>
                         </div>
-                    )}
+                    ) :  null}
                 </div>
             </div>
 
