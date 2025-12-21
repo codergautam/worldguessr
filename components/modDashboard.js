@@ -49,6 +49,10 @@ export default function ModDashboard({ session }) {
 
   // Focused report state (for viewing specific reports)
   const [focusedReport, setFocusedReport] = useState(null);
+  
+  // Highlighted report state (for briefly highlighting a report in the list)
+  const [highlightedReportId, setHighlightedReportId] = useState(null);
+  const [highlightedUserId, setHighlightedUserId] = useState(null);
 
   // Delete user state
   const [deleteModal, setDeleteModal] = useState(null);
@@ -75,14 +79,45 @@ export default function ModDashboard({ session }) {
     }
   }, [successMessage]);
 
+  // Clear highlight after delay
+  useEffect(() => {
+    if (highlightedReportId || highlightedUserId) {
+      const timer = setTimeout(() => {
+        setHighlightedReportId(null);
+        setHighlightedUserId(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedReportId, highlightedUserId]);
+
   // View a specific report in the reports tab
-  const viewReportInTab = (report) => {
-    setFocusedReport(report);
+  const viewReportInTab = async (report, keepModalOpen = true) => {
+    if (keepModalOpen) {
+      setFocusedReport(report);
+    }
     setActiveTab('reports');
+    
+    // Set highlight for the report/user group
+    setHighlightedReportId(report._id);
+    setHighlightedUserId(report.reportedUser?.accountId);
+    
     // Set status filter to match the report's status or 'all' to ensure it's visible
-    setSelectedStatus(report.status === 'pending' ? 'pending' : 'all');
+    const status = report.status === 'pending' ? 'pending' : 'all';
+    setSelectedStatus(status);
     setSelectedReason('all'); // Reset reason filter when viewing a specific report
-    fetchReports(report.status === 'pending' ? 'pending' : 'all', 'all');
+    
+    // Fetch reports - the highlight will show if report is on page 1
+    // For pending (grouped), we highlight the user group
+    // For historical (flat), we'd need to find the right page
+    await fetchReports(status, 'all', 1);
+    
+    // Scroll to highlighted element after a short delay
+    setTimeout(() => {
+      const highlightedEl = document.querySelector('[data-highlighted="true"]');
+      if (highlightedEl) {
+        highlightedEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   };
 
   // Check if user is staff - must be after all hooks
@@ -1171,8 +1206,9 @@ export default function ModDashboard({ session }) {
                 <button
                   className={styles.refreshBtn}
                   onClick={() => {
+                    const reportToView = focusedReport;
                     setFocusedReport(null);
-                    viewReportInTab(focusedReport);
+                    viewReportInTab(reportToView, false);
                   }}
                   style={{ width: '100%' }}
                 >
@@ -1686,8 +1722,14 @@ export default function ModDashboard({ session }) {
               ) : isGrouped ? (
                 // Grouped reports view (for pending)
                 <div className={styles.reportsList}>
-                  {groupedReports.map((group) => (
-                    <div key={group.reportedUser.accountId} className={styles.reportGroup}>
+                  {groupedReports.map((group) => {
+                    const isHighlighted = highlightedUserId === group.reportedUser.accountId;
+                    return (
+                    <div 
+                      key={group.reportedUser.accountId} 
+                      className={`${styles.reportGroup} ${isHighlighted ? styles.highlighted : ''}`}
+                      data-highlighted={isHighlighted ? 'true' : undefined}
+                    >
                       <div className={styles.reportGroupHeader}>
                         <div className={styles.reportGroupUser}>
                           <span
@@ -1755,13 +1797,19 @@ export default function ModDashboard({ session }) {
                         </div>
                       ))}
                     </div>
-                  ))}
+                  )})}
                 </div>
               ) : (
                 // Flat reports view (for historical)
                 <div className={styles.reportsList}>
-                  {flatReports.map((report) => (
-                    <div key={report._id} className={styles.reportCard}>
+                  {flatReports.map((report) => {
+                    const isHighlighted = highlightedReportId === report._id;
+                    return (
+                    <div 
+                      key={report._id} 
+                      className={`${styles.reportCard} ${isHighlighted ? styles.highlighted : ''}`}
+                      data-highlighted={isHighlighted ? 'true' : undefined}
+                    >
                       <div className={styles.reportHeader}>
                         <div className={styles.reportMeta}>
                           <span className={`${styles.statusBadge} ${styles[report.status]}`}>
@@ -1824,7 +1872,7 @@ export default function ModDashboard({ session }) {
                         )}
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
 

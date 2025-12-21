@@ -2102,3 +2102,24 @@
   background: #238636;
   color: white;
 }
+
+/* Highlighted report/group animation */
+.highlighted {
+  animation: highlightPulse 3s ease-out;
+  position: relative;
+}
+
+@keyframes highlightPulse {
+  0% {
+    box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.8), 0 0 20px rgba(88, 166, 255, 0.6);
+    border-color: #58a6ff !important;
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(88, 166, 255, 0.5), 0 0 15px rgba(88, 166, 255, 0.4);
+    border-color: #58a6ff !important;
+  }
+  100% {
+    box-shadow: none;
+    border-color: inherit;
+  }
+}
