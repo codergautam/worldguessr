@@ -1976,3 +1976,129 @@
   line-height: 1.5;
   white-space: pre-wrap;
 }
+
+/* Compact Report Action Buttons (for user lookup reports) */
+.reportActionsCompact {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.resolveBtnCompact,
+.ignoreBtnCompact,
+.banBtnCompact,
+.tempBanBtnCompact,
+.forceNameBtnCompact {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0.8;
+}
+
+.resolveBtnCompact:hover,
+.ignoreBtnCompact:hover,
+.banBtnCompact:hover,
+.tempBanBtnCompact:hover,
+.forceNameBtnCompact:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.resolveBtnCompact {
+  background: #238636;
+  color: white;
+}
+
+.ignoreBtnCompact {
+  background: #6e7681;
+  color: white;
+}
+
+.banBtnCompact {
+  background: #f85149;
+  color: white;
+}
+
+.tempBanBtnCompact {
+  background: #d29922;
+  color: #0d1117;
+}
+
+.forceNameBtnCompact {
+  background: #58a6ff;
+  color: #0d1117;
+}
+
+/* User History Reports with Actions */
+.historyReportItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #161b22;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.historyReportItem:hover {
+  background: #21262d;
+}
+
+.historyReportActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Reports Pagination in User History */
+.historyPagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px;
+  background: #0d1117;
+  border-radius: 6px;
+}
+
+.historyPageBtn {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #21262d;
+  color: #e6edf3;
+  cursor: pointer;
+  font-family: "Lexend", sans-serif;
+  transition: all 0.2s ease;
+}
+
+.historyPageBtn:hover:not(:disabled) {
+  background: #30363d;
+  border-color: #58a6ff;
+}
+
+.historyPageBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.historyPageInfo {
+  color: #8b949e;
+  font-size: 0.8rem;
+}
+
+/* Action button in mark_resolved state */
+.actionBtn.markresolved {
+  background: #238636;
+  color: white;
+}

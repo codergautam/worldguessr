@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import GameHistory from './gameHistory';
 import HistoricalGameView from './historicalGameView';
+import ReportActionButtons from './ReportActionButtons';
 import styles from '../styles/modDashboard.module.css';
 
 export default function ModDashboard({ session }) {
@@ -26,6 +27,11 @@ export default function ModDashboard({ session }) {
   const [selectedReason, setSelectedReason] = useState('all'); // 'all', 'cheating', 'inappropriate_username', 'other'
   const [gameLoading, setGameLoading] = useState(false);
   const [reportedUserId, setReportedUserId] = useState(null);
+  const [reportsPagination, setReportsPagination] = useState({ page: 1, totalPages: 1, totalCount: 0, hasMore: false });
+
+  // User history reports pagination
+  const [userReportsPage, setUserReportsPage] = useState(1);
+  const USER_REPORTS_PER_PAGE = 10;
 
   // Action modal state
   const [actionModal, setActionModal] = useState(null);
@@ -134,6 +140,7 @@ export default function ModDashboard({ session }) {
         } else {
           setTargetUser(data.targetUser);
           setUserHistory(data.history);
+          setUserReportsPage(1); // Reset reports pagination
 
           // Show notice if found by past name
           if (data.foundByPastName) {
@@ -226,6 +233,7 @@ export default function ModDashboard({ session }) {
         } else {
           setTargetUser(data.targetUser);
           setUserHistory(data.history);
+          setUserReportsPage(1); // Reset reports pagination
           // Update input if user was found by past name
           if (data.foundByPastName) {
             setUsernameInput(data.targetUser.username);
@@ -269,6 +277,7 @@ export default function ModDashboard({ session }) {
         setTargetUser(data.targetUser);
         setUserHistory(data.history);
         setUsernameInput(data.targetUser.username);
+        setUserReportsPage(1); // Reset reports pagination
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'User not found');
@@ -282,9 +291,12 @@ export default function ModDashboard({ session }) {
   };
 
   // Fetch reports
-  const fetchReports = async (status = 'pending', reason = 'all') => {
+  const fetchReports = async (status = 'pending', reason = 'all', page = 1) => {
     setReportsLoading(true);
     setReportsError(null);
+
+    const limit = 20;
+    const skip = (page - 1) * limit;
 
     try {
       const response = await fetch(window.cConfig.apiUrl + '/api/mod/getReports', {
@@ -295,8 +307,8 @@ export default function ModDashboard({ session }) {
           status: status === 'all' ? undefined : status,
           reason: reason === 'all' ? undefined : reason,
           showAll: status === 'all',
-          limit: 50,
-          skip: 0
+          limit,
+          skip
         }),
       });
 
@@ -320,6 +332,16 @@ export default function ModDashboard({ session }) {
           setFlatReports(data.reports || []);
           setGroupedReports([]);
         }
+
+        // Update pagination
+        const totalCount = data.pagination?.total || 0;
+        const totalPages = Math.ceil(totalCount / limit) || 1;
+        setReportsPagination({
+          page,
+          totalPages,
+          totalCount,
+          hasMore: data.pagination?.hasMore || false
+        });
       } else {
         const errorData = await response.json();
         setReportsError(errorData.message || 'Failed to fetch reports');
@@ -409,12 +431,26 @@ export default function ModDashboard({ session }) {
     if (status !== 'pending') {
       setSelectedReason('all');
     }
-    fetchReports(status, status === 'pending' ? selectedReason : 'all');
+    fetchReports(status, status === 'pending' ? selectedReason : 'all', 1);
   };
 
   const handleReasonFilterChange = (reason) => {
     setSelectedReason(reason);
-    fetchReports(selectedStatus, reason);
+    fetchReports(selectedStatus, reason, 1);
+  };
+
+  const handleReportsPageChange = (newPage) => {
+    fetchReports(selectedStatus, selectedReason, newPage);
+  };
+
+  // Handler for ReportActionButtons component
+  const handleReportAction = (actionType, user, reportIds, options = {}) => {
+    setActionModal({
+      type: actionType,
+      targetUser: user,
+      reportIds: options.reportIds || reportIds,
+      hasInappropriateUsername: options.hasInappropriateUsername || false
+    });
   };
 
   // Take moderation action
@@ -462,7 +498,11 @@ export default function ModDashboard({ session }) {
         setActionReason('');
         setActionPublicNote('');
         setSkipEloRefund(false);
-        fetchReports(selectedStatus, selectedReason); // Refresh reports
+        fetchReports(selectedStatus, selectedReason, reportsPagination.page); // Refresh reports
+        // Also refresh user data if we're in user lookup
+        if (targetUser) {
+          lookupUser();
+        }
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'Failed to take action');
@@ -903,12 +943,12 @@ export default function ModDashboard({ session }) {
         {userHistory.reportsAgainst && userHistory.reportsAgainst.length > 0 && (
           <div className={styles.historySubsection}>
             <h4>🚩 Reports Against ({userHistory.reportsAgainst.length})</h4>
-            {userHistory.reportsAgainst.slice(0, 10).map((report, i) => (
+            {userHistory.reportsAgainst
+              .slice((userReportsPage - 1) * USER_REPORTS_PER_PAGE, userReportsPage * USER_REPORTS_PER_PAGE)
+              .map((report, i) => (
               <div
-                key={i}
-                className={`${styles.historyItem} ${styles.clickableReport}`}
-                onClick={() => viewReportInTab(report)}
-                title="Click to view report details"
+                key={report._id || i}
+                className={styles.historyReportItem}
               >
                 <span className={`${styles.statusBadge} ${styles[report.status]}`}>
                   {report.status.replace(/_/g, ' ')}
@@ -918,13 +958,48 @@ export default function ModDashboard({ session }) {
                 <span className={styles.historyMeta}>
                   {new Date(report.createdAt).toLocaleDateString()}
                 </span>
-                <span className={styles.viewLink}>View →</span>
+                <span
+                  className={styles.viewLink}
+                  style={{ opacity: 1, cursor: 'pointer' }}
+                  onClick={() => setFocusedReport(report)}
+                >
+                  View →
+                </span>
+                {/* Action buttons for pending reports */}
+                {report.status === 'pending' && (
+                  <div className={styles.historyReportActions}>
+                    <ReportActionButtons
+                      targetUser={{ id: targetUser._id, username: targetUser.username }}
+                      reportIds={[report._id]}
+                      reports={[report]}
+                      onAction={handleReportAction}
+                      compact={true}
+                    />
+                  </div>
+                )}
               </div>
             ))}
-            {userHistory.reportsAgainst.length > 10 && (
-              <p style={{ color: '#6e7681', fontSize: '0.85rem', marginTop: '8px' }}>
-                ... and {userHistory.reportsAgainst.length - 10} more reports
-              </p>
+            {/* Pagination for reports */}
+            {userHistory.reportsAgainst.length > USER_REPORTS_PER_PAGE && (
+              <div className={styles.historyPagination}>
+                <button
+                  className={styles.historyPageBtn}
+                  onClick={() => setUserReportsPage(p => Math.max(1, p - 1))}
+                  disabled={userReportsPage <= 1}
+                >
+                  ← Prev
+                </button>
+                <span className={styles.historyPageInfo}>
+                  Page {userReportsPage} of {Math.ceil(userHistory.reportsAgainst.length / USER_REPORTS_PER_PAGE)}
+                </span>
+                <button
+                  className={styles.historyPageBtn}
+                  onClick={() => setUserReportsPage(p => Math.min(Math.ceil(userHistory.reportsAgainst.length / USER_REPORTS_PER_PAGE), p + 1))}
+                  disabled={userReportsPage >= Math.ceil(userHistory.reportsAgainst.length / USER_REPORTS_PER_PAGE)}
+                >
+                  Next →
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -933,12 +1008,10 @@ export default function ModDashboard({ session }) {
         {userHistory.reportsMade && userHistory.reportsMade.length > 0 && (
           <div className={styles.historySubsection}>
             <h4>📝 Reports Made ({userHistory.reportsMade.length})</h4>
-            {userHistory.reportsMade.slice(0, 5).map((report, i) => (
+            {userHistory.reportsMade.slice(0, 10).map((report, i) => (
               <div
-                key={i}
-                className={`${styles.historyItem} ${styles.clickableReport}`}
-                onClick={() => viewReportInTab(report)}
-                title="Click to view report details"
+                key={report._id || i}
+                className={styles.historyReportItem}
               >
                 <span className={`${styles.statusBadge} ${styles[report.status]}`}>
                   {report.status.replace(/_/g, ' ')}
@@ -948,9 +1021,20 @@ export default function ModDashboard({ session }) {
                 <span className={styles.historyMeta}>
                   {new Date(report.createdAt).toLocaleDateString()}
                 </span>
-                <span className={styles.viewLink}>View →</span>
+                <span
+                  className={styles.viewLink}
+                  style={{ opacity: 1, cursor: 'pointer' }}
+                  onClick={() => setFocusedReport(report)}
+                >
+                  View →
+                </span>
               </div>
             ))}
+            {userHistory.reportsMade.length > 10 && (
+              <p style={{ color: '#6e7681', fontSize: '0.85rem', marginTop: '8px' }}>
+                ... and {userHistory.reportsMade.length - 10} more reports
+              </p>
+            )}
           </div>
         )}
 
@@ -998,6 +1082,105 @@ export default function ModDashboard({ session }) {
 
       {/* Action Modal */}
       {renderActionModal()}
+
+      {/* Focused Report Modal - shown on any tab */}
+      {focusedReport && (
+        <div className={styles.focusedReportOverlay} onClick={() => setFocusedReport(null)}>
+          <div className={styles.focusedReportCard} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.focusedReportHeader}>
+              <h3>📋 Report Details</h3>
+              <button className={styles.focusedReportClose} onClick={() => setFocusedReport(null)}>×</button>
+            </div>
+            <div className={styles.focusedReportBody}>
+              <div className={styles.reportMeta} style={{ marginBottom: '16px' }}>
+                <span className={`${styles.statusBadge} ${styles[focusedReport.status]}`}>
+                  {focusedReport.status?.replace(/_/g, ' ')}
+                </span>
+                <span className={styles.reasonBadge}>{focusedReport.reason?.replace(/_/g, ' ')}</span>
+                <span className={styles.reportDate}>
+                  {new Date(focusedReport.createdAt).toLocaleString()}
+                </span>
+              </div>
+
+              <div className={styles.reportUsers} style={{ marginBottom: '16px' }}>
+                <div className={styles.userInfo}>
+                  <strong>Reporter:</strong>
+                  <span
+                    className={styles.username}
+                    onClick={() => {
+                      setFocusedReport(null);
+                      handleUserLookupById(focusedReport.reportedBy?.accountId, focusedReport.reportedBy?.username);
+                    }}
+                  >
+                    {focusedReport.reportedBy?.username}
+                  </span>
+                </div>
+                <div className={styles.userInfo}>
+                  <strong>Reported:</strong>
+                  <span
+                    className={styles.username}
+                    onClick={() => {
+                      setFocusedReport(null);
+                      handleUserLookupById(focusedReport.reportedUser?.accountId, focusedReport.reportedUser?.username);
+                    }}
+                  >
+                    {focusedReport.reportedUser?.username}
+                  </span>
+                </div>
+              </div>
+
+              <div className={styles.reportDescription} style={{ marginBottom: '16px' }}>
+                <strong>Description:</strong>
+                <p>{focusedReport.description}</p>
+              </div>
+
+              <div className={styles.reportGameInfo}>
+                <span>
+                  <strong>Game ID:</strong>{' '}
+                  <span
+                    className={styles.gameIdLink}
+                    onClick={() => {
+                      setFocusedReport(null);
+                      fetchGameById(focusedReport.gameId, focusedReport.reportedUser?.accountId, focusedReport.reportedUser?.accountId);
+                    }}
+                  >
+                    {focusedReport.gameId}
+                  </span>
+                </span>
+                <span><strong>Type:</strong> {focusedReport.gameType?.replace(/_/g, ' ')}</span>
+              </div>
+
+              {focusedReport.moderatorNotes && (
+                <div style={{ marginTop: '16px', padding: '12px', background: '#161b22', borderRadius: '6px' }}>
+                  <strong>Moderator Notes:</strong>
+                  <p style={{ margin: '8px 0 0 0' }}>{focusedReport.moderatorNotes}</p>
+                </div>
+              )}
+
+              {focusedReport.reviewedBy?.username && (
+                <div style={{ marginTop: '12px', color: '#6e7681', fontSize: '0.85rem' }}>
+                  Reviewed by {focusedReport.reviewedBy.username} on {new Date(focusedReport.reviewedAt).toLocaleString()}
+                </div>
+              )}
+
+              {/* Action buttons for pending reports */}
+              {focusedReport.status === 'pending' && (
+                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #30363d' }}>
+                  <ReportActionButtons
+                    targetUser={{ id: focusedReport.reportedUser?.accountId, username: focusedReport.reportedUser?.username }}
+                    reportIds={[focusedReport._id]}
+                    reports={[focusedReport]}
+                    onAction={(actionType, user, reportIds, options) => {
+                      setFocusedReport(null);
+                      handleReportAction(actionType, user, reportIds, options);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete User Confirmation Modal */}
       {deleteModal && (
@@ -1444,10 +1627,34 @@ export default function ModDashboard({ session }) {
                   </>
                 )}
 
-                <button onClick={() => fetchReports(selectedStatus, selectedReason)} className={styles.refreshBtn}>
+                <button onClick={() => fetchReports(selectedStatus, selectedReason, 1)} className={styles.refreshBtn}>
                   🔄 Refresh
                 </button>
               </div>
+
+              {/* Reports Pagination */}
+              {reportsPagination.totalPages > 1 && (
+                <div className={styles.pagination}>
+                  <button
+                    onClick={() => handleReportsPageChange(reportsPagination.page - 1)}
+                    disabled={reportsPagination.page <= 1 || reportsLoading}
+                    className={styles.pageBtn}
+                  >
+                    ← Previous
+                  </button>
+                  <span className={styles.pageInfo}>
+                    Page {reportsPagination.page} of {reportsPagination.totalPages}
+                    {' '}({reportsPagination.totalCount} total)
+                  </span>
+                  <button
+                    onClick={() => handleReportsPageChange(reportsPagination.page + 1)}
+                    disabled={reportsPagination.page >= reportsPagination.totalPages || reportsLoading}
+                    className={styles.pageBtn}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
 
               {/* Game Loading Overlay */}
               {gameLoading && (
@@ -1455,90 +1662,6 @@ export default function ModDashboard({ session }) {
                   <div className={styles.gameLoadingContent}>
                     <div className={styles.loadingSpinner}></div>
                     <p>Loading game details...</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Focused Report Modal */}
-              {focusedReport && (
-                <div className={styles.focusedReportOverlay} onClick={() => setFocusedReport(null)}>
-                  <div className={styles.focusedReportCard} onClick={(e) => e.stopPropagation()}>
-                    <div className={styles.focusedReportHeader}>
-                      <h3>📋 Report Details</h3>
-                      <button className={styles.focusedReportClose} onClick={() => setFocusedReport(null)}>×</button>
-                    </div>
-                    <div className={styles.focusedReportBody}>
-                      <div className={styles.reportMeta} style={{ marginBottom: '16px' }}>
-                        <span className={`${styles.statusBadge} ${styles[focusedReport.status]}`}>
-                          {focusedReport.status?.replace(/_/g, ' ')}
-                        </span>
-                        <span className={styles.reasonBadge}>{focusedReport.reason?.replace(/_/g, ' ')}</span>
-                        <span className={styles.reportDate}>
-                          {new Date(focusedReport.createdAt).toLocaleString()}
-                        </span>
-                      </div>
-
-                      <div className={styles.reportUsers} style={{ marginBottom: '16px' }}>
-                        <div className={styles.userInfo}>
-                          <strong>Reporter:</strong>
-                          <span
-                            className={styles.username}
-                            onClick={() => {
-                              setFocusedReport(null);
-                              handleUserLookupById(focusedReport.reportedBy?.accountId, focusedReport.reportedBy?.username);
-                            }}
-                          >
-                            {focusedReport.reportedBy?.username}
-                          </span>
-                        </div>
-                        <div className={styles.userInfo}>
-                          <strong>Reported:</strong>
-                          <span
-                            className={styles.username}
-                            onClick={() => {
-                              setFocusedReport(null);
-                              handleUserLookupById(focusedReport.reportedUser?.accountId, focusedReport.reportedUser?.username);
-                            }}
-                          >
-                            {focusedReport.reportedUser?.username}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className={styles.reportDescription} style={{ marginBottom: '16px' }}>
-                        <strong>Description:</strong>
-                        <p>{focusedReport.description}</p>
-                      </div>
-
-                      <div className={styles.reportGameInfo}>
-                        <span>
-                          <strong>Game ID:</strong>{' '}
-                          <span
-                            className={styles.gameIdLink}
-                            onClick={() => {
-                              setFocusedReport(null);
-                              fetchGameById(focusedReport.gameId, focusedReport.reportedUser?.accountId, focusedReport.reportedUser?.accountId);
-                            }}
-                          >
-                            {focusedReport.gameId}
-                          </span>
-                        </span>
-                        <span><strong>Type:</strong> {focusedReport.gameType?.replace(/_/g, ' ')}</span>
-                      </div>
-
-                      {focusedReport.moderatorNotes && (
-                        <div style={{ marginTop: '16px', padding: '12px', background: '#161b22', borderRadius: '6px' }}>
-                          <strong>Moderator Notes:</strong>
-                          <p style={{ margin: '8px 0 0 0' }}>{focusedReport.moderatorNotes}</p>
-                        </div>
-                      )}
-
-                      {focusedReport.reviewedBy?.username && (
-                        <div style={{ marginTop: '12px', color: '#6e7681', fontSize: '0.85rem' }}>
-                          Reviewed by {focusedReport.reviewedBy.username} on {new Date(focusedReport.reviewedAt).toLocaleString()}
-                        </div>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}
@@ -1578,61 +1701,12 @@ export default function ModDashboard({ session }) {
                         </div>
 
                         {/* Action Buttons for Group */}
-                        <div className={styles.groupActions}>
-                          <button
-                            className={styles.resolveBtn}
-                            onClick={() => setActionModal({
-                              type: 'mark_resolved',
-                              targetUser: { id: group.reportedUser.accountId, username: group.reportedUser.username },
-                              reportIds: group.reports.map(r => r._id)
-                            })}
-                          >
-                            ✅ Resolve
-                          </button>
-                          <button
-                            className={styles.ignoreBtn}
-                            onClick={() => setActionModal({
-                              type: 'ignore',
-                              targetUser: { id: group.reportedUser.accountId, username: group.reportedUser.username },
-                              reportIds: group.reports.map(r => r._id)
-                            })}
-                          >
-                            🚫 Ignore
-                          </button>
-                          <button
-                            className={styles.banBtn}
-                            onClick={() => setActionModal({
-                              type: 'ban_permanent',
-                              targetUser: { id: group.reportedUser.accountId, username: group.reportedUser.username },
-                              reportIds: group.reports.map(r => r._id)
-                            })}
-                          >
-                            ⛔ Ban
-                          </button>
-                          <button
-                            className={styles.tempBanBtn}
-                            onClick={() => setActionModal({
-                              type: 'ban_temporary',
-                              targetUser: { id: group.reportedUser.accountId, username: group.reportedUser.username },
-                              reportIds: group.reports.map(r => r._id)
-                            })}
-                          >
-                            ⏱️ Temp Ban
-                          </button>
-                          {group.reports.some(r => r.reason === 'inappropriate_username') && (
-                            <button
-                              className={styles.forceNameBtn}
-                              onClick={() => setActionModal({
-                                type: 'force_name_change',
-                                targetUser: { id: group.reportedUser.accountId, username: group.reportedUser.username },
-                                reportIds: group.reports.filter(r => r.reason === 'inappropriate_username').map(r => r._id),
-                                hasInappropriateUsername: true
-                              })}
-                            >
-                              ✏️ Force Name
-                            </button>
-                          )}
-                        </div>
+                        <ReportActionButtons
+                          targetUser={{ id: group.reportedUser.accountId, username: group.reportedUser.username }}
+                          reportIds={group.reports.map(r => r._id)}
+                          reports={group.reports}
+                          onAction={handleReportAction}
+                        />
                       </div>
 
                       {/* Individual Reports */}
@@ -1749,6 +1823,30 @@ export default function ModDashboard({ session }) {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Bottom Pagination */}
+              {reportsPagination.totalPages > 1 && (
+                <div className={styles.pagination} style={{ marginTop: '20px' }}>
+                  <button
+                    onClick={() => handleReportsPageChange(reportsPagination.page - 1)}
+                    disabled={reportsPagination.page <= 1 || reportsLoading}
+                    className={styles.pageBtn}
+                  >
+                    ← Previous
+                  </button>
+                  <span className={styles.pageInfo}>
+                    Page {reportsPagination.page} of {reportsPagination.totalPages}
+                    {' '}({reportsPagination.totalCount} total)
+                  </span>
+                  <button
+                    onClick={() => handleReportsPageChange(reportsPagination.page + 1)}
+                    disabled={reportsPagination.page >= reportsPagination.totalPages || reportsLoading}
+                    className={styles.pageBtn}
+                  >
+                    Next →
+                  </button>
                 </div>
               )}
             </div>
