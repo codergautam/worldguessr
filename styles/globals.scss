@@ -1666,6 +1666,7 @@ h1, h2, h3, span, label {
 
 .mapCornerBtns {
     position: relative;
+    transform: translateY(-5px);
 }
 
 @media screen and (max-width: 600px), screen and (pointer:coarse) {
@@ -1850,7 +1851,7 @@ h1, h2, h3, span, label {
    ═══════════════════════════════════════════════════════════════════════════ */
 .guessBtn {
     background: var(--gradBlue);
-    border: 2px solid rgba(29, 29, 91, 0.8);
+    border: 1px solid rgba(29, 29, 91, 0.8);
     border-radius: 12px;
     font-weight: 600;
     letter-spacing: 0.5px;
@@ -1910,7 +1911,7 @@ h1, h2, h3, span, label {
     width: auto;
     padding-right: 12px;
     background: var(--gradGreenBtn);
-    border: 2px solid var(--primaryDark);
+    border: 1px solid var(--primaryDark);
     border-radius: 12px;
     font-weight: 600;
     font-size: 1.2em;
@@ -2852,6 +2853,7 @@ img[alt="Google"] {
     height: 100% !important;
     width: 100% !important;
     cursor: crosshair !important;
+    border-radius: 10px !important;
 }
 .hintCircle {
     cursor: crosshair !important;
