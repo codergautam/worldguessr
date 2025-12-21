@@ -1,0 +1,52 @@
+name: CoolMath Games Build
+
+on:
+  push:
+    branches-ignore:
+      - 'gh-pages'
+      - 'gh-pages-dev'
+      - 'coolmath-build'
+      - 'coolmath-build-*'
+  workflow_dispatch:
+
+jobs:
+  build-coolmath:
+    runs-on: ubuntu-latest
+    env:
+      CI: false
+      NEXT_PUBLIC_COOLMATH: true
+      NEXT_PUBLIC_API_URL: api.worldguessr.com
+      NEXT_PUBLIC_WS_HOST: server.worldguessr.com
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: 471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install dependencies
+      run: npm i
+
+    - name: Build CoolMath Games version
+      run: npm run build
+
+    - name: Get branch name
+      id: branch
+      run: |
+        BRANCH_NAME="${GITHUB_REF_NAME}"
+        # Sanitize branch name for use in git branch name
+        SAFE_BRANCH_NAME=$(echo "$BRANCH_NAME" | sed 's/[^a-zA-Z0-9_-]/-/g')
+        echo "name=$SAFE_BRANCH_NAME" >> $GITHUB_OUTPUT
+        echo "Building CoolMath version for branch: $BRANCH_NAME"
+
+    - name: Deploy to CoolMath build branch
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./out
+        publish_branch: coolmath-build-${{ steps.branch.outputs.name }}
+        commit_message: "CoolMath build from ${{ github.sha }}"
+
