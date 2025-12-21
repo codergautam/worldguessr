@@ -1682,7 +1682,7 @@ export default function ModDashboard({ session }) {
                   </button>
                   <span className={styles.pageInfo}>
                     Page {reportsPagination.page} of {reportsPagination.totalPages}
-                    {' '}({reportsPagination.totalCount} total)
+                    {' '}({reportsPagination.totalCount} {isGrouped ? 'users' : 'reports'})
                   </span>
                   <button
                     onClick={() => handleReportsPageChange(reportsPagination.page + 1)}
@@ -1888,7 +1888,7 @@ export default function ModDashboard({ session }) {
                   </button>
                   <span className={styles.pageInfo}>
                     Page {reportsPagination.page} of {reportsPagination.totalPages}
-                    {' '}({reportsPagination.totalCount} total)
+                    {' '}({reportsPagination.totalCount} {isGrouped ? 'users' : 'reports'})
                   </span>
                   <button
                     onClick={() => handleReportsPageChange(reportsPagination.page + 1)}
