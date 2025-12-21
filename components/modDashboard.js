@@ -534,8 +534,8 @@ export default function ModDashboard({ session }) {
         setActionPublicNote('');
         setSkipEloRefund(false);
         fetchReports(selectedStatus, selectedReason, reportsPagination.page); // Refresh reports
-        // Also refresh user data if we're in user lookup
-        if (targetUser) {
+        // Also refresh user data if we're currently in user lookup tab
+        if (targetUser && activeTab === 'users') {
           lookupUser();
         }
       } else {
