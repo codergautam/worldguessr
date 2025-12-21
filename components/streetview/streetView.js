@@ -74,11 +74,13 @@ const StreetView = ({
           onLoad();
         }
       }}
+      loading="lazy"
       style={{
         width: "100vw",
         height: "calc(100vh + 300px)",
         zIndex: 100,
         transform: "translateY(-285px)",
+        border: "none",
       }}
       id="streetview"
     />
