@@ -182,8 +182,10 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'Target user not found' });
     }
 
-    // Don't allow actions against other staff
-    if (targetUser.staff && !moderator._id.equals(targetUser._id)) {
+    // Don't allow punitive actions against other staff
+    // But allow report dismissal actions (ignore, mark_resolved) so mods can clear spam reports
+    const punitiveActions = ['ban_permanent', 'ban_temporary', 'force_name_change', 'unban'];
+    if (targetUser.staff && !moderator._id.equals(targetUser._id) && punitiveActions.includes(action)) {
       return res.status(403).json({ message: 'Cannot take moderation action against staff members' });
     }
 
