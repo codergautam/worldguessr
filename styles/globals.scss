@@ -1784,7 +1784,23 @@ h1, h2, h3, span, label {
     transform: translate(0, 0);
 }
 
+// Z-index layering fix
+// Priority: react-chatbot-kit-chat-container > guessBtn > chatboxBtn
+.chatboxBtn {
+    z-index: 1000;
+    position: relative;
+}
 
+.guessBtn,
+.g2_mobile_guess {
+    z-index: 1500;
+    position: relative;
+}
+
+.react-chatbot-kit-chat-container {
+    z-index: 2500;
+    position: relative;
+}
 
 .answerShownBtns {
     display: none;
@@ -4385,7 +4401,7 @@ div[dir="ltr"] {
 }
 
 .mobile_minimap__btns {
-    z-index: 10000;
+    z-index: 1200; // Below chatboxParent (2000) and react-chatbot-kit-chat-container (2500)
 }
 
 .leagueBtn {
