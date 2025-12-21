@@ -24,7 +24,9 @@ export default async function handler(req, res) {
     let user;
     // const user = await User.findOne({ username });
     if(username) {
-      user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
+      // user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
+      // remove incase insensitive
+      user = await User.findOne({ username: username });
     } else if(secret) {
       user = await User.findOne({ secret });
     }
