@@ -1,15 +1,13 @@
-// import calcPoints from '@/components/calcPoints';
 // import ratelimiter from '@/components/utils/ratelimitMiddleware'
-import calcPoints from '../components/calcPoints.js';
 import ratelimiter from '../components/utils/ratelimitMiddleware.js';
 import Game from '../models/Game.js';
 import User from '../models/User.js';
 import UserStatsService from '../components/utils/userStatsService.js';
 import { createUUID } from '../components/createUUID.js';
 
-// Handle both single round and batch round submissions
+// Handle singleplayer game completion
 async function guess(req, res) {
-  const { lat, long, actualLat, actualLong, usedHint, secret, roundTime, maxDist, rounds, official, location } = req.body;
+  const { secret, maxDist, rounds, official, location } = req.body;
 
   // secret must be string
   if(typeof secret !== 'string') {
@@ -37,7 +35,22 @@ async function guess(req, res) {
         // Calculate total duration and points
         const totalDuration = rounds.reduce((sum, round) => sum + round.roundTime, 0); // Keep in seconds
         const totalPoints = rounds.reduce((sum, round) => sum + round.points, 0); // Use actual points from rounds
-        const totalXp = rounds.reduce((sum, round) => sum + (round.xp || 0), 0);
+        
+        // Validate and cap XP to prevent exploitation
+        // Max XP per round is 100 (5000 points / 50), cap total at 500 per request
+        const MAX_XP_PER_ROUND = 100;
+        const MAX_TOTAL_XP = 500;
+        
+        let totalXp = rounds.reduce((sum, round) => {
+          const roundXp = Math.min(Math.max(0, round.xp || 0), MAX_XP_PER_ROUND);
+          return sum + roundXp;
+        }, 0);
+        
+        // Cap total XP
+        if (totalXp > MAX_TOTAL_XP) {
+          console.warn(`XP cap exceeded for user ${user.username}: attempted ${totalXp}, capped to ${MAX_TOTAL_XP}`);
+          totalXp = MAX_TOTAL_XP;
+        }
 
         // Prepare rounds data for Games collection
         let currentRoundStart = gameStartTime.getTime();
@@ -163,36 +176,8 @@ async function guess(req, res) {
     return res.status(200).json({ success: true });
   }
 
-  // Handle single round (multiplayer/legacy)
-  // handle impossible cases
-  if(lat === actualLat || long === actualLong || roundTime < 0 || maxDist < 10) {
-    return res.status(400).json({ message: 'Invalid input' });
-  }
-
-  if(secret) {
-    try {
-      const calcXp = Math.round(calcPoints({ guessLat: lat, guessLon: long, lat: actualLat, lon: actualLong, usedHint, maxDist }) / 50);
-      
-      // Update user stats directly (for multiplayer individual rounds)
-      await User.updateOne(
-        { secret },
-        { 
-          $inc: { totalXp: calcXp },
-          $push: { 
-            games: {
-              xp: calcXp,
-              timeTaken: roundTime,
-              latLong: [lat, long],
-              time: new Date()
-            }
-          }
-        }
-      );
-    } catch (error) {
-      return res.status(500).json({ error: 'An error occurred', message: error.message });
-    }
-  }
-  res.status(200).json({ success: true });
+  // No batch rounds provided - invalid request
+  return res.status(400).json({ message: 'Invalid input: rounds array required' });
 }
 
 // Limit to 1 request per 5 seconds over a minute, generous limit but better than nothing
