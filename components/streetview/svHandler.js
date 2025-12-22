@@ -72,16 +72,30 @@ const SvEmbedIframe = (params) => {
     // Watch for window.reloadLoc to reload the iframe
     useEffect(() => {
       window.reloadLoc = () => {
-        if (iframeRef.current) {
-          // Force reload by changing iframe src
-          iframeRef.current.src = iframeRef.current.src;
+        if (!iframeRef.current) return;
+        
+        // Use proper null checks (not truthiness) since lat=0 or long=0 are valid coordinates
+        const hasValidCoords = params.lat != null && params.long != null;
+        
+        if (hasValidCoords) {
+          // Build fresh URL with current params to avoid stale coordinates
+          const shouldUsePanoId = false && params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
+          const panoParam = shouldUsePanoId ? `&pano=${params.panoId}` : '';
+          const headingParam = shouldUsePanoId ? `&heading=${params.heading}` : '';
+          const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
+          const freshSrc = `/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`;
+          iframeRef.current.src = freshSrc;
         }
+        // Note: If coords are null/undefined, we intentionally don't reload.
+        // The reload button is gated by !loading and game state, so coords should
+        // always be present when this is called. Not reloading is safer than
+        // potentially loading stale coordinates from a previous game.
       }
       return () => {
         window.reloadLoc = null;
       }
 
-    }, [JSON.stringify(params)]);
+    }, [params.lat, params.long, params.panoId, params.heading, params.pitch, params.nm, params.npz, params.showRoadLabels, params.showAnswer]);
 
 
 
