@@ -135,7 +135,22 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                         } />
                                     </div> */}
 
-                                    <label>{text('degradedMaps')}</label>
+                                    {/* <label>{text('degradedMaps')}</label> */}
+
+                                    {/*  re enable only NMPZ (basically setGameOptions both nm and npz to e.target.checked) */}
+                                    <div>
+                                        <label htmlFor="nmpz">{text('nmpz')}&nbsp;</label>
+                                        <input id="nmpz"
+                                        name="nmpz"
+                                        type="checkbox" checked={gameOptions.nmpz} onChange={(e) => {
+                                            setGameOptions({
+                                                ...gameOptions,
+                                                nm: e.target.checked,
+                                                npz: e.target.checked
+                                            })
+                                        }
+                                        } />
+                                    </div>
                                 </div>
 
                             </label>

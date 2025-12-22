@@ -89,6 +89,7 @@
   "exit": "Beenden",
   "nm": "Kein Bewegen",
   "npz": "Kein Drehen oder Zoomen",
+  "nmpz": "Kein Bewegen, Drehen oder Zoomen",
   "showRoadName": "Straßennamen anzeigen",
   "settings": "Einstellungen",
   "units": "Einheiten",

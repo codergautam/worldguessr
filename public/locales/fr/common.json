@@ -89,6 +89,7 @@
   "exit": "Sortir",
   "nm": "Déplacement interdit",
   "npz": "Rotation et zoom interdits",
+  "nmpz": "Déplacement, rotation et zoom interdits",
   "showRoadName": "Afficher les noms de rue",
   "settings": "Options",
   "units": "Unités",
