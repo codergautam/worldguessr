@@ -89,6 +89,7 @@
   "exit": "Exit",
   "nm": "No moving",
   "npz": "No panning or zooming",
+  "nmpz": "No moving, panning or zooming",
   "showRoadName": "Show Road Labels",
   "settings": "Settings",
   "units": "Units",

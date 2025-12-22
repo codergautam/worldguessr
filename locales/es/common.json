@@ -89,6 +89,7 @@
   "exit": "Salir",
   "nm": "Sin moverse",
   "npz": "Sin rotar ni hacer zoom",
+  "nmpz": "Sin moverse, rotar ni hacer zoom",
   "showRoadName": "Mostrar nombres de calles",
   "settings": "Configuración",
   "units": "Unidades",
