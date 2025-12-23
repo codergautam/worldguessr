@@ -1,12 +1,34 @@
-/* Duel-specific styles for RoundOverScreen */
+/* Duel-specific styles for RoundOverScreen*/
+
+:root {
+
+  /* Duel Specific Colors */
+  --color-overlay-duel: rgba(0, 0, 0, 0.9);
+  --color-round-bg: rgba(255, 255, 255, 0.1);
+  --color-round-hover: rgba(255, 255, 255, 0.2);
+  --color-danger: #ff6b6b;   /* Health Damage */
+  --color-success: #4CAF50;  /* Final Score */
+  --color-gold: #ffd700;     /* Rank */
+  
+  /* Duel Specific Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-round-padding: 1rem;
+
+  /* Font Sizes */
+  --font-size-title: 2.5rem;
+  --font-size-elo: 2rem;
+  --font-size-elo-change: 1.5rem;
+}
+
+/* Base Screen & Structure */
 
 .round-over-screen {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100dvh;
-  background: rgba(0, 0, 0, 0.9);
+  height: 100dvh; 
+  background: var(--color-overlay-duel); 
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -18,37 +40,39 @@
 }
 
 .duel-header .summary-title {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
+  font-size: var(--font-size-title);
+  margin-bottom: var(--spacing-md);
 }
+
+/* ELO Display */
 
 .elo-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin: 1rem 0;
+  margin: var(--spacing-md) 0;
 }
 
 .elo-title {
   font-size: 1.2rem;
-  color: #ccc;
-  margin-bottom: 0.5rem;
+  color: var(--color-light-text, #ccc); /* Variables, with fallback */
+  margin-bottom: var(--spacing-sm);
 }
 
 .elo-display {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: var(--spacing-md);
 }
 
 .elo-value {
-  font-size: 2rem;
+  font-size: var(--font-size-elo);
   font-weight: bold;
-  color: #fff;
+  color: var(--color-dark-text, #fff);
 }
 
 .elo-change {
-  font-size: 1.5rem;
+  font-size: var(--font-size-elo-change);
   font-weight: bold;
 }
 
@@ -56,11 +80,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  color: #ccc;
-  margin-top: 1rem;
-  margin-bottom: 1rem;
+  gap: var(--spacing-sm);
+  color: var(--color-light-text, #ccc);
+  margin: var(--spacing-md) 0; 
 }
+
+/* Duel Rounds List */
 
 .duel-rounds {
   max-height: 60vh;
@@ -68,17 +93,17 @@
 }
 
 .duel-round-item {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 0.5rem;
+  background: var(--color-round-bg);
+  border-radius: var(--radius-sm, 8px);
+  padding: var(--spacing-round-padding);
+  margin-bottom: var(--spacing-sm);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.3s ease, transform 0.2s ease; /* Explicitly list properties */
 }
 
 .duel-round-item:hover,
 .duel-round-item.active {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--color-round-hover);
   transform: translateX(5px);
 }
 
@@ -86,19 +111,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 0.5rem;
+  margin-top: var(--spacing-sm);
 }
 
 .player-score {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--spacing-xs);
 }
 
 .player-name {
   font-size: 0.9rem;
-  color: #ccc;
+  color: var(--color-light-text, #ccc);
 }
 
 .score-points {
@@ -108,28 +133,32 @@
 
 .health-damage {
   font-size: 0.8rem;
-  color: #ff6b6b;
+  color: var(--color-danger);
 }
 
 .vs-divider {
   font-size: 0.9rem;
-  color: #fff;
+  color: var(--color-dark-text, #fff);
   font-weight: bold;
 }
+
+/* =========================================================
+   Final Score
+   ========================================================= */
 
 .final-score-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm);
+  background: rgba(255, 255, 255, 0.05); 
   border-radius: 4px;
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--spacing-xs);
 }
 
 .rank {
   font-weight: bold;
-  color: #ffd700;
+  color: var(--color-gold);
   min-width: 2rem;
 }
 
@@ -140,19 +169,22 @@
 }
 
 .player-name {
-  color: #fff;
+  color: var(--color-dark-text, #fff);
 }
 
 .final-score {
-  color: #4CAF50;
+  color: var(--color-success);
   font-weight: bold;
 }
 
-/* Star animations for regular games */
+/* =========================================================
+   Animation & Misc
+   ========================================================= */
+
 .star-container {
   display: flex;
-  gap: 0.5rem;
-  margin: 1rem 0;
+  gap: var(--spacing-sm);
+  margin: var(--spacing-md) 0;
   justify-content: center;
 }
 
@@ -177,37 +209,37 @@
   }
 }
 
-/* Custom marker styles for players */
 .custom-marker {
+
   background: transparent !important;
   border: none !important;
 }
 
-/* Mobile responsive */
+/* Mobile Responsive (No more !important on common properties) */
+
 @media (max-width: 1024px) {
-  /* Make duel header compact on mobile like regular games */
+  
   .duel-header {
-    padding: 15px 15px 10px !important;
-    position: relative !important; /* Override sticky positioning on mobile */
+    padding: 15px 15px 10px;
+    position: relative;
   }
 
   .duel-header .summary-title {
-    font-size: 1.5rem !important;
-    margin-bottom: 0.5rem !important;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
   }
 
   .elo-container {
-    margin: 0.5rem 0 !important;
+    margin: 0.5rem 0;
   }
 
   .elo-title {
-    font-size: 1rem !important;
-    margin-bottom: 0.25rem !important;
+    font-size: 1rem;
+    margin-bottom: 0.25rem;
   }
 
   .time-elapsed {
-    margin-top: 0.5rem !important;
-    margin-bottom: 0.5rem !important;
+    margin: 0.5rem 0; /* Reduced margin */
   }
 
   .duel-round-details {
@@ -216,7 +248,7 @@
   }
 
   .vs-divider {
-    order: 2;
+    order: 2; /* Maintains logical flow when stacked */
   }
 
   .elo-display {
@@ -235,34 +267,34 @@
 
 /* Extra compact for very small screens */
 @media (max-width: 480px) {
+  
   .duel-header {
-    padding: 10px 10px 8px !important;
+    padding: 10px 10px 8px;
   }
 
   .duel-header .summary-title {
-    font-size: 1.3rem !important;
-    margin-bottom: 0.3rem !important;
+    font-size: 1.3rem;
+    margin-bottom: 0.3rem;
   }
 
   .elo-container {
-    margin: 0.3rem 0 !important;
+    margin: 0.3rem 0;
   }
 
   .elo-title {
-    font-size: 0.9rem !important;
+    font-size: 0.9rem;
   }
 
   .elo-value {
-    font-size: 1.3rem !important;
+    font-size: 1.3rem;
   }
 
   .elo-change {
-    font-size: 1rem !important;
+    font-size: 1rem;
   }
 
   .time-elapsed {
-    margin-top: 0.3rem !important;
-    margin-bottom: 0.3rem !important;
+    margin: 0.3rem 0;
     font-size: 0.9rem;
   }
 }
