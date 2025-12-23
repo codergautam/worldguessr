@@ -66,8 +66,6 @@ export default function MaintenanceBanner() {
     ? formatCountdown(MAINTENANCE_START_UTC - now)
     : formatCountdown(MAINTENANCE_END_UTC - now);
 
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
   return (
     <div style={styles.banner}>
       <div style={styles.content}>
@@ -75,12 +73,9 @@ export default function MaintenanceBanner() {
 
         <div style={styles.text}>
           {isDuringMaintenance ? (
-            <span><strong>🔧 Maintenance in progress</strong> — back online in <strong style={styles.countdown}>{countdown}</strong></span>
+            <>🔧 <strong>Maintenance in progress</strong> · Back in <strong style={styles.countdown}>{countdown}</strong></>
           ) : (
-            <span>
-              <strong>⚠️ Scheduled maintenance</strong>: {formatTimeRange(MAINTENANCE_START_UTC, MAINTENANCE_END_UTC)} ({tz})
-              <span style={styles.countdownWrap}> · Starts in <strong style={styles.countdown}>{countdown}</strong></span>
-            </span>
+            <>⚠️ <strong>Maintenance scheduled for {formatTimeRange(MAINTENANCE_START_UTC, MAINTENANCE_END_UTC)}</strong> (starts in <span style={styles.countdown}>{countdown}</span>)</>
           )}
         </div>
 
@@ -95,54 +90,62 @@ export default function MaintenanceBanner() {
 const styles = {
   banner: {
     width: "100%",
-    padding: "0 12px",
+    padding: "0 8px",
+    minWidth: 300,
+
     marginBottom: "12px",
+    boxSizing: "border-box",
   },
   content: {
     display: "flex",
-    alignItems: "center",
-    gap: "12px",
+    alignItems: "flex-start",
+    gap: "8px",
     background: "linear-gradient(90deg, #d35400 0%, #c0392b 100%)",
     border: "2px solid #e74c3c",
     borderRadius: "8px",
-    padding: "12px 16px",
+    padding: "10px 12px",
     boxShadow: "0 4px 12px rgba(211, 84, 0, 0.4)",
+    flexWrap: "wrap",
+    maxWidth: "100%",
+    boxSizing: "border-box",
   },
   icon: {
     color: "#fff",
-    fontSize: "16px",
+    fontSize: "14px",
     flexShrink: 0,
+    marginTop: "2px",
   },
   iconActive: {
     color: "#fff",
-    fontSize: "16px",
+    fontSize: "14px",
     flexShrink: 0,
+    marginTop: "2px",
     animation: "spin 2s linear infinite",
   },
   text: {
     flex: 1,
-    fontSize: "0.9rem",
+    fontSize: "0.85rem",
     color: "#fff",
-    lineHeight: 1.4,
+    lineHeight: 1.5,
     fontWeight: 500,
+    wordBreak: "break-word",
+    overflowWrap: "break-word",
   },
   countdown: {
     color: "#ffe066",
     fontFamily: "'JetBrains Mono', 'Consolas', monospace",
     fontWeight: 700,
   },
-  countdownWrap: {
-    whiteSpace: "nowrap",
-  },
   closeBtn: {
     background: "rgba(255, 255, 255, 0.2)",
     border: "none",
     color: "#fff",
-    fontSize: "18px",
+    fontSize: "16px",
     cursor: "pointer",
-    padding: "2px 8px",
+    padding: "2px 6px",
     lineHeight: 1,
     borderRadius: "4px",
+    flexShrink: 0,
   },
 };
 
