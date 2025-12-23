@@ -73,9 +73,9 @@ export default function MaintenanceBanner() {
 
         <div style={styles.text}>
           {isDuringMaintenance ? (
-            <>🔧 <strong>Maintenance in progress</strong> · Back in <strong style={styles.countdown}>{countdown}</strong></>
+            <>🔧 <strong>Server maintenance in progress</strong> · Back in <strong style={styles.countdown}>{countdown}</strong></>
           ) : (
-            <>⚠️ <strong>Maintenance scheduled for {formatTimeRange(MAINTENANCE_START_UTC, MAINTENANCE_END_UTC)}</strong> (starts in <span style={styles.countdown}>{countdown}</span>)</>
+            <>⚠️ <strong>Server maintenance scheduled for {formatTimeRange(MAINTENANCE_START_UTC, MAINTENANCE_END_UTC)}</strong> (starts in <span style={styles.countdown}>{countdown}</span>)</>
           )}
         </div>
 
