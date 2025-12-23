@@ -58,6 +58,7 @@ import Stats from "stats.js";
 import SvEmbedIframe from "./streetview/svHandler";
 import HomeNotice from "./homeNotice";
 import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
+import MaintenanceBanner from "./MaintenanceBanner";
 import Ad from "./bannerAdNitro";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 
@@ -2368,7 +2369,7 @@ export default function Home({ }) {
                                         <>
             <h1 className={`home__title g2_nav_title wg_font ${navSlideOut ? 'g2_slide_out' : ''}`}>WorldGuessr</h1>
 
-            {/* <HomeNotice text={text("maintenanceText1", {date: getMaintenanceDate(), time: getTimeString()})} shown={true} /> */}
+            <MaintenanceBanner />
             </>
 
                                     )}
