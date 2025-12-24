@@ -1,20 +1,23 @@
+// OVHcloud maintenance: Tuesday 2025-12-23, 13:00-15:00 UTC
+
+export const MAINTENANCE_START_UTC = new Date("2025-12-23T13:00:00Z");
+export const MAINTENANCE_END_UTC = new Date("2025-12-23T15:00:00Z");
+
 export default function getTimeString() {
-  const now = new Date();
+  const startUTC = MAINTENANCE_START_UTC;
+  const endUTC = MAINTENANCE_END_UTC;
 
-  const startUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-  const endUTC = new Date(startUTC.getTime() + 60 * 60 * 1000);
-
-  // Get components individually
-  const start = startUTC.toLocaleTimeString(undefined, { hour: 'numeric', hour12: true });
-  const end = endUTC.toLocaleTimeString(undefined, { hour: 'numeric', hour12: true });
+  // Get components individually in user's local time
+  const start = startUTC.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+  const end = endUTC.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
   const tz = endUTC.toLocaleTimeString(undefined, { timeZoneName: 'short' }).split(' ').pop();
 
   return `${start} - ${end} ${tz}`;
 }
 
 export function getMaintenanceDate() {
-  const cstDate = new Date(Date.UTC(2025, 4, 24, 1)); // May 23, 2025 at 7 PM CST (which is May 24, 1 AM UTC)
-  return cstDate.toLocaleDateString(undefined, {
+  return MAINTENANCE_START_UTC.toLocaleDateString(undefined, {
+    weekday: 'long',
     month: 'long',
     day: 'numeric',
   });

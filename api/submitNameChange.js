@@ -3,7 +3,7 @@ import NameChangeRequest from '../models/NameChangeRequest.js';
 
 /**
  * Submit Name Change API
- * 
+ *
  * For users who have been forced to change their name.
  * Submits a new username for moderator review.
  */
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   // Validate username format
   const trimmedUsername = newUsername.trim();
-  
+
   if (trimmedUsername.length < 3 || trimmedUsername.length > 20) {
     return res.status(400).json({ message: 'Username must be between 3 and 20 characters' });
   }
@@ -42,13 +42,22 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Check if user is banned (permanent or active temp ban)
+    if (user.banned) {
+      const isActiveBan = user.banType === 'permanent' ||
+        (user.banType === 'temporary' && user.banExpiresAt && new Date(user.banExpiresAt) > new Date());
+      if (isActiveBan) {
+        return res.status(403).json({ message: 'Banned users cannot change their username' });
+      }
+    }
+
     // Check if user actually needs to change their name
     if (!user.pendingNameChange) {
       return res.status(400).json({ message: 'You do not have a pending name change' });
     }
 
     // Check if username is already taken
-    const existingUser = await User.findOne({ 
+    const existingUser = await User.findOne({
       username: { $regex: new RegExp(`^${trimmedUsername}$`, 'i') },
       _id: { $ne: user._id }
     });

@@ -61,6 +61,16 @@ export default async function handler(req, res) {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    // Check if user is banned (permanent or active temp ban)
+    if (user.banned) {
+      const isActiveBan = user.banType === 'permanent' ||
+        (user.banType === 'temporary' && user.banExpiresAt && new Date(user.banExpiresAt) > new Date());
+      if (isActiveBan) {
+        return res.status(403).json({ message: "Banned users cannot change their username" });
+      }
+    }
+
     if (user.username) {
       // this means this is a name change, not a first time name set
       // check if the user has waited long enough since the last name change
