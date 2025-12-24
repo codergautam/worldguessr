@@ -28,7 +28,7 @@ export function useTranslation() {
     let langObj = language === "en" ? en : language === "es" ? es : language === "fr" ? fr : language === "de" ? de : language === "ru" ? ru : en;
     let string = langObj[key];
     if(!string) {
-      return en[key] || key;
+      string = en[key] || key;
     }
 
     // {{variable}}
