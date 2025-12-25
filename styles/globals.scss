@@ -3862,33 +3862,7 @@ img[alt="Google"] {
     }
 
     /* Minimap optimizations for very low height */
-    #miniMapArea {
-        width: 200px !important;
-        height: 150px !important;
-        bottom: 10px !important;
-        right: 10px !important;
-    }
 
-    #miniMapContent {
-        width: 200px !important;
-        height: 150px !important;
-    }
-
-    .miniMap__btns {
-        bottom: 160px !important;
-        right: 15px !important;
-    }
-
-    .miniMap__btn {
-        width: 30px !important;
-        height: 30px !important;
-        font-size: 0.8rem !important;
-    }
-
-    .guessBtn {
-        padding: 8px 16px !important;
-        font-size: 0.9rem !important;
-    }
 
     .chatboxBtn {
         width: 35px !important;
