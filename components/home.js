@@ -235,7 +235,6 @@ export default function Home({ }) {
     const [isApp, setIsApp] = useState(false);
     const [inCrazyGames, setInCrazyGames] = useState(false);
     const [maintenance, setMaintenance] = useState(false);
-    const instantJoinHandledRef = useRef(false);
 
 
     useEffect(() => {
@@ -305,9 +304,7 @@ export default function Home({ }) {
             setIsApp(true);
         }
         if (window.location.search.includes("instantJoin=true")) {
-            // crazygames - enable instant join mode
-            setInCrazyGames(true);
-            window.inCrazyGames = true;
+            // crazygames
         }
 
 
@@ -1212,36 +1209,19 @@ export default function Home({ }) {
     }, [screen, inCrazyGames, singlePlayerRound, onboarding, multiplayerState?.inGame, multiplayerState?.gameData?.state])
 
     useEffect(() => {
-        if (multiplayerState?.connected && inCrazyGames && !instantJoinHandledRef.current) {
+        if (multiplayerState?.connected && inCrazyGames) {
 
             // check if joined via invite link
             try {
-                let code = null;
-                let instantJoin = false;
+                let code = window.CrazyGames.SDK.game.getInviteParam("code")
+                let instantJoin =  (inCrazyGames && window.CrazyGames.SDK.game.isInstantMultiplayer) || window.location.search.includes("instantJoin");
 
-                // Try to get CrazyGames SDK parameters if SDK is available
-                if (window.CrazyGames?.SDK?.game) {
-                    try {
-                        code = window.CrazyGames.SDK.game.getInviteParam("code");
-                        instantJoin = window.CrazyGames.SDK.game.isInstantMultiplayer;
-
-                        if (code || instantJoin) {
-                            console.log("crazygames");
-                            setInCrazyGames(true);
-                        }
-                    } catch (e) {
-                        console.log("CrazyGames SDK not fully ready, falling back to URL params");
-                    }
-                }
-
-                // Fallback to URL parameter if SDK not available or no SDK params found
-                if (!instantJoin && window.location.search.includes("instantJoin")) {
-                    instantJoin = true;
-                }
+            if( window.CrazyGames.SDK.game.getInviteParam("code") || window.CrazyGames.SDK.game.isInstantMultiplayer) {
+              console.log("crazygames");
+              setInCrazyGames(true);
+            }
 
                 if (code || instantJoin) {
-                    // Mark as handled to prevent duplicate creation
-                    instantJoinHandledRef.current = true;
 
                     if (typeof code === "string") {
                         try {
@@ -1273,15 +1253,12 @@ export default function Home({ }) {
                         }, 1000)
                     } else {
                         // create Party
-                        console.log("Creating party via instantJoin");
                         handleMultiplayerAction("createPrivateGame")
                     }
 
                 }
 
-            } catch (e) {
-                console.error("Error in instantJoin/invite link handler:", e);
-            }
+            } catch (e) { }
 
         }
     }, [multiplayerState?.connected, inCrazyGames])
