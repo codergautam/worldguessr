@@ -257,6 +257,11 @@ export default function Home({ }) {
     // }, [screen])
 
 
+    useEffect(() => {
+        if(screen) {
+            console.log("screen", screen)
+        }
+    }, [screen])
 
     const [config, setConfig] = useState(null);
     const [eloData, setEloData] = useState(null);
