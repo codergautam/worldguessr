@@ -66,6 +66,7 @@ import PendingNameChangeModal from "./pendingNameChangeModal";
 const initialMultiplayerState = {
     connected: false,
     connecting: false,
+    verified: false,
     shouldConnect: false,
     gameQueued: false,
     inGame: false,
@@ -127,14 +128,14 @@ export default function Home({ }) {
     const [mapModalClosing, setMapModalClosing] = useState(false);
 
     useEffect(() => {
-      let hideInt = setInterval(() => {
-        if(document.getElementById("cmpPersistentLink")) {
-          document.getElementById("cmpPersistentLink").style.display = "none";
-          clearInterval(hideInt);
-        }
-      }, 2000);
+        let hideInt = setInterval(() => {
+            if (document.getElementById("cmpPersistentLink")) {
+                document.getElementById("cmpPersistentLink").style.display = "none";
+                clearInterval(hideInt);
+            }
+        }, 2000);
 
-      return () => clearInterval(hideInt);
+        return () => clearInterval(hideInt);
     }, [])
 
     useEffect(() => {
@@ -258,7 +259,7 @@ export default function Home({ }) {
 
 
     useEffect(() => {
-        if(screen) {
+        if (screen) {
             console.log("screen", screen)
         }
     }, [screen])
@@ -439,7 +440,7 @@ export default function Home({ }) {
 
         return () => {
             try {
-                if(!window.CrazyGames || !window.CrazyGames.SDK || !window.CrazyGames.SDK.user) return;
+                if (!window.CrazyGames || !window.CrazyGames.SDK || !window.CrazyGames.SDK.user) return;
                 window.CrazyGames.SDK.user.removeAuthListener(crazyAuthListener);
             } catch (e) {
                 console.error("crazygames remove auth listener error", e)
@@ -1066,12 +1067,12 @@ export default function Home({ }) {
 
         if (action === "setPrivateGameOptions" && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {
 
-          if(inCrazyGames) {
-            const link = window.CrazyGames.SDK.game.showInviteButton({ code:  multiplayerState?.gameData?.code })
-            console.log("crazygames invite link", link)
-          }
+            if (inCrazyGames) {
+                const link = window.CrazyGames.SDK.game.showInviteButton({ code: multiplayerState?.gameData?.code })
+                console.log("crazygames invite link", link)
+            }
 
-          setMultiplayerState((prev) => {
+            setMultiplayerState((prev) => {
                 ws.send(JSON.stringify({ type: "setPrivateGameOptions", rounds: prev.createOptions.rounds, timePerRound: prev.createOptions.timePerRound, nm: prev.createOptions.nm, npz: prev.createOptions.npz, showRoadName: prev.createOptions.showRoadName, location: prev.createOptions.location, displayLocation: prev.createOptions.displayLocation }))
                 return prev;
             })
@@ -1190,8 +1191,8 @@ export default function Home({ }) {
         if (inCrazyGames || window.poki) {
             // Determine if actual gameplay is happening
             const isInGameplay = (screen === "singleplayer" && singlePlayerRound && !singlePlayerRound.done) ||
-                                (screen === "onboarding" && onboarding && !onboarding.completed) ||
-                                (multiplayerState?.inGame && multiplayerState?.gameData?.state === "guess");
+                (screen === "onboarding" && onboarding && !onboarding.completed) ||
+                (multiplayerState?.inGame && multiplayerState?.gameData?.state === "guess");
 
             if (isInGameplay) {
                 console.log("gameplay start - actual gameplay detected")
@@ -1214,17 +1215,18 @@ export default function Home({ }) {
     }, [screen, inCrazyGames, singlePlayerRound, onboarding, multiplayerState?.inGame, multiplayerState?.gameData?.state])
 
     useEffect(() => {
-        if (multiplayerState?.connected && inCrazyGames) {
+        // Wait for verified (not just connected) to ensure verify message was received by server
+        if (multiplayerState?.verified && inCrazyGames) {
 
             // check if joined via invite link
             try {
                 let code = window.CrazyGames.SDK.game.getInviteParam("code")
-                let instantJoin =  (inCrazyGames && window.CrazyGames.SDK.game.isInstantMultiplayer) || window.location.search.includes("instantJoin");
+                let instantJoin = (inCrazyGames && window.CrazyGames.SDK.game.isInstantMultiplayer) || window.location.search.includes("instantJoin");
 
-            if( window.CrazyGames.SDK.game.getInviteParam("code") || window.CrazyGames.SDK.game.isInstantMultiplayer) {
-              console.log("crazygames");
-              setInCrazyGames(true);
-            }
+                if (window.CrazyGames.SDK.game.getInviteParam("code") || window.CrazyGames.SDK.game.isInstantMultiplayer) {
+                    console.log("crazygames");
+                    setInCrazyGames(true);
+                }
 
                 if (code || instantJoin) {
 
@@ -1266,7 +1268,7 @@ export default function Home({ }) {
             } catch (e) { }
 
         }
-    }, [multiplayerState?.connected, inCrazyGames])
+    }, [multiplayerState?.verified, inCrazyGames])
 
     useEffect(() => {
         if (multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
@@ -1335,6 +1337,7 @@ export default function Home({ }) {
                     ...prev,
                     connected: true,
                     connecting: false,
+                    verified: true,
                     guestName: data.guestName
                 }))
 
@@ -1940,7 +1943,7 @@ export default function Home({ }) {
                             const loc = data.locations[0]
                             setLatLong(loc)
                             console.log("setting latlong", loc)
-                                } else {
+                        } else {
                             let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
                             while (loc.lat === latLong.lat && loc.long === latLong.long) {
@@ -1965,13 +1968,13 @@ export default function Home({ }) {
                                 }))
 
                             }
-                                }
+                        }
 
                     } else {
                         if (gameOptions.location !== "all") {
                             toast(text("errorLoadingMap"), { type: 'error' })
                         }
-                            defaultMethod()
+                        defaultMethod()
                     }
                 }).catch((e) => {
                     toast(text("errorLoadingMap"), { type: 'error' })
@@ -1989,7 +1992,7 @@ export default function Home({ }) {
                     if (gameOptions.location === "all") {
                         const loc = allLocsArray[locIndex + 1] ?? allLocsArray[0];
                         setLatLong(loc);
-                        } else {
+                    } else {
                         // prevent repeats: remove the prev location from the array
                         setAllLocsArray((prev) => {
                             const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
@@ -2000,7 +2003,7 @@ export default function Home({ }) {
 
 
                             setLatLong(loc);
-                                    return newArr;
+                            return newArr;
                         })
 
                     }
@@ -2121,9 +2124,9 @@ export default function Home({ }) {
             {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
             <MapGuessrModal isOpen={mapGuessrModal} onClose={() => setMapGuessrModal(false)} />
             <PendingNameChangeModal
-              session={session}
-              isOpen={pendingNameChangeModal}
-              onClose={() => setPendingNameChangeModal(false)}
+                session={session}
+                isOpen={pendingNameChangeModal}
+                onClose={() => setPendingNameChangeModal(false)}
             />
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
@@ -2268,69 +2271,69 @@ export default function Home({ }) {
 
                 {/* Pending Name Change Banner */}
                 {session?.token?.pendingNameChange && screen === 'home' && !dismissedNameChangeBanner && (
-                  <div className="modBanner modBanner--warning">
-                    <button
-                      onClick={() => setDismissedNameChangeBanner(true)}
-                      className="modBanner__close"
-                      title="Dismiss"
-                    >
-                      ×
-                    </button>
-                    <div className="modBanner__content">
-                      <span>⚠️</span>
-                      <span className="modBanner__text">{text("usernameChangeRequired")}</span>
-                      <button
-                        onClick={() => setPendingNameChangeModal(true)}
-                        className="modBanner__btn modBanner__btn--dark"
-                      >
-                        Change Name
-                      </button>
+                    <div className="modBanner modBanner--warning">
+                        <button
+                            onClick={() => setDismissedNameChangeBanner(true)}
+                            className="modBanner__close"
+                            title="Dismiss"
+                        >
+                            ×
+                        </button>
+                        <div className="modBanner__content">
+                            <span>⚠️</span>
+                            <span className="modBanner__text">{text("usernameChangeRequired")}</span>
+                            <button
+                                onClick={() => setPendingNameChangeModal(true)}
+                                className="modBanner__btn modBanner__btn--dark"
+                            >
+                                Change Name
+                            </button>
+                        </div>
+                        {session?.token?.pendingNameChangePublicNote && (
+                            <div className="modBanner__note">
+                                {session.token.pendingNameChangePublicNote}
+                            </div>
+                        )}
                     </div>
-                    {session?.token?.pendingNameChangePublicNote && (
-                      <div className="modBanner__note">
-                        {session.token.pendingNameChangePublicNote}
-                      </div>
-                    )}
-                  </div>
                 )}
 
                 {/* Account Banned Banner */}
                 {session?.token?.banned && !session?.token?.pendingNameChange && screen === 'home' && !dismissedBanBanner && (
-                  <div className="modBanner modBanner--error">
-                    <button
-                      onClick={() => setDismissedBanBanner(true)}
-                      className="modBanner__close"
-                      title="Dismiss"
-                    >
-                      ×
-                    </button>
-                    <div className="modBanner__content">
-                      <span>⛔</span>
-                      <span className="modBanner__text">
-                        {text("accountSuspended")}
-                        {session?.token?.banType === 'temporary' && session?.token?.banExpiresAt && (
-                          <span className="modBanner__expires">
-                            (Expires: {new Date(session.token.banExpiresAt).toLocaleDateString()})
-                          </span>
+                    <div className="modBanner modBanner--error">
+                        <button
+                            onClick={() => setDismissedBanBanner(true)}
+                            className="modBanner__close"
+                            title="Dismiss"
+                        >
+                            ×
+                        </button>
+                        <div className="modBanner__content">
+                            <span>⛔</span>
+                            <span className="modBanner__text">
+                                {text("accountSuspended")}
+                                {session?.token?.banType === 'temporary' && session?.token?.banExpiresAt && (
+                                    <span className="modBanner__expires">
+                                        (Expires: {new Date(session.token.banExpiresAt).toLocaleDateString()})
+                                    </span>
+                                )}
+                            </span>
+                        </div>
+                        {session?.token?.banPublicNote && (
+                            <div className="modBanner__note">
+                                {session.token.banPublicNote}
+                            </div>
                         )}
-                      </span>
                     </div>
-                    {session?.token?.banPublicNote && (
-                      <div className="modBanner__note">
-                        {session.token.banPublicNote}
-                      </div>
-                    )}
-                  </div>
                 )}
 
-                                {!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH &&
+                {!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH &&
 
-                                                        <div className={`home_ad `} style={{ display: (screen === 'home' && ( !inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH)) ? '' : 'none' }}>
-                                                          <Ad
-                                                          unit={"worldguessr_home_ad"}
-                                                        inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[300,250]]} screenW={width} vertThresh={width < 600 ? 0.33 : 0.5} />
-                                                        </div>
-                                }
+                    <div className={`home_ad `} style={{ display: (screen === 'home' && (!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH)) ? '' : 'none' }}>
+                        <Ad
+                            unit={"worldguessr_home_ad"}
+                            inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.33 : 0.5} />
+                    </div>
+                }
                 <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>
@@ -2349,7 +2352,7 @@ export default function Home({ }) {
                 <div>
                     {screen === "home" && !mapModal && session && session?.token?.secret && (
                         <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("elo"); }}
-                                               style={{ backgroundColor: eloData?.league?.color }}
+                            style={{ backgroundColor: eloData?.league?.color }}
                         >
                             {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league?.emoji}
                         </button>
@@ -2372,10 +2375,10 @@ export default function Home({ }) {
                                     {onboardingCompleted && (
 
                                         <>
-            <h1 className={`home__title g2_nav_title wg_font ${navSlideOut ? 'g2_slide_out' : ''}`}>WorldGuessr</h1>
+                                            <h1 className={`home__title g2_nav_title wg_font ${navSlideOut ? 'g2_slide_out' : ''}`}>WorldGuessr</h1>
 
-            {/* <MaintenanceBanner /> */}
-            </>
+                                            {/* <MaintenanceBanner /> */}
+                                        </>
 
                                     )}
 
@@ -2390,23 +2393,23 @@ export default function Home({ }) {
                                                 <button className="g2_nav_text singleplayer"
 
                                                     onClick={() => {
-                                                            if (loading) return;
-                                                            setNavSlideOut(true);
-                                                            setMiniMapShown(false);
-                                                            setTimeout(() => {
-                                                              crazyMidgame(() => setScreen("singleplayer"));
-                                                              setNavSlideOut(false); // Reset for next use
-                                                            }, 300);
+                                                        if (loading) return;
+                                                        setNavSlideOut(true);
+                                                        setMiniMapShown(false);
+                                                        setTimeout(() => {
+                                                            crazyMidgame(() => setScreen("singleplayer"));
+                                                            setNavSlideOut(false); // Reset for next use
+                                                        }, 300);
                                                     }}>
                                                     {text("singleplayer")}
                                                 </button>
                                                 {/* <span className="bigSpan">{text("playOnline")}</span> */}
 
                                                 {/* <button className="g2_nav_text" aria-label="Duels" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("duels")}</button> */}
-                                                    { session?.token?.secret && (
-                                                 <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("publicDuel") }}>{text("rankedDuel")}</button>
-                                                    )}
-                                                 <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("unrankedDuel") }}>{
+                                                {session?.token?.secret && (
+                                                    <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("publicDuel") }}>{text("rankedDuel")}</button>
+                                                )}
+                                                <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("unrankedDuel") }}>{
                                                     session?.token?.secret ? text("unrankedDuel") : text("findDuel")}</button>
 
 
@@ -2417,19 +2420,19 @@ export default function Home({ }) {
                                             <div className="g2_nav_group">
                                                 {/*<button className="g2_nav_text" aria-label="Party" onClick={() => { setShowPartyCards(!showPartyCards) }}>{text("privateGame")}</button>*/}
                                                 <button className="g2_nav_text" disabled={maintenance} onClick={() => {
-                                                    if(!ws || !multiplayerState?.connected) {
+                                                    if (!ws || !multiplayerState?.connected) {
                                                         setConnectionErrorModalShown(true);
                                                         return;
                                                     }
 
-                                                   setNavSlideOut(true);
+                                                    setNavSlideOut(true);
                                                     setTimeout(() => {
                                                         setNavSlideOut(false); // Reset for next use
-                                                    handleMultiplayerAction("createPrivateGame")
+                                                        handleMultiplayerAction("createPrivateGame")
                                                     }, 300);
-                                                    }}>{text("createGame")}</button>
+                                                }}>{text("createGame")}</button>
                                                 <button className="g2_nav_text" disabled={maintenance} onClick={() => {
-                                                    if(!ws || !multiplayerState?.connected) {
+                                                    if (!ws || !multiplayerState?.connected) {
                                                         setConnectionErrorModalShown(true);
                                                         return;
                                                     }
@@ -2440,7 +2443,7 @@ export default function Home({ }) {
 
                                                     }, 300);
 
-                                                    }}>{text("joinGame")}</button>
+                                                }}>{text("joinGame")}</button>
                                             </div>
 
                                             <div className="g2_nav_hr"></div>
@@ -2453,10 +2456,10 @@ export default function Home({ }) {
                                                             setNavSlideOut(false); // Reset for next use
                                                             setMapModal(true);
                                                         }, 300);
-                                                        }}>{text("communityMaps")}</button>}
+                                                    }}>{text("communityMaps")}</button>}
 
                                                 {/* Twitch Streamer Link */}
-                                                 {/* <a
+                                                {/* <a
                                                     href="https://kick.com/ulkuemre"
                                                     target="_blank"
                                                     rel="noopener noreferrer"
@@ -2474,7 +2477,7 @@ export default function Home({ }) {
                                                             setNavSlideOut(false); // Reset for next use
                                                             setMapGuessrModal(true);
                                                         }, 300);
-                                                        }}>MapGuessr</button>
+                                                    }}>MapGuessr</button>
                                                 )}
 
                                             </div>
@@ -2502,7 +2505,7 @@ export default function Home({ }) {
 
                                                     <NextImage.default src={'/cmlogo.png'} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" />
 
-                                                    </button>
+                                                </button>
                                                 </Link>
 
                                                 <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
@@ -2563,14 +2566,14 @@ export default function Home({ }) {
                 }
                 <InfoModal shown={false} />
                 <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {
-                    if(mapModalClosing) return;
+                    if (mapModalClosing) return;
                     setMapModalClosing(true);
                     setTimeout(() => {
                         setMapModal(false); setGameOptionsModalShown(false); setMapModalClosing(false)
                     }, 300);
-                   }}
-                mapModalClosing={mapModalClosing}
-                text={text}
+                }}
+                    mapModalClosing={mapModalClosing}
+                    text={text}
                     customChooseMapCallback={(gameOptionsModalShown && screen === "singleplayer") ? (map) => {
                         console.log("map", map)
                         openMap(map.countryMap || map.slug);
@@ -2590,7 +2593,7 @@ export default function Home({ }) {
                         ? text("connectingMessage", {
                             currentRetry: multiplayerState.currentRetry,
                             maxRetries: multiplayerState.maxRetries
-                          })
+                        })
                         : text("multiplayerConnectionErrorMessage")
                     }
                     type={multiplayerState.connecting ? "warning" : "error"}
