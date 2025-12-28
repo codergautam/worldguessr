@@ -33,7 +33,7 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
     const [userStats, setUserStats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState(mode === 'xp' ? 'xp' : 'elo'); // 'xp'/'rank' or 'elo'/'eloRank'
-    const [dateFilter, setDateFilter] = useState('7days'); // '7days', '30days', 'alltime', 'custom'
+    const [dateFilter, setDateFilter] = useState('alltime'); // '7days', '30days', 'alltime', 'custom'
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
     const [chartData, setChartData] = useState(null);
