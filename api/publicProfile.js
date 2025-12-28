@@ -111,6 +111,7 @@ export default async function handler(req, res) {
       gamesPlayed: user.totalGamesPlayed || 0,
       createdAt: user.created_at,
       memberSince: memberSince,
+      lastLogin: user.lastLogin || user.created_at,
       elo: user.elo || 1000,
       rank: rank,
       league: {

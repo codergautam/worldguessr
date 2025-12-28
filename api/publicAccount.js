@@ -32,6 +32,7 @@ export default async function handler(req, res) {
       totalXp: user.totalXp,
       createdAt: user.created_at,
       gamesLen: user.totalGamesPlayed || 0,
+      lastLogin: user.lastLogin || user.created_at,
       canChangeUsername: !user.lastNameChange || Date.now() - lastNameChange > USERNAME_CHANGE_COOLDOWN,
       daysUntilNameChange: lastNameChange ? Math.max(0, Math.ceil((lastNameChange + USERNAME_CHANGE_COOLDOWN - Date.now()) / (24 * 60 * 60 * 1000))) : 0,
       recentChange: user.lastNameChange ? Date.now() - lastNameChange < 24 * 60 * 60 * 1000 : false,

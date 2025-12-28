@@ -3,7 +3,7 @@ import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaClock, FaGamepad, FaStar } from "react-icons/fa6";
+import { FaClock, FaGamepad, FaStar, FaEye } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 
@@ -150,6 +150,13 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                     <FaClock style={iconStyle} />
                     {text("joined", { t: msToTime(Date.now() - new Date(accountData.createdAt).getTime()) })}
                 </div>
+
+                {accountData.lastLogin && (
+                    <div style={textStyle}>
+                        <FaEye style={iconStyle} />
+                        {text("lastSeen") || "Last seen"}: {msToTime(Date.now() - new Date(accountData.lastLogin).getTime())} {text("ago") || "ago"}
+                    </div>
+                )}
 
                 <div style={textStyle}>
                     <FaStar style={{ ...iconStyle }} />
