@@ -6,9 +6,14 @@ import { rateLimit } from '../utils/rateLimit.js';
 // Username validation regex: alphanumeric and underscores only, 3-20 characters
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
 
-// Cache for profile data (username -> {data, timestamp})
+// Cache for profile data (userId -> {data, timestamp})
 const profileCache = new Map();
 const CACHE_DURATION = 60000; // 60 seconds
+
+// In-memory store for IP -> profile views to prevent refresh spam
+// Format: "ip:userId" -> timestamp
+const profileViewTracking = new Map();
+const VIEW_COOLDOWN = 5 * 60 * 1000; // 5 minutes - same IP can't count as a view again for 5 minutes
 
 // Cleanup old cache entries every 2 minutes
 setInterval(() => {
@@ -19,6 +24,16 @@ setInterval(() => {
     }
   }
 }, 120000);
+
+// Cleanup old profile view tracking entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, timestamp] of profileViewTracking.entries()) {
+    if (now - timestamp > VIEW_COOLDOWN * 2) {
+      profileViewTracking.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
 
 /**
  * Public Profile API Endpoint
@@ -51,13 +66,7 @@ export default async function handler(req, res) {
     });
   }
 
-  // Check cache first
-  const cached = profileCache.get(username.toLowerCase());
-  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-    return res.status(200).json(cached.data);
-  }
-
-  // Connect to MongoDB if not already connected
+  // Connect to MongoDB if not already connected (needed for view tracking)
   if (mongoose.connection.readyState !== 1) {
     try {
       await mongoose.connect(process.env.MONGODB);
@@ -86,6 +95,27 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const userId = user._id.toString();
+
+    // Track profile view before checking cache (to ensure all unique IPs count)
+    const clientIP = getClientIP(req);
+    let viewCounted = false;
+    try {
+      viewCounted = await trackProfileView(userId, clientIP);
+      // If view was counted, invalidate cache to get fresh view count
+      if (viewCounted) {
+        profileCache.delete(userId);
+      }
+    } catch (err) {
+      console.error('Error tracking profile view:', err);
+    }
+
+    // Check cache (after potentially invalidating it)
+    const cached = profileCache.get(userId);
+    if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+      return res.status(200).json(cached.data);
+    }
+
     // Calculate ELO rank (exclude banned users and pending name changes)
     const rank = (await User.countDocuments({
       elo: { $gt: user.elo },
@@ -103,15 +133,25 @@ export default async function handler(req, res) {
     // Calculate "member since" duration
     const memberSince = calculateMemberSince(user.created_at);
 
+    // Refresh user data if view was counted to get updated view count
+    let profileViews = user.profileViews || 0;
+    if (viewCounted) {
+      const refreshedUser = await User.findById(userId);
+      if (refreshedUser) {
+        profileViews = refreshedUser.profileViews || 0;
+      }
+    }
+
     // Build public profile response (ONLY public data)
     const publicProfile = {
       username: user.username,
-      userId: user._id.toString(),
+      userId: userId,
       totalXp: user.totalXp || 0,
       gamesPlayed: user.totalGamesPlayed || 0,
       createdAt: user.created_at,
       memberSince: memberSince,
       lastLogin: user.lastLogin || user.created_at,
+      profileViews: profileViews,
       elo: user.elo || 1000,
       rank: rank,
       league: {
@@ -129,8 +169,8 @@ export default async function handler(req, res) {
       supporter: user.supporter === true
     };
 
-    // Cache the response
-    profileCache.set(username.toLowerCase(), {
+    // Cache the response using userId
+    profileCache.set(userId, {
       data: publicProfile,
       timestamp: Date.now()
     });
@@ -141,6 +181,51 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Error fetching public profile:', error);
     return res.status(500).json({ message: 'An error occurred while fetching profile data' });
+  }
+}
+
+/**
+ * Get client IP address from request
+ * @param {Object} req - Express request object
+ * @returns {string} Client IP address
+ */
+function getClientIP(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+         req.headers['x-real-ip'] ||
+         req.connection?.remoteAddress ||
+         req.socket?.remoteAddress ||
+         'unknown';
+}
+
+/**
+ * Track profile view if not recently viewed by this IP
+ * @param {string} userId - User ID of the profile being viewed
+ * @param {string} ip - IP address of the viewer
+ * @returns {boolean} True if view was counted, false if it was a duplicate
+ */
+async function trackProfileView(userId, ip) {
+  const viewKey = `${ip}:${userId}`;
+  const now = Date.now();
+  
+  // Check if this IP recently viewed this profile
+  const lastViewTime = profileViewTracking.get(viewKey);
+  if (lastViewTime && (now - lastViewTime) < VIEW_COOLDOWN) {
+    return false; // Don't count duplicate views
+  }
+  
+  // Record this view
+  profileViewTracking.set(viewKey, now);
+  
+  // Increment profile view count in database
+  try {
+    await User.updateOne(
+      { _id: userId },
+      { $inc: { profileViews: 1 } }
+    );
+    return true; // View was counted
+  } catch (error) {
+    console.error('Error tracking profile view:', error);
+    return false;
   }
 }
 

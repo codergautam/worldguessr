@@ -3,7 +3,7 @@ import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaClock, FaGamepad, FaStar, FaEye } from "react-icons/fa6";
+import { FaClock, FaGamepad, FaStar, FaEye, FaUsers } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 
@@ -166,6 +166,13 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                     <FaGamepad style={iconStyle} />
                     {text("gamesPlayed", { games: accountData.gamesLen || accountData.gamesPlayed || 0 })}
                 </div>
+
+                {viewingPublicProfile && accountData.profileViews !== undefined && (
+                    <div style={textStyle}>
+                        <FaUsers style={iconStyle} />
+                        {text("profileViews") || "Profile Views"}: {accountData.profileViews.toLocaleString()}
+                    </div>
+                )}
 
                 {/* change name button - hidden in public view */}
                 {!isPublic && (

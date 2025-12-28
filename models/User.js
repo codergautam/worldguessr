@@ -156,6 +156,10 @@ const userSchema = new mongoose.Schema({
   lastNameChange: {
     type: Date,
     default: 0
+  },
+  profileViews: {
+    type: Number,
+    default: 0
   }
 });
 
