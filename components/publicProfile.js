@@ -91,22 +91,20 @@ export default function PublicProfile({ profileData, eloData }) {
 
             <style jsx>{`
                 .public-profile-container {
-                    min-height: 100vh;
                     width: 100%;
-                    background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
-                    background-attachment: fixed;
-                    padding: 20px;
+                    padding: 0;
                     box-sizing: border-box;
                 }
 
                 .public-profile-content {
                     max-width: 1200px;
                     margin: 0 auto;
-                    background: rgba(255, 255, 255, 0.05);
+                    background: var(--gradLight);
+                    backdrop-filter: blur(10px);
+                    -webkit-backdrop-filter: blur(10px);
                     border-radius: 20px;
-                    backdrop-filter: blur(20px);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
                     overflow: hidden;
                 }
 
@@ -121,10 +119,11 @@ export default function PublicProfile({ profileData, eloData }) {
                     font-size: clamp(28px, 5vw, 48px);
                     font-weight: bold;
                     color: white;
-                    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+                    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    font-family: "Lexend", sans-serif;
                 }
 
                 .public-profile-nav {
@@ -152,25 +151,28 @@ export default function PublicProfile({ profileData, eloData }) {
                     gap: 8px;
                     padding: 12px 24px;
                     background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 25px;
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 12px;
                     color: white;
                     font-size: 16px;
                     font-weight: 500;
                     cursor: pointer;
                     transition: all 0.3s ease;
                     white-space: nowrap;
+                    font-family: "Lexend", sans-serif;
+                    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
                 }
 
                 .public-profile-nav-item:hover {
                     background: rgba(255, 255, 255, 0.1);
                     transform: translateY(-2px);
+                    border-color: rgba(255, 255, 255, 0.3);
                 }
 
                 .public-profile-nav-item.active {
-                    background: linear-gradient(135deg, #28a745, #20c997);
-                    border-color: transparent;
-                    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+                    background: var(--gradGreenBtn);
+                    border-color: rgba(255, 255, 255, 0.3);
+                    filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.3));
                 }
 
                 .nav-icon {

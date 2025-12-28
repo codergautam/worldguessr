@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Navbar from '@/components/ui/navbar';
@@ -14,6 +14,141 @@ export default function UserProfilePage() {
   const [eloData, setEloData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Extract fetch function to be reusable
+  const fetchPublicProfile = useCallback(async (extractedUsername) => {
+    setLoading(true);
+    setError(null);
+
+    const { apiUrl } = config();
+
+    try {
+      // Create fetch requests with timeout
+      const fetchWithTimeout = (url, timeout = 10000) => {
+        return Promise.race([
+          fetch(url),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timeout')), timeout)
+          )
+        ]);
+      };
+
+      // Fetch profile and ELO data in parallel
+      let profileResponse, eloResponse;
+      try {
+        [profileResponse, eloResponse] = await Promise.all([
+          fetchWithTimeout(`${apiUrl}/api/publicProfile?username=${encodeURIComponent(extractedUsername)}`),
+          fetchWithTimeout(`${apiUrl}/api/eloRank?username=${encodeURIComponent(extractedUsername)}`)
+        ]);
+      } catch (fetchError) {
+        // Handle network errors, timeouts, or fetch failures
+        if (fetchError.message === 'Request timeout') {
+          setError('Request timed out. Please check your connection and try again.');
+        } else if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
+          setError('Network error. Please check your internet connection.');
+        } else {
+          setError('Failed to connect to server. Please try again later.');
+        }
+        setLoading(false);
+        return;
+      }
+
+      // Handle profile response
+      if (!profileResponse.ok) {
+        let errorMessage = 'Failed to load profile';
+        
+        try {
+          if (profileResponse.status === 404) {
+            errorMessage = 'User not found';
+          } else if (profileResponse.status === 429) {
+            const retryAfter = profileResponse.headers.get('Retry-After');
+            errorMessage = retryAfter 
+              ? `Too many requests. Please try again in ${retryAfter} seconds.`
+              : 'Too many requests. Please try again later.';
+          } else if (profileResponse.status === 400) {
+            const data = await profileResponse.json().catch(() => ({}));
+            errorMessage = data.message || 'Invalid username format';
+          } else if (profileResponse.status === 500) {
+            errorMessage = 'Server error. Please try again later.';
+          } else if (profileResponse.status >= 500) {
+            errorMessage = 'Server error. Please try again later.';
+          } else {
+            errorMessage = `Failed to load profile (${profileResponse.status})`;
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError);
+          errorMessage = `Failed to load profile (${profileResponse.status})`;
+        }
+        
+        setError(errorMessage);
+        setLoading(false);
+        return;
+      }
+
+      // Parse profile JSON with error handling
+      let profile;
+      try {
+        profile = await profileResponse.json();
+      } catch (parseError) {
+        console.error('Error parsing profile response:', parseError);
+        setError('Invalid response from server. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Validate profile data structure
+      if (!profile || typeof profile !== 'object') {
+        setError('Invalid profile data received. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Handle ELO response
+      let eloDataToSet;
+      if (!eloResponse.ok) {
+        // ELO data is optional, continue without it
+        console.warn('Failed to fetch ELO data:', eloResponse.status);
+        eloDataToSet = {
+          elo: profile.elo || 1000,
+          rank: profile.rank || 0,
+          duels_wins: profile.duelStats?.wins || 0,
+          duels_losses: profile.duelStats?.losses || 0,
+          duels_tied: profile.duelStats?.ties || 0,
+          win_rate: profile.duelStats?.winRate || 0
+        };
+      } else {
+        try {
+          const elo = await eloResponse.json();
+          eloDataToSet = elo;
+        } catch (parseError) {
+          console.warn('Error parsing ELO response, using fallback:', parseError);
+          eloDataToSet = {
+            elo: profile.elo || 1000,
+            rank: profile.rank || 0,
+            duels_wins: profile.duelStats?.wins || 0,
+            duels_losses: profile.duelStats?.losses || 0,
+            duels_tied: profile.duelStats?.ties || 0,
+            win_rate: profile.duelStats?.winRate || 0
+          };
+        }
+      }
+
+      setProfileData(profile);
+      setEloData(eloDataToSet);
+      setLoading(false);
+    } catch (err) {
+      console.error('Unexpected error fetching public profile:', err);
+      // Provide more specific error messages based on error type
+      if (err.name === 'TypeError') {
+        setError('Network error. Please check your connection.');
+      } else if (err.message && err.message.includes('timeout')) {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError('An unexpected error occurred. Please try again later.');
+      }
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     // Extract username from URL
@@ -36,66 +171,8 @@ export default function UserProfilePage() {
     }
 
     setUsername(extractedUsername);
-
-    // Fetch public profile data
-    const fetchPublicProfile = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        // Fetch profile and ELO data in parallel
-        const [profileResponse, eloResponse] = await Promise.all([
-          fetch(`${apiUrl}/api/publicProfile?username=${encodeURIComponent(extractedUsername)}`),
-          fetch(`${apiUrl}/api/eloRank?username=${encodeURIComponent(extractedUsername)}`)
-        ]);
-
-        // Handle profile response
-        if (!profileResponse.ok) {
-          if (profileResponse.status === 404) {
-            setError('User not found');
-          } else if (profileResponse.status === 429) {
-            setError('Too many requests. Please try again later.');
-          } else if (profileResponse.status === 400) {
-            const data = await profileResponse.json();
-            setError(data.message || 'Invalid username format');
-          } else {
-            setError('Failed to load profile');
-          }
-          setLoading(false);
-          return;
-        }
-
-        const profile = await profileResponse.json();
-
-        // Handle ELO response
-        if (!eloResponse.ok) {
-          // ELO data is optional, continue without it
-          console.warn('Failed to fetch ELO data:', eloResponse.status);
-          setProfileData(profile);
-          setEloData({
-            elo: profile.elo || 1000,
-            rank: profile.rank || 0,
-            duels_wins: profile.duelStats?.wins || 0,
-            duels_losses: profile.duelStats?.losses || 0,
-            duels_tied: profile.duelStats?.ties || 0,
-            win_rate: profile.duelStats?.winRate || 0
-          });
-        } else {
-          const elo = await eloResponse.json();
-          setProfileData(profile);
-          setEloData(elo);
-        }
-
-        setLoading(false);
-      } catch (err) {
-        console.error('Error fetching public profile:', err);
-        setError('An error occurred while loading the profile');
-        setLoading(false);
-      }
-    };
-
-    fetchPublicProfile();
-  }, [router.query.u]);
+    fetchPublicProfile(extractedUsername);
+  }, [router.query.u, fetchPublicProfile]);
 
   return (
     <>
@@ -107,10 +184,22 @@ export default function UserProfilePage() {
       <Navbar />
 
       <div className="user-profile-page">
+        {/* Back to WG Button */}
+        <div className="back-button-container">
+          <button 
+            className="back-to-wg-button"
+            onClick={() => router.push('/')}
+          >
+            ← Back to WorldGuessr
+          </button>
+        </div>
+
         {loading && (
           <div className="loading-container">
-            <div className="loading-spinner"></div>
-            <p>Loading profile...</p>
+            <div className="loading-card">
+              <div className="loading-spinner"></div>
+              <p>Loading profile...</p>
+            </div>
           </div>
         )}
 
@@ -119,9 +208,27 @@ export default function UserProfilePage() {
             <div className="error-card">
               <h2>⚠️ {error}</h2>
               <p>The user profile could not be loaded.</p>
-              <button onClick={() => router.push('/')}>
-                Go Home
-              </button>
+              <div className="error-actions">
+                <button 
+                  className="retry-button"
+                  onClick={() => {
+                    const extractedUsername = router.query.u || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('u') : null);
+                    if (extractedUsername) {
+                      fetchPublicProfile(extractedUsername);
+                    } else {
+                      setError('No username provided');
+                    }
+                  }}
+                >
+                  Retry
+                </button>
+                <button 
+                  className="home-button"
+                  onClick={() => router.push('/')}
+                >
+                  Go Home
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -137,8 +244,44 @@ export default function UserProfilePage() {
       <style jsx>{`
         .user-profile-page {
           min-height: 100vh;
-          background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
+          background: linear-gradient(135deg, rgba(20, 65, 25, 0.9) 0%, rgba(20, 65, 25, 0.6) 50%, rgba(255,255,255,0) 100%);
           background-attachment: fixed;
+          padding: 20px;
+          box-sizing: border-box;
+        }
+
+        .back-button-container {
+          max-width: 1200px;
+          margin: 0 auto 20px auto;
+          padding: 0 20px;
+        }
+
+        .back-to-wg-button {
+          background: var(--gradLight);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 12px;
+          padding: 12px 24px;
+          color: white;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+          font-family: "Lexend", sans-serif;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .back-to-wg-button:hover {
+          background: var(--gradGreenBtn);
+          transform: translateY(-2px);
+          filter: drop-shadow(0px 8px 10px rgba(0, 0, 0, 0.4));
+          border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .back-to-wg-button:active {
+          transform: translateY(0);
         }
 
         .loading-container {
@@ -146,19 +289,31 @@ export default function UserProfilePage() {
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          min-height: calc(100vh - 80px);
-          color: white;
+          min-height: calc(100vh - 120px);
           padding: 20px;
         }
 
+        .loading-card {
+          background: var(--gradLight);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 20px;
+          padding: 60px 40px;
+          text-align: center;
+          color: white;
+          filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+          max-width: 400px;
+        }
+
         .loading-spinner {
-          border: 4px solid rgba(255, 255, 255, 0.1);
+          border: 4px solid rgba(255, 255, 255, 0.2);
           border-radius: 50%;
-          border-top: 4px solid white;
+          border-top: 4px solid rgba(255, 255, 255, 0.9);
           width: 60px;
           height: 60px;
           animation: spin 1s linear infinite;
-          margin-bottom: 20px;
+          margin: 0 auto 20px auto;
         }
 
         @keyframes spin {
@@ -166,64 +321,119 @@ export default function UserProfilePage() {
           100% { transform: rotate(360deg); }
         }
 
-        .loading-container p {
+        .loading-card p {
           font-size: 18px;
           font-weight: 500;
+          margin: 0;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .error-container {
           display: flex;
           align-items: center;
           justify-content: center;
-          min-height: calc(100vh - 80px);
+          min-height: calc(100vh - 120px);
           padding: 20px;
         }
 
         .error-card {
-          background: rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(20px);
+          background: var(--gradLight);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
           border: 1px solid rgba(255, 255, 255, 0.2);
           border-radius: 20px;
           padding: 40px;
           max-width: 500px;
           text-align: center;
           color: white;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+          width: 100%;
         }
 
         .error-card h2 {
           margin: 0 0 15px 0;
           font-size: clamp(24px, 5vw, 32px);
           color: #ffc107;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .error-card p {
           margin: 0 0 25px 0;
           font-size: 16px;
           color: rgba(255, 255, 255, 0.9);
+          text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+
+        .error-actions {
+          display: flex;
+          gap: 15px;
+          justify-content: center;
+          flex-wrap: wrap;
         }
 
         .error-card button {
           padding: 12px 30px;
-          border: none;
-          border-radius: 25px;
-          background: linear-gradient(135deg, #28a745, #20c997);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          border-radius: 12px;
+          background: var(--gradGreenBtn);
           color: white;
           font-size: 16px;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.3s ease;
-          box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+          filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.3));
+          font-family: "Lexend", sans-serif;
+          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
-        .error-card button:hover {
+        .error-card button.retry-button {
+          background: var(--gradBlue);
+          border-color: rgba(29, 29, 91, 0.8);
+        }
+
+        .error-card button.retry-button:hover {
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+          filter: drop-shadow(0px 6px 10px rgba(0, 0, 0, 0.4));
+          border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .error-card button.home-button:hover {
+          transform: translateY(-2px);
+          filter: drop-shadow(0px 6px 10px rgba(0, 0, 0, 0.4));
+          border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .error-card button:active {
+          transform: translateY(0);
         }
 
         @media (max-width: 768px) {
+          .user-profile-page {
+            padding: 15px;
+          }
+
+          .back-button-container {
+            padding: 0;
+            margin-bottom: 15px;
+          }
+
+          .back-to-wg-button {
+            width: 100%;
+            padding: 10px 20px;
+            font-size: 14px;
+          }
+
           .error-card {
             padding: 30px 20px;
+          }
+
+          .error-card button {
+            padding: 10px 20px;
+            font-size: 14px;
+          }
+
+          .loading-card {
+            padding: 40px 30px;
           }
         }
       `}</style>
