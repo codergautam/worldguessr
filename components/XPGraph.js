@@ -28,6 +28,10 @@ ChartJS.register(
     TimeScale
 );
 
+// Cache for user progression data to avoid refetching on tab switches
+const progressionCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
 export default function XPGraph({ session, mode = 'xp', isPublic = false, username = null }) {
     const { t: text } = useTranslation("common");
     const [userStats, setUserStats] = useState([]);
@@ -42,6 +46,18 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
         // For public profiles, use username; for private, use session accountId
         const hasRequiredData = isPublic ? (username && (window.cConfig?.apiUrl || config()?.apiUrl)) : (session?.token?.accountId && (window.cConfig?.apiUrl || config()?.apiUrl));
         if (!hasRequiredData) return;
+
+        // Create cache key
+        const cacheKey = isPublic ? `public_${username}` : `private_${session.token.accountId}`;
+        
+        // Check cache first
+        const cached = progressionCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            setUserStats(cached.data.progression);
+            calculateGraphData(cached.data.progression);
+            setLoading(false);
+            return;
+        }
 
         setLoading(true);
         try {
@@ -60,6 +76,13 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
 
             if (response.ok) {
                 const data = await response.json();
+                
+                // Cache the response
+                progressionCache.set(cacheKey, {
+                    data: data,
+                    timestamp: Date.now()
+                });
+                
                 setUserStats(data.progression);
                 calculateGraphData(data.progression);
             } else {
