@@ -86,7 +86,10 @@ class UserStatsService {
    */
   static async getUserProgression(userId, days = null) {
     try {
-      const query = { userId: userId };
+      const query = { 
+        userId: userId,
+        triggerEvent: { $ne: 'elo_refund' } // Exclude elo_refund entries from progression
+      };
 
       // Only add timestamp filter if days is specified
       if (days !== null) {
