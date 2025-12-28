@@ -3,7 +3,7 @@ import { getLeague, leagues } from "./utils/leagues";
 import { useState } from "react";
 import XPGraph from "./XPGraph";
 
-export default function EloView({ eloData, session }) {
+export default function EloView({ eloData, session, isPublic = false, username = null }) {
     const { t: text } = useTranslation("common");
     const userLeague = getLeague(eloData.elo);
     const [hoveredLeague, setHoveredLeague] = useState(null);
@@ -309,7 +309,7 @@ export default function EloView({ eloData, session }) {
             </div>
 
             {/* ELO Graph */}
-            <XPGraph session={session} mode="elo" />
+            <XPGraph session={session} mode="elo" isPublic={isPublic} username={username} />
         </div>
     );
 }

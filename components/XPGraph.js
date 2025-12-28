@@ -27,7 +27,7 @@ ChartJS.register(
     TimeScale
 );
 
-export default function XPGraph({ session, mode = 'xp' }) {
+export default function XPGraph({ session, mode = 'xp', isPublic = false, username = null }) {
     const { t: text } = useTranslation("common");
     const [userStats, setUserStats] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -38,18 +38,22 @@ export default function XPGraph({ session, mode = 'xp' }) {
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
-        if (!session?.token?.accountId || !window.cConfig?.apiUrl) return;
+        // For public profiles, use username; for private, use session accountId
+        const hasRequiredData = isPublic ? (username && window.cConfig?.apiUrl) : (session?.token?.accountId && window.cConfig?.apiUrl);
+        if (!hasRequiredData) return;
 
         setLoading(true);
         try {
+            const requestBody = isPublic
+                ? { username: username }
+                : { userId: session.token.accountId };
+
             const response = await fetch(window.cConfig.apiUrl + '/api/userProgression', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    userId: session.token.accountId
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             if (response.ok) {
@@ -308,7 +312,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
     useEffect(() => {
         fetchUserProgression();
-    }, [session?.token?.accountId]);
+    }, [session?.token?.accountId, username, isPublic]);
 
     const chartOptions = {
         responsive: true,
