@@ -93,7 +93,7 @@ export default function PublicProfile({ profileData, eloData }) {
                 .public-profile-container {
                     min-height: 100vh;
                     width: 100%;
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
                     background-attachment: fixed;
                     padding: 20px;
                     box-sizing: border-box;

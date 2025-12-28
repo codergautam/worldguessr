@@ -137,7 +137,7 @@ export default function UserProfilePage() {
       <style jsx>{`
         .user-profile-page {
           min-height: 100vh;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          background: linear-gradient(135deg, #0f172a 0%, #111827 100%);
           background-attachment: fixed;
         }
 
