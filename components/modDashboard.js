@@ -908,6 +908,7 @@ export default function ModDashboard({ session }) {
     const hasAnyHistory =
       (userHistory.banHistory && userHistory.banHistory.length > 0) ||
       (userHistory.usernameHistory && userHistory.usernameHistory.length > 0) ||
+      (userHistory.eloRefunds && userHistory.eloRefunds.length > 0) ||
       (userHistory.reportsAgainst && userHistory.reportsAgainst.length > 0) ||
       (userHistory.reportsMade && userHistory.reportsMade.length > 0);
 
@@ -920,6 +921,7 @@ export default function ModDashboard({ session }) {
           <span>Mod Actions: {userHistory.summary?.totalModerationActions || 0}</span>
           <span>Bans: {userHistory.summary?.totalBans || 0}</span>
           <span>Name Changes: {userHistory.summary?.totalNameChanges || 0}</span>
+          <span>ELO Refunds: {userHistory.summary?.totalEloRefunds || 0} ({userHistory.summary?.totalEloRefunded || 0} ELO)</span>
           <span>Reports Against: {userHistory.summary?.totalReportsAgainst || 0}</span>
           <span>Reports Made: {userHistory.summary?.totalReportsMade || 0}</span>
         </div>
@@ -968,6 +970,34 @@ export default function ModDashboard({ session }) {
                 </span>
                 <span className={styles.historyMeta}>
                   {new Date(change.changedAt).toLocaleDateString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* ELO Refunds */}
+        {userHistory.eloRefunds && userHistory.eloRefunds.length > 0 && (
+          <div className={styles.historySubsection}>
+            <h4>💰 ELO Refunds ({userHistory.eloRefunds.length}) - Total: {userHistory.summary?.totalEloRefunded || 0} ELO</h4>
+            <div style={{ fontSize: '0.85rem', color: '#6e7681', marginBottom: '10px' }}>
+              ELO refunded from games against banned players
+            </div>
+            {userHistory.eloRefunds.map((refund, i) => (
+              <div key={i} className={styles.historyItem}>
+                <span className={styles.historyBadge} style={{ backgroundColor: '#28a745' }}>
+                  +{refund.amount} ELO
+                </span>
+                {refund.cappedAtMax && (
+                  <span className={styles.historyBadge} style={{ backgroundColor: '#ffa500', fontSize: '0.75rem' }}>
+                    Capped (would have been +{refund.requestedAmount})
+                  </span>
+                )}
+                <span className={styles.historyReason}>
+                  from banned player: <strong>{refund.bannedUsername}</strong>
+                </span>
+                <span className={styles.historyMeta}>
+                  New ELO: {refund.newElo} • {new Date(refund.timestamp).toLocaleDateString()}
                 </span>
               </div>
             ))}

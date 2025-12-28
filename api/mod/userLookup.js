@@ -3,6 +3,7 @@ import User from '../../models/User.js';
 import Report from '../../models/Report.js';
 import ModerationLog from '../../models/ModerationLog.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
+import UserStats from '../../models/UserStats.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -363,6 +364,29 @@ async function buildUserResponse(targetUser) {
       createdAt: log.createdAt
     }));
 
+  // Get ELO refunds from UserStats
+  const eloRefunds = await UserStats.find({
+    userId: targetUser._id.toString(),
+    triggerEvent: 'elo_refund'
+  })
+    .sort({ timestamp: -1 })
+    .limit(100)
+    .lean();
+
+  // Format ELO refunds for display
+  const formattedEloRefunds = eloRefunds.map(refund => ({
+    amount: refund.eloRefundDetails?.amount || 0,
+    requestedAmount: refund.eloRefundDetails?.requestedAmount || refund.eloRefundDetails?.amount || 0,
+    cappedAtMax: refund.eloRefundDetails?.cappedAtMax || false,
+    bannedUsername: refund.eloRefundDetails?.bannedUsername || 'Unknown',
+    bannedUserId: refund.eloRefundDetails?.bannedUserId || null,
+    timestamp: refund.timestamp,
+    newElo: refund.elo,
+    moderationLogId: refund.eloRefundDetails?.moderationLogId || null
+  }));
+
+  const totalEloRefunded = formattedEloRefunds.reduce((sum, r) => sum + r.amount, 0);
+
   response.history = {
     moderationLogs: moderationHistory,
     reportsMade: reportsMade,
@@ -370,13 +394,16 @@ async function buildUserResponse(targetUser) {
     nameChangeRequests: nameChangeHistory,
     usernameHistory: usernameHistory,
     banHistory: banHistory,
+    eloRefunds: formattedEloRefunds,
     summary: {
       totalModerationActions: moderationHistory.length,
       totalReportsMade: reportsMade.length,
       totalReportsAgainst: reportsAgainst.length,
       totalBans: banHistory.filter(b => b.action !== 'unban').length,
       totalUnbans: banHistory.filter(b => b.action === 'unban').length,
-      totalNameChanges: usernameHistory.length
+      totalNameChanges: usernameHistory.length,
+      totalEloRefunded: totalEloRefunded,
+      totalEloRefunds: formattedEloRefunds.length
     }
   };
 
