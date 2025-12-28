@@ -100,12 +100,12 @@ export default function PublicProfile({ profileData, eloData }) {
                 .public-profile-content {
                     max-width: 1200px;
                     margin: 0 auto;
-                    background: var(--gradLight);
-                    backdrop-filter: blur(10px);
-                    -webkit-backdrop-filter: blur(10px);
+                    background: rgba(255, 255, 255, 0.05);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
                     border-radius: 20px;
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
                     overflow: hidden;
                     font-family: "Lexend", sans-serif;
                 }

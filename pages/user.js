@@ -244,8 +244,24 @@ export default function UserProfilePage() {
       <style jsx>{`
         .user-profile-page {
           min-height: 100vh;
-          background: linear-gradient(135deg, rgba(20, 65, 25, 0.9) 0%, rgba(20, 65, 25, 0.6) 50%, rgba(255,255,255,0) 100%);
+          width: 100%;
+          max-width: 100vw;
+          background: linear-gradient(
+            135deg,
+            rgba(0, 0, 0, 0.9) 0%,
+            rgba(20, 26, 57, 0.8) 50%,
+            rgba(0, 0, 0, 0.9) 100%
+          ),
+          url("/street2christmas.jpg");
+          background-size: cover;
+          background-position: center;
           background-attachment: fixed;
+          color: #ffffff;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+          overflow-x: hidden;
+          overflow-y: auto !important;
           padding: 20px;
           box-sizing: border-box;
           font-family: "Lexend", sans-serif;
@@ -258,26 +274,24 @@ export default function UserProfilePage() {
         }
 
         .back-to-wg-button {
-          background: var(--gradLight);
+          background: rgba(255, 255, 255, 0.1);
           backdrop-filter: blur(10px);
           -webkit-backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 12px;
+          border: 2px solid rgba(255, 255, 255, 0.2);
+          border-radius: 25px;
           padding: 12px 24px;
           color: white;
-          font-size: 16px;
-          font-weight: 600;
+          font-size: 14px;
+          font-weight: 500;
           cursor: pointer;
           transition: all 0.3s ease;
-          filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
           font-family: "Lexend", sans-serif;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .back-to-wg-button:hover {
-          background: var(--gradGreenBtn);
+          background: rgba(255, 255, 255, 0.2);
           transform: translateY(-2px);
-          filter: drop-shadow(0px 8px 10px rgba(0, 0, 0, 0.4));
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
           border-color: rgba(255, 255, 255, 0.3);
         }
 
@@ -295,15 +309,15 @@ export default function UserProfilePage() {
         }
 
         .loading-card {
-          background: var(--gradLight);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 20px;
           padding: 60px 40px;
           text-align: center;
           color: white;
-          filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
           max-width: 400px;
         }
 
@@ -339,16 +353,16 @@ export default function UserProfilePage() {
         }
 
         .error-card {
-          background: var(--gradLight);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
           border-radius: 20px;
           padding: 40px;
           max-width: 500px;
           text-align: center;
           color: white;
-          filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
           width: 100%;
         }
 
@@ -376,35 +390,46 @@ export default function UserProfilePage() {
         }
 
         .error-card button {
-          padding: 12px 30px;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 12px;
-          background: var(--gradGreenBtn);
+          padding: 12px 24px;
+          border: 2px solid rgba(255, 255, 255, 0.2);
+          border-radius: 25px;
+          background: rgba(255, 255, 255, 0.1);
           color: white;
-          font-size: 16px;
-          font-weight: 600;
+          font-size: 14px;
+          font-weight: 500;
           cursor: pointer;
           transition: all 0.3s ease;
-          filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.3));
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
           font-family: "Lexend", sans-serif;
-          text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .error-card button.retry-button {
-          background: var(--gradBlue);
-          border-color: rgba(29, 29, 91, 0.8);
+          background: rgba(0, 123, 255, 0.2);
+          border-color: rgba(0, 123, 255, 0.3);
+          color: #4dabf7;
         }
 
         .error-card button.retry-button:hover {
+          background: rgba(0, 123, 255, 0.3);
+          color: white;
           transform: translateY(-2px);
-          filter: drop-shadow(0px 6px 10px rgba(0, 0, 0, 0.4));
-          border-color: rgba(255, 255, 255, 0.3);
+          box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+          border-color: rgba(0, 123, 255, 0.4);
+        }
+
+        .error-card button.home-button {
+          background: rgba(76, 175, 80, 0.2);
+          border-color: rgba(76, 175, 80, 0.3);
+          color: #4CAF50;
         }
 
         .error-card button.home-button:hover {
+          background: rgba(76, 175, 80, 0.3);
+          color: white;
           transform: translateY(-2px);
-          filter: drop-shadow(0px 6px 10px rgba(0, 0, 0, 0.4));
-          border-color: rgba(255, 255, 255, 0.3);
+          box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+          border-color: rgba(76, 175, 80, 0.4);
         }
 
         .error-card button:active {
