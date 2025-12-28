@@ -190,7 +190,7 @@ export default function UserProfilePage() {
             className="back-to-wg-button"
             onClick={() => router.push('/')}
           >
-            ← Back to WorldGuessr
+            ← Go to WorldGuessr
           </button>
         </div>
 

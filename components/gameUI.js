@@ -531,7 +531,7 @@ isStartingDuel={isStartingDuel}
 name={
 // get your name from the game state
 multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.username
-} elo={multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.elo} start={true || isStartingDuel} />
+} elo={multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.elo} start={true || isStartingDuel} isOpponent={true} />
 </div>
 </div>
 
