@@ -23,7 +23,6 @@ function sanitizeProgression(progression, isPublic = false) {
       xpRank: stat.xpRank,
       elo: stat.elo,
       eloRank: stat.eloRank,
-      triggerEvent: stat.triggerEvent,
       // Calculated fields
       xpGain: stat.xpGain || 0,
       eloChange: stat.eloChange || 0,
@@ -55,13 +54,13 @@ export default async function handler(req, res) {
 
   // Determine if this is a public (username-based) or authenticated (userId-based) request
   const { userId, username } = req.body;
-  const isPublicRequest = !userId && !!username;
+  const isPublicRequest = true
 
   // Apply stricter rate limiting for public requests
   // Public: 5 requests per minute per IP
   // Authenticated: 20 requests per minute per IP
   const limiter = rateLimit({ 
-    max: isPublicRequest ? 5 : 20, 
+    max: 10, 
     windowMs: 60000,
     message: 'Too many requests. Please try again later.'
   });
