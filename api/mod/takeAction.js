@@ -105,7 +105,6 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
           const higherEloCount = await User.countDocuments({ 
             elo: { $gt: updatedUser.elo },
             banned: { $ne: true },
-            pendingNameChange: { $ne: true }
           });
           const newEloRank = higherEloCount + 1;
 
