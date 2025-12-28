@@ -485,7 +485,8 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
             <div style={graphStyle}>
                 <div style={{ textAlign: 'center', color: '#fff' }}>
                     <h3>{text('noStatsAvailable')}</h3>
-                    <p>{text('playGamesToSeeProgression')}</p>
+                    { !isPublic && 
+                    <p>{text('playGamesToSeeProgression')}</p> }
                 </div>
             </div>
         );
