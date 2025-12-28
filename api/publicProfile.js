@@ -47,7 +47,7 @@ export default async function handler(req, res) {
   }
 
   // Apply rate limiting: 10 requests per minute per IP
-  const limiter = rateLimit({ max: 10, windowMs: 60000 });
+  const limiter = rateLimit({ max: 20, windowMs: 60000 });
   if (!limiter(req, res)) {
     return; // Rate limit exceeded, response already sent
   }
