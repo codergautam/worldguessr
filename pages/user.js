@@ -248,6 +248,7 @@ export default function UserProfilePage() {
           background-attachment: fixed;
           padding: 20px;
           box-sizing: border-box;
+          font-family: "Lexend", sans-serif;
         }
 
         .back-button-container {
@@ -326,6 +327,7 @@ export default function UserProfilePage() {
           font-weight: 500;
           margin: 0;
           text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+          font-family: "Lexend", sans-serif;
         }
 
         .error-container {
@@ -355,6 +357,7 @@ export default function UserProfilePage() {
           font-size: clamp(24px, 5vw, 32px);
           color: #ffc107;
           text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+          font-family: "Lexend", sans-serif;
         }
 
         .error-card p {
@@ -362,6 +365,7 @@ export default function UserProfilePage() {
           font-size: 16px;
           color: rgba(255, 255, 255, 0.9);
           text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+          font-family: "Lexend", sans-serif;
         }
 
         .error-actions {

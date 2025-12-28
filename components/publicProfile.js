@@ -94,6 +94,7 @@ export default function PublicProfile({ profileData, eloData }) {
                     width: 100%;
                     padding: 0;
                     box-sizing: border-box;
+                    font-family: "Lexend", sans-serif;
                 }
 
                 .public-profile-content {
@@ -106,6 +107,7 @@ export default function PublicProfile({ profileData, eloData }) {
                     border: 1px solid rgba(255, 255, 255, 0.2);
                     filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
                     overflow: hidden;
+                    font-family: "Lexend", sans-serif;
                 }
 
                 .public-profile-header {
@@ -189,6 +191,7 @@ export default function PublicProfile({ profileData, eloData }) {
                     overflow-y: auto;
                     scrollbar-width: thin;
                     scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+                    font-family: "Lexend", sans-serif;
                 }
 
                 .public-profile-body::-webkit-scrollbar {
