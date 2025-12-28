@@ -83,18 +83,25 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
         $inc: { elo: refundAmount }
       }, { new: true }).then(async (updatedUser) => {
         if (updatedUser) {
-          // Get current rank (approximate - we just need a reasonable value)
+          // Get current ELO rank
           const higherEloCount = await User.countDocuments({ elo: { $gt: updatedUser.elo } });
-          const newRank = higherEloCount + 1;
+          const newEloRank = higherEloCount + 1;
+
+          // Get most recent xpRank from UserStats for this user
+          const mostRecentStats = await UserStats.findOne({ userId: opponentAccountId })
+            .sort({ timestamp: -1 })
+            .select('xpRank')
+            .lean();
+          const xpRank = mostRecentStats?.xpRank || 1;
 
           // Create UserStats entry to record the ELO refund
           await UserStats.create({
             userId: opponentAccountId,
             timestamp: new Date(),
             totalXp: updatedUser.totalXp || 0,
-            xpRank: 1, // Will be recalculated on next proper update
+            xpRank: xpRank,
             elo: updatedUser.elo,
-            eloRank: newRank,
+            eloRank: newEloRank,
             triggerEvent: 'elo_refund',
             gameId: null,
             eloRefundDetails: {
