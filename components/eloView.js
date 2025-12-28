@@ -3,7 +3,7 @@ import { getLeague, leagues } from "./utils/leagues";
 import { useState } from "react";
 import XPGraph from "./XPGraph";
 
-export default function EloView({ eloData, session }) {
+export default function EloView({ eloData, session, isPublic = false, username = null, viewingPublicProfile = false }) {
     const { t: text } = useTranslation("common");
     const userLeague = getLeague(eloData.elo);
     const [hoveredLeague, setHoveredLeague] = useState(null);
@@ -233,7 +233,7 @@ export default function EloView({ eloData, session }) {
                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
                              e.currentTarget.style.transform = 'translateY(0)';
                          }}>
-                        <div style={statLabelStyle}>{text("yourElo")}</div>
+                        <div style={statLabelStyle}>{viewingPublicProfile ? text("elo") : text("yourElo")}</div>
                         <div style={statValueStyle}>{eloData.elo}</div>
                     </div>
 
@@ -246,7 +246,7 @@ export default function EloView({ eloData, session }) {
                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
                              e.currentTarget.style.transform = 'translateY(0)';
                          }}>
-                        <div style={statLabelStyle}>{text("yourGlobalRank")}</div>
+                        <div style={statLabelStyle}>{viewingPublicProfile ? text("globalRank") : text("yourGlobalRank")}</div>
                         <div style={statValueStyle}>#{eloData.rank}</div>
                     </div>
 
@@ -309,7 +309,7 @@ export default function EloView({ eloData, session }) {
             </div>
 
             {/* ELO Graph */}
-            <XPGraph session={session} mode="elo" />
+            <XPGraph session={session} mode="elo" isPublic={isPublic} username={username} />
         </div>
     );
 }

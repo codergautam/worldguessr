@@ -9,6 +9,7 @@ import { getLeague, leagues } from "./utils/leagues";
 import { signOut } from "@/components/auth/auth";
 import { useTranslation } from '@/components/useTranslations';
 import FriendsModal from "@/components/friendModal";
+import { FaLink, FaCheck } from "react-icons/fa";
 
 export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
     const { t: text } = useTranslation("common");
@@ -19,6 +20,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
     const [selectedGame, setSelectedGame] = useState(null);
     const [showingGameAnalysis, setShowingGameAnalysis] = useState(false);
     const [isTouchDevice, setIsTouchDevice] = useState(false);
+    const [copiedLink, setCopiedLink] = useState(false);
     const badgeStyle = {
         marginLeft: '15px',
         color: 'black',
@@ -215,7 +217,47 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                                 padding: isTouchDevice ? '10px 20px' : undefined,
                                 minHeight: isTouchDevice ? '50px' : undefined
                             }}>
-                                <h1 className="account-modal-title">{accountData?.username || text("account")} {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}</h1>
+                                <h1 className="account-modal-title">
+                                    {accountData?.username || text("account")}
+                                    {accountData?.username && (
+                                        <button
+                                            onClick={() => {
+                                                const profileUrl = `${window.location.origin}/user?u=${encodeURIComponent(accountData.username)}`;
+                                                navigator.clipboard.writeText(profileUrl).then(() => {
+                                                    setCopiedLink(true);
+                                                    setTimeout(() => setCopiedLink(false), 2000);
+                                                });
+                                            }}
+                                            title={text("copyProfileLink") || "Copy profile link"}
+                                            style={{
+                                                marginLeft: '10px',
+                                                background: 'rgba(255,255,255,0.1)',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                padding: '6px 10px',
+                                                cursor: 'pointer',
+                                                color: copiedLink ? '#4ade80' : 'rgba(255,255,255,0.7)',
+                                                fontSize: '0.8rem',
+                                                transition: 'all 0.2s ease',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
+                                                verticalAlign: 'middle'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!copiedLink) e.target.style.color = '#fff';
+                                                e.target.style.background = 'rgba(255,255,255,0.2)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!copiedLink) e.target.style.color = 'rgba(255,255,255,0.7)';
+                                                e.target.style.background = 'rgba(255,255,255,0.1)';
+                                            }}
+                                        >
+                                            {copiedLink ? <FaCheck /> : <FaLink />}
+                                        </button>
+                                    )}
+                                    {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}
+                                </h1>
 
 
                                 <button

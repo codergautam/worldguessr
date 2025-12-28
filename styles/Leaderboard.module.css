@@ -371,6 +371,13 @@
   font-size: 1.1rem;
   font-weight: 500;
   color: white;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.username:hover {
+  color: #4CAF50;
+  text-decoration: underline;
 }
 
 .scoreContainer {

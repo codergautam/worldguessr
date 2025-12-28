@@ -3,16 +3,16 @@ import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { FaClock, FaGamepad, FaStar } from "react-icons/fa6";
+import { FaClock, FaGamepad, FaStar, FaEye, FaUsers } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 
-export default function AccountView({ accountData, supporter, eloData, session }) {
+export default function AccountView({ accountData, supporter, eloData, session, isPublic = false, username = null, viewingPublicProfile = false }) {
     const { t: text } = useTranslation("common");
     const [showForcedNameChangeModal, setShowForcedNameChangeModal] = useState(false);
 
     // Check if user is forced to change their name
-    const isForcedNameChange = session?.token?.pendingNameChange;
+    const isForcedNameChange = !isPublic && session?.token?.pendingNameChange;
 
     const changeName = async () => {
         // If forced to change name, open the proper modal instead of prompt
@@ -81,7 +81,7 @@ export default function AccountView({ accountData, supporter, eloData, session }
         alignItems: 'flexStart',
         textAlign: "left",
         color: '#fff',
-        fontFamily: 'Arial, sans-serif',
+        fontFamily: '"Lexend", sans-serif',
         paddingBottom: '20px',
         boxSizing: 'border-box',
         borderRadius: '10px',
@@ -151,6 +151,12 @@ export default function AccountView({ accountData, supporter, eloData, session }
                     {text("joined", { t: msToTime(Date.now() - new Date(accountData.createdAt).getTime()) })}
                 </div>
 
+                {accountData.lastLogin && viewingPublicProfile && (
+                    <div style={textStyle}>
+                        <FaEye style={iconStyle} />
+                        {text("lastSeen")}: {msToTime(Date.now() - new Date(accountData.lastLogin).getTime())} {text("ago")}
+                    </div>
+                )}
                 <div style={textStyle}>
                     <FaStar style={{ ...iconStyle }} />
                     {accountData.totalXp} XP
@@ -158,61 +164,72 @@ export default function AccountView({ accountData, supporter, eloData, session }
 
                 <div style={textStyle}>
                     <FaGamepad style={iconStyle} />
-                    {text("gamesPlayed", { games: accountData.gamesLen })}
+                    {text("gamesPlayed", { games: accountData.gamesLen || accountData.gamesPlayed || 0 })}
                 </div>
 
-                {/* change name button */}
-                {isForcedNameChange ? (
-                    // Forced name change - always show button, ignore cooldowns
-                    <button
-                        style={{
-                            ...buttonStyle,
-                            background: 'linear-gradient(135deg, #f0883e, #d29922)',
-                            boxShadow: '0 4px 15px rgba(240, 136, 62, 0.3)',
-                        }}
-                        onClick={changeName}
-                        onMouseEnter={(e) => {
-                            e.target.style.transform = 'translateY(-2px)';
-                            e.target.style.boxShadow = '0 6px 20px rgba(240, 136, 62, 0.4)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.target.style.transform = 'translateY(0)';
-                            e.target.style.boxShadow = '0 4px 15px rgba(240, 136, 62, 0.3)';
-                        }}
-                    >
-                        ⚠️ {text("changeName")} ({text("required") || "Required"})
-                    </button>
-                ) : accountData.canChangeUsername ? (
-                    <button
-                        style={buttonStyle}
-                        onClick={changeName}
-                        onMouseEnter={(e) => {
-                            e.target.style.transform = 'translateY(-2px)';
-                            e.target.style.boxShadow = '0 6px 20px rgba(40, 167, 69, 0.4)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.target.style.transform = 'translateY(0)';
-                            e.target.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
-                        }}
-                    >
-                        {text("changeName")}
-                    </button>
-                ) : accountData.recentChange ? (
-                    <div style={warningStyle}>
-                        <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
-                        {text("recentChange")}
+                {viewingPublicProfile && accountData.profileViews !== undefined && (
+                    <div style={textStyle}>
+                        <FaUsers style={iconStyle} />
+                        {text("profileViews") || "Profile Views"}: {accountData.profileViews.toLocaleString()}
                     </div>
-                ) : null}
+                )}
 
-                {!isForcedNameChange && accountData.daysUntilNameChange > 0 && (
-                    <div style={warningStyle}>
-                        <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
-                        {text("nameChangeCooldown", { days: accountData.daysUntilNameChange })}
-                    </div>
+                {/* change name button - hidden in public view */}
+                {!isPublic && (
+                    <>
+                        {isForcedNameChange ? (
+                            // Forced name change - always show button, ignore cooldowns
+                            <button
+                                style={{
+                                    ...buttonStyle,
+                                    background: 'linear-gradient(135deg, #f0883e, #d29922)',
+                                    boxShadow: '0 4px 15px rgba(240, 136, 62, 0.3)',
+                                }}
+                                onClick={changeName}
+                                onMouseEnter={(e) => {
+                                    e.target.style.transform = 'translateY(-2px)';
+                                    e.target.style.boxShadow = '0 6px 20px rgba(240, 136, 62, 0.4)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.transform = 'translateY(0)';
+                                    e.target.style.boxShadow = '0 4px 15px rgba(240, 136, 62, 0.3)';
+                                }}
+                            >
+                                ⚠️ {text("changeName")} ({text("required") || "Required"})
+                            </button>
+                        ) : accountData.canChangeUsername ? (
+                            <button
+                                style={buttonStyle}
+                                onClick={changeName}
+                                onMouseEnter={(e) => {
+                                    e.target.style.transform = 'translateY(-2px)';
+                                    e.target.style.boxShadow = '0 6px 20px rgba(40, 167, 69, 0.4)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.transform = 'translateY(0)';
+                                    e.target.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+                                }}
+                            >
+                                {text("changeName")}
+                            </button>
+                        ) : accountData.recentChange ? (
+                            <div style={warningStyle}>
+                                <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
+                                {text("recentChange")}
+                            </div>
+                        ) : null}
+
+                        {!isForcedNameChange && accountData.daysUntilNameChange > 0 && (
+                            <div style={warningStyle}>
+                                <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
+                                {text("nameChangeCooldown", { days: accountData.daysUntilNameChange })}
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
-            <XPGraph session={session} />
+            <XPGraph session={session} isPublic={isPublic} username={username} />
 
             {/* Forced Name Change Modal - use portal to escape parent container's backdrop-filter */}
             {showForcedNameChangeModal && typeof document !== 'undefined' && createPortal(

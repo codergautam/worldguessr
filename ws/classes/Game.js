@@ -1191,7 +1191,8 @@ export default class Game {
             opponent: this.accountIds.p2,
             eloChange: p1NewElo ? (p1NewElo - p1OldElo) : 0,
             finalScore: player1Data?.score || 0,
-            duration: this.endTime - this.startTime
+            duration: this.endTime - this.startTime,
+            newElo: p1NewElo // Pass new ELO directly to avoid race condition with setElo
           }
         );
         console.log(`Created userstats for player 1: ${this.accountIds.p1}`);
@@ -1208,7 +1209,8 @@ export default class Game {
             opponent: this.accountIds.p1,
             eloChange: p2NewElo ? (p2NewElo - p2OldElo) : 0,
             finalScore: player2Data?.score || 0,
-            duration: this.endTime - this.startTime
+            duration: this.endTime - this.startTime,
+            newElo: p2NewElo // Pass new ELO directly to avoid race condition with setElo
           }
         );
         console.log(`Created userstats for player 2: ${this.accountIds.p2}`);

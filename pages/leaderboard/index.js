@@ -156,7 +156,16 @@ const Leaderboard = ({ }) => {
                   </div>
 
                   <div className={styles.playerDetails}>
-                    <span className={styles.username}>{user.username}</span>
+                    <a
+                      href={`/user?u=${encodeURIComponent(user.username)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.username}
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {user.username}
+                    </a>
                   </div>
 
                   <div className={styles.scoreContainer}>
