@@ -988,11 +988,6 @@ export default function ModDashboard({ session }) {
                 <span className={styles.historyBadge} style={{ backgroundColor: '#28a745' }}>
                   +{refund.amount} ELO
                 </span>
-                {refund.cappedAtMax && (
-                  <span className={styles.historyBadge} style={{ backgroundColor: '#ffa500', fontSize: '0.75rem' }}>
-                    Capped (would have been +{refund.requestedAmount})
-                  </span>
-                )}
                 <span className={styles.historyReason}>
                   from banned player: <strong>{refund.bannedUsername}</strong>
                 </span>

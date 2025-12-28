@@ -376,8 +376,6 @@ async function buildUserResponse(targetUser) {
   // Format ELO refunds for display
   const formattedEloRefunds = eloRefunds.map(refund => ({
     amount: refund.eloRefundDetails?.amount || 0,
-    requestedAmount: refund.eloRefundDetails?.requestedAmount || refund.eloRefundDetails?.amount || 0,
-    cappedAtMax: refund.eloRefundDetails?.cappedAtMax || false,
     bannedUsername: refund.eloRefundDetails?.bannedUsername || 'Unknown',
     bannedUserId: refund.eloRefundDetails?.bannedUserId || null,
     timestamp: refund.timestamp,

@@ -116,9 +116,7 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
             triggerEvent: 'elo_refund',
             gameId: null,
             eloRefundDetails: {
-              amount: actualRefund, // Store actual refund given (may be less if capped)
-              requestedAmount: refundAmount, // Store what they would have gotten without cap
-              cappedAtMax: newEloUncapped > MAX_ELO, // Flag if refund was capped
+              amount: actualRefund,
               bannedUserId: bannedAccountId,
               bannedUsername: bannedUsername,
               moderationLogId: moderationLogId ? moderationLogId.toString() : null
