@@ -74,6 +74,8 @@
   "logOut": "Выйти",
   "gamesPlayed": "Сыграно игр: {{games}}",
   "joined": "Присоединился {{t}} назад",
+  "lastSeen": "Последний раз в сети",
+  "ago": "назад",
   "chat": "Чат",
   "minuteSingular": "минута",
   "minutePlural": "минут",
