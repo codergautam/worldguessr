@@ -101,8 +101,12 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
         );
 
         if (updatedUser) {
-          // Get current ELO rank
-          const higherEloCount = await User.countDocuments({ elo: { $gt: updatedUser.elo } });
+          // Get current ELO rank (excluding banned users)
+          const higherEloCount = await User.countDocuments({ 
+            elo: { $gt: updatedUser.elo },
+            banned: { $ne: true },
+            pendingNameChange: { $ne: true }
+          });
           const newEloRank = higherEloCount + 1;
 
           // Get most recent xpRank from UserStats for this user
