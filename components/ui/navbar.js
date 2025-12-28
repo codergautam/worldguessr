@@ -26,8 +26,8 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     {!mapModalOpen && <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>}
                     {!mapModalOpen && <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>}
                     {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown &&  <>
-                        <button className="gameBtn navBtn backBtn g2_red_button desktop" onClick={backBtnPressed}>{text("back")}</button>
-                        <button className="gameBtn navBtn backBtn g2_red_button mobile" onClick={backBtnPressed}><FaArrowLeft /></button>
+                        <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} desktop`} onClick={backBtnPressed}>{screen === 'onboarding' ? text("menu") : text("back")}</button>
+                        <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} mobile`} onClick={backBtnPressed}><FaArrowLeft /></button>
                     </>
                     }
                 </div>
