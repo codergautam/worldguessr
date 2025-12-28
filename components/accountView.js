@@ -158,7 +158,7 @@ export default function AccountView({ accountData, supporter, eloData, session, 
 
                 <div style={textStyle}>
                     <FaGamepad style={iconStyle} />
-                    {text("gamesPlayed", { games: accountData.gamesLen })}
+                    {text("gamesPlayed", { games: accountData.gamesLen || accountData.gamesPlayed || 0 })}
                 </div>
 
                 {/* change name button - hidden in public view */}

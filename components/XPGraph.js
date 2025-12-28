@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/components/useTranslations';
+import config from '@/clientConfig';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -39,7 +40,7 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
 
     const fetchUserProgression = async () => {
         // For public profiles, use username; for private, use session accountId
-        const hasRequiredData = isPublic ? (username && window.cConfig?.apiUrl) : (session?.token?.accountId && window.cConfig?.apiUrl);
+        const hasRequiredData = isPublic ? (username && (window.cConfig?.apiUrl || config()?.apiUrl)) : (session?.token?.accountId && (window.cConfig?.apiUrl || config()?.apiUrl));
         if (!hasRequiredData) return;
 
         setLoading(true);
@@ -48,7 +49,8 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
                 ? { username: username }
                 : { userId: session.token.accountId };
 
-            const response = await fetch(window.cConfig.apiUrl + '/api/userProgression', {
+            const apiUrl = window.cConfig?.apiUrl || config()?.apiUrl;
+            const response = await fetch(apiUrl + '/api/userProgression', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
