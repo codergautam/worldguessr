@@ -233,7 +233,7 @@ export default function EloView({ eloData, session, isPublic = false, username =
                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
                              e.currentTarget.style.transform = 'translateY(0)';
                          }}>
-                        <div style={statLabelStyle}>{text("yourElo")}</div>
+                        <div style={statLabelStyle}>{viewingPublicProfile ? text("elo") : text("yourElo")}</div>
                         <div style={statValueStyle}>{eloData.elo}</div>
                     </div>
 
@@ -246,7 +246,7 @@ export default function EloView({ eloData, session, isPublic = false, username =
                              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
                              e.currentTarget.style.transform = 'translateY(0)';
                          }}>
-                        <div style={statLabelStyle}>{text("yourGlobalRank")}</div>
+                        <div style={statLabelStyle}>{viewingPublicProfile ? text("globalRank") : text("yourGlobalRank")}</div>
                         <div style={statValueStyle}>#{eloData.rank}</div>
                     </div>
 
