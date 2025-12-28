@@ -4,6 +4,7 @@ import ModerationLog from '../../models/ModerationLog.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
 import Game from '../../models/Game.js';
 import UserStats from '../../models/UserStats.js';
+import { leagues } from '../../components/utils/leagues.js';
 
 /**
  * Refund ELO to opponents who lost ELO playing against a banned user
@@ -74,14 +75,31 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
     }
   }
 
+  // Get MAX_ELO from leagues
+  const MAX_ELO = leagues.nomad.max;
+
   // Apply refunds to each affected opponent
   const refundPromises = [];
   for (const [opponentAccountId, refundAmount] of Object.entries(opponentRefunds)) {
-    // Update User model - add back the lost ELO
+    // Get current user to check their ELO before refund
     refundPromises.push(
-      User.findByIdAndUpdate(opponentAccountId, {
-        $inc: { elo: refundAmount }
-      }, { new: true }).then(async (updatedUser) => {
+      User.findById(opponentAccountId).then(async (opponentUser) => {
+        if (!opponentUser) return;
+
+        const currentElo = opponentUser.elo || 0;
+        const newEloUncapped = currentElo + refundAmount;
+
+        // Cap the new ELO at MAX_ELO - don't let refunds push users above the cap
+        const newElo = Math.min(newEloUncapped, MAX_ELO);
+        const actualRefund = newElo - currentElo;
+
+        // Update User model with the capped ELO
+        const updatedUser = await User.findByIdAndUpdate(
+          opponentAccountId,
+          { $set: { elo: newElo } },
+          { new: true }
+        );
+
         if (updatedUser) {
           // Get current rank (approximate - we just need a reasonable value)
           const higherEloCount = await User.countDocuments({ elo: { $gt: updatedUser.elo } });
@@ -98,7 +116,9 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
             triggerEvent: 'elo_refund',
             gameId: null,
             eloRefundDetails: {
-              amount: refundAmount,
+              amount: actualRefund, // Store actual refund given (may be less if capped)
+              requestedAmount: refundAmount, // Store what they would have gotten without cap
+              cappedAtMax: newEloUncapped > MAX_ELO, // Flag if refund was capped
               bannedUserId: bannedAccountId,
               bannedUsername: bannedUsername,
               moderationLogId: moderationLogId ? moderationLogId.toString() : null
