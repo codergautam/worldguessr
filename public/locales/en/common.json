@@ -74,6 +74,8 @@
   "logOut": "Log Out",
   "gamesPlayed": "{{games}} games played",
   "joined": "Joined {{t}} ago",
+  "lastSeen": "Last seen",
+  "ago": "ago",
   "chat": "Chat",
   "minuteSingular": "minute",
   "minutePlural": "minutes",

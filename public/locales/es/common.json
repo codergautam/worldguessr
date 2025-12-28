@@ -74,6 +74,8 @@
   "logOut": "Cerrar sesión",
   "gamesPlayed": "{{games}} juegos jugados",
   "joined": "Unido hace {{t}}",
+  "lastSeen": "Última vez visto",
+  "ago": "hace",
   "chat": "Chat",
   "minuteSingular": "minuto",
   "minutePlural": "minutos",
