@@ -3,7 +3,7 @@ import { getLeague, leagues } from "./utils/leagues";
 import { useState } from "react";
 import XPGraph from "./XPGraph";
 
-export default function EloView({ eloData, session, isPublic = false, username = null }) {
+export default function EloView({ eloData, session, isPublic = false, username = null, viewingPublicProfile = false }) {
     const { t: text } = useTranslation("common");
     const userLeague = getLeague(eloData.elo);
     const [hoveredLeague, setHoveredLeague] = useState(null);
