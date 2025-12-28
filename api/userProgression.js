@@ -3,6 +3,11 @@ import User from '../models/User.js';
 import UserStatsService from '../components/utils/userStatsService.js';
 import { rateLimit } from '../utils/rateLimit.js';
 
+
+// gautam note: this doesnt make any sense at all, ai slop.
+// user id is public, username is public, so why are we pretending like user id is private?
+// temporarily fix this by setting isPublicRequest to true, every request is public.
+
 // Username validation regex: alphanumeric and underscores only, 3-20 characters
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
 
