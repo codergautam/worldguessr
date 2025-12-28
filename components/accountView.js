@@ -7,7 +7,7 @@ import { FaClock, FaGamepad, FaStar, FaEye } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 
-export default function AccountView({ accountData, supporter, eloData, session, isPublic = false, username = null }) {
+export default function AccountView({ accountData, supporter, eloData, session, isPublic = false, username = null, viewingPublicProfile = false }) {
     const { t: text } = useTranslation("common");
     const [showForcedNameChangeModal, setShowForcedNameChangeModal] = useState(false);
 
@@ -151,13 +151,12 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                     {text("joined", { t: msToTime(Date.now() - new Date(accountData.createdAt).getTime()) })}
                 </div>
 
-                {accountData.lastLogin && (
+                {accountData.lastLogin && viewingPublicProfile && (
                     <div style={textStyle}>
                         <FaEye style={iconStyle} />
-                        {text("lastSeen") || "Last seen"}: {msToTime(Date.now() - new Date(accountData.lastLogin).getTime())} {text("ago") || "ago"}
+                        {text("lastSeen")}: {msToTime(Date.now() - new Date(accountData.lastLogin).getTime())} {text("ago")}
                     </div>
                 )}
-
                 <div style={textStyle}>
                     <FaStar style={{ ...iconStyle }} />
                     {accountData.totalXp} XP

@@ -24,6 +24,7 @@ export default function PublicProfile({ profileData, eloData }) {
                             session={null}
                             isPublic={true}
                             username={profileData?.username}
+                            viewingPublicProfile={true}
                         />
                     </div>
                 );
@@ -35,6 +36,7 @@ export default function PublicProfile({ profileData, eloData }) {
                             session={null}
                             isPublic={true}
                             username={profileData?.username}
+                            viewingPublicProfile={true}
                         />
                     </div>
                 );
