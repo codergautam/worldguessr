@@ -4,6 +4,7 @@
   "loading": "Cargando",
   "connecting": "Conectando",
   "back": "Atrás",
+  "menu": "Menú",
   "onlineCnt": "🟢 {{cnt}} en línea",
   "online": "🟢 En línea",
   "offline": "🔴 Desconectado",
