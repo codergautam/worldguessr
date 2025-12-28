@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import formatTime from '../utils/formatTime';
 import styles from '../styles/gameHistory.module.css';
+import Link from 'next/link';
 
 export default function GameHistory({ session, onGameClick, targetUserSecret = null, targetUserData = null }) {
   const { t: text } = useTranslation("common");
@@ -184,9 +185,20 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
                       </span>
                     </div>
                     <div className={styles.statItem}>
-                      <span className={styles.statLabel}>{text('opponent')}</span>
+                      <span className={styles.statLabel}>{text('opponent')}</span> 
                       <span className={styles.statValue}>
-                        {game.opponent?.username || text('unknown')}
+                        {game.opponent?.username ? (
+                          <Link 
+                            href={`/user?u=${encodeURIComponent(game.opponent.username)}`}
+                            onClick={(e) => e.stopPropagation()}
+                            target="_blank"
+                            style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
+                          >
+                            {game.opponent.username}
+                          </Link>
+                        ) : (
+                          text('unknown')
+                        )}
                       </span>
                     </div>
                     <div className={styles.statItem}>
