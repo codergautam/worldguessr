@@ -18,9 +18,13 @@ class UserStatsService {
         return null;
       }
 
+      // Use provided newElo if available (for ranked duels where setElo may not have completed yet)
+      // This avoids race condition where we read stale ELO from DB before setElo writes complete
+      const eloToRecord = gameData.newElo ?? user.elo ?? 1000;
+
       // Get current rankings
       const xpRank = await this.calculateXPRank(user.totalXp);
-      const eloRankResult = await this.calculateELORank(user.elo || 1000);
+      const eloRankResult = await this.calculateELORank(eloToRecord);
       const eloRank = typeof eloRankResult === 'object' ? eloRankResult.rank : eloRankResult;
 
       // Record the stats snapshot
@@ -29,7 +33,7 @@ class UserStatsService {
         timestamp: new Date(),
         totalXp: user.totalXp || 0,
         xpRank: xpRank,
-        elo: user.elo || 1000,
+        elo: eloToRecord,
         eloRank: eloRank,
         triggerEvent: gameData?.triggerEvent || 'game_completed',
         gameId: gameId

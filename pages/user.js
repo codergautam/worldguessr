@@ -188,7 +188,9 @@ export default function UserProfilePage() {
         <div className="back-button-container">
           <button 
             className="back-to-wg-button"
-            onClick={() => router.push('/')}
+            // onClick={() => router.push('/')}
+            //  use window.location.href
+            onClick={() => window.location.href = '/'}
           >
             ← Go to WorldGuessr
           </button>
