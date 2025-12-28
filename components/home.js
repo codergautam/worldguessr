@@ -1,6 +1,6 @@
 import HeadContent from "@/components/headContent";
 import { FaDiscord, FaGithub } from "react-icons/fa";
-import { FaArrowRotateRight, FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
+import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import retryManager from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
@@ -2342,7 +2342,7 @@ export default function Home({ }) {
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
                     <div className="gameBtnContainer" style={{ position: 'fixed', top: width > 830 ? '90px' : '50px', left: width > 830 ? '10px' : '0px', zIndex: 1000000 }}>
 
-                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><FaArrowRotateRight /></button>
+                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src="/return.png" alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
                     </div>
                 )}
 
