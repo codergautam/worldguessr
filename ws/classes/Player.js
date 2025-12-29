@@ -265,6 +265,9 @@ export default class Player {
             c: players.size-disconnectedPlayers.size
           })
 
+          // Always update lastLogin on verify
+          const updateFields = { lastLogin: Date.now() };
+          
           if (json.tz && isValidTimezone(json.tz)) {
             const existingTimeZone = valid.timeZone;
             let streak = valid.streak;
@@ -294,8 +297,12 @@ export default class Player {
               })
             }
 
-            await User.updateOne({_id: this.accountId}, {timeZone: json.tz, lastLogin: Date.now(), streak, firstLoginComplete: true})
+            updateFields.timeZone = json.tz;
+            updateFields.streak = streak;
+            updateFields.firstLoginComplete = true;
           }
+          
+          await User.updateOne({_id: this.accountId}, updateFields);
 
           this.friends = valid.friends.map((id)=>({id}));
           this.sentReq = valid.sentReq.map((id)=>({id}));
