@@ -71,6 +71,7 @@ const userStatsSchema = new mongoose.Schema({
 // Production-grade indexes for 2M+ users with 20k daily active
 userStatsSchema.index({ userId: 1, timestamp: -1 }); // User's stats over time (descending)
 userStatsSchema.index({ userId: 1, timestamp: 1 });  // User's stats over time (ascending)
+userStatsSchema.index({ userId: 1, triggerEvent: 1, timestamp: 1 }); // For getUserProgression filtering out elo_refund
 userStatsSchema.index({ timestamp: -1, xpRank: 1 });  // Leaderboard snapshots by XP
 userStatsSchema.index({ timestamp: -1, eloRank: 1 }); // Leaderboard snapshots by ELO
 

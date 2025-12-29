@@ -98,7 +98,34 @@ class UserStatsService {
         query.timestamp = { $gte: startDate };
       }
 
-      const progression = await UserStats.find(query).sort({ timestamp: 1 }).lean();
+      // Count first to avoid querying too many entries
+      // Uses compound index: { userId: 1, triggerEvent: 1, timestamp: 1 }
+      const count = await UserStats.countDocuments(query);
+      
+      let progression;
+      if (count > 1000) {
+        // Too many entries - aggregate to 1 per day (latest entry for each day)
+        const matchStage = { $match: query };
+        
+        progression = await UserStats.aggregate([
+          matchStage,
+          { $sort: { timestamp: -1 } }, // Sort descending to get latest per day
+          {
+            $group: {
+              _id: {
+                year: { $year: '$timestamp' },
+                month: { $month: '$timestamp' },
+                day: { $dayOfMonth: '$timestamp' }
+              },
+              doc: { $first: '$$ROOT' } // Get latest entry for each day
+            }
+          },
+          { $replaceRoot: { newRoot: '$doc' } },
+          { $sort: { timestamp: 1 } } // Sort ascending for frontend
+        ]);
+      } else {
+        progression = await UserStats.find(query).sort({ timestamp: 1 }).lean();
+      }
 
       // Add calculated fields for frontend
       return progression.map((stat, index, arr) => {
