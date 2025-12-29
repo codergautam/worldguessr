@@ -86,8 +86,11 @@ class UserStatsService {
    */
   static async getUserProgression(userId, days = null) {
     try {
+      // Ensure userId is a string (UserStats stores userId as String, not ObjectId)
+      const userIdStr = userId?.toString?.() || userId;
+      
       const query = { 
-        userId: userId,
+        userId: userIdStr,
         triggerEvent: { $ne: 'elo_refund' } // Exclude elo_refund entries from progression
       };
 
