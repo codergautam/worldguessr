@@ -151,7 +151,7 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                     {text("joined", { t: msToTime(Date.now() - new Date(accountData.createdAt).getTime()) })}
                 </div>
 
-                {accountData.lastLogin && viewingPublicProfile && (
+                {accountData.lastLogin && viewingPublicProfile && false && (
                     <div style={textStyle}>
                         <FaEye style={iconStyle} />
                         {text("lastSeen")}: {msToTime(Date.now() - new Date(accountData.lastLogin).getTime())} {text("ago")}
