@@ -103,7 +103,7 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
         // Filter stats based on date filter
         const now = new Date();
 
-        const filteredStats = stats.filter((stat) => {
+        let filteredStats = stats.filter((stat) => {
             if (dateFilter === 'alltime') return true;
 
             const statDate = new Date(stat.timestamp);
@@ -123,6 +123,11 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
             if (dateFilter === '30days') return daysDiff <= 30;
             return true;
         });
+
+        // If no entries in selected timeframe, use the most recent entry
+        if (filteredStats.length === 0 && stats.length > 0) {
+            filteredStats = [stats[stats.length - 1]];
+        }
 
 
         filteredStats.forEach((stat, index) => {
