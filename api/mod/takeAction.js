@@ -349,6 +349,21 @@ export default async function handler(req, res) {
           banPublicNote: publicNote || null // Shown to user
         });
 
+        // Enforce ban immediately via WebSocket if player is connected
+        if (process.env.MAINTENANCE_SECRET && process.env.WS_PORT) {
+          try {
+            const wsPort = process.env.WS_PORT || 3002;
+            const wsUrl = `http://localhost:${wsPort}/enforce-ban/${process.env.MAINTENANCE_SECRET}/${targetUserId}`;
+
+            const wsResponse = await fetch(wsUrl, { method: 'GET' });
+            const wsResult = await wsResponse.json();
+            console.log('WebSocket ban enforcement result:', wsResult);
+          } catch (error) {
+            // Non-critical: Ban still succeeded in database
+            console.error('Failed to enforce ban via WebSocket (non-critical):', error.message);
+          }
+        }
+
         // Refund ELO to opponents who lost ELO playing against this user (unless skipped)
         if (!skipEloRefund) {
           eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
@@ -421,6 +436,21 @@ export default async function handler(req, res) {
           banReason: reason, // INTERNAL - never exposed to user
           banPublicNote: publicNote || null // Shown to user
         });
+
+        // Enforce ban immediately via WebSocket if player is connected
+        if (process.env.MAINTENANCE_SECRET && process.env.WS_PORT) {
+          try {
+            const wsPort = process.env.WS_PORT || 3002;
+            const wsUrl = `http://localhost:${wsPort}/enforce-ban/${process.env.MAINTENANCE_SECRET}/${targetUserId}`;
+
+            const wsResponse = await fetch(wsUrl, { method: 'GET' });
+            const wsResult = await wsResponse.json();
+            console.log('WebSocket ban enforcement result:', wsResult);
+          } catch (error) {
+            // Non-critical: Ban still succeeded in database
+            console.error('Failed to enforce ban via WebSocket (non-critical):', error.message);
+          }
+        }
 
         // ELO refunds are only issued for permanent bans, not temporary bans
 

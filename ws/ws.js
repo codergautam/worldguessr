@@ -350,6 +350,101 @@ if (process.env.MAINTENANCE_SECRET) {
     res.end(JSON.stringify(ipCounts));
   });
 
+  app.get(`/enforce-ban/${maintenanceSecret}/:accountId`, (res, req) => {
+    const accountId = req.getParameter(0);
+
+    if (!accountId) {
+      setCorsHeaders(res);
+      res.writeStatus('400 Bad Request');
+      res.writeHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        success: false,
+        error: 'Account ID required',
+        playerFound: false
+      }));
+      return;
+    }
+
+    // Find player by accountId
+    const player = Array.from(players.values()).find(p => p.accountId === accountId);
+
+    if (!player) {
+      // Player not connected - this is OK, return success
+      setCorsHeaders(res);
+      res.writeHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        success: true,
+        playerFound: false,
+        playerDisconnected: false,
+        wasInGame: false,
+        message: 'Player not currently connected'
+      }));
+      console.log('Ban enforcement: Player not connected', accountId, currentDate());
+      return;
+    }
+
+    let gameInfo = {
+      wasInGame: false,
+      gameId: null,
+      gameType: null,
+      opponentRefunded: false,
+      opponentAccountId: null
+    };
+
+    // Handle active game
+    if (player.gameId && games.has(player.gameId)) {
+      const game = games.get(player.gameId);
+      gameInfo.wasInGame = true;
+      gameInfo.gameId = game.id;
+
+      // Determine game type
+      if (game.duel && game.public) {
+        gameInfo.gameType = 'ranked_duel';
+
+        // For ranked duels, identify opponent
+        const playerTag = Object.values(game.players).find(p => p.id === player.id)?.tag;
+        if (playerTag && game.accountIds) {
+          // Find opponent
+          const opponentTag = playerTag === 'p1' ? 'p2' : 'p1';
+          const opponentAccountId = game.accountIds[opponentTag];
+
+          if (opponentAccountId) {
+            gameInfo.opponentAccountId = opponentAccountId;
+            gameInfo.opponentRefunded = true; // Opponent will win via forfeit logic
+          }
+        }
+      } else if (game.public) {
+        gameInfo.gameType = 'unranked_multiplayer';
+      } else {
+        gameInfo.gameType = 'private_multiplayer';
+      }
+
+      // Remove player from game (will trigger game.end() if duel)
+      game.removePlayer(player, true);
+    }
+
+    // Close WebSocket connection
+    try {
+      player.ws.close();
+      console.log('Ban enforcement: Disconnected player', player.username, accountId, currentDate());
+    } catch (e) {
+      console.error('Ban enforcement: Error closing WebSocket', e, currentDate());
+    }
+
+    // Return success response
+    setCorsHeaders(res);
+    res.writeHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      success: true,
+      playerFound: true,
+      playerDisconnected: true,
+      ...gameInfo,
+      message: gameInfo.wasInGame
+        ? `Player banned and disconnected from ${gameInfo.gameType}${gameInfo.opponentRefunded ? '. Opponent will be awarded win.' : ''}`
+        : 'Player banned and disconnected'
+    }));
+  });
+
 }
 
 const bannedIps = new Set();
