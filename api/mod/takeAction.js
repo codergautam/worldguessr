@@ -5,6 +5,7 @@ import NameChangeRequest from '../../models/NameChangeRequest.js';
 import Game from '../../models/Game.js';
 import UserStats from '../../models/UserStats.js';
 import { leagues } from '../../components/utils/leagues.js';
+import cachegoose from 'recachegoose';
 
 /**
  * Refund ELO to opponents who lost ELO playing against a banned user
@@ -364,6 +365,15 @@ export default async function handler(req, res) {
           }
         }
 
+        // Clear cached session data so user sees ban immediately on refresh
+        cachegoose.clearCache(`userAuth_${targetUser.secret}`, (error) => {
+          if (error) {
+            console.error('Error clearing cache after ban:', error);
+          } else {
+            console.log('Cache cleared for banned user:', targetUserId);
+          }
+        });
+
         // Refund ELO to opponents who lost ELO playing against this user (unless skipped)
         if (!skipEloRefund) {
           eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
@@ -452,6 +462,15 @@ export default async function handler(req, res) {
           }
         }
 
+        // Clear cached session data so user sees ban immediately on refresh
+        cachegoose.clearCache(`userAuth_${targetUser.secret}`, (error) => {
+          if (error) {
+            console.error('Error clearing cache after temporary ban:', error);
+          } else {
+            console.log('Cache cleared for temporarily banned user:', targetUserId);
+          }
+        });
+
         // ELO refunds are only issued for permanent bans, not temporary bans
 
         // Find ALL pending reports against this user (not just the ones passed in)
@@ -534,6 +553,15 @@ export default async function handler(req, res) {
             console.error('Failed to enforce name change via WebSocket (non-critical):', error.message);
           }
         }
+
+        // Clear cached session data so user sees pending name change immediately on refresh
+        cachegoose.clearCache(`userAuth_${targetUser.secret}`, (error) => {
+          if (error) {
+            console.error('Error clearing cache after force name change:', error);
+          } else {
+            console.log('Cache cleared for user with forced name change:', targetUserId);
+          }
+        });
 
         // Find ALL pending inappropriate_username reports against this user
         // (only resolve username reports, not cheating reports)

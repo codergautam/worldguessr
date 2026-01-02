@@ -64,7 +64,7 @@ export default async function handler(req, res) {
 
     const userDb = await User.findOne({
       secret,
-    }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote").cache(120);
+    }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote").cache(120, `userAuth_${secret}`);
     
     if (userDb) {
       // Check if temp ban has expired
