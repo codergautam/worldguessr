@@ -24,14 +24,13 @@ export default async function handler(req, res) {
     reason
   } = req.body;
 
+  
   // Validate required fields
   if (!secret || typeof secret !== 'string') {
     return res.status(400).json({ message: 'Invalid secret' });
   }
-  // username of mod has to be codergautam
-  if (moderator.username !== 'codergautam') {
-    return res.status(403).json({ message: 'Unauthorized - admin access required' });
-  }
+
+
   if (!targetUserId) {
     return res.status(400).json({ message: 'Target user ID is required' });
   }
@@ -50,7 +49,9 @@ export default async function handler(req, res) {
     if (!moderator || !moderator.staff) {
       return res.status(403).json({ message: 'Unauthorized - staff access required' });
     }
-
+    if (moderator.username !== 'codergautam') {
+      return res.status(403).json({ message: 'Unauthorized - admin access required' });
+    }
     // Find target user
     const targetUser = await User.findById(targetUserId);
     if (!targetUser) {

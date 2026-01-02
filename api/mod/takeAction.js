@@ -520,6 +520,21 @@ export default async function handler(req, res) {
           pendingNameChangePublicNote: publicNote || null // Shown to user
         });
 
+        // Enforce name change immediately via WebSocket if player is connected
+        if (process.env.MAINTENANCE_SECRET && process.env.WS_PORT) {
+          try {
+            const wsPort = process.env.WS_PORT || 3002;
+            const wsUrl = `http://localhost:${wsPort}/enforce-ban/${process.env.MAINTENANCE_SECRET}/${targetUserId}`;
+
+            const wsResponse = await fetch(wsUrl, { method: 'GET' });
+            const wsResult = await wsResponse.json();
+            console.log('WebSocket name change enforcement result:', wsResult);
+          } catch (error) {
+            // Non-critical: Name change requirement still succeeded in database
+            console.error('Failed to enforce name change via WebSocket (non-critical):', error.message);
+          }
+        }
+
         // Find ALL pending inappropriate_username reports against this user
         // (only resolve username reports, not cheating reports)
         const pendingUsernameReportIds = await Report.find({
