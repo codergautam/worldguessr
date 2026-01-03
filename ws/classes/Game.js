@@ -118,7 +118,6 @@ export default class Game {
       tag,
       lastPong: Date.now() // Track the last pong received time
     };
-    console.log('addPlayer - sending playerObj:', JSON.stringify(playerObj));
     this.sendAllPlayers({
       type: 'player',
       action: 'add',
