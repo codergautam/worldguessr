@@ -323,5 +323,10 @@
   "currentElo": "ELO actual",
   "language": "Idioma",
   "degradedMaps": "La desactivación de etiquetas de carreteras y funciones NMPZ no está disponible temporalmente. Estamos trabajando para solucionar este problema lo antes posible.",
-  "duelWarningText": "El uso de Google o cualquier ayuda externa está prohibido y dará como resultado una prohibición."
+  "duelWarningText": "El uso de Google o cualquier ayuda externa está prohibido y dará como resultado una prohibición.",
+
+  "setFlag": "Establecer bandera",
+  "changeFlag": "Cambiar bandera",
+  "searchCountries": "Buscar países...",
+  "removeFlag": "Quitar bandera"
 }

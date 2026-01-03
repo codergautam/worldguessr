@@ -323,5 +323,10 @@
   "currentElo": "Aktueller Elo",
   "language": "Sprache",
   "degradedMaps": "Die Deaktivierung von Straßenmarkierungen und NMPZ-Funktionen ist vorübergehend nicht verfügbar. Wir arbeiten daran, dies so schnell wie möglich zu beheben.",
-  "duelWarningText": "Die Verwendung von Google oder einer externen Hilfe ist verboten und führt zu einem Verbot."
+  "duelWarningText": "Die Verwendung von Google oder einer externen Hilfe ist verboten und führt zu einem Verbot.",
+
+  "setFlag": "Flagge setzen",
+  "changeFlag": "Flagge ändern",
+  "searchCountries": "Länder suchen...",
+  "removeFlag": "Flagge entfernen"
 }
