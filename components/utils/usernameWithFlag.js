@@ -20,8 +20,9 @@ export default function UsernameWithFlag({
 
   return (
     <>
+      {displayName}
+      {countryCode && ' '}
       {countryCode && <CountryFlag countryCode={countryCode} style={flagStyle} />}
-      <span style={usernameStyle}>{displayName}</span>
     </>
   );
 }

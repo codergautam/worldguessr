@@ -133,10 +133,10 @@ const Leaderboard = ({ }) => {
               <div className={styles.myRankCard}>
                 <div className={styles.rankBadge}>#{leaderboardData.myRank}</div>
                 <div className={styles.playerInfo}>
-                  <span className={styles.playerName} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    {session.token.username}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px'}}>
+                    <span className={styles.playerName}>{session.token.username}</span>
                     {leaderboardData.myCountryCode && <CountryFlag countryCode={leaderboardData.myCountryCode} style={{ fontSize: '0.9em' }} />}
-                  </span>
+                  </div>
                   <span className={styles.playerScore}>
                     {useElo ? leaderboardData?.myElo?.toFixed(0) : leaderboardData?.myXp?.toFixed(0)}
                     <span className={styles.scoreType}>{useElo ? 'Elo' : 'XP'}</span>

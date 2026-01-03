@@ -41,6 +41,7 @@ export default class Player {
       ws: null,
       username: this.username,
       accountId: this.accountId,
+      countryCode: this.countryCode,
       gameId: this.gameId,
       inQueue: false,
       lastMessage: this.lastMessage,
@@ -89,7 +90,7 @@ export default class Player {
       // This ensures users banned/forced to change name while disconnected are properly blocked
       if (accountId) {
         try {
-          const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange');
+          const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange countryCode');
           if (freshUserData) {
             let isBanned = freshUserData.banned;
 
@@ -107,7 +108,7 @@ export default class Player {
 
             dcPlayer.banned = isBanned;
             dcPlayer.pendingNameChange = freshUserData.pendingNameChange;
-
+            dcPlayer.countryCode = freshUserData.countryCode;
             // Also set banned if pending name change
             if (dcPlayer.pendingNameChange) {
               dcPlayer.banned = true;
@@ -224,6 +225,7 @@ export default class Player {
             this.supporter = valid.supporter;
             this.username = valid.username;
             this.accountId = valid._id.toString();
+            this.countryCode = valid.countryCode;
             this.elo = valid.elo;
 
             // Check ban status - handle temp bans that may have expired
