@@ -26,6 +26,7 @@
     "colors": "^1.4.0",
     "coordinate_to_country": "^1.1.0",
     "cors": "^2.8.5",
+    "countries-and-timezones": "^4.1.0",
     "countries-code": "^1.1.1",
     "cross-env": "^7.0.3",
     "discord-webhook-node": "^1.1.8",
@@ -56,6 +57,7 @@
     "sass": "^1.77.2",
     "sharp": "^0.33.5",
     "stats.js": "^0.17.0",
+    "twemoji": "^14.0.2",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.52.0",
     "uuid": "^9.0.1"
   },

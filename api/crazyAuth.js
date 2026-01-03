@@ -6,6 +6,7 @@ import axios from "axios";
 import { createUUID } from "../components/createUUID.js";
 import User from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
+import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
 
 export default async function handler(req, res) {
   // only accept post
@@ -37,6 +38,15 @@ export default async function handler(req, res) {
   // check if userId exists
   const user = await User.findOne({ crazyGamesId: userId }).cache(120);
   if (user) {
+    // Auto-assign country code from timezone if not set (lazy migration)
+    if (user.countryCode === null && user.timeZone) {
+      const countryCode = timezoneToCountry(user.timeZone);
+      if (countryCode) {
+        await User.findByIdAndUpdate(user._id, { countryCode });
+        user.countryCode = countryCode;
+      }
+    }
+
     return res.status(200).json({ secret: user.secret, username: user.username, email: user.email, staff: user.staff, canMakeClues: user.canMakeClues, supporter: user.supporter, accountId: user._id });
   }
 
@@ -58,6 +68,15 @@ export default async function handler(req, res) {
   // create new user
   const secret = createUUID();
   const newUser = new User({ crazyGamesId: userId, username: finalUsername, secret });
+
+  // Set country code from timezone for new users
+  if (newUser.timeZone) {
+    const countryCode = timezoneToCountry(newUser.timeZone);
+    if (countryCode) {
+      newUser.countryCode = countryCode;
+    }
+  }
+
   await newUser.save();
 
   // try {

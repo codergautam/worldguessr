@@ -166,7 +166,8 @@ export default async function handler(req, res) {
         ties: user.duels_tied || 0,
         winRate: parseFloat(winRate.toFixed(3))
       },
-      supporter: user.supporter === true
+      supporter: user.supporter === true,
+      countryCode: user.countryCode || null
     };
 
     // Cache the response using userId
