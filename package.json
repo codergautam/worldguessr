@@ -57,7 +57,6 @@
     "sass": "^1.77.2",
     "sharp": "^0.33.5",
     "stats.js": "^0.17.0",
-    "twemoji": "^14.0.2",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.52.0",
     "uuid": "^9.0.1"
   },
