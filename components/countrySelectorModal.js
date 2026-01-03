@@ -47,9 +47,6 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
   };
 
   const handleRemoveFlag = async () => {
-    if (!confirm(text('confirmRemoveFlag') || 'Remove your country flag?')) {
-      return;
-    }
     await handleSelect('');
   };
 
