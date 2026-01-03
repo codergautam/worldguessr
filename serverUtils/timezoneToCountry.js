@@ -21,9 +21,15 @@ export const VALID_COUNTRY_CODES = [
 ];
 
 /**
- * Converts an IANA timezone string to ISO 3166-1 alpha-2 country code
- * @param {string} timezone - IANA timezone (e.g., "America/New_York")
- * @returns {string|null} - ISO alpha-2 country code (e.g., "US") or null
+ * Converts an IANA timezone string to an ISO 3166-1 alpha-2 country code.
+ *
+ * @param {string} timezone - IANA timezone (e.g., "America/New_York").
+ * @returns {string|null} ISO alpha-2 country code (e.g., "US") if a country is
+ * associated with the given timezone; otherwise `null`. Returns `null` when:
+ * - `timezone` is missing or not a string,
+ * - the timezone is not recognized,
+ * - the timezone is valid but has no associated countries, or
+ * - an error occurs while looking up the timezone.
  */
 export default function timezoneToCountry(timezone) {
   if (!timezone || typeof timezone !== 'string') {
