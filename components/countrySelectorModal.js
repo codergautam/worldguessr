@@ -2,25 +2,7 @@ import { Modal } from "react-responsive-modal";
 import { useState, useMemo } from "react";
 import { useTranslation } from '@/components/useTranslations';
 import nameFromCode from './utils/nameFromCode';
-
-// All ISO 3166-1 alpha-2 country codes
-const ALL_COUNTRIES = [
-  'AF', 'AL', 'DZ', 'AS', 'AD', 'AO', 'AI', 'AQ', 'AG', 'AR', 'AM', 'AW', 'AU', 'AT',
-  'AZ', 'BS', 'BH', 'BD', 'BB', 'BY', 'BE', 'BZ', 'BJ', 'BM', 'BT', 'BO', 'BA', 'BW',
-  'BR', 'BN', 'BG', 'BF', 'BI', 'KH', 'CM', 'CA', 'CV', 'KY', 'CF', 'TD', 'CL', 'CN',
-  'CO', 'KM', 'CG', 'CD', 'CR', 'CI', 'HR', 'CU', 'CY', 'CZ', 'DK', 'DJ', 'DM', 'DO',
-  'EC', 'EG', 'SV', 'GQ', 'ER', 'EE', 'ET', 'FJ', 'FI', 'FR', 'GA', 'GM', 'GE', 'DE',
-  'GH', 'GR', 'GD', 'GT', 'GN', 'GW', 'GY', 'HT', 'HN', 'HK', 'HU', 'IS', 'IN', 'ID',
-  'IR', 'IQ', 'IE', 'IL', 'IT', 'JM', 'JP', 'JO', 'KZ', 'KE', 'KI', 'KP', 'KR', 'KW',
-  'KG', 'LA', 'LV', 'LB', 'LS', 'LR', 'LY', 'LI', 'LT', 'LU', 'MK', 'MG', 'MW', 'MY',
-  'MV', 'ML', 'MT', 'MH', 'MR', 'MU', 'MX', 'FM', 'MD', 'MC', 'MN', 'ME', 'MA', 'MZ',
-  'MM', 'NA', 'NR', 'NP', 'NL', 'NZ', 'NI', 'NE', 'NG', 'NO', 'OM', 'PK', 'PW', 'PS',
-  'PA', 'PG', 'PY', 'PE', 'PH', 'PL', 'PT', 'QA', 'RO', 'RU', 'RW', 'KN', 'LC', 'VC',
-  'WS', 'SM', 'ST', 'SA', 'SN', 'RS', 'SC', 'SL', 'SG', 'SK', 'SI', 'SB', 'SO', 'ZA',
-  'SS', 'ES', 'LK', 'SD', 'SR', 'SZ', 'SE', 'CH', 'SY', 'TW', 'TJ', 'TZ', 'TH', 'TL',
-  'TG', 'TO', 'TT', 'TN', 'TR', 'TM', 'TV', 'UG', 'UA', 'AE', 'GB', 'US', 'UY', 'UZ',
-  'VU', 'VE', 'VN', 'YE', 'ZM', 'ZW'
-];
+import { VALID_COUNTRY_CODES } from '@/serverUtils/timezoneToCountry';
 
 export default function CountrySelectorModal({ shown, onClose, currentCountry, onSelect, session }) {
   const { t: text } = useTranslation("common");
@@ -28,10 +10,10 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
   const [saving, setSaving] = useState(false);
 
   const filteredCountries = useMemo(() => {
-    if (!searchQuery) return ALL_COUNTRIES;
+    if (!searchQuery) return VALID_COUNTRY_CODES;
 
     const query = searchQuery.toLowerCase();
-    return ALL_COUNTRIES.filter(code => {
+    return VALID_COUNTRY_CODES.filter(code => {
       const name = nameFromCode(code);
       return name.toLowerCase().includes(query) || code.toLowerCase().includes(query);
     });
