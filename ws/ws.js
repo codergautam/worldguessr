@@ -746,7 +746,6 @@ app.ws('/wg', {
 
       if (json.type === 'updateCountryCode' && player.accountId && typeof json.countryCode === 'string') {
         // Update player's countryCode
-        console.log('updateCountryCode', json.countryCode);
         player.countryCode = json.countryCode || null;
       }
 
