@@ -3,6 +3,7 @@ import { useTranslation } from '@/components/useTranslations';
 import formatTime from '../utils/formatTime';
 import styles from '../styles/gameHistory.module.css';
 import Link from 'next/link';
+import CountryFlag from './utils/countryFlag';
 
 export default function GameHistory({ session, onGameClick, targetUserSecret = null, targetUserData = null }) {
   const { t: text } = useTranslation("common");
@@ -116,7 +117,15 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
   return (
     <div className={styles.gameHistory}>
       <div className={styles.gameHistoryHeader}>
-        <h3>{targetUserData ? `Game History for ${targetUserData.username}` : text('gameHistory')}</h3>
+        <h3>
+          {targetUserData ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Game History for{' '}
+              {targetUserData.countryCode && <CountryFlag countryCode={targetUserData.countryCode} style={{ fontSize: '0.9em' }} />}
+              {targetUserData.username}
+            </span>
+          ) : text('gameHistory')}
+        </h3>
         {targetUserData && (
           <div className="mod-user-info" style={{
             fontSize: '0.9rem',
@@ -185,17 +194,20 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
                       </span>
                     </div>
                     <div className={styles.statItem}>
-                      <span className={styles.statLabel}>{text('opponent')}</span> 
-                      <span className={styles.statValue}>
+                      <span className={styles.statLabel}>{text('opponent')}</span>
+                      <span className={styles.statValue} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {game.opponent?.username ? (
-                          <Link 
-                            href={`/user?u=${encodeURIComponent(game.opponent.username)}`}
-                            onClick={(e) => e.stopPropagation()}
-                            target="_blank"
-                            style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
-                          >
-                            {game.opponent.username}
-                          </Link>
+                          <>
+                            {game.opponent.countryCode && <CountryFlag countryCode={game.opponent.countryCode} style={{ fontSize: '0.9em' }} />}
+                            <Link
+                              href={`/user?u=${encodeURIComponent(game.opponent.username)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              target="_blank"
+                              style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
+                            >
+                              {game.opponent.username}
+                            </Link>
+                          </>
                         ) : (
                           text('unknown')
                         )}

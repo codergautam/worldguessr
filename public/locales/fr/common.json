@@ -323,5 +323,10 @@
   "currentElo": "ELO actuel",
   "language": "Langue",
   "degradedMaps": "La désactivation des étiquettes routières et des fonctionnalités NMPZ est temporairement indisponible. Nous travaillons pour résoudre ce problème le plus rapidement possible.",
-  "duelWarningText": "L'utilisation de Google ou de toute aide externe est interdite et entraînera une interdiction."
+  "duelWarningText": "L'utilisation de Google ou de toute aide externe est interdite et entraînera une interdiction.",
+
+  "setFlag": "Définir le drapeau",
+  "changeFlag": "Changer le drapeau",
+  "searchCountries": "Rechercher des pays...",
+  "removeFlag": "Supprimer le drapeau"
 }

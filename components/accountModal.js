@@ -10,6 +10,7 @@ import { signOut } from "@/components/auth/auth";
 import { useTranslation } from '@/components/useTranslations';
 import FriendsModal from "@/components/friendModal";
 import { FaLink, FaCheck } from "react-icons/fa";
+import CountryFlag from './utils/countryFlag';
 
 export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
     const { t: text } = useTranslation("common");
@@ -217,8 +218,9 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                                 padding: isTouchDevice ? '10px 20px' : undefined,
                                 minHeight: isTouchDevice ? '50px' : undefined
                             }}>
-                                <h1 className="account-modal-title">
+                                <h1 className="account-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     {accountData?.username || text("account")}
+                                    {accountData?.countryCode && <CountryFlag countryCode={accountData.countryCode} style={{ fontSize: '0.8em' }} />}
                                     {accountData?.username && (
                                         <button
                                             onClick={() => {

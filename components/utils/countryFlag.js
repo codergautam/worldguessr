@@ -1,24 +1,9 @@
-import { useEffect, useRef } from 'react';
-import twemoji from 'twemoji';
-
 /**
- * Renders a country flag emoji using Twemoji for cross-platform consistency
+ * Renders a country flag emoji
  * @param {string} countryCode - ISO 3166-1 alpha-2 country code (e.g., "US")
  * @param {object} style - Optional inline styles
  */
 export default function CountryFlag({ countryCode, style = {} }) {
-  const flagRef = useRef(null);
-
-  useEffect(() => {
-    if (flagRef.current && countryCode) {
-      // Parse emoji to Twemoji image
-      twemoji.parse(flagRef.current, {
-        folder: 'svg',
-        ext: '.svg'
-      });
-    }
-  }, [countryCode]);
-
   // Return null if no country code or empty string (user opted out)
   if (!countryCode || countryCode === '') {
     return null;
@@ -38,7 +23,6 @@ export default function CountryFlag({ countryCode, style = {} }) {
 
   return (
     <span
-      ref={flagRef}
       style={{
         display: 'inline-block',
         marginRight: '6px',
