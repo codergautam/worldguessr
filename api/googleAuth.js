@@ -3,6 +3,7 @@ import User from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
 import { OAuth2Client } from "google-auth-library";
 import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
+import cachegoose from 'recachegoose';
 
 const client = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, 'postmessage');
 
@@ -77,6 +78,13 @@ export default async function handler(req, res) {
         if (countryCode) {
           await User.findByIdAndUpdate(checkedUser._id, { countryCode });
           checkedUser.countryCode = countryCode;
+
+          // Clear auth cache to ensure fresh data on next request
+          cachegoose.clearCache(`userAuth_${secret}`, (error) => {
+            if (error) {
+              console.error('Error clearing auth cache after country code update:', error);
+            }
+          });
         }
       }
 
@@ -113,6 +121,13 @@ export default async function handler(req, res) {
             if (countryCode) {
               await User.findByIdAndUpdate(checkedUser2._id, { countryCode });
               checkedUser2.countryCode = countryCode;
+
+              // Clear auth cache to ensure fresh data on next request
+              cachegoose.clearCache(`userAuth_${secret}`, (error) => {
+                if (error) {
+                  console.error('Error clearing auth cache after country code update:', error);
+                }
+              });
             }
           }
 
