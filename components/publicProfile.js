@@ -63,8 +63,8 @@ export default function PublicProfile({ profileData, eloData }) {
                 {/* Header */}
                 <div className="public-profile-header">
                     <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        {profileData?.countryCode && <CountryFlag countryCode={profileData.countryCode} style={{ fontSize: '0.9em' }} />}
                         {profileData?.username}
+                        {profileData?.countryCode && <CountryFlag countryCode={profileData.countryCode} style={{ fontSize: '0.9em' }} />}
                         {profileData?.supporter && (
                             <span style={badgeStyle}>
                                 SUPPORTER

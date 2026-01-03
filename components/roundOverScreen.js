@@ -1173,8 +1173,8 @@ const GameSummary = ({
                           <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                               <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                {myData?.countryCode && <CountryFlag countryCode={myData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
                                 {options?.isModView ? (myData?.username || text("player1")) : text("you")}
+                                {myData?.countryCode && <CountryFlag countryCode={myData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
                               </span>
                               <span className="score-points" style={{ color: getPointsColor(myPoints), fontWeight: 'bold' }}>
                                 {myPoints} {text("pts")}
@@ -1206,8 +1206,8 @@ const GameSummary = ({
                                 }}
 
                               >
-                                {opponentData?.countryCode && <CountryFlag countryCode={opponentData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
                                 {opponentData?.username || text("opponent")}
+                                {opponentData?.countryCode && <CountryFlag countryCode={opponentData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
                                 {isOpponentReported && ' (reported)'}
                               </span>
                               <span className="score-points" style={{ color: getPointsColor(opponentPoints), fontWeight: 'bold' }}>

@@ -27,6 +27,7 @@ function sendableUser(user) {
   }
   return {
     username: user.username,
+    countryCode: user.countryCode || null,
     totalXp: user.totalXp ?? user.xpGained ?? 0,
     createdAt: user.created_at,
     gamesLen: user.totalGamesPlayed ?? 0,
@@ -95,7 +96,7 @@ async function getDailyLeaderboard(isXp = true) {
     _id: { $in: userIds },
     banned: { $ne: true },
     pendingNameChange: { $ne: true }
-  }).select('_id username elo totalXp created_at games').lean();
+  }).select('_id username countryCode elo totalXp created_at games').lean();
 
   const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
@@ -106,6 +107,7 @@ async function getDailyLeaderboard(isXp = true) {
 
     return {
       username: user.username,
+      countryCode: user.countryCode || null,
       totalXp: isXp ? delta.delta : user.totalXp, // For XP show delta, for ELO show current total XP
       createdAt: user.created_at,
       gamesLen: user.games?.length || 0,

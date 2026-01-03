@@ -120,9 +120,8 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
         <h3>
           {targetUserData ? (
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Game History for{' '}
+              Game History for {targetUserData.username}
               {targetUserData.countryCode && <CountryFlag countryCode={targetUserData.countryCode} style={{ fontSize: '0.9em' }} />}
-              {targetUserData.username}
             </span>
           ) : text('gameHistory')}
         </h3>
@@ -198,7 +197,6 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
                       <span className={styles.statValue} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         {game.opponent?.username ? (
                           <>
-                            {game.opponent.countryCode && <CountryFlag countryCode={game.opponent.countryCode} style={{ fontSize: '0.9em' }} />}
                             <Link
                               href={`/user?u=${encodeURIComponent(game.opponent.username)}`}
                               onClick={(e) => e.stopPropagation()}
@@ -207,6 +205,7 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
                             >
                               {game.opponent.username}
                             </Link>
+                            {game.opponent.countryCode && <CountryFlag countryCode={game.opponent.countryCode} style={{ fontSize: '0.9em' }} />}
                           </>
                         ) : (
                           text('unknown')
