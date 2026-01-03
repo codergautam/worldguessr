@@ -74,16 +74,12 @@ export default async function handler(req, res) {
   }
 
   // create new user
+  // Note: countryCode is left as null (schema default) for new users.
+  // We don't auto-assign based on timeZone here because timeZone defaults to
+  // 'America/Los_Angeles', which would incorrectly assign all new users to 'US'.
+  // Users can manually set their country flag later in their profile.
   const secret = createUUID();
   const newUser = new User({ crazyGamesId: userId, username: finalUsername, secret });
-
-  // Set country code from timezone for new users
-  if (newUser.timeZone) {
-    const countryCode = timezoneToCountry(newUser.timeZone);
-    if (countryCode) {
-      newUser.countryCode = countryCode;
-    }
-  }
 
   await newUser.save();
 

@@ -181,16 +181,12 @@ export default async function handler(req, res) {
       const existingUser = await User.findOne({ email });
       let secret = null;
       if (!existingUser) {
+        // Note: countryCode is left as null (schema default) for new users.
+        // We don't auto-assign based on timeZone here because timeZone defaults to
+        // 'America/Los_Angeles', which would incorrectly assign all new users to 'US'.
+        // Users can manually set their country flag later in their profile.
         secret = createUUID();
         const newUser = new User({ email, secret });
-
-        // Set country code from timezone for new users
-        if (newUser.timeZone) {
-          const countryCode = timezoneToCountry(newUser.timeZone);
-          if (countryCode) {
-            newUser.countryCode = countryCode;
-          }
-        }
 
         await newUser.save();
 
