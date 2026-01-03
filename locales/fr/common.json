@@ -327,6 +327,9 @@
 
   "setFlag": "Définir le drapeau",
   "changeFlag": "Changer le drapeau",
+  "searchCountry": "Rechercher un pays...",
   "searchCountries": "Rechercher des pays...",
-  "removeFlag": "Supprimer le drapeau"
+  "removeFlag": "Supprimer le drapeau",
+  "selectCountryFlag": "Sélectionnez le drapeau de votre pays",
+  "confirmRemoveFlag": "Supprimer le drapeau de votre pays ?"
 }

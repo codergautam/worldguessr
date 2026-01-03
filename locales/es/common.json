@@ -327,6 +327,9 @@
 
   "setFlag": "Establecer bandera",
   "changeFlag": "Cambiar bandera",
+  "searchCountry": "Buscar país...",
   "searchCountries": "Buscar países...",
-  "removeFlag": "Quitar bandera"
+  "removeFlag": "Quitar bandera",
+  "selectCountryFlag": "Selecciona tu bandera de país",
+  "confirmRemoveFlag": "¿Quitar la bandera de tu país?"
 }

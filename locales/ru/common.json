@@ -327,6 +327,9 @@
 
   "setFlag": "Установить флаг",
   "changeFlag": "Изменить флаг",
+  "searchCountry": "Поиск страны...",
   "searchCountries": "Поиск стран...",
-  "removeFlag": "Удалить флаг"
+  "removeFlag": "Удалить флаг",
+  "selectCountryFlag": "Выберите флаг вашей страны",
+  "confirmRemoveFlag": "Удалить флаг вашей страны?"
 }
