@@ -104,6 +104,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                             supporter={session?.token?.supporter}
                             eloData={eloData}
                             session={session}
+                            ws={ws}
                         />
 
                         {!inCrazyGames && (

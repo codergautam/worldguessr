@@ -4,7 +4,7 @@ import { useTranslation } from '@/components/useTranslations';
 import nameFromCode from './utils/nameFromCode';
 import { VALID_COUNTRY_CODES } from '@/serverUtils/timezoneToCountry';
 
-export default function CountrySelectorModal({ shown, onClose, currentCountry, onSelect, session }) {
+export default function CountrySelectorModal({ shown, onClose, currentCountry, onSelect, session, ws }) {
   const { t: text } = useTranslation("common");
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
@@ -34,6 +34,15 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
       if (response.ok) {
         const data = await response.json();
         onSelect(data.countryCode);
+
+        // Send WebSocket message to update countryCode in real-time
+        if (ws) {
+          ws.send(JSON.stringify({
+            type: 'updateCountryCode',
+            countryCode: data.countryCode || ''
+          }));
+        }
+
         onClose();
       } else {
         const error = await response.json();

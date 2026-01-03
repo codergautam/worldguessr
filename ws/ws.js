@@ -744,6 +744,12 @@ app.ws('/wg', {
         game.removePlayer(player);
       }
 
+      if (json.type === 'updateCountryCode' && player.accountId && typeof json.countryCode === 'string') {
+        // Update player's countryCode
+        console.log('updateCountryCode', json.countryCode);
+        player.countryCode = json.countryCode || null;
+      }
+
       if (json.type === "inviteFriend" && player.accountId && json.friendId && player.gameId) {
         // here friendId is the socket id
         const friend = players.get(json.friendId);

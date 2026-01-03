@@ -8,7 +8,7 @@ import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 import CountrySelectorModal from "./countrySelectorModal";
 
-export default function AccountView({ accountData, supporter, eloData, session, isPublic = false, username = null, viewingPublicProfile = false }) {
+export default function AccountView({ accountData, supporter, eloData, session, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
     const { t: text } = useTranslation("common");
     const [showForcedNameChangeModal, setShowForcedNameChangeModal] = useState(false);
     const [showCountrySelector, setShowCountrySelector] = useState(false);
@@ -294,6 +294,7 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                         setCurrentCountry(newCountry);
                     }}
                     session={session}
+                    ws={ws}
                 />
             )}
         </div>
