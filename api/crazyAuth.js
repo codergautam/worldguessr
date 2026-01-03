@@ -40,7 +40,8 @@ export default async function handler(req, res) {
   const user = await User.findOne({ crazyGamesId: userId }).cache(120, `crazyAuth_${userId}`);
   if (user) {
     // Auto-assign country code from timezone if not set (lazy migration)
-    if (user.countryCode === null && user.timeZone) {
+    // Use == null to catch both null and undefined (for users without the field)
+    if (user.countryCode == null && user.timeZone) {
       const countryCode = timezoneToCountry(user.timeZone);
       if (countryCode) {
         await User.findByIdAndUpdate(user._id, { countryCode });

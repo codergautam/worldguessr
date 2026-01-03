@@ -73,7 +73,8 @@ export default async function handler(req, res) {
       const checkedUser = await checkTempBanExpiration(userDb);
 
       // Auto-assign country code from timezone if not set (lazy migration)
-      if (checkedUser.countryCode === null && checkedUser.timeZone) {
+      // Use == null to catch both null and undefined (for users without the field)
+      if (checkedUser.countryCode == null && checkedUser.timeZone) {
         const countryCode = timezoneToCountry(checkedUser.timeZone);
         if (countryCode) {
           await User.findByIdAndUpdate(checkedUser._id, { countryCode });
@@ -116,7 +117,8 @@ export default async function handler(req, res) {
           const checkedUser2 = await checkTempBanExpiration(userDb2);
 
           // Auto-assign country code from timezone if not set (lazy migration)
-          if (checkedUser2.countryCode === null && checkedUser2.timeZone) {
+          // Use == null to catch both null and undefined (for users without the field)
+          if (checkedUser2.countryCode == null && checkedUser2.timeZone) {
             const countryCode = timezoneToCountry(checkedUser2.timeZone);
             if (countryCode) {
               await User.findByIdAndUpdate(checkedUser2._id, { countryCode });
@@ -210,7 +212,8 @@ export default async function handler(req, res) {
         const checkedUser = await checkTempBanExpiration(existingUser);
 
         // Auto-assign country code from timezone if not set (lazy migration)
-        if (checkedUser.countryCode === null && checkedUser.timeZone) {
+        // Use == null to catch both null and undefined (for users without the field)
+        if (checkedUser.countryCode == null && checkedUser.timeZone) {
           const countryCode = timezoneToCountry(checkedUser.timeZone);
           if (countryCode) {
             await User.findByIdAndUpdate(checkedUser._id, { countryCode });
