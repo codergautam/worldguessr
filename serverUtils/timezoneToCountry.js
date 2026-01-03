@@ -37,7 +37,7 @@ export default function timezoneToCountry(timezone) {
       return timezoneData.countries[0];
     }
   } catch (error) {
-    console.error('Error converting timezone to country:', error);
+    console.error('Error converting timezone to country for timezone:', timezone, error);
   }
 
   return null;
