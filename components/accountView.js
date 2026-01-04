@@ -7,6 +7,7 @@ import { FaClock, FaGamepad, FaStar, FaEye, FaUsers } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 import CountrySelectorModal from "./countrySelectorModal";
+import CountryFlag from "./utils/countryFlag";
 
 export default function AccountView({ accountData, supporter, eloData, session, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
     const { t: text } = useTranslation("common");
@@ -266,8 +267,8 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                         }}
                     >
                         {currentCountry
-                            ? `${String.fromCodePoint(...[...currentCountry].map(c => 0x1F1E6 - 65 + c.charCodeAt(0)))} ${text("changeFlag") || "Change Flag"}`
-                            : `\ud83c\udf0d ${text("setFlag") || "Set Flag"}`
+                            ? <><CountryFlag countryCode={currentCountry} size={18} style={{ marginRight: '8px' }} />{text("changeFlag") || "Change Flag"}</>
+                            : `🌍 ${text("setFlag") || "Set Flag"}`
                         }
                     </button>
                 )}

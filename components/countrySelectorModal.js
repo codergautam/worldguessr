@@ -151,11 +151,12 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
                 }
               }}
             >
-              <span style={{ fontSize: '20px', flexShrink: 0 }}>
-                {String.fromCodePoint(...[...code].map(c =>
-                  0x1F1E6 - 65 + c.charCodeAt(0)
-                ))}
-              </span>
+              <img
+                src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
+                srcSet={`https://flagcdn.com/w80/${code.toLowerCase()}.png 2x`}
+                alt={code}
+                style={{ height: '20px', width: 'auto', flexShrink: 0 }}
+              />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {nameFromCode(code)}
               </span>
