@@ -21,6 +21,7 @@
     "bad-words": "^4.0.0",
     "blocked-at": "^1.2.0",
     "body-parser": "^1.20.3",
+    "canvas-confetti": "^1.9.4",
     "chart.js": "^4.5.0",
     "chartjs-adapter-date-fns": "^3.0.0",
     "colors": "^1.4.0",
