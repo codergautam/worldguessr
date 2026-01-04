@@ -10,7 +10,6 @@ import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
 import UsernameWithFlag from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
-import triggerConfetti from './utils/triggerConfetti';
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -99,22 +98,6 @@ const GameSummary = ({
   const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
   const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
-  const confettiTriggeredRef = useRef(false);
-
-  // Trigger confetti for duels when any round has 4800+ points
-  useEffect(() => {
-    if (duel && !hidden && !confettiTriggeredRef.current && history?.length > 0) {
-      const myId = multiplayerState?.gameData?.myId;
-      const hasHighScore = history.some(round => {
-        const myData = round.players?.[myId];
-        return myData?.points >= 4800;
-      });
-      if (hasHighScore) {
-        confettiTriggeredRef.current = true;
-        triggerConfetti();
-      }
-    }
-  }, [duel, hidden, history, multiplayerState?.gameData?.myId]);
 
   // Initialize Leaflet icons when available
   useEffect(() => {
@@ -181,10 +164,6 @@ const GameSummary = ({
           requestAnimationFrame(animate);
         } else {
           setAnimatedPoints(endValue);
-          // Trigger confetti for high scores (4800+)
-          if (endValue >= 4800) {
-            triggerConfetti();
-          }
         }
       };
 
