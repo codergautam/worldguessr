@@ -149,7 +149,8 @@ export default function AccountView({ accountData, supporter, eloData, session, 
         transition: 'all 0.3s ease',
         boxShadow: '0 4px 15px rgba(40, 167, 69, 0.3)',
         textTransform: 'uppercase',
-        letterSpacing: '0.5px'
+        letterSpacing: '0.5px',
+        display: 'block'
     };
 
     const warningStyle = {
