@@ -4,6 +4,7 @@ import { useSession } from '@/components/auth/auth';
 import { useTranslation } from '@/components/useTranslations'
 import config from '@/clientConfig';
 import styles from '@/styles/Leaderboard.module.css';
+import CountryFlag from '@/components/utils/countryFlag';
 
 const Leaderboard = ({ }) => {
   const { t: text } = useTranslation("common");
@@ -132,7 +133,10 @@ const Leaderboard = ({ }) => {
               <div className={styles.myRankCard}>
                 <div className={styles.rankBadge}>#{leaderboardData.myRank}</div>
                 <div className={styles.playerInfo}>
-                  <span className={styles.playerName}>{session.token.username}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px'}}>
+                    <span className={styles.playerName}>{session.token.username}</span>
+                    {leaderboardData.myCountryCode && <CountryFlag countryCode={leaderboardData.myCountryCode} style={{ fontSize: '0.9em' }} />}
+                  </div>
                   <span className={styles.playerScore}>
                     {useElo ? leaderboardData?.myElo?.toFixed(0) : leaderboardData?.myXp?.toFixed(0)}
                     <span className={styles.scoreType}>{useElo ? 'Elo' : 'XP'}</span>
@@ -161,10 +165,11 @@ const Leaderboard = ({ }) => {
                       target="_blank"
                       rel="noopener noreferrer"
                       className={styles.username}
-                      style={{ textDecoration: 'none', color: 'inherit' }}
+                      style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
                       onClick={(e) => e.stopPropagation()}
                     >
                       {user.username}
+                      {user.countryCode && <CountryFlag countryCode={user.countryCode} style={{ fontSize: '0.9em' }} />}
                     </a>
                   </div>
 

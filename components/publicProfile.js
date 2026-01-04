@@ -2,6 +2,7 @@ import { useState } from "react";
 import AccountView from "./accountView";
 import EloView from "./eloView";
 import { useTranslation } from '@/components/useTranslations';
+import CountryFlag from './utils/countryFlag';
 
 export default function PublicProfile({ profileData, eloData }) {
     const { t: text } = useTranslation("common");
@@ -61,8 +62,9 @@ export default function PublicProfile({ profileData, eloData }) {
             <div className="public-profile-content">
                 {/* Header */}
                 <div className="public-profile-header">
-                    <h1>
+                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                         {profileData?.username}
+                        {profileData?.countryCode && <CountryFlag countryCode={profileData.countryCode} style={{ fontSize: '0.9em' }} />}
                         {profileData?.supporter && (
                             <span style={badgeStyle}>
                                 SUPPORTER

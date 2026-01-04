@@ -83,6 +83,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'America/Los_Angeles',
   },
+  countryCode: {
+    type: String,
+    default: null,
+    validate: {
+      validator: function(v) {
+        // Allow null or empty string (user opted out) or valid ISO 3166-1 alpha-2 country codes
+        if (v === null || v === '') return true;
+        return /^[A-Z]{2}$/.test(v);
+      },
+      message: props => `${props.value} is not a valid ISO 3166-1 alpha-2 country code`
+    }
+  },
   streak: {
     type: Number,
     default: 0,

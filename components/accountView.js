@@ -6,13 +6,31 @@ import { createPortal } from "react-dom";
 import { FaClock, FaGamepad, FaStar, FaEye, FaUsers } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
+import CountrySelectorModal from "./countrySelectorModal";
 
-export default function AccountView({ accountData, supporter, eloData, session, isPublic = false, username = null, viewingPublicProfile = false }) {
+export default function AccountView({ accountData, supporter, eloData, session, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
     const { t: text } = useTranslation("common");
     const [showForcedNameChangeModal, setShowForcedNameChangeModal] = useState(false);
+    const [showCountrySelector, setShowCountrySelector] = useState(false);
+    const [currentCountry, setCurrentCountry] = useState(null);
 
     // Check if user is forced to change their name
     const isForcedNameChange = !isPublic && session?.token?.pendingNameChange;
+
+    // Load current country on mount
+    useEffect(() => {
+        if (!isPublic && session?.token?.accountId) {
+            // Fetch from user data
+            fetch(window.cConfig.apiUrl + '/api/publicAccount', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: session.token.accountId })
+            })
+                .then(res => res.json())
+                .then(data => setCurrentCountry(data.countryCode || null))
+                .catch(err => console.error('Error loading country:', err));
+        }
+    }, [isPublic, session?.token?.accountId]);
 
     const changeName = async () => {
         // If forced to change name, open the proper modal instead of prompt
@@ -227,6 +245,31 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                         )}
                     </>
                 )}
+
+                {/* Change country flag button - hidden in public view */}
+                {!isPublic && (
+                    <button
+                        style={{
+                            ...buttonStyle,
+                            background: 'linear-gradient(135deg, #2196F3, #1976D2)',
+                            boxShadow: '0 4px 15px rgba(33, 150, 243, 0.3)',
+                        }}
+                        onClick={() => setShowCountrySelector(true)}
+                        onMouseEnter={(e) => {
+                            e.target.style.transform = 'translateY(-2px)';
+                            e.target.style.boxShadow = '0 6px 20px rgba(33, 150, 243, 0.4)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.target.style.transform = 'translateY(0)';
+                            e.target.style.boxShadow = '0 4px 15px rgba(33, 150, 243, 0.3)';
+                        }}
+                    >
+                        {currentCountry
+                            ? `${String.fromCodePoint(...[...currentCountry].map(c => 0x1F1E6 - 65 + c.charCodeAt(0)))} ${text("changeFlag") || "Change Flag"}`
+                            : `\ud83c\udf0d ${text("setFlag") || "Set Flag"}`
+                        }
+                    </button>
+                )}
             </div>
 
             <XPGraph session={session} isPublic={isPublic} username={username} />
@@ -239,6 +282,20 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                     onClose={() => setShowForcedNameChangeModal(false)}
                 />,
                 document.body
+            )}
+
+            {/* Country Selector Modal */}
+            {showCountrySelector && (
+                <CountrySelectorModal
+                    shown={showCountrySelector}
+                    onClose={() => setShowCountrySelector(false)}
+                    currentCountry={currentCountry}
+                    onSelect={(newCountry) => {
+                        setCurrentCountry(newCountry);
+                    }}
+                    session={session}
+                    ws={ws}
+                />
             )}
         </div>
     );

@@ -5,6 +5,7 @@ import { useTranslation } from '@/components/useTranslations';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
+import CountryFlag from './utils/countryFlag';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
 // Dynamic import of react-leaflet components
@@ -209,7 +210,10 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
           <>
             <Marker key={(index*2)} position={{ lat: latLong[0], lng: latLong[1] }} icon={tIcon}>
             <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent  position={{ lat: latLong[0], lng: latLong[1] }}>
-              <span style={{color: "black"}}>{name}</span>
+              <span style={{color: "black", display: 'flex', alignItems: 'center', gap: '4px'}}>
+                {name}
+                {player.countryCode && <CountryFlag countryCode={player.countryCode} style={{ fontSize: '0.9em', marginRight: '0' }} />}
+              </span>
             </Tooltip>
             </Marker>
             <Polyline key={(index*2)+1} positions={[{ lat: latLong[0], lng: latLong[1] }, { lat: location.lat, lng: location.long }]} color="green" />

@@ -109,6 +109,7 @@ export default class Game {
     const playerObj = {
       username: player.username,
       accountId: player.accountId,
+      countryCode: player.countryCode,
       id: player.id,
       score: this.duel ? 5000 : 0,
       host: host && !this.public,
@@ -132,6 +133,7 @@ export default class Game {
       this.rankedDuelPersistentData[player.id] = {
         accountId: player.accountId,
         username: player.username,
+        countryCode: player.countryCode,
         tag: tag,
         initialScore: playerObj.score
       };
@@ -324,6 +326,7 @@ export default class Game {
 
           roundData.players[playerId] = {
             username: player.username,
+            countryCode: player.countryCode,
             lat: player.guess[0],
             long: player.guess[1],
             points: points,
@@ -334,6 +337,7 @@ export default class Game {
           // Player didn't make a guess - still record them with null values
           roundData.players[playerId] = {
             username: player.username,
+            countryCode: player.countryCode,
             lat: null,
             long: null,
             points: 0,
@@ -902,6 +906,7 @@ export default class Game {
             {
               playerId: player1Data.id,
               username: user1.username || 'Player',
+              countryCode: user1.countryCode || null,
               accountId: this.accountIds.p1,
               guessLat: roundData.players[player1Data.id]?.lat || null,
               guessLong: roundData.players[player1Data.id]?.long || null,
@@ -915,6 +920,7 @@ export default class Game {
             {
               playerId: player2Data.id,
               username: user2.username || 'Player',
+              countryCode: user2.countryCode || null,
               accountId: this.accountIds.p2,
               guessLat: roundData.players[player2Data.id]?.lat || null,
               guessLong: roundData.players[player2Data.id]?.long || null,
@@ -957,6 +963,7 @@ export default class Game {
           {
             playerId: player1Data.id,
             username: user1.username || 'Player',
+            countryCode: user1.countryCode || null,
             accountId: this.accountIds.p1,
             totalPoints: player1Data.score,
             totalXp: 0, // Duels don't give XP
@@ -971,6 +978,7 @@ export default class Game {
           {
             playerId: player2Data.id,
             username: user2.username || 'Player',
+            countryCode: user2.countryCode || null,
             accountId: this.accountIds.p2,
             totalPoints: player2Data.score,
             totalXp: 0,
@@ -1056,6 +1064,7 @@ export default class Game {
           playerGuesses: allPlayers.map(player => ({
             playerId: player.id,
             username: player.username || 'Player',
+            countryCode: player.countryCode || null,
             accountId: player.accountId || null, // null for guest users
             guessLat: roundData.players[player.id]?.lat || null,
             guessLong: roundData.players[player.id]?.long || null,
@@ -1075,6 +1084,7 @@ export default class Game {
         .map(player => ({
           playerId: player.id,
           username: player.username || 'Player',
+          countryCode: player.countryCode || null,
           accountId: player.accountId || null, // null for guest users
           totalPoints: player.score || 0,
           totalXp: 0, // Unranked games don't give XP

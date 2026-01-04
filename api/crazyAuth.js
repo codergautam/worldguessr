@@ -6,6 +6,8 @@ import axios from "axios";
 import { createUUID } from "../components/createUUID.js";
 import User from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
+import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
+import cachegoose from 'recachegoose';
 
 export default async function handler(req, res) {
   // only accept post
@@ -35,8 +37,25 @@ export default async function handler(req, res) {
   const { userId } = decodedToken;
 
   // check if userId exists
-  const user = await User.findOne({ crazyGamesId: userId }).cache(120);
+  const user = await User.findOne({ crazyGamesId: userId }).cache(120, `crazyAuth_${userId}`);
   if (user) {
+    // Auto-assign country code from timezone if not set (lazy migration)
+    // Use == null to catch both null and undefined (for users without the field)
+    if (user.countryCode == null && user.timeZone) {
+      const countryCode = timezoneToCountry(user.timeZone);
+      if (countryCode) {
+        await User.findByIdAndUpdate(user._id, { countryCode });
+        user.countryCode = countryCode;
+
+        // Clear auth cache to ensure fresh data on next request
+        cachegoose.clearCache(`crazyAuth_${userId}`, (error) => {
+          if (error) {
+            console.error('Error clearing auth cache after country code update:', error);
+          }
+        });
+      }
+    }
+
     return res.status(200).json({ secret: user.secret, username: user.username, email: user.email, staff: user.staff, canMakeClues: user.canMakeClues, supporter: user.supporter, accountId: user._id });
   }
 
@@ -56,8 +75,13 @@ export default async function handler(req, res) {
   }
 
   // create new user
+  // Note: countryCode is left as null (schema default) for new users.
+  // We don't auto-assign based on timeZone here because timeZone defaults to
+  // 'America/Los_Angeles', which would incorrectly assign all new users to 'US'.
+  // Users can manually set their country flag later in their profile.
   const secret = createUUID();
   const newUser = new User({ crazyGamesId: userId, username: finalUsername, secret });
+
   await newUser.save();
 
   // try {

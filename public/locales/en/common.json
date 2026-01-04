@@ -373,5 +373,13 @@
 
   "daysSingular": "day",
   "daysPlural": "days",
-  "expired": "Expired"
+  "expired": "Expired",
+
+  "setFlag": "Set Flag",
+  "changeFlag": "Change Flag",
+  "searchCountry": "Search country...",
+  "searchCountries": "Search countries...",
+  "removeFlag": "Remove Flag",
+  "selectCountryFlag": "Select Your Country Flag",
+  "confirmRemoveFlag": "Remove your country flag?"
 }

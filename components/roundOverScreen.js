@@ -8,6 +8,8 @@ import formatTime from "../utils/formatTime";
 import { toast } from "react-toastify";
 import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
+import UsernameWithFlag from './utils/usernameWithFlag';
+import CountryFlag from './utils/countryFlag';
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -356,16 +358,17 @@ const GameSummary = ({
       if (round.players) {
         Object.entries(round.players).forEach(([playerId, player]) => {
           if (!allPlayers.has(playerId)) {
-            allPlayers.set(playerId, player.username);
+            allPlayers.set(playerId, { username: player.username, countryCode: player.countryCode });
           }
         });
       }
     });
 
     const players = Array.from(allPlayers.entries())
-      .map(([playerId, username]) => ({
+      .map(([playerId, playerData]) => ({
         playerId,
-        username,
+        username: playerData.username,
+        countryCode: playerData.countryCode,
         totalScore: finalHistory.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
       }))
       .sort((a, b) => b.totalScore - a.totalScore);
@@ -384,16 +387,17 @@ const GameSummary = ({
       if (round.players) {
         Object.entries(round.players).forEach(([playerId, player]) => {
           if (!allPlayers.has(playerId)) {
-            allPlayers.set(playerId, player.username);
+            allPlayers.set(playerId, { username: player.username, countryCode: player.countryCode });
           }
         });
       }
     });
 
     const players = Array.from(allPlayers.entries())
-      .map(([playerId, username]) => ({
+      .map(([playerId, playerData]) => ({
         playerId,
-        username,
+        username: playerData.username,
+        countryCode: playerData.countryCode,
         totalScore: finalHistory.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
       }))
       .sort((a, b) => b.totalScore - a.totalScore);
@@ -431,7 +435,13 @@ const GameSummary = ({
                   {index === 2 && <FaTrophy style={{ color: '#CD7F32', fontSize: '1rem', filter: 'drop-shadow(0 2px 4px rgba(205, 127, 50, 0.3))' }} />}
                 </div>
                 <span className="round-number" style={isReportedUser ? { color: '#f44336', fontWeight: 'bold' } : {}}>
-                  #{index + 1} {player.username} {isCurrentPlayer && !options?.isModView && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
+                  #{index + 1}{' '}
+                  <UsernameWithFlag
+                    username={player.username}
+                    countryCode={player.countryCode}
+                    isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+                  />
+                  {isCurrentPlayer && !options?.isModView && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
                   {isReportedUser && <span style={{ color: '#f44336', fontStyle: 'italic', marginLeft: '4px' }}>(reported)</span>}
                 </span>
               </div>
@@ -1162,7 +1172,10 @@ const GameSummary = ({
                         <div className="round-details">
                           <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{options?.isModView ? (myData?.username || text("player1")) : text("you")}</span>
+                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {options?.isModView ? (myData?.username || text("player1")) : text("you")}
+                                {myData?.countryCode && <CountryFlag countryCode={myData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
+                              </span>
                               <span className="score-points" style={{ color: getPointsColor(myPoints), fontWeight: 'bold' }}>
                                 {myPoints} {text("pts")}
                               </span>
@@ -1187,10 +1200,14 @@ const GameSummary = ({
                                 className="player-name"
                                 style={{
                                   fontSize: '0.9em',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
                                 }}
 
                               >
                                 {opponentData?.username || text("opponent")}
+                                {opponentData?.countryCode && <CountryFlag countryCode={opponentData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
                                 {isOpponentReported && ' (reported)'}
                               </span>
                               <span className="score-points" style={{ color: getPointsColor(opponentPoints), fontWeight: 'bold' }}>

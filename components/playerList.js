@@ -3,6 +3,7 @@ import guestNameString from '@/serverUtils/guestNameFromString';
 import { useEffect } from 'react';
 import { FaCopy } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
+import UsernameWithFlag from './utils/usernameWithFlag';
 
 export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick }) {
   const { t: text } = useTranslation("common");
@@ -91,9 +92,11 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
 
               <div className="multiplayerLeaderboard__player__username">
 
-                {
-                process.env.NEXT_PUBLIC_COOLMATH?guestNameString(player.username):
-                player.username}
+                <UsernameWithFlag
+                  username={player.username}
+                  countryCode={player.countryCode}
+                  isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+                />
                 {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
                 {player.host && <span style={{color: "red"}}> ({text("host")})</span>}
 
@@ -101,9 +104,11 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
 
             ) : (
               <>
-            <div className="multiplayerLeaderboard__player__username">#{i + 1} -      {
-                process.env.NEXT_PUBLIC_COOLMATH?guestNameString(player.username):
-                player.username}
+            <div className="multiplayerLeaderboard__player__username">#{i + 1} - <UsernameWithFlag
+                username={player.username}
+                countryCode={player.countryCode}
+                isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+              />
 
             {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
 
@@ -120,7 +125,11 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
         <span className="multiplayerLeaderboard__separator">...</span>
 
         <div className="multiplayerLeaderboard__player me">
-          <div className="multiplayerLeaderboard__player__username">#{myIndex + 1} - {players[myIndex].username}</div>
+          <div className="multiplayerLeaderboard__player__username">#{myIndex + 1} - <UsernameWithFlag
+            username={players[myIndex].username}
+            countryCode={players[myIndex].countryCode}
+            isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+          /></div>
           <div className="multiplayerLeaderboard__player__score">{players[myIndex].score}</div>
         </div>
         </>

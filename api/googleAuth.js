@@ -2,6 +2,8 @@ import { createUUID } from "../components/createUUID.js";
 import User from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
 import { OAuth2Client } from "google-auth-library";
+import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
+import cachegoose from 'recachegoose';
 
 const client = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, 'postmessage');
 
@@ -64,19 +66,36 @@ export default async function handler(req, res) {
 
     const userDb = await User.findOne({
       secret,
-    }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote").cache(120, `userAuth_${secret}`);
+    }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode").cache(120, `userAuth_${secret}`);
     
     if (userDb) {
       // Check if temp ban has expired
       const checkedUser = await checkTempBanExpiration(userDb);
-      
-      output = { 
-        secret: checkedUser.secret, 
-        username: checkedUser.username, 
-        email: checkedUser.email, 
-        staff: checkedUser.staff, 
-        canMakeClues: checkedUser.canMakeClues, 
-        supporter: checkedUser.supporter, 
+
+      // Auto-assign country code from timezone if not set (lazy migration)
+      // Use == null to catch both null and undefined (for users without the field)
+      if (checkedUser.countryCode == null && checkedUser.timeZone) {
+        const countryCode = timezoneToCountry(checkedUser.timeZone);
+        if (countryCode) {
+          await User.findByIdAndUpdate(checkedUser._id, { countryCode });
+          checkedUser.countryCode = countryCode;
+
+          // Clear auth cache to ensure fresh data on next request
+          cachegoose.clearCache(`userAuth_${secret}`, (error) => {
+            if (error) {
+              console.error('Error clearing auth cache after country code update:', error);
+            }
+          });
+        }
+      }
+
+      output = {
+        secret: checkedUser.secret,
+        username: checkedUser.username,
+        email: checkedUser.email,
+        staff: checkedUser.staff,
+        canMakeClues: checkedUser.canMakeClues,
+        supporter: checkedUser.supporter,
         accountId: checkedUser._id,
         // Ban info (public note only - internal reason never exposed)
         banned: checkedUser.banned,
@@ -92,17 +111,35 @@ export default async function handler(req, res) {
         // try again without cache, to prevent new users getting stuck with no username
         const userDb2 = await User.findOne({
           secret,
-        }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote");
-        
+        }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode");
+
         if(userDb2) {
           const checkedUser2 = await checkTempBanExpiration(userDb2);
-          output = { 
-            secret: checkedUser2.secret, 
-            username: checkedUser2.username, 
-            email: checkedUser2.email, 
-            staff: checkedUser2.staff, 
-            canMakeClues: checkedUser2.canMakeClues, 
-            supporter: checkedUser2.supporter, 
+
+          // Auto-assign country code from timezone if not set (lazy migration)
+          // Use == null to catch both null and undefined (for users without the field)
+          if (checkedUser2.countryCode == null && checkedUser2.timeZone) {
+            const countryCode = timezoneToCountry(checkedUser2.timeZone);
+            if (countryCode) {
+              await User.findByIdAndUpdate(checkedUser2._id, { countryCode });
+              checkedUser2.countryCode = countryCode;
+
+              // Clear auth cache to ensure fresh data on next request
+              cachegoose.clearCache(`userAuth_${secret}`, (error) => {
+                if (error) {
+                  console.error('Error clearing auth cache after country code update:', error);
+                }
+              });
+            }
+          }
+
+          output = {
+            secret: checkedUser2.secret,
+            username: checkedUser2.username,
+            email: checkedUser2.email,
+            staff: checkedUser2.staff,
+            canMakeClues: checkedUser2.canMakeClues,
+            supporter: checkedUser2.supporter,
             accountId: checkedUser2._id,
             banned: checkedUser2.banned,
             banType: checkedUser2.banType || 'none',
@@ -146,17 +183,22 @@ export default async function handler(req, res) {
       const existingUser = await User.findOne({ email });
       let secret = null;
       if (!existingUser) {
+        // Note: countryCode is left as null (schema default) for new users.
+        // We don't auto-assign based on timeZone here because timeZone defaults to
+        // 'America/Los_Angeles', which would incorrectly assign all new users to 'US'.
+        // Users can manually set their country flag later in their profile.
         secret = createUUID();
         const newUser = new User({ email, secret });
+
         await newUser.save();
 
-        output = { 
-          secret: secret, 
-          username: undefined, 
-          email: email, 
-          staff: false, 
-          canMakeClues: false, 
-          supporter: false, 
+        output = {
+          secret: secret,
+          username: undefined,
+          email: email,
+          staff: false,
+          canMakeClues: false,
+          supporter: false,
           accountId: newUser._id,
           banned: false,
           banType: 'none',
@@ -168,14 +210,24 @@ export default async function handler(req, res) {
       } else {
         // Check if temp ban has expired for existing user
         const checkedUser = await checkTempBanExpiration(existingUser);
-        
-        output = { 
-          secret: checkedUser.secret, 
-          username: checkedUser.username, 
-          email: checkedUser.email, 
-          staff: checkedUser.staff, 
-          canMakeClues: checkedUser.canMakeClues, 
-          supporter: checkedUser.supporter, 
+
+        // Auto-assign country code from timezone if not set (lazy migration)
+        // Use == null to catch both null and undefined (for users without the field)
+        if (checkedUser.countryCode == null && checkedUser.timeZone) {
+          const countryCode = timezoneToCountry(checkedUser.timeZone);
+          if (countryCode) {
+            await User.findByIdAndUpdate(checkedUser._id, { countryCode });
+            checkedUser.countryCode = countryCode;
+          }
+        }
+
+        output = {
+          secret: checkedUser.secret,
+          username: checkedUser.username,
+          email: checkedUser.email,
+          staff: checkedUser.staff,
+          canMakeClues: checkedUser.canMakeClues,
+          supporter: checkedUser.supporter,
           accountId: checkedUser._id,
           banned: checkedUser.banned,
           banType: checkedUser.banType || 'none',
