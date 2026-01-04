@@ -1,0 +1,16 @@
+{
+    "CountryCodes": [
+      "*"
+    ],
+    "DistributionStrategy": {
+      "Key": "FixedCountByMaxMinDistance",
+      "LocationCountGoal": 111000,
+      "MinMinDistance": 50,
+      "TreatCountriesAsSingleSubdivision": ["SE", "FI", "CO", "NO", "PH", "RO", "CL", "NG", "KZ", "UA", "PE", "KE", "NZ", "MY", "GR", "BD", "BG", "KH", "HU", "PT", "UY", "MN", "CZ", "EC", "IE", "AT", "LK", "SN", "LT", "BW", "LV", "HR", "KR", "DK", "BO", "GH", "SK", "EE", "NL", "TW", "CH", "RS", "GT", "BE", "IS", "PA", "SI", "KG", "AL", "LS", "AE", "IL", "SZ", "JO", "ME", "MK", "BT", "TN", "QA", "RW", "GL", "PR", "UG", "PS", "FO", "RE", "LU", "HK", "DO", "MG", "LB", "LA", "VI", "AS", "IM", "GU", "EG", "MP", "CR", "CW", "MT", "SJ", "AD", "SG", "BM", "PM", "MO", "CC", "JE", "GI", "PN", "MC", "BY", "VU", "CX"],
+      "CountryDistributionFromMap": "proworld"
+    },
+    "ProximityFilter": {
+      "LocationsPath": "C:\\dev\\priv\\some-path-to-a-file.csv",
+      "Radius": 700
+    }
+  }

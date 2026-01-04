@@ -17,9 +17,9 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         maxDist: multiplayerState?.gameData?.maxDist ?? 20000
     }) : (singlePlayerRound?.lastPoint ?? 0);
 
-    // Trigger confetti for scores >= 4800
+    // Trigger confetti for scores >= 4900
     useEffect(() => {
-        if (guessed && points >= 4800 && !confettiTriggered.current) {
+        if (guessed && points >= 4900 && !confettiTriggered.current) {
             confettiTriggered.current = true;
             triggerConfetti();
         }
