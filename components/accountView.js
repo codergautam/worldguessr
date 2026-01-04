@@ -267,7 +267,7 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                         }}
                     >
                         {currentCountry
-                            ? <><CountryFlag countryCode={currentCountry} size={18} style={{ marginRight: '8px' }} />{text("changeFlag") || "Change Flag"}</>
+                            ? <><CountryFlag countryCode={currentCountry} size={1.2} style={{ marginRight: '8px' }} />{text("changeFlag") || "Change Flag"}</>
                             : `🌍 ${text("setFlag") || "Set Flag"}`
                         }
                     </button>
