@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getLeague } from './utils/leagues';
 import Link from 'next/link';
+import CountryFlag from './utils/countryFlag';
 
 const easeOutElastic = (t) => {
   const c4 = (2 * Math.PI) / 3;
@@ -17,7 +18,7 @@ const easeOutBack = (t) => {
   return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 };
 
-const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel, isOpponent = false }) => {
+const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel, isOpponent = false, countryCode = null }) => {
   const [displayHealth, setDisplayHealth] = useState(health);
   const [prevHealth, setPrevHealth] = useState(health);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -112,7 +113,10 @@ const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel, isOppo
                 textDecoration: 'underline',
                 cursor: 'pointer',
                 transition: 'opacity 0.2s ease',
-                pointerEvents: 'auto'
+                pointerEvents: 'auto',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.opacity = '0.8';
@@ -122,9 +126,13 @@ const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel, isOppo
               }}
             >
               {name}
+              {countryCode && <CountryFlag countryCode={countryCode} />}
             </Link>
           ) : (
-            <span className="player-name">{name}</span>
+            <span className="player-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              {name}
+              {countryCode && <CountryFlag countryCode={countryCode} />}
+            </span>
           )}
           {elo && (
             <span 
