@@ -70,6 +70,10 @@ export default class Player {
 
   setElo(newElo, gameData) {
     if(!this.accountId) return;
+    if(newElo === undefined || newElo === null || isNaN(newElo)) {
+      console.error('Invalid ELO value passed to setElo:', newElo, 'for account:', this.accountId);
+      return;
+    }
     this.elo = newElo;
     this.league = getLeague(newElo).name;
     setElo(this.accountId, newElo, gameData);

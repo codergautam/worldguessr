@@ -44,3 +44,5 @@ public/wiki
 
 /scripts/*.json
 /.claude
+vali-data/*
+mapgens/*
