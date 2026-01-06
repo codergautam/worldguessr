@@ -69,7 +69,7 @@ const dev = process.env.NODE_ENV !== 'production'
 const port = process.env.WS_PORT || 3002;
 
 const playersInQueue = new Map();
-
+const lastDuelOpponent = new Map(); // accountId -> accountId (prevents same matchup twice in a row)
 
 let maintenanceMode = false;
 let dbEnabled = true;
@@ -1332,9 +1332,27 @@ try {
     // Convert Map to an array for efficient iteration
     const entries = Array.from(duelQueue.entries()).filter(r => r[1].duel);
 
+    // Helper to check if two players were last opponents (and should skip matching)
+    // Allow rematch if either player has been waiting > 15 seconds
+    const shouldSkipLastOpponent = (p1, p2, queueTime1, queueTime2) => {
+      const p1Account = players.get(p1)?.accountId;
+      const p2Account = players.get(p2)?.accountId;
+      if (!p1Account || !p2Account) return false;
+
+      const wereLastOpponents = lastDuelOpponent.get(p1Account) === p2Account || lastDuelOpponent.get(p2Account) === p1Account;
+      if (!wereLastOpponents) return false;
+
+      // Allow rematch if either player has been waiting > 60 seconds
+      const waitTime1 = Date.now() - queueTime1;
+      const waitTime2 = Date.now() - queueTime2;
+      if (waitTime1 > 60000 || waitTime2 > 60000) return false;
+
+      return true; // Skip this match - they were last opponents and haven't waited long enough
+    };
+
     // Loop through each player in the queue
     for (let i = 0; i < entries.length; i++) {
-      const [id1, { min, max, elo, guest }] = entries[i];
+      const [id1, { min, max, elo, guest, queueTime }] = entries[i];
 
       // Skip this player if already matched
       if (matchedPlayers.has(id1)) continue;
@@ -1355,10 +1373,14 @@ try {
       } else {
         // Find a suitable ELO-based pair for non-guest player1
         for (let j = i + 1; j < entries.length; j++) {
-          const [id2, { min: min2, max: max2, elo: elo2, guest: guest2 }] = entries[j];
+          const [id2, { min: min2, max: max2, elo: elo2, guest: guest2, queueTime: queueTime2 }] = entries[j];
 
           // Skip if already matched or if player2 is a guest
           if (matchedPlayers.has(id2) || guest2) continue;
+
+          // Skip if these players were just matched together (prevent same matchup twice in a row)
+          // Unless one of them has been waiting > 15 seconds
+          if (shouldSkipLastOpponent(id1, id2, queueTime, queueTime2)) continue;
 
           // Check if each player falls within the other's acceptable ELO range
           if (elo >= min2 && elo <= max2 && elo2 >= min && elo2 <= max) {
@@ -1519,6 +1541,10 @@ try {
             p1: p1.accountId,
             p2: p2.accountId
           }
+
+          // Track last opponent to prevent same matchup twice in a row
+          lastDuelOpponent.set(p1.accountId, p2.accountId);
+          lastDuelOpponent.set(p2.accountId, p1.accountId);
         }
 
         // check if both have elo
