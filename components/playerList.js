@@ -97,6 +97,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
                   countryCode={player.countryCode}
                   isGuest={process.env.NEXT_PUBLIC_COOLMATH}
                 />
+                {player.id === myId && player.username?.startsWith('Guest #') && <span style={{color: "green", fontWeight: "bold"}}> ({text("you")})</span>}
                 {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
                 {player.host && <span style={{color: "red"}}> ({text("host")})</span>}
 
@@ -109,7 +110,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
                 countryCode={player.countryCode}
                 isGuest={process.env.NEXT_PUBLIC_COOLMATH}
               />
-
+            {player.id === myId && player.username?.startsWith('Guest #') && <span style={{color: "green", fontWeight: "bold"}}> ({text("you")})</span>}
             {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
 
             </div>
@@ -129,7 +130,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
             username={players[myIndex].username}
             countryCode={players[myIndex].countryCode}
             isGuest={process.env.NEXT_PUBLIC_COOLMATH}
-          /></div>
+          /> {players[myIndex].username?.startsWith('Guest #') && <span style={{color: "green", fontWeight: "bold"}}>({text("you")})</span>}</div>
           <div className="multiplayerLeaderboard__player__score">{players[myIndex].score}</div>
         </div>
         </>

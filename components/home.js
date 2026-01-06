@@ -1727,7 +1727,14 @@ export default function Home({ }) {
         try {
             const streak = gameStorage.getItem("countryStreak");
             if (streak) {
-                setCountryStreak(parseInt(streak))
+                const parsedStreak = parseInt(streak);
+                if (!isNaN(parsedStreak)) {
+                    setCountryStreak(parsedStreak)
+                } else {
+                    console.log("streak is not a number", streak)
+                    setCountryStreak(0)
+                    gameStorage.setItem("countryStreak", 0)
+                }
             }
 
             // preload/cache src.png and dest.png and src2.png
