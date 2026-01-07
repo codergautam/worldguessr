@@ -681,7 +681,7 @@ export default class Game {
     this.nextEvtTime = this.endTime + 7200000; // 2 hours (2 * 60 * 60 * 1000)
 
     // Save all non-ranked duel games to MongoDB for history tracking
-    if(!this.duel && Object.keys(this.players).length >= 2) {
+    if(!this.duel && Object.keys(this.players).length) {
       this.saveInProgress = true; // Mark save as in progress
       this.saveUnrankedMultiplayerToMongoDB().then(() => {
         this.saveInProgress = false; // Mark save as complete
