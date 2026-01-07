@@ -810,17 +810,20 @@ export default class Game {
 
     // Save duel game to MongoDB for history tracking
     if(this.duel && this.accountIds?.p1 && this.accountIds?.p2) {
-      this.saveInProgress = true; // Mark save as in progress
+      this.saveInProgress = true;
+      const p1Xp = this.calculatePlayerXp(this.pIds?.p1);
+      const p2Xp = this.calculatePlayerXp(this.pIds?.p2);
 
-      const saveDuelPromise = this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo);
-      const saveUserStatsPromise = this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo);
+      console.log(`Player 1 XP: ${p1Xp}, Player 2 XP: ${p2Xp}`);
 
-      Promise.all([saveDuelPromise, saveUserStatsPromise]).then(() => {
-        this.saveInProgress = false; // Mark save as complete
-      }).catch(error => {
-        console.error('Error saving duel game to MongoDB:', error);
-        this.saveInProgress = false; // Mark save as complete even on error
-      });
+      // Run sequentially: save first (updates User.totalXp), then record stats (reads updated value)
+      this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo, p1Xp, p2Xp)
+        .then(() => this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo))
+        .then(() => { this.saveInProgress = false; })
+        .catch(error => {
+          console.error('Error saving duel game to MongoDB:', error);
+          this.saveInProgress = false;
+        });
     }
 
     }
@@ -867,7 +870,7 @@ export default class Game {
     return null;
   }
 
-  async saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo) {
+  async saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo, p1Xp = 0, p2Xp = 0) {
     try {
       // Get player data (current or persistent)
       const player1Data = this.getPlayerData(p1, 'p1');
@@ -966,7 +969,7 @@ export default class Game {
             countryCode: user1.countryCode || null,
             accountId: this.accountIds.p1,
             totalPoints: player1Data.score,
-            totalXp: 0, // Duels don't give XP
+            totalXp: p1Xp,
             averageTimePerRound: this.calculateAverageTime(player1Data.id),
             finalRank: winner?.tag === 'p1' ? 1 : (draw ? 1 : 2),
             elo: {
@@ -981,7 +984,7 @@ export default class Game {
             countryCode: user2.countryCode || null,
             accountId: this.accountIds.p2,
             totalPoints: player2Data.score,
-            totalXp: 0,
+            totalXp: p2Xp,
             averageTimePerRound: this.calculateAverageTime(player2Data.id),
             finalRank: winner?.tag === 'p2' ? 1 : (draw ? 1 : 2),
             elo: {
@@ -1010,18 +1013,18 @@ export default class Game {
       // Save to MongoDB
       await gameDoc.save();
 
-      // Update totalGamesPlayed for both users
+      // Update totalGamesPlayed and totalXp for both users
       await User.updateOne(
         { _id: this.accountIds.p1 },
-        { $inc: { totalGamesPlayed: 1 } }
+        { $inc: { totalGamesPlayed: 1, totalXp: p1Xp } }
       );
 
       await User.updateOne(
         { _id: this.accountIds.p2 },
-        { $inc: { totalGamesPlayed: 1 } }
+        { $inc: { totalGamesPlayed: 1, totalXp: p2Xp } }
       );
 
-      console.log(`Saved duel game ${gameDoc.gameId} between ${user1.username} and ${user2.username}`);
+      console.log(`Saved duel game ${gameDoc.gameId} between ${user1.username} and ${user2.username} (XP: ${p1Xp}, ${p2Xp})`);
 
     } catch (error) {
       console.error('Error saving duel game to MongoDB:', error);
@@ -1080,22 +1083,24 @@ export default class Game {
       });
 
       // Create player summaries sorted by total points (highest first) - include ALL players
+      // Calculate XP for public games only (not parties), and only for registered users (not guests)
+      const awardXp = this.public;
+      
       const playerSummaries = allPlayers
-        .map(player => ({
-          playerId: player.id,
-          username: player.username || 'Player',
-          countryCode: player.countryCode || null,
-          accountId: player.accountId || null, // null for guest users
-          totalPoints: player.score || 0,
-          totalXp: 0, // Unranked games don't give XP
-          averageTimePerRound: this.calculateAverageTime(player.id),
-          finalRank: 0, // Will be calculated below
-          elo: {
-            before: null,
-            after: null,
-            change: null
-          }
-        }))
+        .map(player => {
+          const playerXp = (awardXp && player.accountId) ? this.calculatePlayerXp(player.id) : 0;
+          return {
+            playerId: player.id,
+            username: player.username || 'Player',
+            countryCode: player.countryCode || null,
+            accountId: player.accountId || null,
+            totalPoints: player.score || 0,
+            totalXp: playerXp,
+            averageTimePerRound: this.calculateAverageTime(player.id),
+            finalRank: 0,
+            elo: { before: null, after: null, change: null }
+          };
+        })
         .sort((a, b) => b.totalPoints - a.totalPoints)
         .map((player, index) => ({
           ...player,
@@ -1144,41 +1149,27 @@ export default class Game {
       // Save to MongoDB
       await gameDoc.save();
 
-      // Update totalGamesPlayed for users with accounts only
-      const updatePromises = validUsers.map(user =>
-        User.updateOne(
-          { _id: user._id },
-          { $inc: { totalGamesPlayed: 1 } }
-        )
-      );
-      await Promise.all(updatePromises);
+      // Update totalGamesPlayed and totalXp for users with accounts
+      await Promise.all(validUsers.map(user => {
+        const playerSummary = playerSummaries.find(p => p.accountId?.toString() === user._id.toString());
+        return User.updateOne({ _id: user._id }, { $inc: { totalGamesPlayed: 1, totalXp: playerSummary?.totalXp || 0 } });
+      }));
 
-      // Create UserStats records ONLY for players with valid accounts
-      const userStatsPromises = validPlayersWithAccounts.map(async (player) => {
-        try {
-          // Find the player summary data for this account
-          const playerSummary = playerSummaries.find(p => p.accountId === player.accountId);
-          if (!playerSummary) return;
+      // Create UserStats records (runs after User updates, so reads correct XP)
+      await Promise.all(validPlayersWithAccounts.map(async (player) => {
+        const playerSummary = playerSummaries.find(p => p.accountId === player.accountId);
+        if (!playerSummary) return;
+        await UserStatsService.recordGameStats(player.accountId, `${this.public ? 'unranked' : 'party'}_${this.id}${!this.public ? `_${this.gameCount}` : ''}`, {
+          gameType: this.public ? 'unranked_multiplayer' : 'private_multiplayer',
+          result: playerSummary.finalRank === 1 ? 'win' : 'loss',
+          finalScore: playerSummary.totalPoints || 0,
+          duration: this.endTime - this.startTime,
+          playerCount: playerSummaries.length
+        });
+      }));
 
-          await UserStatsService.recordGameStats(
-            player.accountId,
-            `${this.public ? 'unranked' : 'party'}_${this.id}${!this.public ? `_${this.gameCount}` : ''}`,
-            {
-              gameType: this.public ? 'unranked_multiplayer' : 'private_multiplayer',
-              result: playerSummary.finalRank === 1 ? 'win' : 'loss', // First place wins, others lose
-              finalScore: playerSummary.totalPoints || 0,
-              duration: this.endTime - this.startTime,
-              playerCount: playerSummaries.length
-            }
-          );
-        } catch (error) {
-          console.error(`Error creating UserStats for player ${player.accountId}:`, error);
-        }
-      });
-
-      await Promise.all(userStatsPromises);
-
-      console.log(`✅ Saved ${this.public ? 'public' : 'party'} multiplayer game ${gameDoc.gameId} with ${allPlayers.length} total players (${validPlayersWithAccounts.length} registered, ${allPlayers.length - validPlayersWithAccounts.length} guests)`);
+      const totalXpAwarded = awardXp ? playerSummaries.reduce((sum, p) => sum + (p.totalXp || 0), 0) : 0;
+      console.log(`✅ Saved ${this.public ? 'public' : 'party'} multiplayer game ${gameDoc.gameId} with ${allPlayers.length} total players (${validPlayersWithAccounts.length} registered, ${allPlayers.length - validPlayersWithAccounts.length} guests)${awardXp ? ` - Total XP: ${totalXpAwarded}` : ''}`);
 
     } catch (error) {
       console.error('Error saving unranked multiplayer game to MongoDB:', error);
@@ -1186,46 +1177,31 @@ export default class Game {
   }
 
   async createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo) {
-    // Get player data (current or persistent)
     const player1Data = this.getPlayerData(p1, 'p1');
     const player2Data = this.getPlayerData(p2, 'p2');
     try {
-      // Create userstats document for player 1
       if (this.accountIds.p1) {
-        await UserStatsService.recordGameStats(
-          this.accountIds.p1,
-          `duel_${this.id}`,
-          {
-            gameType: 'ranked_duel',
-            result: winner?.tag === 'p1' ? 'win' : (draw ? 'draw' : 'loss'),
-            opponent: this.accountIds.p2,
-            eloChange: p1NewElo ? (p1NewElo - p1OldElo) : 0,
-            finalScore: player1Data?.score || 0,
-            duration: this.endTime - this.startTime,
-            newElo: p1NewElo // Pass new ELO directly to avoid race condition with setElo
-          }
-        );
-        console.log(`Created userstats for player 1: ${this.accountIds.p1}`);
+        await UserStatsService.recordGameStats(this.accountIds.p1, `duel_${this.id}`, {
+          gameType: 'ranked_duel',
+          result: winner?.tag === 'p1' ? 'win' : (draw ? 'draw' : 'loss'),
+          opponent: this.accountIds.p2,
+          eloChange: p1NewElo ? (p1NewElo - p1OldElo) : 0,
+          finalScore: player1Data?.score || 0,
+          duration: this.endTime - this.startTime,
+          newElo: p1NewElo
+        });
       }
-
-      // Create userstats document for player 2
       if (this.accountIds.p2) {
-        await UserStatsService.recordGameStats(
-          this.accountIds.p2,
-          `duel_${this.id}`,
-          {
-            gameType: 'ranked_duel',
-            result: winner?.tag === 'p2' ? 'win' : (draw ? 'draw' : 'loss'),
-            opponent: this.accountIds.p1,
-            eloChange: p2NewElo ? (p2NewElo - p2OldElo) : 0,
-            finalScore: player2Data?.score || 0,
-            duration: this.endTime - this.startTime,
-            newElo: p2NewElo // Pass new ELO directly to avoid race condition with setElo
-          }
-        );
-        console.log(`Created userstats for player 2: ${this.accountIds.p2}`);
+        await UserStatsService.recordGameStats(this.accountIds.p2, `duel_${this.id}`, {
+          gameType: 'ranked_duel',
+          result: winner?.tag === 'p2' ? 'win' : (draw ? 'draw' : 'loss'),
+          opponent: this.accountIds.p1,
+          eloChange: p2NewElo ? (p2NewElo - p2OldElo) : 0,
+          finalScore: player2Data?.score || 0,
+          duration: this.endTime - this.startTime,
+          newElo: p2NewElo
+        });
       }
-
     } catch (error) {
       console.error('Error creating duel user stats:', error);
     }
@@ -1245,6 +1221,28 @@ export default class Game {
     }
 
     return roundsWithTime > 0 ? Math.round(totalTime / roundsWithTime) : 30;
+  }
+
+  /**
+   * Calculate XP earned by a player based on their points in each round
+   * XP = points / 50, capped at 100 per round
+   */
+  calculatePlayerXp(playerId) {
+    if (!this.roundHistory.length || !playerId) return 0;
+
+    const MAX_XP_PER_ROUND = 100;
+    let totalXp = 0;
+
+    for (const round of this.roundHistory) {
+      const playerData = round.players[playerId];
+      if (playerData?.points) {
+        // XP = points / 50, capped at 100 per round
+        const roundXp = Math.min(Math.floor(playerData.points / 50), MAX_XP_PER_ROUND);
+        totalXp += roundXp;
+      }
+    }
+
+    return totalXp;
   }
 
 }

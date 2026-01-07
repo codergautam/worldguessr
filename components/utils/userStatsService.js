@@ -18,12 +18,11 @@ class UserStatsService {
         return null;
       }
 
-      // Use provided newElo if available (for ranked duels where setElo may not have completed yet)
-      // This avoids race condition where we read stale ELO from DB before setElo writes complete
+      // Use provided newElo if available (avoids race condition with setElo)
       const eloToRecord = gameData.newElo ?? user.elo ?? 1000;
 
       // Get current rankings
-      const xpRank = await this.calculateXPRank(user.totalXp);
+      const xpRank = await this.calculateXPRank(user.totalXp || 0);
       const eloRankResult = await this.calculateELORank(eloToRecord);
       const eloRank = typeof eloRankResult === 'object' ? eloRankResult.rank : eloRankResult;
 
