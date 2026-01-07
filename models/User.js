@@ -180,6 +180,15 @@ userSchema.index({ banned: 1, banType: 1, banExpiresAt: 1 });
 // Index for finding users with pending name changes
 userSchema.index({ pendingNameChange: 1 });
 
+// ===== LEADERBOARD PERFORMANCE INDEXES =====
+// All-time XP leaderboard - critical for sorting millions of users by XP
+userSchema.index({ totalXp: -1 });
+// All-time ELO leaderboard - critical for sorting millions of users by ELO
+userSchema.index({ elo: -1 });
+// Compound indexes for filtering banned/pending users while sorting (covers common query patterns)
+userSchema.index({ banned: 1, pendingNameChange: 1, totalXp: -1 });
+userSchema.index({ banned: 1, pendingNameChange: 1, elo: -1 });
+
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 export default User;
