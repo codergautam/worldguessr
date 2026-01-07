@@ -1,5 +1,6 @@
 import User from '../models/User.js';
 import UserStats from '../models/UserStats.js';
+import DailyLeaderboard from '../models/DailyLeaderboard.js';
 
 // Improved caching with separate keys for different modes
 const CACHE_DURATION = 60000; // 1 minute cache
@@ -36,25 +37,54 @@ function sendableUser(user) {
   };
 }
 
-// Improved 24h leaderboard calculation using UserStats model methods
+// OPTIMIZED: Load pre-computed daily leaderboard from DailyLeaderboard collection
+// This eliminates expensive aggregation queries on 100M+ UserStats records
 async function getDailyLeaderboard(isXp = true) {
+  const mode = isXp ? 'xp' : 'elo';
+  const now = new Date();
+
+  // Get today's midnight UTC for consistent lookups
+  const todayMidnight = new Date(now);
+  todayMidnight.setUTCHours(0, 0, 0, 0);
+
+  // Fetch pre-computed leaderboard (lightning fast query with date+mode index)
+  const precomputedLeaderboard = await DailyLeaderboard.findOne({
+    date: todayMidnight,
+    mode: mode
+  }).lean().maxTimeMS(2000); // 2 second timeout
+
+  // If no pre-computed data yet (first 15 min of day or cron not running), fallback to old method
+  if (!precomputedLeaderboard) {
+    console.warn('[LEADERBOARD] Pre-computed daily leaderboard not found, falling back to live aggregation');
+    return getDailyLeaderboardLegacy(isXp);
+  }
+
+  // Transform pre-computed data to match expected format
+  const leaderboard = precomputedLeaderboard.leaderboard.map(entry => ({
+    username: entry.username,
+    countryCode: entry.countryCode || null,
+    totalXp: isXp ? entry.delta : entry.currentValue,
+    createdAt: null, // Not stored in pre-computed data to save space
+    gamesLen: 0, // Not stored in pre-computed data to save space
+    elo: isXp ? entry.currentValue : entry.delta,
+    eloToday: entry.delta,
+    rank: entry.rank,
+    supporter: entry.supporter || false
+  }));
+
+  return { leaderboard, userDeltas: precomputedLeaderboard.leaderboard };
+}
+
+// LEGACY FALLBACK: Original expensive aggregation (only used if pre-computed data unavailable)
+async function getDailyLeaderboardLegacy(isXp = true) {
   const scoreField = isXp ? 'totalXp' : 'elo';
   const now = new Date();
   const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
   // Get all users who have stats in the last 24h with their deltas
   const userDeltas = await UserStats.aggregate([
-    // Match users active in last 24h
-    {
-      $match: {
-        timestamp: { $gte: dayAgo }
-      }
-    },
-    // Sort by userId and timestamp to get latest first
-    {
-      $sort: { userId: 1, timestamp: -1 }
-    },
-    // Group by userId to get latest and earliest in 24h period
+    { $match: { timestamp: { $gte: dayAgo } } },
+    { $sort: { userId: 1, timestamp: -1 } },
     {
       $group: {
         _id: '$userId',
@@ -62,45 +92,28 @@ async function getDailyLeaderboard(isXp = true) {
         earliestStat: { $last: '$$ROOT' }
       }
     },
-    // Calculate the actual 24h change
     {
       $project: {
         userId: '$_id',
         latestScore: `$latestStat.${scoreField}`,
         earliestScore: `$earliestStat.${scoreField}`,
-        delta: {
-          $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`]
-        },
-        latestTimestamp: '$latestStat.timestamp',
-        earliestTimestamp: '$earliestStat.timestamp'
+        delta: { $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`] }
       }
     },
-    // Only include users with meaningful changes (positive for XP, any change for ELO)
-    {
-      $match: isXp ? { delta: { $gt: 0 } } : { delta: { $ne: 0 } }
-    },
-    // Sort by delta descending
-    {
-      $sort: { delta: -1 }
-    },
-    // Limit to top 100
-    {
-      $limit: 100
-    }
-  ]);
+    { $match: isXp ? { delta: { $gt: 0 } } : { delta: { $ne: 0 } } },
+    { $sort: { delta: -1 } },
+    { $limit: 100 }
+  ]).maxTimeMS(30000); // 30 second timeout to prevent hangs
 
-  // Get user details for all users in the leaderboard
-  // Exclude banned users AND users with pending name changes (keep leaderboard family-friendly)
   const userIds = userDeltas.map(delta => delta.userId);
   const users = await User.find({
     _id: { $in: userIds },
     banned: { $ne: true },
     pendingNameChange: { $ne: true }
-  }).select('_id username countryCode elo totalXp created_at games').lean();
+  }).select('_id username countryCode elo totalXp').lean().maxTimeMS(5000);
 
   const userMap = new Map(users.map(u => [u._id.toString(), u]));
 
-  // Build leaderboard with proper data
   const leaderboard = userDeltas.map((delta, index) => {
     const user = userMap.get(delta.userId);
     if (!user || !user.username) return null;
@@ -108,11 +121,11 @@ async function getDailyLeaderboard(isXp = true) {
     return {
       username: user.username,
       countryCode: user.countryCode || null,
-      totalXp: isXp ? delta.delta : user.totalXp, // For XP show delta, for ELO show current total XP
-      createdAt: user.created_at,
-      gamesLen: user.games?.length || 0,
-      elo: isXp ? user.elo : delta.delta, // For ELO mode show delta in elo field
-      eloToday: delta.delta, // Always show the 24h change
+      totalXp: isXp ? delta.delta : user.totalXp,
+      createdAt: null,
+      gamesLen: 0,
+      elo: isXp ? user.elo : delta.delta,
+      eloToday: delta.delta,
       rank: index + 1
     };
   }).filter(user => user !== null);
@@ -120,8 +133,67 @@ async function getDailyLeaderboard(isXp = true) {
   return { leaderboard, userDeltas };
 }
 
-// Get user's position in daily leaderboard
+// OPTIMIZED: Get user's position from pre-computed daily leaderboard
 async function getUserDailyRank(username, isXp = true) {
+  const user = await User.findOne({ username: username }).maxTimeMS(2000);
+  if (!user) return { rank: null, delta: null };
+
+  const mode = isXp ? 'xp' : 'elo';
+  const now = new Date();
+
+  // Get today's midnight UTC
+  const todayMidnight = new Date(now);
+  todayMidnight.setUTCHours(0, 0, 0, 0);
+
+  // Fetch pre-computed leaderboard
+  const precomputedLeaderboard = await DailyLeaderboard.findOne({
+    date: todayMidnight,
+    mode: mode
+  }).lean().maxTimeMS(2000);
+
+  // If no pre-computed data, fall back to live calculation
+  if (!precomputedLeaderboard) {
+    console.warn('[LEADERBOARD] Pre-computed daily leaderboard not found for user rank, falling back to live calculation');
+    return getUserDailyRankLegacy(username, isXp);
+  }
+
+  // Find user in pre-computed leaderboard (O(n) but only 100 entries max)
+  const userEntry = precomputedLeaderboard.leaderboard.find(
+    entry => entry.userId === user._id.toString()
+  );
+
+  if (userEntry) {
+    return { rank: userEntry.rank, delta: userEntry.delta };
+  }
+
+  // User not in top 100, but may still have gained XP/ELO today
+  // Just return delta without calculating exact rank (would require full aggregation)
+  const scoreField = isXp ? 'totalXp' : 'elo';
+  const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+  const [latestStat, oldestStat] = await Promise.all([
+    UserStats.findOne({
+      userId: user._id.toString(),
+      timestamp: { $gte: dayAgo }
+    }).sort({ timestamp: -1 }).lean().maxTimeMS(2000),
+    UserStats.findOne({
+      userId: user._id.toString(),
+      timestamp: { $gte: dayAgo }
+    }).sort({ timestamp: 1 }).lean().maxTimeMS(2000)
+  ]);
+
+  if (!latestStat || !oldestStat) {
+    return { rank: null, delta: 0 };
+  }
+
+  const userDelta = latestStat[scoreField] - oldestStat[scoreField];
+
+  // User has delta but not in top 100, so rank is > 100
+  return { rank: userDelta > 0 ? '>100' : null, delta: userDelta };
+}
+
+// LEGACY FALLBACK: Expensive aggregation to get user rank (only used if pre-computed unavailable)
+async function getUserDailyRankLegacy(username, isXp = true) {
   const user = await User.findOne({ username: username });
   if (!user) return { rank: null, delta: null };
 
@@ -129,35 +201,27 @@ async function getUserDailyRank(username, isXp = true) {
   const now = new Date();
   const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
-  // Get user's 24h change
-  const userStats = await UserStats.find({
-    userId: user._id.toString(),
-    timestamp: { $gte: dayAgo }
-  }).sort({ timestamp: -1 }).limit(1);
+  const [latestStat, oldestStat] = await Promise.all([
+    UserStats.findOne({
+      userId: user._id.toString(),
+      timestamp: { $gte: dayAgo }
+    }).sort({ timestamp: -1 }).lean().maxTimeMS(5000),
+    UserStats.findOne({
+      userId: user._id.toString(),
+      timestamp: { $gte: dayAgo }
+    }).sort({ timestamp: 1 }).lean().maxTimeMS(5000)
+  ]);
 
-  const oldestUserStats = await UserStats.find({
-    userId: user._id.toString(),
-    timestamp: { $gte: dayAgo }
-  }).sort({ timestamp: 1 }).limit(1);
-
-  if (!userStats[0] || !oldestUserStats[0]) {
+  if (!latestStat || !oldestStat) {
     return { rank: null, delta: 0 };
   }
 
-  const userDelta = userStats[0][scoreField] - oldestUserStats[0][scoreField];
+  const userDelta = latestStat[scoreField] - oldestStat[scoreField];
 
-  // Count how many users have better deltas
+  // Count users with better deltas (expensive!)
   const betterUsersCount = await UserStats.aggregate([
-    // Match users active in last 24h
-    {
-      $match: {
-        timestamp: { $gte: dayAgo }
-      }
-    },
-    // Group by userId to get their 24h deltas
-    {
-      $sort: { userId: 1, timestamp: -1 }
-    },
+    { $match: { timestamp: { $gte: dayAgo } } },
+    { $sort: { userId: 1, timestamp: -1 } },
     {
       $group: {
         _id: '$userId',
@@ -167,21 +231,12 @@ async function getUserDailyRank(username, isXp = true) {
     },
     {
       $project: {
-        delta: {
-          $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`]
-        }
+        delta: { $subtract: [`$latestStat.${scoreField}`, `$earliestStat.${scoreField}`] }
       }
     },
-    // Count users with better deltas
-    {
-      $match: {
-        delta: { $gt: userDelta }
-      }
-    },
-    {
-      $count: "count"
-    }
-  ]);
+    { $match: { delta: { $gt: userDelta } } },
+    { $count: "count" }
+  ]).maxTimeMS(30000);
 
   const rank = betterUsersCount.length > 0 ? betterUsersCount[0].count + 1 : 1;
   return { rank, delta: userDelta };
@@ -210,16 +265,17 @@ export default async function handler(req, res) {
         leaderboard = dailyResult.leaderboard;
         setCachedData(cacheKey, leaderboard);
       } else {
-        // All-time leaderboard - simple and efficient
+        // All-time leaderboard - now uses indexes for fast sorting
         // Exclude banned users AND users with pending name changes (keep leaderboard family-friendly)
         const sortField = isXp ? 'totalXp' : 'elo';
-        const topUsers = await User.find({ 
+        const topUsers = await User.find({
           banned: { $ne: true },
           pendingNameChange: { $ne: true }
         })
           .sort({ [sortField]: -1 })
           .limit(100)
-          .lean();
+          .lean()
+          .maxTimeMS(5000); // 5 second timeout
 
         leaderboard = topUsers.map(sendableUser).filter(user => user !== null);
         setCachedData(cacheKey, leaderboard);
@@ -234,11 +290,11 @@ export default async function handler(req, res) {
         myRank = userResult.rank;
         myScore = userResult.delta;
         // Also get countryCode for the user
-        const user = await User.findOne({ username: myUsername }).select('countryCode');
+        const user = await User.findOne({ username: myUsername }).select('countryCode').maxTimeMS(2000);
         myCountryCode = user?.countryCode || null;
       } else {
         // All-time ranking
-        const user = await User.findOne({ username: myUsername });
+        const user = await User.findOne({ username: myUsername }).maxTimeMS(2000);
         if (user) {
           myCountryCode = user.countryCode || null;
           const sortField = isXp ? 'totalXp' : 'elo';
@@ -248,7 +304,7 @@ export default async function handler(req, res) {
               [sortField]: { $gt: myScore },
               banned: { $ne: true },
               pendingNameChange: { $ne: true }
-            });
+            }).maxTimeMS(5000); // 5 second timeout
             myRank = betterUsersCount + 1;
           }
         }
