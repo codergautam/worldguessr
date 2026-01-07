@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { configDotenv } from 'dotenv';
 import User from './models/User.js';
 import UserStats from './models/UserStats.js';
+import DailyLeaderboard from './models/DailyLeaderboard.js';
 import UserStatsService from './components/utils/userStatsService.js';
 var app = express();
 import cors from 'cors';
@@ -182,6 +183,167 @@ const startWeeklyUserStatsTimer = () => {
 
 // Start the weekly timer
 startWeeklyUserStatsTimer();
+
+// ============================================================================
+// DAILY LEADERBOARD PRE-COMPUTATION - Fixes timeout issues with 100M+ games
+// Computes and caches top 100 users every 15 minutes instead of on-demand
+// ============================================================================
+
+const LEADERBOARD_UPDATE_INTERVAL = 15 * 60 * 1000; // 15 minutes
+const LEADERBOARD_TTL_DAYS = 30; // Keep leaderboards for 30 days
+
+const computeDailyLeaderboards = async () => {
+  if (!dbEnabled) {
+    console.log('[SKIP] Daily leaderboard computation skipped - database not connected');
+    return;
+  }
+
+  console.log('[LEADERBOARD] Starting daily leaderboard computation...');
+  const startTime = Date.now();
+
+  try {
+    const now = new Date();
+    const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+
+    // Get start of day (midnight UTC) for consistent date keys
+    const todayMidnight = new Date(now);
+    todayMidnight.setUTCHours(0, 0, 0, 0);
+
+    // Compute both XP and ELO leaderboards in parallel
+    const [xpLeaderboard, eloLeaderboard] = await Promise.all([
+      computeLeaderboardForMode('xp', dayAgo),
+      computeLeaderboardForMode('elo', dayAgo)
+    ]);
+
+    // Save both leaderboards to database
+    const expiresAt = new Date(now.getTime() + (LEADERBOARD_TTL_DAYS * 24 * 60 * 60 * 1000));
+
+    await Promise.all([
+      DailyLeaderboard.findOneAndUpdate(
+        { date: todayMidnight, mode: 'xp' },
+        {
+          date: todayMidnight,
+          mode: 'xp',
+          leaderboard: xpLeaderboard.leaderboard,
+          totalActiveUsers: xpLeaderboard.totalActiveUsers,
+          computedAt: now,
+          expiresAt: expiresAt
+        },
+        { upsert: true, new: true }
+      ),
+      DailyLeaderboard.findOneAndUpdate(
+        { date: todayMidnight, mode: 'elo' },
+        {
+          date: todayMidnight,
+          mode: 'elo',
+          leaderboard: eloLeaderboard.leaderboard,
+          totalActiveUsers: eloLeaderboard.totalActiveUsers,
+          computedAt: now,
+          expiresAt: expiresAt
+        },
+        { upsert: true, new: true }
+      )
+    ]);
+
+    const duration = Date.now() - startTime;
+    console.log(`[LEADERBOARD] ✅ Daily leaderboards computed in ${duration}ms`);
+    console.log(`[LEADERBOARD] XP: ${xpLeaderboard.leaderboard.length} users, ${xpLeaderboard.totalActiveUsers} total active`);
+    console.log(`[LEADERBOARD] ELO: ${eloLeaderboard.leaderboard.length} users, ${eloLeaderboard.totalActiveUsers} total active`);
+  } catch (error) {
+    console.error('[LEADERBOARD] Error computing daily leaderboards:', error);
+  }
+};
+
+// Helper function to compute leaderboard for a specific mode (xp or elo)
+const computeLeaderboardForMode = async (mode, dayAgo) => {
+  const field = mode === 'xp' ? 'totalXp' : 'elo';
+
+  // Optimized aggregation pipeline with query timeout
+  const pipeline = [
+    {
+      $match: {
+        timestamp: { $gte: dayAgo }
+      }
+    },
+    { $sort: { userId: 1, timestamp: -1 } },
+    {
+      $group: {
+        _id: '$userId',
+        latestTotalXp: { $first: '$totalXp' },
+        latestElo: { $first: '$elo' },
+        oldestTotalXp: { $last: '$totalXp' },
+        oldestElo: { $last: '$elo' }
+      }
+    },
+    {
+      $project: {
+        userId: '$_id',
+        xpDelta: { $subtract: ['$latestTotalXp', '$oldestTotalXp'] },
+        eloDelta: { $subtract: ['$latestElo', '$oldestElo'] },
+        currentXp: '$latestTotalXp',
+        currentElo: '$latestElo'
+      }
+    },
+    {
+      $match: {
+        [mode === 'xp' ? 'xpDelta' : 'eloDelta']: { $gt: 0 }
+      }
+    },
+    {
+      $sort: {
+        [mode === 'xp' ? 'xpDelta' : 'eloDelta']: -1
+      }
+    },
+    { $limit: 100 }
+  ];
+
+  // Execute aggregation with maxTimeMS to prevent hanging
+  const userDeltas = await UserStats.aggregate(pipeline).maxTimeMS(30000); // 30 second timeout
+
+  const totalActiveUsers = userDeltas.length;
+
+  // Get user details for top 100
+  const userIds = userDeltas.map(u => u.userId);
+  const users = await User.find({
+    _id: { $in: userIds }
+  }).select('_id username countryCode supporter').lean().maxTimeMS(5000);
+
+  // Create user lookup map
+  const userMap = new Map();
+  users.forEach(user => {
+    userMap.set(user._id.toString(), user);
+  });
+
+  // Build final leaderboard with user details
+  const leaderboard = userDeltas.map((delta, index) => {
+    const user = userMap.get(delta.userId.toString());
+    return {
+      userId: delta.userId.toString(),
+      username: user?.username || 'Unknown',
+      delta: mode === 'xp' ? delta.xpDelta : delta.eloDelta,
+      currentValue: mode === 'xp' ? delta.currentXp : delta.currentElo,
+      rank: index + 1,
+      countryCode: user?.countryCode || null,
+      supporter: user?.supporter || false
+    };
+  });
+
+  return { leaderboard, totalActiveUsers };
+};
+
+// Start the daily leaderboard computation timer
+const startDailyLeaderboardTimer = () => {
+  console.log(`[LEADERBOARD] Daily leaderboard computation timer started - updates every ${LEADERBOARD_UPDATE_INTERVAL / 1000 / 60} minutes`);
+
+  // Run immediately on startup
+  computeDailyLeaderboards();
+
+  // Then run every 15 minutes
+  setInterval(computeDailyLeaderboards, LEADERBOARD_UPDATE_INTERVAL);
+};
+
+// Start the timer
+startDailyLeaderboardTimer();
 
 // ============================================================================
 // COUNTRY LOCATIONS SYSTEM - Uses pre-processed JSON files with embedded country codes
