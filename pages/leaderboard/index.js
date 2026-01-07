@@ -17,6 +17,18 @@ const Leaderboard = ({ }) => {
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Format score with +/- prefix for daily leaderboards
+  const formatScore = (value, isDailyLeaderboard) => {
+    if (!isDailyLeaderboard) {
+      return value?.toFixed(0);
+    }
+    const numValue = Number(value);
+    if (numValue > 0) {
+      return `+${numValue.toFixed(0)}`;
+    }
+    return numValue.toFixed(0); // Negative numbers already have - sign
+  };
+
   useEffect(() => {
     const inCrazyGames = window.location.search.includes("crazygames");
     setInCrazyGames(inCrazyGames);
@@ -138,7 +150,7 @@ const Leaderboard = ({ }) => {
                     {leaderboardData.myCountryCode && <CountryFlag countryCode={leaderboardData.myCountryCode} style={{ fontSize: '0.9em' }} />}
                   </div>
                   <span className={styles.playerScore}>
-                    {useElo ? leaderboardData?.myElo?.toFixed(0) : leaderboardData?.myXp?.toFixed(0)}
+                    {formatScore(useElo ? leaderboardData?.myElo : leaderboardData?.myXp, pastDay)}
                     <span className={styles.scoreType}>{useElo ? 'Elo' : 'XP'}</span>
                   </span>
                 </div>
@@ -175,7 +187,7 @@ const Leaderboard = ({ }) => {
 
                   <div className={styles.scoreContainer}>
                     <span className={styles.score}>
-                      {useElo ? user?.elo?.toFixed(0) : user?.totalXp?.toFixed(0)}
+                      {formatScore(useElo ? user?.elo : user?.totalXp, pastDay)}
                     </span>
                     <span className={styles.scoreLabel}>{useElo ? 'Elo' : 'XP'}</span>
                   </div>
