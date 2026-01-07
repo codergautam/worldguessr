@@ -38,7 +38,7 @@ function sendableUser(user) {
 }
 
 // OPTIMIZED: Load pre-computed daily leaderboard from DailyLeaderboard collection
-// This eliminates expensive aggregation queries on 100M+ UserStats records
+// This eliminates expensive aggregation queries on UserStats records
 async function getDailyLeaderboard(isXp = true) {
   const mode = isXp ? 'xp' : 'elo';
   const now = new Date();

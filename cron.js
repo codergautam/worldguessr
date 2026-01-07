@@ -185,7 +185,7 @@ const startWeeklyUserStatsTimer = () => {
 startWeeklyUserStatsTimer();
 
 // ============================================================================
-// DAILY LEADERBOARD PRE-COMPUTATION - Fixes timeout issues with 100M+ games
+// DAILY LEADERBOARD PRE-COMPUTATION
 // Computes and caches top 100 users every 15 minutes instead of on-demand
 // ============================================================================
 
