@@ -2,7 +2,7 @@ import User from '../models/User.js';
 import UserStats from '../models/UserStats.js';
 
 // Improved caching with separate keys for different modes
-const CACHE_DURATION = 60000; // 1 minute cache
+const CACHE_DURATION = 60000 * 15; // 1 minute cache
 const cache = new Map();
 
 function getCacheKey(mode, pastDay) {
