@@ -3,7 +3,7 @@ import UserStats from '../models/UserStats.js';
 import DailyLeaderboard from '../models/DailyLeaderboard.js';
 
 // Improved caching with separate keys for different modes
-const CACHE_DURATION = 60000; // 1 minute cache
+const CACHE_DURATION = 60000 * 15; // 1 minute cache
 const cache = new Map();
 
 function getCacheKey(mode, pastDay) {
