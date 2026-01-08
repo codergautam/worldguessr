@@ -298,7 +298,7 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
   ];
 
   // Execute aggregation with maxTimeMS to prevent hanging
-  const userDeltas = await UserStats.aggregate(pipeline).maxTimeMS(30000); // 30 second timeout
+  const userDeltas = await UserStats.aggregate(pipeline).option({ maxTimeMS: 30000 }); // 30 second timeout
 
   const totalActiveUsers = userDeltas.length;
 
