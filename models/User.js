@@ -184,6 +184,8 @@ userSchema.index({ pendingNameChange: 1 });
 // Case-insensitive username index for fast lookups (replaces slow $regex queries)
 // Use with .collation({ locale: 'en', strength: 2 }) on queries
 userSchema.index({ username: 1 }, { collation: { locale: 'en', strength: 2 } });
+// Plain case-sensitive index for queries that don't use collation (fallback)
+userSchema.index({ username: 1 });
 
 // Export collation config for consistent usage across queries
 export const USERNAME_COLLATION = { locale: 'en', strength: 2 };
