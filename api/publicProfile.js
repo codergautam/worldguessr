@@ -119,8 +119,7 @@ export default async function handler(req, res) {
     // Calculate ELO rank (exclude banned users and pending name changes)
     const rank = (await User.countDocuments({
       elo: { $gt: user.elo },
-      banned: false,
-      pendingNameChange: false
+      banned: false
     }).cache(2000)) + 1;
 
     // Calculate league info

@@ -129,11 +129,11 @@ export default async function handler(req, res) {
         leaderboard = dailyResult.leaderboard;
         setCachedData(cacheKey, leaderboard);
       } else {
-        // All-time leaderboard - uses indexes for fast sorting
+        // All-time leaderboard
         const sortField = isXp ? 'totalXp' : 'elo';
         const topUsers = await User.find({
           banned: false,
-          pendingNameChange: false
+          pendingNameChange: { $ne: true }
         })
           .sort({ [sortField]: -1 })
           .limit(100)
@@ -164,8 +164,7 @@ export default async function handler(req, res) {
           if (myScore) {
             const betterUsersCount = await User.countDocuments({
               [sortField]: { $gt: myScore },
-              banned: false,
-              pendingNameChange: false
+              banned: false
             }).maxTimeMS(5000);
             myRank = betterUsersCount + 1;
           }
