@@ -92,22 +92,42 @@ function formatQuery(entry) {
   let details = '';
   if (entry.command) {
     if (entry.command.filter) {
-      details = `filter: ${truncate(entry.command.filter, 60)}`;
+      details = `filter: ${truncate(entry.command.filter, 80)}`;
     } else if (entry.command.find) {
       details = `find: ${entry.command.find}`;
-      if (entry.command.filter) details += ` filter: ${truncate(entry.command.filter, 40)}`;
+      if (entry.command.filter) details += ` filter: ${truncate(entry.command.filter, 60)}`;
     } else if (entry.command.aggregate) {
-      details = `aggregate: ${entry.command.aggregate}`;
+      // Show aggregate pipeline details
+      const pipeline = entry.command.pipeline || [];
+      const stages = pipeline.map(stage => {
+        const stageName = Object.keys(stage)[0];
+        if (stageName === '$match') {
+          return `$match: ${truncate(stage.$match, 60)}`;
+        } else if (stageName === '$group') {
+          return `$group: ${truncate(stage.$group._id, 30)}`;
+        } else if (stageName === '$sort') {
+          return `$sort: ${truncate(stage.$sort, 20)}`;
+        } else if (stageName === '$limit') {
+          return `$limit: ${stage.$limit}`;
+        } else if (stageName === '$count') {
+          return `$count`;
+        }
+        return stageName;
+      }).filter(Boolean);
+      details = stages.length > 0 ? stages.join(' → ') : `aggregate: ${entry.command.aggregate}`;
     } else if (entry.command.update) {
-      details = `update: ${entry.command.update}`;
+      details = `update: ${entry.command.update} ${truncate(entry.command.q || entry.command.query, 50)}`;
     } else if (entry.command.insert) {
       details = `insert: ${entry.command.insert}`;
+    } else if (entry.command.count) {
+      // countDocuments uses count command
+      details = `count: ${entry.command.count} query: ${truncate(entry.command.query, 60)}`;
     } else {
       const cmdName = Object.keys(entry.command)[0];
       details = `${cmdName}: ${truncate(entry.command[cmdName], 50)}`;
     }
   } else if (entry.query) {
-    details = `query: ${truncate(entry.query, 60)}`;
+    details = `query: ${truncate(entry.query, 80)}`;
   }
 
   // Docs examined vs returned (efficiency indicator)
