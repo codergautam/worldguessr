@@ -82,6 +82,16 @@ const mapSchema = new mongoose.Schema({
   },
 });
 
+// Performance indexes
+// Index for finding maps by creator (used in mapHome, setName, deleteUser)
+mapSchema.index({ created_by: 1 });
+// Index for finding accepted maps sorted by lastUpdated (recent maps)
+mapSchema.index({ accepted: 1, lastUpdated: -1 });
+// Index for finding accepted maps sorted by hearts (popular maps)
+mapSchema.index({ accepted: 1, hearts: -1 });
+// Index for spotlight maps
+mapSchema.index({ accepted: 1, spotlight: 1 });
+
 const Map = mongoose.models.Map || mongoose.model('Map', mapSchema);
 
 export default Map;

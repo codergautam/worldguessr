@@ -139,9 +139,9 @@ function formatQuery(entry) {
     }
   }
 
-  // if(ms < 100) {
-  //   return;
-  // }
+  if(ms < 5) {
+    return;
+  }
 
   console.log(
     `${c.dim}${timestamp}${c.reset} ` +
