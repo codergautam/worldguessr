@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
-  
+
   // ===== MODERATION FIELDS =====
   // Ban status - replaces simple banned: boolean
   banned: {
@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null // Public note shown to user explaining their ban
   },
-  
+
   // Pending name change - user must change name before playing
   pendingNameChange: {
     type: Boolean,
@@ -64,14 +64,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null // Public note shown to user explaining why they need to change name
   },
-  
+
   // Reporter statistics - track quality of reports
   reporterStats: {
     helpfulReports: { type: Number, default: 0 },   // Reports that led to action
     unhelpfulReports: { type: Number, default: 0 }  // Reports that were ignored/dismissed
   },
   // ===== END MODERATION FIELDS =====
-  
+
   friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   sentReq: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   receivedReq: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -181,6 +181,12 @@ userSchema.index({ email: 1 });
 userSchema.index({ banned: 1, banType: 1, banExpiresAt: 1 });
 // Index for finding users with pending name changes
 userSchema.index({ pendingNameChange: 1 });
+// Case-insensitive username index for fast lookups (replaces slow $regex queries)
+// Use with .collation({ locale: 'en', strength: 2 }) on queries
+userSchema.index({ username: 1 }, { collation: { locale: 'en', strength: 2 } });
+
+// Export collation config for consistent usage across queries
+export const USERNAME_COLLATION = { locale: 'en', strength: 2 };
 
 // ===== LEADERBOARD PERFORMANCE INDEXES =====
 // All-time XP leaderboard - critical for sorting millions of users by XP

@@ -1,5 +1,5 @@
 // pages/api/setName.js
-import User from "../models/User.js";
+import User, { USERNAME_COLLATION } from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
 import { USERNAME_CHANGE_COOLDOWN } from "./publicAccount.js";
 import Map from "../models/Map.js";
@@ -43,12 +43,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: "Inappropriate content" });
   }
   // Make sure the username is unique (case-insensitive)
-  const lowerUsername = username.toLowerCase();
-
-  // quey check for username (case-insensitive)
-  const existing = await User.findOne({
-    username: { $regex: new RegExp(`^${lowerUsername}$`, "i") },
-  });
+  // Uses collation index for fast O(log n) lookup instead of slow regex scan
+  const existing = await User.findOne({ username })
+    .collation(USERNAME_COLLATION);
   if (existing) {
     return res
       .status(400)

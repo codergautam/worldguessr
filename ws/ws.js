@@ -3,7 +3,7 @@ import fs from 'fs';
 import { config } from 'dotenv';
 import Player from './classes/Player.js';
 import { v4 as uuidv4 } from 'uuid';
-import User from '../models/User.js';
+import User, { USERNAME_COLLATION } from '../models/User.js';
 import mongoose from 'mongoose';
 import { Filter } from 'bad-words';
 import Game from './classes/Game.js';
@@ -1025,7 +1025,7 @@ app.ws('/wg', {
           player.send({ type: 'friendReqState', state: 7 })
           return;
         }
-        User.findOne({ username: { $regex: new RegExp('^' + json.name + '$', "i") } }).then(async (friend) => {
+        User.findOne({ username: json.name }).collation(USERNAME_COLLATION).then(async (friend) => {
           if (!friend) {
             player.send({ type: 'friendReqState', state: 3 })
             return;

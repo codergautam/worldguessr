@@ -1,10 +1,10 @@
-import User from '../../models/User.js';
+import User, { USERNAME_COLLATION } from '../../models/User.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
 import ModerationLog from '../../models/ModerationLog.js';
 
 /**
  * Review Name Change API
- * 
+ *
  * Allows moderators to approve or reject pending name change requests
  */
 export default async function handler(req, res) {
@@ -12,8 +12,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { 
-    secret, 
+  const {
+    secret,
     requestId,      // NameChangeRequest ID
     action,         // 'approve' or 'reject'
     rejectionReason // Required if rejecting
@@ -60,15 +60,15 @@ export default async function handler(req, res) {
     }
 
     if (action === 'approve') {
-      // Check if the new username is already taken
-      const existingUser = await User.findOne({ 
-        username: { $regex: new RegExp(`^${nameRequest.requestedUsername}$`, 'i') },
+      // Check if the new username is already taken (case-insensitive with collation index)
+      const existingUser = await User.findOne({
+        username: nameRequest.requestedUsername,
         _id: { $ne: targetUser._id }
-      });
+      }).collation(USERNAME_COLLATION);
 
       if (existingUser) {
-        return res.status(400).json({ 
-          message: 'This username is already taken. Reject this request so the user can submit a different name.' 
+        return res.status(400).json({
+          message: 'This username is already taken. Reject this request so the user can submit a different name.'
         });
       }
 

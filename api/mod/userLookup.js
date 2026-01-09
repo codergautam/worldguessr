@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import User from '../../models/User.js';
+import User, { USERNAME_COLLATION } from '../../models/User.js';
 import Report from '../../models/Report.js';
 import ModerationLog from '../../models/ModerationLog.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
@@ -170,10 +170,10 @@ export default async function handler(req, res) {
         // Escape regex special characters to prevent injection
         const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-        // 1. Find current user with this exact username
+        // 1. Find current user with this exact username (case-insensitive with collation index)
         const currentUserWithName = await User.findOne({
-          username: { $regex: new RegExp(`^${escapedSearchTerm}$`, 'i') }
-        });
+          username: searchTerm
+        }).collation(USERNAME_COLLATION);
 
         // 2. Find users who previously had this EXACT username (from name changes - including voluntary)
         const pastNameLogs = await ModerationLog.find({
