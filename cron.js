@@ -62,11 +62,11 @@ const updateAllUserStats = async () => {
     const fetchStart = Date.now();
 
     const [usersByXp, usersByElo] = await Promise.all([
-      User.find({ banned: { $ne: true } })
+      User.find({ banned: false })
         .select('_id totalXp elo')
         .sort({ totalXp: -1 })
         .lean(),
-      User.find({ banned: { $ne: true } })
+      User.find({ banned: false })
         .select('_id elo')
         .sort({ elo: -1 })
         .lean()

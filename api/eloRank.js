@@ -36,10 +36,10 @@ export default async function handler(req, res) {
     }
 
     // Exclude banned users AND users with pending name changes from ranking
-    const rank = (await User.countDocuments({ 
+    const rank = (await User.countDocuments({
       elo: { $gt: user.elo },
-      banned: { $ne: true },
-      pendingNameChange: { $ne: true }
+      banned: false,
+      pendingNameChange: false
     }).cache(2000)) + 1;
 
     // Return the user's elo and rank

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
  * MongoDB Real-Time Query Monitor
- * 
+ *
  * Shows every query as it happens with:
  * - Execution time (ms)
  * - Whether it used an index or did a COLLSCAN
  * - Query details
- * 
+ *
  * Usage:
  *   node scripts/mongoMonitor.js
- * 
+ *
  * Press Ctrl+C to stop (profiling will be restored to original level)
  */
 
@@ -87,7 +87,7 @@ function formatQuery(entry) {
   const op = entry.op || 'unknown';
   const ms = entry.millis ?? 0;
   const plan = entry.planSummary || '';
-  
+
   // Get query/command details
   let details = '';
   if (entry.command) {
@@ -117,6 +117,10 @@ function formatQuery(entry) {
     if (entry.docsExamined > entry.nreturned * 10 && entry.docsExamined > 100) {
       efficiency = ` ${c.red}[examined ${entry.docsExamined} → returned ${entry.nreturned}]${c.reset}`;
     }
+  }
+
+  if(ms < 100) {
+    return;
   }
 
   console.log(
@@ -152,19 +156,19 @@ async function setProfilingLevel(level, slowMs = 0) {
 async function cleanup() {
   if (isCleaningUp) return;
   isCleaningUp = true;
-  
+
   console.log(`\n${c.yellow}Cleaning up...${c.reset}`);
-  
+
   if (db) {
     // Restore original profiling level
     console.log(`${c.blue}Restoring profiling level to ${originalProfilingLevel} (slowms: ${originalSlowMs})${c.reset}`);
     await setProfilingLevel(originalProfilingLevel, originalSlowMs);
   }
-  
+
   if (mongoose.connection.readyState === 1) {
     await mongoose.disconnect();
   }
-  
+
   console.log(`${c.green}Cleanup complete. Goodbye!${c.reset}`);
   process.exit(0);
 }
@@ -180,14 +184,14 @@ process.on('uncaughtException', async (err) => {
 
 async function tailProfiler() {
   const profilerCollection = db.collection('system.profile');
-  
+
   // Get the latest timestamp to start tailing from
   const latest = await profilerCollection.findOne({}, { sort: { ts: -1 } });
   let lastTs = latest?.ts || new Date();
-  
+
   console.log(`${c.green}Monitoring queries in real-time...${c.reset}`);
   console.log(`${c.dim}Press Ctrl+C to stop${c.reset}\n`);
-  
+
   // Print header
   console.log(
     `${c.bright}${'TIME'.padEnd(15)} ` +
@@ -198,7 +202,7 @@ async function tailProfiler() {
     `DETAILS${c.reset}`
   );
   console.log(`${c.dim}${'-'.repeat(120)}${c.reset}`);
-  
+
   // Poll for new entries
   while (true) {
     try {
@@ -206,18 +210,18 @@ async function tailProfiler() {
         .find({ ts: { $gt: lastTs } })
         .sort({ ts: 1 })
         .toArray();
-      
+
       for (const entry of newEntries) {
         // Skip the profiler's own queries
         if (entry.ns?.includes('system.profile')) continue;
-        
+
         formatQuery(entry);
         lastTs = entry.ts;
       }
-      
+
       // Small delay to prevent hammering the database
       await new Promise(resolve => setTimeout(resolve, 100));
-      
+
     } catch (err) {
       if (err.message.includes('interrupted')) break;
       console.error(`${c.red}Error polling profiler: ${err.message}${c.reset}`);
@@ -228,47 +232,47 @@ async function tailProfiler() {
 
 async function main() {
   const mongoUri = process.env.MONGODB || process.env.MONGODB_URI || process.env.MONGO_URL;
-  
+
   if (!mongoUri) {
     console.error(`${c.red}No MongoDB connection string found!${c.reset}`);
     console.log('Set MONGODB, MONGODB_URI, or MONGO_URL in your .env file');
     process.exit(1);
   }
-  
+
   console.log(`\n${c.bright}${c.cyan}╔═══════════════════════════════════════════════════════════╗${c.reset}`);
   console.log(`${c.bright}${c.cyan}║         MongoDB Real-Time Query Monitor                   ║${c.reset}`);
   console.log(`${c.bright}${c.cyan}╚═══════════════════════════════════════════════════════════╝${c.reset}\n`);
-  
+
   console.log(`${c.blue}Connecting to MongoDB...${c.reset}`);
-  
+
   try {
     await mongoose.connect(mongoUri);
     db = mongoose.connection.db;
     console.log(`${c.green}Connected!${c.reset}\n`);
-    
+
     // Save original profiling level
     const originalStatus = await getProfilingStatus();
     originalProfilingLevel = originalStatus.level;
     originalSlowMs = originalStatus.slowMs;
-    
+
     console.log(`${c.blue}Original profiling: level ${originalProfilingLevel}, slowms ${originalSlowMs}${c.reset}`);
-    
+
     // Enable full profiling (level 2 = all queries)
     console.log(`${c.yellow}Enabling full profiling (level 2, slowms 0)...${c.reset}`);
     const success = await setProfilingLevel(2, 0);
-    
+
     if (!success) {
       console.error(`${c.red}Failed to enable profiling. Make sure you have admin privileges.${c.reset}`);
       await mongoose.disconnect();
       process.exit(1);
     }
-    
+
     console.log(`${c.green}Profiling enabled!${c.reset}`);
     console.log(`${c.yellow}NOTE: Profiling will be restored to original level on exit.${c.reset}\n`);
-    
+
     // Start tailing the profiler
     await tailProfiler();
-    
+
   } catch (err) {
     console.error(`${c.red}Error: ${err.message}${c.reset}`);
     await cleanup();

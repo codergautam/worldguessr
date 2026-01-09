@@ -132,8 +132,8 @@ export default async function handler(req, res) {
         // All-time leaderboard - uses indexes for fast sorting
         const sortField = isXp ? 'totalXp' : 'elo';
         const topUsers = await User.find({
-          banned: { $ne: true },
-          pendingNameChange: { $ne: true }
+          banned: false,
+          pendingNameChange: false
         })
           .sort({ [sortField]: -1 })
           .limit(100)
@@ -164,8 +164,8 @@ export default async function handler(req, res) {
           if (myScore) {
             const betterUsersCount = await User.countDocuments({
               [sortField]: { $gt: myScore },
-              banned: { $ne: true },
-              pendingNameChange: { $ne: true }
+              banned: false,
+              pendingNameChange: false
             }).maxTimeMS(5000);
             myRank = betterUsersCount + 1;
           }
