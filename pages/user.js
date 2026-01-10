@@ -257,38 +257,6 @@ export default function UserProfilePage() {
           font-family: "Lexend", sans-serif;
         }
 
-        .back-button-container {
-          max-width: 1200px;
-          margin: 0 auto 20px auto;
-          padding: 0 20px;
-        }
-
-        .back-to-wg-button {
-          background: rgba(255, 255, 255, 0.1);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          border: 2px solid rgba(255, 255, 255, 0.2);
-          border-radius: 25px;
-          padding: 12px 24px;
-          color: white;
-          font-size: 14px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.3s ease;
-          font-family: "Lexend", sans-serif;
-        }
-
-        .back-to-wg-button:hover {
-          background: rgba(255, 255, 255, 0.2);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-          border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        .back-to-wg-button:active {
-          transform: translateY(0);
-        }
-
         .loading-container {
           display: flex;
           flex-direction: column;
