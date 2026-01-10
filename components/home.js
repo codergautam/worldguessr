@@ -467,6 +467,12 @@ export default function Home({ }) {
     const [coolmathSplash, setCoolmathSplash] = useState(null);
     const [navSlideOut, setNavSlideOut] = useState(false);
 
+    // Close suggest login modal when user successfully logs in
+    useEffect(() => {
+        if (session?.token?.secret && showSuggestLoginModal) {
+            setShowSuggestLoginModal(false);
+        }
+    }, [session?.token?.secret, showSuggestLoginModal]);
 
     // check if ?coolmath=true
     useEffect(() => {
