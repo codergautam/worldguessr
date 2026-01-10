@@ -35,11 +35,10 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Exclude banned users AND users with pending name changes from ranking
-    const rank = (await User.countDocuments({ 
+    // Exclude banned users from ranking
+    const rank = (await User.countDocuments({
       elo: { $gt: user.elo },
-      banned: { $ne: true },
-      pendingNameChange: { $ne: true }
+      banned: false
     }).cache(2000)) + 1;
 
     // Return the user's elo and rank

@@ -53,6 +53,33 @@ export default async function searchMaps(req, res) {
       $text: { $search: query }
     }).sort({ hearts: -1 }).limit(50).cache(10000);
 
+    // Re-rank results to prioritize exact and substring matches
+    const queryLower = query.toLowerCase();
+    maps.sort((a, b) => {
+      const aNameLower = a.name.toLowerCase();
+      const bNameLower = b.name.toLowerCase();
+
+      // 1. Exact match (highest priority)
+      const aExact = aNameLower === queryLower;
+      const bExact = bNameLower === queryLower;
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+
+      // 2. Starts with query
+      const aStartsWith = aNameLower.startsWith(queryLower);
+      const bStartsWith = bNameLower.startsWith(queryLower);
+      if (aStartsWith && !bStartsWith) return -1;
+      if (!aStartsWith && bStartsWith) return 1;
+
+      // 3. Contains query as substring
+      const aContains = aNameLower.includes(queryLower);
+      const bContains = bNameLower.includes(queryLower);
+      if (aContains && !bContains) return -1;
+      if (!aContains && bContains) return 1;
+
+      // 4. For equal relevance, sort by hearts (popularity)
+      return b.hearts - a.hearts;
+    });
 
     // Convert maps to sendable format
     let sendableMaps = await Promise.all(maps.map(async (map) => {

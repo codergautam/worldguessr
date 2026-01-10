@@ -1,4 +1,4 @@
-import User from '../models/User.js';
+import User, { USERNAME_COLLATION } from '../models/User.js';
 import NameChangeRequest from '../models/NameChangeRequest.js';
 
 /**
@@ -56,11 +56,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'You do not have a pending name change' });
     }
 
-    // Check if username is already taken
+    // Check if username is already taken (case-insensitive with collation index)
     const existingUser = await User.findOne({
-      username: { $regex: new RegExp(`^${trimmedUsername}$`, 'i') },
+      username: trimmedUsername,
       _id: { $ne: user._id }
-    });
+    }).collation(USERNAME_COLLATION);
 
     if (existingUser) {
       return res.status(400).json({ message: 'This username is already taken' });

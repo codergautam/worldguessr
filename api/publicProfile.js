@@ -119,8 +119,7 @@ export default async function handler(req, res) {
     // Calculate ELO rank (exclude banned users and pending name changes)
     const rank = (await User.countDocuments({
       elo: { $gt: user.elo },
-      banned: { $ne: true },
-      pendingNameChange: { $ne: true }
+      banned: false
     }).cache(2000)) + 1;
 
     // Calculate league info
@@ -207,16 +206,16 @@ function getClientIP(req) {
 async function trackProfileView(userId, ip) {
   const viewKey = `${ip}:${userId}`;
   const now = Date.now();
-  
+
   // Check if this IP recently viewed this profile
   const lastViewTime = profileViewTracking.get(viewKey);
   if (lastViewTime && (now - lastViewTime) < VIEW_COOLDOWN) {
     return false; // Don't count duplicate views
   }
-  
+
   // Record this view
   profileViewTracking.set(viewKey, now);
-  
+
   // Increment profile view count in database
   try {
     await User.updateOne(
