@@ -184,18 +184,6 @@ export default function UserProfilePage() {
       <Navbar />
 
       <div className="user-profile-page">
-        {/* Back to WG Button */}
-        <div className="back-button-container">
-          <button 
-            className="back-to-wg-button"
-            // onClick={() => router.push('/')}
-            //  use window.location.href
-            onClick={() => window.location.href = '/'}
-          >
-            ← Go to WorldGuessr
-          </button>
-        </div>
-
         {loading && (
           <div className="loading-container">
             <div className="loading-card">
