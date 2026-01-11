@@ -60,6 +60,9 @@
     color: white;
     margin: 0;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .account-modal-close {
@@ -69,6 +72,7 @@
     border-radius: 50%;
     width: 50px;
     height: 50px;
+    min-width: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -80,6 +84,8 @@
     box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
     position: relative;
     z-index: 1000;
+    flex-shrink: 0;
+    margin-left: 10px;
 }
 
 .account-modal-close:hover {
@@ -237,6 +243,7 @@
     .account-modal-close {
         width: 45px;
         height: 45px;
+        min-width: 45px;
         font-size: 18px;
     }
 
@@ -283,6 +290,7 @@
     .account-modal-close {
         width: 40px;
         height: 40px;
+        min-width: 40px;
         font-size: 16px;
     }
 
