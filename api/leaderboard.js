@@ -53,11 +53,11 @@ async function getDailyLeaderboard(isXp = true) {
 
   if (!precomputedLeaderboard) {
     console.warn('[LEADERBOARD] Pre-computed daily leaderboard not found');
-    return { leaderboard: [], userDeltas: [] };
+    return { leaderboard: [] };
   }
 
-  // Transform pre-computed data to match expected format
-  const leaderboard = precomputedLeaderboard.leaderboard.map(entry => ({
+  // Transform pre-computed data to match expected format (only top 100 for display)
+  const leaderboard = precomputedLeaderboard.leaderboard.slice(0, 100).map(entry => ({
     username: entry.username,
     countryCode: entry.countryCode || null,
     totalXp: isXp ? entry.delta : entry.currentValue,
@@ -69,10 +69,10 @@ async function getDailyLeaderboard(isXp = true) {
     supporter: entry.supporter || false
   }));
 
-  return { leaderboard, userDeltas: precomputedLeaderboard.leaderboard };
+  return { leaderboard };
 }
 
-// Get user's position from pre-computed daily leaderboard
+// Get user's position from pre-computed daily leaderboard (top 50k)
 async function getUserDailyRank(username, isXp = true) {
   const user = await User.findOne({ username: username }).maxTimeMS(2000);
   if (!user) return { rank: null, delta: null };
@@ -84,7 +84,7 @@ async function getUserDailyRank(username, isXp = true) {
   const todayMidnight = new Date(now);
   todayMidnight.setUTCHours(0, 0, 0, 0);
 
-  // Fetch pre-computed leaderboard
+  // Fetch pre-computed leaderboard (contains top 50k users)
   const precomputedLeaderboard = await DailyLeaderboard.findOne({
     date: todayMidnight,
     mode: mode
@@ -94,7 +94,7 @@ async function getUserDailyRank(username, isXp = true) {
     return { rank: null, delta: null };
   }
 
-  // Find user in pre-computed leaderboard
+  // Find user in pre-computed leaderboard (searches through top 50k)
   const userEntry = precomputedLeaderboard.leaderboard.find(
     entry => entry.userId === user._id.toString()
   );
@@ -103,7 +103,7 @@ async function getUserDailyRank(username, isXp = true) {
     return { rank: userEntry.rank, delta: userEntry.delta };
   }
 
-  // User not in top 100
+  // User not in top 50k - no activity or very low delta
   return { rank: null, delta: null };
 }
 

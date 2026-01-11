@@ -186,7 +186,7 @@ startWeeklyUserStatsTimer();
 
 // ============================================================================
 // DAILY LEADERBOARD PRE-COMPUTATION
-// Computes and caches top 100 users every 15 minutes instead of on-demand
+// Computes and caches top 50k users every 15 minutes instead of on-demand
 // ============================================================================
 
 const LEADERBOARD_UPDATE_INTERVAL = 15 * 60 * 1000; // 15 minutes
@@ -294,7 +294,7 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
         [mode === 'xp' ? 'xpDelta' : 'eloDelta']: -1
       }
     },
-    { $limit: 100 }
+    { $limit: 50000 }
   ];
 
   // Execute aggregation with maxTimeMS to prevent hanging
@@ -302,11 +302,11 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
 
   const totalActiveUsers = userDeltas.length;
 
-  // Get user details for top 100
+  // Get user details for top 50k
   const userIds = userDeltas.map(u => u.userId);
   const users = await User.find({
     _id: { $in: userIds }
-  }).select('_id username countryCode supporter').lean().maxTimeMS(5000);
+  }).select('_id username countryCode supporter').lean().maxTimeMS(30000);
 
   // Create user lookup map
   const userMap = new Map();
