@@ -35,6 +35,7 @@ const StreetView = ({
         console.log(`[PERF] StreetView: Setting Google Maps iframe src for lat=${lat}, long=${long}`);
         window.googleMapsIframeStartTime = performance.now();
         setLoading(true);
+        setHasLoaded(false); // Hide iframe (black bg shows), then fade in when loaded
         iframeRef.current.src = newSrc;
       }
       prevLocationRef.current = locationKey;
