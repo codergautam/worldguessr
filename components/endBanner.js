@@ -8,14 +8,18 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const confettiTriggered = useRef(false);
 
     // Calculate points for confetti check
-    const points = latLong && pinPoint ? calcPoints({
-        lat: latLong.lat,
-        lon: latLong.long,
-        guessLat: pinPoint.lat,
-        guessLon: pinPoint.lng,
-        usedHint: false,
-        maxDist: multiplayerState?.gameData?.maxDist ?? 20000
-    }) : (singlePlayerRound?.lastPoint ?? 0);
+    // For singleplayer (not in multiplayer), use lastPoint (already calculated with correct maxDist for custom maps)
+    // For multiplayer, calculate using multiplayer gameData
+    const points = (!multiplayerState?.inGame && singlePlayerRound?.lastPoint != null)
+        ? singlePlayerRound.lastPoint
+        : (latLong && pinPoint ? calcPoints({
+            lat: latLong.lat,
+            lon: latLong.long,
+            guessLat: pinPoint.lat,
+            guessLon: pinPoint.lng,
+            usedHint: false,
+            maxDist: multiplayerState?.gameData?.maxDist ?? 20000
+        }) : 0);
 
     // Trigger confetti for scores >= 4850
     useEffect(() => {
