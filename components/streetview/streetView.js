@@ -15,6 +15,7 @@ const StreetView = ({
   onLoad
 }) => {
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false); // Track if iframe has ever loaded
   const iframeRef = useRef(null);
   const prevLocationRef = useRef(null);
   const prevRefreshKeyRef = useRef(refreshKey);
@@ -22,6 +23,7 @@ const StreetView = ({
   // Reset loading state when location changes
   useEffect(() => {
     setLoading(true);
+    setHasLoaded(false); // Hide iframe again until new location loads
   }, [lat, long, panoId]);
 
   // Update iframe src when location or refreshKey changes
@@ -75,6 +77,7 @@ const StreetView = ({
           console.log(`[PERF] StreetView: Google Maps iframe loaded in ${(performance.now() - window.googleMapsIframeStartTime).toFixed(2)}ms`);
         }
         setLoading(false);
+        setHasLoaded(true); // Now we can show the iframe
         if (onLoad && (lat && long || panoId)) {
           onLoad();
         }
@@ -86,9 +89,9 @@ const StreetView = ({
         zIndex: 100,
         transform: "translateY(-285px)",
         border: "none",
-        opacity: (hidden || loading) ? 0 : 1,
+        opacity: (hidden || !hasLoaded) ? 0 : 1,
         transition: "opacity 0.3s ease-in-out",
-        pointerEvents: (hidden || loading) ? "none" : "auto",
+        pointerEvents: (hidden || !hasLoaded) ? "none" : "auto",
       }}
       id="streetview"
     />
