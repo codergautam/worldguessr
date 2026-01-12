@@ -2246,7 +2246,7 @@ export default function Home({ }) {
                         console.log("loaded")
                         setTimeout(() => {
                             setLoading(false)
-                        }, 1000)
+                        }, 300)
 
                     }}
                 />
