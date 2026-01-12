@@ -15,18 +15,13 @@ const StreetView = ({
   onLoad
 }) => {
   const [loading, setLoading] = useState(true);
-  const [hasLoaded, setHasLoaded] = useState(false); // Track if iframe has ever loaded
+  const [hasLoaded, setHasLoaded] = useState(false);
   const iframeRef = useRef(null);
   const prevLocationRef = useRef(null);
   const prevRefreshKeyRef = useRef(refreshKey);
 
-  // Reset loading state when location changes
-  useEffect(() => {
-    setLoading(true);
-    setHasLoaded(false); // Hide iframe again until new location loads
-  }, [lat, long, panoId]);
-
   // Update iframe src when location or refreshKey changes
+  // DON'T reset hasLoaded - keep showing old content until new loads
   useEffect(() => {
     if (iframeRef.current && (lat && long || panoId)) {
       const newSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en`;
@@ -66,35 +61,46 @@ const StreetView = ({
   const iframeSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en`;
 
   return (
-    <iframe
-      ref={iframeRef}
-      className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} streetview`}
-      src={iframeSrc}
-      referrerPolicy="no-referrer-when-downgrade"
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
-      onLoad={() => {
-        if (window.googleMapsIframeStartTime) {
-          console.log(`[PERF] StreetView: Google Maps iframe loaded in ${(performance.now() - window.googleMapsIframeStartTime).toFixed(2)}ms`);
-        }
-        setLoading(false);
-        setHasLoaded(true); // Now we can show the iframe
-        if (onLoad && (lat && long || panoId)) {
-          onLoad();
-        }
-      }}
-      loading="eager"
-      style={{
-        width: "100vw",
-        height: "calc(100vh + 300px)",
-        zIndex: 100,
-        transform: "translateY(-285px)",
-        border: "none",
-        visibility: (hidden || !hasLoaded) ? "hidden" : "visible",
-        pointerEvents: (hidden || !hasLoaded) ? "none" : "auto",
-        backgroundColor: "#000",
-      }}
-      id="streetview"
-    />
+    <div style={{
+      position: "absolute",
+      top: 0,
+      left: 0,
+      width: "100vw",
+      height: "100vh",
+      backgroundColor: "#000",
+      zIndex: 100,
+      overflow: "hidden",
+      visibility: hidden ? "hidden" : "visible",
+    }}>
+      <iframe
+        ref={iframeRef}
+        className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} streetview`}
+        src={iframeSrc}
+        referrerPolicy="no-referrer-when-downgrade"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
+        onLoad={() => {
+          if (window.googleMapsIframeStartTime) {
+            console.log(`[PERF] StreetView: Google Maps iframe loaded in ${(performance.now() - window.googleMapsIframeStartTime).toFixed(2)}ms`);
+          }
+          setLoading(false);
+          setHasLoaded(true);
+          if (onLoad && (lat && long || panoId)) {
+            onLoad();
+          }
+        }}
+        loading="eager"
+        style={{
+          width: "100vw",
+          height: "calc(100vh + 300px)",
+          transform: "translateY(-285px)",
+          border: "none",
+          opacity: hasLoaded ? 1 : 0,
+          transition: "opacity 0.15s ease-out",
+          pointerEvents: hasLoaded ? "auto" : "none",
+        }}
+        id="streetview"
+      />
+    </div>
   );
 };
 
