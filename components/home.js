@@ -55,7 +55,7 @@ import { useGoogleLogin } from "@react-oauth/google";
 import haversineDistance from "./utils/haversineDistance";
 import StreetView from "./streetview/streetView";
 import Stats from "stats.js";
-import SvEmbedIframe from "./streetview/svHandler";
+// import SvEmbedIframe from "./streetview/svHandler"; // REMOVED: Using direct StreetView instead of double-iframe setup
 import HomeNotice from "./homeNotice";
 import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
@@ -2225,7 +2225,7 @@ export default function Home({ }) {
 
             <main className={`home`} id="main">
 
-                <SvEmbedIframe
+                <StreetView
                     nm={gameOptions?.nm}
                     npz={gameOptions?.npz}
                     showAnswer={showAnswer}
@@ -2235,12 +2235,10 @@ export default function Home({ }) {
                     heading={latLong?.heading}
                     pitch={latLong?.pitch}
                     showRoadLabels={screen === "onboarding" ? false : gameOptions?.showRoadName}
-                    loading={loading}
-                    setLoading={setLoading}
-                    latLongKey={latLongKey}
                     hidden={!!((!latLong || !latLong.lat || !latLong.long) || loading) || (
                         screen === "home" || !!(screen === "multiplayer" && (multiplayerState?.gameData?.state === "waiting" || multiplayerState?.enteringGameCode || multiplayerState?.gameQueued))
                     )}
+                    refreshKey={latLongKey}
                     onLoad={() => {
                         if (window.roundStartTime) {
                             console.log(`[PERF] ========== Round complete! Total time from start to SV loaded: ${(performance.now() - window.roundStartTime).toFixed(2)}ms ==========`);
