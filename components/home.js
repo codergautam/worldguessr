@@ -2653,7 +2653,7 @@ export default function Home({ }) {
                             }
 
                             setOnboarding(null)
-                            if (!window.location.search.includes("app=true") && !inCrazyGames) {
+                            if (!window.location.search.includes("app=true") && !inCrazyGames && !inCoolMathGames) {
                                 setShowSuggestLoginModal(true)
                             }
                             setScreen("home")
