@@ -79,13 +79,16 @@ const StreetView = ({
           onLoad();
         }
       }}
-      loading="lazy"
+      loading="eager"
       style={{
         width: "100vw",
         height: "calc(100vh + 300px)",
         zIndex: 100,
         transform: "translateY(-285px)",
         border: "none",
+        opacity: (hidden || loading) ? 0 : 1,
+        transition: "opacity 0.3s ease-in-out",
+        pointerEvents: (hidden || loading) ? "none" : "auto",
       }}
       id="streetview"
     />
