@@ -1905,6 +1905,8 @@ export default function Home({ }) {
 
     function loadLocation() {
         if (loading) return;
+        console.log("[PERF] ========== Starting new round ==========");
+        window.roundStartTime = performance.now();
         setLoading(true)
         setShowAnswer(false)
         setPinPoint(null)
@@ -1920,7 +1922,10 @@ export default function Home({ }) {
             setOtherOptions(options)
         } else {
             function defaultMethod() {
+                console.log("[PERF] loadLocation: Calling findLatLongRandom");
+                const startTime = performance.now();
                 findLatLongRandom(gameOptions).then((latLong) => {
+                    console.log(`[PERF] loadLocation: findLatLongRandom completed, setting latLong. Total time: ${(performance.now() - startTime).toFixed(2)}ms`);
                     setLatLong(latLong);
                 });
             }
@@ -1931,12 +1936,15 @@ export default function Home({ }) {
                     defaultMethod();
                     return;
                 }
+                const fetchStartTime = performance.now();
+                console.log("[PERF] loadLocation: Starting fetch for locations");
                 const url = config.apiUrl + ((gameOptions.location === "all") ? `/${window?.learnMode ? 'clue' : 'all'}Countries.json` :
                     gameOptions.countryMap && gameOptions.official ? `/countryLocations/${gameOptions.countryMap}` :
                         `/mapLocations/${gameOptions.location}`);
                 fetch(url).then((res) => {
                     return res.json();
                 }).then((data) => {
+                    console.log(`[PERF] loadLocation: Fetched locations in ${(performance.now() - fetchStartTime).toFixed(2)}ms`);
                     if (data.ready) {
                         // this uses long for lng
                         for (let i = 0; i < data.locations.length; i++) {
@@ -2234,6 +2242,9 @@ export default function Home({ }) {
                         screen === "home" || !!(screen === "multiplayer" && (multiplayerState?.gameData?.state === "waiting" || multiplayerState?.enteringGameCode || multiplayerState?.gameQueued))
                     )}
                     onLoad={() => {
+                        if (window.roundStartTime) {
+                            console.log(`[PERF] ========== Round complete! Total time from start to SV loaded: ${(performance.now() - window.roundStartTime).toFixed(2)}ms ==========`);
+                        }
                         console.log("loaded")
                         setTimeout(() => {
                             setLoading(false)

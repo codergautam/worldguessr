@@ -35,6 +35,8 @@ const StreetView = ({
 
       // Update if location changed, refreshKey changed, or first time
       if (locationChanged || refreshKeyChanged || !prevLocationRef.current) {
+        console.log(`[PERF] StreetView: Setting Google Maps iframe src for lat=${lat}, long=${long}`);
+        window.googleMapsIframeStartTime = performance.now();
         setLoading(true);
         iframeRef.current.src = newSrc;
       }
@@ -69,6 +71,9 @@ const StreetView = ({
       referrerPolicy="no-referrer-when-downgrade"
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
       onLoad={() => {
+        if (window.googleMapsIframeStartTime) {
+          console.log(`[PERF] StreetView: Google Maps iframe loaded in ${(performance.now() - window.googleMapsIframeStartTime).toFixed(2)}ms`);
+        }
         setLoading(false);
         if (onLoad && (lat && long || panoId)) {
           onLoad();

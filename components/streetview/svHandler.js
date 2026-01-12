@@ -32,6 +32,8 @@ const SvEmbedIframe = (params) => {
   // Set iframe src only once initially when we first have lat/long
   useEffect(() => {
     if (!iframeSrc && params.lat && params.long) {
+      console.log(`[PERF] SvEmbedIframe: Setting iframe src for lat=${params.lat}, long=${params.long}`);
+      window.svIframeStartTime = performance.now();
       // Only use panoId if we have proper heading/pitch data, otherwise fall back to lat/lng. Update: disable panoId entirely
       const shouldUsePanoId = false && params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
       const panoParam = shouldUsePanoId ? `&pano=${params.panoId}` : '';
@@ -55,6 +57,9 @@ const SvEmbedIframe = (params) => {
     const handleMessage = (event) => {
       // console.log("Received message from iframe", event.data);
       if (event.data && typeof event.data === "object" && event.data.type === "onLoad") {
+        if (window.svIframeStartTime) {
+          console.log(`[PERF] SvEmbedIframe: Received onLoad event after ${(performance.now() - window.svIframeStartTime).toFixed(2)}ms`);
+        }
         params.onLoad();
       }
     };
