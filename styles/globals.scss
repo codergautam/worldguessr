@@ -2040,6 +2040,10 @@ h1, h2, h3, span, label {
     opacity: 0;
 }
 
+#streetview {
+    transition: opacity 0.2s ease-out;
+}
+
 // on screens larger than 600px
 @media screen and (min-width: 600px) and (pointer: fine) {
     #miniMapArea.mapExpanded {

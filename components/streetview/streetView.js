@@ -62,46 +62,31 @@ const StreetView = ({
   const iframeSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en`;
 
   return (
-    <div style={{
-      position: "absolute",
-      top: 0,
-      left: 0,
-      width: "100vw",
-      height: "100vh",
-      backgroundColor: "#000",
-      zIndex: 100,
-      overflow: "hidden",
-      visibility: hidden ? "hidden" : "visible",
-    }}>
-      <iframe
-        ref={iframeRef}
-        className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} streetview`}
-        src={iframeSrc}
-        referrerPolicy="no-referrer-when-downgrade"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
-        onLoad={() => {
-          if (window.googleMapsIframeStartTime) {
-            console.log(`[PERF] StreetView: Google Maps iframe loaded in ${(performance.now() - window.googleMapsIframeStartTime).toFixed(2)}ms`);
-          }
-          setLoading(false);
-          setHasLoaded(true);
-          if (onLoad && (lat && long || panoId)) {
-            onLoad();
-          }
-        }}
-        loading="eager"
-        style={{
-          width: "100vw",
-          height: "calc(100vh + 300px)",
-          transform: "translateY(-285px)",
-          border: "none",
-          opacity: hasLoaded ? 1 : 0,
-          transition: "opacity 0.15s ease-out",
-          pointerEvents: hasLoaded ? "auto" : "none",
-        }}
-        id="streetview"
-      />
-    </div>
+    <iframe
+      ref={iframeRef}
+      className={`${(npz && nm && !showAnswer) ? 'nmpz' : ''} ${hidden ? "hidden" : ""} streetview`}
+      referrerPolicy="no-referrer-when-downgrade"
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
+      onLoad={() => {
+        if (window.googleMapsIframeStartTime) {
+          console.log(`[PERF] StreetView: Google Maps iframe loaded in ${(performance.now() - window.googleMapsIframeStartTime).toFixed(2)}ms`);
+        }
+        setLoading(false);
+        setHasLoaded(true);
+        if (onLoad && (lat && long || panoId)) {
+          onLoad();
+        }
+      }}
+      loading="eager"
+      style={{
+        width: "100vw",
+        height: "calc(100vh + 300px)",
+        zIndex: 100,
+        transform: "translateY(-285px)",
+        border: "none",
+      }}
+      id="streetview"
+    />
   );
 };
 
