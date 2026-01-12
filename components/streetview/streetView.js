@@ -89,9 +89,9 @@ const StreetView = ({
         zIndex: 100,
         transform: "translateY(-285px)",
         border: "none",
-        opacity: (hidden || !hasLoaded) ? 0 : 1,
-        transition: "opacity 0.3s ease-in-out",
+        visibility: (hidden || !hasLoaded) ? "hidden" : "visible",
         pointerEvents: (hidden || !hasLoaded) ? "none" : "auto",
+        backgroundColor: "#000",
       }}
       id="streetview"
     />
