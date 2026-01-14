@@ -339,11 +339,9 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
       }
 
       if(explanationModalShown) return;
+      // Don't handle space during onboarding completion - let home button handle it
+      if(onboarding?.completed) return;
       if(singlePlayerRound?.done && e.key === ' ') {
-        loadLocationFunc()
-        return;
-      }
-      if(onboarding?.completed && e.key === ' ') {
         loadLocationFunc()
         return;
       }
