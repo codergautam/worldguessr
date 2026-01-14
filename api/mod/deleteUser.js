@@ -74,7 +74,6 @@ export default async function handler(req, res) {
     const deletedUserInfo = {
       accountId: targetUser._id.toString(),
       username: targetUser.username,
-      email: targetUser.email,
       totalXp: targetUser.totalXp,
       elo: targetUser.elo,
       created_at: targetUser.created_at

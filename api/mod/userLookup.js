@@ -67,7 +67,7 @@ export default async function handler(req, res) {
       if (isObjectId) {
         // Search by account ID
         const userById = await User.findById(searchTerm)
-          .select('_id username email totalXp elo banned banType pendingNameChange staff supporter created_at')
+          .select('_id username totalXp elo banned banType pendingNameChange staff supporter created_at')
           .lean();
         if (userById) {
           currentNameMatches = [userById];
@@ -77,7 +77,7 @@ export default async function handler(req, res) {
         currentNameMatches = await User.find({
           email: { $regex: new RegExp(searchTerm, 'i') }
         })
-          .select('_id username email totalXp elo banned banType pendingNameChange staff supporter created_at')
+          .select('_id username totalXp elo banned banType pendingNameChange staff supporter created_at')
           .limit(10)
           .lean();
       } else {
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
         currentNameMatches = await User.find({
           username: { $regex: new RegExp(searchTerm, 'i') }
         })
-          .select('_id username email totalXp elo banned banType pendingNameChange staff supporter created_at')
+          .select('_id username totalXp elo banned banType pendingNameChange staff supporter created_at')
           .limit(10)
           .lean();
       }
@@ -112,7 +112,7 @@ export default async function handler(req, res) {
       const pastNameUsers = await User.find({
         _id: { $in: pastNameAccountIds.filter(id => !currentMatchIds.includes(id)) }
       })
-        .select('_id username email totalXp elo banned banType pendingNameChange staff supporter created_at')
+        .select('_id username totalXp elo banned banType pendingNameChange staff supporter created_at')
         .limit(10)
         .lean();
 
@@ -232,7 +232,6 @@ export default async function handler(req, res) {
             return {
               _id: match.user._id,
               username: match.user.username,
-              email: match.user.email,
               totalXp: match.user.totalXp,
               elo: match.user.elo,
               banned: match.user.banned,
@@ -292,7 +291,6 @@ async function buildUserResponse(targetUser) {
   const response = {
     targetUser: {
       username: targetUser.username,
-      email: targetUser.email || null, // Include email for staff lookup
       secret: targetUser.secret,
       _id: targetUser._id,
       totalXp: targetUser.totalXp,
