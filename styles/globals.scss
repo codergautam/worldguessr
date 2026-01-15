@@ -3271,8 +3271,9 @@ img[alt="Google"] {
 
 }
 
-/* Mobile Responsive */
-@media (max-width: 1024px) {
+/* Mobile Responsive - only for portrait screens OR narrow screens (< 800px) */
+/* This prevents landscape tablets/laptops (like 950x600) from getting mobile layout */
+@media (max-width: 799px), (max-width: 1024px) and (orientation: portrait) {
     .game-summary-container {
         flex-direction: column;
         overflow-x: hidden;
@@ -3416,6 +3417,52 @@ img[alt="Google"] {
         grid-row: 2;
         overflow: hidden;
         min-height: 0;
+    }
+}
+
+/* Landscape screens between 800-1024px - use desktop-style sidebar layout */
+@media (min-width: 800px) and (max-width: 1024px) and (orientation: landscape) {
+    .game-summary-container {
+        flex-direction: row;
+        height: 100vh;
+    }
+
+    .game-summary-sidebar {
+        width: 350px;
+        height: 100vh;
+        position: relative;
+        overflow-y: auto;
+        border-left: 2px solid var(--primary);
+        border-top: none;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 350px);
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+    }
+
+    .summary-header {
+        padding: 15px 20px 12px;
+        padding-top: 40px !important;
+        position: sticky;
+        top: 0;
+    }
+
+    .mobile-expand-btn {
+        display: none;
+    }
+
+    .rounds-container {
+        overflow-y: auto;
+    }
+
+    .rounds-container.mobile-hidden {
+        overflow-y: auto;
     }
 
     .summary-title {
