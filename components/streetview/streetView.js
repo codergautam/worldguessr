@@ -84,6 +84,7 @@ const StreetView = ({
         zIndex: 100,
         transform: "translateY(-285px)",
         border: "none",
+        backgroundColor: "#1a1a2e", // Dark background to prevent white flash during loading
       }}
       id="streetview"
     />

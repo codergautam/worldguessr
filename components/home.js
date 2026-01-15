@@ -2251,6 +2251,37 @@ export default function Home({ }) {
                     }}
                 />
 
+                {/* Loading overlay - covers iframe with background image to prevent white flicker */}
+                <div className={`loading-overlay ${loading ? 'loading-overlay--visible' : ''}`}>
+                    <NextImage.default src={'./street2christmas.jpg'}
+                        draggable={false}
+                        width={1920}
+                        height={1080}
+                        priority
+                        alt="Loading Background"
+                        style={{
+                            objectFit: "cover",
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            height: "100%",
+                            opacity: 0.5,
+                        }}
+                        sizes="100vw"
+                    />
+                    {/* Dark background behind the semi-transparent image to match home screen look */}
+                    <div style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        backgroundColor: "#000",
+                        zIndex: -1,
+                    }} />
+                </div>
+
                 <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
 
 

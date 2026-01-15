@@ -234,6 +234,26 @@ html {
         opacity: 1;
     }
 }
+/* Loading overlay - covers iframe during round transitions to prevent white flicker */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 101;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+}
+
+.loading-overlay--visible {
+  opacity: 1;
+  visibility: visible;
+  transition: none; /* Instant show - no transition when appearing */
+}
+
 .banner-text {
   opacity: 0;
   visibility: hidden;
@@ -2042,6 +2062,7 @@ h1, h2, h3, span, label {
 
 #streetview {
     transition: opacity 0.2s ease-out;
+    background-color: #1a1a2e; /* Prevent white flash during iframe src change */
 }
 
 // on screens larger than 600px
