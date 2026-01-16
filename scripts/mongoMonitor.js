@@ -88,6 +88,12 @@ function formatQuery(entry) {
   const ms = entry.millis ?? 0;
   const plan = entry.planSummary || '';
 
+  // Check for collation
+  const hasCollation = entry.command?.collation;
+  const collationInfo = hasCollation 
+    ? `${c.cyan}[COLLATION: ${entry.command.collation.locale}/${entry.command.collation.strength}]${c.reset} `
+    : '';
+
   // Get query/command details
   let details = '';
   if (entry.command) {
@@ -129,6 +135,9 @@ function formatQuery(entry) {
   } else if (entry.query) {
     details = `query: ${truncate(entry.query, 80)}`;
   }
+  
+  // Prepend collation info to details
+  details = collationInfo + details;
 
   // Docs examined vs returned (efficiency indicator)
   let efficiency = '';
