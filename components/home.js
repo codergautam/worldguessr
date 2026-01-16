@@ -1829,6 +1829,18 @@ export default function Home({ }) {
             return;
         }
 
+        // Warning for ranked duels in progress - prevent accidental forfeits
+        const isRankedDuel = multiplayerState?.inGame &&
+            multiplayerState?.gameData?.duel &&
+            !multiplayerState?.gameData?.public &&
+            multiplayerState?.gameData?.state !== "end";
+
+        if (isRankedDuel) {
+            const confirmed = window.confirm(text("forfeitWarning"));
+            if (!confirmed) {
+                return; // User cancelled, don't leave the game
+            }
+        }
 
         if (multiplayerState?.inGame) {
             if (!multiplayerState?.gameData?.host || multiplayerState?.gameData?.state === "waiting") {

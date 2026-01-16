@@ -381,5 +381,6 @@
   "searchCountries": "Search countries...",
   "removeFlag": "Remove Flag",
   "selectCountryFlag": "Select Your Country Flag",
-  "confirmRemoveFlag": "Remove your country flag?"
+  "confirmRemoveFlag": "Remove your country flag?",
+  "forfeitWarning": "⚠️ You are in a ranked duel!\n\nLeaving now will forfeit the match and you will lose ELO.\n\nAre you sure you want to leave?"
 }
