@@ -1,4 +1,4 @@
-import User from '../models/User.js';
+import User, { USERNAME_COLLATION } from '../models/User.js';
 import DailyLeaderboard from '../models/DailyLeaderboard.js';
 
 // Cache for leaderboard data
@@ -74,7 +74,7 @@ async function getDailyLeaderboard(isXp = true) {
 
 // Get user's position from pre-computed daily leaderboard (top 50k)
 async function getUserDailyRank(username, isXp = true) {
-  const user = await User.findOne({ username: username }).maxTimeMS(2000);
+  const user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).maxTimeMS(2000);
   if (!user) return { rank: null, delta: null };
 
   const mode = isXp ? 'xp' : 'elo';
@@ -152,11 +152,11 @@ export default async function handler(req, res) {
         const userResult = await getUserDailyRank(myUsername, isXp);
         myRank = userResult.rank;
         myScore = userResult.delta;
-        const user = await User.findOne({ username: myUsername }).select('countryCode').maxTimeMS(2000);
+        const user = await User.findOne({ username: myUsername }).collation(USERNAME_COLLATION).select('countryCode').maxTimeMS(2000);
         myCountryCode = user?.countryCode || null;
       } else {
         // All-time ranking
-        const user = await User.findOne({ username: myUsername }).maxTimeMS(2000);
+        const user = await User.findOne({ username: myUsername }).collation(USERNAME_COLLATION).maxTimeMS(2000);
         if (user) {
           myCountryCode = user.countryCode || null;
           const sortField = isXp ? 'totalXp' : 'elo';

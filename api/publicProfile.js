@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import User from '../models/User.js';
+import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
 import { rateLimit } from '../utils/rateLimit.js';
 
@@ -77,8 +77,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Find user by username (case-sensitive to match eloRank.js pattern)
-    const user = await User.findOne({ username: username });
+    // Find user by username (case-insensitive with collation for index usage)
+    const user = await User.findOne({ username: username }).collation(USERNAME_COLLATION);
 
     // Generic error message to prevent user enumeration
     if (!user) {

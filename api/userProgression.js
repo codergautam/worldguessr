@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import User from '../models/User.js';
+import User, { USERNAME_COLLATION } from '../models/User.js';
 import UserStatsService from '../components/utils/userStatsService.js';
 import { rateLimit } from '../utils/rateLimit.js';
 
@@ -118,7 +118,7 @@ export default async function handler(req, res) {
     if (userId) {
       user = await User.findOne({ _id: userId });
     } else if (username) {
-      user = await User.findOne({ username: username });
+      user = await User.findOne({ username: username }).collation(USERNAME_COLLATION);
     }
 
     // Generic error message to prevent user enumeration

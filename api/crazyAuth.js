@@ -4,7 +4,7 @@ import axios from "axios";
 // import { createUUID } from "@/components/createUUID";
 // import User from "@/models/User";
 import { createUUID } from "../components/createUUID.js";
-import User from "../models/User.js";
+import User, { USERNAME_COLLATION } from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
 import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
 import cachegoose from 'recachegoose';
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
   let taken = true;
   let trial = 0;
   while (taken) {
-    const existing = await User.findOne({ username: finalUsername });
+    const existing = await User.findOne({ username: finalUsername }).collation(USERNAME_COLLATION);
     if (!existing) {
       taken = false;
     } else {
