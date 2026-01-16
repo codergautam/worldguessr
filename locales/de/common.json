@@ -331,5 +331,6 @@
   "searchCountries": "Länder suchen...",
   "removeFlag": "Flagge entfernen",
   "selectCountryFlag": "Wählen Sie Ihre Länderflagge",
-  "confirmRemoveFlag": "Länderflagge entfernen?"
+  "confirmRemoveFlag": "Länderflagge entfernen?",
+  "forfeitWarning": "⚠️ Du bist in einem Ranglistenduell!\n\nWenn du jetzt gehst, gibst du das Spiel auf und verlierst ELO.\n\nBist du sicher, dass du gehen willst?"
 }

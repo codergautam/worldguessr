@@ -331,5 +331,6 @@
   "searchCountries": "Rechercher des pays...",
   "removeFlag": "Supprimer le drapeau",
   "selectCountryFlag": "Sélectionnez le drapeau de votre pays",
-  "confirmRemoveFlag": "Supprimer le drapeau de votre pays ?"
+  "confirmRemoveFlag": "Supprimer le drapeau de votre pays ?",
+  "forfeitWarning": "⚠️ Vous êtes dans un duel classé !\n\nQuitter maintenant abandonnera le match et vous perdrez de l'ELO.\n\nÊtes-vous sûr de vouloir quitter ?"
 }

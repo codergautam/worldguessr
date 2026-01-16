@@ -331,5 +331,6 @@
   "searchCountries": "Buscar países...",
   "removeFlag": "Quitar bandera",
   "selectCountryFlag": "Selecciona tu bandera de país",
-  "confirmRemoveFlag": "¿Quitar la bandera de tu país?"
+  "confirmRemoveFlag": "¿Quitar la bandera de tu país?",
+  "forfeitWarning": "⚠️ ¡Estás en un duelo clasificatorio!\n\nSalir ahora abandonará el partido y perderás ELO.\n\n¿Estás seguro de que quieres salir?"
 }
