@@ -1937,7 +1937,6 @@ export default function Home({ }) {
                 console.log("[PERF] loadLocation: Calling findLatLongRandom");
                 const startTime = performance.now();
                 findLatLongRandom(gameOptions).then((latLong) => {
-                    console.log(`[PERF] loadLocation: findLatLongRandom completed, setting latLong. Total time: ${(performance.now() - startTime).toFixed(2)}ms`);
                     setLatLong(latLong);
                 });
             }
