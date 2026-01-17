@@ -11,53 +11,71 @@ class RetryManager {
     this.maxDelay = 30000; // 30 seconds
   }
 
-  async fetchWithRetry(url, options = {}, retryKey = url) {
+  async fetchWithRetry(url, options = {}, retryKey = url, retryOptions = {}) {
+    // Cap "Infinity" to a reasonable max to prevent truly infinite loops (Bug 2 fix)
+    const MAX_SAFE_RETRIES = 1000;
+    
+    const {
+      timeout = 10000,           // Default 10 second timeout
+      maxRetries = this.maxRetries,  // Default 5 retries
+      baseDelay = this.baseDelay,
+      maxDelay = this.maxDelay
+    } = retryOptions;
+
+    // Ensure maxRetries is finite to prevent infinite loops
+    const effectiveMaxRetries = maxRetries === Infinity ? MAX_SAFE_RETRIES : maxRetries;
+
     const attempts = this.retryAttempts.get(retryKey) || 0;
-    
-    console.log(`[RetryFetch] Attempting ${retryKey} (attempt ${attempts + 1}/${this.maxRetries + 1})`);
-    
+    const maxRetriesDisplay = maxRetries === Infinity ? '∞' : effectiveMaxRetries + 1;
+
+    console.log(`[RetryFetch] Attempting ${retryKey} (attempt ${attempts + 1}/${maxRetriesDisplay})`);
+
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
     try {
-      // Add timeout to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-      
       const response = await fetch(url, {
         ...options,
         signal: controller.signal
       });
-      
-      clearTimeout(timeoutId);
-      
+
+      clearTimeout(timeoutId); // Clear on success
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       // Success! Reset retry count
       this.retryAttempts.delete(retryKey);
       console.log(`[RetryFetch] Success for ${retryKey}`);
-      
+
       return response;
-      
+
     } catch (error) {
-      console.warn(`[RetryFetch] Error for ${retryKey}:`, error.message);
+      clearTimeout(timeoutId); // Bug 1 fix: Clear timeout on error too
       
-      // Check if we should retry
-      if (attempts < this.maxRetries && this.shouldRetry(error)) {
+      console.warn(`[RetryFetch] Error for ${retryKey}:`, error.message);
+
+      // Check if we should retry (using effectiveMaxRetries to ensure finite comparison)
+      if (attempts < effectiveMaxRetries && this.shouldRetry(error)) {
         const delay = Math.min(
-          this.baseDelay * Math.pow(2, attempts), 
-          this.maxDelay
+          baseDelay * Math.pow(2, attempts),
+          maxDelay
         );
-        
+
         console.log(`[RetryFetch] Retrying ${retryKey} in ${delay}ms...`);
         this.retryAttempts.set(retryKey, attempts + 1);
-        
-        return new Promise((resolve) => {
+
+        return new Promise((resolve, reject) => {
           setTimeout(() => {
-            resolve(this.fetchWithRetry(url, options, retryKey));
+            this.fetchWithRetry(url, options, retryKey, retryOptions)
+              .then(resolve)
+              .catch(reject);
           }, delay);
         });
       }
-      
+
       // Max retries reached or non-retryable error
       console.error(`[RetryFetch] Failed ${retryKey} after ${attempts + 1} attempts:`, error.message);
       this.retryAttempts.delete(retryKey);
@@ -91,6 +109,6 @@ const retryManager = new RetryManager();
 export default retryManager;
 
 // Convenience function for simple usage
-export async function retryFetch(url, options = {}, retryKey = url) {
-  return retryManager.fetchWithRetry(url, options, retryKey);
+export async function retryFetch(url, options = {}, retryKey = url, retryOptions = {}) {
+  return retryManager.fetchWithRetry(url, options, retryKey, retryOptions);
 }

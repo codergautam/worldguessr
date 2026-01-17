@@ -88,8 +88,8 @@ export function useSession() {
 
     window.fetchingSession = true;
 
-    console.log(`[Auth] Starting authentication with retry mechanism`);
-    
+    console.log(`[Auth] Starting authentication with retry mechanism (5s timeout, unlimited retries)`);
+
     retryManager.fetchWithRetry(
       window.cConfig?.apiUrl + "/api/googleAuth",
       {
@@ -99,13 +99,19 @@ export function useSession() {
         },
         body: JSON.stringify({ secret }),
       },
-      'googleAuth'
+      'googleAuth',
+      {
+        timeout: 5000,        // 5 second timeout
+        maxRetries: Infinity, // Keep retrying until success
+        baseDelay: 1000,      // Start with 1 second delay
+        maxDelay: 10000       // Cap delay at 10 seconds
+      }
     )
       .then((res) => res.json())
       .then((data) => {
         window.fetchingSession = false;
         console.log(`[Auth] Authentication successful`);
-        
+
         if (data.error) {
           console.error(`[Auth] Server error:`, data.error);
           session = null;
@@ -123,21 +129,16 @@ export function useSession() {
       })
       .catch((e) => {
         window.fetchingSession = false;
-        console.error(`[Auth] Authentication failed after all retries:`, e.message);
-        
+        console.error(`[Auth] Authentication failed:`, e.message);
+
         // Clear potentially corrupted session data
         try {
           window.localStorage.removeItem("wg_secret");
         } catch (err) {
           console.warn(`[Auth] Could not clear localStorage:`, err);
         }
-        
+
         session = null;
-        
-        // Show user-friendly error after all retries exhausted
-        if (retryManager.getRetryCount('googleAuth') >= 5) {
-          toast.error('Connection issues detected. Please refresh the page if problems persist.');
-        }
       });
     } else {
       session = null;
