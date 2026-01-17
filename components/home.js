@@ -268,13 +268,16 @@ export default function Home({ }) {
     const [eloData, setEloData] = useState(null);
     const [animatedEloDisplay, setAnimatedEloDisplay] = useState(0);
 
-    // Use session data for instant display, then fetch fresh data when modal opens
+    // Use session data for initial display only, then fetch fresh data when modal opens
     useEffect(() => {
         if (!session?.token?.username) return;
 
-        // Immediately show session data (may be stale but instant)
-        if (session.token.elo !== undefined) {
-            setEloData({
+        // Only use session data as initial fallback when eloData hasn't been set yet
+        // Don't overwrite fresh data (e.g., from websocket updates) with stale session data
+        setEloData((prev) => {
+            if (prev !== null) return prev; // Keep existing fresh data
+            if (session.token.elo === undefined) return prev;
+            return {
                 id: session.token.accountId,
                 elo: session.token.elo,
                 rank: session.token.rank,
@@ -283,8 +286,8 @@ export default function Home({ }) {
                 duels_losses: session.token.duels_losses,
                 duels_tied: session.token.duels_tied,
                 win_rate: session.token.win_rate
-            });
-        }
+            };
+        });
 
         // Fetch fresh data when account modal opens (to get updated elo after games)
         if (accountModalOpen) {
@@ -293,11 +296,25 @@ export default function Home({ }) {
                 .then((data) => {
                     if (data && data.elo !== undefined) {
                         setEloData(data);
+                        // Update session with fresh elo data to prevent stale data issues
+                        setSession((prev) => ({
+                            ...prev,
+                            token: {
+                                ...prev?.token,
+                                elo: data.elo,
+                                rank: data.rank,
+                                league: data.league,
+                                duels_wins: data.duels_wins,
+                                duels_losses: data.duels_losses,
+                                duels_tied: data.duels_tied,
+                                win_rate: data.win_rate
+                            }
+                        }));
                     }
                 })
-                .catch(() => {}); // Keep session data on error
+                .catch(() => {}); // Keep existing data on error
         }
-    }, [session?.token?.username, session?.token?.elo, accountModalOpen])
+    }, [session?.token?.username, accountModalOpen])
     useEffect(() => {
         if (!eloData?.elo) return;
 
@@ -1349,6 +1366,15 @@ export default function Home({ }) {
                     league: data.league,
                     elo: data.elo,
                 }))
+                // Also update session to keep it in sync
+                setSession((prev) => ({
+                    ...prev,
+                    token: {
+                        ...prev?.token,
+                        elo: data.elo,
+                        league: data.league,
+                    }
+                }));
             }
 
             if (data.type === "cnt") {
