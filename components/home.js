@@ -268,21 +268,36 @@ export default function Home({ }) {
     const [eloData, setEloData] = useState(null);
     const [animatedEloDisplay, setAnimatedEloDisplay] = useState(0);
 
-    // Use elo data from auth response (combined endpoint)
+    // Use session data for instant display, then fetch fresh data when modal opens
     useEffect(() => {
-        if (!session?.token?.elo) return;
-        // Extract elo data from session token (now included in googleAuth response)
-        setEloData({
-            id: session.token.accountId,
-            elo: session.token.elo,
-            rank: session.token.rank,
-            league: session.token.league,
-            duels_wins: session.token.duels_wins,
-            duels_losses: session.token.duels_losses,
-            duels_tied: session.token.duels_tied,
-            win_rate: session.token.win_rate
-        });
-    }, [session?.token?.elo, session?.token?.rank])
+        if (!session?.token?.username) return;
+
+        // Immediately show session data (may be stale but instant)
+        if (session.token.elo !== undefined) {
+            setEloData({
+                id: session.token.accountId,
+                elo: session.token.elo,
+                rank: session.token.rank,
+                league: session.token.league,
+                duels_wins: session.token.duels_wins,
+                duels_losses: session.token.duels_losses,
+                duels_tied: session.token.duels_tied,
+                win_rate: session.token.win_rate
+            });
+        }
+
+        // Fetch fresh data when account modal opens (to get updated elo after games)
+        if (accountModalOpen) {
+            fetch(clientConfig().apiUrl + "/api/eloRank?username=" + session.token.username)
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data && data.elo !== undefined) {
+                        setEloData(data);
+                    }
+                })
+                .catch(() => {}); // Keep session data on error
+        }
+    }, [session?.token?.username, session?.token?.elo, accountModalOpen])
     useEffect(() => {
         if (!eloData?.elo) return;
 
