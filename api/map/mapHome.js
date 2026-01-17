@@ -22,6 +22,8 @@ let mapCache = {
 }
 
 export default async function handler(req, res) {
+  const timings = {};
+  const startTotal = Date.now();
 
   // only allow post
   if(req.method !== 'POST') {
@@ -33,7 +35,9 @@ export default async function handler(req, res) {
   let user;
 
   if(secret) {
+    const startUser = Date.now();
     user = await User.findOne({ secret: secret });
+    timings.userLookup = Date.now() - startUser;
     if(typeof secret !== 'string') {
       return res.status(400).json({ message: 'Invalid input' });
     }
@@ -80,6 +84,7 @@ export default async function handler(req, res) {
   // owned maps
   // find maps made by user
   if(user) {
+    const startMyMaps = Date.now();
     // created_at, slug, name, hearts,plays, description_short, map_creator_name, _id, in_review, official, accepted, reject_reason, resubmittable, locationsCnt
     let myMaps = await Map.find({ created_by: user._id.toString() }).select({
       created_at: 1,
@@ -101,8 +106,11 @@ export default async function handler(req, res) {
     myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps?hearted_maps.has(map._id.toString()):false, user.staff, true));
     myMaps.sort((a,b) => a.created_at - b.created_at);
     if(myMaps.length > 0) response.myMaps = myMaps;
+    timings.myMaps = Date.now() - startMyMaps;
+
     // likedMaps
     // find maps liked by user
+    const startLikedMaps = Date.now();
     const likedMaps = user.hearted_maps ? await Map.find({ _id: { $in: Array.from(user.hearted_maps.keys()) } }) : [];
     let likedMapsSendable = await Promise.all(likedMaps.map(async (map) => {
       let owner;
@@ -119,6 +127,7 @@ export default async function handler(req, res) {
     }));
     likedMapsSendable.sort((a,b) => b.created_at - a.created_at);
     if(likedMapsSendable.length > 0) response.likedMaps = likedMapsSendable;
+    timings.likedMaps = Date.now() - startLikedMaps;
   }
 
   response.countryMaps = Object.values(officialCountryMaps).map((map) => ({
@@ -131,9 +140,12 @@ export default async function handler(req, res) {
 
   const discovery =  ["spotlight","popular","recent"];
   for(const method of discovery) {
+    const startMethod = Date.now();
     if(mapCache[method].data.length > 0 && Date.now() - mapCache[method].timeStamp < mapCache[method].persist) {
       // retrieve from cache
       response[method] = mapCache[method].data;
+      timings[method] = Date.now() - startMethod;
+      timings[method + '_cached'] = true;
       // check hearted maps
       response[method].map((map) => {
         map.hearted = hearted_maps?hearted_maps.has(map.id.toString()):false;
@@ -202,8 +214,13 @@ export default async function handler(req, res) {
         }
       });
       mapCache[method].timeStamp = Date.now();
+      timings[method] = Date.now() - startMethod;
+      timings[method + '_cached'] = false;
     }
   }
+
+  timings.total = Date.now() - startTotal;
+  console.log('[mapHome] Timings (ms):', JSON.stringify(timings));
 
   res.status(200).json(response);
 }
