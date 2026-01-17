@@ -123,17 +123,27 @@ let recentPlays = {}; // track the recent play gains of maps
 
 async function updateRecentPlays() {
   if(!dbEnabled) return;
-  for(const mapSlug of Object.keys(recentPlays)) {
-    if(recentPlays[mapSlug] > 0) {
-
-      const map = await MapModel.findOne({ slug: mapSlug });
-      if(map && map.accepted) {
-        map.plays += recentPlays[mapSlug];
-        await map.save();
-      }
-    }
-  }
+  
+  // Grab and clear recentPlays atomically to avoid blocking
+  const playsToUpdate = { ...recentPlays };
   recentPlays = {};
+  
+  const slugs = Object.keys(playsToUpdate).filter(slug => playsToUpdate[slug] > 0);
+  if (slugs.length === 0) return;
+  
+  try {
+    // Use bulkWrite for a single database round-trip instead of N sequential queries
+    const bulkOps = slugs.map(slug => ({
+      updateOne: {
+        filter: { slug, accepted: true },
+        update: { $inc: { plays: playsToUpdate[slug] } }
+      }
+    }));
+    
+    await MapModel.bulkWrite(bulkOps, { ordered: false });
+  } catch (error) {
+    console.error('[ERROR] updateRecentPlays failed:', error.message);
+  }
 }
 
 setInterval(updateRecentPlays, 60000);
