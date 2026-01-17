@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
   try {
     // Find user by the provided ID only (no secrets in public endpoints)
-    const user = await User.findById(id).cache(0, `publicData_${id}`);
+    const user = await User.findById(id).cache(20, `publicData_${id}`);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
