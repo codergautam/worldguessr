@@ -56,10 +56,17 @@ export default async function handler(req, res) {
     user.countryCode = newCountryCode;
     await user.save();
 
-    // Clear publicData cache for this user
+    // Clear caches for this user
     cachegoose.clearCache(`publicData_${user._id.toString()}`, (error) => {
       if (error) {
-        console.error('Error clearing cache', error);
+        console.error('Error clearing publicData cache', error);
+      }
+    });
+
+    // Clear auth cache so next auth request gets fresh data
+    cachegoose.clearCache(`userAuth_${token}`, (error) => {
+      if (error) {
+        console.error('Error clearing userAuth cache', error);
       }
     });
 

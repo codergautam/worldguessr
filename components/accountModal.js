@@ -12,7 +12,7 @@ import FriendsModal from "@/components/friendModal";
 import { FaLink, FaCheck } from "react-icons/fa";
 import CountryFlag from './utils/countryFlag';
 
-export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
+export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
     const { t: text } = useTranslation("common");
     const [accountData, setAccountData] = useState({});
     const [friends, setFriends] = useState([]);
@@ -50,30 +50,39 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         };
     }, []);
 
+    // Use session data for instant display, then fetch fresh data
     useEffect(() => {
-        if (shown) {
-            const fetchData = async () => {
-                const response = await fetch(window.cConfig.apiUrl + '/api/publicAccount', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ id: session?.token?.accountId }),
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setAccountData(data);
-                } else {
-                    alert('An error occurred');
-                }
-            }
-            fetchData();
-        } else {
+        if (shown && session?.token) {
+            // Immediately show session data (may be stale but instant)
+            setAccountData({
+                username: session.token.username,
+                totalXp: session.token.totalXp || 0,
+                createdAt: session.token.createdAt,
+                gamesLen: session.token.gamesLen || 0,
+                lastLogin: session.token.lastLogin,
+                canChangeUsername: session.token.canChangeUsername,
+                daysUntilNameChange: session.token.daysUntilNameChange || 0,
+                recentChange: session.token.recentChange || false,
+                countryCode: session.token.countryCode || null,
+            });
+
+            // Fetch fresh data to update stale values (totalXp, gamesLen, etc.)
+            fetch(window.cConfig.apiUrl + '/api/publicAccount', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: session.token.accountId }),
+            })
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data) setAccountData(data);
+                })
+                .catch(() => {}); // Keep session data on error
+        } else if (!shown) {
             // Reset game analysis state when modal is closed
             setShowingGameAnalysis(false);
             setSelectedGame(null);
         }
-    }, [shown, session?.token?.secret]);
+    }, [shown, session?.token?.accountId]);
 
     // Reset game analysis when switching away from history tab
     useEffect(() => {
@@ -101,9 +110,11 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     <div className="profile-content">
                         <AccountView
                             accountData={accountData}
+                            setAccountData={setAccountData}
                             supporter={session?.token?.supporter}
                             eloData={eloData}
                             session={session}
+                            setSession={setSession}
                             ws={ws}
                         />
 

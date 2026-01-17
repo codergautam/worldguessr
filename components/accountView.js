@@ -9,7 +9,7 @@ import PendingNameChangeModal from "./pendingNameChangeModal";
 import CountrySelectorModal from "./countrySelectorModal";
 import CountryFlag from "./utils/countryFlag";
 
-export default function AccountView({ accountData, supporter, eloData, session, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
+export default function AccountView({ accountData, setAccountData, supporter, eloData, session, setSession, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
     const { t: text } = useTranslation("common");
     const [showForcedNameChangeModal, setShowForcedNameChangeModal] = useState(false);
     const [showCountrySelector, setShowCountrySelector] = useState(false);
@@ -18,20 +18,12 @@ export default function AccountView({ accountData, supporter, eloData, session, 
     // Check if user is forced to change their name
     const isForcedNameChange = !isPublic && session?.token?.pendingNameChange;
 
-    // Load current country on mount
+    // Load current country from accountData (fetched fresh when modal opens)
     useEffect(() => {
-        if (!isPublic && session?.token?.accountId) {
-            // Fetch from user data
-            fetch(window.cConfig.apiUrl + '/api/publicAccount', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: session.token.accountId })
-            })
-                .then(res => res.json())
-                .then(data => setCurrentCountry(data.countryCode || null))
-                .catch(err => console.error('Error loading country:', err));
+        if (!isPublic && accountData?.countryCode !== undefined) {
+            setCurrentCountry(accountData.countryCode || null);
         }
-    }, [isPublic, session?.token?.accountId]);
+    }, [isPublic, accountData?.countryCode]);
 
     const changeName = async () => {
         // If forced to change name, open the proper modal instead of prompt
@@ -293,7 +285,19 @@ export default function AccountView({ accountData, supporter, eloData, session, 
                     onClose={() => setShowCountrySelector(false)}
                     currentCountry={currentCountry}
                     onSelect={(newCountry) => {
+                        // Update local state
                         setCurrentCountry(newCountry);
+                        // Update accountData for immediate UI update
+                        if (setAccountData) {
+                            setAccountData(prev => ({ ...prev, countryCode: newCountry }));
+                        }
+                        // Update session so accountBtn and other components reflect the change
+                        if (setSession) {
+                            setSession(prev => ({
+                                ...prev,
+                                token: { ...prev?.token, countryCode: newCountry }
+                            }));
+                        }
                     }}
                     session={session}
                     ws={ws}

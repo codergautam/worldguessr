@@ -2,26 +2,12 @@ import { signIn } from "@/components/auth/auth";
 import { FaGoogle } from "react-icons/fa";
 import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "../utils/sendEvent";
-import { useState, useEffect } from 'react';
 import CountryFlag from '../utils/countryFlag';
 
 export default function AccountBtn({ session, openAccountModal, navbarMode, inCrazyGames }) {
   const { t: text } = useTranslation("common");
-  const [countryCode, setCountryCode] = useState(null);
-
-  // Fetch user's country code when logged in
-  useEffect(() => {
-    if (session?.token?.accountId) {
-      fetch(window.cConfig.apiUrl + '/api/publicAccount', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: session.token.accountId })
-      })
-        .then(res => res.json())
-        .then(data => setCountryCode(data.countryCode || null))
-        .catch(err => console.error('Error loading country:', err));
-    }
-  }, [session?.token?.accountId]);
+  // Use countryCode from session (now included in googleAuth response)
+  const countryCode = session?.token?.countryCode || null;
 
 
   if(inCrazyGames && (!session || !session?.token?.secret)) {

@@ -267,20 +267,22 @@ export default function Home({ }) {
     const [config, setConfig] = useState(null);
     const [eloData, setEloData] = useState(null);
     const [animatedEloDisplay, setAnimatedEloDisplay] = useState(0);
+
+    // Use elo data from auth response (combined endpoint)
     useEffect(() => {
-        if (!session?.token?.username) return;
-        if (!accountModalOpen && window.firstFetchElo) return;
-
-        fetch(clientConfig().apiUrl + "/api/eloRank?username=" + session?.token?.username).then((res) => res.json()).then((data) => {
-            setEloData(data)
-            window.firstFetchElo = true;
-        }).catch((e) => {
-            window.firstFetchElo = true;
+        if (!session?.token?.elo) return;
+        // Extract elo data from session token (now included in googleAuth response)
+        setEloData({
+            id: session.token.accountId,
+            elo: session.token.elo,
+            rank: session.token.rank,
+            league: session.token.league,
+            duels_wins: session.token.duels_wins,
+            duels_losses: session.token.duels_losses,
+            duels_tied: session.token.duels_tied,
+            win_rate: session.token.win_rate
         });
-
-
-
-    }, [session?.token?.username, accountModalOpen])
+    }, [session?.token?.elo, session?.token?.rank])
     useEffect(() => {
         if (!eloData?.elo) return;
 
@@ -334,7 +336,8 @@ export default function Home({ }) {
                             window.CrazyGames.SDK.game.loadingStop();
                         } catch (e) { }
                         if (data.secret && data.username) {
-                            setSession({ token: { secret: data.secret, username: data.username, accountId: data.accountId } })
+                            // Store full auth data including extended fields (elo, rank, etc.)
+                            setSession({ token: data })
                             // verify the ws
                             window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username });
 
@@ -2142,7 +2145,7 @@ export default function Home({ }) {
         <>
             <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} />
 
-            <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setAccountModalOpen={setAccountModalOpen}
+            <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
                 ws={ws} canSendInvite={
                     // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a Party

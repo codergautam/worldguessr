@@ -4,6 +4,9 @@ import { Webhook } from "discord-webhook-node";
 import { OAuth2Client } from "google-auth-library";
 import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
 import cachegoose from 'recachegoose';
+import { getLeague } from '../components/utils/leagues.js';
+
+const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const client = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, 'postmessage');
 
@@ -51,6 +54,48 @@ async function checkTempBanExpiration(user) {
   return userObj;
 }
 
+/**
+ * Get extended user data (publicAccount + eloRank data) for combined response
+ * This eliminates the need for separate publicAccount and eloRank API calls
+ */
+async function getExtendedUserData(user, timings) {
+  const startExtended = Date.now();
+
+  // publicAccount data
+  const lastNameChange = user.lastNameChange ? new Date(user.lastNameChange).getTime() : 0;
+  const publicData = {
+    totalXp: user.totalXp || 0,
+    createdAt: user.created_at,
+    gamesLen: user.totalGamesPlayed || 0,
+    lastLogin: user.lastLogin || user.created_at,
+    canChangeUsername: !user.lastNameChange || Date.now() - lastNameChange > USERNAME_CHANGE_COOLDOWN,
+    daysUntilNameChange: lastNameChange ? Math.max(0, Math.ceil((lastNameChange + USERNAME_CHANGE_COOLDOWN - Date.now()) / (24 * 60 * 60 * 1000))) : 0,
+    recentChange: user.lastNameChange ? Date.now() - lastNameChange < 24 * 60 * 60 * 1000 : false,
+  };
+
+  // eloRank data
+  const startRank = Date.now();
+  const rank = (await User.countDocuments({
+    elo: { $gt: user.elo || 1000 },
+    banned: false
+  }).cache(2000)) + 1;
+  timings.rankQuery = Date.now() - startRank;
+
+  const eloData = {
+    elo: user.elo || 1000,
+    rank,
+    league: getLeague(user.elo || 1000),
+    duels_wins: user.duels_wins || 0,
+    duels_losses: user.duels_losses || 0,
+    duels_tied: user.duels_tied || 0,
+    win_rate: (user.duels_wins || 0) / ((user.duels_wins || 0) + (user.duels_losses || 0) + (user.duels_tied || 0)) || 0
+  };
+
+  timings.extendedData = Date.now() - startExtended;
+
+  return { ...publicData, ...eloData };
+}
+
 export default async function handler(req, res) {
   const timings = {};
   const startTotal = Date.now();
@@ -70,7 +115,7 @@ export default async function handler(req, res) {
     const startUserLookup = Date.now();
     const userDb = await User.findOne({
       secret,
-    }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode").cache(120, `userAuth_${secret}`);
+    }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode totalXp created_at totalGamesPlayed lastLogin lastNameChange elo duels_wins duels_losses duels_tied").cache(120, `userAuth_${secret}`);
     timings.userLookup = Date.now() - startUserLookup;
     
     if (userDb) {
@@ -98,6 +143,9 @@ export default async function handler(req, res) {
         timings.countryMigration = Date.now() - startCountryMigration;
       }
 
+      // Get extended user data (publicAccount + eloRank)
+      const extendedData = await getExtendedUserData(checkedUser, timings);
+
       output = {
         secret: checkedUser.secret,
         username: checkedUser.username,
@@ -106,6 +154,7 @@ export default async function handler(req, res) {
         canMakeClues: checkedUser.canMakeClues,
         supporter: checkedUser.supporter,
         accountId: checkedUser._id,
+        countryCode: checkedUser.countryCode || null,
         // Ban info (public note only - internal reason never exposed)
         banned: checkedUser.banned,
         banType: checkedUser.banType || 'none',
@@ -113,16 +162,18 @@ export default async function handler(req, res) {
         banPublicNote: checkedUser.banPublicNote || null,
         // Pending name change (public note only - internal reason never exposed)
         pendingNameChange: checkedUser.pendingNameChange,
-        pendingNameChangePublicNote: checkedUser.pendingNameChangePublicNote || null
+        pendingNameChangePublicNote: checkedUser.pendingNameChangePublicNote || null,
+        // Extended data (publicAccount + eloRank combined)
+        ...extendedData
       };
-      
+
       if(!checkedUser.username || checkedUser.username.length < 1) {
         // try again without cache, to prevent new users getting stuck with no username
         timings.retryWithoutCache = true;
         const startRetry = Date.now();
         const userDb2 = await User.findOne({
           secret,
-        }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode");
+        }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode totalXp created_at totalGamesPlayed lastLogin lastNameChange elo duels_wins duels_losses duels_tied");
         timings.retryLookup = Date.now() - startRetry;
 
         if(userDb2) {
@@ -145,6 +196,9 @@ export default async function handler(req, res) {
             }
           }
 
+          // Get extended user data (publicAccount + eloRank)
+          const extendedData2 = await getExtendedUserData(checkedUser2, timings);
+
           output = {
             secret: checkedUser2.secret,
             username: checkedUser2.username,
@@ -153,12 +207,15 @@ export default async function handler(req, res) {
             canMakeClues: checkedUser2.canMakeClues,
             supporter: checkedUser2.supporter,
             accountId: checkedUser2._id,
+            countryCode: checkedUser2.countryCode || null,
             banned: checkedUser2.banned,
             banType: checkedUser2.banType || 'none',
             banExpiresAt: checkedUser2.banExpiresAt,
             banPublicNote: checkedUser2.banPublicNote || null,
             pendingNameChange: checkedUser2.pendingNameChange,
-            pendingNameChangePublicNote: checkedUser2.pendingNameChangePublicNote || null
+            pendingNameChangePublicNote: checkedUser2.pendingNameChangePublicNote || null,
+            // Extended data (publicAccount + eloRank combined)
+            ...extendedData2
           };
         }
       }
@@ -222,6 +279,12 @@ export default async function handler(req, res) {
         await newUser.save();
         timings.newUserCreate = Date.now() - startNewUser;
 
+        // Default extended data for new users
+        // Rank = count of users with elo > 1000 (starting elo) + 1
+        const startRank = Date.now();
+        const usersAbove = await User.countDocuments({ elo: { $gt: 1000 }, banned: false }).cache(2000);
+        timings.rankQuery = Date.now() - startRank;
+
         output = {
           secret: secret,
           username: undefined,
@@ -230,12 +293,28 @@ export default async function handler(req, res) {
           canMakeClues: false,
           supporter: false,
           accountId: newUser._id,
+          countryCode: null,
           banned: false,
           banType: 'none',
           banExpiresAt: null,
           banPublicNote: null,
           pendingNameChange: false,
-          pendingNameChangePublicNote: null
+          pendingNameChangePublicNote: null,
+          // Extended data defaults for new users
+          totalXp: 0,
+          createdAt: newUser.created_at,
+          gamesLen: 0,
+          lastLogin: newUser.created_at,
+          canChangeUsername: true,
+          daysUntilNameChange: 0,
+          recentChange: false,
+          elo: 1000,
+          rank: usersAbove + 1,
+          league: getLeague(1000),
+          duels_wins: 0,
+          duels_losses: 0,
+          duels_tied: 0,
+          win_rate: 0
         };
       } else {
         timings.isNewUser = false;
@@ -254,6 +333,9 @@ export default async function handler(req, res) {
           }
         }
 
+        // Get extended user data (publicAccount + eloRank)
+        const extendedData = await getExtendedUserData(checkedUser, timings);
+
         output = {
           secret: checkedUser.secret,
           username: checkedUser.username,
@@ -262,12 +344,15 @@ export default async function handler(req, res) {
           canMakeClues: checkedUser.canMakeClues,
           supporter: checkedUser.supporter,
           accountId: checkedUser._id,
+          countryCode: checkedUser.countryCode || null,
           banned: checkedUser.banned,
           banType: checkedUser.banType || 'none',
           banExpiresAt: checkedUser.banExpiresAt,
           banPublicNote: checkedUser.banPublicNote || null,
           pendingNameChange: checkedUser.pendingNameChange,
-          pendingNameChangePublicNote: checkedUser.pendingNameChangePublicNote || null
+          pendingNameChangePublicNote: checkedUser.pendingNameChangePublicNote || null,
+          // Extended data (publicAccount + eloRank combined)
+          ...extendedData
         };
       }
 
