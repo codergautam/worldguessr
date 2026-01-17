@@ -52,6 +52,8 @@ async function checkTempBanExpiration(user) {
 }
 
 export default async function handler(req, res) {
+  const timings = {};
+  const startTotal = Date.now();
   let output = {};
   // only accept post
   if (req.method !== 'POST') {
@@ -64,17 +66,23 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid' });
     }
 
+    timings.authType = 'secret';
+    const startUserLookup = Date.now();
     const userDb = await User.findOne({
       secret,
     }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode").cache(120, `userAuth_${secret}`);
+    timings.userLookup = Date.now() - startUserLookup;
     
     if (userDb) {
       // Check if temp ban has expired
+      const startBanCheck = Date.now();
       const checkedUser = await checkTempBanExpiration(userDb);
+      timings.banCheck = Date.now() - startBanCheck;
 
       // Auto-assign country code from timezone if not set (lazy migration)
       // Use == null to catch both null and undefined (for users without the field)
       if (checkedUser.countryCode == null && checkedUser.timeZone) {
+        const startCountryMigration = Date.now();
         const countryCode = timezoneToCountry(checkedUser.timeZone);
         if (countryCode) {
           await User.findByIdAndUpdate(checkedUser._id, { countryCode });
@@ -87,6 +95,7 @@ export default async function handler(req, res) {
             }
           });
         }
+        timings.countryMigration = Date.now() - startCountryMigration;
       }
 
       output = {
@@ -109,9 +118,12 @@ export default async function handler(req, res) {
       
       if(!checkedUser.username || checkedUser.username.length < 1) {
         // try again without cache, to prevent new users getting stuck with no username
+        timings.retryWithoutCache = true;
+        const startRetry = Date.now();
         const userDb2 = await User.findOne({
           secret,
         }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode");
+        timings.retryLookup = Date.now() - startRetry;
 
         if(userDb2) {
           const checkedUser2 = await checkTempBanExpiration(userDb2);
@@ -151,38 +163,55 @@ export default async function handler(req, res) {
         }
       }
 
+      timings.total = Date.now() - startTotal;
+      console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
       return res.status(200).json(output);
     } else {
+      timings.total = Date.now() - startTotal;
+      console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
       return res.status(400).json({ error: 'Invalid' });
     }
 
   } else {
     // first login
+    timings.authType = 'google_oauth';
     try {
       // verify the access token
       const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
+      const startTokenExchange = Date.now();
       const { tokens } = await client.getToken(code);
       client.setCredentials(tokens);
+      timings.tokenExchange = Date.now() - startTokenExchange;
 
+      const startTokenVerify = Date.now();
       const ticket = await client.verifyIdToken({
         idToken: tokens.id_token,
         audience: clientId,
       });
+      timings.tokenVerify = Date.now() - startTokenVerify;
 
       if(!ticket) {
+        timings.total = Date.now() - startTotal;
+        console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
         return res.status(400).json({ error: 'Invalid token verification' });
       }
 
       const email = ticket.getPayload()?.email;
 
       if (!email) {
+        timings.total = Date.now() - startTotal;
+        console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
         return res.status(400).json({ error: 'No email in token' });
       }
 
+      const startEmailLookup = Date.now();
       const existingUser = await User.findOne({ email });
+      timings.emailLookup = Date.now() - startEmailLookup;
       let secret = null;
       if (!existingUser) {
+        timings.isNewUser = true;
+        const startNewUser = Date.now();
         // Note: countryCode is left as null (schema default) for new users.
         // We don't auto-assign based on timeZone here because timeZone defaults to
         // 'America/Los_Angeles', which would incorrectly assign all new users to 'US'.
@@ -191,6 +220,7 @@ export default async function handler(req, res) {
         const newUser = new User({ email, secret });
 
         await newUser.save();
+        timings.newUserCreate = Date.now() - startNewUser;
 
         output = {
           secret: secret,
@@ -208,8 +238,11 @@ export default async function handler(req, res) {
           pendingNameChangePublicNote: null
         };
       } else {
+        timings.isNewUser = false;
         // Check if temp ban has expired for existing user
+        const startBanCheck = Date.now();
         const checkedUser = await checkTempBanExpiration(existingUser);
+        timings.banCheck = Date.now() - startBanCheck;
 
         // Auto-assign country code from timezone if not set (lazy migration)
         // Use == null to catch both null and undefined (for users without the field)
@@ -238,8 +271,13 @@ export default async function handler(req, res) {
         };
       }
 
+      timings.total = Date.now() - startTotal;
+      console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
       return res.status(200).json(output);
     } catch (error) {
+      timings.total = Date.now() - startTotal;
+      timings.error = error.message;
+      console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
       console.error('Google OAuth error:', error.message);
       return res.status(400).json({ error: 'Authentication failed' });
     }
