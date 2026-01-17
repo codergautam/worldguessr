@@ -31,9 +31,10 @@ export default function MapView({
     });
     const [heartingMap, setHeartingMap] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [searchLoading, setSearchLoading] = useState(false);
     const [expandedSections, setExpandedSections] = useState({});
 
-    const { handleSearch } = useMapSearch(session, setSearchResults);
+    const { handleSearch } = useMapSearch(session, setSearchResults, setSearchLoading);
 
     useEffect(() => {
         handleSearch(searchTerm);
@@ -531,6 +532,11 @@ export default function MapView({
                                     </div>
                                 );
                             })
+                    ) : searchLoading ? (
+                        <div className="maps-loading">
+                            <div className="maps-loading-spinner"></div>
+                            <div className="maps-loading-text">{text("loading")}...</div>
+                        </div>
                     ) : (
                         <div className="no-results">
                             <FaMapMarkedAlt className="no-results-icon" />
