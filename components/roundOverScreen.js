@@ -95,6 +95,7 @@ const GameSummary = ({
 
   // Animation states for duel
   const [animatedPoints, setAnimatedPoints] = useState(0);
+  const [pointsAnimating, setPointsAnimating] = useState(false);
   const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
   const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
@@ -142,20 +143,15 @@ const GameSummary = ({
       const duration = 1200; // Slightly longer for more dramatic effect
       const startTime = Date.now();
 
+      // Start the CSS animation
+      setPointsAnimating(true);
+
       const animate = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Enhanced easing - combines ease-out with a slight bounce
-        const easeOutBack = (x) => {
-          const c1 = 1.70158;
-          const c3 = c1 + 1;
-          return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
-        };
-
-        const easedProgress = progress < 0.7
-          ? 4 * Math.pow(progress, 3) // Ease out cubic for first 70%
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2; // Smooth transition to end
+        // Ease-out cubic: starts fast, slows down at end (no overshoot)
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
 
         const currentValue = startValue + (endValue - startValue) * easedProgress;
         setAnimatedPoints(Math.round(currentValue));
@@ -164,6 +160,8 @@ const GameSummary = ({
           requestAnimationFrame(animate);
         } else {
           setAnimatedPoints(endValue);
+          // End the CSS animation after a brief delay for the glow to fade
+          setTimeout(() => setPointsAnimating(false), 300);
         }
       };
 
@@ -1497,7 +1495,7 @@ const GameSummary = ({
             })()}
 
             <div
-              className={`summary-score points-display ${animatedPoints < points ? 'animating' : ''}`}
+              className={`summary-score points-display ${pointsAnimating ? 'animating' : ''}`}
               style={{
                 transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {

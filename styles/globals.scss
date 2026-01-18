@@ -1404,17 +1404,17 @@ h1, h2, h3, span, label {
     0% {
         color: #22c55e;
         text-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
-        transform: scale(1);
+        filter: brightness(1);
     }
     50% {
         color: #16a34a;
-        text-shadow: 0 0 25px rgba(34, 197, 94, 0.8);
-        transform: scale(1.08);
+        text-shadow: 0 0 25px rgba(34, 197, 94, 0.8), 0 0 40px rgba(34, 197, 94, 0.4);
+        filter: brightness(1.2);
     }
     100% {
         color: inherit;
         text-shadow: none;
-        transform: scale(1);
+        filter: brightness(1);
     }
 }
 
