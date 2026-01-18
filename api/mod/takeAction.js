@@ -241,12 +241,18 @@ export default async function handler(req, res) {
     // Handle each action type
     switch (action) {
       case 'ignore':
-        // Mark reports as dismissed atomically to prevent race conditions
+        // Find ALL pending reports against this user (not just the ones passed in)
+        const pendingReportIdsIgnore = await Report.find({
+          'reportedUser.accountId': targetUserId.toString(),
+          status: 'pending'
+        }).distinct('_id');
+
+        // Mark all pending reports as dismissed atomically to prevent race conditions
         const resolvedReportsIgnore = [];
-        for (const report of reports) {
+        for (const reportId of pendingReportIdsIgnore) {
           // Atomically claim the report - only succeeds if still pending
           const claimedReport = await Report.findOneAndUpdate(
-            { _id: report._id, status: 'pending' },
+            { _id: reportId, status: 'pending' },
             {
               status: 'dismissed',
               actionTaken: 'ignored',
@@ -263,7 +269,7 @@ export default async function handler(req, res) {
           // If null, another mod already processed this report - skip
           if (!claimedReport) continue;
 
-          resolvedReportsIgnore.push(report._id);
+          resolvedReportsIgnore.push(reportId);
 
           // Increment unhelpful reports for reporter (only if we claimed it)
           await User.findByIdAndUpdate(claimedReport.reportedBy.accountId, {
@@ -290,13 +296,19 @@ export default async function handler(req, res) {
         break;
 
       case 'mark_resolved':
-        // Mark reports as resolved without taking punitive action
+        // Find ALL pending reports against this user (not just the ones passed in)
+        const pendingReportIdsResolved = await Report.find({
+          'reportedUser.accountId': targetUserId.toString(),
+          status: 'pending'
+        }).distinct('_id');
+
+        // Mark all pending reports as resolved without taking punitive action
         // The report was helpful (valid concern) but no action needed on the user
         const resolvedReportsNeutral = [];
-        for (const report of reports) {
+        for (const reportId of pendingReportIdsResolved) {
           // Atomically claim the report - only succeeds if still pending
           const claimedReport = await Report.findOneAndUpdate(
-            { _id: report._id, status: 'pending' },
+            { _id: reportId, status: 'pending' },
             {
               status: 'action_taken',
               actionTaken: 'resolved_no_action',
@@ -313,7 +325,7 @@ export default async function handler(req, res) {
           // If null, another mod already processed this report - skip
           if (!claimedReport) continue;
 
-          resolvedReportsNeutral.push(report._id);
+          resolvedReportsNeutral.push(reportId);
 
           // Increment helpful reports for reporter - the report was valid/helpful
           // even though no punitive action was taken on the reported user
