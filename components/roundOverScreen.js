@@ -142,11 +142,16 @@ const GameSummary = ({
       const endValue = points;
       const duration = 1200; // Slightly longer for more dramatic effect
       const startTime = Date.now();
+      let animationFrameId = null;
+      let timeoutId = null;
+      let cancelled = false;
 
       // Start the CSS animation
       setPointsAnimating(true);
 
       const animate = () => {
+        if (cancelled) return;
+        
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
@@ -157,15 +162,22 @@ const GameSummary = ({
         setAnimatedPoints(Math.round(currentValue));
 
         if (progress < 1) {
-          requestAnimationFrame(animate);
+          animationFrameId = requestAnimationFrame(animate);
         } else {
           setAnimatedPoints(endValue);
           // End the CSS animation after a brief delay for the glow to fade
-          setTimeout(() => setPointsAnimating(false), 300);
+          timeoutId = setTimeout(() => setPointsAnimating(false), 300);
         }
       };
 
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
+
+      // Cleanup: cancel animation and timeout if points changes or component unmounts
+      return () => {
+        cancelled = true;
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        if (timeoutId) clearTimeout(timeoutId);
+      };
     }
   }, [points, duel]);
 
