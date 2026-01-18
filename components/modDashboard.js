@@ -1212,19 +1212,32 @@ export default function ModDashboard({ session }) {
               )}
 
               {/* Action buttons for pending reports */}
-              {focusedReport.status === 'pending' && (
-                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #30363d' }}>
-                  <ReportActionButtons
-                    targetUser={{ id: focusedReport.reportedUser?.accountId, username: focusedReport.reportedUser?.username }}
-                    reportIds={[focusedReport._id]}
-                    reports={[focusedReport]}
-                    onAction={(actionType, user, reportIds, options) => {
-                      setFocusedReport(null);
-                      handleReportAction(actionType, user, reportIds, options);
-                    }}
-                  />
-                </div>
-              )}
+              {focusedReport.status === 'pending' && (() => {
+                // Get all pending reports against this user (from user history if available)
+                const allPendingReportsAgainstUser = userHistory?.reportsAgainst
+                  ?.filter(r => r.status === 'pending' && r.reportedUser?.accountId === focusedReport.reportedUser?.accountId)
+                  || [focusedReport];
+                const allPendingReportIds = allPendingReportsAgainstUser.map(r => r._id);
+                
+                return (
+                  <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #30363d' }}>
+                    {allPendingReportIds.length > 1 && (
+                      <div style={{ marginBottom: '12px', padding: '8px 12px', background: 'rgba(88, 166, 255, 0.1)', borderRadius: '6px', fontSize: '0.85rem', color: '#58a6ff' }}>
+                        ℹ️ Action will apply to all {allPendingReportIds.length} pending reports against this user
+                      </div>
+                    )}
+                    <ReportActionButtons
+                      targetUser={{ id: focusedReport.reportedUser?.accountId, username: focusedReport.reportedUser?.username }}
+                      reportIds={allPendingReportIds}
+                      reports={allPendingReportsAgainstUser}
+                      onAction={(actionType, user, reportIds, options) => {
+                        setFocusedReport(null);
+                        handleReportAction(actionType, user, reportIds, options);
+                      }}
+                    />
+                  </div>
+                );
+              })()}
 
               {/* Open in Reports Page button */}
               <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #30363d', textAlign: 'center' }}>
