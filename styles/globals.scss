@@ -2754,32 +2754,45 @@ input[placeholder="Please login to chat"] {
 /* Mobile responsive adjustments for leaderboard */
 @media screen and (max-width: 600px), screen and (pointer: coarse) {
     .multiplayerLeaderboard {
-        padding: 30px 12px 50px;
+        padding: 20px 12px 30px;
         gap: 5px;
+    }
+    
+    .multiplayerLeaderboard .bigSpan {
+        font-size: 1.3rem;
+        margin-bottom: 4px;
     }
     
     .multiplayerLeaderboard__player {
         width: 95vw;
-        padding: 12px 14px;
-        border-radius: 8px;
+        padding: 8px 12px;
+        border-radius: 6px;
     }
     
     .multiplayerLeaderboard__player__username {
-        font-size: 14px;
+        font-size: 13px;
     }
     
     .multiplayerLeaderboard__player__score {
-        font-size: 16px;
+        font-size: 15px;
         margin-left: 8px;
+    }
+    
+    .multiplayerLeaderboard__separator {
+        font-size: 18px;
+        margin: 2px 0;
     }
     
     .multiplayerFinalBtns {
         width: 95vw;
+        margin-top: 12px;
+        gap: 8px;
     }
     
     .multiplayerFinalBtns .gameBtn {
         flex: 1;
-        min-width: 120px;
+        min-width: 100px;
+        padding: 10px 16px;
     }
 }
 
