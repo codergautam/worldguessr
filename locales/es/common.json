@@ -332,5 +332,22 @@
   "removeFlag": "Quitar bandera",
   "selectCountryFlag": "Selecciona tu bandera de país",
   "confirmRemoveFlag": "¿Quitar la bandera de tu país?",
-  "forfeitWarning": "⚠️ ¡Estás en un duelo clasificatorio!\n\nSalir ahora abandonará el partido y perderás ELO.\n\n¿Estás seguro de que quieres salir?"
+  "forfeitWarning": "⚠️ ¡Estás en un duelo clasificatorio!\n\nSalir ahora abandonará el partido y perderás ELO.\n\n¿Estás seguro de que quieres salir?",
+
+  "banExtensionWarning": "A veces, las extensiones de navegador de terceros pueden interferir con el juego y activar nuestro sistema anti-trampas.",
+  "banExtensionSuggestion": "Por favor, intenta desactivar cualquier extensión que tengas y comprueba si puedes acceder al juego.",
+  "howToAppeal": "Cómo apelar",
+  "appealIntro": "Si crees que esta prohibición se aplicó incorrectamente, puedes apelar a través de nuestro servidor oficial de Discord:",
+  "appealStep1": "Únete a nuestro servidor de Discord",
+  "appealStep2": "Verifica tu cuenta de Discord",
+  "appealStep3": "Ve al canal #appeal-game-ban",
+  "appealStep4": "Crea un ticket de soporte siguiendo las instrucciones",
+  "appealStep5": "Un jugador verificado realizará una prueba de apelación en vivo",
+  "appealsNotEmail": "Las apelaciones no se manejan por correo electrónico.",
+  "wantToAppeal": "¿Quieres apelar?",
+  "appealInstructions": "Las apelaciones se manejan a través de nuestro servidor de Discord. Únete, verifica y crea un ticket en #appeal-game-ban.",
+  "appealOnDiscord": "Apelar en Discord",
+  "opponentLeftBeforeStart": "El oponente se fue antes de que comenzara el juego. Volviendo a la cola...",
+  "needMorePlayers": "Se necesitan al menos 2 jugadores para comenzar",
+  "mapLocationsLoading": "Ubicaciones del mapa no cargadas, intenta seleccionar el mapa de nuevo o usa un mapa diferente"
 }
