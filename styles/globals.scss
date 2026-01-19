@@ -2796,6 +2796,45 @@ input[placeholder="Please login to chat"] {
     }
 }
 
+/* Short screen height adjustments for leaderboard */
+@media screen and (max-height: 700px) {
+    .multiplayerLeaderboard {
+        padding: 15px 12px 25px;
+        gap: 4px;
+    }
+    
+    .multiplayerLeaderboard .bigSpan {
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+    }
+    
+    .multiplayerLeaderboard__player {
+        padding: 6px 12px;
+    }
+    
+    .multiplayerLeaderboard__player__username {
+        font-size: 13px;
+    }
+    
+    .multiplayerLeaderboard__player__score {
+        font-size: 14px;
+    }
+    
+    .multiplayerLeaderboard__separator {
+        font-size: 16px;
+        margin: 1px 0;
+    }
+    
+    .multiplayerFinalBtns {
+        margin-top: 10px;
+        gap: 6px;
+    }
+    
+    .multiplayerFinalBtns .gameBtn {
+        padding: 8px 14px;
+    }
+}
+
 @media screen and (min-width: 600px) {
     .desktop {
         display: block;
