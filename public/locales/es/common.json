@@ -347,5 +347,7 @@
   "wantToAppeal": "¿Quieres apelar?",
   "appealInstructions": "Las apelaciones se manejan a través de nuestro servidor de Discord. Únete, verifica y crea un ticket en #appeal-game-ban.",
   "appealOnDiscord": "Apelar en Discord",
-  "opponentLeftBeforeStart": "El oponente se fue antes de que comenzara el juego. Volviendo a la cola..."
+  "opponentLeftBeforeStart": "El oponente se fue antes de que comenzara el juego. Volviendo a la cola...",
+  "needMorePlayers": "Se necesitan al menos 2 jugadores para comenzar",
+  "mapLocationsLoading": "Ubicaciones del mapa no cargadas, intenta seleccionar el mapa de nuevo o usa un mapa diferente"
 }

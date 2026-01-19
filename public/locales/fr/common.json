@@ -347,5 +347,7 @@
   "wantToAppeal": "Vous voulez faire appel ?",
   "appealInstructions": "Les appels sont traités via notre serveur Discord. Rejoignez, vérifiez et créez un ticket dans #appeal-game-ban.",
   "appealOnDiscord": "Faire appel sur Discord",
-  "opponentLeftBeforeStart": "L'adversaire est parti avant le début du jeu. Retour à la file d'attente..."
+  "opponentLeftBeforeStart": "L'adversaire est parti avant le début du jeu. Retour à la file d'attente...",
+  "needMorePlayers": "Il faut au moins 2 joueurs pour commencer",
+  "mapLocationsLoading": "Emplacements de la carte non chargés, essayez de resélectionner la carte ou utilisez une autre carte"
 }

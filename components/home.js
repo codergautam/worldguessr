@@ -1113,10 +1113,18 @@ export default function Home({ }) {
                 console.log("crazygames invite link", link)
             }
 
-            setMultiplayerState((prev) => {
-                ws.send(JSON.stringify({ type: "setPrivateGameOptions", rounds: prev.createOptions.rounds, timePerRound: prev.createOptions.timePerRound, nm: prev.createOptions.nm, npz: prev.createOptions.npz, showRoadName: prev.createOptions.showRoadName, location: prev.createOptions.location, displayLocation: prev.createOptions.displayLocation }))
-                return prev;
-            })
+            // Use the passed options directly to avoid stale state issues
+            const options = args[0] || multiplayerState.createOptions;
+            ws.send(JSON.stringify({ 
+                type: "setPrivateGameOptions", 
+                rounds: options.rounds, 
+                timePerRound: options.timePerRound, 
+                nm: options.nm, 
+                npz: options.npz, 
+                showRoadName: options.showRoadName, 
+                location: options.location, 
+                displayLocation: options.displayLocation 
+            }));
         }
 
         if (action === 'startGameHost' && multiplayerState?.inGame && multiplayerState?.gameData?.host && multiplayerState?.gameData?.state === "waiting") {

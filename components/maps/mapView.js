@@ -407,7 +407,7 @@ export default function MapView({
         <label htmlFor="nmpz">{text('nmpz')}&nbsp;</label>
         <input id="nmpz"
         name="nmpz"
-        type="checkbox" checked={gameOptions.nmpz} onChange={(e) => {
+        type="checkbox" checked={gameOptions.nm && gameOptions.npz} onChange={(e) => {
             setGameOptions({ ...gameOptions, nm: e.target.checked, npz: e.target.checked })
         }} />
     </div>

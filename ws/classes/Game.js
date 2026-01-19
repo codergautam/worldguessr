@@ -49,6 +49,7 @@ export default class Game {
     this.disconnectedPlayer = null; // Track disconnected player for ranked duels
     this.rankedDuelPersistentData = {}; // Store persistent player data for ranked duels only
     this.saveInProgress = false; // Track if MongoDB save is in progress
+    this.cleanupInProgress = false; // Prevent re-entrant cleanup during shutdown
 
     if(this.public) {
       this.showRoadName = false;
@@ -437,9 +438,11 @@ export default class Game {
       games.delete(this.id);
     }
 
-    if(this.duel && Object.keys(this.players).length < 2) {
+    if(this.duel && Object.keys(this.players).length < 2 && !this.cleanupInProgress) {
       if (isPreGameLeave) {
         // Cancel game without ELO penalties - notify remaining player
+        // Set flag to prevent re-entrant cleanup when shutdown() calls removePlayer()
+        this.cleanupInProgress = true;
         this.sendAllPlayers({
           type: 'gameCancelled',
           reason: 'opponent_left_before_start'
@@ -453,9 +456,34 @@ export default class Game {
     }
   }
 
-  start() {
-    if ((this.state != 'waiting') || (Object.keys(this.players).length < 2) || (this.rounds != this.locations.length)) {
-      console.log('Cannot start game', this.state, Object.keys(this.players).length, this.rounds, this.locations.length, Object.keys(this.players).length < 2, this.rounds !== this.locations.length, this.state !== 'waiting');
+  start(hostPlayer = null) {
+    // Check each condition and provide specific error messages
+    if (this.state !== 'waiting') {
+      console.log('Cannot start game: not in waiting state', this.state);
+      return;
+    }
+    
+    if (Object.keys(this.players).length < 2) {
+      console.log('Cannot start game: not enough players', Object.keys(this.players).length);
+      if (hostPlayer) {
+        hostPlayer.send({
+          type: 'toast',
+          key: 'needMorePlayers',
+          toastType: 'error'
+        });
+      }
+      return;
+    }
+    
+    if (this.rounds !== this.locations.length) {
+      console.log('Cannot start game: locations not loaded', this.rounds, this.locations.length);
+      if (hostPlayer) {
+        hostPlayer.send({
+          type: 'toast',
+          key: 'mapLocationsLoading',
+          toastType: 'error'
+        });
+      }
       return;
     }
     this.state = 'getready';

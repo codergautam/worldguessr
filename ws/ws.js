@@ -996,9 +996,7 @@ app.ws('/wg', {
       if (json.type === 'startGameHost' && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
         if (game.players[player.id].host) {
-
-
-          game.start();
+          game.start(player);
         }
       }
 

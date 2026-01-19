@@ -347,5 +347,7 @@
   "wantToAppeal": "Möchten Sie Einspruch einlegen?",
   "appealInstructions": "Einsprüche werden über unseren Discord-Server bearbeitet. Treten Sie bei, verifizieren Sie sich und erstellen Sie ein Ticket in #appeal-game-ban.",
   "appealOnDiscord": "Einspruch auf Discord",
-  "opponentLeftBeforeStart": "Gegner hat vor Spielbeginn verlassen. Zurück zur Warteschlange..."
+  "opponentLeftBeforeStart": "Gegner hat vor Spielbeginn verlassen. Zurück zur Warteschlange...",
+  "needMorePlayers": "Mindestens 2 Spieler zum Starten erforderlich",
+  "mapLocationsLoading": "Kartenstandorte nicht geladen, versuchen Sie die Karte erneut auszuwählen oder verwenden Sie eine andere Karte"
 }
