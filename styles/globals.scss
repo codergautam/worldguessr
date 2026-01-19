@@ -2657,46 +2657,130 @@ input[placeholder="Please login to chat"] {
     justify-content: safe center;
     align-items: center;
     transition: all 0.5s;
-    animation: fadeInLb 1s ease-in-out forwards;
+    animation: fadeInLb 0.6s ease-out forwards;
     box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
     z-index: 1100;
     overflow-y: auto;
-    padding-top: 50px;
+    padding: 40px 20px 60px;
+    gap: 6px;
 }
 
-
+.multiplayerLeaderboard .bigSpan {
+    font-size: clamp(1.5rem, 5vw, 2.2rem);
+    font-weight: 700;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
 
 .multiplayerLeaderboard__player {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 5px;
+    padding: 12px 18px;
+    margin-bottom: 0;
+    border-radius: 8px;
     background-color: #fff;
-    width: 40%;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.1);
+    width: min(500px, 90vw);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.multiplayerLeaderboard__player:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .multiplayerLeaderboard__player.me {
     background-color: #d4edda;
+    border-left: 4px solid #28a745;
 }
 
 .multiplayerLeaderboard__player__username {
-    font-size: 16px;
-    font-weight: bold;
-    color: #000000;
+    font-size: clamp(14px, 3.5vw, 16px);
+    font-weight: 600;
+    color: #000;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .multiplayerLeaderboard__player__score {
-    font-size: 14px;
-    color: #000000;
+    font-size: clamp(16px, 4vw, 20px);
+    font-weight: 700;
+    color: #28a745;
+    flex-shrink: 0;
+    margin-left: 12px;
+    font-variant-numeric: tabular-nums;
 }
 
 .multiplayerLeaderboard__separator {
-    font-size: 20px;
-    color: #ffffff;
-    margin: 10px 0;
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 4px 0;
+    letter-spacing: 4px;
+}
+
+.multiplayerFinalBtns {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.multiplayerFinalBtns .gameBtn {
+    background-color: #28a745;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.multiplayerFinalBtns .gameBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    background-color: #2ebd4e;
+}
+
+/* Mobile responsive adjustments for leaderboard */
+@media screen and (max-width: 600px), screen and (pointer: coarse) {
+    .multiplayerLeaderboard {
+        padding: 30px 12px 50px;
+        gap: 5px;
+    }
+    
+    .multiplayerLeaderboard__player {
+        width: 95vw;
+        padding: 12px 14px;
+        border-radius: 8px;
+    }
+    
+    .multiplayerLeaderboard__player__username {
+        font-size: 14px;
+    }
+    
+    .multiplayerLeaderboard__player__score {
+        font-size: 16px;
+        margin-left: 8px;
+    }
+    
+    .multiplayerFinalBtns {
+        width: 95vw;
+    }
+    
+    .multiplayerFinalBtns .gameBtn {
+        flex: 1;
+        min-width: 120px;
+    }
 }
 
 @media screen and (min-width: 600px) {

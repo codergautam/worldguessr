@@ -1,6 +1,4 @@
 import { useTranslation } from '@/components/useTranslations'
-import guestNameString from '@/serverUtils/guestNameFromString';
-import { useEffect } from 'react';
 import { FaCopy } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 import UsernameWithFlag from './utils/usernameWithFlag';
@@ -39,45 +37,68 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
 
       { waitingForStart && (
 
-        <div style={{display: "flex", flexDirection: "row", alignItems: "center"}}>
-        <h2 style={{color: "orange", pointerEvents: "all"}}>{text("gameCode")}: {multiplayerState.gameData?.code}</h2>
-        {/* copy */}
-        <button onClick={() => {
-          navigator.clipboard.writeText(multiplayerState.gameData?.code);
-          toast.success(text("copiedToClipboard"));
-        }} style={{
-          marginLeft: "10px",
-          padding: "5px",
-          backgroundColor: "orange",
-          color: "white",
-          border: "none",
-          cursor: "pointer",
-          pointerEvents: "all",
-          borderRadius: "5px"
+        <div style={{
+          display: "flex", 
+          flexDirection: "row", 
+          alignItems: "center",
+          flexWrap: "wrap",
+          justifyContent: "center",
+          gap: "10px",
+          marginTop: "8px"
         }}>
-          {/* copy icon */}
-
-          <FaCopy />
-        </button>
-        <br />
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          backgroundColor: "#fff3cd",
+          border: "1px solid #ffc107",
+          borderRadius: "8px",
+          padding: "10px 16px"
+        }}>
+          <span style={{
+            color: "#856404",
+            fontWeight: "700",
+            fontSize: "clamp(16px, 4vw, 20px)"
+          }}>{text("gameCode")}: {multiplayerState.gameData?.code}</span>
+          <button onClick={() => {
+            navigator.clipboard.writeText(multiplayerState.gameData?.code);
+            toast.success(text("copiedToClipboard"));
+          }} style={{
+            marginLeft: "12px",
+            padding: "8px 12px",
+            backgroundColor: "#ffc107",
+            color: "#000",
+            border: "none",
+            cursor: "pointer",
+            pointerEvents: "all",
+            borderRadius: "6px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.15s ease"
+          }}>
+            <FaCopy />
+          </button>
+        </div>
         { host && (
         <button onClick={() => {
             onEditClick();
         }} style={{
-          marginLeft: "10px",
-          padding: "5px",
-          backgroundColor: (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) ? "gray": "green",
+          padding: "10px 20px",
+          backgroundColor: (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) 
+            ? "#6c757d" 
+            : "#28a745",
           color: "white",
           border: "none",
           cursor: (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) ? "not-allowed": "pointer",
           pointerEvents: "all",
-          borderRadius: "5px",
-
+          borderRadius: "8px",
+          fontWeight: "600",
+          fontSize: "14px",
+          transition: "all 0.15s ease",
+          boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)"
         }}
         disabled={ (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) }
         >
-          {/* copy icon */}
-
           {text("editOptions")}
         </button>
         )}
@@ -97,9 +118,27 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
                   countryCode={player.countryCode}
                   isGuest={process.env.NEXT_PUBLIC_COOLMATH}
                 />
-                {player.id === myId && player.username?.startsWith('Guest #') && <span style={{color: "green", fontWeight: "bold"}}> ({text("you")})</span>}
-                {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
-                {player.host && <span style={{color: "red"}}> ({text("host")})</span>}
+                {player.id === myId && player.username?.startsWith('Guest #') && <span style={{
+                  color: "#28a745", 
+                  fontWeight: "600",
+                  fontSize: "12px"
+                }}> ({text("you")})</span>}
+                {player.supporter && <span className="badge" style={{
+                  marginLeft: "6px", 
+                  backgroundColor: "#ffc107",
+                  color: "#000",
+                  padding: "2px 8px",
+                  borderRadius: "4px",
+                  fontSize: "11px",
+                  fontWeight: "700",
+                  textTransform: "uppercase"
+                }}>{text("supporter")}</span>}
+                {player.host && <span style={{
+                  color: "#dc3545",
+                  fontWeight: "600",
+                  fontSize: "12px",
+                  marginLeft: "4px"
+                }}> ({text("host")})</span>}
 
               </div>
 
@@ -110,8 +149,21 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
                 countryCode={player.countryCode}
                 isGuest={process.env.NEXT_PUBLIC_COOLMATH}
               />
-            {player.id === myId && player.username?.startsWith('Guest #') && <span style={{color: "green", fontWeight: "bold"}}> ({text("you")})</span>}
-            {player.supporter && <span className="badge" style={{marginLeft: "5px", border: '1px black solid'}}>{text("supporter")}</span>}
+            {player.id === myId && player.username?.startsWith('Guest #') && <span style={{
+              color: "#28a745", 
+              fontWeight: "600",
+              fontSize: "12px"
+            }}> ({text("you")})</span>}
+            {player.supporter && <span className="badge" style={{
+              marginLeft: "6px", 
+              backgroundColor: "#ffc107",
+              color: "#000",
+              padding: "2px 8px",
+              borderRadius: "4px",
+              fontSize: "11px",
+              fontWeight: "700",
+              textTransform: "uppercase"
+            }}>{text("supporter")}</span>}
 
             </div>
             <div className="multiplayerLeaderboard__player__score">{player.score}</div>
@@ -130,7 +182,11 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
             username={players[myIndex].username}
             countryCode={players[myIndex].countryCode}
             isGuest={process.env.NEXT_PUBLIC_COOLMATH}
-          /> {players[myIndex].username?.startsWith('Guest #') && <span style={{color: "green", fontWeight: "bold"}}>({text("you")})</span>}</div>
+          /> {players[myIndex].username?.startsWith('Guest #') && <span style={{
+            color: "#28a745", 
+            fontWeight: "600",
+            fontSize: "12px"
+          }}>({text("you")})</span>}</div>
           <div className="multiplayerLeaderboard__player__score">{players[myIndex].score}</div>
         </div>
         </>
@@ -156,24 +212,46 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
       { waitingForStart && host && (
         <div className="multiplayerFinalBtns">
           { players.length < 2 ?
-          <p style={{color: "red"}}>{text("singlePlayerNeeded")}</p>
+          <p style={{
+            color: "#721c24",
+            fontSize: "14px",
+            fontWeight: "500",
+            padding: "10px 20px",
+            backgroundColor: "#f8d7da",
+            borderRadius: "6px",
+            border: "1px solid #f5c6cb"
+          }}>{text("singlePlayerNeeded")}</p>
         : multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated) ?
         null
         :
         <button className="gameBtn g2_green_button g2_button_style"
-            style={{
-            backgroundColor: "green",
-            }}
         onClick={() => startGameHost()}>{text("startGame")}</button> }
 
         </div>
       )}
 
       {(multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) &&
-        <p style={{color: "yellow"}}>{text("generating")}</p>}
+        <p style={{
+          color: "#856404",
+          fontSize: "14px",
+          fontWeight: "500",
+          padding: "10px 20px",
+          backgroundColor: "#fff3cd",
+          borderRadius: "6px",
+          border: "1px solid #ffc107",
+          marginTop: "10px"
+        }}>{text("generating")}</p>}
 
 { waitingForStart && !host && (multiplayerState?.gameData?.rounds== multiplayerState?.gameData?.generated) && (
-          <p style={{color: "red"}}>{text("waitingForHostToStart")}...</p>
+          <p style={{
+            color: "#fff",
+            fontSize: "14px",
+            fontWeight: "500",
+            padding: "10px 20px",
+            backgroundColor: "rgba(255, 255, 255, 0.15)",
+            borderRadius: "6px",
+            marginTop: "10px"
+          }}>{text("waitingForHostToStart")}...</p>
       )}
     </div>
   );

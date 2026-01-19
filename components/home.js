@@ -2406,7 +2406,7 @@ export default function Home({ }) {
                     gameOptions={gameOptions}
                     screen={screen}
                     multiplayerState={multiplayerState}
-                    shown={!multiplayerState?.gameData?.duel || multiplayerState?.gameData?.state === 'getready'}
+                    shown={!multiplayerState?.gameData?.duel || (multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)}
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}
                     mapModalOpen={mapModal}

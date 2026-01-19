@@ -732,13 +732,14 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (
           <PlayerList multiplayerState={multiplayerState} playAgain={() => {
             backBtnPressed(true, "unranked")
           }} backBtn={() => {
             backBtnPressed()
           }} />
         )}
+
 
         {/* Private game over screen */}
         {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "end" && (
