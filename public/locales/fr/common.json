@@ -332,5 +332,20 @@
   "removeFlag": "Supprimer le drapeau",
   "selectCountryFlag": "Sélectionnez le drapeau de votre pays",
   "confirmRemoveFlag": "Supprimer le drapeau de votre pays ?",
-  "forfeitWarning": "⚠️ Vous êtes dans un duel classé !\n\nQuitter maintenant abandonnera le match et vous perdrez de l'ELO.\n\nÊtes-vous sûr de vouloir quitter ?"
+  "forfeitWarning": "⚠️ Vous êtes dans un duel classé !\n\nQuitter maintenant abandonnera le match et vous perdrez de l'ELO.\n\nÊtes-vous sûr de vouloir quitter ?",
+
+  "banExtensionWarning": "Parfois, les extensions de navigateur tierces peuvent interférer avec le jeu et déclencher notre système anti-triche.",
+  "banExtensionSuggestion": "Veuillez essayer de désactiver toutes les extensions et vérifier si vous pouvez accéder au jeu.",
+  "howToAppeal": "Comment faire appel",
+  "appealIntro": "Si vous pensez que ce bannissement a été appliqué incorrectement, vous pouvez faire appel via notre serveur Discord officiel :",
+  "appealStep1": "Rejoignez notre serveur Discord",
+  "appealStep2": "Vérifiez votre compte Discord",
+  "appealStep3": "Allez dans le canal #appeal-game-ban",
+  "appealStep4": "Créez un ticket de support en suivant les instructions",
+  "appealStep5": "Un joueur vérifié effectuera un test d'appel en direct",
+  "appealsNotEmail": "Les appels ne sont pas traités par e-mail.",
+  "wantToAppeal": "Vous voulez faire appel ?",
+  "appealInstructions": "Les appels sont traités via notre serveur Discord. Rejoignez, vérifiez et créez un ticket dans #appeal-game-ban.",
+  "appealOnDiscord": "Faire appel sur Discord",
+  "opponentLeftBeforeStart": "L'adversaire est parti avant le début du jeu. Retour à la file d'attente..."
 }

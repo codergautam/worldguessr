@@ -1593,6 +1593,28 @@ export default function Home({ }) {
                     ...prev,
                     extent: null
                 }))
+            } else if (data.type === "gameCancelled") {
+                // Game was cancelled before it started (opponent left during countdown)
+                // No ELO was lost - just return to home and optionally re-queue
+                toast.info(text("opponentLeftBeforeStart") || "Opponent left before the game started. Returning to queue...");
+                
+                setScreen("home")
+                setMultiplayerChatEnabled(false)
+
+                setMultiplayerState((prev) => {
+                    return {
+                        ...initialMultiplayerState,
+                        connected: true,
+                        nextGameQueued: true, // Auto re-queue the player
+                        nextGameType: 'ranked',
+                        playerCount: prev.playerCount,
+                        guestName: prev.guestName
+                    }
+                });
+                setGameOptions((prev) => ({
+                    ...prev,
+                    extent: null
+                }))
             } else if (data.type === "gameJoinError" && multiplayerState.enteringGameCode) {
                 setMultiplayerState((prev) => {
                     return {
@@ -2370,7 +2392,7 @@ export default function Home({ }) {
                     gameOptions={gameOptions}
                     screen={screen}
                     multiplayerState={multiplayerState}
-                    shown={!multiplayerState?.gameData?.duel}
+                    shown={!multiplayerState?.gameData?.duel || multiplayerState?.gameData?.state === 'getready'}
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}
                     mapModalOpen={mapModal}

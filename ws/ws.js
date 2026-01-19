@@ -1526,6 +1526,15 @@ try {
         const p1 = players.get(id1);
         const p2 = players.get(id2);
 
+        // Check if either player has left the queue (race condition prevention)
+        // This can happen if they clicked leave queue right as matching occurred
+        if (!p1 || !p2 || !p1?.inQueue || !p2?.inQueue) {
+          // Clean up stale queue entries - remove if player is missing OR has left the queue
+          if (!p1 || !p1.inQueue) playersInQueue.delete(id1);
+          if (!p2 || !p2.inQueue) playersInQueue.delete(id2);
+          continue; // Skip this pair, don't start a game
+        }
+
         const gameId = uuidv4();
         const game = new Game(gameId, true, undefined, undefined, allLocations, true);
         games.set(gameId, game);

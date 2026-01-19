@@ -410,8 +410,12 @@ export default class Game {
     const isPlayerHost = this.players[player.id].host;
     const tag = this.players[player.id].tag;
 
-    // Track disconnection for ranked duels
-    if(this.public && this.duel) {
+    // For ranked duels: if someone leaves during "getready" (countdown before first round),
+    // cancel the game without ELO penalties - no actual gameplay has happened yet
+    const isPreGameLeave = this.public && this.duel && this.state === 'getready';
+    
+    // Track disconnection for ranked duels (only if actual gameplay has started)
+    if(this.public && this.duel && !isPreGameLeave) {
       this.disconnectedPlayer = tag;
     }
 
@@ -434,7 +438,18 @@ export default class Game {
     }
 
     if(this.duel && Object.keys(this.players).length < 2) {
-      this.end(tag);
+      if (isPreGameLeave) {
+        // Cancel game without ELO penalties - notify remaining player
+        this.sendAllPlayers({
+          type: 'gameCancelled',
+          reason: 'opponent_left_before_start'
+        });
+        this.shutdown();
+        games.delete(this.id);
+      } else {
+        // Normal forfeit - player left during actual gameplay
+        this.end(tag);
+      }
     }
   }
 
