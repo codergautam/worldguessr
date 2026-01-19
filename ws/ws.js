@@ -1402,7 +1402,9 @@ try {
   setInterval(() => {
 
 
-    const minRoundsRemaining = 4;
+    // Dynamically adjust join threshold based on online player count
+    // When fewer players online, allow joining later rounds to speed up matchmaking
+    const minRoundsRemaining = players.size >= 3000 ? 4 : 3;
     for (const game of games.values()) {
 
       const playerCnt = Object.keys(game.players).length;
