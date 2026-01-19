@@ -1220,22 +1220,22 @@ export default function ModDashboard({ session }) {
                 const allPendingReportIds = allPendingReportsAgainstUser.map(r => r._id);
                 
                 return (
-                  <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #30363d' }}>
+                <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid #30363d' }}>
                     {allPendingReportIds.length > 1 && (
                       <div style={{ marginBottom: '12px', padding: '8px 12px', background: 'rgba(88, 166, 255, 0.1)', borderRadius: '6px', fontSize: '0.85rem', color: '#58a6ff' }}>
                         ℹ️ Action will apply to all {allPendingReportIds.length} pending reports against this user
                       </div>
                     )}
-                    <ReportActionButtons
-                      targetUser={{ id: focusedReport.reportedUser?.accountId, username: focusedReport.reportedUser?.username }}
+                  <ReportActionButtons
+                    targetUser={{ id: focusedReport.reportedUser?.accountId, username: focusedReport.reportedUser?.username }}
                       reportIds={allPendingReportIds}
                       reports={allPendingReportsAgainstUser}
-                      onAction={(actionType, user, reportIds, options) => {
-                        setFocusedReport(null);
-                        handleReportAction(actionType, user, reportIds, options);
-                      }}
-                    />
-                  </div>
+                    onAction={(actionType, user, reportIds, options) => {
+                      setFocusedReport(null);
+                      handleReportAction(actionType, user, reportIds, options);
+                    }}
+                  />
+                </div>
                 );
               })()}
 

@@ -2431,6 +2431,15 @@ export default function Home({ }) {
                                 {session.token.banPublicNote}
                             </div>
                         )}
+                        <button
+                            className="modBanner__detailsBtn"
+                            onClick={() => {
+                                setAccountModalOpen(true);
+                                setAccountModalPage("moderation");
+                            }}
+                        >
+                            {text("viewDetails") || "View Details"}
+                        </button>
                     </div>
                 )}
 

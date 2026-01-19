@@ -293,6 +293,41 @@ export default function ModerationView({ session }) {
                             ? text("suspensionExplanationTemp")
                             : text("suspensionExplanationPerm")}
                     </p>
+
+                    {/* Appeal Instructions */}
+                    <div style={{
+                        marginTop: '25px',
+                        padding: '20px',
+                        background: 'rgba(88, 101, 242, 0.15)',
+                        border: '1px solid rgba(88, 101, 242, 0.3)',
+                        borderRadius: '12px',
+                        maxWidth: '450px',
+                        margin: '25px auto 0'
+                    }}>
+                        <p style={{ color: '#5865F2', fontWeight: 'bold', marginBottom: '10px', fontSize: 'clamp(14px, 3vw, 16px)' }}>
+                            📋 {text("wantToAppeal") || "Want to Appeal?"}
+                        </p>
+                        <p style={{ color: '#b0b0b0', fontSize: 'clamp(12px, 2.5vw, 14px)', lineHeight: '1.6', marginBottom: '15px' }}>
+                            {text("appealInstructions") || "Appeals are handled through our Discord server. Join, verify, and create a ticket in #appeal-game-ban."}
+                        </p>
+                        <a
+                            href="https://discord.gg/ADw47GAyS5"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                                display: 'inline-block',
+                                padding: '10px 20px',
+                                background: '#5865F2',
+                                color: 'white',
+                                textDecoration: 'none',
+                                borderRadius: '8px',
+                                fontWeight: 'bold',
+                                fontSize: 'clamp(12px, 2.5vw, 14px)'
+                            }}
+                        >
+                            {text("joinDiscord") || "Join Discord"}
+                        </a>
+                    </div>
                 </div>
             )}
 

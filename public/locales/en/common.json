@@ -382,5 +382,19 @@
   "removeFlag": "Remove Flag",
   "selectCountryFlag": "Select Your Country Flag",
   "confirmRemoveFlag": "Remove your country flag?",
-  "forfeitWarning": "⚠️ You are in a ranked duel!\n\nLeaving now will forfeit the match and you will lose ELO.\n\nAre you sure you want to leave?"
+  "forfeitWarning": "⚠️ You are in a ranked duel!\n\nLeaving now will forfeit the match and you will lose ELO.\n\nAre you sure you want to leave?",
+
+  "banExtensionWarning": "Sometimes, third-party browser extensions can interfere with the game and trigger our anti-cheat system.",
+  "banExtensionSuggestion": "Please try disabling any extensions you have running and see if you are able to access the game.",
+  "howToAppeal": "How to Appeal",
+  "appealIntro": "If you believe this ban was applied incorrectly, you can appeal through our official Discord server:",
+  "appealStep1": "Join our Discord server",
+  "appealStep2": "Verify your Discord account",
+  "appealStep3": "Go to the #appeal-game-ban channel",
+  "appealStep4": "Create a support ticket following the instructions",
+  "appealStep5": "A verified player will conduct a live appeal test",
+  "appealsNotEmail": "Appeals are not handled over email.",
+  "wantToAppeal": "Want to Appeal?",
+  "appealInstructions": "Appeals are handled through our Discord server. Join, verify, and create a ticket in #appeal-game-ban.",
+  "appealOnDiscord": "Appeal on Discord"
 }
