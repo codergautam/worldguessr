@@ -59,25 +59,25 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
             fontWeight: "700",
             fontSize: "clamp(16px, 4vw, 20px)"
           }}>{text("gameCode")}: {multiplayerState.gameData?.code}</span>
-          <button onClick={() => {
-            navigator.clipboard.writeText(multiplayerState.gameData?.code);
-            toast.success(text("copiedToClipboard"));
-          }} style={{
+        <button onClick={() => {
+          navigator.clipboard.writeText(multiplayerState.gameData?.code);
+          toast.success(text("copiedToClipboard"));
+        }} style={{
             marginLeft: "12px",
             padding: "8px 12px",
             backgroundColor: "#ffc107",
             color: "#000",
-            border: "none",
-            cursor: "pointer",
-            pointerEvents: "all",
+          border: "none",
+          cursor: "pointer",
+          pointerEvents: "all",
             borderRadius: "6px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             transition: "all 0.15s ease"
           }}>
-            <FaCopy />
-          </button>
+          <FaCopy />
+        </button>
         </div>
         { host && (
         <button onClick={() => {
