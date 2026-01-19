@@ -332,5 +332,22 @@
   "removeFlag": "Flagge entfernen",
   "selectCountryFlag": "Wählen Sie Ihre Länderflagge",
   "confirmRemoveFlag": "Länderflagge entfernen?",
-  "forfeitWarning": "⚠️ Du bist in einem Ranglistenduell!\n\nWenn du jetzt gehst, gibst du das Spiel auf und verlierst ELO.\n\nBist du sicher, dass du gehen willst?"
+  "forfeitWarning": "⚠️ Du bist in einem Ranglistenduell!\n\nWenn du jetzt gehst, gibst du das Spiel auf und verlierst ELO.\n\nBist du sicher, dass du gehen willst?",
+
+  "banExtensionWarning": "Manchmal können Browser-Erweiterungen von Drittanbietern das Spiel beeinträchtigen und unser Anti-Cheat-System auslösen.",
+  "banExtensionSuggestion": "Bitte versuchen Sie, alle Erweiterungen zu deaktivieren und prüfen Sie, ob Sie auf das Spiel zugreifen können.",
+  "howToAppeal": "Wie man Einspruch einlegt",
+  "appealIntro": "Wenn Sie glauben, dass diese Sperre fälschlicherweise angewendet wurde, können Sie über unseren offiziellen Discord-Server Einspruch einlegen:",
+  "appealStep1": "Treten Sie unserem Discord-Server bei",
+  "appealStep2": "Verifizieren Sie Ihr Discord-Konto",
+  "appealStep3": "Gehen Sie zum #appeal-game-ban Kanal",
+  "appealStep4": "Erstellen Sie ein Support-Ticket gemäß den Anweisungen",
+  "appealStep5": "Ein verifizierter Spieler wird einen Live-Einspruchstest durchführen",
+  "appealsNotEmail": "Einsprüche werden nicht per E-Mail bearbeitet.",
+  "wantToAppeal": "Möchten Sie Einspruch einlegen?",
+  "appealInstructions": "Einsprüche werden über unseren Discord-Server bearbeitet. Treten Sie bei, verifizieren Sie sich und erstellen Sie ein Ticket in #appeal-game-ban.",
+  "appealOnDiscord": "Einspruch auf Discord",
+  "opponentLeftBeforeStart": "Gegner hat vor Spielbeginn verlassen. Zurück zur Warteschlange...",
+  "needMorePlayers": "Mindestens 2 Spieler zum Starten erforderlich",
+  "mapLocationsLoading": "Kartenstandorte nicht geladen, versuchen Sie die Karte erneut auszuwählen oder verwenden Sie eine andere Karte"
 }

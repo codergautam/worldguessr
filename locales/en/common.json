@@ -396,5 +396,8 @@
   "appealsNotEmail": "Appeals are not handled over email.",
   "wantToAppeal": "Want to Appeal?",
   "appealInstructions": "Appeals are handled through our Discord server. Join, verify, and create a ticket in #appeal-game-ban.",
-  "appealOnDiscord": "Appeal on Discord"
+  "appealOnDiscord": "Appeal on Discord",
+  "opponentLeftBeforeStart": "Opponent left before the game started. Returning to queue...",
+  "needMorePlayers": "Need at least 2 players to start",
+  "mapLocationsLoading": "Map locations not loaded, try reselecting the map or use a different map"
 }
