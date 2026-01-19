@@ -1721,6 +1721,9 @@ export default function Home({ }) {
                 maxRetries: prev.maxRetries,
                 currentRetry: prev.currentRetry,
             }));
+            // Always disable chat when WebSocket disconnects to prevent chat button showing in menu
+            setMultiplayerChatEnabled(false)
+            setMultiplayerChatOpen(false)
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
                 setMultiplayerError(true)
                 setLoading(false)
@@ -1743,6 +1746,9 @@ export default function Home({ }) {
                 maxRetries: prev.maxRetries,
                 currentRetry: prev.currentRetry,
             }));
+            // Always disable chat when WebSocket has error to prevent chat button showing in menu
+            setMultiplayerChatEnabled(false)
+            setMultiplayerChatOpen(false)
 
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
                 setMultiplayerError(true)
