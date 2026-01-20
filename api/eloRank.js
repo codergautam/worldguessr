@@ -5,7 +5,8 @@ import { getLeague } from '../components/utils/leagues.js';
 // given a username return the elo and the rank of the user
 export default async function handler(req, res) {
   const { username, secret } = req.query;
-  console.log(`[API] eloRank: ${username || '(by secret)'}`);
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  console.log(`[API] eloRank: ${username || '(by secret)'} | IP: ${ip}`);
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
