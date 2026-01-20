@@ -1,15 +1,24 @@
 import mongoose from 'mongoose';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
+import { rateLimit } from '../utils/rateLimit.js';
 
 // given a username return the elo and the rank of the user
 export default async function handler(req, res) {
   const { username, secret } = req.query;
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
   console.log(`[API] eloRank: ${username || '(by secret)'} | IP: ${ip}`);
+  
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  // Rate limiting: 30 requests per minute per IP
+  const limiter = rateLimit({ max: 30, windowMs: 60000 });
+  if (!limiter(req, res)) {
+    console.log(`[API] eloRank: RATE LIMITED | IP: ${ip}`);
+    return; // Rate limit exceeded, response already sent
   }
 
   // Connect to MongoDB
@@ -22,22 +31,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Find user by the provided username or secret
+    // Find user by the provided username or secret (cached for 30 seconds)
     let user;
-    // const user = await User.findOne({ username });
     if(username) {
-      // user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
-      // remove incase insensitive
-      user = await User.findOne({ username: username }).collation(USERNAME_COLLATION);
+      user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).cache(2000);
     } else if(secret) {
-      user = await User.findOne({ secret });
+      user = await User.findOne({ secret }).cache(2000);
     }
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Exclude banned users from ranking
+    // Exclude banned users from ranking (cached for 2 seconds)
     const rank = (await User.countDocuments({
       elo: { $gt: user.elo },
       banned: false
