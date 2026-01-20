@@ -1,4 +1,7 @@
 export const backupMapHome = {
+    "spotlight": [],
+    "popular": [],
+    "recent": [],
     "countryMaps": [
         {
             "name": "Russia",

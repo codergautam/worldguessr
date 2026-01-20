@@ -220,9 +220,25 @@ export default async function handler(req, res) {
   }
 
   timings.total = Date.now() - startTotal;
+  
+  // Measure JSON serialization time
+  const serializeStart = Date.now();
+  const jsonResponse = JSON.stringify(response);
+  timings.serialize = Date.now() - serializeStart;
+  timings.responseSize = jsonResponse.length;
+  
   console.log('[mapHome] Timings (ms):', JSON.stringify(timings));
 
-  res.status(200).json(response);
+  // Track when response actually finishes sending
+  const sendStart = Date.now();
+  res.on('finish', () => {
+    const sendTime = Date.now() - sendStart;
+    if (sendTime > 100) {
+      console.log(`[mapHome] SLOW SEND: ${sendTime}ms for ${jsonResponse.length} bytes`);
+    }
+  });
+
+  res.status(200).type('application/json').send(jsonResponse);
 }
 
 export const config = {

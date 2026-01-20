@@ -224,17 +224,15 @@ export default function MapView({
         });
     }
 
-    const hasResults = Object.keys(mapHome)
+    const hasResults = searchResults.length > 0 || Object.keys(mapHome)
         .filter((k) => k !== "message")
         .some((section) => {
-            const mapsArray = section === "recent" && searchResults.length > 0
-                ? searchResults
-                : mapHome[section].filter(
-                    (map) =>
-                        map.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
-                        map.description_short?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
-                        map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
-                );
+            const mapsArray = Array.isArray(mapHome[section]) ? mapHome[section].filter(
+                (map) =>
+                    map.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
+                    map.description_short?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
+                    map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
+            ) : [];
             return mapsArray.length > 0;
         });
 
@@ -443,13 +441,20 @@ export default function MapView({
 
                     {/* Map Sections */}
                     {hasResults ? (
-                        Object.keys(mapHome)
-                            .filter((k) => k !== "message")
+                        // Ensure we have sections to iterate, and include "recent" if we have search results
+                        (() => {
+                            const sections = Object.keys(mapHome).filter((k) => k !== "message");
+                            // Add "recent" if not present but we have search results
+                            if (searchResults.length > 0 && !sections.includes("recent")) {
+                                sections.push("recent");
+                            }
+                            return sections;
+                        })()
                             .filter((k) => !process.env.NEXT_PUBLIC_COOLMATH || k !== "recent")
                             .map((section, si) => {
                                 const mapsArray = section === "recent" && searchResults.length > 0
                                     ? searchResults
-                                    : mapHome[section].filter((map) =>
+                                    : (Array.isArray(mapHome[section]) ? mapHome[section] : []).filter((map) =>
                                         map.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                         map.description_short?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                         map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
