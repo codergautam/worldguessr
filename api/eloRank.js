@@ -31,7 +31,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Find user by the provided username or secret (cached for 30 seconds)
+
     let user;
     if(username) {
       user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).cache(2000);
@@ -43,7 +43,6 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Exclude banned users from ranking (cached for 2 seconds)
     const rank = (await User.countDocuments({
       elo: { $gt: user.elo },
       banned: false
