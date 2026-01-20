@@ -732,7 +732,14 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (() => {
+          // Double-check with fresh calculation to prevent flicker on slow devices
+          // when state changes but timeToNextMultiplayerEvt hasn't been updated yet
+          const freshTime = multiplayerState?.gameData?.nextEvtTime 
+            ? Math.max(0, Math.floor(((multiplayerState.gameData.nextEvtTime - Date.now()) - timeOffset) / 100) / 10)
+            : 0;
+          return freshTime > 0 && freshTime < 5;
+        })() && (
           <PlayerList multiplayerState={multiplayerState} playAgain={() => {
             backBtnPressed(true, "unranked")
           }} backBtn={() => {
