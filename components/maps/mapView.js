@@ -60,18 +60,19 @@ export default function MapView({
             setIsLoading(false);
         }, 5000);
 
-        const mapHomeUrl = window.cConfig.apiUrl + "/api/map/mapHome" + (session?.token?.secret ? "" : "?anon=true");
-        fetch(mapHomeUrl, {
+        const isAnon = !session?.token?.secret;
+        const mapHomeUrl = window.cConfig.apiUrl + "/api/map/mapHome" + (isAnon ? "?anon=true" : "");
+        fetch(mapHomeUrl, isAnon ? {
+            method: "GET",
+        } : {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(
-                session?.token?.secret ? {
-                    secret: session?.token?.secret,
-                    inCG: window.inCrazyGames
-                } : {}
-            ),
+            body: JSON.stringify({
+                secret: session?.token?.secret,
+                inCG: window.inCrazyGames
+            }),
         })
         .then((res) => res.json())
         .then((data) => {

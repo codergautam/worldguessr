@@ -25,16 +25,21 @@ export default async function handler(req, res) {
   const timings = {};
   const startTotal = Date.now();
 
-  // only allow post
-  if(req.method !== 'POST') {
+  // Allow GET for anonymous requests (cacheable by Cloudflare)
+  const isAnon = req.query.anon === 'true';
+  
+  if(req.method === 'GET' && isAnon) {
+    // Anonymous GET request - cacheable, no user lookup
+  } else if(req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  let { secret, inCG } = req.body;
+  let { secret, inCG } = req.body || {};
 
   let user;
 
-  if(secret) {
+  // Skip user lookup for anonymous requests
+  if(secret && !isAnon) {
     const startUser = Date.now();
     user = await User.findOne({ secret: secret });
     timings.userLookup = Date.now() - startUser;
