@@ -111,7 +111,7 @@ export default async function handler(req, res) {
     // likedMaps
     // find maps liked by user
     const startLikedMaps = Date.now();
-    const likedMaps = user.hearted_maps ? await Map.find({ _id: { $in: Array.from(user.hearted_maps.keys()) } }).select('-description_long -data') : [];
+    const likedMaps = user.hearted_maps ? await Map.find({ _id: { $in: Array.from(user.hearted_maps.keys()) } }) : [];
     let likedMapsSendable = await Promise.all(likedMaps.map(async (map) => {
       let owner;
       if(!map.map_creator_name) {
@@ -130,7 +130,7 @@ export default async function handler(req, res) {
     timings.likedMaps = Date.now() - startLikedMaps;
   }
 
-  response.countryMaps = Object.values(officialCountryMaps).map(({ longDescription, ...map }) => ({
+  response.countryMaps = Object.values(officialCountryMaps).map((map) => ({
     ...map,
     created_by_name: 'WorldGuessr',
     official: true,
@@ -160,7 +160,7 @@ export default async function handler(req, res) {
       // retrieve from db
       let maps = [];
       if(method === "recent") {
-        maps = await Map.find({ accepted: true }).select('-description_long -data').sort({ lastUpdated: -1 }).limit(100);
+        maps = await Map.find({ accepted: true }).sort({ lastUpdated: -1 }).limit(100);
       } else if(method === "popular") {
         maps = await Map.find({ accepted: true })        .select({
           locationsCnt: { $size: "$data" },
@@ -183,7 +183,7 @@ export default async function handler(req, res) {
       maps = maps.sort((a,b) => b.hearts - a.hearts).slice(0,100);
 
       } else if(method === "spotlight") {
-        maps = await Map.find({ accepted: true, spotlight: true }).select('-description_long -data').limit(100).allowDiskUse(true);
+        maps = await Map.find({ accepted: true, spotlight: true }).limit(100).allowDiskUse(true);
       }
 
       let sendableMaps = await Promise.all(maps.map(async (map) => {
