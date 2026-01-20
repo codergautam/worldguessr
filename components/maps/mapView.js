@@ -60,7 +60,8 @@ export default function MapView({
             setIsLoading(false);
         }, 5000);
 
-        fetch(window.cConfig.apiUrl + "/api/map/mapHome", {
+        const mapHomeUrl = window.cConfig.apiUrl + "/api/map/mapHome" + (session?.token?.secret ? "" : "?anon=true");
+        fetch(mapHomeUrl, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
