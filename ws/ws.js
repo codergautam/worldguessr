@@ -1023,6 +1023,7 @@ app.ws('/wg', {
           player.send({ type: 'friendReqState', state: 7 })
           return;
         }
+        console.log(`[WS] friendRequest lookup: ${json.name}`);
         User.findOne({ username: json.name }).collation(USERNAME_COLLATION).then(async (friend) => {
           if (!friend) {
             player.send({ type: 'friendReqState', state: 3 })

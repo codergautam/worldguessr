@@ -59,6 +59,7 @@ export default async function handler(req, res) {
 
   // Determine if this is a public (username-based) or authenticated (userId-based) request
   const { userId, username } = req.body;
+  console.log(`[API] userProgression: ${username || userId}`);
   const isPublicRequest = true
 
   // Apply stricter rate limiting for public requests

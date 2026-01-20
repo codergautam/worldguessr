@@ -111,6 +111,7 @@ export default async function handler(req, res) {
   const myUsername = req.query.username;
   const pastDay = req.query.pastDay === 'true';
   const isXp = req.query.mode === 'xp';
+  console.log(`[API] leaderboard: mode=${isXp ? 'xp' : 'elo'}, pastDay=${pastDay}, user=${myUsername || 'none'}`);
 
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });

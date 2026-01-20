@@ -53,6 +53,7 @@ export default async function handler(req, res) {
   }
 
   const { username } = req.query;
+  console.log(`[API] publicProfile: ${username}`);
 
   // Validate username is provided
   if (!username || typeof username !== 'string') {
