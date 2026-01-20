@@ -73,6 +73,13 @@ const updateAllUserStats = async () => {
     ]);
 
     const fetchTime = Date.now() - fetchStart;
+    
+    // Handle case where no users are found
+    if (usersByXp.length === 0) {
+      console.log(`[FETCH] ⚠️ No users found in database (fetched in ${fetchTime}ms) - skipping UserStats update`);
+      return;
+    }
+    
     console.log(`[FETCH] ✅ Fetched ${usersByXp.length} users in ${fetchTime}ms (${(fetchTime/usersByXp.length).toFixed(2)}ms/user)`);
 
     // STEP 2: Create rank lookup maps (O(n) instead of O(n²))
@@ -154,13 +161,19 @@ const updateAllUserStats = async () => {
     const totalTimeMs = Date.now() - startTime;
     const totalTimeSec = (totalTimeMs / 1000).toFixed(1);
     const totalTimeMin = (totalTimeMs / 1000 / 60).toFixed(1);
-    const avgRate = (totalUpdated / totalTimeMs * 1000).toFixed(0);
-    const msPerUser = (totalTimeMs / totalUpdated).toFixed(2);
 
     console.log('━'.repeat(60));
     console.log(`[COMPLETE] 🚀 ULTRA-FAST update completed!`);
     console.log(`[STATS] ${totalUpdated} users updated in ${totalTimeMs}ms (${totalTimeSec}s, ${totalTimeMin}m)`);
-    console.log(`[PERFORMANCE] ${avgRate} users/sec | ${msPerUser}ms/user`);
+    
+    // Only show performance stats if users were actually updated (avoid division by zero)
+    if (totalUpdated > 0) {
+      const avgRate = (totalUpdated / totalTimeMs * 1000).toFixed(0);
+      const msPerUser = (totalTimeMs / totalUpdated).toFixed(2);
+      console.log(`[PERFORMANCE] ${avgRate} users/sec | ${msPerUser}ms/user`);
+    } else {
+      console.log(`[PERFORMANCE] No users were updated - check for bulk insert errors above`);
+    }
     console.log('━'.repeat(60));
 
   } catch (error) {
