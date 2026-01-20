@@ -178,9 +178,9 @@ setTimeout(() => {
 }, 2000);
 
 app.get('/allCountries.json', (req, res) => {
-
+    // Cache for 10 minutes on Cloudflare and browser
+    res.set('Cache-Control', 'public, max-age=600, s-maxage=600');
     res.json({ ready: true, locations: allCountriesCache });
-
 });
 
 
@@ -200,14 +200,14 @@ for (const country of countries) {
   countryLocations[country] = [];
 }
 app.get('/countryLocations/:country', (req, res) => {
-
+  // Cache for 10 minutes on Cloudflare and browser
+  res.set('Cache-Control', 'public, max-age=600, s-maxage=600');
 
   if(!countryLocations[req.params.country]) {
     return res.status(404).json({ message: 'Country not found' });
   }
 
   if(countryLocations[req.params.country].cacheUpdate && Date.now() - countryLocations[req.params.country].cacheUpdate < 60 * 1000) {
-
     return res.json({ ready: countryLocations[req.params.country].locations.length>0, locations: countryLocations[req.params.country].locations });
   } else {
 

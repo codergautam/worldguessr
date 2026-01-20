@@ -417,8 +417,6 @@ startAllCountriesCacheUpdater();
 
 // Instant endpoint that just returns the latest cache
 app.get('/allCountries.json', (req, res) => {
-  // Cache for 10 minutes on Cloudflare and browser
-  res.set('Cache-Control', 'public, max-age=600, s-maxage=600');
   // Always return the current cache instantly - no generation during request
   return res.json({
     ready: allCountriesCache.length > 0,
@@ -431,8 +429,6 @@ app.get('/countryLocations/:country', (req, res) => {
   if (!countryLocations[country]) {
     return res.status(404).json({ message: 'Country not found' });
   }
-  // Cache for 10 minutes on Cloudflare and browser
-  res.set('Cache-Control', 'public, max-age=600, s-maxage=600');
   return res.json({ ready:
     countryLocations[country].length > 0,
      locations: countryLocations[country] });
