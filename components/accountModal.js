@@ -310,18 +310,17 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                             {/* Content Area - Single scroll container for iOS */}
                             <div className="account-modal-body" style={{
                                 height: '100%',
-                                overflowY: 'scroll', // Force scroll instead of auto
+                                overflowY: 'auto',
                                 overflowX: 'hidden',
                                 WebkitOverflowScrolling: 'touch',
-                                touchAction: 'pan-y pinch-zoom', // Allow vertical pan and pinch
+                                touchAction: 'pan-y pinch-zoom',
                                 overscrollBehavior: 'contain',
                                 scrollbarGutter: 'stable',
-                                transform: 'translateZ(0)', // Force hardware acceleration
-                                willChange: 'scroll-position', // Optimize for scroll performance
                                 flex: '1 1 auto',
                                 minHeight: 0,
                                 minWidth: 0,
                                 boxSizing: 'border-box'
+                                // Removed: transform, willChange - these cause flickering with backdrop-filter
                             }}>
                                 <div style={{
                                     width: '100%',

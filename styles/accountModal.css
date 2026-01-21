@@ -15,7 +15,7 @@
 }
 
 .account-modal-background {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
@@ -29,7 +29,8 @@
     url("/street2christmas.jpg");
     background-size: cover;
     background-position: center;
-    background-attachment: fixed;
+    /* Changed from background-attachment: fixed to position: fixed */
+    /* background-attachment: fixed causes repaint on every scroll frame */
     z-index: -1;
 }
 
@@ -181,10 +182,10 @@
 
 .account-modal-body {
     flex: 1;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.4);
     border-radius: 20px;
     padding: 30px;
-    backdrop-filter: blur(20px);
+    /* Removed backdrop-filter from scrollable area - causes flickering during scroll */
     border: 1px solid rgba(255, 255, 255, 0.1);
     overflow-y: auto;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -349,6 +350,8 @@
             rgba(0, 0, 0, 0.95) 100%
         ),
         url("/street2christmas.jpg");
+        background-size: cover;
+        background-position: center;
     }
 }
 
