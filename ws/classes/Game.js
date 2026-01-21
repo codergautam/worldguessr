@@ -555,7 +555,7 @@ export default class Game {
           }
 
 
-          if (allFinal && (this.nextEvtTime - Date.now()) > 5000) {
+          if (allFinal && (this.nextEvtTime - Date.now()) > 1000) {
             this.nextEvtTime = Date.now() + 1000;
             this.sendStateUpdate();
           }
