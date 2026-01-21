@@ -1124,7 +1124,11 @@ export default function ModDashboard({ session }) {
             setReportedUserId(null);
           }}
           onUsernameLookup={handleUsernameLookup}
-          options={{ isModView: true, reportedUserId: reportedUserId }}
+          options={{ 
+            isModView: true, 
+            reportedUserId: reportedUserId,
+            targetUserId: targetUser?._id || reportedUserId // Pass target user's ID for correct perspective
+          }}
         />
       )}
 

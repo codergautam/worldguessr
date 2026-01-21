@@ -131,16 +131,20 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   // Transform the historical game data to match the format expected by GameSummary
   const isModView = options?.isModView;
   const reportedUserId = options?.reportedUserId;
+  const targetUserId = options?.targetUserId;
 
   const transformedHistory = fullGameData.rounds.map((round, index) => {
     // For mod view, if round.guess is null, try to use data from allGuesses
     let guessData = round.guess;
 
     if (!guessData && isModView && round.allGuesses && round.allGuesses.length > 0) {
-      // For mod view, use reported user's guess if available, otherwise first player's guess
+      // For mod view, use target user's guess if available (from user lookup),
+      // otherwise reported user's guess (from reports), otherwise first player's guess
+      const targetUserGuess = targetUserId ?
+        round.allGuesses.find(g => g.playerId === targetUserId) : null;
       const reportedUserGuess = reportedUserId ?
         round.allGuesses.find(g => g.playerId === reportedUserId) : null;
-      const fallbackGuess = reportedUserGuess || round.allGuesses[0];
+      const fallbackGuess = targetUserGuess || reportedUserGuess || round.allGuesses[0];
 
       guessData = {
         guessLat: fallbackGuess.guessLat,
@@ -193,17 +197,23 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   const isDuel = fullGameData.gameType === 'ranked_duel';
 
   // Find the perspective player (the user whose view we're showing)
-  // For mod view, use reported user if available, otherwise first player
+  // For mod view, use target user if available, otherwise reported user, otherwise first player
   const findPerspectivePlayer = () => {
-    // First try to match by currentUserId
-    let player = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
-    if (player) return player;
-
-    // For mod view, try to use reported user
-    if (isModView && reportedUserId) {
-      player = fullGameData.players.find(p => p.accountId === reportedUserId || p.playerId === reportedUserId);
+    // For mod view, first try to use target user (from user lookup)
+    if (isModView && targetUserId) {
+      const player = fullGameData.players.find(p => p.accountId === targetUserId || p.playerId === targetUserId);
       if (player) return player;
     }
+
+    // For mod view, try to use reported user (from reports)
+    if (isModView && reportedUserId) {
+      const player = fullGameData.players.find(p => p.accountId === reportedUserId || p.playerId === reportedUserId);
+      if (player) return player;
+    }
+
+    // Try to match by currentUserId (for regular users viewing their own games)
+    let player = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
+    if (player) return player;
 
     // Fallback to first player
     return fullGameData.players[0];
