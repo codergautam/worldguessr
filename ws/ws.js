@@ -1566,11 +1566,17 @@ try {
           const eloDraw = calculateOutcomes(p1.elo, p2.elo, 0.5);
           const eloP2Win = calculateOutcomes(p1.elo, p2.elo, 0);
 
+          const deltaP1Win = {newRating1: eloP1Win.newRating1 - p1.elo, newRating2: eloP1Win.newRating2 - p2.elo};
+          const deltaP2Win = {newRating1: eloP2Win.newRating1 - p1.elo, newRating2: eloP2Win.newRating2 - p2.elo};
+          const deltaDraw = {newRating1: eloDraw.newRating1 - p1.elo, newRating2: eloDraw.newRating2 - p2.elo};
+
           game.eloChanges = {
-            [p1.id]: eloP1Win,
-            [p2.id]: eloP2Win,
-            draw: eloDraw
+            [p1.id]: deltaP1Win,
+            [p2.id]: deltaP2Win,
+            draw: deltaDraw
           }
+
+          console.log('game.eloChanges', game.eloChanges);
 
           if(p1.elo > 2000 && p2.elo > 2000) {
             // use arbitrary world map to make it harder
