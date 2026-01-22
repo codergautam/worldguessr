@@ -33,6 +33,7 @@ const moderationLogSchema = new mongoose.Schema({
       'ban_temporary',      // Temporary ban with duration
       'unban',              // Lifted a ban
       'force_name_change',  // Force user to change name
+      'undo_force_name_change', // Undo a force name change
       'name_change_approved', // Approved a pending name change
       'name_change_rejected', // Rejected a pending name change
       'name_change_manual',   // User-initiated name change (voluntary)
