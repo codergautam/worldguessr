@@ -150,6 +150,70 @@ async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogI
 }
 
 /**
+ * Update previously ignored reports to action_taken when a punitive action is taken
+ * This retroactively validates reports that were incorrectly dismissed
+ *
+ * @param {string} targetUserId - The MongoDB _id of the user being moderated
+ * @param {string} actionTaken - The action being taken ('ban_permanent', 'ban_temporary', 'force_name_change')
+ * @param {Object} moderator - The moderator taking action { _id, username }
+ * @param {string} reason - Internal moderation reason
+ * @param {string|null} reportReasonFilter - Optional filter for specific report reasons (e.g., 'inappropriate_username')
+ * @returns {Object} Summary: { updatedCount, reportIds }
+ */
+async function updatePreviouslyIgnoredReports(targetUserId, actionTaken, moderator, reason, reportReasonFilter = null) {
+  // Build query for previously ignored reports against this user
+  const query = {
+    'reportedUser.accountId': targetUserId.toString(),
+    status: 'dismissed',
+    actionTaken: 'ignored'
+  };
+
+  // Optionally filter by report reason (e.g., only inappropriate_username for force_name_change)
+  if (reportReasonFilter) {
+    query.reason = reportReasonFilter;
+  }
+
+  // Find all previously ignored reports
+  const ignoredReportIds = await Report.find(query).distinct('_id');
+
+  const updatedReportIds = [];
+  for (const reportId of ignoredReportIds) {
+    // Atomically update only if still in dismissed/ignored state
+    const updatedReport = await Report.findOneAndUpdate(
+      {
+        _id: reportId,
+        status: 'dismissed',
+        actionTaken: 'ignored'
+      },
+      {
+        status: 'action_taken',
+        actionTaken: actionTaken,
+        // Keep original reviewedBy/reviewedAt but add note about retroactive update
+        moderatorNotes: reason + ' [Retroactively marked as action_taken]'
+      },
+      { new: false } // Return original to get reporter info
+    );
+
+    if (!updatedReport) continue;
+
+    updatedReportIds.push(reportId);
+
+    // Adjust reporter stats: decrement unhelpfulReports, increment helpfulReports
+    await User.findByIdAndUpdate(updatedReport.reportedBy.accountId, {
+      $inc: {
+        'reporterStats.unhelpfulReports': -1,
+        'reporterStats.helpfulReports': 1
+      }
+    });
+  }
+
+  return {
+    updatedCount: updatedReportIds.length,
+    reportIds: updatedReportIds
+  };
+}
+
+/**
  * Moderation Action API
  *
  * Handles all moderation actions:
@@ -427,6 +491,14 @@ export default async function handler(req, res) {
           });
         }
 
+        // Update previously ignored reports to action_taken (retroactive validation)
+        const previouslyIgnoredBan = await updatePreviouslyIgnoredReports(
+          targetUserId,
+          'ban_permanent',
+          moderator,
+          reason
+        );
+
         // Create moderation log (internal - stores both reason and public note)
         moderationLog = await ModerationLog.create({
           targetUser: {
@@ -439,7 +511,7 @@ export default async function handler(req, res) {
           },
           actionType: 'ban_permanent',
           reason: reason, // Internal reason
-          relatedReports: resolvedReportsBan, // Only include reports we actually resolved
+          relatedReports: [...resolvedReportsBan, ...previouslyIgnoredBan.reportIds], // Include both pending and retroactive reports
           notes: publicNote || '', // Public note for reference
           eloRefund: eloRefundResult // Store refund details in log
         });
@@ -521,6 +593,14 @@ export default async function handler(req, res) {
           });
         }
 
+        // Update previously ignored reports to action_taken (retroactive validation)
+        const previouslyIgnoredTempBan = await updatePreviouslyIgnoredReports(
+          targetUserId,
+          'ban_temporary',
+          moderator,
+          reason
+        );
+
         // Create moderation log (internal - stores both reason and public note)
         moderationLog = await ModerationLog.create({
           targetUser: {
@@ -536,7 +616,7 @@ export default async function handler(req, res) {
           durationString: durationString || `${Math.round(duration / (1000 * 60 * 60 * 24))} days`,
           expiresAt: expiresAt,
           reason: reason, // Internal reason
-          relatedReports: resolvedReportsTempBan, // Only include reports we actually resolved
+          relatedReports: [...resolvedReportsTempBan, ...previouslyIgnoredTempBan.reportIds], // Include both pending and retroactive reports
           notes: publicNote || '' // Public note for reference
           // No ELO refund for temporary bans
         });
@@ -613,6 +693,18 @@ export default async function handler(req, res) {
           });
         }
 
+        // Update previously ignored inappropriate_username reports to action_taken (retroactive validation)
+        const previouslyIgnoredNameChange = await updatePreviouslyIgnoredReports(
+          targetUserId,
+          'force_name_change',
+          moderator,
+          reason,
+          'inappropriate_username' // Only update inappropriate_username reports
+        );
+
+        // Combine all resolved reports for the moderation log
+        const allResolvedUsernameReports = [...resolvedUsernameReports, ...previouslyIgnoredNameChange.reportIds];
+
         // Create moderation log (internal - stores both reason and public note)
         moderationLog = await ModerationLog.create({
           targetUser: {
@@ -625,7 +717,7 @@ export default async function handler(req, res) {
           },
           actionType: 'force_name_change',
           reason: reason, // Internal reason
-          relatedReports: resolvedUsernameReports, // Only include reports we actually resolved
+          relatedReports: allResolvedUsernameReports, // Include both pending and retroactive reports
           nameChange: {
             oldName: targetUser.username,
             newName: null // Will be filled when they submit new name
@@ -634,9 +726,9 @@ export default async function handler(req, res) {
         });
 
         // Update the moderation log ID on all resolved reports
-        if (resolvedUsernameReports.length > 0) {
+        if (allResolvedUsernameReports.length > 0) {
           await Report.updateMany(
-            { _id: { $in: resolvedUsernameReports } },
+            { _id: { $in: allResolvedUsernameReports } },
             { moderationLogId: moderationLog._id }
           );
         }
