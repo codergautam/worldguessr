@@ -574,6 +574,16 @@ app.ws('/wg', {
         player.lastPong = Date.now();
         return;
       }
+      if (json.type === "timeSync") {
+        if (typeof json.clientSentAt === "number") {
+          player.send({
+            type: "timeSync",
+            clientSentAt: json.clientSentAt,
+            serverNow: Date.now()
+          });
+        }
+        return;
+      }
       if (json.type === 'verify') {
         player.verify(json);
         return;

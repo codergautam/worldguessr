@@ -119,6 +119,7 @@ export default function Home({ }) {
     const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(false)
     const [dismissedBanBanner, setDismissedBanBanner] = useState(false)
     const [timeOffset, setTimeOffset] = useState(0)
+    const timeSyncRef = useRef({ bestRtt: Infinity, lastSyncAt: 0, lastServerNow: 0 })
     const [loginQueued, setLoginQueued] = useState(false);
     const [options, setOptions] = useState({
     });
@@ -959,6 +960,37 @@ export default function Home({ }) {
     const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
     const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
 
+    const updateTimeOffsetFromSync = (serverNow, clientSentAt) => {
+        if (!serverNow || !clientSentAt) return;
+        const now = Date.now();
+        const rtt = Math.max(0, now - clientSentAt);
+        const offset = serverNow - (clientSentAt + rtt / 2);
+        const sync = timeSyncRef.current;
+        const tooOld = now - sync.lastSyncAt > 60000;
+        const betterRtt = rtt <= sync.bestRtt + 25;
+        if (sync.lastSyncAt === 0 || betterRtt || tooOld) {
+            const prevBestRtt = sync.bestRtt;
+            sync.bestRtt = Math.min(sync.bestRtt, rtt);
+            sync.lastSyncAt = now;
+            sync.lastServerNow = serverNow;
+            if (window.debugTimeSync) {
+                console.log("[TimeSync] update", {
+                    offset,
+                    rtt,
+                    serverNow,
+                    clientSentAt,
+                    prevBestRtt
+                });
+            }
+            setTimeOffset(offset);
+        }
+    };
+
+    const sendTimeSync = () => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(JSON.stringify({ type: "timeSync", clientSentAt: Date.now() }));
+    };
+
 
     // Auto-close connection error modal when connected
     useEffect(() => {
@@ -976,6 +1008,27 @@ export default function Home({ }) {
             ws.send(JSON.stringify({ type: "verify", secret: session.token.secret, username: session.token.username }))
         }
     }, [session?.token?.secret, ws])
+
+    useEffect(() => {
+        if (!ws) return;
+        timeSyncRef.current = { bestRtt: Infinity, lastSyncAt: 0, lastServerNow: 0 };
+        setTimeOffset(0);
+        sendTimeSync();
+        const interval = setInterval(() => {
+            sendTimeSync();
+        }, 30000);
+        return () => clearInterval(interval);
+    }, [ws])
+
+    useEffect(() => {
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") {
+                sendTimeSync();
+            }
+        };
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () => document.removeEventListener("visibilitychange", handleVisibility);
+    }, [ws])
 
     const { t: text } = useTranslation("common");
 
@@ -1363,9 +1416,22 @@ export default function Home({ }) {
             }
             if (data.type === "t") {
                 const offset = data.t - Date.now();
-                if (Math.abs(offset) > 1000 && ((Math.abs(offset) < Math.abs(timeOffset)) || !timeOffset)) {
+                const sync = timeSyncRef.current;
+                const now = Date.now();
+                const useFallback = sync.lastSyncAt === 0 || (now - sync.lastSyncAt) > 60000;
+                if (useFallback && Math.abs(offset) < 300000) {
+                    if (window.debugTimeSync) {
+                        console.log("[TimeSync] fallback", {
+                            offset,
+                            serverNow: data.t,
+                            lastSyncAt: sync.lastSyncAt
+                        });
+                    }
                     setTimeOffset(offset)
                 }
+            }
+            if (data.type === "timeSync") {
+                updateTimeOffsetFromSync(data.serverNow, data.clientSentAt);
             }
 
             if (data.type === "elo") {
