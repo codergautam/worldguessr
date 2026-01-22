@@ -2098,6 +2098,7 @@ export default function ModDashboard({ session }) {
                   <option value="ban_temporary">⏱️ Temporary Ban</option>
                   <option value="unban">✅ Unban</option>
                   <option value="force_name_change">✏️ Force Name Change</option>
+                  <option value="undo_force_name_change">↩️ Undo Force Name Change</option>
                   <option value="name_change_approved">👍 Name Change Approved</option>
                   <option value="name_change_rejected">👎 Name Change Rejected</option>
                   <option value="report_ignored">🚫 Report Ignored</option>
@@ -2151,6 +2152,7 @@ export default function ModDashboard({ session }) {
                           {log.actionType === 'ban_temporary' && '⏱️ Temporary Ban'}
                           {log.actionType === 'unban' && '✅ Unban'}
                           {log.actionType === 'force_name_change' && '✏️ Force Name Change'}
+                          {log.actionType === 'undo_force_name_change' && '↩️ Undo Force Name'}
                           {log.actionType === 'name_change_approved' && '👍 Name Approved'}
                           {log.actionType === 'name_change_rejected' && '👎 Name Rejected'}
                           {log.actionType === 'report_ignored' && '🚫 Report Ignored'}
