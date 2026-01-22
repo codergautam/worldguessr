@@ -246,7 +246,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ message: 'Invalid secret' });
   }
 
-  if (!action || !['ignore', 'mark_resolved', 'ban_permanent', 'ban_temporary', 'force_name_change', 'unban'].includes(action)) {
+  if (!action || !['ignore', 'mark_resolved', 'ban_permanent', 'ban_temporary', 'force_name_change', 'unban', 'undo_force_name_change'].includes(action)) {
     return res.status(400).json({ message: 'Invalid action' });
   }
 
@@ -761,6 +761,53 @@ export default async function handler(req, res) {
         });
 
         break;
+
+      case 'undo_force_name_change':
+        // Undo a force name change - clear the pending name change status
+        if (!targetUser.pendingNameChange) {
+          return res.status(400).json({
+            message: 'This user does not have a pending name change to undo'
+          });
+        }
+
+        // Clear pending name change status
+        await User.findByIdAndUpdate(targetUserId, {
+          pendingNameChange: false,
+          pendingNameChangeReason: null,
+          pendingNameChangePublicNote: null
+        });
+
+        // Delete any pending name change requests for this user
+        await NameChangeRequest.deleteMany({
+          'user.accountId': targetUserId.toString(),
+          status: 'pending'
+        });
+
+        // Clear cached session data so user sees change immediately
+        cachegoose.clearCache(`userAuth_${targetUser.secret}`, (error) => {
+          if (error) {
+            console.error('Error clearing cache after undo force name change:', error);
+          } else {
+            console.log('Cache cleared for user after undo force name change:', targetUserId);
+          }
+        });
+
+        // Create moderation log
+        moderationLog = await ModerationLog.create({
+          targetUser: {
+            accountId: targetUser._id.toString(),
+            username: targetUser.username
+          },
+          moderator: {
+            accountId: moderator._id.toString(),
+            username: moderator.username
+          },
+          actionType: 'undo_force_name_change',
+          reason: reason, // Internal reason
+          notes: publicNote || '' // Public note for reference
+        });
+
+        break;
     }
 
     return res.status(200).json({
@@ -805,6 +852,9 @@ function getSuccessMessage(action, username, eloRefundResult = null) {
       break;
     case 'unban':
       message = `${username} has been unbanned`;
+      break;
+    case 'undo_force_name_change':
+      message = `Force name change for ${username} has been undone`;
       break;
     default:
       message = 'Action completed';

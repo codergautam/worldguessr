@@ -7,6 +7,7 @@ import cachegoose from "recachegoose";
 import { Filter } from "bad-words";
 import UserStatsService from "../components/utils/userStatsService.js";
 import ModerationLog from "../models/ModerationLog.js";
+import Report from "../models/Report.js";
 const filter = new Filter();
 
 export default async function handler(req, res) {
@@ -125,6 +126,22 @@ export default async function handler(req, res) {
       } catch (logError) {
         // Don't fail the name change if logging fails
         console.error('Error logging name change to ModerationLog:', logError);
+      }
+
+      // Update pending reports against this user to use the new username
+      try {
+        await Report.updateMany(
+          {
+            'reportedUser.accountId': user._id.toString(),
+            status: 'pending'
+          },
+          {
+            'reportedUser.username': username
+          }
+        );
+      } catch (reportError) {
+        // Don't fail the name change if report update fails
+        console.error('Error updating pending reports with new username:', reportError);
       }
     }
 

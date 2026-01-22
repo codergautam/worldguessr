@@ -854,7 +854,7 @@
 }
 
 /* Action Buttons */
-.banBtn, .tempBanBtn, .forceNameBtn, .ignoreBtn, .unbanBtn, .resolveBtn {
+.banBtn, .tempBanBtn, .forceNameBtn, .ignoreBtn, .unbanBtn, .resolveBtn, .undoForceNameBtn {
   padding: 8px 16px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -917,6 +917,15 @@
 
 .unbanBtn:hover {
   background: #56d364;
+}
+
+.undoForceNameBtn {
+  background: #8b949e;
+  color: #0d1117;
+}
+
+.undoForceNameBtn:hover {
+  background: #b1bac4;
 }
 
 /* Report Group */

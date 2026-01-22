@@ -87,14 +87,14 @@ export default async function handler(req, res) {
     }
 
     // Exclude banned users (security: don't expose banned users' profiles)
-    if (user.banned === true) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    // if (user.banned === true) {
+    //   return res.status(404).json({ message: 'User not found' });
+    // }
 
     // Exclude users with pending name changes (security: match eloRank.js pattern)
-    if (user.pendingNameChange === true) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    // if (user.pendingNameChange === true) {
+    //   return res.status(404).json({ message: 'User not found' });
+    // }
 
     const userId = user._id.toString();
 

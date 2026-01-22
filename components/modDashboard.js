@@ -773,6 +773,7 @@ export default function ModDashboard({ session }) {
               {type === 'ban_temporary' && '⏱️ Temporary Ban'}
               {type === 'force_name_change' && '✏️ Force Name Change'}
               {type === 'unban' && '✅ Unban User'}
+              {type === 'undo_force_name_change' && '↩️ Undo Force Name Change'}
             </h3>
             <button className={styles.modalClose} onClick={() => {
               setActionModal(null);
@@ -834,8 +835,8 @@ export default function ModDashboard({ session }) {
               </small>
             </div>
 
-            {/* Only show public note for ban/force name change actions - not for unban, ignore, or resolve */}
-            {!['unban', 'ignore', 'mark_resolved'].includes(type) && (
+            {/* Only show public note for ban/force name change actions - not for unban, undo force name change, ignore, or resolve */}
+            {!['unban', 'undo_force_name_change', 'ignore', 'mark_resolved'].includes(type) && (
               <div className={styles.formGroup}>
                 <label>📢 Public Note (optional, SHOWN to user on their ban/name change banner):</label>
                 <textarea
@@ -1607,6 +1608,19 @@ export default function ModDashboard({ session }) {
                             ✏️ Force Name Change
                           </button>
                         </>
+                      )}
+
+                      {/* Undo Force Name Change Button - shown when user has pending name change */}
+                      {targetUser.pendingNameChange && (
+                        <button
+                          className={styles.undoForceNameBtn}
+                          onClick={() => setActionModal({
+                            type: 'undo_force_name_change',
+                            targetUser: { id: targetUser._id, username: targetUser.username }
+                          })}
+                        >
+                          ↩️ Undo Force Name Change
+                        </button>
                       )}
 
                       {/* Delete User Button - Dangerous Action */}

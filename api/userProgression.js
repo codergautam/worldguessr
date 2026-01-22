@@ -128,11 +128,11 @@ export default async function handler(req, res) {
     }
 
     // Exclude banned users and users with pending name changes (public API security)
-    if ((user.banned === true || user.pendingNameChange === true) && isPublicRequest) {
-      // Only apply this check for username-based requests (public access)
-      // Allow userId-based requests (authenticated user viewing their own data)
-      return res.status(404).json({ message: 'User not found' });
-    }
+    // if ((user.banned === true || user.pendingNameChange === true) && isPublicRequest) {
+    //   // Only apply this check for username-based requests (public access)
+    //   // Allow userId-based requests (authenticated user viewing their own data)
+    //   return res.status(404).json({ message: 'User not found' });
+    // }
 
     // Get user's stats progression
     const progression = await UserStatsService.getUserProgression(user._id);

@@ -1,6 +1,7 @@
 import User, { USERNAME_COLLATION } from '../../models/User.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
 import ModerationLog from '../../models/ModerationLog.js';
+import Report from '../../models/Report.js';
 
 /**
  * Review Name Change API
@@ -82,6 +83,17 @@ export default async function handler(req, res) {
         pendingNameChangePublicNote: null,
         lastNameChange: new Date()
       });
+
+      // Update pending reports against this user to use the new username
+      await Report.updateMany(
+        {
+          'reportedUser.accountId': targetUser._id.toString(),
+          status: 'pending'
+        },
+        {
+          'reportedUser.username': nameRequest.requestedUsername
+        }
+      );
 
       // Update the request
       await NameChangeRequest.findByIdAndUpdate(requestId, {
