@@ -2,7 +2,8 @@ import Head from "next/head";
 import Script from "next/script";
 import { useEffect } from "react";
 
-export default function HeadContent({text,inCoolMathGames}) {
+export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false }) {
+
   useEffect(() => {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH) {
@@ -121,6 +122,10 @@ ads.js"></script>*/
 
 {/* <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/> */}
+{/* Preload CrazyGames SDK when on CrazyGames platform */}
+{inCrazyGames && (
+  <link rel="preload" href="https://sdk.crazygames.com/crazygames-sdk-v3.js" as="script" />
+)}
 <link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet"/>
 

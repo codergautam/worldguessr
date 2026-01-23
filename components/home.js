@@ -34,7 +34,6 @@ import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
 import InfoModal from "@/components/infoModal";
 import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
-import moment from 'moment-timezone';
 import MapsModal from "@/components/maps/mapsModal";
 import { useRouter } from "next/router";
 import { fromLonLat } from "ol/proj";
@@ -356,17 +355,27 @@ export default function Home({ }) {
                 const token = await window.CrazyGames.SDK.user.getUserToken();
                 if (token && user.username) {
                     // /api/crazyAuth
+                    let loadingStopCalled = false;
+                    const callLoadingStop = () => {
+                        if (loadingStopCalled) return;
+                        loadingStopCalled = true;
+                        try {
+                            window.CrazyGames.SDK.game.loadingStop();
+                        } catch (e) { }
+                    };
+
                     fetch(clientConfigData.apiUrl + "/api/crazyAuth", {
                         method: "POST",
                         headers: {
                             'Content-Type': 'application/json'
                         },
                         body: JSON.stringify({ token, username: user.username })
-                    }).then((res) => res.json()).then((data) => {
+                    }).then((res) => {
+                        // Call loadingStop immediately when response is received (before JSON parsing)
+                        callLoadingStop();
+                        return res.json();
+                    }).then((data) => {
                         console.log("crazygames auth", token, user, data)
-                        try {
-                            window.CrazyGames.SDK.game.loadingStop();
-                        } catch (e) { }
                         if (data.secret && data.username) {
                             // Store full auth data including extended fields (elo, rank, etc.)
                             setSession({ token: data })
@@ -386,9 +395,8 @@ export default function Home({ }) {
                             toast.error("CrazyGames auth failed")
                         }
                     }).catch((e) => {
-                        try {
-                            window.CrazyGames.SDK.game.loadingStop();
-                        } catch (e) { }
+                        // Call loadingStop in case of network error (where first .then() never ran)
+                        callLoadingStop();
                         console.error("crazygames auth failed", e)
                     });
 
@@ -1190,7 +1198,7 @@ export default function Home({ }) {
                         console.log("connected to ws", window.verifyPayload)
                         if (!inCrazyGames && !window.location.search.includes("crazygames")) {
 
-                            const tz = moment.tz.guess();
+                            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
                             let secret = "not_logged_in";
                             try {
                                 const s = window.localStorage.getItem("wg_secret");

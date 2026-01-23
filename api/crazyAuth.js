@@ -9,6 +9,22 @@ import { getLeague } from '../components/utils/leagues.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
 
+// In-memory cache for CrazyGames public key (1 hour TTL)
+let cachedPublicKey = null;
+let publicKeyCacheTime = 0;
+const PUBLIC_KEY_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+async function getCrazyGamesPublicKey() {
+  const now = Date.now();
+  if (cachedPublicKey && (now - publicKeyCacheTime) < PUBLIC_KEY_CACHE_TTL) {
+    return cachedPublicKey;
+  }
+  const resp = await axios.get("https://sdk.crazygames.com/publicKey.json");
+  cachedPublicKey = resp.data["publicKey"];
+  publicKeyCacheTime = now;
+  return cachedPublicKey;
+}
+
 /**
  * Get extended user data (publicAccount + eloRank data) for combined response
  */
@@ -70,8 +86,7 @@ export default async function handler(req, res) {
 
   let decodedToken;
   try {
-    const resp = await axios.get("https://sdk.crazygames.com/publicKey.json");
-    const publicKey = resp.data["publicKey"];
+    const publicKey = await getCrazyGamesPublicKey();
     decodedToken = verify(token, publicKey, { algorithms: ["RS256"] });
   } catch (error) {
     return res.status(400).json({ error: 'Invalid token' });

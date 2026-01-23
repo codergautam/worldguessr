@@ -16,8 +16,8 @@ export default function formatNumber(number, identifyingDigits) {
 
   let formattedNumber = scaledNumber.toFixed(precision);
 
-  // Remove trailing zeroes
-  formattedNumber = formattedNumber.replace(/\.?0+$/, '');
+  // Remove trailing zeroes after decimal point (e.g., "1.50" → "1.5", "2.00" → "2")
+  formattedNumber = formattedNumber.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
 
   return `${formattedNumber}${suffix}`;
 }
