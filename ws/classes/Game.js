@@ -555,7 +555,7 @@ export default class Game {
           }
 
 
-          if (allFinal && (this.nextEvtTime - Date.now()) > 5000) {
+          if (allFinal && (this.nextEvtTime - Date.now()) > 1000) {
             this.nextEvtTime = Date.now() + 1000;
             this.sendStateUpdate();
           }
@@ -694,7 +694,7 @@ export default class Game {
       p.send(json);
     }
   }
-  end(leftUser) {
+  async end(leftUser) {
     console.log(`Ending game ${this.id} - duel: ${this.duel}, public: ${this.public}, players: ${Object.keys(this.players).length}`);
     // For duels, only save the final round if it was actually completed (all players made guesses)
     // For regular games, save if the round was started but not yet saved
@@ -773,12 +773,20 @@ export default class Game {
       }
 
 
-      let p1NewElo = null;
-      let p2NewElo = null;
+      
 
-      let p1OldElo = p1obj?.elo || null;
-      let p2OldElo = p2obj?.elo || null;
+      // let p1OldElo = p1obj?.elo || null;
+      // let p2OldElo = p2obj?.elo || null;
 
+      // get both players old elo from the database
+      const p1EloResult = await User.findById(this.accountIds.p1).select('elo').lean();
+      const p2EloResult = await User.findById(this.accountIds.p2).select('elo').lean();
+
+      let p1OldElo = p1EloResult?.elo ?? null;
+      let p2OldElo = p2EloResult?.elo ?? null;
+
+      let p1NewElo = p1OldElo;
+      let p2NewElo = p2OldElo;
       // elo changes
       if(this.eloChanges) {
         if(draw) {
@@ -786,8 +794,8 @@ export default class Game {
           const changes = this.eloChanges.draw;
           // { newRating1, newRating2 }
 
-          p1NewElo = changes.newRating1;
-          p2NewElo = changes.newRating2;
+          p1NewElo += changes.newRating1;
+          p2NewElo += changes.newRating2;
 
           if(p1obj) {
 
@@ -797,27 +805,27 @@ export default class Game {
           }
 
           if(p2obj) {
-          p2obj.setElo(changes.newRating2, { draw: true, oldElo: p2OldElo });
+          p2obj.setElo(p2NewElo, { draw: true, oldElo: p2OldElo });
         } else {
-          setElo(this.accountIds.p2, changes.newRating2, { draw: true, oldElo: p2OldElo });
+          setElo(this.accountIds.p2, p2NewElo, { draw: true, oldElo: p2OldElo });
         }
         } else if(winner) {
 
           const changes = this.eloChanges[winner.id];
           // { newRating1, newRating2 }
-          p1NewElo = changes.newRating1;
-          p2NewElo = changes.newRating2;
+          p1NewElo += changes.newRating1;
+          p2NewElo += changes.newRating2;
 
           if(p1obj) {
-          p1obj.setElo(changes.newRating1, { winner: winner.tag === 'p1', oldElo: p1OldElo });
+          p1obj.setElo(p1NewElo, { winner: winner.tag === 'p1', oldElo: p1OldElo });
           } else {
-            setElo(this.accountIds.p1, changes.newRating1, { winner: winner.tag === 'p1', oldElo: p1OldElo });
+            setElo(this.accountIds.p1, p1NewElo, { winner: winner.tag === 'p1', oldElo: p1OldElo });
           }
 
           if(p2obj) {
-          p2obj.setElo(changes.newRating2, { winner: winner.tag === 'p2', oldElo: p2OldElo });
+          p2obj.setElo(p2NewElo, { winner: winner.tag === 'p2', oldElo: p2OldElo });
           } else {
-            setElo(this.accountIds.p2, changes.newRating2, { winner: winner.tag === 'p2', oldElo: p2OldElo });
+            setElo(this.accountIds.p2, p2NewElo, { winner: winner.tag === 'p2', oldElo: p2OldElo });
           }
 
         }
