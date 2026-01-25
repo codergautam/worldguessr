@@ -1586,7 +1586,9 @@ try {
             draw: deltaDraw
           }
 
-          console.log('game.eloChanges', game.eloChanges);
+          if (process.env.DEBUG_ELO_CHANGES === 'true') {
+            console.log('game.eloChanges', game.eloChanges);
+          }
 
           if(p1.elo > 2000 && p2.elo > 2000) {
             // use arbitrary world map to make it harder
