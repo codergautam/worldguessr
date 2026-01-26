@@ -1586,8 +1586,13 @@ try {
             draw: deltaDraw
           }
 
+          game.oldElos = {
+            p1: p1.elo,
+            p2: p2.elo
+          }
+
           if (process.env.DEBUG_ELO_CHANGES === 'true') {
-            console.log('game.eloChanges', game.eloChanges);
+            console.log('game.eloChanges', game.eloChanges, game.oldElos);
           }
 
           if(p1.elo > 2000 && p2.elo > 2000) {

@@ -90,6 +90,7 @@ export default class Game {
       eloChanges: this.eloChanges,
       pIds: this.pIds,
       accountIds: this.accountIds,
+      oldElos: this.oldElos,
       gameCount: this.gameCount,
       location: this.location,
       saveInProgress: this.saveInProgress,
@@ -414,7 +415,6 @@ export default class Game {
     // For ranked duels: if someone leaves during "getready" (countdown before first round),
     // cancel the game without ELO penalties - no actual gameplay has happened yet
     const isPreGameLeave = this.public && this.duel && this.state === 'getready';
-    
     // Track disconnection for ranked duels (only if actual gameplay has started)
     if(this.public && this.duel && !isPreGameLeave) {
       this.disconnectedPlayer = tag;
@@ -462,7 +462,7 @@ export default class Game {
       console.log('Cannot start game: not in waiting state', this.state);
       return;
     }
-    
+
     if (Object.keys(this.players).length < 2) {
       console.log('Cannot start game: not enough players', Object.keys(this.players).length);
       if (hostPlayer) {
@@ -474,7 +474,7 @@ export default class Game {
       }
       return;
     }
-    
+
     if (this.rounds !== this.locations.length) {
       console.log('Cannot start game: locations not loaded', this.rounds, this.locations.length);
       if (hostPlayer) {
@@ -773,22 +773,19 @@ export default class Game {
       }
 
 
-      
 
-      // let p1OldElo = p1obj?.elo || null;
-      // let p2OldElo = p2obj?.elo || null;
-
-      // get both players old elo from the database
       const p1EloResult = await User.findById(this.accountIds.p1).select('elo').lean();
       const p2EloResult = await User.findById(this.accountIds.p2).select('elo').lean();
 
-      let p1OldElo = p1EloResult?.elo ?? null;
-      let p2OldElo = p2EloResult?.elo ?? null;
+      // Use DB value if available, otherwise fall back to stored oldElos from game creation
+      // This prevents null ELO bugs while still handling external ELO updates
+      let p1OldElo = p1EloResult?.elo ?? this.oldElos?.p1 ?? null;
+      let p2OldElo = p2EloResult?.elo ?? this.oldElos?.p2 ?? null;
 
       let p1NewElo = p1OldElo;
       let p2NewElo = p2OldElo;
       // elo changes
-      if(this.eloChanges) {
+      if(this.eloChanges && p1OldElo && p2OldElo) {
         if(draw) {
 
           const changes = this.eloChanges.draw;
@@ -860,7 +857,7 @@ export default class Game {
     }
 
     // Save duel game to MongoDB for history tracking
-    if(this.duel && this.accountIds?.p1 && this.accountIds?.p2) {
+    if(this.duel && this.accountIds?.p1 && this.accountIds?.p2 && p1OldElo && p2OldElo) {
       this.saveInProgress = true;
       const p1Xp = this.calculatePlayerXp(this.pIds?.p1);
       const p2Xp = this.calculatePlayerXp(this.pIds?.p2);
@@ -1136,7 +1133,7 @@ export default class Game {
       // Create player summaries sorted by total points (highest first) - include ALL players
       // Calculate XP for public games only (not parties), and only for registered users (not guests)
       const awardXp = this.public;
-      
+
       const playerSummaries = allPlayers
         .map(player => {
           const playerXp = (awardXp && player.accountId) ? this.calculatePlayerXp(player.id) : 0;
