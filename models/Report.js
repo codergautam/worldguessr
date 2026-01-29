@@ -35,7 +35,7 @@ const reportSchema = new mongoose.Schema({
   gameType: {
     type: String,
     required: true,
-    enum: ['ranked_duel', 'unranked_multiplayer', 'private_multiplayer']
+    enum: ['ranked_duel', 'unranked_multiplayer', 'private_multiplayer', 'profile_report']
   },
 
   // Status tracking

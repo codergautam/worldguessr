@@ -25,6 +25,14 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: 'Unauthorized - staff access required' });
     }
 
+    // Handle profile reports (no game to display)
+    if (gameId === 'PROFILE_REPORT') {
+      return res.status(400).json({
+        message: 'No game details available for profile reports',
+        isProfileReport: true
+      });
+    }
+
     // Fetch the specific game (no player check for staff)
     const game = await Game.findOne({ gameId: gameId }).lean();
 
