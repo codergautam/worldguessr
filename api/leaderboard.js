@@ -113,6 +113,11 @@ export default async function handler(req, res) {
   const isXp = req.query.mode === 'xp';
   console.log(`[API] leaderboard: mode=${isXp ? 'xp' : 'elo'}, pastDay=${pastDay}, user=${myUsername || 'none'}`);
 
+  // Prevent NoSQL injection - username must be a string if provided
+  if (myUsername && typeof myUsername !== 'string') {
+    return res.status(400).json({ message: 'Invalid username' });
+  }
+
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
