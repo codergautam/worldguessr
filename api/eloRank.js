@@ -35,7 +35,8 @@ export default async function handler(req, res) {
     let user;
     if(username) {
       user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).cache(120);
-    } else if(secret) {
+    } else if(secret && typeof secret === 'string') {
+      // Prevent NoSQL injection - secret must be a string
       user = await User.findOne({ secret }).cache(120);
     }
 

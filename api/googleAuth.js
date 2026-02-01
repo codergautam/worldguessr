@@ -107,7 +107,8 @@ export default async function handler(req, res) {
 
   const { code, secret } = req.body;
   if (!code) {
-    if(!secret) {
+    // Prevent NoSQL injection - secret must be a string
+    if(!secret || typeof secret !== 'string') {
       return res.status(400).json({ error: 'Invalid' });
     }
 
