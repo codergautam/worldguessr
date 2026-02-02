@@ -7,6 +7,8 @@ import NameChangeRequest from '../models/NameChangeRequest.js';
  * For users who have been forced to change their name.
  * Submits a new username for moderator review.
  */
+
+// TODO: FUNCTIONALTIY MERGED TO setName.js, SHOULD BE DEPRECATED SOON AFTER UPDATING CLIENT.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -26,15 +28,18 @@ export default async function handler(req, res) {
   // Validate username format
   const trimmedUsername = newUsername.trim();
 
-  if (trimmedUsername.length < 3 || trimmedUsername.length > 20) {
-    return res.status(400).json({ message: 'Username must be between 3 and 20 characters' });
+  if (trimmedUsername.length < 3 || trimmedUsername.length > 30) {
+    return res.status(400).json({ message: 'Username must be between 3 and 30 characters' });
   }
 
-  // Only allow alphanumeric, underscore, and hyphen
-  if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
-    return res.status(400).json({ message: 'Username can only contain letters, numbers, underscores, and hyphens' });
+  // Only allow alphanumeric, underscores
+  if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) {
+    return res
+      .status(400)
+      .json({
+        message: "Username must contain only letters, numbers, and underscores",
+      });
   }
-
   try {
     // Get the user
     const user = await User.findOne({ secret });
