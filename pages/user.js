@@ -14,6 +14,7 @@ export default function UserProfilePage() {
   const [eloData, setEloData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [currentUser, setCurrentUser] = useState(null); // Currently authenticated user
 
   // Extract fetch function to be reusable
   const fetchPublicProfile = useCallback(async (extractedUsername) => {
@@ -150,6 +151,36 @@ export default function UserProfilePage() {
     }
   }, []);
 
+  // Fetch current user if authenticated
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      if (typeof window === 'undefined') return;
+
+      const secret = window.localStorage.getItem('wg_secret');
+      if (!secret) return;
+
+      const { apiUrl } = config();
+
+      try {
+        const response = await fetch(`${apiUrl}/api/me`, {
+          headers: {
+            'Authorization': `Bearer ${secret}`
+          }
+        });
+
+        if (response.ok) {
+          const userData = await response.json();
+          setCurrentUser(userData);
+        }
+      } catch (err) {
+        console.error('Error fetching current user:', err);
+        // Silent fail - user just won't be authenticated
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
+
   useEffect(() => {
     // Extract username from URL
     // Supports /user?u=username format
@@ -227,6 +258,7 @@ export default function UserProfilePage() {
           <PublicProfile
             profileData={profileData}
             eloData={eloData}
+            currentUser={currentUser}
           />
         )}
       </div>
