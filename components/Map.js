@@ -19,30 +19,27 @@ function HintCircle({ location, gameOptions, round }) {
   const [zoom, setZoom] = useState(2);
 
   const map = useMapEvents({
-    zoomend: () => setZoom(map.getZoom()),
+    zoom: () => setZoom(map.getZoom()),
   });
 
-  const radius = hintMul * (gameOptions?.maxDist ?? 20000);
-  const seed = round ?? 1;
-  const radiusDeg = radius / 111000;
+  // 100px at zoom 1, doubles each zoom level
+  const ogRadius = 75
+  const pixelRadius = ogRadius * Math.pow(2, zoom - 1);
+  // Offset the center by 0 to pixelRadius in a random direction (sqrt for uniform area distribution)
+  const seed = (round ?? 1) + Math.abs(location.lat * ogRadius + location.long * ogRadius);
+  const offsetAngle = seededRandom(seed * 3) * 2 * Math.PI;
+  const offsetAmount = Math.sqrt(seededRandom(seed * 7)) * pixelRadius;
+  const offsetX = offsetAmount * Math.cos(offsetAngle);
+  const offsetY = offsetAmount * Math.sin(offsetAngle);
 
-  // Offset center by 5-95% of radius in a random direction
-  // Use location coords as part of seed for more variation
-  const locSeed = Math.abs(location.lat * 1000 + location.long * 1000) + seed;
-  const offsetFraction = 0.05 + seededRandom(locSeed) * 0.9;
-  const offsetAngle = seededRandom(locSeed * 7.3) * 2 * Math.PI;
-  const offsetDeg = radiusDeg * offsetFraction;
-  const centerLat = location.lat + offsetDeg * Math.cos(offsetAngle);
-  const centerLng = location.long + offsetDeg * Math.sin(offsetAngle);
-
-  // Convert meters to pixels at current zoom
-  // At zoom 0, 1 pixel ≈ 156543 meters at equator
-  const metersPerPixel = 156543 / Math.pow(2, zoom);
-  const pixelRadius = radius / metersPerPixel;
+  // Convert pixel offset back to lat/lng
+  const pointC = map.latLngToContainerPoint(L.latLng(location.lat, location.long));
+  const offsetPoint = L.point(pointC.x + offsetX, pointC.y + offsetY);
+  const offsetCenter = map.containerPointToLatLng(offsetPoint);
 
   return (
     <CircleMarker
-      center={{ lat: centerLat, lng: centerLng }}
+      center={offsetCenter}
       radius={pixelRadius}
       className="hintCircle"
     />
