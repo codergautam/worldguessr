@@ -1,12 +1,53 @@
 import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Circle, Marker, Polyline, Popup, Tooltip, useMapEvents } from "react-leaflet";
+import { CircleMarker, Marker, Polyline, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
-const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
+const hintMul = 7500000 / 20000; //7500000 for all countries (20,000 km)
+
+// Simple seeded random for stable hint offset per round
+function seededRandom(seed) {
+  const x = Math.sin(seed * 9999) * 10000;
+  return x - Math.floor(x);
+}
+
+// HintCircle component that scales with zoom
+function HintCircle({ location, gameOptions, round }) {
+  const [zoom, setZoom] = useState(2);
+
+  const map = useMapEvents({
+    zoomend: () => setZoom(map.getZoom()),
+  });
+
+  const radius = hintMul * (gameOptions?.maxDist ?? 20000);
+  const seed = round ?? 1;
+  const radiusDeg = radius / 111000;
+
+  // Offset center by 5-95% of radius in a random direction
+  // Use location coords as part of seed for more variation
+  const locSeed = Math.abs(location.lat * 1000 + location.long * 1000) + seed;
+  const offsetFraction = 0.05 + seededRandom(locSeed) * 0.9;
+  const offsetAngle = seededRandom(locSeed * 7.3) * 2 * Math.PI;
+  const offsetDeg = radiusDeg * offsetFraction;
+  const centerLat = location.lat + offsetDeg * Math.cos(offsetAngle);
+  const centerLng = location.long + offsetDeg * Math.sin(offsetAngle);
+
+  // Convert meters to pixels at current zoom
+  // At zoom 0, 1 pixel ≈ 156543 meters at equator
+  const metersPerPixel = 156543 / Math.pow(2, zoom);
+  const pixelRadius = radius / metersPerPixel;
+
+  return (
+    <CircleMarker
+      center={{ lat: centerLat, lng: centerLng }}
+      radius={pixelRadius}
+      className="hintCircle"
+    />
+  );
+}
 
 // Dynamic import of react-leaflet components
 const MapContainer = dynamic(
@@ -249,7 +290,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   } */}
 
       {showHint && location && (
-        <Circle center={{ lat: location.lat, lng: location.long }} radius={hintMul * (gameOptions?.maxDist) ?? 0} className="hintCircle" />
+        <HintCircle location={location} gameOptions={gameOptions} round={round} />
       )}
 
       <TileLayer
