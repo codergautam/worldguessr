@@ -161,7 +161,8 @@ export default class Player {
         // account verification
         if((!json.secret) ||(json.secret === 'not_logged_in')) {
           if(!this.verified) {
-            if(json.rejoinCode) {
+            if(typeof json.rejoinCode === 'string' && json.rejoinCode.includes('-')) {
+              // Only accept UUID format rejoinCodes (contain dashes), reject MongoDB ObjectIds
               const dcPlayerId = disconnectedPlayers.get(json.rejoinCode);
               if(dcPlayerId) {
                 handleReconnect(dcPlayerId, json.rejoinCode);

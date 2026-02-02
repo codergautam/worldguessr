@@ -40,12 +40,13 @@ export default async function handler(req, res) {
 
   // Skip user lookup for anonymous requests
   if(secret && !isAnon) {
-    const startUser = Date.now();
-    user = await User.findOne({ secret: secret });
-    timings.userLookup = Date.now() - startUser;
+    // Prevent NoSQL injection - validate secret type BEFORE the query
     if(typeof secret !== 'string') {
       return res.status(400).json({ message: 'Invalid input' });
     }
+    const startUser = Date.now();
+    user = await User.findOne({ secret: secret });
+    timings.userLookup = Date.now() - startUser;
     if(!user) {
       return res.status(404).json({ message: 'User not found' });
     }
