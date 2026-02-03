@@ -180,7 +180,7 @@ async function guess(req, res) {
   return res.status(400).json({ message: 'Invalid input: rounds array required' });
 }
 
-// Limit to 1 request per 5 seconds over a minute, generous limit but better than nothing
-export default ratelimiter(guess, 12, 60000)
+// Limit to 4 request per 10 seconds, generous limit but better than nothing
+export default ratelimiter(guess, 4, 10000)
 // no rate limit
 // export default guess;
