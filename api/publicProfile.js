@@ -3,8 +3,6 @@ import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
 import { rateLimit } from '../utils/rateLimit.js';
 
-// Username validation regex: alphanumeric and underscores only, 3-20 characters
-const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
 
 // Cache for profile data (userId -> {data, timestamp})
 const profileCache = new Map();
@@ -58,13 +56,6 @@ export default async function handler(req, res) {
   // Validate username is provided
   if (!username || typeof username !== 'string') {
     return res.status(400).json({ message: 'Username is required' });
-  }
-
-  // Validate username format (prevent injection attacks)
-  if (!USERNAME_REGEX.test(username)) {
-    return res.status(400).json({
-      message: 'Invalid username format. Username must be 3-20 characters and contain only letters, numbers, and underscores.'
-    });
   }
 
   // Connect to MongoDB if not already connected (needed for view tracking)
