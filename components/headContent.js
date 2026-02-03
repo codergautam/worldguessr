@@ -1,5 +1,4 @@
 import Head from "next/head";
-import Script from "next/script";
 import { useEffect } from "react";
 
 export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false }) {
@@ -16,31 +15,27 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // document.body.appendChild(scriptAp);
     // end adinplay script
 
-// start nitroPay script
-
+// start nitroPay script - defer to after page is interactive
 window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
-      const script = document.createElement('script');
-      //<script data-cfasync="false"></script>
-      script.src = "https://s.nitropay.com/ads-2071.js";
-      script.async = true;
-      document.head.appendChild(script);
+      const loadNitroAds = () => {
+        if (document.querySelector('script[src*="nitropay.com"]')) return;
+        const script = document.createElement('script');
+        script.src = "https://s.nitropay.com/ads-2071.js";
+        script.async = true;
+        document.head.appendChild(script);
+      };
+
+      // Defer ad loading until after critical content
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(loadNitroAds, { timeout: 2000 });
+      } else {
+        setTimeout(loadNitroAds, 1000);
+      }
 
 // end nitroPay script
-
-      //  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972" crossorigin="anonymous">
-      const script2 = document.createElement('script');
-      script2.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972";
-      script2.async = true;
-      // add attribute data-adbreak-test=on
-      // script2.setAttribute("data-adbreak-test", "on");
-      script2.crossorigin = "anonymous";
-      document.body.appendChild(script2);
-
       return () => {
-        document.head.removeChild(script);
-        // document.body.removeChild(scriptAp);
-        document.body.removeChild(script2);
+        // Cleanup handled by browser on unmount
       };
     } else if(window.location.search.includes("crazygames")) {
       console.log("CrazyGames detected");
@@ -120,15 +115,20 @@ ads.js"></script>*/
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
 <meta name="yandex-verification" content="2eb7e8ef6fb55e24" />
 
-{/* <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/> */}
+{/* Preconnect to font origins for faster loading */}
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>
+
 {/* Preload CrazyGames SDK when on CrazyGames platform */}
 {inCrazyGames && (
   <link rel="preload" href="https://sdk.crazygames.com/crazygames-sdk-v3.js" as="script" />
 )}
-<link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet"/>
 
+{/* Fonts - blocking but with preconnect for speed */}
+{/* <link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet"/> */}
+
+<link href="https://fonts.googleapis.com/css2?family=Jockey+One&family=Lexend:wght@100..900&display=swap" rel="stylesheet"/>
 
 {/* <script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script> */}
 
