@@ -31,6 +31,7 @@ import countries from './public/countries.json' with { type: "json" };
 
 // colors
 import colors from 'colors';
+import shuffle from './utils/shuffle.js';
 
 // express
 import express from 'express';
@@ -212,7 +213,7 @@ app.get('/countryLocations/:country', (req, res) => {
   } else {
 
     if( rawOverrides[req.params.country]) {
-      countryLocations[req.params.country].locations = rawOverrides[req.params.country].customCoordinates.sort(() => Math.random() - 0.5).slice(0, 1000).map(loc => {
+      countryLocations[req.params.country].locations = shuffle(rawOverrides[req.params.country].customCoordinates).slice(0, 1000).map(loc => {
         return {
           lat: loc.lat,
           long: loc.lng,

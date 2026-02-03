@@ -595,7 +595,7 @@ app.get('/clueCountries.json', (req, res) => {
   if (clueLocations.length === 0) {
     return res.json({ ready: false });
   } else {
-    return res.json({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) });
+    return res.json({ ready: true, locations: shuffle([...clueLocations]) });
   }
 });
 

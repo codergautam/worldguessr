@@ -15,6 +15,7 @@ import { setElo } from "../../api/eloRank.js";
 import GameModel from "../../models/Game.js";
 import User from "../../models/User.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
+import shuffle from "../../utils/shuffle.js";
 
 export default class Game {
   constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
@@ -611,7 +612,7 @@ export default class Game {
           key: 'notEnoughLocationsInMap'
         });
       }
-      locs = locs.sort(() => Math.random() - 0.5).slice(0, this.rounds).map((loc) => ({
+      locs = shuffle(locs).slice(0, this.rounds).map((loc) => ({
         // lng -> long
         ...loc,
         long: loc.lng,

@@ -2,6 +2,7 @@ import sendableMap from "../../components/utils/sendableMap.js";
 import Map from "../../models/Map.js";
 import User from "../../models/User.js";
 import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
+import shuffle from "../../utils/shuffle.js";
 
 let mapCache = {
   popular: {
@@ -160,7 +161,7 @@ export default async function handler(req, res) {
 
       // for spotlight randomize the order
       if(method === "spotlight") {
-        response[method] = response[method].sort(() => Math.random() - 0.5);
+        response[method] = shuffle(response[method]);
       }
     } else {
       // retrieve from db
@@ -208,7 +209,7 @@ export default async function handler(req, res) {
       response[method] = sendableMaps;
       // if spotlight, randomize the order
       if(method === "spotlight") {
-        response[method] = response[method].sort(() => Math.random() - 0.5);
+        response[method] = shuffle(response[method]);
       }
 
       mapCache[method].data = sendableMaps;

@@ -8,6 +8,7 @@ import { useEffect, useState, useRef } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
+import shuffle from "@/utils/shuffle";
 // findLatLongRandom is dynamically imported when needed to avoid loading Google Maps API on page load
 import Link from "next/link";
 import MultiplayerHome from "@/components/multiplayerHome";
@@ -2088,7 +2089,7 @@ export default function Home({ }) {
             let options = JSON.parse(JSON.stringify(onboarding.locations[onboarding.round - 1].otherOptions));
             options.push(onboarding.locations[onboarding.round - 1].country)
             // shuffle
-            options = options.sort(() => Math.random() - 0.5)
+            options = shuffle(options)
             setOtherOptions(options)
         } else {
             async function defaultMethod() {
@@ -2129,8 +2130,11 @@ export default function Home({ }) {
                             }
                         }
 
-                        // shuffle data.locations
-                        data.locations = data.locations.sort(() => Math.random() - 0.5)
+                        // Fisher-Yates shuffle (unbiased)
+                        for (let i = data.locations.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [data.locations[i], data.locations[j]] = [data.locations[j], data.locations[i]];
+                        }
 
 
                         setAllLocsArray(data.locations)
@@ -2185,24 +2189,18 @@ export default function Home({ }) {
                 if ((locIndex === -1) || allLocsArray.length === 1) {
                     fetchMethod()
                 } else {
-                    if (gameOptions.location === "all") {
-                        const loc = allLocsArray[locIndex + 1] ?? allLocsArray[0];
+                    // prevent repeats: remove the prev location from the array (for both all and community maps)
+                    setAllLocsArray((prev) => {
+                        const newArr = prev.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long);
+
+                        // Pick next location
+                        const loc = gameOptions.location === "all"
+                            ? newArr[0]  // World map: take first from shuffled remaining
+                            : newArr[Math.floor(Math.random() * newArr.length)];  // Community: random
+
                         setLatLong(loc);
-                    } else {
-                        // prevent repeats: remove the prev location from the array
-                        setAllLocsArray((prev) => {
-                            const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
-
-
-                            // community maps are randomized
-                            const loc = newArr[Math.floor(Math.random() * newArr.length)];
-
-
-                            setLatLong(loc);
-                            return newArr;
-                        })
-
-                    }
+                        return newArr;
+                    })
                 }
 
             }
