@@ -1,15 +1,23 @@
 import { inIframe } from "../utils/inIframe";
 import { toast } from "react-toastify";
 import retryManager from "../utils/retryFetch";
+import { useState, useEffect } from "react";
 
 // secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter
 let session = false;
 // null = not logged in
 // false = session loading/fetching
 
+// Listeners for session changes
+const sessionListeners = new Set();
+function notifySessionChange() {
+  sessionListeners.forEach(listener => listener(session));
+}
+
 export function signOut() {
   window.localStorage.removeItem("wg_secret");
   session = null;
+  notifySessionChange();
   if(window.dontReconnect) {
     return;
   }
@@ -58,6 +66,18 @@ export function signIn() {
 }
 
 export function useSession() {
+  // sessionState is only used to trigger re-renders when session changes
+  const [, setSessionState] = useState(session);
+
+  // Subscribe to session changes
+  useEffect(() => {
+    const listener = (newSession) => {
+      setSessionState(newSession);
+    };
+    sessionListeners.add(listener);
+    return () => sessionListeners.delete(listener);
+  }, []);
+
   if(typeof window === "undefined") {
     return {
       data: false
@@ -88,6 +108,7 @@ export function useSession() {
 
     window.fetchingSession = true;
 
+    const authStartTime = performance.now();
     console.log(`[Auth] Starting authentication with retry mechanism (5s timeout, unlimited retries)`);
 
     retryManager.fetchWithRetry(
@@ -110,11 +131,13 @@ export function useSession() {
       .then((res) => res.json())
       .then((data) => {
         window.fetchingSession = false;
-        console.log(`[Auth] Authentication successful`);
+        const authDuration = (performance.now() - authStartTime).toFixed(0);
+        console.log(`[Auth] Authentication successful (took ${authDuration}ms)`);
 
         if (data.error) {
           console.error(`[Auth] Server error:`, data.error);
           session = null;
+          notifySessionChange();
           return;
         }
 
@@ -122,14 +145,17 @@ export function useSession() {
           window.localStorage.setItem("wg_secret", data.secret);
           session = {token: data};
           console.log(`[Auth] Session established for user:`, data.username);
+          notifySessionChange();
         } else {
           console.log(`[Auth] No session data received, user not logged in`);
           session = null;
+          notifySessionChange();
         }
       })
       .catch((e) => {
         window.fetchingSession = false;
-        console.error(`[Auth] Authentication failed:`, e.message);
+        const authDuration = (performance.now() - authStartTime).toFixed(0);
+        console.error(`[Auth] Authentication failed (took ${authDuration}ms):`, e.message);
 
         // Clear potentially corrupted session data
         try {
@@ -139,9 +165,11 @@ export function useSession() {
         }
 
         session = null;
+        notifySessionChange();
       });
     } else {
       session = null;
+      notifySessionChange();
     }
   }
 

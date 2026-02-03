@@ -245,6 +245,7 @@ export default function Home({ }) {
         }
     }, [JSON.stringify(mainSession), inCrazyGames])
 
+
     // this breaks stuff like logout and set username reloads
     // useEffect(() => {
     //   window.onbeforeunload = function(e) {
@@ -365,6 +366,7 @@ export default function Home({ }) {
                         } catch (e) { }
                     };
 
+                    const crazyAuthStart = performance.now();
                     fetch(clientConfigData.apiUrl + "/api/crazyAuth", {
                         method: "POST",
                         headers: {
@@ -376,7 +378,8 @@ export default function Home({ }) {
                         callLoadingStop();
                         return res.json();
                     }).then((data) => {
-                        console.log("crazygames auth", token, user, data)
+                        const crazyAuthDuration = (performance.now() - crazyAuthStart).toFixed(0);
+                        console.log(`[CrazyAuth] completed (took ${crazyAuthDuration}ms)`, token, user, data)
                         if (data.secret && data.username) {
                             // Store full auth data including extended fields (elo, rank, etc.)
                             setSession({ token: data })
@@ -398,7 +401,8 @@ export default function Home({ }) {
                     }).catch((e) => {
                         // Call loadingStop in case of network error (where first .then() never ran)
                         callLoadingStop();
-                        console.error("crazygames auth failed", e)
+                        const crazyAuthDuration = (performance.now() - crazyAuthStart).toFixed(0);
+                        console.error(`[CrazyAuth] failed (took ${crazyAuthDuration}ms)`, e)
                     });
 
                 }
