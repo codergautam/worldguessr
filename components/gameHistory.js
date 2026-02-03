@@ -5,10 +5,16 @@ import styles from '../styles/gameHistory.module.css';
 import Link from 'next/link';
 import CountryFlag from './utils/countryFlag';
 
-export default function GameHistory({ session, onGameClick, targetUserSecret = null, targetUserData = null }) {
+export default function GameHistory({ session, onGameClick, targetUserSecret = null, targetUserData = null, page = null, setPage = null }) {
   const { t: text } = useTranslation("common");
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Use external page state if provided, otherwise use internal state
+  const [internalPage, setInternalPage] = useState(1);
+  const currentPage = page !== null ? page : internalPage;
+  const setCurrentPage = setPage !== null ? setPage : setInternalPage;
+
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -51,9 +57,9 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
 
   useEffect(() => {
     if (typeof window !== 'undefined' && session?.token?.secret && window.cConfig?.apiUrl) {
-      fetchGames(1);
+      fetchGames(currentPage);
     }
-  }, [session?.token?.secret, targetUserSecret]);
+  }, [session?.token?.secret, targetUserSecret, currentPage]);
 
   const getGameTypeDisplay = (gameType) => {
     const types = {
@@ -281,7 +287,7 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
           <button
             className={styles.paginationBtn}
             disabled={!pagination.hasPrevPage}
-            onClick={() => fetchGames(pagination.currentPage - 1)}
+            onClick={() => setCurrentPage(currentPage - 1)}
           >
             ← {text('previous')}
           </button>
@@ -296,7 +302,7 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
           <button
             className={styles.paginationBtn}
             disabled={!pagination.hasNextPage}
-            onClick={() => fetchGames(pagination.currentPage + 1)}
+            onClick={() => setCurrentPage(currentPage + 1)}
           >
             {text('next')} →
           </button>
