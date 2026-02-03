@@ -285,6 +285,14 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
       {pagination.totalPages > 1 && (
         <div className={styles.pagination}>
           <button
+            className={`${styles.paginationBtn} desktop`}
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(1)}
+          >
+            ⏮ First
+          </button>
+
+          <button
             className={styles.paginationBtn}
             disabled={!pagination.hasPrevPage}
             onClick={() => setCurrentPage(currentPage - 1)}
@@ -305,6 +313,14 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
             onClick={() => setCurrentPage(currentPage + 1)}
           >
             {text('next')} →
+          </button>
+
+          <button
+            className={`${styles.paginationBtn} desktop`}
+            disabled={currentPage === pagination.totalPages}
+            onClick={() => setCurrentPage(pagination.totalPages)}
+          >
+            Last ⏭
           </button>
         </div>
       )}
