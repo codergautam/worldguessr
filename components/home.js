@@ -8,7 +8,7 @@ import { useEffect, useState, useRef } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
-import findLatLongRandom from "@/components/findLatLong";
+// findLatLongRandom is dynamically imported when needed to avoid loading Google Maps API on page load
 import Link from "next/link";
 import MultiplayerHome from "@/components/multiplayerHome";
 import AccountModal from "@/components/accountModal";
@@ -2091,12 +2091,18 @@ export default function Home({ }) {
             options = options.sort(() => Math.random() - 0.5)
             setOtherOptions(options)
         } else {
-            function defaultMethod() {
-                console.log("[PERF] loadLocation: Calling findLatLongRandom");
+            async function defaultMethod() {
+                console.log("[PERF] loadLocation: Calling findLatLongRandom (dynamic import)");
                 const startTime = performance.now();
-                findLatLongRandom(gameOptions).then((latLong) => {
+                try {
+                    const { default: findLatLongRandom } = await import("@/components/findLatLong");
+                    console.log(`[PERF] findLatLong module loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
+                    const latLong = await findLatLongRandom(gameOptions);
                     setLatLong(latLong);
-                });
+                } catch (err) {
+                    console.error("[ERROR] Failed to load location:", err);
+                    toast(text("errorLoadingMap"), { type: 'error' });
+                }
             }
             function fetchMethod() {
                 //gameOptions.countryMap && gameOptions.offical
@@ -2166,7 +2172,7 @@ export default function Home({ }) {
                         }
                         defaultMethod()
                     }
-                }).catch((e) => {
+                }).catch(() => {
                     toast(text("errorLoadingMap"), { type: 'error' })
                     defaultMethod()
                 });
@@ -2373,7 +2379,7 @@ export default function Home({ }) {
                 msUserSelect: 'none',
                 pointerEvents: 'none',
             }}>
-                <NextImage.default src={'./street2christmas.jpg'}
+                <NextImage.default src={'./street2.webp'}
                     draggable={false}
                     width={1920}
                     height={1080}
@@ -2422,7 +2428,7 @@ export default function Home({ }) {
 
                 {/* Loading overlay - covers iframe with background image to prevent white flicker */}
                 <div className={`loading-overlay ${loading ? 'loading-overlay--visible' : ''}`}>
-                    <NextImage.default src={'./street2christmas.jpg'}
+                    <NextImage.default src={'./street2.webp'}
                         draggable={false}
                         width={1920}
                         height={1080}

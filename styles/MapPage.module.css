@@ -8,7 +8,7 @@
     rgba(0, 30, 15, 0.8) 50%,
     rgba(0, 0, 0, 0.9) 100%
   ),
-  url("/street2christmas.jpg");
+  url("/street2.webp");
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -481,7 +481,7 @@
       rgba(0, 20, 10, 0.9) 50%,
       rgba(0, 0, 0, 0.95) 100%
     ),
-    url("/street2christmas.jpg");
+    url("/street2.webp");
   }
 }
 

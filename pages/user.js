@@ -242,7 +242,7 @@ export default function UserProfilePage() {
             rgba(20, 26, 57, 0.8) 50%,
             rgba(0, 0, 0, 0.9) 100%
           ),
-          url("/street2christmas.jpg");
+          url("/street2.webp");
           background-size: cover;
           background-position: center;
           background-attachment: fixed;

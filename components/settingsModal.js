@@ -31,7 +31,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 maxWidth: '500px',
                 textAlign: 'center',
                 position: "absolute",
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("/street2christmas.jpg")`,
+                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("/street2.webp")`,
                 objectFit: "cover",
                 backgroundSize: "cover",
                 backgroundPosition: "center",

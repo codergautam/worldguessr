@@ -15,7 +15,7 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // document.body.appendChild(scriptAp);
     // end adinplay script
 
-// start nitroPay script - defer to after page is interactive
+// start nitroPay script - defer to after page load completes
 window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
       const loadNitroAds = () => {
@@ -26,11 +26,19 @@ window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{win
         document.head.appendChild(script);
       };
 
-      // Defer ad loading until after critical content
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(loadNitroAds, { timeout: 2000 });
+      // Wait for page load event (ensures fonts/LCP complete), then defer further
+      const scheduleAdLoad = () => {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(loadNitroAds, { timeout: 3000 });
+        } else {
+          setTimeout(loadNitroAds, 1000);
+        }
+      };
+
+      if (document.readyState === 'complete') {
+        scheduleAdLoad();
       } else {
-        setTimeout(loadNitroAds, 1000);
+        window.addEventListener('load', scheduleAdLoad, { once: true });
       }
 
 // end nitroPay script
