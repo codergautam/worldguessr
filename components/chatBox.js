@@ -154,6 +154,13 @@ function ChatBox({ ws, open, onToggle, enabled, myId, inGame, miniMapShown, isGu
     }
   }, [open]);
 
+  // Reset unread count when leaving a game (messages get cleared)
+  useEffect(() => {
+    if (!inGame) {
+      setUnreadCount(0);
+    }
+  }, [inGame]);
+
   useEffect(() => {
     if (!ws) return;
     const ondata = (msg) => {
