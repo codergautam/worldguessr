@@ -10,7 +10,6 @@ export default function Document() {
         <link href="https://fonts.googleapis.com/css2?family=Jockey+One&family=Lexend:wght@100..900&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
         {/* Google Analytics */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-KFK0S0RXG5" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -18,6 +17,12 @@ export default function Document() {
               window.gtag = function(){dataLayer.push(arguments);}
               gtag('js', new Date());
               gtag('config', 'G-KFK0S0RXG5');
+              window.addEventListener('load', function() {
+                var s = document.createElement('script');
+                s.src = 'https://www.googletagmanager.com/gtag/js?id=G-KFK0S0RXG5';
+                s.async = true;
+                document.head.appendChild(s);
+              });
             `,
           }}
         />
