@@ -14,20 +14,18 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // document.body.appendChild(scriptAp);
     // end adinplay script
 
-// start nitroPay script - runs in Web Worker via Partytown
+// start nitroPay script
 window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
       const loadNitroAds = () => {
         if (document.querySelector('script[src*="nitropay.com"]')) return;
         const script = document.createElement('script');
         script.src = "https://s.nitropay.com/ads-2071.js";
-        script.type = "text/partytown"; // Run in Web Worker
+        script.async = true;
         document.head.appendChild(script);
-        // Notify Partytown to process dynamically added script
-        window.dispatchEvent(new CustomEvent('ptupdate'));
       };
 
-      // Wait for page load event (ensures fonts/LCP complete), then load in worker
+      // Wait for page load event (ensures fonts/LCP complete), then load ads
       const scheduleAdLoad = () => {
         if ('requestIdleCallback' in window) {
           requestIdleCallback(loadNitroAds, { timeout: 3000 });

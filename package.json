@@ -4,7 +4,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "postinstall": "mkdir -p public/~partytown && cp -r node_modules/@qwik.dev/partytown/lib/* public/~partytown/ || true",
     "dev": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' UWS_HTTP_MAX_HEADERS_SIZE=16384 nodemon ws/ws --quiet --signal SIGTERM --exec \"node --no-warnings=ExperimentalWarning\" --watch ws/ws.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
     "devclient": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
     "build": "cross-env next build",
@@ -14,7 +13,6 @@
     "heroku-postbuild": "cross-env  next build"
   },
   "dependencies": {
-    "@qwik.dev/partytown": "^0.11.2",
     "@googlemaps/js-api-loader": "^1.16.6",
     "@osm_borders/maritime_10m": "^1.1.0",
     "@react-oauth/google": "^0.12.1",
@@ -43,7 +41,6 @@
     "moment-timezone": "^0.5.45",
     "mongoose": "^8.3.3",
     "next": "15.4.5",
-    "nextjs-google-analytics": "^2.3.3",
     "ol": "^9.1.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.3.0",

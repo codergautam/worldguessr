@@ -1,5 +1,4 @@
 import { Html, Head, Main, NextScript } from "next/document";
-import { Partytown } from '@qwik.dev/partytown/react';
 
 export default function Document() {
   return (
@@ -10,11 +9,8 @@ export default function Document() {
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>
         <link href="https://fonts.googleapis.com/css2?family=Jockey+One&family=Lexend:wght@100..900&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 
-        <Partytown
-          debug={process.env.NODE_ENV === 'development'}
-          forward={['nitroAds', 'nitroAds.createAd', 'nitroAds.queue', 'nitroAds.addUserToken', 'dataLayer.push', 'gtag']}
-        />
-        {/* Google Analytics - gtag must be defined on main thread for forwarding to work */}
+        {/* Google Analytics */}
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-KFK0S0RXG5" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -24,11 +20,6 @@ export default function Document() {
               gtag('config', 'G-KFK0S0RXG5');
             `,
           }}
-        />
-        {/* Load gtag.js in web worker via Partytown */}
-        <script
-          type="text/partytown"
-          src="https://www.googletagmanager.com/gtag/js?id=G-KFK0S0RXG5"
         />
         <style dangerouslySetInnerHTML={{
           __html: `
