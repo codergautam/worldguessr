@@ -79,7 +79,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && (<AccountBtn inCrazyGames={inCrazyGames} session={session} navbarMode={screen !== "home"} openAccountModal={openAccountModal} />)}
 
                     {session?.token?.secret && !accountModalOpen && !gameOptionsModalShown && !mapModalOpen && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && (
-                        <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected}>
+                        <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
                             <FaUserFriends size={40} className={`friendBtnIcon ${screen === "home" ? "friendBtnIconFixed" : ""}`} />
                         </button>
                     )}

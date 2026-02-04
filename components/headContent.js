@@ -2,7 +2,6 @@ import Head from "next/head";
 import { useEffect } from "react";
 
 export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false }) {
-
   useEffect(() => {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH) {
@@ -15,18 +14,20 @@ export default function HeadContent({ text, inCoolMathGames, inCrazyGames = fals
     // document.body.appendChild(scriptAp);
     // end adinplay script
 
-// start nitroPay script - defer to after page load completes
+// start nitroPay script - runs in Web Worker via Partytown
 window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
       const loadNitroAds = () => {
         if (document.querySelector('script[src*="nitropay.com"]')) return;
         const script = document.createElement('script');
         script.src = "https://s.nitropay.com/ads-2071.js";
-        script.async = true;
+        script.type = "text/partytown"; // Run in Web Worker
         document.head.appendChild(script);
+        // Notify Partytown to process dynamically added script
+        window.dispatchEvent(new CustomEvent('ptupdate'));
       };
 
-      // Wait for page load event (ensures fonts/LCP complete), then defer further
+      // Wait for page load event (ensures fonts/LCP complete), then load in worker
       const scheduleAdLoad = () => {
         if ('requestIdleCallback' in window) {
           requestIdleCallback(loadNitroAds, { timeout: 3000 });
@@ -123,20 +124,11 @@ ads.js"></script>*/
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
 <meta name="yandex-verification" content="2eb7e8ef6fb55e24" />
 
-{/* Preconnect to font origins for faster loading */}
-<link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>
 
 {/* Preload CrazyGames SDK when on CrazyGames platform */}
 {inCrazyGames && (
   <link rel="preload" href="https://sdk.crazygames.com/crazygames-sdk-v3.js" as="script" />
 )}
-
-{/* Fonts - blocking but with preconnect for speed */}
-{/* <link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet"/> */}
-
-<link href="https://fonts.googleapis.com/css2?family=Jockey+One&family=Lexend:wght@100..900&display=swap" rel="stylesheet"/>
 
 {/* <script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script> */}
 

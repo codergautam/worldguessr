@@ -748,6 +748,7 @@ html {
     border-radius: 8px;
     pointer-events: all;
     background-color: var(--primaryTransparent);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .accountBtn.loggedIn {
@@ -766,6 +767,7 @@ html {
     pointer-events: all;
     aspect-ratio: 1/1;
     height: 42px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .friendBtn:hover {
@@ -4773,6 +4775,7 @@ div[dir="ltr"] {
     background-color: var(--primaryTransparent);
     padding-top: 5px;
     padding-bottom: 5px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 // less than 1280px

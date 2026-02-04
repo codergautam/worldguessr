@@ -47,3 +47,5 @@ public/wiki
 /.claude
 vali-data/*
 mapgens/*
+# Partytown (generated from node_modules)
+public/~partytown/

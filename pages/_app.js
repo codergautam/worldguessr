@@ -4,7 +4,6 @@ import "@/styles/accountModal.css";
 import "@/styles/mapModal.css";
 import '@/styles/duel.css';
 
-import { GoogleAnalytics } from "nextjs-google-analytics";
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import { useEffect } from "react";
@@ -12,9 +11,32 @@ import { useEffect } from "react";
 import '@smastrom/react-rating/style.css'
 
 function App({ Component, pageProps }) {
+  useEffect(() => {
+    const handleError = (event) => {
+      window.gtag?.('event', 'exception', {
+        description: event.message || 'Unknown error',
+        fatal: false,
+      });
+    };
+
+    const handleRejection = (event) => {
+      window.gtag?.('event', 'exception', {
+        description: event.reason?.message || 'Unhandled promise rejection',
+        fatal: false,
+      });
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleRejection);
+    };
+  }, []);
+
   return (
     <>
-      <GoogleAnalytics trackPageViews gaMeasurementId="G-KFK0S0RXG5" />
       { process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID  ? (
       <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
       <Component {...pageProps} />
