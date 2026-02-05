@@ -1,0 +1,23 @@
+{
+  "countryCodes": [
+    "AD", "BT", "DO", "GH", "GT", "JO", "KG", "KH", "KE", "LA", "LI",
+    "ME", "MK", "MN", "MT", "NA", "PY", "RW", "SG", "SZ", "TN", "UG", "UY"
+  ],
+  "distributionStrategy": {
+    "key": "FixedCountByMaxMinDistance",
+    "minMinDistance": 50,
+    "locationCountGoal": 150000,
+    "countryDistributionFromMap": "proworld"
+  },
+  "output": {
+    "locationTags": ["CountryCode"],
+    "panoVerificationStrategy": "Newest"
+  },
+  "globalLocationFilter": "",
+  "neighborFilters": [{
+    "radius": 1000,
+    "expression": "Roads100 gt 3",
+    "limit": 10,
+    "bound": "gte"
+  }]
+}
