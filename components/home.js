@@ -238,10 +238,10 @@ export default function Home({ }) {
         }
     }, [JSON.stringify(mainSession), inCrazyGames])
 
-    // Pass hashed email to NitroAds for better ad targeting (logged-in users only)
+    // Pass hashed email (anonymous) to NitroAds for better ad targeting (logged-in users only, HTTPS only)
     useEffect(() => {
         const email = session?.token?.email;
-        if (!email || typeof window === 'undefined' || !window.nitroAds) return;
+        if (!email || typeof window === 'undefined' || !window.nitroAds || window.location.protocol !== 'https:') return;
 
         (async () => {
             try {
@@ -250,7 +250,6 @@ export default function Home({ }) {
                 const hashBuffer = await crypto.subtle.digest('SHA-256', data);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                console.log("NitroAds ID", hashHex)
                 window.nitroAds.addUserToken(hashHex, 'SHA-256');
             } catch (e) {
                 // Silently fail - ad targeting is non-critical
