@@ -250,7 +250,7 @@ export default function Home({ }) {
                 const hashBuffer = await crypto.subtle.digest('SHA-256', data);
                 const hashArray = Array.from(new Uint8Array(hashBuffer));
                 const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-                window.nitroAds.addUserToken(hashHex, 'SHA-256');
+                window.nitroAds.addUserToken(email, 'PLAIN');
             } catch (e) {
                 // Silently fail - ad targeting is non-critical
             }
