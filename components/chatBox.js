@@ -7,6 +7,7 @@ import { useTranslation } from '@/components/useTranslations';
 import { Filter } from 'bad-words';
 import { toast } from 'react-toastify';
 const filter = new Filter();
+filter.removeWords('damn');
 
 const config = {
   initialMessages: [],
