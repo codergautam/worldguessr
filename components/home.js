@@ -206,13 +206,17 @@ export default function Home({ }) {
                 }).catch((e) => {
                     console.error("[Auth] Google OAuth failed after all retries:", e.message);
                     toast.error(`Login failed: ${e.message}. Please try again or contact support.`);
+                }).finally(() => {
+                    setLoginQueued(false);
                 })
             },
             onError: error => {
+                setLoginQueued(false);
                 toast.error("Login error, contact support if this persists")
                 console.log("login error", error);
             },
             onNonOAuthError: error => {
+                setLoginQueued(false);
                 console.log("login non oauth error", error);
                 toast.error("Login error, contact support if this persists (1)")
 
