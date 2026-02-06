@@ -1804,8 +1804,7 @@ export default function Home({ }) {
         ws.onclose = () => {
             setWs(null)
             console.log("ws closed")
-            sendEvent("multiplayer_disconnect")
-
+            sendEvent("multiplayer_wsclose")
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
                 maxRetries: prev.maxRetries,
@@ -1829,7 +1828,7 @@ export default function Home({ }) {
         ws.onerror = () => {
             setWs(null)
             console.log("ws error")
-            sendEvent("multiplayer_disconnect")
+            sendEvent("multiplayer_wserror")
 
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
