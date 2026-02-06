@@ -6,12 +6,16 @@ import {
   Pressable,
   ActivityIndicator,
   useWindowDimensions,
+  Animated,
+  Easing,
+  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { colors, calcPoints, findDistance } from '../../src/shared';
-import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';
+import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { api } from '../../src/services/api';
 
 import StreetViewWebView from '../../src/components/game/StreetViewWebView';
@@ -45,10 +49,9 @@ interface GameState {
   maxDist: number;
 }
 
-// Default game settings
 const DEFAULT_GAME_OPTIONS = {
   totalRounds: 5,
-  timePerRound: 60, // 60 seconds per round
+  timePerRound: 60,
   location: 'all',
   maxDist: 20000,
 };
@@ -63,7 +66,6 @@ export default function GameScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const isLandscape = width > height;
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -82,7 +84,78 @@ export default function GameScreen() {
   });
 
   const [guessPosition, setGuessPosition] = useState<{ lat: number; lng: number } | null>(null);
-  const [mapExpanded, setMapExpanded] = useState(false);
+  // Map is HIDDEN by default on mobile, matching web behavior
+  const [miniMapShown, setMiniMapShown] = useState(false);
+
+  // Animation values
+  const mapSlideAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
+  const bannerSlideAnim = useRef(new Animated.Value(300)).current;
+  const fabScaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Animate map slide in/out
+  useEffect(() => {
+    if (gameState.isShowingResult) {
+      // Answer shown: map goes fullscreen
+      Animated.spring(mapSlideAnim, {
+        toValue: 1,
+        friction: 10,
+        tension: 50,
+        useNativeDriver: false,
+      }).start();
+    } else if (miniMapShown) {
+      Animated.spring(mapSlideAnim, {
+        toValue: 1,
+        friction: 10,
+        tension: 50,
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(mapSlideAnim, {
+        toValue: 0,
+        duration: 250,
+        easing: Easing.ease,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [miniMapShown, gameState.isShowingResult]);
+
+  // Banner slide animation
+  useEffect(() => {
+    if (gameState.isShowingResult) {
+      bannerSlideAnim.setValue(300);
+      Animated.spring(bannerSlideAnim, {
+        toValue: 0,
+        friction: 8,
+        tension: 50,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(bannerSlideAnim, {
+        toValue: 300,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [gameState.isShowingResult]);
+
+  // FAB entrance animation
+  useEffect(() => {
+    if (!isLoading && !miniMapShown && !gameState.isShowingResult) {
+      fabScaleAnim.setValue(0);
+      Animated.spring(fabScaleAnim, {
+        toValue: 1,
+        friction: 5,
+        tension: 80,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isLoading, miniMapShown, gameState.isShowingResult]);
+
+  // Map height interpolation: 0 = hidden (0px), 1 = 70% of screen (or 100% when answer shown)
+  const mapHeight = mapSlideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, gameState.isShowingResult ? height : height * 0.7],
+  });
 
   // Fetch locations from server on mount
   useEffect(() => {
@@ -97,10 +170,8 @@ export default function GameScreen() {
         if (mapSlug === 'all') {
           data = await api.fetchAllLocations();
         } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
-          // Country code (e.g., "US", "FR")
           data = await api.fetchCountryLocations(mapSlug);
         } else {
-          // Community map slug
           data = await api.fetchMapLocations(mapSlug);
         }
 
@@ -108,17 +179,13 @@ export default function GameScreen() {
           throw new Error('No locations available for this map');
         }
 
-        // Normalize locations (some use lng instead of long)
         const normalizedLocations = data.locations.map((loc: any) => ({
           lat: loc.lat,
           long: loc.long || loc.lng,
           country: loc.country,
         }));
 
-        // Shuffle locations
         const shuffled = [...normalizedLocations].sort(() => Math.random() - 0.5);
-
-        // Take only as many as we need for the game
         const totalRounds = gameState.totalRounds;
         const selectedLocations = shuffled.slice(0, totalRounds);
 
@@ -184,12 +251,13 @@ export default function GameScreen() {
       totalScore: prev.totalScore + points,
       isShowingResult: true,
     }));
+    // Hide the map toggle since we'll show fullscreen result map
+    setMiniMapShown(false);
   }, [guessPosition, currentLocation, gameState.maxDist]);
 
   const handleTimeUp = useCallback(() => {
     if (gameState.isShowingResult) return;
 
-    // If no guess placed, use a default position (0, 0) which will score 0 points
     if (!guessPosition && currentLocation) {
       const timeTaken = Math.round((Date.now() - roundStartTimeRef.current) / 1000);
 
@@ -209,6 +277,7 @@ export default function GameScreen() {
         ],
         isShowingResult: true,
       }));
+      setMiniMapShown(false);
     } else {
       handleSubmitGuess();
     }
@@ -216,7 +285,6 @@ export default function GameScreen() {
 
   const handleNextRound = useCallback(() => {
     if (gameState.currentRound >= gameState.totalRounds) {
-      // Game over - go to results
       router.push({
         pathname: '/game/results',
         params: {
@@ -227,18 +295,30 @@ export default function GameScreen() {
       return;
     }
 
-    // Reset for next round
     setGameState((prev) => ({
       ...prev,
       currentRound: prev.currentRound + 1,
       isShowingResult: false,
     }));
     setGuessPosition(null);
+    setMiniMapShown(false);
     roundStartTimeRef.current = Date.now();
   }, [gameState, router]);
 
   const handleQuit = () => {
     router.back();
+  };
+
+  const getPointsColor = (pts: number) => {
+    if (pts >= 4000) return colors.success;
+    if (pts >= 2000) return colors.warning;
+    return colors.error;
+  };
+
+  const formatDist = (km: number) => {
+    if (km < 1) return `${Math.round(km * 1000)} m`;
+    if (km < 100) return `${km.toFixed(1)} km`;
+    return `${Math.round(km).toLocaleString()} km`;
   };
 
   // Loading state
@@ -265,87 +345,58 @@ export default function GameScreen() {
   }
 
   const lastGuess = gameState.guesses[gameState.guesses.length - 1];
+  const showFab = !miniMapShown && !gameState.isShowingResult;
 
   return (
     <View style={styles.container}>
-      {/* Street View */}
-      <View style={[styles.streetViewContainer, isLandscape && styles.streetViewLandscape]}>
+      {/* Street View - FULLSCREEN */}
+      <View style={StyleSheet.absoluteFillObject}>
         <StreetViewWebView
           lat={currentLocation.lat}
           long={currentLocation.long}
         />
-
-        {/* Top Bar */}
-        <SafeAreaView style={styles.topBar} edges={['top']}>
-          <View style={styles.topBarContent}>
-            <Pressable style={styles.quitButton} onPress={handleQuit}>
-              <Ionicons name="close" size={24} color={colors.white} />
-            </Pressable>
-
-            <View style={styles.roundInfo}>
-              <Text style={styles.roundText}>
-                Round {gameState.currentRound}/{gameState.totalRounds}
-              </Text>
-              <Text style={styles.scoreText}>
-                {gameState.totalScore.toLocaleString()} pts
-              </Text>
-            </View>
-
-            <GameTimer
-              timeRemaining={gameState.timePerRound}
-              onTimeUp={handleTimeUp}
-              isPaused={gameState.isShowingResult}
-            />
-          </View>
-        </SafeAreaView>
       </View>
 
-      {/* Result Overlay */}
-      {gameState.isShowingResult && lastGuess && (
-        <View style={styles.resultOverlay}>
-          <View style={styles.resultCard}>
-            <Text style={[
-              styles.resultPoints,
-              { color: lastGuess.points >= 4000 ? colors.success : lastGuess.points >= 2000 ? colors.warning : colors.error }
-            ]}>
-              +{lastGuess.points.toLocaleString()} points
+      {/* Timer pill - top right, matching web .timer styling */}
+      {!gameState.isShowingResult && (
+        <SafeAreaView style={styles.timerContainer} edges={['top']} pointerEvents="box-none">
+          <View style={styles.timerPill}>
+            <Text style={styles.timerText}>
+              Round {gameState.currentRound}/{gameState.totalRounds}
             </Text>
-            <Text style={styles.resultDistance}>
-              {lastGuess.distance < 1
-                ? `${Math.round(lastGuess.distance * 1000)} m`
-                : `${lastGuess.distance.toFixed(1)} km`
-              } away
+            <Text style={styles.timerScore}>
+              {gameState.totalScore.toLocaleString()} pts
             </Text>
-            <Pressable style={styles.nextButton} onPress={handleNextRound}>
-              <Text style={styles.nextButtonText}>
-                {gameState.currentRound >= gameState.totalRounds
-                  ? 'See Results'
-                  : 'Next Round'
-                }
-              </Text>
-              <Ionicons name="arrow-forward" size={20} color={colors.white} />
-            </Pressable>
           </View>
-        </View>
+          <GameTimer
+            timeRemaining={gameState.timePerRound}
+            onTimeUp={handleTimeUp}
+            isPaused={gameState.isShowingResult}
+          />
+        </SafeAreaView>
       )}
 
-      {/* Map */}
-      <View style={[
-        styles.mapContainer,
-        mapExpanded && styles.mapContainerExpanded,
-        isLandscape && styles.mapContainerLandscape,
-      ]}>
+      {/* Close button - top left */}
+      <SafeAreaView style={styles.closeButtonContainer} edges={['top']} pointerEvents="box-none">
         <Pressable
-          style={styles.mapExpandButton}
-          onPress={() => setMapExpanded(!mapExpanded)}
+          style={({ pressed }) => [
+            styles.closeButton,
+            pressed && { opacity: 0.7 },
+          ]}
+          onPress={handleQuit}
         >
-          <Ionicons
-            name={mapExpanded ? 'chevron-down' : 'chevron-up'}
-            size={20}
-            color={colors.white}
-          />
+          <Ionicons name="close" size={24} color={colors.white} />
         </Pressable>
+      </SafeAreaView>
 
+      {/* ═══ MAP OVERLAY - slides up from bottom ═══ */}
+      <Animated.View
+        style={[
+          styles.mapOverlay,
+          { height: mapHeight },
+        ]}
+        pointerEvents={miniMapShown || gameState.isShowingResult ? 'auto' : 'none'}
+      >
         <GuessMap
           guessPosition={guessPosition}
           actualPosition={
@@ -354,26 +405,136 @@ export default function GameScreen() {
               : undefined
           }
           onMapPress={handleMapPress}
-          isExpanded={mapExpanded}
+          isExpanded={true}
         />
+      </Animated.View>
 
-        {!gameState.isShowingResult && (
-          <View style={[styles.mapActions, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-            <Pressable
-              style={[
-                styles.guessButton,
-                !guessPosition && styles.guessButtonDisabled,
-              ]}
-              onPress={handleSubmitGuess}
-              disabled={!guessPosition}
+      {/* ═══ MOBILE GUESS BUTTONS - above map when map is open ═══ */}
+      {/* Matches web: .mobile_minimap__btns.miniMapShown */}
+      {miniMapShown && !gameState.isShowingResult && (
+        <View style={[styles.mapButtonsRow, { bottom: height * 0.7 + 8 }]}>
+          {/* Guess submit button (blue) */}
+          <Pressable
+            onPress={handleSubmitGuess}
+            disabled={!guessPosition}
+            style={({ pressed }) => [
+              styles.guessSubmitBtn,
+              !guessPosition && styles.guessSubmitBtnDisabled,
+              pressed && guessPosition && { opacity: 0.85 },
+            ]}
+          >
+            <LinearGradient
+              colors={guessPosition ? ['#1d1d5b', '#1e3e9c'] : ['#555', '#444']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.guessSubmitBtnGradient}
             >
-              <Text style={styles.guessButtonText}>
-                {guessPosition ? 'Submit Guess' : 'Place your guess'}
+              <Text style={[
+                styles.guessSubmitBtnText,
+                !guessPosition && { opacity: 0.5 },
+              ]}>
+                Guess
               </Text>
+            </LinearGradient>
+          </Pressable>
+
+          {/* Map collapse toggle (small down arrow) - matches web mobileMiniMapExpandedToggle */}
+          <Pressable
+            onPress={() => setMiniMapShown(false)}
+            style={({ pressed }) => [
+              styles.mapCollapseBtn,
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.mapCollapseBtnInner}
+            >
+              <Ionicons name="arrow-down" size={24} color={colors.white} />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      )}
+
+      {/* ═══ FLOATING GUESS FAB - bottom right when map hidden ═══ */}
+      {/* Matches web: .g2_mobile_guess button with map icon + "Guess" text */}
+      {showFab && (
+        <Animated.View
+          style={[
+            styles.guessFab,
+            {
+              transform: [{ scale: fabScaleAnim }],
+              bottom: Math.max(insets.bottom, 20) + 20,
+            },
+          ]}
+        >
+          <Pressable
+            onPress={() => setMiniMapShown(true)}
+            style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] }]}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.guessFabInner}
+            >
+              <Ionicons name="map" size={28} color={colors.white} />
+              <Text style={styles.guessFabText}>Guess</Text>
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+      )}
+
+      {/* ═══ END BANNER - shown after guessing ═══ */}
+      {/* Matches web: #endBanner with glassmorphism, distance, points, next button */}
+      {gameState.isShowingResult && lastGuess && (
+        <Animated.View
+          style={[
+            styles.endBanner,
+            {
+              transform: [{ translateY: bannerSlideAnim }],
+              paddingBottom: Math.max(insets.bottom, spacing.lg),
+            },
+          ]}
+        >
+          <View style={styles.endBannerContent}>
+            {/* Distance text */}
+            <Text style={styles.endBannerDistance}>
+              {lastGuess.distance >= 1
+                ? `Your guess was ${formatDist(lastGuess.distance)} away`
+                : `Your guess was ${Math.round(lastGuess.distance * 1000)} m away`
+              }
+            </Text>
+
+            {/* Points */}
+            <Text style={[styles.endBannerPoints, { color: getPointsColor(lastGuess.points) }]}>
+              {lastGuess.points.toLocaleString()} points
+            </Text>
+
+            {/* Next Round / View Results button */}
+            <Pressable
+              onPress={handleNextRound}
+              style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.nextRoundBtn}
+              >
+                <Text style={styles.nextRoundBtnText}>
+                  {gameState.currentRound >= gameState.totalRounds
+                    ? 'View Results'
+                    : 'Next Round'
+                  }
+                </Text>
+              </LinearGradient>
             </Pressable>
           </View>
-        )}
-      </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -411,134 +572,218 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.white,
   },
-  streetViewContainer: {
-    flex: 1,
-    position: 'relative',
+
+  // ── Timer (top right) - matches web .timer.shown ─────────
+  timerContainer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    zIndex: 102,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+    paddingTop: spacing.sm,
   },
-  streetViewLandscape: {
-    flex: 0.6,
+  timerPill: {
+    backgroundColor: colors.primaryTransparent,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+      },
+      android: { elevation: 8 },
+    }),
   },
-  topBar: {
+  timerText: {
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: fontSizes.sm,
+    letterSpacing: 0.3,
+  },
+  timerScore: {
+    color: colors.textSecondary,
+    fontWeight: '600',
+    fontSize: fontSizes.xs,
+  },
+
+  // ── Close button (top left) ──────────────────────────────
+  closeButtonContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
-    right: 0,
+    zIndex: 102,
+    paddingLeft: spacing.lg,
+    paddingTop: spacing.sm,
   },
-  topBarContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  quitButton: {
+  closeButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  roundInfo: {
-    alignItems: 'center',
-  },
-  roundText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  scoreText: {
-    fontSize: fontSizes.sm,
-    color: colors.textSecondary,
-  },
-  resultOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 100,
-  },
-  resultCard: {
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.xl,
-    padding: spacing['2xl'],
-    alignItems: 'center',
-    minWidth: 280,
-  },
-  resultPoints: {
-    fontSize: fontSizes['3xl'],
-    fontWeight: 'bold',
-    marginBottom: spacing.sm,
-  },
-  resultDistance: {
-    fontSize: fontSizes.lg,
-    color: colors.textSecondary,
-    marginBottom: spacing['2xl'],
-  },
-  nextButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing['2xl'],
-    borderRadius: borderRadius.lg,
-    gap: spacing.sm,
-  },
-  nextButtonText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.white,
-  },
-  mapContainer: {
-    height: 200,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    overflow: 'hidden',
-    backgroundColor: colors.primaryDark,
-  },
-  mapContainerExpanded: {
-    height: '50%',
-  },
-  mapContainerLandscape: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: '40%',
-    height: '100%',
-    borderRadius: 0,
-  },
-  mapExpandButton: {
-    position: 'absolute',
-    top: spacing.sm,
-    left: '50%',
-    marginLeft: -20,
-    width: 40,
-    height: 24,
-    borderRadius: borderRadius.sm,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 10,
   },
-  mapActions: {
+
+  // ── Map overlay - slides up from bottom ──────────────────
+  mapOverlay: {
     position: 'absolute',
     bottom: 0,
-    left: spacing.lg,
-    right: spacing.lg,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    overflow: 'hidden',
   },
-  guessButton: {
-    backgroundColor: colors.primary,
+
+  // ── Guess/collapse buttons above map ─────────────────────
+  // Matches web: .mobile_minimap__btns.miniMapShown
+  mapButtonsRow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: spacing.md,
+    zIndex: 1500,
+  },
+  guessSubmitBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  guessSubmitBtnDisabled: {
+    opacity: 0.6,
+  },
+  guessSubmitBtnGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+    // Match web: .guessBtn box-shadow
+    ...Platform.select({
+      ios: {
+        shadowColor: '#1d1d5b',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 15,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  guessSubmitBtnText: {
+    color: colors.white,
+    fontSize: fontSizes.lg,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  mapCollapseBtn: {
+    width: 60,
+    height: 48,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  mapCollapseBtnInner: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: colors.primaryDark,
+  },
+
+  // ── Floating Guess FAB - bottom right ────────────────────
+  // Matches web: .g2_mobile_guess
+  guessFab: {
+    position: 'absolute',
+    right: 20,
+    zIndex: 1500,
+  },
+  guessFabInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: colors.primaryDark,
+    ...Platform.select({
+      ios: {
+        shadowColor: colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 15,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  guessFabText: {
+    color: colors.white,
+    fontSize: fontSizes.xl,
+    fontWeight: '600',
+  },
+
+  // ── End Banner - matches web #endBanner ──────────────────
+  endBanner: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1001,
+  },
+  endBannerContent: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backdropFilter: 'blur(10px)',
+    borderRadius: 10,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: { elevation: 8 },
+    }),
+  },
+  endBannerDistance: {
+    color: colors.white,
+    fontSize: fontSizes.lg,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  endBannerPoints: {
+    fontSize: fontSizes['2xl'],
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  nextRoundBtn: {
+    marginTop: spacing.sm,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing['3xl'],
     borderRadius: borderRadius.lg,
     alignItems: 'center',
+    minWidth: 200,
   },
-  guessButtonDisabled: {
-    backgroundColor: colors.textMuted,
-  },
-  guessButtonText: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
+  nextRoundBtnText: {
     color: colors.white,
+    fontSize: fontSizes.lg,
+    fontWeight: '600',
   },
 });
