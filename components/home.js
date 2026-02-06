@@ -258,6 +258,16 @@ export default function Home({ }) {
     }, [session?.token?.email])
 
 
+    useEffect(() => {
+        const handlePageClose = () => {
+            window.isPageClosing = true;
+            // Reset flag if unload is cancelled by another handler
+            setTimeout(() => { window.isPageClosing = false; }, 0);
+        };
+        window.addEventListener('beforeunload', handlePageClose);
+        return () => window.removeEventListener('beforeunload', handlePageClose);
+    }, [])
+
     // this breaks stuff like logout and set username reloads
     // useEffect(() => {
     //   window.onbeforeunload = function(e) {
@@ -1804,7 +1814,7 @@ export default function Home({ }) {
         ws.onclose = () => {
             setWs(null)
             console.log("ws closed")
-            sendEvent("multiplayer_disconnect")
+            if (!window.isPageClosing) sendEvent("multiplayer_disconnect")
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
                 maxRetries: prev.maxRetries,
@@ -1828,7 +1838,7 @@ export default function Home({ }) {
         ws.onerror = () => {
             setWs(null)
             console.log("ws error")
-            sendEvent("multiplayer_disconnect")
+            if (!window.isPageClosing) sendEvent("multiplayer_disconnect")
 
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
