@@ -30,16 +30,15 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
 
         { loginQueued ? (
           <div style={{ marginRight: '10px', marginLeft: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <div style={{
-                width: '16px',
-                height: '16px',
-                border: '2px solid rgba(255, 255, 255, 0.3)',
-                borderTop: '2px solid white',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }}></div>
-            </div>
+            {text("login")}&nbsp;&nbsp;
+            <div style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
+              borderTop: '2px solid white',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
           </div>
         ) : !session?.token?.secret && session !== null ? '...' :
         (

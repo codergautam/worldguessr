@@ -696,6 +696,10 @@ html {
     background-color: rgba(40, 40, 40, 0.3);
     cursor: not-allowed;
 }
+.accountBtn[disabled], .navBtn[disabled] {
+    background-color: var(--primaryTransparent);
+    cursor: wait;
+}
 
 .homeBtn {
     padding: 10px;
