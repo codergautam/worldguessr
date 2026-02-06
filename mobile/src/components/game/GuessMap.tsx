@@ -1,7 +1,12 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Platform, GestureResponderEvent } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Asset } from 'expo-asset';
 import { colors } from '../../shared';
+
+// Pre-create Asset objects (doesn't download yet)
+const guessPinModule = require('../../../assets/marker-src.png');
+const actualPinModule = require('../../../assets/marker-dest.png');
 
 interface GuessMapProps {
   guessPosition: { lat: number; lng: number } | null;
@@ -23,6 +28,15 @@ export default function GuessMap({
   const touchStart = useRef({ x: 0, y: 0, time: 0 });
   const lastFastTap = useRef(0);
 
+  // Download marker assets to local filesystem so native Google Maps can load them
+  const [pinUris, setPinUris] = useState<{ guess?: string; actual?: string }>({});
+  useEffect(() => {
+    (async () => {
+      const [g, a] = await Asset.loadAsync([guessPinModule, actualPinModule]);
+      setPinUris({ guess: g.localUri ?? g.uri, actual: a.localUri ?? a.uri });
+    })();
+  }, []);
+
   // When showing result, fit both markers in view
   useEffect(() => {
     if (actualPosition && guessPosition && mapRef.current) {
@@ -37,6 +51,32 @@ export default function GuessMap({
       });
     }
   }, [actualPosition, guessPosition]);
+
+  // Reset map to world view when a new round starts (actualPosition cleared)
+  const prevActualPosition = useRef(actualPosition);
+  useEffect(() => {
+    if (prevActualPosition.current && !actualPosition && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: 20,
+        longitude: 0,
+        latitudeDelta: 100,
+        longitudeDelta: 100,
+      }, 0);
+    }
+    prevActualPosition.current = actualPosition;
+  }, [actualPosition]);
+
+  // Force correct region after map initialization (safety net for 0-height mount)
+  const handleMapReady = useCallback(() => {
+    if (mapRef.current && !actualPosition) {
+      mapRef.current.animateToRegion({
+        latitude: 20,
+        longitude: 0,
+        latitudeDelta: 100,
+        longitudeDelta: 100,
+      }, 0);
+    }
+  }, [actualPosition]);
 
   // Fast tap detection via raw touch events (bypasses MapView's ~300ms onPress delay)
   const handleTouchStart = useCallback((e: GestureResponderEvent) => {
@@ -97,6 +137,8 @@ export default function GuessMap({
           longitudeDelta: 100,
         }}
         onPress={handleMapPress}
+        onMapReady={handleMapReady}
+        moveOnMarkerPress={false}
         mapType="standard"
         showsUserLocation={false}
         showsMyLocationButton={false}
@@ -105,26 +147,26 @@ export default function GuessMap({
         pitchEnabled={false}
       >
         {/* Guess marker */}
-        {guessPosition && (
+        {guessPosition && pinUris.guess && (
           <Marker
             coordinate={{
               latitude: guessPosition.lat,
               longitude: guessPosition.lng,
             }}
-            pinColor={colors.primary}
-            title="Your guess"
+            image={{ uri: pinUris.guess }}
+            anchor={{ x: 0.5, y: 1 }}
           />
         )}
 
         {/* Actual location marker */}
-        {actualPosition && (
+        {actualPosition && pinUris.actual && (
           <Marker
             coordinate={{
               latitude: actualPosition.lat,
               longitude: actualPosition.lng,
             }}
-            pinColor={colors.success}
-            title="Actual location"
+            image={{ uri: pinUris.actual }}
+            anchor={{ x: 0.5, y: 1 }}
           />
         )}
 

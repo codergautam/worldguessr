@@ -86,7 +86,7 @@ export default function GameScreen() {
   const [guessPosition, setGuessPosition] = useState<{ lat: number; lng: number } | null>(null);
   // Map is HIDDEN by default on mobile, matching web behavior
   const [miniMapShown, setMiniMapShown] = useState(false);
-  // Only mount the map once it's first shown (avoids initializing at height 0)
+  // Mount the map eagerly once loading completes to avoid first-touch issues
   const [mapMounted, setMapMounted] = useState(false);
 
   // Animation values
@@ -95,12 +95,15 @@ export default function GameScreen() {
   const bannerSlideAnim = useRef(new Animated.Value(300)).current;
   const fabScaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Mount map on first show so it initializes with actual size
+  // Mount map eagerly once game loads — prevents first-touch being swallowed
+  // by a freshly-mounted MapView when showing the first round's result
   useEffect(() => {
-    if (miniMapShown || gameState.isShowingResult) {
-      setMapMounted(true);
+    if (!isLoading && !mapMounted) {
+      // Small delay so the initial render settles before adding the MapView
+      const timer = setTimeout(() => setMapMounted(true), 300);
+      return () => clearTimeout(timer);
     }
-  }, [miniMapShown, gameState.isShowingResult]);
+  }, [isLoading, mapMounted]);
 
   // Animate map slide in/out
   useEffect(() => {
@@ -149,6 +152,8 @@ export default function GameScreen() {
   }, [miniMapShown, gameState.isShowingResult]);
 
   // Banner slide animation
+  // useNativeDriver: false ensures JS-side touch targets match the banner's
+  // visual position, preventing the "first tap ignored" bug on first round
   useEffect(() => {
     if (gameState.isShowingResult) {
       bannerSlideAnim.setValue(300);
@@ -156,13 +161,13 @@ export default function GameScreen() {
         toValue: 0,
         friction: 8,
         tension: 50,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     } else {
       Animated.timing(bannerSlideAnim, {
         toValue: 300,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     }
   }, [gameState.isShowingResult]);
@@ -426,18 +431,22 @@ export default function GameScreen() {
         ]}
         pointerEvents={miniMapShown || gameState.isShowingResult ? 'auto' : 'none'}
       >
-        {mapMounted && (
-          <GuessMap
-            guessPosition={guessPosition}
-            actualPosition={
-              gameState.isShowingResult
-                ? { lat: currentLocation.lat, lng: currentLocation.long }
-                : undefined
-            }
-            onMapPress={handleMapPress}
-            isExpanded={true}
-          />
-        )}
+        {/* Inner wrapper gives MapView a fixed height so initialRegion works
+            even when the animated outer container starts at 0px height */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: height }}>
+          {mapMounted && (
+            <GuessMap
+              guessPosition={guessPosition}
+              actualPosition={
+                gameState.isShowingResult
+                  ? { lat: currentLocation.lat, lng: currentLocation.long }
+                  : undefined
+              }
+              onMapPress={handleMapPress}
+              isExpanded={true}
+            />
+          )}
+        </View>
       </Animated.View>
 
       {/* ═══ MOBILE GUESS BUTTONS - above map when map is open ═══ */}
@@ -545,6 +554,11 @@ export default function GameScreen() {
           ]}
         >
           <View style={styles.endBannerContent}>
+            {/* Round & score context */}
+            <Text style={styles.endBannerRound}>
+              Round {gameState.currentRound}/{gameState.totalRounds}
+            </Text>
+
             {/* Distance text */}
             <Text style={styles.endBannerDistance}>
               {lastGuess.distance >= 1
@@ -556,6 +570,11 @@ export default function GameScreen() {
             {/* Points */}
             <Text style={[styles.endBannerPoints, { color: getPointsColor(lastGuess.points) }]}>
               {lastGuess.points.toLocaleString()} points
+            </Text>
+
+            {/* Running total */}
+            <Text style={styles.endBannerTotal}>
+              Total: {gameState.totalScore.toLocaleString()} / {gameState.totalRounds * 5000}
             </Text>
 
             {/* Next Round / View Results button */}
@@ -631,7 +650,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
   },
   timerPill: {
-    backgroundColor: colors.primaryTransparent,
+    backgroundColor: Platform.OS === 'android' ? '#1a4423' : colors.primaryTransparent,
     borderRadius: borderRadius.xl,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
@@ -787,23 +806,30 @@ const styles = StyleSheet.create({
     zIndex: 1001,
   },
   endBannerContent: {
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    backdropFilter: 'blur(10px)',
-    borderRadius: 10,
+    backgroundColor: 'rgba(17, 43, 24, 0.92)',
+    borderRadius: 12,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
     padding: spacing.xl,
     alignItems: 'center',
     gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
       },
-      android: { elevation: 8 },
+      android: { elevation: 12 },
     }),
+  },
+  endBannerRound: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: fontSizes.sm,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   endBannerDistance: {
     color: colors.white,
@@ -814,6 +840,12 @@ const styles = StyleSheet.create({
   endBannerPoints: {
     fontSize: fontSizes['2xl'],
     fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  endBannerTotal: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: fontSizes.sm,
+    fontWeight: '500',
     textAlign: 'center',
   },
   nextRoundBtn: {
