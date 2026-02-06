@@ -414,8 +414,10 @@ export default class Game {
     const tag = this.players[player.id].tag;
 
     // For ranked duels: if someone leaves during "getready" (countdown before first round),
-    // cancel the game without ELO penalties - no actual gameplay has happened yet
-    const isPreGameLeave = this.public && this.duel && this.state === 'getready';
+    // cancel the game without ELO penalties - no actual gameplay has happened yet.
+    // curRound is set to 1 at start() and incremented after each round, so curRound <= 1
+    // ensures we only treat it as pregame during the initial countdown, not between rounds.
+    const isPreGameLeave = this.public && this.duel && this.state === 'getready' && this.curRound <= 1;
     // Track disconnection for ranked duels (only if actual gameplay has started)
     if(this.public && this.duel && !isPreGameLeave) {
       this.disconnectedPlayer = tag;
