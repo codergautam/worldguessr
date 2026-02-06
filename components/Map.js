@@ -8,6 +8,40 @@ import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
 const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
 
+// Simple seeded random for stable hint offset per round
+function seededRandom(seed) {
+  const x = Math.sin(seed * 9999) * 10000;
+  return x - Math.floor(x);
+}
+
+// Calculate hint circle center with random offset (location guaranteed to be inside)
+function getHintCircleCenter(location, radius, round) {
+  const seed = round ?? 1;
+  // Use location coords as part of seed for more variation
+  const locSeed = Math.abs(location.lat * 1000 + location.long * 1000) + seed;
+
+  // Offset by 5-70% of radius (max 70% ensures location stays well inside)
+  const offsetFraction = 0.05 + seededRandom(locSeed) * 0.65;
+  const offsetAngle = seededRandom(locSeed * 7.3) * 2 * Math.PI;
+
+  // Convert offset to meters, then to degrees
+  const offsetMeters = radius * offsetFraction;
+
+  // Account for longitude shrinking at higher latitudes
+  const latRad = (location.lat * Math.PI) / 180;
+  const metersPerDegreeLat = 111320; // roughly constant
+  const metersPerDegreeLng = 111320 * Math.cos(latRad);
+
+  // Calculate offset in degrees
+  const offsetLatDeg = (offsetMeters * Math.cos(offsetAngle)) / metersPerDegreeLat;
+  const offsetLngDeg = (offsetMeters * Math.sin(offsetAngle)) / metersPerDegreeLng;
+
+  return {
+    lat: location.lat + offsetLatDeg,
+    lng: location.long + offsetLngDeg
+  };
+}
+
 // Dynamic import of react-leaflet components
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -249,7 +283,11 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   } */}
 
       {showHint && location && (
-        <Circle center={{ lat: location.lat, lng: location.long }} radius={hintMul * (gameOptions?.maxDist) ?? 0} className="hintCircle" />
+        <Circle
+          center={getHintCircleCenter(location, hintMul * (gameOptions?.maxDist ?? 20000), round)}
+          radius={hintMul * (gameOptions?.maxDist ?? 20000)}
+          className="hintCircle"
+        />
       )}
 
       <TileLayer
