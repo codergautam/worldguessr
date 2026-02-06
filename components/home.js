@@ -2162,7 +2162,6 @@ export default function Home({ }) {
                         if (gameOptions.location === "all") {
                             const loc = data.locations[0]
                             setLatLong(loc)
-                            console.log("setting latlong", loc)
                         } else {
                             let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
