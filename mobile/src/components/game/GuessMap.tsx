@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { useRef, useEffect, useCallback } from 'react';
+import { View, StyleSheet, Platform, GestureResponderEvent } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { colors } from '../../shared';
 
@@ -10,6 +10,9 @@ interface GuessMapProps {
   isExpanded?: boolean;
 }
 
+const TAP_SLOP = 10; // max px movement to count as tap
+const TAP_MAX_MS = 300; // max duration to count as tap
+
 export default function GuessMap({
   guessPosition,
   actualPosition,
@@ -17,6 +20,8 @@ export default function GuessMap({
   isExpanded,
 }: GuessMapProps) {
   const mapRef = useRef<MapView>(null);
+  const touchStart = useRef({ x: 0, y: 0, time: 0 });
+  const lastFastTap = useRef(0);
 
   // When showing result, fit both markers in view
   useEffect(() => {
@@ -33,15 +38,54 @@ export default function GuessMap({
     }
   }, [actualPosition, guessPosition]);
 
-  const handleMapPress = (event: any) => {
-    if (actualPosition) return; // Don't allow new guesses when showing result
+  // Fast tap detection via raw touch events (bypasses MapView's ~300ms onPress delay)
+  const handleTouchStart = useCallback((e: GestureResponderEvent) => {
+    touchStart.current = {
+      x: e.nativeEvent.pageX,
+      y: e.nativeEvent.pageY,
+      time: Date.now(),
+    };
+  }, []);
+
+  const handleTouchEnd = useCallback(async (e: GestureResponderEvent) => {
+    if (actualPosition) return;
+
+    const dx = Math.abs(e.nativeEvent.pageX - touchStart.current.x);
+    const dy = Math.abs(e.nativeEvent.pageY - touchStart.current.y);
+    const dt = Date.now() - touchStart.current.time;
+
+    if (dx < TAP_SLOP && dy < TAP_SLOP && dt < TAP_MAX_MS && mapRef.current) {
+      try {
+        const coord = await (mapRef.current as any).coordinateForPoint({
+          x: e.nativeEvent.locationX,
+          y: e.nativeEvent.locationY,
+        });
+        if (coord) {
+          lastFastTap.current = Date.now();
+          onMapPress(coord.latitude, coord.longitude);
+        }
+      } catch {
+        // coordinateForPoint failed, fall through to MapView onPress
+      }
+    }
+  }, [actualPosition, onMapPress]);
+
+  // Fallback: MapView's built-in onPress (slower but reliable)
+  const handleMapPress = useCallback((event: any) => {
+    if (actualPosition) return;
+    // Skip if fast tap already handled this touch
+    if (Date.now() - lastFastTap.current < 500) return;
 
     const { latitude, longitude } = event.nativeEvent.coordinate;
     onMapPress(latitude, longitude);
-  };
+  }, [actualPosition, onMapPress]);
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <MapView
         ref={mapRef}
         style={styles.map}

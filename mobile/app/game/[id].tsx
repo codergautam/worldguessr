@@ -86,11 +86,21 @@ export default function GameScreen() {
   const [guessPosition, setGuessPosition] = useState<{ lat: number; lng: number } | null>(null);
   // Map is HIDDEN by default on mobile, matching web behavior
   const [miniMapShown, setMiniMapShown] = useState(false);
+  // Only mount the map once it's first shown (avoids initializing at height 0)
+  const [mapMounted, setMapMounted] = useState(false);
 
   // Animation values
   const mapSlideAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
+  const mapBtnsAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
   const bannerSlideAnim = useRef(new Animated.Value(300)).current;
   const fabScaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Mount map on first show so it initializes with actual size
+  useEffect(() => {
+    if (miniMapShown || gameState.isShowingResult) {
+      setMapMounted(true);
+    }
+  }, [miniMapShown, gameState.isShowingResult]);
 
   // Animate map slide in/out
   useEffect(() => {
@@ -115,6 +125,25 @@ export default function GameScreen() {
         duration: 250,
         easing: Easing.ease,
         useNativeDriver: false,
+      }).start();
+    }
+  }, [miniMapShown, gameState.isShowingResult]);
+
+  // Map buttons (Guess + collapse) slide up with map
+  useEffect(() => {
+    if (miniMapShown && !gameState.isShowingResult) {
+      mapBtnsAnim.setValue(0);
+      Animated.spring(mapBtnsAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 50,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(mapBtnsAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
       }).start();
     }
   }, [miniMapShown, gameState.isShowingResult]);
@@ -397,22 +426,38 @@ export default function GameScreen() {
         ]}
         pointerEvents={miniMapShown || gameState.isShowingResult ? 'auto' : 'none'}
       >
-        <GuessMap
-          guessPosition={guessPosition}
-          actualPosition={
-            gameState.isShowingResult
-              ? { lat: currentLocation.lat, lng: currentLocation.long }
-              : undefined
-          }
-          onMapPress={handleMapPress}
-          isExpanded={true}
-        />
+        {mapMounted && (
+          <GuessMap
+            guessPosition={guessPosition}
+            actualPosition={
+              gameState.isShowingResult
+                ? { lat: currentLocation.lat, lng: currentLocation.long }
+                : undefined
+            }
+            onMapPress={handleMapPress}
+            isExpanded={true}
+          />
+        )}
       </Animated.View>
 
       {/* ═══ MOBILE GUESS BUTTONS - above map when map is open ═══ */}
       {/* Matches web: .mobile_minimap__btns.miniMapShown */}
       {miniMapShown && !gameState.isShowingResult && (
-        <View style={[styles.mapButtonsRow, { bottom: height * 0.7 + 8 }]}>
+        <Animated.View
+          style={[
+            styles.mapButtonsRow,
+            { bottom: height * 0.7 + 8 },
+            {
+              opacity: mapBtnsAnim,
+              transform: [{
+                translateY: mapBtnsAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [40, 0],
+                }),
+              }],
+            },
+          ]}
+        >
           {/* Guess submit button (blue) */}
           <Pressable
             onPress={handleSubmitGuess}
@@ -455,7 +500,7 @@ export default function GameScreen() {
               <Ionicons name="arrow-down" size={24} color={colors.white} />
             </LinearGradient>
           </Pressable>
-        </View>
+        </Animated.View>
       )}
 
       {/* ═══ FLOATING GUESS FAB - bottom right when map hidden ═══ */}
@@ -662,9 +707,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
   },
-  guessSubmitBtnDisabled: {
-    opacity: 0.6,
-  },
+  guessSubmitBtnDisabled: {},
   guessSubmitBtnGradient: {
     flex: 1,
     justifyContent: 'center',

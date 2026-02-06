@@ -14,7 +14,8 @@
       "Bash(do echo \"=== $lang ===\")",
       "Bash(done)",
       "Bash(find:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": []
   }
