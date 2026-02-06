@@ -583,8 +583,10 @@ export default function GameResultsScreen() {
           colors={['rgba(20, 65, 25, 0.97)', 'rgba(20, 65, 25, 0.90)']}
           style={styles.portraitPanelGradient}
         >
-          {/* Drag handle */}
-          <View style={styles.handleBar} />
+          {/* Drag handle — tap to toggle details */}
+          <Pressable onPress={toggleDetails} style={styles.handleBarTouchArea}>
+            <View style={styles.handleBar} />
+          </Pressable>
 
           {renderHeader(detailsExpanded)}
 
@@ -652,14 +654,16 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
   },
+  handleBarTouchArea: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
   handleBar: {
     width: 40,
     height: 4,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 4,
   },
 
   // ── Header section (stars, score, buttons) ─────────────────
