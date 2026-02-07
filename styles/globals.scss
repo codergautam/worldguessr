@@ -34,6 +34,7 @@ html * {
 button {
     //box-shadow: 0 0.275rem 1.125rem rgba(0,0,0,.25), inset 0 0.0625rem 0 hsla(0,0%,100%,.2), inset 0 -0.125rem 0 rgba(0,0,0,.3);
     border: none;
+    padding: 0;
 }
 
 .home {
@@ -753,6 +754,7 @@ html {
     pointer-events: all;
     background-color: var(--primaryTransparent);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    padding: 1px 10px;
 }
 
 .accountBtn.loggedIn {
@@ -771,6 +773,7 @@ html {
     pointer-events: all;
     aspect-ratio: 1/1;
     height: 42px;
+    padding: 6px;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
@@ -1179,7 +1182,7 @@ h1, h2, h3, span, label {
         0 4px 12px rgba(36, 87, 52, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.15);
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    margin-right: 20px;
+    margin-right: 10px;
     letter-spacing: 0.025em;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
