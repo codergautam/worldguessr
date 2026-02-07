@@ -1,12 +1,50 @@
 import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Circle, Marker, Polyline, Popup, Tooltip, useMapEvents } from "react-leaflet";
+import { CircleMarker, Marker, Polyline, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
-const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
+const hintMul = 7500000 / 20000; //7500000 for all countries (20,000 km)
+
+// Simple seeded random for stable hint offset per round
+function seededRandom(seed) {
+  const x = Math.sin(seed * 9999) * 10000;
+  return x - Math.floor(x);
+}
+
+// HintCircle component that scales with zoom
+function HintCircle({ location, gameOptions, round }) {
+  const [zoom, setZoom] = useState(2);
+
+  const map = useMapEvents({
+    zoom: () => setZoom(map.getZoom()),
+  });
+
+  // 100px at zoom 1, doubles each zoom level
+  const ogRadius = 75
+  const pixelRadius = ogRadius * Math.pow(2, zoom - 1);
+  // Offset the center by 0 to pixelRadius in a random direction (sqrt for uniform area distribution)
+  const seed = (round ?? 1) + Math.abs(location.lat * ogRadius + location.long * ogRadius);
+  const offsetAngle = seededRandom(seed * 3) * 2 * Math.PI;
+  const offsetAmount = Math.sqrt(seededRandom(seed * 7)) * pixelRadius;
+  const offsetX = offsetAmount * Math.cos(offsetAngle);
+  const offsetY = offsetAmount * Math.sin(offsetAngle);
+
+  // Convert pixel offset back to lat/lng
+  const pointC = map.latLngToContainerPoint(L.latLng(location.lat, location.long));
+  const offsetPoint = L.point(pointC.x + offsetX, pointC.y + offsetY);
+  const offsetCenter = map.containerPointToLatLng(offsetPoint);
+
+  return (
+    <CircleMarker
+      center={offsetCenter}
+      radius={pixelRadius}
+      className="hintCircle"
+    />
+  );
+}
 
 // Simple seeded random for stable hint offset per round
 function seededRandom(seed) {
@@ -203,7 +241,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
     >
 
       <div className='mapAttr'>
-        <img width="60" src='https://lh3.googleusercontent.com/d_S5gxu_S1P6NR1gXeMthZeBzkrQMHdI5uvXrpn3nfJuXpCjlqhLQKH_hbOxTHxFhp5WugVOEcl4WDrv9rmKBDOMExhKU5KmmLFQVg' />
+        <img width="60" src='https://lh3.googleusercontent.com/d_S5gxu_S1P6NR1gXeMthZeBzkrQMHdI5uvXrpn3nfJuXpCjlqhLQKH_hbOxTHxFhp5WugVOEcl4WDrv9rmKBDOMExhKU5KmmLFQVg' alt="Google" />
       </div>
       <MapPlugin playSound={
         () => {
@@ -283,11 +321,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   } */}
 
       {showHint && location && (
-        <Circle
-          center={getHintCircleCenter(location, hintMul * (gameOptions?.maxDist ?? 20000), round)}
-          radius={hintMul * (gameOptions?.maxDist ?? 20000)}
-          className="hintCircle"
-        />
+        <HintCircle location={location} gameOptions={gameOptions} round={round} />
       )}
 
       <TileLayer

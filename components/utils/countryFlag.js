@@ -5,7 +5,7 @@
  * @param {object} style - Optional inline styles for the container
  * @param {number} size - Flag height in em units (default: 1, scales with font size)
  */
-export default function CountryFlag({ countryCode, style = {}, size = 1 }) {
+export default function CountryFlag({ countryCode, style = {}, size = 1, marginRight = '0.4em' }) {
   // Return null if no country code or empty string (user opted out)
   if (!countryCode || countryCode === '') {
     return null;
@@ -36,7 +36,7 @@ export default function CountryFlag({ countryCode, style = {}, size = 1 }) {
         display: 'inline-block',
         width: `${width}em`,
         height: `${height}em`,
-        marginRight: '0.4em',
+        marginRight: marginRight,
         verticalAlign: 'middle',
         flexShrink: 0,
         objectFit: 'cover',

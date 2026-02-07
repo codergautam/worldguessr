@@ -8,6 +8,7 @@ import { Filter } from "bad-words";
 import UserStatsService from "../components/utils/userStatsService.js";
 import ModerationLog from "../models/ModerationLog.js";
 import Report from "../models/Report.js";
+import NameChangeRequest from "../models/NameChangeRequest.js";
 const filter = new Filter();
 
 export default async function handler(req, res) {
@@ -67,6 +68,48 @@ export default async function handler(req, res) {
       if (isActiveBan) {
         return res.status(403).json({ message: "Banned users cannot change their username" });
       }
+    }
+
+    // If user has a forced name change, submit for moderator review instead of direct change
+    if (user.pendingNameChange) {
+      // Check if user already has a pending request
+      const existingRequest = await NameChangeRequest.findOne({
+        'user.accountId': user._id.toString(),
+        status: 'pending'
+      });
+
+      if (existingRequest) {
+        // Update the existing request with the new name
+        await NameChangeRequest.findByIdAndUpdate(existingRequest._id, {
+          requestedUsername: username,
+          updatedAt: new Date()
+        });
+
+        return res.status(200).json({
+          success: true,
+          pendingReview: true,
+          message: 'Your name change request has been updated. Please wait for moderator review.',
+          requestId: existingRequest._id
+        });
+      }
+
+      // Create new name change request
+      const nameRequest = await NameChangeRequest.create({
+        user: {
+          accountId: user._id.toString(),
+          currentUsername: user.username
+        },
+        requestedUsername: username,
+        reason: user.pendingNameChangeReason || 'Forced name change',
+        status: 'pending'
+      });
+
+      return res.status(200).json({
+        success: true,
+        pendingReview: true,
+        message: 'Your name change request has been submitted. Please wait for moderator review.',
+        requestId: nameRequest._id
+      });
     }
 
     if (user.username) {

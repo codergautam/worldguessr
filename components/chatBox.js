@@ -7,6 +7,7 @@ import { useTranslation } from '@/components/useTranslations';
 import { Filter } from 'bad-words';
 import { toast } from 'react-toastify';
 const filter = new Filter();
+filter.removeWords('damn');
 
 const config = {
   initialMessages: [],
@@ -153,6 +154,13 @@ function ChatBox({ ws, open, onToggle, enabled, myId, inGame, miniMapShown, isGu
       setUnreadCount(0);
     }
   }, [open]);
+
+  // Reset unread count when leaving a game (messages get cleared)
+  useEffect(() => {
+    if (!inGame) {
+      setUnreadCount(0);
+    }
+  }, [inGame]);
 
   useEffect(() => {
     if (!ws) return;

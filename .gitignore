@@ -46,4 +46,9 @@ public/wiki
 /scripts/*.json
 /.claude
 vali-data/*
-mapgens/*
+mapgens/*.txt
+mapgens/*-locations.json
+
+# Partytown (generated from node_modules)
+public/~partytown/
+mobile/

@@ -8,7 +8,8 @@ import { useEffect, useState, useRef } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
-import findLatLongRandom from "@/components/findLatLong";
+import shuffle from "@/utils/shuffle";
+// findLatLongRandom is dynamically imported when needed to avoid loading Google Maps API on page load
 import Link from "next/link";
 import MultiplayerHome from "@/components/multiplayerHome";
 import AccountModal from "@/components/accountModal";
@@ -26,37 +27,29 @@ import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
-// import RoundOverScreen from "@/components/roundOverScreen";
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
-import FriendsModal from "@/components/friendModal";
 import { toast, ToastContainer } from "react-toastify";
-import InfoModal from "@/components/infoModal";
 import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
 import MapsModal from "@/components/maps/mapsModal";
-import { useRouter } from "next/router";
-import { fromLonLat } from "ol/proj";
-import { boundingExtent } from "ol/extent";
 
 import countries from "@/public/countries.json";
 import officialCountryMaps from "@/public/officialCountryMaps.json";
 
 import gameStorage from "@/components/utils/localStorage";
 import DiscordModal from "@/components/discordModal";
-import MerchModal from "@/components/merchModal";
 import AlertModal from "@/components/ui/AlertModal";
 import WhatsNewModal from "@/components/ui/WhatsNewModal";
-import MapGuessrModal from "@/components/mapGuessrModal";
+const MapGuessrModal = dynamic(() => import("@/components/mapGuessrModal"), { ssr: false });
 import changelog from "@/components/changelog.json";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
-import haversineDistance from "./utils/haversineDistance";
+// import haversineDistance from "./utils/haversineDistance";
 import StreetView from "./streetview/streetView";
 import Stats from "stats.js";
 // import SvEmbedIframe from "./streetview/svHandler"; // REMOVED: Using direct StreetView instead of double-iframe setup
-import HomeNotice from "./homeNotice";
-import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
+// import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
 import Ad from "./bannerAdNitro";
 import PendingNameChangeModal from "./pendingNameChangeModal";
@@ -213,13 +206,17 @@ export default function Home({ }) {
                 }).catch((e) => {
                     console.error("[Auth] Google OAuth failed after all retries:", e.message);
                     toast.error(`Login failed: ${e.message}. Please try again or contact support.`);
+                }).finally(() => {
+                    setLoginQueued(false);
                 })
             },
             onError: error => {
+                setLoginQueued(false);
                 toast.error("Login error, contact support if this persists")
                 console.log("login error", error);
             },
             onNonOAuthError: error => {
+                setLoginQueued(false);
                 console.log("login non oauth error", error);
                 toast.error("Login error, contact support if this persists (1)")
 
@@ -244,6 +241,36 @@ export default function Home({ }) {
             setSession(mainSession)
         }
     }, [JSON.stringify(mainSession), inCrazyGames])
+
+    // Pass hashed email (anonymous) to NitroAds for better ad targeting (logged-in users only, HTTPS only)
+    useEffect(() => {
+        const email = session?.token?.email;
+        if (!email || typeof window === 'undefined' || !window.nitroAds || window.location.protocol !== 'https:') return;
+
+        (async () => {
+            try {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(email.toLowerCase().trim());
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                window.nitroAds.addUserToken(email, 'PLAIN');
+            } catch (e) {
+                // Silently fail - ad targeting is non-critical
+            }
+        })();
+    }, [session?.token?.email])
+
+
+    useEffect(() => {
+        const handlePageClose = () => {
+            window.isPageClosing = true;
+            // Reset flag if unload is cancelled by another handler
+            setTimeout(() => { window.isPageClosing = false; }, 0);
+        };
+        window.addEventListener('beforeunload', handlePageClose);
+        return () => window.removeEventListener('beforeunload', handlePageClose);
+    }, [])
 
     // this breaks stuff like logout and set username reloads
     // useEffect(() => {
@@ -365,6 +392,7 @@ export default function Home({ }) {
                         } catch (e) { }
                     };
 
+                    const crazyAuthStart = performance.now();
                     fetch(clientConfigData.apiUrl + "/api/crazyAuth", {
                         method: "POST",
                         headers: {
@@ -376,7 +404,8 @@ export default function Home({ }) {
                         callLoadingStop();
                         return res.json();
                     }).then((data) => {
-                        console.log("crazygames auth", token, user, data)
+                        const crazyAuthDuration = (performance.now() - crazyAuthStart).toFixed(0);
+                        console.log(`[CrazyAuth] completed (took ${crazyAuthDuration}ms)`, token, user, data)
                         if (data.secret && data.username) {
                             // Store full auth data including extended fields (elo, rank, etc.)
                             setSession({ token: data })
@@ -398,7 +427,8 @@ export default function Home({ }) {
                     }).catch((e) => {
                         // Call loadingStop in case of network error (where first .then() never ran)
                         callLoadingStop();
-                        console.error("crazygames auth failed", e)
+                        const crazyAuthDuration = (performance.now() - crazyAuthStart).toFixed(0);
+                        console.error(`[CrazyAuth] failed (took ${crazyAuthDuration}ms)`, e)
                     });
 
                 }
@@ -1788,8 +1818,7 @@ export default function Home({ }) {
         ws.onclose = () => {
             setWs(null)
             console.log("ws closed")
-            sendEvent("multiplayer_disconnect")
-
+            if (!window.isPageClosing) sendEvent("multiplayer_disconnect")
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
                 maxRetries: prev.maxRetries,
@@ -1813,7 +1842,7 @@ export default function Home({ }) {
         ws.onerror = () => {
             setWs(null)
             console.log("ws error")
-            sendEvent("multiplayer_disconnect")
+            if (!window.isPageClosing) sendEvent("multiplayer_disconnect")
 
             setMultiplayerState((prev) => ({
                 ...initialMultiplayerState,
@@ -2084,15 +2113,21 @@ export default function Home({ }) {
             let options = JSON.parse(JSON.stringify(onboarding.locations[onboarding.round - 1].otherOptions));
             options.push(onboarding.locations[onboarding.round - 1].country)
             // shuffle
-            options = options.sort(() => Math.random() - 0.5)
+            options = shuffle(options)
             setOtherOptions(options)
         } else {
-            function defaultMethod() {
-                console.log("[PERF] loadLocation: Calling findLatLongRandom");
+            async function defaultMethod() {
+                console.log("[PERF] loadLocation: Calling findLatLongRandom (dynamic import)");
                 const startTime = performance.now();
-                findLatLongRandom(gameOptions).then((latLong) => {
+                try {
+                    const { default: findLatLongRandom } = await import("@/components/findLatLong");
+                    console.log(`[PERF] findLatLong module loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
+                    const latLong = await findLatLongRandom(gameOptions);
                     setLatLong(latLong);
-                });
+                } catch (err) {
+                    console.error("[ERROR] Failed to load location:", err);
+                    toast(text("errorLoadingMap"), { type: 'error' });
+                }
             }
             function fetchMethod() {
                 //gameOptions.countryMap && gameOptions.offical
@@ -2119,8 +2154,11 @@ export default function Home({ }) {
                             }
                         }
 
-                        // shuffle data.locations
-                        data.locations = data.locations.sort(() => Math.random() - 0.5)
+                        // Fisher-Yates shuffle (unbiased)
+                        for (let i = data.locations.length - 1; i > 0; i--) {
+                            const j = Math.floor(Math.random() * (i + 1));
+                            [data.locations[i], data.locations[j]] = [data.locations[j], data.locations[i]];
+                        }
 
 
                         setAllLocsArray(data.locations)
@@ -2128,7 +2166,6 @@ export default function Home({ }) {
                         if (gameOptions.location === "all") {
                             const loc = data.locations[0]
                             setLatLong(loc)
-                            console.log("setting latlong", loc)
                         } else {
                             let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
@@ -2139,11 +2176,10 @@ export default function Home({ }) {
                             setLatLong(loc)
                             if (data.name) {
 
-                                // calculate extent (for openlayers)
-                                const mappedLatLongs = data.locations.map((l) => fromLonLat([l.long, l.lat], 'EPSG:4326'));
-                                let extent = boundingExtent(mappedLatLongs);
-                                console.log("extent", extent)
-                                // convert extent from EPSG:4326 to EPSG:3857 (for openlayers)
+                                // calculate extent - simple bounding box [minLng, minLat, maxLng, maxLat]
+                                const lngs = data.locations.map(l => l.long);
+                                const lats = data.locations.map(l => l.lat);
+                                const extent = [Math.min(...lngs), Math.min(...lats), Math.max(...lngs), Math.max(...lats)];
 
                                 setGameOptions((prev) => ({
                                     ...prev,
@@ -2162,7 +2198,7 @@ export default function Home({ }) {
                         }
                         defaultMethod()
                     }
-                }).catch((e) => {
+                }).catch(() => {
                     toast(text("errorLoadingMap"), { type: 'error' })
                     defaultMethod()
                 });
@@ -2175,24 +2211,18 @@ export default function Home({ }) {
                 if ((locIndex === -1) || allLocsArray.length === 1) {
                     fetchMethod()
                 } else {
-                    if (gameOptions.location === "all") {
-                        const loc = allLocsArray[locIndex + 1] ?? allLocsArray[0];
+                    // prevent repeats: remove the prev location from the array (for both all and community maps)
+                    setAllLocsArray((prev) => {
+                        const newArr = prev.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long);
+
+                        // Pick next location
+                        const loc = gameOptions.location === "all"
+                            ? newArr[0]  // World map: take first from shuffled remaining
+                            : newArr[Math.floor(Math.random() * newArr.length)];  // Community: random
+
                         setLatLong(loc);
-                    } else {
-                        // prevent repeats: remove the prev location from the array
-                        setAllLocsArray((prev) => {
-                            const newArr = prev.filter((l) => l.lat !== latLong.lat && l.long !== latLong.long)
-
-
-                            // community maps are randomized
-                            const loc = newArr[Math.floor(Math.random() * newArr.length)];
-
-
-                            setLatLong(loc);
-                            return newArr;
-                        })
-
-                    }
+                        return newArr;
+                    })
                 }
 
             }
@@ -2296,24 +2326,17 @@ export default function Home({ }) {
         <>
             <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} />
 
-            <AccountModal inCrazyGames={inCrazyGames} shown={accountModalOpen} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
+            {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
                 ws={ws} canSendInvite={
-                    // send invite if in a private multiplayer game, dont need to be host or in game waiting just need to be in a Party
                     multiplayerState?.inGame && !multiplayerState?.gameData?.public
                 } sendInvite={sendInvite} options={options}
-
-            />
-            <SetUsernameModal shown={session && session?.token?.secret && !session.token.username} session={session} />
-            <SuggestAccountModal shown={showSuggestLoginModal} setOpen={setShowSuggestLoginModal} />
-            <DiscordModal shown={showDiscordModal && (typeof window !== 'undefined' && window.innerWidth >= 768)} setOpen={setShowDiscordModal} />
-            {/* <MerchModal shown={merchModal} onClose={() => setMerchModal(false)} session={session} /> */}
-            <MapGuessrModal isOpen={mapGuessrModal} onClose={() => setMapGuessrModal(false)} />
-            <PendingNameChangeModal
-                session={session}
-                isOpen={pendingNameChangeModal}
-                onClose={() => setPendingNameChangeModal(false)}
-            />
+            />}
+            {session?.token?.secret && !session.token.username && <SetUsernameModal shown={true} session={session} />}
+            {showSuggestLoginModal && <SuggestAccountModal shown={true} setOpen={setShowSuggestLoginModal} />}
+            {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
+            {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
+            {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
@@ -2369,7 +2392,7 @@ export default function Home({ }) {
                 msUserSelect: 'none',
                 pointerEvents: 'none',
             }}>
-                <NextImage.default src={'./street2christmas.jpg'}
+                <NextImage.default src={'./street2.webp'}
                     draggable={false}
                     width={1920}
                     height={1080}
@@ -2418,7 +2441,7 @@ export default function Home({ }) {
 
                 {/* Loading overlay - covers iframe with background image to prevent white flicker */}
                 <div className={`loading-overlay ${loading ? 'loading-overlay--visible' : ''}`}>
-                    <NextImage.default src={'./street2christmas.jpg'}
+                    <NextImage.default src={'./street2.webp'}
                         draggable={false}
                         width={1920}
                         height={1080}
@@ -2567,7 +2590,7 @@ export default function Home({ }) {
 
                 {/* reload button for public game */}
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
-                    <div className="gameBtnContainer" style={{ position: 'fixed', top: width > 830 ? '90px' : '50px', left: width > 830 ? '10px' : '0px', zIndex: 1000000 }}>
+                    <div className="gameBtnContainer" style={{ position: 'fixed', top: width > 830 ? '90px' : '90px', left: width > 830 ? '10px' : '7px', zIndex: 1000000 }}>
 
                         <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src="/return.png" alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
                     </div>
@@ -2791,8 +2814,7 @@ export default function Home({ }) {
                         </div>
                     </div>
                 }
-                <InfoModal shown={false} />
-                <MapsModal shown={mapModal || gameOptionsModalShown} session={session} onClose={() => {
+                {(mapModal || gameOptionsModalShown) && <MapsModal shown={true} session={session} onClose={() => {
                     if (mapModalClosing) return;
                     setMapModalClosing(true);
                     setTimeout(() => {
@@ -2808,12 +2830,12 @@ export default function Home({ }) {
                     } : null}
                     showAllCountriesOption={(gameOptionsModalShown && screen === "singleplayer")}
                     showOptions={screen === "singleplayer"}
-                    gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                    gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
-                <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={settingsModal} onClose={() => setSettingsModal(false)} />
+                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={true} onClose={() => setSettingsModal(false)} />}
 
-                <AlertModal
-                    isOpen={connectionErrorModalShown}
+                {connectionErrorModalShown && <AlertModal
+                    isOpen={true}
                     onClose={() => setConnectionErrorModalShown(false)}
                     title={multiplayerState.connecting ? text("multiplayerConnecting") : text("multiplayerNotConnected")}
                     message={multiplayerState.connecting
@@ -2824,7 +2846,7 @@ export default function Home({ }) {
                         : text("multiplayerConnectionErrorMessage")
                     }
                     type={multiplayerState.connecting ? "warning" : "error"}
-                />
+                />}
 
 
 
@@ -2964,11 +2986,6 @@ document.addEventListener(
             }
 }, 1000);
 
-    (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "ndud94nvsg");
 
   	window.aiptag = window.aiptag || {cmd: []};
 	aiptag.cmd.display = aiptag.cmd.display || [];

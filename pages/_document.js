@@ -1,10 +1,31 @@
 import { Html, Head, Main, NextScript } from "next/document";
-import React, { useEffect } from "react";
 
 export default function Document() {
   return (
     <Html lang="en" style={{ backgroundColor: '#000000' }}>
       <Head>
+        {/* Font preconnects and stylesheets */}
+        <link rel="preconnect" href="https://fonts.googleapis.com"/>
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>
+        <link href="https://fonts.googleapis.com/css2?family=Jockey+One&family=Lexend:wght@100..900&family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+
+        {/* Google Analytics */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              window.gtag = function(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', 'G-KFK0S0RXG5');
+              window.addEventListener('load', function() {
+                var s = document.createElement('script');
+                s.src = 'https://www.googletagmanager.com/gtag/js?id=G-KFK0S0RXG5';
+                s.async = true;
+                document.head.appendChild(s);
+              });
+            `,
+          }}
+        />
         <style dangerouslySetInnerHTML={{
           __html: `
             html, body {

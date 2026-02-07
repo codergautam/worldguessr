@@ -33,6 +33,10 @@ export default function ModDashboard({ session }) {
   const [userReportsPage, setUserReportsPage] = useState(1);
   const USER_REPORTS_PER_PAGE = 10;
 
+  // Game history pagination (lifted from GameHistory to preserve state when viewing a game)
+  const [gameHistoryPage, setGameHistoryPage] = useState(1);
+  const [savedScrollPosition, setSavedScrollPosition] = useState(0);
+
   // Action modal state
   const [actionModal, setActionModal] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -176,6 +180,7 @@ export default function ModDashboard({ session }) {
           setTargetUser(data.targetUser);
           setUserHistory(data.history);
           setUserReportsPage(1); // Reset reports pagination
+          setGameHistoryPage(1); // Reset game history pagination
 
           // Show notice if found by past name
           if (data.foundByPastName) {
@@ -195,6 +200,8 @@ export default function ModDashboard({ session }) {
   };
 
   const handleGameClick = (game) => {
+    // Save scroll position before viewing game
+    setSavedScrollPosition(window.scrollY);
     setSelectedGame(game);
   };
 
@@ -269,6 +276,7 @@ export default function ModDashboard({ session }) {
           setTargetUser(data.targetUser);
           setUserHistory(data.history);
           setUserReportsPage(1); // Reset reports pagination
+          setGameHistoryPage(1); // Reset game history pagination
           // Update input if user was found by past name
           if (data.foundByPastName) {
             setUsernameInput(data.targetUser.username);
@@ -313,6 +321,7 @@ export default function ModDashboard({ session }) {
         setUserHistory(data.history);
         setUsernameInput(data.targetUser.username);
         setUserReportsPage(1); // Reset reports pagination
+        setGameHistoryPage(1); // Reset game history pagination
       } else {
         const errorData = await response.json();
         setError(errorData.message || 'User not found');
@@ -1123,6 +1132,8 @@ export default function ModDashboard({ session }) {
           onBack={() => {
             setSelectedGame(null);
             setReportedUserId(null);
+            // Restore scroll position after component re-renders
+            setTimeout(() => window.scrollTo(0, savedScrollPosition), 0);
           }}
           onUsernameLookup={handleUsernameLookup}
           options={{ 
@@ -1355,9 +1366,8 @@ export default function ModDashboard({ session }) {
         </div>
       )}
 
-      {/* Main Dashboard */}
-      {!selectedGame && (
-        <div className={styles.modDashboard}>
+      {/* Main Dashboard - hidden instead of unmounted when viewing a game to preserve state */}
+      <div className={styles.modDashboard} style={{ display: selectedGame ? 'none' : undefined }}>
           <div className={styles.header}>
             <div className={styles.worldGuessrLogo}>
               <div className={styles.logoIcon}>🌍</div>
@@ -1647,6 +1657,8 @@ export default function ModDashboard({ session }) {
                     targetUserSecret={targetUser.secret}
                     targetUserData={targetUser}
                     onGameClick={handleGameClick}
+                    page={gameHistoryPage}
+                    setPage={setGameHistoryPage}
                   />
                 </div>
               ) : (
@@ -2229,7 +2241,6 @@ export default function ModDashboard({ session }) {
             </div>
           )}
         </div>
-      )}
     </>
   );
 }

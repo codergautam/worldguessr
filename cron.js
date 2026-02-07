@@ -16,10 +16,13 @@ import path from 'path';
 import mainWorld from './public/world-main.json' with { type: "json" };
 import arbitraryWorld from './data/world-arbitrary.json' with { type: "json" };
 import pinpointableWorld from './data/world-pinpointable.json' with { type: "json" };
+import diverseWorld from './data/diverse-locations.json' with { type: "json" };
 
 console.log("Locations in mainWorld", mainWorld.length);
 console.log("Locations in arbitraryWorld", arbitraryWorld.length);
 console.log("Locations in pinpointableWorld", pinpointableWorld.length);
+console.log("Locations in diverseWorld", diverseWorld.length); // this is a map that contains locations for just underrepresented countries in other maps
+
 configDotenv();
 
 console.log('[INFO] Starting cron.js...');
@@ -397,7 +400,7 @@ const initializeCountryPools = () => {
   const startTime = Date.now();
 
   // Combine all locations
-  const allLocations = [...mainWorld, ...arbitraryWorld, ...pinpointableWorld];
+  const allLocations = [...mainWorld, ...arbitraryWorld, ...pinpointableWorld, ...diverseWorld];
 
   // Group by country
   for (const loc of allLocations) {
@@ -595,7 +598,7 @@ app.get('/clueCountries.json', (req, res) => {
   if (clueLocations.length === 0) {
     return res.json({ ready: false });
   } else {
-    return res.json({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) });
+    return res.json({ ready: true, locations: shuffle([...clueLocations]) });
   }
 });
 

@@ -1,0 +1,33 @@
+{
+  "countryCodes": [
+    "DE", "NZ", "FI", "GR", "KH", "GH", "EC", "BO", "SN", "NG",
+    "BG", "UY", "KR", "GT", "IE", "HU", "LK", "CZ", "AT", "DK",
+    "NL", "TW", "PT", "BD", "HR", "CH", "RS", "LT", "LV", "EE",
+    "BE", "IS", "JO", "SK", "BW", "IL", "AE", "OM", "TN", "AL",
+    "SI", "PA", "BT", "ME", "SZ", "QA", "MN", "LS", "PS", "MK",
+    "LU", "RW", "DO", "UG", "SG", "AD", "SM", "LI", "CY", "CR", "LA", "MY"
+  ],
+  "distributionStrategy": {
+    "key": "FixedCountByMaxMinDistance",
+    "locationCountGoal": 290000,
+    "minMinDistance": 25
+  },
+  "countryDistribution": {
+    "DE": 100, "NZ": 100, "FI": 100, "GR": 100, "KH": 100,
+    "GH": 100, "EC": 100, "BO": 100, "SN": 100, "NG": 100,
+    "BG": 100, "UY": 100, "KR": 100, "GT": 100, "IE": 100,
+    "HU": 100, "LK": 100, "CZ": 100, "AT": 100, "DK": 100,
+    "NL": 100, "TW": 100, "PT": 100, "BD": 100, "HR": 100,
+    "CH": 100, "RS": 100, "LT": 100, "LV": 100, "EE": 100,
+    "BE": 100, "IS": 100, "JO": 100, "SK": 100, "BW": 100,
+    "IL": 100, "AE": 100, "OM": 100, "TN": 100, "AL": 100,
+    "SI": 100, "PA": 100, "BT": 100, "ME": 100, "SZ": 100,
+    "QA": 100, "MN": 100, "LS": 100, "PS": 100, "MK": 100,
+    "LU": 100, "RW": 100, "DO": 100, "UG": 100, "SG": 100,
+    "AD": 100, "SM": 100, "LI": 100, "CY": 100, "CR": 100, "LA": 100, "MY": 100
+  },
+  "output": {
+    "locationTags": ["CountryCode"],
+    "panoVerificationStrategy": "Newest"
+  }
+}

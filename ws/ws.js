@@ -498,8 +498,8 @@ function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=f
 app.ws('/wg', {
   /* Options */
   compression: uws.SHARED_COMPRESSOR,
-  maxPayloadLength: 16 * 1024 * 1024,
-  idleTimeout: 60,
+  maxPayloadLength: 64 * 1024 * 1024,
+  idleTimeout: 300,
   /* Handlers */
   upgrade: (res, req, context) => {
     let ip =  req.getHeader('x-forwarded-for') || req.getHeader('cf-connecting-ip') || 'unknown';
