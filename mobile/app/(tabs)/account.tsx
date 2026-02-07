@@ -60,7 +60,7 @@ export default function AccountScreen() {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            router.replace('/(auth)/login');
+            router.replace('/(tabs)/home');
           },
         },
       ]
@@ -75,7 +75,9 @@ export default function AccountScreen() {
           <Text style={styles.notLoggedIn}>Not logged in</Text>
           <Pressable
             style={styles.loginButton}
-            onPress={() => router.push('/(auth)/login')}
+            onPress={() => {
+              // TODO: Implement Google Sign-In directly
+            }}
           >
             <Text style={styles.loginButtonText}>Login</Text>
           </Pressable>

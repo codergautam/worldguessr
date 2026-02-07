@@ -192,7 +192,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       {/* Background Image */}
       <ImageBackground
-        source={{ uri: 'https://www.worldguessr.com/street2christmas.jpg' }}
+        source={require('../../assets/street2.jpg')}
         style={styles.backgroundImage}
         resizeMode="cover"
       />

@@ -1,4 +1,7 @@
 # WorldGuessr - Overview & Architecture
+Hi Claude, today we will primarily be working on stuff for the WorldGuessr mobile app located in the mobile/ folder of this directory. To  
+  get more context about this project please read the files in spec-claude/ which are a good starting place to understand this proj. I        
+  suggest you take a bit of time to immerse yourself with that and the codebase in mobile/ first and we will proceed!  
 
 ## What is WorldGuessr
 - Free GeoGuessr alternative web game
@@ -17,6 +20,8 @@
 - **Styling**: Plain CSS + SCSS (no CSS framework)
 - **i18n**: Custom hook-based system, 5 languages (en, es, fr, de, ru)
 - **Key Libraries**: react-responsive-modal, react-toastify, chart.js, react-icons, bad-words, @googlemaps/js-api-loader
+
+Our goal with this project is to create an exact replica of this web client in React Native, while minimizing bloat and ensuring a smoother experience (so not just a simple iframe, need to rebuild everything in a better manner while keeping exact same style and functionality)
 
 ## Project Structure
 ```

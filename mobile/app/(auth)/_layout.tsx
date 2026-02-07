@@ -9,7 +9,6 @@ export default function AuthLayout() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="login" />
       <Stack.Screen name="set-username" />
     </Stack>
   );
