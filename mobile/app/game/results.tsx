@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   View,
   Text,
-  Image,
   ScrollView,
   StyleSheet,
   Pressable,
@@ -15,8 +14,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import MapView, { Marker, Polyline, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Polyline, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { colors } from '../../src/shared';
+import PinMarker from '../../src/components/game/PinMarker';
 
 const guessPinImage = require('../../assets/marker-src.png');
 const actualPinImage = require('../../assets/marker-dest.png');
@@ -113,6 +113,7 @@ export default function GameResultsScreen() {
 
   const [activeRound, setActiveRound] = useState<number | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
+  const [collapsedContentHeight, setCollapsedContentHeight] = useState(0);
 
   // Animated panel height for smooth expand/collapse
   const panelAnim = useRef(new Animated.Value(0)).current; // 0 = collapsed, 1 = expanded
@@ -286,14 +287,12 @@ export default function GameResultsScreen() {
       return (
         <React.Fragment key={index}>
           {hasActual && (
-            <Marker
+            <PinMarker
               identifier={`actual-${index}`}
               coordinate={{ latitude: round.actualLat!, longitude: round.actualLong! }}
-              anchor={{ x: 0.5, y: 1.0 }}
-              tracksViewChanges={false}
+              imageSource={actualPinImage}
               stopPropagation
             >
-              <Image source={actualPinImage} style={styles.markerImage} resizeMode="contain" />
               <Callout onPress={() => openInGoogleMaps(round.actualLat!, round.actualLong!, round.panoId)}>
                 <View style={styles.calloutContainer}>
                   <Text style={styles.calloutTitle}>Round {index + 1} — Actual Location</Text>
@@ -310,17 +309,15 @@ export default function GameResultsScreen() {
                   </View>
                 </View>
               </Callout>
-            </Marker>
+            </PinMarker>
           )}
           {hasGuess && (
-            <Marker
+            <PinMarker
               identifier={`guess-${index}`}
               coordinate={{ latitude: round.guessLat, longitude: round.guessLong }}
-              anchor={{ x: 0.5, y: 1.0 }}
-              tracksViewChanges={false}
+              imageSource={guessPinImage}
               stopPropagation
             >
-              <Image source={guessPinImage} style={styles.markerImage} resizeMode="contain" />
               <Callout>
                 <View style={styles.calloutContainer}>
                   <Text style={styles.calloutTitle}>Round {index + 1} — Your Guess</Text>
@@ -334,7 +331,7 @@ export default function GameResultsScreen() {
                   )}
                 </View>
               </Callout>
-            </Marker>
+            </PinMarker>
           )}
           {hasActual && hasGuess && (
             <Polyline
@@ -580,7 +577,11 @@ export default function GameResultsScreen() {
   // ═══════════════════════════════════════════════════════════
   // PORTRAIT LAYOUT — map top, bottom sheet panel (like web mobile)
   // ═══════════════════════════════════════════════════════════
-  const collapsedHeight = height * 0.35;
+  const bottomInsetPadding = Math.max(insets.bottom, 8);
+  const panelBottomPadding = detailsExpanded ? bottomInsetPadding : 26;
+  const collapsedHeight = collapsedContentHeight > 0
+    ? collapsedContentHeight + panelBottomPadding
+    : Math.min(height * 0.35, 240 + panelBottomPadding);
   const expandedHeight = height * 0.68;
 
   const animatedPanelHeight = panelAnim.interpolate({
@@ -617,20 +618,34 @@ export default function GameResultsScreen() {
           styles.portraitPanel,
           {
             height: animatedPanelHeight,
-            paddingBottom: Math.max(insets.bottom, 8),
           },
         ]}
       >
         <LinearGradient
           colors={['rgba(20, 65, 25, 0.97)', 'rgba(20, 65, 25, 0.90)']}
-          style={styles.portraitPanelGradient}
+          style={[
+            styles.portraitPanelGradient,
+            {
+              paddingBottom: panelBottomPadding,
+            },
+          ]}
         >
-          {/* Drag handle — tap to toggle details */}
-          <Pressable onPress={toggleDetails} style={styles.handleBarTouchArea}>
-            <View style={styles.handleBar} />
-          </Pressable>
+          <View
+            onLayout={(event) => {
+              if (detailsExpanded) return;
+              const nextHeight = Math.ceil(event.nativeEvent.layout.height);
+              if (Math.abs(nextHeight - collapsedContentHeight) >= 2) {
+                setCollapsedContentHeight(nextHeight);
+              }
+            }}
+          >
+            {/* Drag handle — tap to toggle details */}
+            <Pressable onPress={toggleDetails} style={styles.handleBarTouchArea}>
+              <View style={styles.handleBar} />
+            </Pressable>
 
-          {renderHeader(detailsExpanded)}
+            {renderHeader(detailsExpanded)}
+          </View>
 
           {/* Rounds section — always rendered, animated via panel height */}
           {detailsExpanded && (
@@ -638,7 +653,7 @@ export default function GameResultsScreen() {
               <View style={styles.sidebarDivider} />
               <ScrollView
                 style={{ flex: 1 }}
-                contentContainerStyle={{ paddingBottom: spacing.lg }}
+                contentContainerStyle={{ paddingBottom: spacing.lg + bottomInsetPadding }}
                 showsVerticalScrollIndicator={true}
                 bounces={true}
                 nestedScrollEnabled={true}
@@ -663,6 +678,7 @@ const styles = StyleSheet.create({
   sidebar: {
     borderLeftWidth: 2,
     borderLeftColor: colors.primary,
+    backgroundColor: 'rgba(20, 65, 25, 0.97)',
   },
   sidebarGradient: {
     flex: 1,
@@ -679,6 +695,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     overflow: 'hidden',
+    backgroundColor: 'rgba(20, 65, 25, 0.97)',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     ...Platform.select({
@@ -856,13 +873,6 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontWeight: '500',
   },
-
-  // ── Map markers ──────────────────────────────────────────────
-  markerImage: {
-    width: 40,
-    height: 50,
-  },
-
   // ── Callout tooltips ─────────────────────────────────────────
   calloutContainer: {
     minWidth: 180,

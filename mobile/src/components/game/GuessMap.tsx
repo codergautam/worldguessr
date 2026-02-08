@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Platform, GestureResponderEvent, Image } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Asset } from 'expo-asset';
+import { useRef, useEffect, useCallback } from 'react';
+import { View, StyleSheet, Platform, GestureResponderEvent } from 'react-native';
+import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { colors } from '../../shared';
+import PinMarker from './PinMarker';
 
 // Pre-create Asset objects (doesn't download yet)
 const guessPinModule = require('../../../assets/marker-src.png');
@@ -18,9 +18,6 @@ interface GuessMapProps {
 const TAP_SLOP = 10; // max px movement to count as tap
 const TAP_MAX_MS = 300; // max duration to count as tap
 const MARKER_SCALE = 1.1;
-const MARKER_WIDTH = 40 * MARKER_SCALE;
-const MARKER_HEIGHT = 50 * MARKER_SCALE;
-const IOS_MARKER_CENTER_OFFSET = { x: 0, y: -(MARKER_HEIGHT / 2) };
 
 export default function GuessMap({
   guessPosition,
@@ -32,15 +29,6 @@ export default function GuessMap({
   const touchStart = useRef({ x: 0, y: 0, time: 0 });
   const lastFastTap = useRef(0);
 
-  // Download marker assets to local filesystem so native Google Maps can load them
-  const [pinUris, setPinUris] = useState<{ guess?: string; actual?: string }>({});
-  useEffect(() => {
-    (async () => {
-      const [g, a] = await Asset.loadAsync([guessPinModule, actualPinModule]);
-      setPinUris({ guess: g.localUri ?? g.uri, actual: a.localUri ?? a.uri });
-    })();
-  }, []);
-
   // When showing result, fit both markers in view
   useEffect(() => {
     if (actualPosition && guessPosition && mapRef.current) {
@@ -50,7 +38,7 @@ export default function GuessMap({
       ];
 
       mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+        edgePadding: { top: 120, right: 120, bottom:300, left: 120 },
         animated: true,
       });
     }
@@ -124,6 +112,28 @@ export default function GuessMap({
     onMapPress(latitude, longitude);
   }, [actualPosition, onMapPress]);
 
+  const mapPins: Array<{
+    id: 'guess' | 'actual';
+    coordinate: { latitude: number; longitude: number };
+    imageSource: number;
+  }> = [];
+
+  if (guessPosition) {
+    mapPins.push({
+      id: 'guess',
+      coordinate: { latitude: guessPosition.lat, longitude: guessPosition.lng },
+      imageSource: guessPinModule,
+    });
+  }
+
+  if (actualPosition) {
+    mapPins.push({
+      id: 'actual',
+      coordinate: { latitude: actualPosition.lat, longitude: actualPosition.lng },
+      imageSource: actualPinModule,
+    });
+  }
+
   return (
     <View
       style={styles.container}
@@ -150,35 +160,14 @@ export default function GuessMap({
         rotateEnabled={false}
         pitchEnabled={false}
       >
-        {/* Guess marker */}
-        {guessPosition && pinUris.guess && (
-          <Marker
-            coordinate={{
-              latitude: guessPosition.lat,
-              longitude: guessPosition.lng,
-            }}
-            anchor={{ x: 0.5, y: 1 }}
-            centerOffset={Platform.OS === 'ios' ? IOS_MARKER_CENTER_OFFSET : undefined}
-            tracksViewChanges={false}
-          >
-            <Image source={{ uri: pinUris.guess }} style={styles.markerImage} resizeMode="contain" />
-          </Marker>
-        )}
-
-        {/* Actual location marker */}
-        {actualPosition && pinUris.actual && (
-          <Marker
-            coordinate={{
-              latitude: actualPosition.lat,
-              longitude: actualPosition.lng,
-            }}
-            anchor={{ x: 0.5, y: 1 }}
-            centerOffset={Platform.OS === 'ios' ? IOS_MARKER_CENTER_OFFSET : undefined}
-            tracksViewChanges={false}
-          >
-            <Image source={{ uri: pinUris.actual }} style={styles.markerImage} resizeMode="contain" />
-          </Marker>
-        )}
+        {mapPins.map((pin) => (
+          <PinMarker
+            key={pin.id}
+            coordinate={pin.coordinate}
+            imageSource={pin.imageSource}
+            scale={MARKER_SCALE}
+          />
+        ))}
 
         {/* Line between guess and actual */}
         {guessPosition && actualPosition && (
@@ -203,9 +192,5 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-  },
-  markerImage: {
-    width: MARKER_WIDTH,
-    height: MARKER_HEIGHT,
   },
 });
