@@ -1,7 +1,5 @@
 # WorldGuessr - Overview & Architecture
-Hi Claude, today we will primarily be working on stuff for the WorldGuessr mobile app located in the mobile/ folder of this directory. To  
-  get more context about this project please read the files in spec-claude/ which are a good starting place to understand this proj. I        
-  suggest you take a bit of time to immerse yourself with that and the codebase in mobile/ first and we will proceed!  
+n
 
 ## What is WorldGuessr
 - Free GeoGuessr alternative web game

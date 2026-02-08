@@ -157,7 +157,7 @@ export default function HomeScreen() {
       case 'singleplayer':
         router.push({
           pathname: '/game/[id]',
-          params: { id: 'singleplayer', map: 'all', rounds: '5', time: '60' },
+          params: { id: 'singleplayer', map: 'all', rounds: '5' },
         });
         break;
       case 'rankedDuel':

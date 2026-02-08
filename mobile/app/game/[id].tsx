@@ -68,6 +68,7 @@ export default function GameScreen() {
   const router = useRouter();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const isSingleplayer = id === 'singleplayer';
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -344,7 +345,7 @@ export default function GameScreen() {
   }, [gameState, router]);
 
   const handleQuit = () => {
-    router.back();
+    router.replace('/(tabs)/home');
   };
 
   const getPointsColor = (pts: number) => {
@@ -395,9 +396,9 @@ export default function GameScreen() {
         />
       </View>
 
-      {/* Timer pill - top right, matching web .timer styling */}
+      {/* Round/score pill - top right */}
       {!gameState.isShowingResult && (
-        <SafeAreaView style={styles.timerContainer} edges={['top']} pointerEvents="box-none">
+        <SafeAreaView style={[styles.timerContainer, { paddingRight: Math.max(insets.right, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
           <View style={styles.timerPill}>
             <Text style={styles.timerText}>
               Round {gameState.currentRound}/{gameState.totalRounds}
@@ -406,16 +407,18 @@ export default function GameScreen() {
               {gameState.totalScore.toLocaleString()} pts
             </Text>
           </View>
-          <GameTimer
-            timeRemaining={gameState.timePerRound}
-            onTimeUp={handleTimeUp}
-            isPaused={gameState.isShowingResult}
-          />
+          {!isSingleplayer && (
+            <GameTimer
+              timeRemaining={gameState.timePerRound}
+              onTimeUp={handleTimeUp}
+              isPaused={gameState.isShowingResult}
+            />
+          )}
         </SafeAreaView>
       )}
 
       {/* Close button - top left */}
-      <SafeAreaView style={styles.closeButtonContainer} edges={['top']} pointerEvents="box-none">
+      <SafeAreaView style={[styles.closeButtonContainer, { paddingLeft: Math.max(insets.left, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
         <Pressable
           style={({ pressed }) => [
             styles.closeButton,
@@ -459,7 +462,7 @@ export default function GameScreen() {
         <Animated.View
           style={[
             styles.mapButtonsRow,
-            { bottom: height * 0.7 + 8 },
+            { bottom: height * 0.7 + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
             {
               opacity: mapBtnsAnim,
               transform: [{
@@ -525,6 +528,7 @@ export default function GameScreen() {
             {
               transform: [{ scale: fabScaleAnim }],
               bottom: Math.max(insets.bottom, 20) + 20,
+              right: Math.max(insets.right, 20),
             },
           ]}
         >
@@ -554,6 +558,8 @@ export default function GameScreen() {
             {
               transform: [{ translateY: bannerSlideAnim }],
               paddingBottom: Math.max(insets.bottom, spacing.lg),
+              paddingLeft: insets.left,
+              paddingRight: insets.right,
             },
           ]}
         >

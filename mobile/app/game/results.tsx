@@ -10,7 +10,7 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -548,8 +548,7 @@ export default function GameResultsScreen() {
           </View>
 
           {/* Sidebar — matches web .game-summary-sidebar */}
-          <SafeAreaView
-            edges={['top', 'bottom', 'right']}
+          <View
             style={[styles.sidebar, { width: SIDEBAR_WIDTH }]}
           >
             <LinearGradient
@@ -568,7 +567,7 @@ export default function GameResultsScreen() {
                 {renderRoundsList()}
               </ScrollView>
             </LinearGradient>
-          </SafeAreaView>
+          </View>
         </View>
       </View>
     );
