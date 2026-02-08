@@ -13,17 +13,17 @@ import '@smastrom/react-rating/style.css'
 function App({ Component, pageProps }) {
   useEffect(() => {
     const handleError = (event) => {
-      window.gtag?.('event', 'exception', {
-        description: event.message || 'Unknown error',
-        fatal: false,
-      });
+      // window.gtag?.('event', 'exception', {
+      //   description: event.message || 'Unknown error',
+      //   fatal: false,
+      // });
     };
 
     const handleRejection = (event) => {
-      window.gtag?.('event', 'exception', {
-        description: event.reason?.message || 'Unhandled promise rejection',
-        fatal: false,
-      });
+      // window.gtag?.('event', 'exception', {
+      //   description: event.reason?.message || 'Unhandled promise rejection',
+      //   fatal: false,
+      // });
     };
 
     window.addEventListener('error', handleError);
