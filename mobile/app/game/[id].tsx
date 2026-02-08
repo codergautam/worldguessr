@@ -26,6 +26,7 @@ interface Location {
   lat: number;
   long: number;
   country?: string;
+  panoId?: string;
 }
 
 interface RoundResult {
@@ -33,6 +34,7 @@ interface RoundResult {
   guessLong: number;
   actualLat: number;
   actualLong: number;
+  panoId?: string;
   points: number;
   distance: number;
   timeTaken: number;
@@ -217,6 +219,7 @@ export default function GameScreen() {
           lat: loc.lat,
           long: loc.long || loc.lng,
           country: loc.country,
+          panoId: loc.panoId,
         }));
 
         const shuffled = [...normalizedLocations].sort(() => Math.random() - 0.5);
@@ -277,6 +280,7 @@ export default function GameScreen() {
           guessLong: guessPosition.lng,
           actualLat: currentLocation.lat,
           actualLong: currentLocation.long,
+          panoId: currentLocation.panoId,
           points,
           distance,
           timeTaken,

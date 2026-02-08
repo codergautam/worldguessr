@@ -2,10 +2,12 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   View,
   Text,
+  Image,
   ScrollView,
   StyleSheet,
   Pressable,
   Animated,
+  Linking,
   Platform,
   useWindowDimensions,
 } from 'react-native';
@@ -13,12 +15,11 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { Asset } from 'expo-asset';
+import MapView, { Marker, Polyline, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { colors } from '../../src/shared';
 
-const guessPinModule = require('../../assets/marker-src.png');
-const actualPinModule = require('../../assets/marker-dest.png');
+const guessPinImage = require('../../assets/marker-src.png');
+const actualPinImage = require('../../assets/marker-dest.png');
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 
 interface RoundResult {
@@ -26,6 +27,7 @@ interface RoundResult {
   guessLong: number;
   actualLat?: number;
   actualLong?: number;
+  panoId?: string;
   points: number;
   distance: number;
   timeTaken?: number;
@@ -93,13 +95,11 @@ export default function GameResultsScreen() {
 
   const isLandscape = width > height;
 
-  // Download marker assets to local filesystem so native Google Maps can load them
-  const [pinUris, setPinUris] = useState<{ guess?: string; actual?: string }>({});
-  useEffect(() => {
-    (async () => {
-      const [g, a] = await Asset.loadAsync([guessPinModule, actualPinModule]);
-      setPinUris({ guess: g.localUri ?? g.uri, actual: a.localUri ?? a.uri });
-    })();
+  const openInGoogleMaps = useCallback((lat: number, lng: number, panoId?: string) => {
+    const url = panoId
+      ? `https://www.google.com/maps/@?api=1&map_action=pano&pano=${panoId}`
+      : `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+    Linking.openURL(url);
   }, []);
 
   const parsedRounds: RoundResult[] = useMemo(
@@ -207,8 +207,13 @@ export default function GameResultsScreen() {
     }
   }, [parsedRounds, getMapPadding]);
 
+  const didInitialFit = useRef(false);
   useEffect(() => {
-    const timeout = setTimeout(fitMapToAllRounds, 500);
+    if (didInitialFit.current) return;
+    const timeout = setTimeout(() => {
+      didInitialFit.current = true;
+      fitMapToAllRounds();
+    }, 500);
     return () => clearTimeout(timeout);
   }, [fitMapToAllRounds]);
 
@@ -280,19 +285,56 @@ export default function GameResultsScreen() {
 
       return (
         <React.Fragment key={index}>
-          {hasActual && pinUris.actual && (
+          {hasActual && (
             <Marker
+              identifier={`actual-${index}`}
               coordinate={{ latitude: round.actualLat!, longitude: round.actualLong! }}
-              image={{ uri: pinUris.actual }}
-              anchor={{ x: 0.5, y: 1 }}
-            />
+              anchor={{ x: 0.5, y: 1.0 }}
+              tracksViewChanges={false}
+              stopPropagation
+            >
+              <Image source={actualPinImage} style={styles.markerImage} resizeMode="contain" />
+              <Callout onPress={() => openInGoogleMaps(round.actualLat!, round.actualLong!, round.panoId)}>
+                <View style={styles.calloutContainer}>
+                  <Text style={styles.calloutTitle}>Round {index + 1} — Actual Location</Text>
+                  <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
+                    {round.points.toLocaleString()} points
+                  </Text>
+                  {round.distance != null && (
+                    <Text style={styles.calloutDistance}>
+                      Distance: {formatDistance(round.distance)}
+                    </Text>
+                  )}
+                  <View style={styles.calloutActionBtn}>
+                    <Text style={styles.calloutActionText}>📍 Open in Maps</Text>
+                  </View>
+                </View>
+              </Callout>
+            </Marker>
           )}
-          {hasGuess && pinUris.guess && (
+          {hasGuess && (
             <Marker
+              identifier={`guess-${index}`}
               coordinate={{ latitude: round.guessLat, longitude: round.guessLong }}
-              image={{ uri: pinUris.guess }}
-              anchor={{ x: 0.5, y: 1 }}
-            />
+              anchor={{ x: 0.5, y: 1.0 }}
+              tracksViewChanges={false}
+              stopPropagation
+            >
+              <Image source={guessPinImage} style={styles.markerImage} resizeMode="contain" />
+              <Callout>
+                <View style={styles.calloutContainer}>
+                  <Text style={styles.calloutTitle}>Round {index + 1} — Your Guess</Text>
+                  <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
+                    {round.points.toLocaleString()} points
+                  </Text>
+                  {round.distance != null && (
+                    <Text style={styles.calloutDistance}>
+                      Distance: {formatDistance(round.distance)}
+                    </Text>
+                  )}
+                </View>
+              </Callout>
+            </Marker>
           )}
           {hasActual && hasGuess && (
             <Polyline
@@ -813,5 +855,46 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fontSizes.xs,
     fontWeight: '500',
+  },
+
+  // ── Map markers ──────────────────────────────────────────────
+  markerImage: {
+    width: 40,
+    height: 50,
+  },
+
+  // ── Callout tooltips ─────────────────────────────────────────
+  calloutContainer: {
+    minWidth: 180,
+    padding: 8,
+  },
+  calloutTitle: {
+    fontWeight: '700',
+    fontSize: 13,
+    marginBottom: 4,
+    color: '#333',
+  },
+  calloutPoints: {
+    fontWeight: '700',
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  calloutDistance: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 4,
+  },
+  calloutActionBtn: {
+    marginTop: 6,
+    backgroundColor: '#4285F4',
+    borderRadius: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  calloutActionText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Platform, GestureResponderEvent } from 'react-native';
+import { View, StyleSheet, Platform, GestureResponderEvent, Image } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Asset } from 'expo-asset';
 import { colors } from '../../shared';
@@ -17,6 +17,10 @@ interface GuessMapProps {
 
 const TAP_SLOP = 10; // max px movement to count as tap
 const TAP_MAX_MS = 300; // max duration to count as tap
+const MARKER_SCALE = 1.1;
+const MARKER_WIDTH = 40 * MARKER_SCALE;
+const MARKER_HEIGHT = 50 * MARKER_SCALE;
+const IOS_MARKER_CENTER_OFFSET = { x: 0, y: -(MARKER_HEIGHT / 2) };
 
 export default function GuessMap({
   guessPosition,
@@ -153,9 +157,12 @@ export default function GuessMap({
               latitude: guessPosition.lat,
               longitude: guessPosition.lng,
             }}
-            image={{ uri: pinUris.guess }}
             anchor={{ x: 0.5, y: 1 }}
-          />
+            centerOffset={Platform.OS === 'ios' ? IOS_MARKER_CENTER_OFFSET : undefined}
+            tracksViewChanges={false}
+          >
+            <Image source={{ uri: pinUris.guess }} style={styles.markerImage} resizeMode="contain" />
+          </Marker>
         )}
 
         {/* Actual location marker */}
@@ -165,9 +172,12 @@ export default function GuessMap({
               latitude: actualPosition.lat,
               longitude: actualPosition.lng,
             }}
-            image={{ uri: pinUris.actual }}
             anchor={{ x: 0.5, y: 1 }}
-          />
+            centerOffset={Platform.OS === 'ios' ? IOS_MARKER_CENTER_OFFSET : undefined}
+            tracksViewChanges={false}
+          >
+            <Image source={{ uri: pinUris.actual }} style={styles.markerImage} resizeMode="contain" />
+          </Marker>
         )}
 
         {/* Line between guess and actual */}
@@ -193,5 +203,9 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  markerImage: {
+    width: MARKER_WIDTH,
+    height: MARKER_HEIGHT,
   },
 });
