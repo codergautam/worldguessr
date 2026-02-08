@@ -112,27 +112,14 @@ export default function GuessMap({
     onMapPress(latitude, longitude);
   }, [actualPosition, onMapPress]);
 
-  const mapPins: Array<{
-    id: 'guess' | 'actual';
-    coordinate: { latitude: number; longitude: number };
-    imageSource: number;
-  }> = [];
-
-  if (guessPosition) {
-    mapPins.push({
-      id: 'guess',
-      coordinate: { latitude: guessPosition.lat, longitude: guessPosition.lng },
-      imageSource: guessPinModule,
-    });
-  }
-
-  if (actualPosition) {
-    mapPins.push({
-      id: 'actual',
-      coordinate: { latitude: actualPosition.lat, longitude: actualPosition.lng },
-      imageSource: actualPinModule,
-    });
-  }
+  // Keep markers always mounted to avoid image reload delay between rounds.
+  // Toggle opacity instead of mount/unmount.
+  const guessCoord = guessPosition
+    ? { latitude: guessPosition.lat, longitude: guessPosition.lng }
+    : { latitude: 0, longitude: 0 };
+  const actualCoord = actualPosition
+    ? { latitude: actualPosition.lat, longitude: actualPosition.lng }
+    : { latitude: 0, longitude: 0 };
 
   return (
     <View
@@ -160,14 +147,20 @@ export default function GuessMap({
         rotateEnabled={false}
         pitchEnabled={false}
       >
-        {mapPins.map((pin) => (
-          <PinMarker
-            key={pin.id}
-            coordinate={pin.coordinate}
-            imageSource={pin.imageSource}
-            scale={MARKER_SCALE}
-          />
-        ))}
+        <PinMarker
+          key="guess"
+          coordinate={guessCoord}
+          imageSource={guessPinModule}
+          scale={MARKER_SCALE}
+          opacity={guessPosition ? 1 : 0}
+        />
+        <PinMarker
+          key="actual"
+          coordinate={actualCoord}
+          imageSource={actualPinModule}
+          scale={MARKER_SCALE}
+          opacity={actualPosition ? 1 : 0}
+        />
 
         {/* Line between guess and actual */}
         {guessPosition && actualPosition && (
