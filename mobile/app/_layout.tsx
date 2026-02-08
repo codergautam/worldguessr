@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -12,11 +12,19 @@ import {
   Lexend_600SemiBold,
   Lexend_700Bold,
 } from '@expo-google-fonts/lexend';
+import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import { colors } from '../src/shared';
 
-// Keep splash screen visible while fonts load
+// Keep splash screen visible while fonts + assets load
 SplashScreen.preventAutoHideAsync();
+
+// Preload all runtime image assets during startup
+const imageAssets = [
+  require('../assets/street2.jpg'),
+  require('../assets/marker-src.png'),
+  require('../assets/marker-dest.png'),
+];
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -27,13 +35,19 @@ export default function RootLayout() {
     'Lexend-Bold': Lexend_700Bold,
   });
 
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
+
   useEffect(() => {
-    if (fontsLoaded) {
+    Asset.loadAsync(imageAssets).then(() => setAssetsLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    if (fontsLoaded && assetsLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, assetsLoaded]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !assetsLoaded) {
     return (
       <View style={[styles.container, styles.loading]}>
         <ActivityIndicator size="large" color={colors.primary} />
