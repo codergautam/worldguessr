@@ -12,16 +12,27 @@ import '@smastrom/react-rating/style.css'
 
 function App({ Component, pageProps }) {
   useEffect(() => {
+    const ignoredErrors = [
+      'ResizeObserver loop',
+      'net::ERR_',
+      'CORS',
+      'Script error',
+    ];
+    const shouldIgnore = (msg) => !msg || ignoredErrors.some((e) => msg.includes(e));
+
     const handleError = (event) => {
+      if (shouldIgnore(event.message)) return;
       window.gtag?.('event', 'exception', {
-        description: event.message || 'Unknown error',
+        description: event.message,
         fatal: false,
       });
     };
 
     const handleRejection = (event) => {
+      const msg = event.reason?.message || '';
+      if (shouldIgnore(msg)) return;
       window.gtag?.('event', 'exception', {
-        description: event.reason?.message || 'Unhandled promise rejection',
+        description: msg || 'Unhandled promise rejection',
         fatal: false,
       });
     };
