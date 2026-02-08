@@ -266,6 +266,13 @@ app.get('/', (res, req) => {
   res.end("WorldGuessr - Powered by uWebSockets.js<br>Headers: "+headerKb.toFixed(2)+'kb');
 });
 
+app.get('/playercnt', (res) => {
+  setCorsHeaders(res);
+  res.writeHeader('Content-Type', 'text/plain');
+  res.writeStatus('200 OK');
+  res.end(String(players.size - disconnectedPlayers.size));
+});
+
 // maintenance mode
 if (process.env.MAINTENANCE_SECRET) {
   const maintenanceSecret = process.env.MAINTENANCE_SECRET;
