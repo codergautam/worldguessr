@@ -4,6 +4,7 @@ import { useSession } from '@/components/auth/auth';
 import { useTranslation } from '@/components/useTranslations'
 import config from '@/clientConfig';
 import styles from '@/styles/Leaderboard.module.css';
+import { navigate } from '@/lib/basePath';
 import CountryFlag from '@/components/utils/countryFlag';
 
 const Leaderboard = ({ }) => {
@@ -112,7 +113,7 @@ const Leaderboard = ({ }) => {
 
             <button
                 className={styles.exitButton}
-                onClick={() => window.location.replace('/' + (inCrazyGames ? '?crazygames=true' : ''))}
+                onClick={() => window.location.replace(navigate('/') + (inCrazyGames ? '?crazygames=true' : ''))}
               >
                 {text("backToGame")}
               </button>
@@ -167,7 +168,7 @@ const Leaderboard = ({ }) => {
 
                   <div className={styles.playerDetails}>
                     <a
-                      href={`/user?u=${encodeURIComponent(user.username)}`}
+                      href={`${navigate('/user')}?u=${encodeURIComponent(user.username)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={styles.username}

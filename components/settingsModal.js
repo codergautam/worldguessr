@@ -1,5 +1,6 @@
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
+import { asset, navigate } from '@/lib/basePath';
 
 export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames }) {
     const { t: text } = useTranslation("common");
@@ -31,7 +32,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 maxWidth: '500px',
                 textAlign: 'center',
                 position: "absolute",
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("/street2.webp")`,
+                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("${asset('/street2.webp')}")`,
                 objectFit: "cover",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
@@ -94,7 +95,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
 
 
                 {inCrazyGames && (
-                    <a href="/privacy-crazygames" target="_blank" rel="noreferrer" style={{ marginTop: '20px', display: 'block', color: "white" }}>Privacy Policy</a>
+                    <a href={navigate("/privacy-crazygames")} target="_blank" rel="noreferrer" style={{ marginTop: '20px', display: 'block', color: "white" }}>Privacy Policy</a>
                 )}
 
                 <div style={{height: "40vh"} }></div>

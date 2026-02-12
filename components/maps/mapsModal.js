@@ -3,6 +3,7 @@ import MapView from "./mapView";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { Modal } from "react-responsive-modal";
+import { asset, navigate } from '@/lib/basePath';
 // import { useMapSearch } from "../hooks/useMapSearch"; // REMOVED TO FIX DUPLICATE SEARCH CALLS - MapView handles search
 
 const initMakeMap = {
@@ -27,7 +28,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
         if (customChooseMapCallback) {
             customChooseMapCallback(map);
         } else {
-            window.location.href = `/map/${map.slug}${window.location.search.includes("crazygames") ? "&crazygames=true" : ""}`;
+            window.location.href = `${navigate('/map')}?s=${map.slug}${window.location.search.includes("crazygames") ? "&crazygames=true" : ""}`;
         }
     };
 
@@ -117,7 +118,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 const styles = {
     // Full-viewport modal wrapper - fixed container, no scrolling
     modalShell: {
-        background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("/street2.webp")`,
+        background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("${asset('/street2.webp')}")`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         boxShadow: "none",
