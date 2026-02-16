@@ -1,10 +1,10 @@
 import Head from "next/head";
 import { useEffect } from "react";
 
-export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false }) {
+export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false }) {
   useEffect(() => {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
-  !process.env.NEXT_PUBLIC_COOLMATH) {
+  !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
 
 
   // start adinplay script
@@ -99,6 +99,38 @@ ads.js"></script>*/
         document.body.removeChild(script);
       }
 
+    } else if(process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
+      window["GD_OPTIONS"] = {
+        "gameId": "327b25f595b6478789b18768fd909055",
+        "onEvent": function(event) {
+          switch (event.name) {
+            case "SDK_GAME_START":
+            case "SDK_ERROR":
+            case "AD_ERROR":
+            case "AD_SDK_CANCELED":
+              // advertisement done or failed, resume game
+              if(window.onGDResumeGame) window.onGDResumeGame();
+              break;
+            case "SDK_GAME_PAUSE":
+              // pause game logic / mute audio
+              if(window.onGDPauseGame) window.onGDPauseGame();
+              break;
+            case "SDK_REWARDED_WATCH_COMPLETE":
+              if(window.onGDRewardedComplete) window.onGDRewardedComplete();
+              break;
+          }
+        },
+      };
+      (function(d, s, id) {
+        var js, fjs = d.getElementsByTagName(s)[0];
+        if (d.getElementById(id)) return;
+        js = d.createElement(s);
+        js.id = id;
+        js.src = 'https://html5.api.gamedistribution.com/main.min.js';
+        fjs.parentNode.insertBefore(js, fjs);
+      }(document, 'script', 'gamedistribution-jssdk'));
+
+      return () => {};
     }
   }, []);
 

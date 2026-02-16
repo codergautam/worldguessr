@@ -481,8 +481,9 @@ const GameSummary = ({
     // Check if we're on CrazyGames or CoolMathGames platforms
     const isCrazyGames = typeof window !== 'undefined' && window.inCrazyGames;
     const isCoolMathGames = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_COOLMATH === "true";
+    const isGameDistribution = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true";
 
-    if (isCrazyGames || isCoolMathGames) {
+    if (isCrazyGames || isCoolMathGames || isGameDistribution) {
       // Copy URL to clipboard instead of opening
       navigator.clipboard.writeText(url).then(() => {
         toast.success(text("copiedToClipboard"));

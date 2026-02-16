@@ -37,6 +37,7 @@ export default function Document() {
         }} />
       </Head>
       <body className="mainBody" style={{ backgroundColor: '#000000' }}>
+        <div id="applixir_vanishing_div"></div>
         <Main />
         <NextScript />
       </body>

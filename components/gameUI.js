@@ -7,7 +7,7 @@ import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
-import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown } from "react-icons/fa6";
+import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown, FaClapperboard } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
 import OnboardingText from "./onboardingText";
@@ -26,7 +26,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
   const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
 
@@ -148,7 +148,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
       const loadTime = window.gameOpen;
       const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
       if(lastDiscordShown) return console.log("Discord modal already shown");
-      if(Date.now() - loadTime > 600000 && !process.env.NEXT_PUBLIC_COOLMATH) {
+      if(Date.now() - loadTime > 600000 && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
         setShowDiscordModal(true)
         sendEvent('discord_modal_shown')
       } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
@@ -366,8 +366,81 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
     }
   }, [loading, latLong, width])
 
+  const isApplixirEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('applixirtest') === 'true';
+
+  useEffect(() => {
+    if (!isApplixirEnabled || inCrazyGames || inCoolMathGames || inGameDistribution) {
+      console.log('[Applixir] Skipping load — disabled or partner platform');
+      return;
+    }
+    if (window.initializeAndOpenPlayer) {
+      console.log('[Applixir] Already available');
+      return;
+    }
+    // Auto-accept consent before loading ad SDKs
+    window.__tcfapi = (cmd, version, cb) => {
+      if (cmd === 'addEventListener') cb({ tcString: '', eventStatus: 'tcloaded', gdprApplies: false }, true);
+      else cb(null, true);
+    };
+    window.__gpp = () => {};
+    // Load Google IMA SDK first (AppLixir depends on it)
+    console.log('[Applixir] Loading Google IMA SDK...');
+    const existing = document.querySelector('script[src*="applixir"]');
+    if (existing) existing.remove();
+    const ima = document.createElement('script');
+    ima.src = 'https://imasdk.googleapis.com/js/sdkloader/ima3.js';
+    ima.async = true;
+    ima.onload = () => {
+      console.log('[Applixir] IMA SDK loaded, loading AppLixir...');
+      const s = document.createElement('script');
+      s.src = 'https://cdn.applixir.com/applixir.app.v6.0.1.js';
+      s.async = true;
+      s.onload = () => console.log('[Applixir] Script loaded, initializeAndOpenPlayer:', typeof window.initializeAndOpenPlayer);
+      s.onerror = (e) => console.error('[Applixir] Script failed to load', e);
+      document.body.appendChild(s);
+    };
+    ima.onerror = (e) => console.error('[Applixir] IMA SDK failed to load', e);
+    document.head.appendChild(ima);
+  }, []);
+
   function showHint() {
-    setHintShown(true)
+    console.log('[Applixir] showHint called — enabled:', isApplixirEnabled, 'initializeAndOpenPlayer:', typeof window.initializeAndOpenPlayer);
+    if (!isApplixirEnabled || inCrazyGames || inCoolMathGames || inGameDistribution || !window.initializeAndOpenPlayer) {
+      console.log('[Applixir] Skipping ad — showing hint directly');
+      setHintShown(true);
+      return;
+    }
+    console.log('[Applixir] Requesting ad...');
+    const options = {
+      apiKey: "7efcd3be-af05-43a7-89ec-d13d9e88b544",
+      injectionElementId: "applixir_vanishing_div",
+      adStatusCallbackFn: (status) => {
+        console.log('[Applixir] Ad status:', status.type);
+        if (status.type === "complete" || status.type === "allAdsCompleted") {
+          setHintShown(true);
+        }
+      },
+      adErrorCallbackFn: (error) => {
+        console.error('[Applixir] Ad error:', error?.getError?.()?.data);
+        setHintShown(true);
+      },
+    };
+    // Safety net for unhandled async errors inside AppLixir
+    const onReject = (e) => {
+      if (e.reason?.message?.includes('AdDisplayContainer') || e.reason?.message?.includes('ima')) {
+        console.error('[Applixir] Async error caught, showing hint:', e.reason);
+        setHintShown(true);
+        window.removeEventListener('unhandledrejection', onReject);
+      }
+    };
+    window.addEventListener('unhandledrejection', onReject);
+    try {
+      window.initializeAndOpenPlayer(options);
+    } catch (e) {
+      console.error('[Applixir] initializeAndOpenPlayer threw:', e);
+      window.removeEventListener('unhandledrejection', onReject);
+      setHintShown(true);
+    }
   }
   useEffect(() => {
     loadLocation()
@@ -436,7 +509,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
           // disable rewarded ads for iOS users due to navigation interference
           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-          if(countryStreak > 0 && window.adBreak && !inCrazyGames && !inCoolMathGames && !isIOS) {
+          if(countryStreak > 0 && window.adBreak && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !isIOS) {
           console.log("requesting reward ad")
           window.adBreak({
             type: 'reward',  // rewarded ad
@@ -485,7 +558,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
   return (
     <div className="gameUI">
 
-{ !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
+{ !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
       unit={"worldguessr_gameui_ad"}
@@ -623,7 +696,7 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>{isApplixirEnabled && <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />}{text('hint')}</button>
           )}
         </div>
       </div>
@@ -638,7 +711,7 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>{isApplixirEnabled && <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />}{text('hint')}</button>
           )}
           </>
         )}

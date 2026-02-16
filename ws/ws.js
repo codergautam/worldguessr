@@ -13,7 +13,7 @@ import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
-import { getLeagueRange } from '../components/utils/leagues.js';
+import { getLeagueRange, leagues } from '../components/utils/leagues.js';
 import calculateOutcomes from '../components/utils/eloSystem.js';
 import { tmpdir } from 'os';
 
@@ -264,6 +264,13 @@ app.get('/', (res, req) => {
   res.writeHeader('Content-Type', 'text/html');
   res.writeStatus('200 OK');
   res.end("WorldGuessr - Powered by uWebSockets.js<br>Headers: "+headerKb.toFixed(2)+'kb');
+});
+
+app.get('/playercnt', (res) => {
+  setCorsHeaders(res);
+  res.writeHeader('Content-Type', 'text/plain');
+  res.writeStatus('200 OK');
+  res.end(String(players.size - disconnectedPlayers.size));
 });
 
 // maintenance mode
@@ -1563,8 +1570,11 @@ try {
           }
 
           // Track last opponent to prevent same matchup twice in a row
-          lastDuelOpponent.set(p1.accountId, p2.accountId);
-          lastDuelOpponent.set(p2.accountId, p1.accountId);
+          // only for users below 5000 elo
+          if(p1.elo < leagues.voyager.min && p2.elo < leagues.voyager.min) {
+            lastDuelOpponent.set(p1.accountId, p2.accountId);
+            lastDuelOpponent.set(p2.accountId, p1.accountId);
+          }
         }
 
         // check if both have elo

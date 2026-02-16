@@ -452,7 +452,7 @@ export default function MapView({
                             }
                             return sections;
                         })()
-                            .filter((k) => !process.env.NEXT_PUBLIC_COOLMATH || k !== "recent")
+                            .filter((k) => (!process.env.NEXT_PUBLIC_COOLMATH) || k !== "recent")
                             .map((section, si) => {
                                 const mapsArray = section === "recent" && searchResults.length > 0
                                     ? searchResults
