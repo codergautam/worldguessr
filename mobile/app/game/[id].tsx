@@ -175,9 +175,11 @@ export default function GameScreen() {
     }
   }, [gameState.isShowingResult]);
 
-  // FAB entrance animation
+  // FAB entrance animation — only on first appearance
+  const fabHasAnimated = useRef(false);
   useEffect(() => {
-    if (!isLoading && !miniMapShown && !gameState.isShowingResult) {
+    if (!isLoading && !miniMapShown && !gameState.isShowingResult && !fabHasAnimated.current) {
+      fabHasAnimated.current = true;
       fabScaleAnim.setValue(0);
       Animated.spring(fabScaleAnim, {
         toValue: 1,
@@ -531,7 +533,7 @@ export default function GameScreen() {
             {
               transform: [{ scale: fabScaleAnim }],
               bottom: Math.max(insets.bottom, 20) + 20,
-              right: Math.max(insets.right, 20),
+              right: Math.max(insets.right, 60),
             },
           ]}
         >
