@@ -1,9 +1,115 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import GameHistory from './gameHistory';
 import HistoricalGameView from './historicalGameView';
 import ReportActionButtons from './ReportActionButtons';
 import styles from '../styles/modDashboard.module.css';
+
+function DailyReportsChart({ dailyReports, selectedMod, dailyByModerator, moderators }) {
+  const canvasRef = useRef(null);
+  const chartRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { Chart, CategoryScale, LinearScale, BarElement, BarController, Title, Tooltip, Legend } = await import('chart.js');
+      if (cancelled) return;
+      Chart.register(CategoryScale, LinearScale, BarElement, BarController, Title, Tooltip, Legend);
+
+      if (chartRef.current) {
+        chartRef.current.destroy();
+      }
+
+      const isModView = selectedMod && selectedMod !== 'all';
+      const modName = isModView ? moderators.find(m => m.accountId === selectedMod)?.username : null;
+
+      const datasets = isModView
+        ? [
+            {
+              label: `${modName} - Actions`,
+              data: dailyByModerator?.[selectedMod] || dailyReports.map(() => 0),
+              backgroundColor: 'rgba(88, 166, 255, 0.8)',
+              borderRadius: 2,
+            },
+          ]
+        : [
+            {
+              label: 'Incoming',
+              data: dailyReports.map(d => d.incoming),
+              backgroundColor: 'rgba(248, 81, 73, 0.8)',
+              borderRadius: 2,
+            },
+            {
+              label: 'Handled',
+              data: dailyReports.map(d => d.handled),
+              backgroundColor: 'rgba(63, 185, 80, 0.8)',
+              borderRadius: 2,
+            },
+          ];
+
+      chartRef.current = new Chart(canvasRef.current, {
+        type: 'bar',
+        data: {
+          labels: dailyReports.map(d => d.day),
+          datasets,
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: '#b1bac4', font: { size: 12 } },
+            },
+            title: {
+              display: true,
+              text: isModView ? `${modName} - Daily Actions` : 'Daily Reports: Incoming vs Handled',
+              color: '#e6edf3',
+              font: { size: 14, weight: '600' },
+            },
+            tooltip: isModView ? {} : {
+              callbacks: {
+                afterBody: (items) => {
+                  const day = items[0].dataIndex;
+                  const d = dailyReports[day];
+                  const diff = d.incoming - d.handled;
+                  if (diff > 0) return `Backlog: +${diff}`;
+                  if (diff < 0) return `Cleared: ${Math.abs(diff)} extra`;
+                  return 'Even';
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              ticks: { color: '#8b949e' },
+              grid: { color: 'rgba(48, 54, 61, 0.5)' },
+              title: { display: true, text: 'Day of Month', color: '#8b949e' },
+            },
+            y: {
+              ticks: { color: '#8b949e', stepSize: 1 },
+              grid: { color: 'rgba(48, 54, 61, 0.5)' },
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      if (chartRef.current) {
+        chartRef.current.destroy();
+        chartRef.current = null;
+      }
+    };
+  }, [dailyReports, selectedMod, dailyByModerator, moderators]);
+
+  return (
+    <div className={styles.activityChartWrapper}>
+      <canvas ref={canvasRef} />
+    </div>
+  );
+}
 
 export default function ModDashboard({ session }) {
   const { t: text } = useTranslation("common");
@@ -74,6 +180,13 @@ export default function ModDashboard({ session }) {
   const [auditLogsStats, setAuditLogsStats] = useState(null);
   const [auditLogsFilter, setAuditLogsFilter] = useState({ moderatorId: 'all', actionType: 'all' });
   const [auditLogsPagination, setAuditLogsPagination] = useState({ page: 1, totalPages: 1, totalCount: 0 });
+
+  // Mod activity state
+  const [activityData, setActivityData] = useState(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityMonth, setActivityMonth] = useState(new Date().getMonth() + 1);
+  const [activityYear, setActivityYear] = useState(new Date().getFullYear());
+  const [activityChartMod, setActivityChartMod] = useState('all');
 
   // Clear messages after delay
   useEffect(() => {
@@ -456,6 +569,37 @@ export default function ModDashboard({ session }) {
     }
   };
 
+  // Fetch mod activity
+  const fetchModActivity = async (year, month) => {
+    const y = year ?? activityYear;
+    const m = month ?? activityMonth;
+    setActivityLoading(true);
+    try {
+      const response = await fetch(window.cConfig.apiUrl + '/api/mod/modActivity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: session.token.secret,
+          year: y,
+          month: m
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch mod activity');
+      }
+
+      const data = await response.json();
+      setActivityData(data);
+      setActivityMonth(data.month);
+      setActivityYear(data.year);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setActivityLoading(false);
+    }
+  };
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (tab === 'reports' && groupedReports.length === 0 && flatReports.length === 0) {
@@ -466,6 +610,9 @@ export default function ModDashboard({ session }) {
     }
     if (tab === 'auditLogs' && auditLogs.length === 0) {
       fetchAuditLogs();
+    }
+    if (tab === 'activity' && !activityData) {
+      fetchModActivity();
     }
   };
 
@@ -1419,6 +1566,12 @@ export default function ModDashboard({ session }) {
             >
               📋 Audit Logs
             </button>
+            <button
+              className={`${styles.tab} ${activeTab === 'activity' ? styles.activeTab : ''}`}
+              onClick={() => handleTabChange('activity')}
+            >
+              📊 Activity
+            </button>
           </div>
 
           <div className={styles.searchSection}>
@@ -2238,6 +2391,144 @@ export default function ModDashboard({ session }) {
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Activity Tab */}
+          {activeTab === 'activity' && (
+            <div className={styles.reportsSection}>
+              {/* Month Picker */}
+              <div className={styles.filterBar}>
+                <select
+                  value={`${activityYear}-${activityMonth}`}
+                  onChange={(e) => {
+                    const [y, m] = e.target.value.split('-').map(Number);
+                    setActivityYear(y);
+                    setActivityMonth(m);
+                    fetchModActivity(y, m);
+                  }}
+                  className={styles.filterSelect}
+                >
+                  {activityData?.availableMonths?.length > 0 ? (
+                    activityData.availableMonths.map(m => (
+                      <option key={`${m.year}-${m.month}`} value={`${m.year}-${m.month}`}>
+                        {new Date(m.year, m.month - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={`${activityYear}-${activityMonth}`}>
+                      {new Date(activityYear, activityMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                    </option>
+                  )}
+                </select>
+                <button onClick={() => fetchModActivity()} className={styles.refreshBtn}>
+                  🔄 Refresh
+                </button>
+              </div>
+
+              {/* Summary Stats */}
+              {activityData && (
+                <div className={styles.statsBar}>
+                  <div className={styles.statItem}>
+                    <span className={styles.statLabel}>Total Actions</span>
+                    <span className={styles.statValue}>{activityData.grandTotal}</span>
+                  </div>
+                  <div className={styles.statItem}>
+                    <span className={styles.statLabel}>Active Moderators</span>
+                    <span className={styles.statValue}>{activityData.moderators.length}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Daily Reports Chart */}
+              {activityData?.dailyReports && (
+                <>
+                  <div className={styles.filterBar}>
+                    <select
+                      value={activityChartMod}
+                      onChange={(e) => setActivityChartMod(e.target.value)}
+                      className={styles.filterSelect}
+                    >
+                      <option value="all">All Moderators</option>
+                      {activityData.moderators.map(mod => (
+                        <option key={mod.accountId} value={mod.accountId}>
+                          {mod.username}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <DailyReportsChart
+                    dailyReports={activityData.dailyReports}
+                    selectedMod={activityChartMod}
+                    dailyByModerator={activityData.dailyByModerator}
+                    moderators={activityData.moderators}
+                  />
+                </>
+              )}
+
+              {/* Activity Table */}
+              {activityLoading ? (
+                <div className={styles.loadingText}>Loading activity data...</div>
+              ) : !activityData || activityData.moderators.length === 0 ? (
+                <div className={styles.noReports}>
+                  <span style={{ fontSize: '48px', marginBottom: '16px' }}>📊</span>
+                  <p>No activity data for this month</p>
+                </div>
+              ) : (() => {
+                const ACTION_TYPES = [
+                  'ban_permanent', 'ban_temporary', 'unban', 'force_name_change',
+                  'undo_force_name_change', 'name_change_approved', 'name_change_rejected',
+                  'report_ignored', 'report_resolved', 'warning', 'user_deleted'
+                ];
+                const ACTION_LABELS = {
+                  ban_permanent: 'Perm Ban',
+                  ban_temporary: 'Temp Ban',
+                  unban: 'Unban',
+                  force_name_change: 'Force Name',
+                  undo_force_name_change: 'Undo Name',
+                  name_change_approved: 'Name OK',
+                  name_change_rejected: 'Name Rej',
+                  report_ignored: 'Rpt Ignored',
+                  report_resolved: 'Rpt Resolved',
+                  warning: 'Warning',
+                  user_deleted: 'Deleted'
+                };
+                return (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className={styles.activityTable}>
+                      <thead>
+                        <tr>
+                          <th>Moderator</th>
+                          {ACTION_TYPES.map(type => (
+                            <th key={type}>{ACTION_LABELS[type]}</th>
+                          ))}
+                          <th className={styles.activityTotalCol}>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {activityData.moderators.map(mod => (
+                          <tr key={mod.accountId}>
+                            <td>{mod.username}</td>
+                            {ACTION_TYPES.map(type => (
+                              <td key={type} className={!mod.actions[type] ? styles.activityZero : ''}>
+                                {mod.actions[type] || '-'}
+                              </td>
+                            ))}
+                            <td className={styles.activityTotalCol}>{mod.totalActions}</td>
+                          </tr>
+                        ))}
+                        <tr className={styles.activityTotalRow}>
+                          <td>Totals</td>
+                          {ACTION_TYPES.map(type => (
+                            <td key={type}>{activityData.totals[type] || '-'}</td>
+                          ))}
+                          <td className={styles.activityTotalCol}>{activityData.grandTotal}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

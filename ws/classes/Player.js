@@ -136,6 +136,10 @@ export default class Player {
       dcPlayer.send({
         type: 'verify',
       });
+      dcPlayer.send({
+        type: 'cnt',
+        c: players.size-disconnectedPlayers.size
+      });
 
 
       if(dcPlayer.gameId && games.has(dcPlayer.gameId)) {

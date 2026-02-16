@@ -105,7 +105,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { code, secret } = req.body;
+  const { code, secret, redirect_uri } = req.body;
   if (!code) {
     // Prevent NoSQL injection - secret must be a string
     if(!secret || typeof secret !== 'string') {
@@ -238,12 +238,16 @@ export default async function handler(req, res) {
       const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
       const startTokenExchange = Date.now();
-      const { tokens } = await client.getToken(code);
-      client.setCredentials(tokens);
+      // Use provided redirect_uri for redirect flow (GD), otherwise default client uses 'postmessage' (popup flow)
+      const tokenClient = redirect_uri
+        ? new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, redirect_uri)
+        : client;
+      const { tokens } = await tokenClient.getToken(code);
+      tokenClient.setCredentials(tokens);
       timings.tokenExchange = Date.now() - startTokenExchange;
 
       const startTokenVerify = Date.now();
-      const ticket = await client.verifyIdToken({
+      const ticket = await tokenClient.verifyIdToken({
         idToken: tokens.id_token,
         audience: clientId,
       });

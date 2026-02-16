@@ -49,7 +49,7 @@ export function signIn() {
   console.log("Signing in");
 
 
-  if(inIframe()) {
+  if(inIframe() && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
     console.log("In iframe");
     // open site in new window
     const url = window.location.href;

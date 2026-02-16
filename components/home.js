@@ -222,7 +222,10 @@ export default function Home({ }) {
 
             },
             flow: "auth-code",
-
+            ...(process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true" ? {
+                ux_mode: "redirect",
+                redirect_uri: typeof window !== "undefined" ? window.location.origin + window.location.pathname : undefined,
+            } : {}),
         });
 
         if (typeof window !== "undefined") window.login = login;
@@ -538,6 +541,8 @@ export default function Home({ }) {
 
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
+    const [inGameDistribution, setInGameDistribution] = useState(false);
+    const [adOverlayShown, setAdOverlayShown] = useState(false);
     const [coolmathSplash, setCoolmathSplash] = useState(null);
     const [navSlideOut, setNavSlideOut] = useState(false);
 
@@ -575,6 +580,64 @@ export default function Home({ }) {
 
             return () => {
                 clearInterval(interval);
+            }
+        }
+    }, [])
+
+    // GameDistribution SDK initialization
+    useEffect(() => {
+        if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
+            setInGameDistribution(true);
+            window.inGameDistribution = true;
+
+            // Set up GD SDK event callbacks for ad overlay
+            window.onGDPauseGame = () => {
+                console.log("GD: game paused for ad");
+                setAdOverlayShown(true);
+            };
+            window.onGDResumeGame = () => {
+                console.log("GD: game resumed after ad");
+                setAdOverlayShown(false);
+                if (window._gdAdTimeout) {
+                    clearTimeout(window._gdAdTimeout);
+                    window._gdAdTimeout = null;
+                }
+                if (window._gdAdFinished) {
+                    window._gdAdFinished();
+                    window._gdAdFinished = null;
+                }
+            };
+
+            // Handle Google OAuth redirect callback (redirect flow for iframe compatibility)
+            const params = new URLSearchParams(window.location.search);
+            const code = params.get("code");
+            if (code) {
+                // Clean the code from URL
+                window.history.replaceState({}, '', window.location.pathname);
+                setLoginQueued(true);
+                retryManager.fetchWithRetry(
+                    clientConfig().apiUrl + "/api/googleAuth",
+                    {
+                        body: JSON.stringify({ code, redirect_uri: window.location.origin + window.location.pathname }),
+                        method: "POST",
+                        headers: { 'Content-Type': 'application/json' }
+                    },
+                    'googleAuthRedirect'
+                ).then((res) => res.json()).then((data) => {
+                    if (data.secret) {
+                        setSession({ token: data });
+                        window.localStorage.setItem("wg_secret", data.secret);
+                        console.log("[Auth] GD redirect login successful:", data.username);
+                    } else {
+                        console.error("[Auth] GD redirect login: no secret received");
+                        toast.error("Login error, contact support if this persists");
+                    }
+                }).catch((e) => {
+                    console.error("[Auth] GD redirect login failed:", e);
+                    toast.error("Login failed, please try again");
+                }).finally(() => {
+                    setLoginQueued(false);
+                });
             }
         }
     }, [])
@@ -1978,6 +2041,29 @@ export default function Home({ }) {
                 console.log("error requesting midgame ad", e)
                 adFinished()
             }
+        } else if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
+            try {
+                if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
+                    setAdOverlayShown(true);
+                    window._gdAdFinished = adFinished;
+                    // Safety timeout in case SDK events never fire (no fill, dev mode, errors)
+                    window._gdAdTimeout = setTimeout(() => {
+                        console.log("GD ad timeout, forcing resume");
+                        setAdOverlayShown(false);
+                        if (window._gdAdFinished) {
+                            window._gdAdFinished();
+                            window._gdAdFinished = null;
+                        }
+                    }, 15000);
+                    gdsdk.showAd();
+                } else {
+                    adFinished();
+                }
+            } catch (e) {
+                console.log("error requesting GD midgame ad", e);
+                setAdOverlayShown(false);
+                adFinished();
+            }
         } else {
             adFinished()
         }
@@ -2256,7 +2342,7 @@ export default function Home({ }) {
         ws={ws}
         open={multiplayerChatOpen}
         onToggle={handleChatToggle}
-        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH}
+        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION}
         isGuest={session?.token?.secret ? false : true}
         publicGame={multiplayerState?.gameData?.public}
         myId={multiplayerState?.gameData?.myId}
@@ -2324,7 +2410,22 @@ export default function Home({ }) {
 
     return (
         <>
-            <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} />
+            <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} />
+
+            {adOverlayShown && (
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                    backgroundColor: 'rgba(0, 0, 0, 0.85)', zIndex: 99999999,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px'
+                }}>
+                    <div style={{
+                        width: '40px', height: '40px',
+                        border: '3px solid rgba(255, 255, 255, 0.2)', borderTop: '3px solid white',
+                        borderRadius: '50%', animation: 'spin 1s linear infinite'
+                    }}></div>
+                    <span style={{ color: 'white', fontSize: '18px', fontWeight: 600 }}>Loading advertisement...</span>
+                </div>
+            )}
 
             {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
@@ -2487,6 +2588,7 @@ export default function Home({ }) {
                     }}
                     accountModalOpen={accountModalOpen}
                     inCoolMathGames={inCoolMathGames}
+                    inGameDistribution={inGameDistribution}
                     maintenance={maintenance}
                     inCrazyGames={inCrazyGames}
                     loading={loading}
@@ -2576,9 +2678,9 @@ export default function Home({ }) {
                     </div>
                 )}
 
-                {!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH &&
+                {!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
 
-                    <div className={`home_ad `} style={{ display: (screen === 'home' && (!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH)) ? '' : 'none' }}>
+                    <div className={`home_ad `} style={{ display: (screen === 'home' && (!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION)) ? '' : 'none' }}>
                         <Ad
                             unit={"worldguessr_home_ad"}
                             inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.33 : 0.5} />
@@ -2699,7 +2801,7 @@ export default function Home({ }) {
                                             <div className="g2_nav_hr"></div>
 
                                             <div className="g2_nav_group">
-                                                {!process.env.NEXT_PUBLIC_COOLMATH &&
+                                                {!process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
                                                     <button className="g2_nav_text" aria-label="Community Maps" onClick={() => {
                                                         setNavSlideOut(true);
                                                         setTimeout(() => {
@@ -2743,7 +2845,7 @@ export default function Home({ }) {
                         {/* Footer moved outside of sliding navigation */}
                         <div className={`home__footer ${(screen === "home" && onboardingCompleted === true && !mapModal && !merchModal && !friendsModal && !accountModalOpen && !mapGuessrModal) ? "visible" : ""}`}>
                             <div className="footer_btns">
-                                {!isApp && !inCoolMathGames && (
+                                {!isApp && !inCoolMathGames && !inGameDistribution && (
                                     <>
                                         <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
 
@@ -2765,6 +2867,11 @@ export default function Home({ }) {
 
                                             <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button></Link>
                                     </>
+                                )}
+                                {!isApp && inGameDistribution && (
+                                    <Link href={"/leaderboard"}>
+                                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Leaderboard"><FaRankingStar className="home__squarebtnicon" /></button>
+                                    </Link>
                                 )}
 
                                 <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full " aria-label="Settings" onClick={() => setSettingsModal(true)}><FaGear className="home__squarebtnicon" /></button>
@@ -2853,6 +2960,7 @@ export default function Home({ }) {
                 {screen === "singleplayer" && <div className="home__singleplayer">
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
+                        inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
                         singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
@@ -2860,7 +2968,7 @@ export default function Home({ }) {
                 {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && <div className="home__onboarding">
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
-
+                        inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
                         inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
@@ -2936,7 +3044,7 @@ export default function Home({ }) {
                 {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
-
+                        inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
                         inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} latLong={latLong} loadLocation={() => { }} gameOptions={{
                             location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent,
@@ -3030,8 +3138,8 @@ document.addEventListener(
 
 window.show_videoad = function(callback) {
 // if in crazygame (window.inCrazyGames) dont show ads
-if(window.inCrazyGames) {
-  console.log("In crazygames, not showing ads")
+if(window.inCrazyGames || window.inGameDistribution) {
+  console.log("In crazygames/gamedistribution, not showing ads")
   callback("DISABLED");
   return;
 }

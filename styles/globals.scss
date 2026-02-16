@@ -1751,6 +1751,7 @@ h1, h2, h3, span, label {
     align-items: center;
     justify-content: center;
     gap: 10px;
+    padding: 6px 12px;
     background: var(--gradGreenBtn);
     border: 2px solid var(--primaryDark);
     box-shadow:
@@ -1938,7 +1939,11 @@ h1, h2, h3, span, label {
    ═══════════════════════════════════════════════════════════════════════════ */
 .hintBtn {
     width: auto;
-    padding-right: 12px;
+    padding: 0 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
     background: var(--gradGreenBtn);
     border: 1px solid var(--primaryDark);
     border-radius: 12px;

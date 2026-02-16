@@ -617,7 +617,7 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
 
             <div className="chart-stats">
                 <span className="data-points">{text('dataPoints', { count: chartData?.datasets[0]?.data?.length || 0 })}</span>
-                <span className="current-value">
+                {/* <span className="current-value">
                     {mode === 'xp' ?
                         (viewMode === 'xp'
                             ? `${text('currentXP')}: ${getCurrentValue().toLocaleString()}`
@@ -628,7 +628,7 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
                             : `${text('currentRank')}: #${getCurrentValue()}`
                         )
                     }
-                </span>
+                </span> */}
             </div>
 
             <style jsx>{`
