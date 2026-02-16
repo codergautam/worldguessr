@@ -439,8 +439,11 @@ export default function GameScreen() {
         pointerEvents={miniMapShown || gameState.isShowingResult ? 'auto' : 'none'}
       >
         {/* Inner wrapper gives MapView a fixed height so initialRegion works
-            even when the animated outer container starts at 0px height */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: height }}>
+            even when the animated outer container starts at 0px height.
+            Use 70% height during gameplay so MKMapView's native gesture recognizers
+            don't extend into the Guess button area (iOS ignores overflow:hidden for
+            native gesture hit-testing). Full height during results (no buttons). */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: gameState.isShowingResult ? height : height * 0.7 }}>
           {mapMounted && (
             <GuessMap
               guessPosition={guessPosition}
