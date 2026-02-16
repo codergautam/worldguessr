@@ -6,6 +6,8 @@ import {
   Pressable,
   ImageBackground,
   Animated,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -182,6 +184,9 @@ export default function HomeScreen() {
     }
   };
 
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
+
   let buttonIndex = 0;
   const getDelay = () => {
     buttonIndex++;
@@ -197,6 +202,9 @@ export default function HomeScreen() {
         resizeMode="cover"
       />
 
+      {/* Darken the background image */}
+      <View style={styles.darkOverlay} />
+
       {/* Green Gradient Overlay - Top to Bottom */}
       <LinearGradient
         colors={[
@@ -211,91 +219,98 @@ export default function HomeScreen() {
         style={styles.gradientOverlay}
       />
 
-      <SafeAreaView style={styles.content} edges={['top', 'bottom']}>
-        {/* Header with Title and Account Button */}
-        <View style={styles.header}>
-          <Animated.View
-            style={{
-              opacity: titleAnim,
-              transform: [{ translateX: titleSlide }],
-            }}
-          >
-            <OutlinedTitle>WorldGuessr</OutlinedTitle>
-          </Animated.View>
+      <SafeAreaView style={styles.content} edges={['top', 'bottom', 'left', 'right']}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          {/* Header with Title and Account Button */}
+          <View style={styles.header}>
+            <Animated.View
+              style={{
+                opacity: titleAnim,
+                transform: [{ translateX: titleSlide }],
+              }}
+            >
+              <OutlinedTitle>WorldGuessr</OutlinedTitle>
+            </Animated.View>
 
-          {/* Account Button - Top Right */}
-          <AccountButton
-            onPress={() => router.push('/(tabs)/account')}
-            username={isAuthenticated ? user?.username : undefined}
-            elo={user?.elo}
-          />
-        </View>
-
-        {/* Menu */}
-        <View style={styles.menu}>
-          <View style={styles.divider} />
-
-          <View style={styles.menuGroup}>
-            <MenuButton
-              label="Singleplayer"
-              onPress={() => handleModePress('singleplayer')}
-              delay={getDelay()}
+            {/* Account Button - Top Right */}
+            <AccountButton
+              onPress={() => router.push('/(tabs)/account')}
+              username={isAuthenticated ? user?.username : undefined}
+              elo={user?.elo}
             />
-            {isAuthenticated && (
+          </View>
+
+          {/* Menu */}
+          <View style={styles.menu}>
+            <View style={styles.divider} />
+
+            <View style={styles.menuGroup}>
               <MenuButton
-                label="Ranked Duel"
-                onPress={() => handleModePress('rankedDuel')}
+                label="Singleplayer"
+                onPress={() => handleModePress('singleplayer')}
                 delay={getDelay()}
               />
-            )}
-            <MenuButton
-              label={isAuthenticated ? 'Unranked Duel' : 'Find Duel'}
-              onPress={() => handleModePress('unrankedDuel')}
-              delay={getDelay()}
-            />
+              {isAuthenticated && (
+                <MenuButton
+                  label="Ranked Duel"
+                  onPress={() => handleModePress('rankedDuel')}
+                  delay={getDelay()}
+                />
+              )}
+              <MenuButton
+                label={isAuthenticated ? 'Unranked Duel' : 'Find Duel'}
+                onPress={() => handleModePress('unrankedDuel')}
+                delay={getDelay()}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.menuGroup}>
+              <MenuButton
+                label="Create Game"
+                onPress={() => handleModePress('createGame')}
+                delay={getDelay()}
+              />
+              <MenuButton
+                label="Join Game"
+                onPress={() => handleModePress('joinGame')}
+                delay={getDelay()}
+              />
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.menuGroup}>
+              <MenuButton
+                label="Community Maps"
+                onPress={() => handleModePress('communityMaps')}
+                delay={getDelay()}
+              />
+            </View>
           </View>
 
-          <View style={styles.divider} />
-
-          <View style={styles.menuGroup}>
-            <MenuButton
-              label="Create Game"
-              onPress={() => handleModePress('createGame')}
-              delay={getDelay()}
-            />
-            <MenuButton
-              label="Join Game"
-              onPress={() => handleModePress('joinGame')}
-              delay={getDelay()}
-            />
+          {/* Bottom Icons */}
+          <View style={[styles.bottomIcons, isLandscape && styles.bottomIconsLandscape]}>
+            <Pressable
+              style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+              onPress={() => router.push('/(tabs)/leaderboard')}
+            >
+              <Ionicons name="trophy" size={24} color="rgba(255,255,255,0.85)" />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+              onPress={() => {}}
+            >
+              <Ionicons name="settings-outline" size={24} color="rgba(255,255,255,0.85)" />
+            </Pressable>
           </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.menuGroup}>
-            <MenuButton
-              label="Community Maps"
-              onPress={() => handleModePress('communityMaps')}
-              delay={getDelay()}
-            />
-          </View>
-        </View>
-
-        {/* Bottom Icons */}
-        <View style={styles.bottomIcons}>
-          <Pressable
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
-            onPress={() => router.push('/(tabs)/leaderboard')}
-          >
-            <Ionicons name="trophy" size={24} color="rgba(255,255,255,0.85)" />
-          </Pressable>
-          <Pressable
-            style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
-            onPress={() => {}}
-          >
-            <Ionicons name="settings-outline" size={24} color="rgba(255,255,255,0.85)" />
-          </Pressable>
-        </View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -314,6 +329,12 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: spacing.xl,
   },
   header: {
@@ -369,7 +390,7 @@ const styles = StyleSheet.create({
   },
   // Menu - near top, not centered
   menu: {
-    flex: 1,
+    flexGrow: 1,
     paddingTop: spacing.md,
     maxWidth: 300,
   },
@@ -399,6 +420,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     paddingBottom: spacing.xl,
+    paddingTop: spacing.lg,
+  },
+  bottomIconsLandscape: {
+    paddingBottom: spacing.md,
   },
   iconButton: {
     width: 50,
