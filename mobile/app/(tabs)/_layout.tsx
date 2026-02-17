@@ -1,5 +1,4 @@
 import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/shared';
 
 export default function TabLayout() {
@@ -8,6 +7,7 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: { display: 'none' },
+        animation: 'fade',
       }}
     >
       <Tabs.Screen name="home" />
