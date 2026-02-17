@@ -51,4 +51,8 @@ mapgens/*-locations.json
 
 # Partytown (generated from node_modules)
 public/~partytown/
-mobile/
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/ios/
+mobile/android/
