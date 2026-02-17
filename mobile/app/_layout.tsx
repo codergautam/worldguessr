@@ -81,7 +81,7 @@ export default function RootLayout() {
           <Stack.Screen name="party/[code]" options={{ headerShown: false }} />
           <Stack.Screen name="friends" options={{ presentation: 'modal' }} />
           <Stack.Screen name="history/[gameId]" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="user/[username]" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="user/[username]" options={{ headerShown: false, animation: 'slide_from_right' }} />
         </Stack>
       </SafeAreaProvider>
     </GestureHandlerRootView>

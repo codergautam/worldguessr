@@ -75,13 +75,48 @@ export const api = {
       username: string;
       elo: number;
       totalXp: number;
-      totalGamesPlayed: number;
+      gamesPlayed: number;
+      createdAt?: string;
+      profileViews?: number;
       countryCode?: string;
       supporter?: boolean;
-      wins?: number;
-      losses?: number;
-      draws?: number;
+      rank?: number;
+      duelStats?: {
+        wins: number;
+        losses: number;
+        ties: number;
+        winRate: number;
+      };
     }>(`/api/publicProfile?username=${encodeURIComponent(username)}`);
+  },
+
+  eloRank: async (username: string) => {
+    return fetchApi<{
+      elo: number;
+      rank: number;
+      duels_wins: number;
+      duels_losses: number;
+      duels_tied: number;
+      win_rate: number;
+    }>(`/api/eloRank?username=${encodeURIComponent(username)}`);
+  },
+
+  userProgression: async (username: string) => {
+    return fetchApi<{
+      progression: Array<{
+        timestamp: string;
+        totalXp: number;
+        xpGain?: number;
+        xpRank?: number;
+        rankImprovement?: number;
+        elo?: number;
+        eloChange?: number;
+        eloRank?: number;
+      }>;
+    }>('/api/userProgression', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    });
   },
 
   updateCountryCode: async (secret: string, countryCode: string) => {

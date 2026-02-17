@@ -16,7 +16,9 @@
       "Bash(find:*)",
       "Bash(cat:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(npx expo install:*)",
+      "Bash(pnpm add:*)"
     ],
     "deny": [
       "Bash(git push:*)"
