@@ -494,16 +494,23 @@ export default function GameScreen() {
         </SafeAreaView>
       )}
 
-      {/* Close button - top left */}
-      <SafeAreaView style={[styles.closeButtonContainer, { paddingLeft: Math.max(insets.left, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
+      {/* Back button - top left (matches web navbar red back button) */}
+      <SafeAreaView style={[styles.backButtonContainer, { paddingLeft: Math.max(insets.left, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
         <Pressable
           style={({ pressed }) => [
-            styles.closeButton,
-            pressed && { opacity: 0.7 },
+            styles.backButton,
+            pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
           ]}
           onPress={handleQuit}
         >
-          <Ionicons name="close" size={24} color={colors.white} />
+          <LinearGradient
+            colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)', 'rgba(255,112,112,0.9)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.backButtonGradient}
+          >
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
+          </LinearGradient>
         </Pressable>
       </SafeAreaView>
 
@@ -786,8 +793,8 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
   },
 
-  // ── Close button (top left) ──────────────────────────────
-  closeButtonContainer: {
+  // ── Back button (top left) — matches web red navbar back btn ──
+  backButtonContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -795,13 +802,18 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.lg,
     paddingTop: spacing.sm,
   },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  backButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  backButtonGradient: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1.4,
+    borderColor: '#85200c',
   },
 
   // ── Map overlay - slides up from bottom ──────────────────
