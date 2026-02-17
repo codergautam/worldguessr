@@ -744,7 +744,7 @@ const styles = StyleSheet.create({
   },
   scoreValue: {
     fontSize: 44,
-    fontWeight: 'bold',
+    fontFamily: 'Lexend-Bold',
     color: '#4CAF50',
     letterSpacing: -1,
     textShadowColor: 'rgba(76, 175, 80, 0.4)',
@@ -753,6 +753,7 @@ const styles = StyleSheet.create({
   },
   scoreSubtitle: {
     fontSize: fontSizes.sm,
+    fontFamily: 'Lexend',
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 2,
     marginBottom: spacing.md,
@@ -780,7 +781,7 @@ const styles = StyleSheet.create({
   detailsToggleBtnText: {
     color: colors.white,
     fontSize: fontSizes.sm,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
   },
   actionBtnPrimary: {
     flexDirection: 'row',
@@ -793,7 +794,7 @@ const styles = StyleSheet.create({
   actionBtnPrimaryText: {
     color: colors.white,
     fontSize: fontSizes.sm,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
   },
   actionBtnSecondary: {
     paddingVertical: 8,
@@ -806,7 +807,7 @@ const styles = StyleSheet.create({
   actionBtnSecondaryText: {
     color: colors.white,
     fontSize: fontSizes.sm,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
   },
 
   // ── Rounds list ────────────────────────────────────────────
@@ -819,7 +820,7 @@ const styles = StyleSheet.create({
   roundsHeaderText: {
     color: colors.white,
     fontSize: fontSizes.md,
-    fontWeight: '700',
+    fontFamily: 'Lexend-Bold',
   },
   roundItem: {
     paddingVertical: 12,
@@ -841,11 +842,11 @@ const styles = StyleSheet.create({
   roundNumber: {
     color: colors.white,
     fontSize: fontSizes.md,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
   },
   roundPts: {
     fontSize: fontSizes.md,
-    fontWeight: '700',
+    fontFamily: 'Lexend-Bold',
   },
   roundDetails: {
     gap: 4,
@@ -866,11 +867,12 @@ const styles = StyleSheet.create({
   detailText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: fontSizes.xs,
+    fontFamily: 'Lexend',
   },
   detailValue: {
     color: colors.white,
     fontSize: fontSizes.xs,
-    fontWeight: '500',
+    fontFamily: 'Lexend-Medium',
   },
   // ── Callout tooltips ─────────────────────────────────────────
   calloutContainer: {
@@ -878,18 +880,19 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   calloutTitle: {
-    fontWeight: '700',
+    fontFamily: 'Lexend-Bold',
     fontSize: 13,
     marginBottom: 4,
     color: '#333',
   },
   calloutPoints: {
-    fontWeight: '700',
+    fontFamily: 'Lexend-Bold',
     fontSize: 13,
     marginBottom: 2,
   },
   calloutDistance: {
     fontSize: 12,
+    fontFamily: 'Lexend',
     color: '#666',
     marginBottom: 4,
   },
@@ -904,6 +907,6 @@ const styles = StyleSheet.create({
   calloutActionText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
   },
 });

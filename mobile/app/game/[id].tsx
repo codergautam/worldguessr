@@ -588,9 +588,9 @@ export default function GameScreen() {
             </Text>
 
             {/* Running total */}
-            <Text style={styles.endBannerTotal}>
+            {/* <Text style={styles.endBannerTotal}>
               Total: {gameState.totalScore.toLocaleString()} / {gameState.totalRounds * 5000}
-            </Text>
+            </Text> */}
 
             {/* Next Round / View Results button */}
             <Pressable
@@ -632,12 +632,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     fontSize: fontSizes.md,
     color: colors.textSecondary,
+    fontFamily: 'Lexend-Medium',
   },
   errorText: {
     marginTop: spacing.lg,
     fontSize: fontSizes.md,
     color: colors.error,
     textAlign: 'center',
+    fontFamily: 'Lexend-Medium',
   },
   retryButton: {
     marginTop: spacing.xl,
@@ -648,7 +650,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     fontSize: fontSizes.md,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
     color: colors.white,
   },
 
@@ -684,13 +686,13 @@ const styles = StyleSheet.create({
   },
   timerText: {
     color: colors.white,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
     fontSize: fontSizes.sm,
     letterSpacing: 0.3,
   },
   timerScore: {
     color: colors.textSecondary,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
     fontSize: fontSizes.xs,
   },
 
@@ -761,7 +763,7 @@ const styles = StyleSheet.create({
   guessSubmitBtnText: {
     color: colors.white,
     fontSize: fontSizes.lg,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
     letterSpacing: 0.5,
   },
   mapCollapseBtn: {
@@ -809,7 +811,7 @@ const styles = StyleSheet.create({
   guessFabText: {
     color: colors.white,
     fontSize: fontSizes.xl,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
   },
 
   // ── End Banner - matches web #endBanner ──────────────────
@@ -843,24 +845,24 @@ const styles = StyleSheet.create({
   endBannerRound: {
     color: 'rgba(255, 255, 255, 0.6)',
     fontSize: fontSizes.sm,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
     textAlign: 'center',
   },
   endBannerDistance: {
     color: colors.white,
     fontSize: fontSizes.lg,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
     textAlign: 'center',
   },
   endBannerPoints: {
     fontSize: fontSizes['2xl'],
-    fontWeight: 'bold',
+    fontFamily: 'Lexend-Bold',
     textAlign: 'center',
   },
   endBannerTotal: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: fontSizes.sm,
-    fontWeight: '500',
+    fontFamily: 'Lexend-Medium',
     textAlign: 'center',
   },
   nextRoundBtn: {
@@ -874,6 +876,6 @@ const styles = StyleSheet.create({
   nextRoundBtnText: {
     color: colors.white,
     fontSize: fontSizes.lg,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
   },
 });

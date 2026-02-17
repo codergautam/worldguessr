@@ -348,7 +348,12 @@ export default function UserProfileScreen() {
 
         {/* Profile Content */}
         {!loading && !error && profileData && (
-          <View style={styles.profileContainer}>
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.profileContainer}
+            contentContainerStyle={styles.bodyContent}
+            showsVerticalScrollIndicator={false}
+          >
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.usernameRow}>
@@ -387,15 +392,8 @@ export default function UserProfileScreen() {
             </View>
 
             {/* Tab Content */}
-            <ScrollView
-              ref={scrollViewRef}
-              style={styles.body}
-              contentContainerStyle={styles.bodyContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {activeTab === 'profile' ? renderProfileTab() : renderEloTab()}
-            </ScrollView>
-          </View>
+            {activeTab === 'profile' ? renderProfileTab() : renderEloTab()}
+          </ScrollView>
         )}
       </SafeAreaView>
     </View>
@@ -642,7 +640,6 @@ function ProgressionGraph({
           hideDataPoints={chartEntries.length > 30}
           dataPointsColor={lineColor}
           dataPointsRadius={3}
-          curved
           areaChart
           startFillColor={lineColor}
           endFillColor={lineColor}

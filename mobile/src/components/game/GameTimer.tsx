@@ -95,6 +95,6 @@ const styles = StyleSheet.create({
   },
   time: {
     fontSize: fontSizes.lg,
-    fontWeight: 'bold',
+    fontFamily: 'Lexend-Bold',
   },
 });
