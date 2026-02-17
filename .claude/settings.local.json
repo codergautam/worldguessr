@@ -15,7 +15,8 @@
       "Bash(done)",
       "Bash(find:*)",
       "Bash(cat:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(npx tsc:*)"
     ],
     "deny": [
       "Bash(git push:*)"

@@ -7,13 +7,14 @@ import {
   Pressable,
   ActivityIndicator,
   RefreshControl,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, getLeague } from '../../src/shared';
+import { colors } from '../../src/shared';
 import { api } from '../../src/services/api';
-import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 
 interface LeaderboardEntry {
   rank: number;
@@ -23,63 +24,16 @@ interface LeaderboardEntry {
   countryCode?: string;
 }
 
-type LeaderboardMode = 'xp' | 'elo';
-type TimePeriod = 'allTime' | 'daily';
-
-function LeaderboardRow({ entry, mode, onPress }: {
-  entry: LeaderboardEntry;
-  mode: LeaderboardMode;
-  onPress: () => void;
-}) {
-  const league = entry.elo ? getLeague(entry.elo) : null;
-  const isTopThree = entry.rank <= 3;
-  const rankColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.row,
-        pressed && commonStyles.cardPressed,
-      ]}
-      onPress={onPress}
-    >
-      <View style={[
-        styles.rankContainer,
-        isTopThree && { backgroundColor: rankColors[entry.rank - 1] + '33' },
-      ]}>
-        <Text style={[
-          styles.rank,
-          isTopThree && { color: rankColors[entry.rank - 1] },
-        ]}>
-          {entry.rank}
-        </Text>
-      </View>
-
-      <View style={styles.userInfo}>
-        <View style={styles.usernameRow}>
-          <Text style={styles.username}>{entry.username}</Text>
-          {entry.countryCode && (
-            <Text style={styles.flag}>
-              {getFlagEmoji(entry.countryCode)}
-            </Text>
-          )}
-        </View>
-        {mode === 'elo' && league && (
-          <Text style={[styles.league, { color: league.color }]}>
-            {league.emoji} {league.name}
-          </Text>
-        )}
-      </View>
-
-      <Text style={styles.score}>
-        {mode === 'xp'
-          ? `${(entry.totalXp ?? 0).toLocaleString()} XP`
-          : entry.elo?.toLocaleString() ?? '—'
-        }
-      </Text>
-    </Pressable>
-  );
+interface LeaderboardData {
+  leaderboard: LeaderboardEntry[];
+  myRank?: number;
+  myElo?: number;
+  myXp?: number;
+  myCountryCode?: string;
 }
+
+type LeaderboardMode = 'elo' | 'xp';
+type TimePeriod = 'allTime' | 'daily';
 
 function getFlagEmoji(countryCode: string): string {
   const codePoints = countryCode
@@ -89,62 +43,43 @@ function getFlagEmoji(countryCode: string): string {
   return String.fromCodePoint(...codePoints);
 }
 
-function SegmentedControl<T extends string>({
-  options,
-  selected,
-  onSelect,
-}: {
-  options: { value: T; label: string }[];
-  selected: T;
-  onSelect: (value: T) => void;
-}) {
-  return (
-    <View style={styles.segmentedControl}>
-      {options.map((option) => (
-        <Pressable
-          key={option.value}
-          style={[
-            styles.segment,
-            selected === option.value && styles.segmentSelected,
-          ]}
-          onPress={() => onSelect(option.value)}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              selected === option.value && styles.segmentTextSelected,
-            ]}
-          >
-            {option.label}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
-  );
+function formatScore(value: number | undefined, isDailyLeaderboard: boolean): string {
+  if (value == null) return '0';
+  if (!isDailyLeaderboard) return value.toFixed(0);
+  const numValue = Number(value);
+  if (numValue > 0) return `+${numValue.toFixed(0)}`;
+  return numValue.toFixed(0);
 }
 
 export default function LeaderboardScreen() {
   const router = useRouter();
-  const [mode, setMode] = useState<LeaderboardMode>('xp');
+  const [mode, setMode] = useState<LeaderboardMode>('elo');
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('allTime');
-  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
+  const [data, setData] = useState<LeaderboardData>({ leaderboard: [] });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
+  // TODO: Replace with real session when auth is implemented
+  const session = null as { username: string } | null;
+
   const fetchLeaderboard = useCallback(async () => {
+    setError(false);
     try {
       const response = await api.leaderboard({
         mode,
         pastDay: timePeriod === 'daily',
+        username: session?.username,
       });
-      setEntries(response.leaderboard);
-    } catch (error) {
-      console.error('Failed to fetch leaderboard:', error);
+      setData(response);
+    } catch (e) {
+      console.error('Failed to fetch leaderboard:', e);
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [mode, timePeriod]);
+  }, [mode, timePeriod, session?.username]);
 
   useEffect(() => {
     setLoading(true);
@@ -156,168 +91,514 @@ export default function LeaderboardScreen() {
     fetchLeaderboard();
   }, [fetchLeaderboard]);
 
-  const handleUserPress = (username: string) => {
-    router.push(`/user/${username}`);
+  const isDailyLeaderboard = timePeriod === 'daily';
+
+  const renderItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {
+    const isTopThree = index < 3;
+    const medals = ['🥇', '🥈', '🥉'];
+
+    return (
+      <Pressable
+        style={({ pressed }) => [
+          styles.leaderboardItem,
+          isTopThree && styles.topThree,
+          pressed && { opacity: 0.8 },
+        ]}
+        onPress={() => router.push(`/user/${item.username}` as any)}
+      >
+        {/* Rank / Medal */}
+        <View style={styles.rankNumber}>
+          {isTopThree ? (
+            <Text style={styles.medal}>{medals[index]}</Text>
+          ) : (
+            <Text style={styles.rankText}>#{index + 1}</Text>
+          )}
+        </View>
+
+        {/* Player Details */}
+        <View style={styles.playerDetails}>
+          <View style={styles.usernameRow}>
+            <Text style={styles.username} numberOfLines={1}>
+              {item.username}
+            </Text>
+            {item.countryCode && (
+              <Text style={styles.flag}>{getFlagEmoji(item.countryCode)}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Score */}
+        <View style={styles.scoreContainer}>
+          <Text style={styles.score}>
+            {formatScore(mode === 'elo' ? item.elo : item.totalXp, isDailyLeaderboard)}
+          </Text>
+          <Text style={styles.scoreLabel}>{mode === 'elo' ? 'Elo' : 'XP'}</Text>
+        </View>
+      </Pressable>
+    );
   };
 
-  return (
-    <SafeAreaView style={commonStyles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Leaderboard</Text>
-      </View>
-
-      <View style={styles.controls}>
-        <SegmentedControl
-          options={[
-            { value: 'xp', label: 'XP' },
-            { value: 'elo', label: 'ELO' },
-          ]}
-          selected={mode}
-          onSelect={setMode}
-        />
-
-        <SegmentedControl
-          options={[
-            { value: 'allTime', label: 'All Time' },
-            { value: 'daily', label: 'Today' },
-          ]}
-          selected={timePeriod}
-          onSelect={setTimePeriod}
-        />
-      </View>
-
-      {loading ? (
-        <View style={commonStyles.centered}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={entries}
-          keyExtractor={(item) => `${item.rank}-${item.username}`}
-          renderItem={({ item }) => (
-            <LeaderboardRow
-              entry={item}
-              mode={mode}
-              onPress={() => handleUserPress(item.username)}
-            />
-          )}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={colors.primary}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="trophy-outline" size={64} color={colors.textMuted} />
-              <Text style={styles.emptyText}>No entries yet</Text>
+  const ListHeader = () => (
+    <>
+      {/* My Rank Card — renders when user is logged in and has a rank */}
+      {session && data.myRank && (
+        <View style={styles.myRankCard}>
+          <View style={styles.rankBadge}>
+            <Text style={styles.rankBadgeText}>#{data.myRank}</Text>
+          </View>
+          <View style={styles.playerInfo}>
+            <View style={styles.usernameRow}>
+              <Text style={styles.playerName}>{session.username}</Text>
+              {data.myCountryCode && (
+                <Text style={styles.flag}>{getFlagEmoji(data.myCountryCode)}</Text>
+              )}
             </View>
-          }
-        />
+            <Text style={styles.playerScore}>
+              {formatScore(mode === 'elo' ? data.myElo : data.myXp, isDailyLeaderboard)}
+              <Text style={styles.scoreType}> {mode === 'elo' ? 'Elo' : 'XP'}</Text>
+            </Text>
+          </View>
+          <Text style={styles.myRankLabel}>Your Rank</Text>
+        </View>
       )}
-    </SafeAreaView>
+    </>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* Background Image */}
+      <ImageBackground
+        source={require('../../assets/street2.jpg')}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+      />
+
+      {/* Dark overlay matching web: rgba(0,0,0,0.9) → rgba(20,26,57,0.8) → rgba(0,0,0,0.9) */}
+      <LinearGradient
+        colors={[
+          'rgba(0, 0, 0, 0.9)',
+          'rgba(20, 26, 57, 0.8)',
+          'rgba(0, 0, 0, 0.9)',
+        ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
+
+      <SafeAreaView style={styles.safeArea} edges={['top']}>
+        {/* Branding / Header */}
+        <View style={styles.branding}>
+          <Text style={styles.title}>Leaderboard</Text>
+
+          <View style={styles.controls}>
+            {/* Time Controls */}
+            <View style={styles.pillGroup}>
+              <Pressable
+                style={[
+                  styles.controlButton,
+                  timePeriod === 'allTime' && styles.controlButtonActiveGreen,
+                ]}
+                onPress={() => setTimePeriod('allTime')}
+              >
+                <Text
+                  style={[
+                    styles.controlButtonText,
+                    timePeriod === 'allTime' && styles.controlButtonTextActiveGreen,
+                  ]}
+                >
+                  All Time
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.controlButton,
+                  timePeriod === 'daily' && styles.controlButtonActiveGreen,
+                ]}
+                onPress={() => setTimePeriod('daily')}
+              >
+                <Text
+                  style={[
+                    styles.controlButtonText,
+                    timePeriod === 'daily' && styles.controlButtonTextActiveGreen,
+                  ]}
+                >
+                  Past Day
+                </Text>
+              </Pressable>
+            </View>
+
+            {/* Mode Controls */}
+            <View style={styles.pillGroup}>
+              <Pressable
+                style={[
+                  styles.controlButton,
+                  mode === 'elo' && styles.controlButtonActiveGold,
+                ]}
+                onPress={() => setMode('elo')}
+              >
+                <Text
+                  style={[
+                    styles.controlButtonText,
+                    mode === 'elo' && styles.controlButtonTextActiveGold,
+                  ]}
+                >
+                  ELO
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.controlButton,
+                  mode === 'xp' && styles.controlButtonActiveGold,
+                ]}
+                onPress={() => setMode('xp')}
+              >
+                <Text
+                  style={[
+                    styles.controlButtonText,
+                    mode === 'xp' && styles.controlButtonTextActiveGold,
+                  ]}
+                >
+                  XP
+                </Text>
+              </Pressable>
+            </View>
+            {/* Back Button */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.exitButton,
+                pressed && { opacity: 0.8 },
+              ]}
+              onPress={() => router.replace('/(tabs)/home')}
+            >
+              <Ionicons name="arrow-back" size={16} color="#dc3545" />
+              <Text style={styles.exitButtonText}>Back to Game</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* Error State */}
+        {error && (
+          <View style={styles.errorMessage}>
+            <Text style={styles.errorText}>Error fetching leaderboard data</Text>
+          </View>
+        )}
+
+        {/* Loading State */}
+        {loading && !error && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4CAF50" />
+            <Text style={styles.loadingText}>Loading...</Text>
+          </View>
+        )}
+
+        {/* Leaderboard List */}
+        {!loading && !error && (
+          <View style={styles.leaderboardContainer}>
+            <FlatList
+              data={data.leaderboard}
+              keyExtractor={(item, index) => `${index}-${item.username}`}
+              renderItem={renderItem}
+              ListHeaderComponent={ListHeader}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor="#4CAF50"
+                />
+              }
+              ListEmptyComponent={
+                <View style={styles.emptyState}>
+                  <Ionicons name="trophy-outline" size={64} color="rgba(255,255,255,0.4)" />
+                  <Text style={styles.emptyText}>No entries yet</Text>
+                </View>
+              }
+            />
+          </View>
+        )}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    padding: spacing.lg,
-    paddingBottom: spacing.md,
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  safeArea: {
+    flex: 1,
+  },
+
+  // ── Branding / Header ──────────────────────────────────────
+  branding: {
+    marginHorizontal: 8,
+    marginTop: 8,
+    marginBottom: 12,
+    padding: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    alignItems: 'center',
   },
   title: {
-    fontSize: fontSizes['2xl'],
-    fontWeight: 'bold',
-    color: colors.text,
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#4CAF50',
+    marginBottom: 16,
   },
   controls: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-    marginBottom: spacing.lg,
+    flexDirection: 'row',
+    gap: 12,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
-  segmentedControl: {
+
+  // ── Pill Group (Time / Mode) ───────────────────────────────
+  pillGroup: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: borderRadius.md,
-    padding: spacing.xs,
+    borderRadius: 25,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
   },
-  segment: {
-    flex: 1,
-    paddingVertical: spacing.sm,
+  controlButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    minWidth: 70,
     alignItems: 'center',
-    borderRadius: borderRadius.sm,
   },
-  segmentSelected: {
-    backgroundColor: colors.primary,
+  controlButtonText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 14,
+    fontWeight: '500',
   },
-  segmentText: {
-    fontSize: fontSizes.sm,
+  controlButtonActiveGreen: {
+    backgroundColor: '#4CAF50',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  controlButtonTextActiveGreen: {
+    color: '#fff',
     fontWeight: '600',
-    color: colors.textMuted,
   },
-  segmentTextSelected: {
-    color: colors.white,
+  controlButtonActiveGold: {
+    backgroundColor: '#FFD700',
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 100,
+  controlButtonTextActiveGold: {
+    color: '#000',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  row: {
+
+  // ── Exit Button ────────────────────────────────────────────
+  exitButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    gap: 8,
+    backgroundColor: 'rgba(220, 53, 69, 0.2)',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: 'rgba(220, 53, 69, 0.3)',
   },
-  rankContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  exitButtonText: {
+    color: '#dc3545',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+
+  // ── Error ──────────────────────────────────────────────────
+  errorMessage: {
+    marginHorizontal: 8,
+    marginBottom: 12,
+    padding: 15,
+    backgroundColor: 'rgba(248, 215, 218, 0.9)',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(245, 198, 203, 0.8)',
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#721c24',
+    fontSize: 16,
+  },
+
+  // ── Loading ────────────────────────────────────────────────
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: spacing.md,
+    gap: 16,
   },
-  rank: {
-    fontSize: fontSizes.md,
-    fontWeight: 'bold',
-    color: colors.text,
+  loadingText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 16,
   },
-  userInfo: {
+
+  // ── Leaderboard Container ─────────────────────────────────
+  leaderboardContainer: {
     flex: 1,
+    marginHorizontal: 8,
+    marginBottom: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+  },
+  listContent: {
+    padding: 12,
+    paddingBottom: 100,
+  },
+
+  // ── My Rank Card ──────────────────────────────────────────
+  myRankCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: 'rgba(76, 175, 80, 0.3)',
+    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+  },
+  rankBadge: {
+    backgroundColor: 'rgba(76, 175, 80, 0.8)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    minWidth: 60,
+    alignItems: 'center',
+    shadowColor: '#4CAF50',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  rankBadgeText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  playerInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  playerName: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  playerScore: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#4CAF50',
+  },
+  scoreType: {
+    fontSize: 13,
+    opacity: 0.8,
+  },
+  myRankLabel: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.7)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '500',
+  },
+
+  // ── Leaderboard Item ──────────────────────────────────────
+  leaderboardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  topThree: {
+    backgroundColor: 'rgba(255, 215, 0, 0.08)',
+    borderColor: 'rgba(255, 215, 0, 0.2)',
+  },
+
+  // ── Rank ──────────────────────────────────────────────────
+  rankNumber: {
+    width: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankText: {
+    fontWeight: '700',
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  medal: {
+    fontSize: 24,
+  },
+
+  // ── Player Details ────────────────────────────────────────
+  playerDetails: {
+    flex: 1,
+    marginLeft: 8,
   },
   usernameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 6,
   },
   username: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.text,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#fff',
+    flexShrink: 1,
   },
   flag: {
-    fontSize: fontSizes.sm,
+    fontSize: 14,
   },
-  league: {
-    fontSize: fontSizes.xs,
-    marginTop: spacing.xs,
+
+  // ── Score ─────────────────────────────────────────────────
+  scoreContainer: {
+    alignItems: 'flex-end',
+    gap: 2,
   },
   score: {
-    fontSize: fontSizes.md,
-    fontWeight: '600',
-    color: colors.primary,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#4CAF50',
   },
+  scoreLabel: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+
+  // ── Empty State ───────────────────────────────────────────
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing['4xl'],
+    paddingVertical: 60,
   },
   emptyText: {
-    fontSize: fontSizes.lg,
-    color: colors.textMuted,
-    marginTop: spacing.lg,
+    fontSize: 18,
+    color: 'rgba(255, 255, 255, 0.5)',
+    marginTop: 16,
   },
 });

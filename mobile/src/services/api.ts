@@ -110,6 +110,10 @@ export const api = {
         totalXp?: number;
         countryCode?: string;
       }>;
+      myRank?: number;
+      myElo?: number;
+      myXp?: number;
+      myCountryCode?: string;
     }>(`/api/leaderboard?${params.toString()}`);
   },
 
