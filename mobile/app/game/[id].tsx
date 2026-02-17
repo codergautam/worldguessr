@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
+  Image,
+  ImageBackground,
   StyleSheet,
   Pressable,
-  ActivityIndicator,
   useWindowDimensions,
   Animated,
   Easing,
@@ -92,7 +93,12 @@ export default function GameScreen() {
   // Mount the map eagerly once loading completes to avoid first-touch issues
   const [mapMounted, setMapMounted] = useState(false);
 
+  // Street view loading state — true = panorama not yet ready
+  const [streetViewLoaded, setStreetViewLoaded] = useState(false);
+  const showLoadingBanner = isLoading || !streetViewLoaded;
+
   // Animation values
+  const loadingOpacity = useRef(new Animated.Value(1)).current;
   const mapSlideAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
   const mapBtnsAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
   const bannerSlideAnim = useRef(new Animated.Value(300)).current;
@@ -107,6 +113,50 @@ export default function GameScreen() {
       return () => clearTimeout(timer);
     }
   }, [isLoading, mapMounted]);
+
+  // Ref to prevent the useEffect from snapping opacity when handleNextRound
+  // is already running a manual fade-in animation
+  const isManualFadeIn = useRef(false);
+
+  // Fade loading banner in/out
+  const fadeOutTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (fadeOutTimer.current) {
+      clearTimeout(fadeOutTimer.current);
+      fadeOutTimer.current = null;
+    }
+
+    if (showLoadingBanner) {
+      // If handleNextRound is running a manual fade-in, don't snap
+      if (!isManualFadeIn.current) {
+        loadingOpacity.setValue(1);
+      }
+    } else {
+      isManualFadeIn.current = false;
+      // Delay before fading out so the StreetView has time to paint its first frame
+      fadeOutTimer.current = setTimeout(() => {
+        Animated.timing(loadingOpacity, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      }, 400);
+    }
+
+    return () => {
+      if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
+    };
+  }, [showLoadingBanner]);
+
+  // Reset streetViewLoaded when round changes (between rounds)
+  useEffect(() => {
+    setStreetViewLoaded(false);
+  }, [gameState.currentRound]);
+
+  const handleStreetViewLoad = useCallback(() => {
+    setStreetViewLoaded(true);
+  }, []);
 
   // Animate map slide in/out
   useEffect(() => {
@@ -336,14 +386,28 @@ export default function GameScreen() {
       return;
     }
 
-    setGameState((prev) => ({
-      ...prev,
-      currentRound: prev.currentRound + 1,
-      isShowingResult: false,
-    }));
-    setGuessPosition(null);
-    setMiniMapShown(false);
-    roundStartTimeRef.current = Date.now();
+    // Mark that we're doing a manual fade-in so the useEffect doesn't snap opacity
+    isManualFadeIn.current = true;
+    setStreetViewLoaded(false);
+
+    // Animate loading banner fade-in OVER the map/end banner
+    Animated.timing(loadingOpacity, {
+      toValue: 1,
+      duration: 400,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      // Only after the banner fully covers the screen, change game state
+      // (which removes the map/end banner underneath)
+      setGameState((prev) => ({
+        ...prev,
+        currentRound: prev.currentRound + 1,
+        isShowingResult: false,
+      }));
+      setGuessPosition(null);
+      setMiniMapShown(false);
+      roundStartTimeRef.current = Date.now();
+    });
   }, [gameState, router]);
 
   const handleQuit = () => {
@@ -362,12 +426,22 @@ export default function GameScreen() {
     return `${Math.round(km).toLocaleString()} km`;
   };
 
-  // Loading state
+  // Loading state — no longer an early return; we render the overlay on top
   if (isLoading) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Loading game...</Text>
+      <View style={styles.container}>
+        <ImageBackground
+          source={require('../../assets/street2.jpg')}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
+        <View style={styles.loadingDarkOverlay} />
+        <View style={styles.loadingBannerCenter}>
+          <View style={styles.loadingBannerContent}>
+            <Image source={require('../../assets/loader.gif')} style={styles.loadingSpinner} />
+            <Text style={styles.loadingBannerText}>Loading...</Text>
+          </View>
+        </View>
       </View>
     );
   }
@@ -395,6 +469,7 @@ export default function GameScreen() {
         <StreetViewWebView
           lat={currentLocation.lat}
           long={currentLocation.long}
+          onLoad={handleStreetViewLoad}
         />
       </View>
 
@@ -587,11 +662,6 @@ export default function GameScreen() {
               {lastGuess.points.toLocaleString()} points
             </Text>
 
-            {/* Running total */}
-            {/* <Text style={styles.endBannerTotal}>
-              Total: {gameState.totalScore.toLocaleString()} / {gameState.totalRounds * 5000}
-            </Text> */}
-
             {/* Next Round / View Results button */}
             <Pressable
               onPress={handleNextRound}
@@ -614,6 +684,26 @@ export default function GameScreen() {
           </View>
         </Animated.View>
       )}
+
+      {/* ═══ LOADING BANNER OVERLAY — initial load & between rounds ═══ */}
+      <Animated.View
+        style={[
+          styles.loadingBannerOverlay,
+          { opacity: loadingOpacity },
+        ]}
+        pointerEvents={showLoadingBanner ? 'auto' : 'none'}
+      >
+        <ImageBackground
+          source={require('../../assets/street2.jpg')}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
+        <View style={styles.loadingDarkOverlay} />
+        <View style={styles.loadingBannerContent}>
+          <Image source={require('../../assets/loader.gif')} style={styles.loadingSpinner} />
+          <Text style={styles.loadingBannerText}>Loading...</Text>
+        </View>
+      </Animated.View>
     </View>
   );
 }
@@ -877,5 +967,36 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: fontSizes.lg,
     fontFamily: 'Lexend-SemiBold',
+  },
+
+  // ── Loading Banner Overlay ─────────────────────────────────
+  loadingBannerOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2000,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingDarkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  loadingBannerCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingSpinner: {
+    width: 80,
+    height: 80,
+  },
+  loadingBannerText: {
+    color: '#fff',
+    fontSize: 42,
+    fontFamily: 'Lexend-Bold',
   },
 });
