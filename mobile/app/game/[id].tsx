@@ -468,28 +468,8 @@ export default function GameScreen() {
     return `${Math.round(km).toLocaleString()} km`;
   };
 
-  // Loading state — no longer an early return; we render the overlay on top
-  if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <ImageBackground
-          source={require('../../assets/street2.jpg')}
-          style={StyleSheet.absoluteFillObject}
-          resizeMode="cover"
-        />
-        <View style={styles.loadingDarkOverlay} />
-        <View style={styles.loadingBannerCenter}>
-          <View style={styles.loadingBannerContent}>
-            <Image source={require('../../assets/loader.gif')} style={styles.loadingSpinner} />
-            <Text style={styles.loadingBannerText}>Loading...</Text>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  // Error state
-  if (loadError || !currentLocation) {
+  // Error state — only show if loading finished with an error
+  if (!isLoading && (loadError || !currentLocation)) {
     return (
       <View style={[styles.container, styles.centerContent]}>
         <Ionicons name="warning" size={48} color={colors.error} />
@@ -508,11 +488,13 @@ export default function GameScreen() {
     <View style={styles.container}>
       {/* Street View - FULLSCREEN */}
       <View style={StyleSheet.absoluteFillObject}>
-        <StreetViewWebView
-          lat={currentLocation.lat}
-          long={currentLocation.long}
-          onLoad={handleStreetViewLoad}
-        />
+        {currentLocation && (
+          <StreetViewWebView
+            lat={currentLocation.lat}
+            long={currentLocation.long}
+            onLoad={handleStreetViewLoad}
+          />
+        )}
       </View>
 
       {/* Round/score pill - top right */}
