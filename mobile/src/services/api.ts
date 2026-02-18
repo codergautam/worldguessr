@@ -3,6 +3,22 @@ import { GameSettings } from '../shared';
 // TODO: Replace with environment variable
 const API_URL = 'https://api.worldguessr.com';
 
+export interface MapItem {
+  id?: string;
+  slug: string;
+  name: string;
+  created_by_name?: string;
+  plays: number;
+  hearts: number;
+  hearted?: boolean;
+  locations?: number;
+  description_short?: string;
+  official?: boolean;
+  accepted?: boolean;
+  countryMap?: string; // country code for official country maps
+  countryCode?: string;
+}
+
 interface ApiResponse<T> {
   data?: T;
   error?: string;
@@ -226,30 +242,21 @@ export const api = {
 
   // Maps
   mapHome: async () => {
+    // Anonymous GET with ?anon=true (no auth needed, cacheable)
     return fetchApi<{
-      maps: Array<{
-        slug: string;
-        name: string;
-        created_by: string;
-        plays: number;
-        hearts: number;
-        locationCount: number;
-        description?: string;
-      }>;
-    }>('/api/map/mapHome');
+      countryMaps?: Array<MapItem>;
+      spotlight?: Array<MapItem>;
+      popular?: Array<MapItem>;
+      recent?: Array<MapItem>;
+    }>('/api/map/mapHome?anon=true');
   },
 
   searchMap: async (query: string) => {
-    return fetchApi<{
-      maps: Array<{
-        slug: string;
-        name: string;
-        created_by: string;
-        plays: number;
-        hearts: number;
-        locationCount: number;
-      }>;
-    }>(`/api/map/searchMap?q=${encodeURIComponent(query)}`);
+    // searchMap requires POST with body
+    return fetchApi<Array<MapItem>>('/api/map/searchMap', {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    });
   },
 
   // Reports
