@@ -2494,7 +2494,7 @@ export default function Home({ }) {
                 msUserSelect: 'none',
                 pointerEvents: 'none',
             }}>
-                <NextImage.default src={'./street2.webp'}
+                <NextImage.default src={asset('/street2.webp')}
                     draggable={false}
                     width={1920}
                     height={1080}
@@ -2543,7 +2543,7 @@ export default function Home({ }) {
 
                 {/* Loading overlay - covers iframe with background image to prevent white flicker */}
                 <div className={`loading-overlay ${loading ? 'loading-overlay--visible' : ''}`}>
-                    <NextImage.default src={'./street2.webp'}
+                    <NextImage.default src={asset('/street2.webp')}
                         draggable={false}
                         width={1920}
                         height={1080}
