@@ -349,28 +349,62 @@ export default function MapsScreen() {
             }
           >
             {isSearching ? (
-              // Search results
-              searchLoading ? (
-                <View style={styles.centered}>
-                  <ActivityIndicator size="large" color="white" />
-                  <Text style={styles.loadingText}>Searching...</Text>
-                </View>
-              ) : searchResults.length > 0 ? (
-                <MapSection
-                  title="Search Results"
-                  maps={searchResults}
-                  onMapPress={handleMapPress}
-                  numCols={numCols}
-                />
-              ) : (
-                <View style={styles.emptyState}>
-                  <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.3)" />
-                  <Text style={styles.emptyTitle}>No results found</Text>
-                  <Text style={styles.emptySubtext}>
-                    Try adjusting your search terms
-                  </Text>
-                </View>
-              )
+              // Search results — include matching country maps + API results
+              (() => {
+                const queryLower = searchQuery.trim().toLowerCase();
+                const matchingCountryMaps = (mapHome.countryMaps || []).filter(
+                  (m) => m.name?.toLowerCase().includes(queryLower)
+                );
+                const hasCountry = matchingCountryMaps.length > 0;
+                const hasCommunity = searchResults.length > 0;
+                const hasAny = hasCountry || hasCommunity;
+
+                if (searchLoading && !hasAny) {
+                  return (
+                    <View style={styles.centered}>
+                      <ActivityIndicator size="large" color="white" />
+                      <Text style={styles.loadingText}>Searching...</Text>
+                    </View>
+                  );
+                }
+
+                if (!hasAny && !searchLoading) {
+                  return (
+                    <View style={styles.emptyState}>
+                      <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.3)" />
+                      <Text style={styles.emptyTitle}>No results found</Text>
+                      <Text style={styles.emptySubtext}>
+                        Try adjusting your search terms
+                      </Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <>
+                    {hasCountry && (
+                      <MapSection
+                        title="Country Maps"
+                        maps={matchingCountryMaps}
+                        isCountry
+                        onMapPress={handleMapPress}
+                        numCols={numCols}
+                      />
+                    )}
+                    {hasCommunity && (
+                      <MapSection
+                        title="Search Results"
+                        maps={searchResults}
+                        onMapPress={handleMapPress}
+                        numCols={numCols}
+                      />
+                    )}
+                    {searchLoading && (
+                      <ActivityIndicator size="small" color="white" style={{ marginTop: 12 }} />
+                    )}
+                  </>
+                );
+              })()
             ) : (
               // Map home sections
               <>
