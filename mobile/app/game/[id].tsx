@@ -22,6 +22,18 @@ import { api } from '../../src/services/api';
 import StreetViewWebView from '../../src/components/game/StreetViewWebView';
 import GuessMap from '../../src/components/game/GuessMap';
 import GameTimer from '../../src/components/game/GameTimer';
+// Fetched at runtime from hosted URL (can't import from public/ in RN)
+let officialCountryMapsCache: any[] | null = null;
+async function getOfficialCountryMaps(): Promise<any[]> {
+  if (officialCountryMapsCache) return officialCountryMapsCache;
+  try {
+    const res = await fetch('https://worldguessr.com/officialCountryMaps.json');
+    officialCountryMapsCache = await res.json();
+  } catch {
+    officialCountryMapsCache = [];
+  }
+  return officialCountryMapsCache!;
+}
 
 interface Location {
   lat: number;
@@ -41,6 +53,9 @@ interface RoundResult {
   timeTaken: number;
 }
 
+// extent = [west, south, east, north] i.e. [minLng, minLat, maxLng, maxLat]
+type Extent = [number, number, number, number] | null;
+
 interface GameState {
   currentRound: number;
   totalRounds: number;
@@ -50,6 +65,7 @@ interface GameState {
   isShowingResult: boolean;
   timePerRound: number;
   maxDist: number;
+  extent: Extent;
 }
 
 const DEFAULT_GAME_OPTIONS = {
@@ -85,6 +101,7 @@ export default function GameScreen() {
     isShowingResult: false,
     timePerRound: time ? parseInt(time, 10) : DEFAULT_GAME_OPTIONS.timePerRound,
     maxDist: DEFAULT_GAME_OPTIONS.maxDist,
+    extent: null,
   });
 
   const [guessPosition, setGuessPosition] = useState<{ lat: number; lng: number } | null>(null);
@@ -279,11 +296,35 @@ export default function GameScreen() {
         const totalRounds = gameState.totalRounds;
         const selectedLocations = shuffled.slice(0, totalRounds);
 
+        // Compute extent based on map type
+        let extent: Extent = null;
+        if (mapSlug === 'all') {
+          extent = null; // World view
+        } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
+          // Country map — look up extent from officialCountryMaps
+          const officialCountryMaps = await getOfficialCountryMaps();
+          const countryMap = officialCountryMaps.find(
+            (m: any) => m.countryCode === mapSlug
+          );
+          extent = countryMap?.extent ?? null;
+        } else {
+          // Community map — compute bounding box from all locations
+          const lngs = normalizedLocations.map((l: Location) => l.long);
+          const lats = normalizedLocations.map((l: Location) => l.lat);
+          extent = [
+            Math.min(...lngs),
+            Math.min(...lats),
+            Math.max(...lngs),
+            Math.max(...lats),
+          ];
+        }
+
         setAllLocations(shuffled);
         setGameState((prev) => ({
           ...prev,
           locations: selectedLocations,
           maxDist: data.maxDist ?? DEFAULT_GAME_OPTIONS.maxDist,
+          extent,
         }));
         setIsLoading(false);
         roundStartTimeRef.current = Date.now();
@@ -381,6 +422,7 @@ export default function GameScreen() {
         params: {
           totalScore: gameState.totalScore.toString(),
           rounds: JSON.stringify(gameState.guesses),
+          extent: gameState.extent ? JSON.stringify(gameState.extent) : '',
         },
       });
       return;
@@ -538,6 +580,7 @@ export default function GameScreen() {
               }
               onMapPress={handleMapPress}
               isExpanded={true}
+              extent={gameState.extent}
             />
           )}
         </View>

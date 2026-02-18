@@ -8,22 +8,48 @@ import PinMarker from './PinMarker';
 const guessPinModule = require('../../../assets/marker-src.png');
 const actualPinModule = require('../../../assets/marker-dest.png');
 
+// extent = [west, south, east, north] i.e. [minLng, minLat, maxLng, maxLat]
+type Extent = [number, number, number, number] | null;
+
 interface GuessMapProps {
   guessPosition: { lat: number; lng: number } | null;
   actualPosition?: { lat: number; lng: number };
   onMapPress: (lat: number, lng: number) => void;
   isExpanded?: boolean;
+  extent?: Extent;
 }
 
 const TAP_SLOP = 10; // max px movement to count as tap
 const TAP_MAX_MS = 300; // max duration to count as tap
 const MARKER_SCALE = 1.1;
 
+// World view fallback
+const WORLD_REGION = {
+  latitude: 20,
+  longitude: 0,
+  latitudeDelta: 100,
+  longitudeDelta: 100,
+};
+
+/** Convert [west, south, east, north] extent to a react-native-maps region */
+function extentToRegion(extent: [number, number, number, number]) {
+  const [west, south, east, north] = extent;
+  const latDelta = Math.abs(north - south) * 1.15; // 15% padding
+  const lngDelta = Math.abs(east - west) * 1.15;
+  return {
+    latitude: (south + north) / 2,
+    longitude: (west + east) / 2,
+    latitudeDelta: Math.max(latDelta, 0.5),
+    longitudeDelta: Math.max(lngDelta, 0.5),
+  };
+}
+
 export default function GuessMap({
   guessPosition,
   actualPosition,
   onMapPress,
   isExpanded,
+  extent,
 }: GuessMapProps) {
   const mapRef = useRef<MapView>(null);
   const touchStart = useRef({ x: 0, y: 0, time: 0 });
@@ -44,16 +70,13 @@ export default function GuessMap({
     }
   }, [actualPosition, guessPosition]);
 
-  // Reset map to world view when a new round starts (actualPosition cleared)
+  const defaultRegion = extent ? extentToRegion(extent) : WORLD_REGION;
+
+  // Reset map to extent/world view when a new round starts (actualPosition cleared)
   const prevActualPosition = useRef(actualPosition);
   useEffect(() => {
     if (prevActualPosition.current && !actualPosition && mapRef.current) {
-      mapRef.current.animateToRegion({
-        latitude: 20,
-        longitude: 0,
-        latitudeDelta: 100,
-        longitudeDelta: 100,
-      }, 0);
+      mapRef.current.animateToRegion(defaultRegion, 0);
     }
     prevActualPosition.current = actualPosition;
   }, [actualPosition]);
@@ -61,14 +84,9 @@ export default function GuessMap({
   // Force correct region after map initialization (safety net for 0-height mount)
   const handleMapReady = useCallback(() => {
     if (mapRef.current && !actualPosition) {
-      mapRef.current.animateToRegion({
-        latitude: 20,
-        longitude: 0,
-        latitudeDelta: 100,
-        longitudeDelta: 100,
-      }, 0);
+      mapRef.current.animateToRegion(defaultRegion, 0);
     }
-  }, [actualPosition]);
+  }, [actualPosition, extent]);
 
   // Fast tap detection via raw touch events (bypasses MapView's ~300ms onPress delay)
   const handleTouchStart = useCallback((e: GestureResponderEvent) => {
@@ -131,12 +149,7 @@ export default function GuessMap({
         ref={mapRef}
         style={styles.map}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        initialRegion={{
-          latitude: 20,
-          longitude: 0,
-          latitudeDelta: 100,
-          longitudeDelta: 100,
-        }}
+        initialRegion={defaultRegion}
         onPress={handleMapPress}
         onMapReady={handleMapReady}
         moveOnMarkerPress={false}

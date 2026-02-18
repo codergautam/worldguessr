@@ -84,10 +84,21 @@ function formatTime(seconds: number): string {
 const SIDEBAR_WIDTH = 340;
 
 export default function GameResultsScreen() {
-  const { totalScore, rounds } = useLocalSearchParams<{
+  const { totalScore, rounds, extent: extentParam } = useLocalSearchParams<{
     totalScore: string;
     rounds: string;
+    extent?: string;
   }>();
+
+  // Parse extent [west, south, east, north] if provided
+  const extent: [number, number, number, number] | null = useMemo(() => {
+    if (!extentParam) return null;
+    try {
+      const parsed = JSON.parse(extentParam);
+      if (Array.isArray(parsed) && parsed.length === 4) return parsed as [number, number, number, number];
+    } catch {}
+    return null;
+  }, [extentParam]);
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
   const { width, height } = useWindowDimensions();
@@ -200,13 +211,20 @@ export default function GameResultsScreen() {
       }
     });
 
+    // Include extent corners so the map shows the full playable area
+    if (extent) {
+      const [west, south, east, north] = extent;
+      coords.push({ latitude: south, longitude: west });
+      coords.push({ latitude: north, longitude: east });
+    }
+
     if (coords.length > 0) {
       mapRef.current.fitToCoordinates(coords, {
         edgePadding: getMapPadding(),
         animated: true,
       });
     }
-  }, [parsedRounds, getMapPadding]);
+  }, [parsedRounds, getMapPadding, extent]);
 
   const didInitialFit = useRef(false);
   useEffect(() => {
