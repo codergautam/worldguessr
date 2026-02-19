@@ -97,7 +97,7 @@ export default function Home({ }) {
     const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
     const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
     // location aka map slug
-    const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true }) // rate limit fix: showRoadName true
+    const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true, timePerRound: 0 }) // rate limit fix: showRoadName true
     const [showAnswer, setShowAnswer] = useState(false)
 
     const [pinPoint, setPinPoint] = useState(null)
@@ -2938,6 +2938,7 @@ export default function Home({ }) {
                     } : null}
                     showAllCountriesOption={(gameOptionsModalShown && screen === "singleplayer")}
                     showOptions={screen === "singleplayer"}
+                    showTimerOption={screen === "singleplayer"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
                 {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={true} onClose={() => setSettingsModal(false)} />}
@@ -2963,7 +2964,7 @@ export default function Home({ }) {
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                        singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && <div className="home__onboarding">

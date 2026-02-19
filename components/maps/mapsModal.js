@@ -16,7 +16,7 @@ const initMakeMap = {
     edit: false,
     mapId: "",
 };
-export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions }) {
+export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions, showTimerOption }) {
     const [makeMap, setMakeMap] = useState(initMakeMap);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
@@ -96,6 +96,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
                     <MapView
                     mapModalClosing={mapModalClosing}
                         showOptions={showOptions}
+                        showTimerOption={showTimerOption}
                         showAllCountriesOption={showAllCountriesOption}
                         chosenMap={chosenMap}
                         close={onClose}

@@ -13,6 +13,7 @@ export default function MapView({
     mapModalClosing,
     setGameOptions,
     showOptions,
+    showTimerOption,
     close,
     session,
     text,
@@ -412,6 +413,30 @@ export default function MapView({
             setGameOptions({ ...gameOptions, nm: e.target.checked, npz: e.target.checked })
         }} />
     </div>
+
+    {showTimerOption && (
+    <div className="map-option-timer">
+        <label htmlFor="enableTimer">{text('enableTimer')}&nbsp;</label>
+        <input id="enableTimer"
+        name="enableTimer"
+        type="checkbox" checked={gameOptions.timePerRound > 0} onChange={(e) => {
+            setGameOptions({ ...gameOptions, timePerRound: e.target.checked ? 30 : 0 })
+        }} />
+        {gameOptions.timePerRound > 0 && (
+            <div className="timer-slider">
+                <input
+                    type="range"
+                    min="10"
+                    max="300"
+                    step="10"
+                    value={gameOptions.timePerRound}
+                    onChange={(e) => setGameOptions({ ...gameOptions, timePerRound: parseInt(e.target.value) })}
+                />
+                <span className="timer-slider-value">{gameOptions.timePerRound}s</span>
+            </div>
+        )}
+    </div>
+    )}
 
                 </div>
             )}
