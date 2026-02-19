@@ -7,10 +7,16 @@ import '@/styles/duel.css';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import { useEffect } from "react";
+import { asset } from '@/lib/basePath';
 
 import '@smastrom/react-rating/style.css'
 
 function App({ Component, pageProps }) {
+  useEffect(() => {
+    // Set CSS custom properties for background images that need basePath
+    document.documentElement.style.setProperty('--bg-street2', `url("${asset('/street2.webp')}")`);
+  }, []);
+
   useEffect(() => {
     const ignoredErrors = [
       'ResizeObserver loop',

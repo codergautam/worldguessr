@@ -1,5 +1,6 @@
 import Home from "@/components/home";
 import { useEffect } from "react";
+import { navigate } from '@/lib/basePath';
 
 export default function LocalizedHome({ path }) {
 
@@ -36,12 +37,12 @@ export default function LocalizedHome({ path }) {
       if(path === "auto") {
         if(language !== "en") {
           console.log("Redirecting to", language);
-          window.location.href = `/${language}${qPsuffix}`;
+          window.location.href = `${navigate('/' + language)}${qPsuffix}`;
         }
       } else {
         if(path !== language) {
           console.log("Redirecting to", language);
-          window.location.href = `/${language}${qPsuffix}`;
+          window.location.href = `${navigate('/' + language)}${qPsuffix}`;
         }
       }
     }

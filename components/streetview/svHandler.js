@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { navigate } from '@/lib/basePath';
 
 const SvEmbedIframe = (params) => {
   const iframeRef = useRef(null);
@@ -38,7 +39,7 @@ const SvEmbedIframe = (params) => {
       const panoParam = shouldUsePanoId ? `&pano=${params.panoId}` : '';
       const headingParam = shouldUsePanoId ? `&heading=${params.heading}` : '';
       const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
-      setIframeSrc(`/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`);
+      setIframeSrc(`${navigate('/svEmbed')}?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`);
     }
   }, [params?.lat, params?.long, params?.panoId, params?.heading, params?.pitch, params?.nm, params?.npz, params?.showRoadLabels, params?.showAnswer]);
 
@@ -87,7 +88,7 @@ const SvEmbedIframe = (params) => {
           const panoParam = shouldUsePanoId ? `&pano=${params.panoId}` : '';
           const headingParam = shouldUsePanoId ? `&heading=${params.heading}` : '';
           const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
-          const freshSrc = `/svEmbed?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`;
+          const freshSrc = `${navigate('/svEmbed')}?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`;
           iframeRef.current.src = freshSrc;
         }
         // Note: If coords are null/undefined, we intentionally don't reload.

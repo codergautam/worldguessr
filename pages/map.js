@@ -7,6 +7,7 @@ import { useTranslation } from '@/components/useTranslations'
 import config from '@/clientConfig';
 import { getHeaders } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
+import { asset, navigate, stripBase } from '@/lib/basePath';
 
 export default function MapPage({ }) {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function MapPage({ }) {
     let slug = router.query.s || router.query.slug || queryParams.get('s') || queryParams.get('slug');
 
     console.log('also can be the format /map/slug');
-    const fullPath = window.location.pathname;
+    const fullPath = stripBase(window.location.pathname);
     if (fullPath.startsWith('/map/') && !slug) {
        slug = fullPath.split('/map/')[1];
     }
@@ -286,7 +287,7 @@ export default function MapPage({ }) {
   }, [mapData.data]);*/
 
   const handlePlayButtonClick = () => {
-    window.location.href = `/?map=${mapData.countryCode || mapData.slug}${window.location.search.includes('crazygames') ? '&crazygames=true' : ''}`;
+    window.location.href = `${navigate('/')}?map=${mapData.countryCode || mapData.slug}${window.location.search.includes('crazygames') ? '&crazygames=true' : ''}`;
   };
 
   return (
@@ -297,7 +298,7 @@ export default function MapPage({ }) {
         ""
         }</title>
         <meta name="description" content={`Explore the world on WorldGuessr, a free GeoGuessr alternative. `} />
-        <link rel="icon" type="image/x-icon" href="/icon.ico" />
+        <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
       </Head>
       <style>
@@ -377,7 +378,7 @@ export default function MapPage({ }) {
         <div className={styles.branding}>
           <h1>WorldGuessr</h1>
           <center>
-            <button onClick={() => window.location.href=`/${
+            <button onClick={() => window.location.href=`${navigate('/')}${
               window.location.search.includes('crazygames') ? '?crazygames=true' : ''
             }`} className={styles.backButton}>
               ← {text('backToGame')}

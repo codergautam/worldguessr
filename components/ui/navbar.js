@@ -3,6 +3,7 @@ import nameFromCode from "../utils/nameFromCode";
 import AccountBtn from "./accountBtn";
 import { FaPencil } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
+import { asset } from '@/lib/basePath';
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
@@ -34,7 +35,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 {reloadBtn && !accountModalOpen && !gameOptionsModalShown && (
                     <button className="gameBtn navBtn backBtn reloadBtn g2_blue_button" onClick={reloadBtnPressed}>
                         {/* use svg /arrow-turn-down-left-svgrepo-com.svg white color */}
-                        <img src="/return.png" alt="reload"  height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} />
+                        <img src={asset("/return.png")} alt="reload"  height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} />
                     </button>
                 )}
 

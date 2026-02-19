@@ -4,6 +4,7 @@ import fr from '../public/locales/fr/common.json';
 import de from '../public/locales/de/common.json';
 import ru from '../public/locales/ru/common.json';
 import { useRouter } from 'next/router';
+import { stripBase } from '@/lib/basePath';
 
 export function useTranslation() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export function useTranslation() {
     let language = "en";
 
     // if /ru or /es or /fr or /de, ignore query params in url
-      let path = router.asPath;
+      let path = stripBase(router.asPath);
       if(path.includes("/ru")) {
         language = "ru";
       } else if(path.includes("/es")) {

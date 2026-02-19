@@ -6,6 +6,7 @@ import MapTile from "./mapTile";
 import { backupMapHome } from "../utils/backupMapHome.js";
 import config from "@/clientConfig";
 import { useMapSearch } from "../hooks/useMapSearch";
+import { asset } from '@/lib/basePath';
 
 export default function MapView({
     gameOptions,
@@ -432,7 +433,7 @@ export default function MapView({
                       (text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase()))) && (
                         <div className="all-countries-tile">
                             <MapTile
-                            bgImage={"url(\"/world.jpg\")"}
+                            bgImage={`url("${asset('/world.jpg')}")`}
                             forcedWidth="300px"
                                 map={{ name: text("allCountries"), slug: "all" }}
                                 onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}

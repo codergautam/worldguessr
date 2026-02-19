@@ -27,6 +27,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
+import { asset, navigate, stripBase } from '@/lib/basePath';
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
@@ -972,13 +973,13 @@ export default function Home({ }) {
             const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
 
             const location = `/${options?.language !== "en" ? options?.language : ""}`
-            if (!window.location.pathname.includes(location)) {
+            if (!stripBase(window.location.pathname).includes(location)) {
                 console.log("changing lang", location)
-                window.location.href = location + qPsuffix;
+                window.location.href = navigate(location) + qPsuffix;
             }
-            if (options?.language === "en" && ["es", "fr", "de", "ru"].includes(window.location.pathname.split("/")[1])) {
+            if (options?.language === "en" && ["es", "fr", "de", "ru"].includes(stripBase(window.location.pathname).split("/")[1])) {
                 console.log("changing lang", location)
-                window.location.href = "/" + qPsuffix;
+                window.location.href = navigate("/") + qPsuffix;
             }
         } catch (e) { }
     }, [options?.language]);
@@ -2086,7 +2087,7 @@ export default function Home({ }) {
 
         if (window.learnMode) {
             // redirect to home
-            window.location.href = "/"
+            window.location.href = navigate("/")
             return;
         }
 
@@ -2390,7 +2391,7 @@ export default function Home({ }) {
             if (window.banned) return;
             sendEvent("cheat_detected")
             // redirect to banned page
-            window.location.href = "/banned";
+            window.location.href = navigate("/banned");
             window.localStorage.setItem("banned", "true")
         }
         if (checkForCheats()) {
@@ -2468,7 +2469,7 @@ export default function Home({ }) {
                 }}>
                     <div>
                         {/* image /coolmath-splash.png */}
-                        <NextImage.default src={'/coolmath-splash.png'} draggable={false} fill alt="Coolmath Splash" style={{ objectFit: "contain", userSelect: 'none', opacity: coolmathSplash }} />
+                        <NextImage.default src={asset('/coolmath-splash.png')} draggable={false} fill alt="Coolmath Splash" style={{ objectFit: "contain", userSelect: 'none', opacity: coolmathSplash }} />
 
                     </div>
                 </div>
@@ -2493,7 +2494,7 @@ export default function Home({ }) {
                 msUserSelect: 'none',
                 pointerEvents: 'none',
             }}>
-                <NextImage.default src={'./street2.webp'}
+                <NextImage.default src={asset('/street2.webp')}
                     draggable={false}
                     width={1920}
                     height={1080}
@@ -2542,7 +2543,7 @@ export default function Home({ }) {
 
                 {/* Loading overlay - covers iframe with background image to prevent white flicker */}
                 <div className={`loading-overlay ${loading ? 'loading-overlay--visible' : ''}`}>
-                    <NextImage.default src={'./street2.webp'}
+                    <NextImage.default src={asset('/street2.webp')}
                         draggable={false}
                         width={1920}
                         height={1080}
@@ -2694,7 +2695,7 @@ export default function Home({ }) {
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
                     <div className="gameBtnContainer" style={{ position: 'fixed', top: width > 830 ? '90px' : '90px', left: width > 830 ? '10px' : '7px', zIndex: 1000000 }}>
 
-                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src="/return.png" alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
+                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src={asset("/return.png")} alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
                     </div>
                 )}
 
@@ -2855,7 +2856,7 @@ export default function Home({ }) {
                                                 <Link target="_blank" className="desktop" href={"https://www.coolmathgames.com/0-worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames">
                                                     {/* Todo; include coolmath logo here; url is /cmlogo.png*/}
 
-                                                    <NextImage.default src={'/cmlogo.png'} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" />
+                                                    <NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" />
 
                                                 </button>
                                                 </Link>

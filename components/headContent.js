@@ -1,5 +1,6 @@
 import Head from "next/head";
 import { useEffect } from "react";
+import { asset } from '@/lib/basePath';
 
 export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false }) {
   useEffect(() => {
@@ -150,7 +151,7 @@ ads.js"></script>*/
     />
 
 <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no"/>
-    <link rel="icon" type="image/x-icon" href="/icon.ico" />
+    <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
 <meta name="yandex-verification" content="2eb7e8ef6fb55e24" />
 
@@ -167,7 +168,7 @@ ads.js"></script>*/
 {/*  */}
 
 
-    <meta property="og:image" content="/icon_144x144.png" />
+    <meta property="og:image" content={asset("/icon_144x144.png")} />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />
 </Head>
