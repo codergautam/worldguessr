@@ -4,6 +4,11 @@ import React from 'react';
 const PrivacyPolicy = () => {
   return (
     <div style={{ padding: '2rem', background: '#111', color: '#eee', minHeight: '100vh', overflowY: 'auto' }}>
+      <style>
+        {`.mainBody {
+          overflow-y: auto !important;
+        }`}
+        </style>
       <h1>Privacy Policy</h1>
       <p><strong>Effective Date:</strong> 08/14/24</p>
 
