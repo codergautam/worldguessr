@@ -1990,16 +1990,11 @@ export default function Home({ }) {
                 }
             }
 
-            // preload/cache src.png and dest.png and src2.png
-            const img = new Image();
-            img.src = "./src.png";
-            const img2 = new Image();
-            img2.src = "./dest.png";
-            const img3 = new Image();
-            img3.src = "./src2.png";
-            // easter eggs too
-            const polandball = new Image();
-            polandball.src = "./polandball.png";
+            // preload/cache pin images
+            ['/src.png', '/dest.png', '/src2.png', '/polandball.png'].forEach((p) => {
+                const img = new Image();
+                img.src = asset(p);
+            });
         } catch (e) { }
 
     }, [])

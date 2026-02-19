@@ -839,7 +839,18 @@ session={session}/>
         }
         }} />
       )}
-      <span className={`timer timer--two-line ${multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public ? 'duel' : ''} ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+      {/* Duel timer — single line, old style */}
+      {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && (
+      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+        {multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120
+          ? text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})
+          : text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
+      </span>
+      )}
+
+      {/* Non-duel multiplayer timer — two line style */}
+      {!(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && (
+      <span className={`timer timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
         <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
         <span className="timer__main-row">
           {!(multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120)
@@ -848,6 +859,7 @@ session={session}/>
           }
         </span>
       </span>
+      )}
 
       <span className={`timer timer--two-line ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 && !showAnswer && !pinPoint && onboarding ? 'critical' : ''}`}>
         <span className="timer__round-label">{text("round", {r:onboarding?.round, mr: 5})}</span>

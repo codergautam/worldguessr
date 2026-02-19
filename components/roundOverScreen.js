@@ -106,21 +106,21 @@ const GameSummary = ({
     const checkLeaflet = () => {
       if (typeof window !== 'undefined' && window.L) {
         destIconRef.current = window.L.icon({
-          iconUrl: './dest.png',
+          iconUrl: asset('/dest.png'),
           iconSize: [30, 49],
           iconAnchor: [15, 49],
           popupAnchor: [1, -34],
         });
 
         srcIconRef.current = window.L.icon({
-          iconUrl: './src.png',
+          iconUrl: asset('/src.png'),
           iconSize: [30, 49],
           iconAnchor: [15, 49],
           popupAnchor: [1, -34],
         });
 
         src2IconRef.current = window.L.icon({
-          iconUrl: './src2.png',
+          iconUrl: asset('/src2.png'),
           iconSize: [30, 49],
           iconAnchor: [15, 49],
           popupAnchor: [1, -34],

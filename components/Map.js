@@ -154,19 +154,19 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   // Cache icons to prevent repeated requests
   const icons = useMemo(() => ({
     dest: L.icon({
-      iconUrl: './dest.png',
+      iconUrl: asset('/dest.png'),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
       popupAnchor: [1, -34],
     }),
     src: L.icon({
-      iconUrl: './src.png',
+      iconUrl: asset('/src.png'),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
       popupAnchor: [1, -34],
     }),
     src2: L.icon({
-      iconUrl: './src2.png',
+      iconUrl: asset('/src2.png'),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
       popupAnchor: [1, -34],
