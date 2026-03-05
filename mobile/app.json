@@ -15,9 +15,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.worldguessr.app",
+      "bundleIdentifier": "com.codergautamyt.worldguessr",
       "config": {
         "googleMapsApiKey": "YOUR_IOS_API_KEY"
+      },
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -26,7 +29,7 @@
         "backgroundColor": "#112b18"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.worldguessr.app",
+      "package": "com.codergautamyt.worldguessr",
       "config": {
         "googleMaps": {
           "apiKey": "YOUR_ANDROID_API_KEY"
@@ -45,6 +48,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "93315d25-7e8b-460c-9a83-648726688f71"
+      }
     }
   }
 }

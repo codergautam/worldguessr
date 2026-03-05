@@ -105,7 +105,120 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { code, secret, redirect_uri } = req.body;
+  const { code, secret, redirect_uri, id_token } = req.body;
+
+  // Mobile flow: verify id_token directly (no code exchange needed)
+  if (id_token && !code && !secret) {
+    timings.authType = 'id_token';
+    try {
+      const startTokenVerify = Date.now();
+      const ticket = await client.verifyIdToken({
+        idToken: id_token,
+        audience: [
+          process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+          process.env.GOOGLE_IOS_CLIENT_ID,
+        ].filter(Boolean),
+      });
+      timings.tokenVerify = Date.now() - startTokenVerify;
+
+      const email = ticket.getPayload()?.email;
+      if (!email) {
+        timings.total = Date.now() - startTotal;
+        console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
+        return res.status(400).json({ error: 'No email in token' });
+      }
+
+      const startEmailLookup = Date.now();
+      const existingUser = await User.findOne({ email });
+      timings.emailLookup = Date.now() - startEmailLookup;
+
+      if (!existingUser) {
+        timings.isNewUser = true;
+        const startNewUser = Date.now();
+        const newSecret = createUUID();
+        const newUser = new User({ email, secret: newSecret });
+        await newUser.save();
+        timings.newUserCreate = Date.now() - startNewUser;
+
+        const startRank = Date.now();
+        const usersAbove = await User.countDocuments({ elo: { $gt: 1000 }, banned: false }).cache(2000);
+        timings.rankQuery = Date.now() - startRank;
+
+        timings.total = Date.now() - startTotal;
+        console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
+        return res.status(200).json({
+          secret: newSecret,
+          username: undefined,
+          email: email,
+          staff: false,
+          canMakeClues: false,
+          supporter: false,
+          accountId: newUser._id,
+          countryCode: null,
+          banned: false,
+          banType: 'none',
+          banExpiresAt: null,
+          banPublicNote: null,
+          pendingNameChange: false,
+          pendingNameChangePublicNote: null,
+          totalXp: 0,
+          createdAt: newUser.created_at,
+          gamesLen: 0,
+          lastLogin: newUser.created_at,
+          canChangeUsername: true,
+          daysUntilNameChange: 0,
+          recentChange: false,
+          elo: 1000,
+          rank: usersAbove + 1,
+          league: getLeague(1000),
+          duels_wins: 0,
+          duels_losses: 0,
+          duels_tied: 0,
+          win_rate: 0
+        });
+      } else {
+        timings.isNewUser = false;
+        const checkedUser = await checkTempBanExpiration(existingUser);
+
+        if (checkedUser.countryCode == null && checkedUser.timeZone) {
+          const countryCode = timezoneToCountry(checkedUser.timeZone);
+          if (countryCode) {
+            await User.findByIdAndUpdate(checkedUser._id, { countryCode });
+            checkedUser.countryCode = countryCode;
+          }
+        }
+
+        const extendedData = await getExtendedUserData(checkedUser, timings);
+
+        timings.total = Date.now() - startTotal;
+        console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
+        return res.status(200).json({
+          secret: checkedUser.secret,
+          username: checkedUser.username,
+          email: checkedUser.email,
+          staff: checkedUser.staff,
+          canMakeClues: checkedUser.canMakeClues,
+          supporter: checkedUser.supporter,
+          accountId: checkedUser._id,
+          countryCode: checkedUser.countryCode || null,
+          banned: checkedUser.banned,
+          banType: checkedUser.banType || 'none',
+          banExpiresAt: checkedUser.banExpiresAt,
+          banPublicNote: checkedUser.banPublicNote || null,
+          pendingNameChange: checkedUser.pendingNameChange,
+          pendingNameChangePublicNote: checkedUser.pendingNameChangePublicNote || null,
+          ...extendedData
+        });
+      }
+    } catch (error) {
+      timings.total = Date.now() - startTotal;
+      timings.error = error.message;
+      console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
+      console.error('ID token verification error:', error.message);
+      return res.status(400).json({ error: 'Invalid token' });
+    }
+  }
+
   if (!code) {
     // Prevent NoSQL injection - secret must be a string
     if(!secret || typeof secret !== 'string') {

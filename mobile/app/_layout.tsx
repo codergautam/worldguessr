@@ -15,6 +15,7 @@ import {
 import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import { colors } from '../src/shared';
+import { useAuthStore } from '../src/store/authStore';
 
 // Keep splash screen visible while fonts + assets load
 SplashScreen.preventAutoHideAsync();
@@ -39,6 +40,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     Asset.loadAsync(imageAssets).then(() => setAssetsLoaded(true));
+  }, []);
+
+  // Load auth session on app start
+  useEffect(() => {
+    useAuthStore.getState().loadSession();
   }, []);
 
   useEffect(() => {

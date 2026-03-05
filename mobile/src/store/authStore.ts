@@ -15,7 +15,7 @@ interface AuthState {
   loadSession: () => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<boolean>;
   loginWithSecret: (secret: string) => Promise<boolean>;
-  setUsername: (username: string) => Promise<boolean>;
+  setUsername: (username: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
 }
@@ -30,10 +30,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const secret = await SecureStore.getItemAsync(SECRET_KEY);
       if (secret) {
-        // Validate the secret with the server
         const success = await get().loginWithSecret(secret);
         if (!success) {
-          // Invalid secret, clear it
           await SecureStore.deleteItemAsync(SECRET_KEY);
         }
       }
@@ -54,7 +52,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({
           secret: response.secret,
           user: {
-            username: response.username,
+            username: response.username || '',
             email: response.email,
             elo: response.elo ?? 1000,
             totalXp: response.totalXp ?? 0,
@@ -79,14 +77,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   loginWithSecret: async (secret: string) => {
     try {
-      const response = await api.publicAccount(secret);
+      // Use same endpoint as web (POST /api/googleAuth with { secret })
+      const response = await api.restoreSession(secret);
 
-      if (response && response.username) {
-        await SecureStore.setItemAsync(SECRET_KEY, secret);
+      if (response && response.secret && !response.error) {
+        await SecureStore.setItemAsync(SECRET_KEY, response.secret);
         set({
-          secret,
+          secret: response.secret,
           user: {
-            username: response.username,
+            username: response.username || '',
             email: response.email,
             elo: response.elo ?? 1000,
             totalXp: response.totalXp ?? 0,
@@ -108,20 +107,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setUsername: async (username: string) => {
     const { secret } = get();
-    if (!secret) return false;
+    if (!secret) return { success: false, error: 'Not authenticated' };
 
     try {
       const response = await api.setName(secret, username);
-      if (response.success) {
-        set((state) => ({
-          user: state.user ? { ...state.user, username } : null,
-        }));
-        return true;
+      if (response.message) {
+        // Server returned an error message
+        return { success: false, error: response.message };
       }
-      return false;
-    } catch (error) {
+      // Success — update user in store
+      set((state) => ({
+        user: state.user ? { ...state.user, username } : null,
+      }));
+      return { success: true };
+    } catch (error: any) {
       console.error('Set username failed:', error);
-      return false;
+      return { success: false, error: 'Connection error. Please try again.' };
     }
   },
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Animated,
   ScrollView,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,9 +16,20 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, getLeague } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
+import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
+import { api } from '../../src/services/api';
 import { spacing, borderRadius } from '../../src/styles/theme';
+import SetUsernameModal from '../../src/components/SetUsernameModal';
 
 type GameMode = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
+
+function getFlagEmoji(countryCode: string): string {
+  const codePoints = countryCode
+    .toUpperCase()
+    .split('')
+    .map((char) => 0x1f1e6 - 65 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
 
 interface MenuButtonProps {
   label: string;
@@ -67,7 +79,6 @@ function MenuButton({ label, onPress, delay }: MenuButtonProps) {
 }
 
 function OutlinedTitle({ children }: { children: string }) {
-  // Simulate text-stroke by rendering multiple offset copies
   const offsets = [
     { x: -1, y: -1 },
     { x: 1, y: -1 },
@@ -81,7 +92,6 @@ function OutlinedTitle({ children }: { children: string }) {
 
   return (
     <View>
-      {/* Shadow/stroke layers */}
       {offsets.map((offset, i) => (
         <Text
           key={i}
@@ -94,47 +104,21 @@ function OutlinedTitle({ children }: { children: string }) {
           {children}
         </Text>
       ))}
-      {/* Drop shadow */}
       <Text style={[styles.title, styles.titleShadow]}>{children}</Text>
-      {/* Main text on top */}
       <Text style={styles.title}>{children}</Text>
     </View>
   );
 }
 
-function AccountButton({ onPress, username, elo }: { onPress: () => void; username?: string; elo?: number }) {
-  const league = elo ? getLeague(elo) : null;
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.accountBtn,
-        pressed && styles.accountBtnPressed,
-      ]}
-      onPress={onPress}
-    >
-      {username ? (
-        <View style={styles.accountBtnContent}>
-          <Text style={styles.accountBtnText}>{username}</Text>
-          {league && (
-            <Text style={styles.accountBtnEmoji}>{league.emoji}</Text>
-          )}
-        </View>
-      ) : (
-        <View style={styles.accountBtnContent}>
-          <View style={styles.accountBtnIconWrapper}>
-            <Ionicons name="logo-google" size={14} color={colors.white} />
-          </View>
-          <Text style={styles.accountBtnText}>Login</Text>
-        </View>
-      )}
-    </Pressable>
-  );
-}
-
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
+  const { promptAsync, isReady: googleReady } = useGoogleAuth();
+
+  // ELO data fetching & animation (matches web home.js:298-367)
+  const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
+  const [animatedElo, setAnimatedElo] = useState(0);
+  const [loginLoading, setLoginLoading] = useState(false);
 
   const titleAnim = useRef(new Animated.Value(0)).current;
   const titleSlide = useRef(new Animated.Value(-30)).current;
@@ -153,6 +137,70 @@ export default function HomeScreen() {
       }),
     ]).start();
   }, []);
+
+  // Fetch fresh ELO data when authenticated
+  useEffect(() => {
+    if (!isAuthenticated || !user?.username) return;
+
+    // Use session data as initial fallback
+    if (user.elo && !eloData) {
+      setEloData({
+        elo: user.elo,
+        rank: 0,
+        league: getLeague(user.elo),
+      });
+    }
+
+    // Fetch fresh data
+    api.eloRank(user.username)
+      .then((data) => {
+        if (data && data.elo !== undefined) {
+          setEloData({
+            elo: data.elo,
+            rank: data.rank,
+            league: getLeague(data.elo),
+          });
+        }
+      })
+      .catch(() => {});
+  }, [isAuthenticated, user?.username]);
+
+  // Animated ELO counter (matches web home.js:348-367)
+  useEffect(() => {
+    if (!eloData?.elo) return;
+
+    const interval = setInterval(() => {
+      setAnimatedElo((prev) => {
+        const diff = eloData.elo - prev;
+        const step = Math.ceil(Math.abs(diff) / 10) || 1;
+        if (diff > 0) return Math.min(prev + step, eloData.elo);
+        if (diff < 0) return Math.max(prev - step, eloData.elo);
+        return prev;
+      });
+    }, 10);
+
+    return () => clearInterval(interval);
+  }, [eloData?.elo]);
+
+  // Reset ELO state on logout
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setEloData(null);
+      setAnimatedElo(0);
+    }
+  }, [isAuthenticated]);
+
+  const handleLogin = useCallback(async () => {
+    if (loginLoading || authLoading) return;
+    setLoginLoading(true);
+    try {
+      await promptAsync();
+    } catch (e) {
+      console.error('Google login error:', e);
+    } finally {
+      setLoginLoading(false);
+    }
+  }, [promptAsync, loginLoading, authLoading]);
 
   const handleModePress = (mode: GameMode) => {
     switch (mode) {
@@ -193,19 +241,16 @@ export default function HomeScreen() {
     return 150 + buttonIndex * 60;
   };
 
+  const loggedIn = isAuthenticated && !!user?.username;
+
   return (
     <View style={styles.container}>
-      {/* Background Image */}
       <ImageBackground
         source={require('../../assets/street2.jpg')}
         style={styles.backgroundImage}
         resizeMode="cover"
       />
-
-      {/* Darken the background image */}
       <View style={styles.darkOverlay} />
-
-      {/* Green Gradient Overlay - Top to Bottom */}
       <LinearGradient
         colors={[
           'rgba(20, 65, 25, 0.95)',
@@ -226,7 +271,7 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
-          {/* Header with Title and Account Button */}
+          {/* Header */}
           <View style={styles.header}>
             <Animated.View
               style={{
@@ -237,12 +282,82 @@ export default function HomeScreen() {
               <OutlinedTitle>WorldGuessr</OutlinedTitle>
             </Animated.View>
 
-            {/* Account Button - Top Right */}
-            <AccountButton
-              onPress={() => router.push('/(tabs)/account')}
-              username={isAuthenticated ? user?.username : undefined}
-              elo={user?.elo}
-            />
+            {/* Right side: account area */}
+            <View style={styles.headerRight}>
+              {loggedIn ? (
+                <>
+                  {/* Top row: Username + Friends button */}
+                  <View style={styles.loggedInRow}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.accountBtn,
+                        pressed && styles.accountBtnPressed,
+                      ]}
+                      onPress={() => router.push('/(tabs)/account')}
+                    >
+                      <View style={styles.accountBtnContent}>
+                        <Text style={styles.accountBtnText}>{user.username}</Text>
+                        {user.countryCode && (
+                          <Text style={styles.accountBtnFlag}>
+                            {getFlagEmoji(user.countryCode)}
+                          </Text>
+                        )}
+                      </View>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.friendBtn,
+                        pressed && styles.friendBtnPressed,
+                      ]}
+                      onPress={() => router.push('/friends')}
+                    >
+                      <Ionicons name="people" size={22} color={colors.white} />
+                    </Pressable>
+                  </View>
+
+                  {/* ELO/League button below */}
+                  {eloData && (
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.leagueBtn,
+                        { backgroundColor: eloData.league.color },
+                        pressed && styles.leagueBtnPressed,
+                      ]}
+                      onPress={() => router.push('/(tabs)/account')}
+                    >
+                      <Text style={styles.leagueBtnText}>
+                        {animatedElo} ELO {eloData.league.emoji}
+                      </Text>
+                    </Pressable>
+                  )}
+                </>
+              ) : (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.accountBtn,
+                    pressed && styles.accountBtnPressed,
+                    (loginLoading || authLoading) && styles.accountBtnDisabled,
+                  ]}
+                  onPress={handleLogin}
+                  disabled={loginLoading || authLoading || !googleReady}
+                >
+                  <View style={styles.accountBtnContent}>
+                    {loginLoading || authLoading ? (
+                      <>
+                        <Text style={styles.accountBtnText}>Login</Text>
+                        <ActivityIndicator size="small" color={colors.white} />
+                      </>
+                    ) : (
+                      <>
+                        <Ionicons name="logo-google" size={14} color={colors.white} />
+                        <Text style={styles.accountBtnText}>Login</Text>
+                      </>
+                    )}
+                  </View>
+                </Pressable>
+              )}
+            </View>
           </View>
 
           {/* Menu */}
@@ -312,6 +427,9 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Set Username Modal for new signups */}
+      <SetUsernameModal />
     </View>
   );
 }
@@ -344,9 +462,12 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
+  },
+  headerRight: {
+    alignItems: 'flex-end',
   },
   title: {
     fontSize: 42,
@@ -364,24 +485,29 @@ const styles = StyleSheet.create({
     left: 2,
     top: 2,
   },
-  // Account button - top right like website
+  // Logged-in top row: [Username] [Friends]
+  loggedInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  // Account button
   accountBtn: {
-    backgroundColor: 'rgba(46, 125, 50, 0.85)',
+    backgroundColor: 'rgba(36, 87, 52, 0.85)',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
   },
   accountBtnPressed: {
-    backgroundColor: 'rgba(46, 125, 50, 1)',
+    backgroundColor: 'rgba(36, 87, 52, 1)',
+  },
+  accountBtnDisabled: {
+    opacity: 0.7,
   },
   accountBtnContent: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  accountBtnIconWrapper: {
-    height: 20,
-    justifyContent: 'center',
   },
   accountBtnText: {
     color: colors.white,
@@ -389,10 +515,41 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Bold',
     lineHeight: 20,
   },
-  accountBtnEmoji: {
+  accountBtnFlag: {
     fontSize: 14,
   },
-  // Menu - near top, not centered
+  // Friends button - square, next to username (matches web .friendBtnFixed)
+  friendBtn: {
+    backgroundColor: 'rgba(36, 87, 52, 0.85)',
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  friendBtnPressed: {
+    backgroundColor: colors.primary,
+  },
+  // ELO/League button - below username row (matches web .leagueBtn)
+  leagueBtn: {
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: borderRadius.md,
+    alignSelf: 'flex-end',
+  },
+  leagueBtnPressed: {
+    opacity: 0.8,
+  },
+  leagueBtnText: {
+    color: colors.white,
+    fontSize: 13,
+    fontFamily: 'Lexend-Bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  // Menu
   menu: {
     flexGrow: 1,
     paddingTop: spacing.md,
@@ -419,7 +576,7 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: colors.white,
   },
-  // Bottom icons - g2_container_full style
+  // Bottom icons
   bottomIcons: {
     flexDirection: 'row',
     gap: 10,
@@ -433,11 +590,9 @@ const styles = StyleSheet.create({
     width: 50,
     height: 44,
     borderRadius: borderRadius.md,
-    // g2_container_full gradient approximation
     backgroundColor: 'rgba(20, 65, 25, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
-    // shadow
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,

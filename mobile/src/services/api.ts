@@ -1,8 +1,8 @@
 import { GameSettings } from '../shared';
 
 // TODO: Replace with environment variable
-const API_URL = 'https://api.worldguessr.com';
-
+// const API_URL = 'https://api.worldguessr.com';
+const API_URL = 'http://172.20.10.2:3001'; // Local dev server (use your machine's local IP)
 export interface MapItem {
   id?: string;
   slug: string;
@@ -61,14 +61,37 @@ export const api = {
       needsUsername?: boolean;
     }>('/api/googleAuth', {
       method: 'POST',
-      body: JSON.stringify({ code: idToken }),
+      body: JSON.stringify({ id_token: idToken }),
     });
   },
 
-  setName: async (secret: string, name: string) => {
-    return fetchApi<{ success: boolean; error?: string }>('/api/setName', {
+  setName: async (secret: string, username: string) => {
+    const url = `${API_URL}/api/setName`;
+    const response = await fetch(url, {
       method: 'POST',
-      body: JSON.stringify({ secret, name }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: secret, username }),
+    });
+    const data = await response.json();
+    return data as { success?: boolean; message?: string };
+  },
+
+  // Restore session with stored secret (matches web auth.js flow)
+  restoreSession: async (secret: string) => {
+    return fetchApi<{
+      secret: string;
+      username: string;
+      email?: string;
+      elo?: number;
+      totalXp?: number;
+      totalGamesPlayed?: number;
+      countryCode?: string;
+      staff?: boolean;
+      supporter?: boolean;
+      error?: string;
+    }>('/api/googleAuth', {
+      method: 'POST',
+      body: JSON.stringify({ secret }),
     });
   },
 

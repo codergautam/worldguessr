@@ -1,9 +1,10 @@
-import { View, Text, ScrollView, StyleSheet, Pressable, Alert } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, getLeague } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
+import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
 import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 
 interface MenuItemProps {
@@ -46,7 +47,8 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 
 export default function AccountScreen() {
   const router = useRouter();
-  const { user, logout } = useAuthStore();
+  const { user, logout, isLoading: authLoading } = useAuthStore();
+  const { promptAsync, isReady: googleReady } = useGoogleAuth();
   const league = user?.elo ? getLeague(user.elo) : null;
 
   const handleLogout = () => {
@@ -67,19 +69,35 @@ export default function AccountScreen() {
     );
   };
 
+  const handleLogin = async () => {
+    try {
+      await promptAsync();
+    } catch (e) {
+      console.error('Google login error:', e);
+    }
+  };
+
   if (!user) {
     return (
       <SafeAreaView style={commonStyles.container} edges={['top']}>
         <View style={commonStyles.centered}>
-          <Ionicons name="person-circle" size={64} color={colors.textMuted} />
-          <Text style={styles.notLoggedIn}>Not logged in</Text>
           <Pressable
-            style={styles.loginButton}
-            onPress={() => {
-              // TODO: Implement Google Sign-In directly
-            }}
+            style={({ pressed }) => [
+              styles.loginButton,
+              pressed && { opacity: 0.8 },
+              (authLoading || !googleReady) && { opacity: 0.6 },
+            ]}
+            onPress={handleLogin}
+            disabled={authLoading || !googleReady}
           >
-            <Text style={styles.loginButtonText}>Login</Text>
+            {authLoading ? (
+              <ActivityIndicator color={colors.white} />
+            ) : (
+              <View style={styles.loginButtonContent}>
+                <Ionicons name="logo-google" size={18} color={colors.white} />
+                <Text style={styles.loginButtonText}>Sign in with Google</Text>
+              </View>
+            )}
           </Pressable>
         </View>
       </SafeAreaView>
@@ -280,17 +298,16 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },
-  notLoggedIn: {
-    fontSize: fontSizes.lg,
-    color: colors.textMuted,
-    marginTop: spacing.lg,
-    marginBottom: spacing['2xl'],
-  },
   loginButton: {
     backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing['3xl'],
     borderRadius: borderRadius.md,
+  },
+  loginButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
   loginButtonText: {
     fontSize: fontSizes.md,
