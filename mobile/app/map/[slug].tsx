@@ -14,8 +14,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { WebView } from 'react-native-webview';
 import { api } from '../../src/services/api';
+import StreetViewWebView from '../../src/components/game/StreetViewWebView';
 import { useAuthStore } from '../../src/store/authStore';
 import { emitHeartUpdate, onHeartUpdate } from '../../src/store/heartSync';
 
@@ -134,8 +134,11 @@ export default function MapDetailScreen() {
     ? `https://flagcdn.com/w2560/${mapData.countryCode.toLowerCase()}.png`
     : null;
 
-  const streetviewEmbedUrl = mapData?.data?.[svIndex]
-    ? `https://www.google.com/maps/embed/v1/streetview?key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&location=${mapData.data[svIndex].lat},${mapData.data[svIndex].lng}&fov=60`
+  const streetViewLocation = mapData?.data?.[svIndex]
+    ? {
+        lat: Number(mapData.data[svIndex].lat),
+        long: Number(mapData.data[svIndex].lng),
+      }
     : null;
 
   if (loading) {
@@ -227,13 +230,14 @@ export default function MapDetailScreen() {
           <View style={styles.mapHeader}>
             {flagUrl ? (
               <Image source={{ uri: flagUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
-            ) : streetviewEmbedUrl ? (
-              <WebView
-                source={{ uri: streetviewEmbedUrl }}
-                style={StyleSheet.absoluteFillObject}
-                scrollEnabled={false}
-                javaScriptEnabled
-                allowsInlineMediaPlayback
+            ) : streetViewLocation ? (
+              <StreetViewWebView
+                lat={streetViewLocation.lat}
+                long={streetViewLocation.long}
+                fov={82}
+                pitch={12}
+                smoothTransitions
+                transitionDuration={450}
               />
             ) : (
               <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,30,15,0.6)' }]} />
