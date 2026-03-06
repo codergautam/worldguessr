@@ -22,7 +22,9 @@
       "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:$HOME/.nvm/versions/node/*/bin:$PATH\")",
       "Read(//Users/codergautam/worldguessr/$HOME/.nvm/versions/node/*/bin/**)",
       "Read(//opt/homebrew/bin/**)",
-      "Bash(export PATH=\"/Users/codergautam/.nvm/versions/node/v22.14.0/bin:$PATH\")"
+      "Bash(export PATH=\"/Users/codergautam/.nvm/versions/node/v22.14.0/bin:$PATH\")",
+      "Bash(/Users/codergautam/.bun/bin/bunx tsc --noEmit)",
+      "Bash(export PATH=\"/opt/homebrew/bin:/usr/local/bin:$HOME/.nvm/versions/node/*/bin:$HOME/.bun/bin:$PATH\")"
     ],
     "deny": [
       "Bash(git push:*)"

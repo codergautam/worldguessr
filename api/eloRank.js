@@ -8,14 +8,14 @@ export default async function handler(req, res) {
   const { username, secret } = req.query;
   const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
   console.log(`[API] eloRank: ${username || '(by secret)'} | IP: ${ip}`);
-  
+
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  // Rate limiting: 30 requests per minute per IP
-  const limiter = rateLimit({ max: 30, windowMs: 60000 });
+  // Rate limiting: 10 requests per 5 seconds per IP
+  const limiter = rateLimit({ max: 10, windowMs: 5000 });
   if (!limiter(req, res)) {
     console.log(`[API] eloRank: RATE LIMITED | IP: ${ip}`);
     return; // Rate limit exceeded, response already sent

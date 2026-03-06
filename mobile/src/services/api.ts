@@ -96,17 +96,21 @@ export const api = {
   },
 
   // Account
-  publicAccount: async (secret: string) => {
+  publicAccount: async (accountId: string) => {
     return fetchApi<{
       username: string;
-      email?: string;
-      elo: number;
       totalXp: number;
-      totalGamesPlayed: number;
+      createdAt?: string;
+      gamesLen: number;
+      lastLogin?: string;
+      canChangeUsername: boolean;
+      daysUntilNameChange: number;
+      recentChange: boolean;
       countryCode?: string;
-      staff?: boolean;
-      supporter?: boolean;
-    }>(`/api/publicAccount?secret=${encodeURIComponent(secret)}`);
+    }>('/api/publicAccount', {
+      method: 'POST',
+      body: JSON.stringify({ id: accountId }),
+    });
   },
 
   publicProfile: async (username: string) => {
@@ -161,7 +165,7 @@ export const api = {
   updateCountryCode: async (secret: string, countryCode: string) => {
     return fetchApi<{ success: boolean }>('/api/updateCountryCode', {
       method: 'POST',
-      body: JSON.stringify({ secret, countryCode }),
+      body: JSON.stringify({ token: secret, countryCode }),
     });
   },
 
@@ -279,6 +283,20 @@ export const api = {
     return fetchApi<Array<MapItem>>('/api/map/searchMap', {
       method: 'POST',
       body: JSON.stringify({ query }),
+    });
+  },
+
+  // Moderation
+  userModerationData: async (secret: string) => {
+    return fetchApi<{
+      totalEloRefunded: number;
+      reportStats: { total: number; open: number; ignored: number; actionTaken: number };
+      eloRefunds: Array<{ id: string; amount: number; bannedUsername: string; date: string; newElo?: number }>;
+      moderationHistory: Array<{ id: string; actionType: string; actionDescription: string; publicNote?: string; date: string; expiresAt?: string; durationString?: string }>;
+      submittedReports: Array<{ id: string; reportedUsername: string; reason: string; status: string; date: string }>;
+    }>('/api/userModerationData', {
+      method: 'POST',
+      body: JSON.stringify({ secret }),
     });
   },
 
