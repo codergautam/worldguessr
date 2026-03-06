@@ -280,6 +280,12 @@ export const api = {
     return fetchApi<Record<string, Array<MapItem>>>('/api/map/mapHome?anon=true');
   },
 
+  mapPublicData: async (slug: string, secret?: string) => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (secret) headers['authorization'] = `Bearer ${secret}`;
+    return fetchApi<{ mapData: any }>(`/api/map/publicData?slug=${encodeURIComponent(slug)}`, { headers });
+  },
+
   heartMap: async (secret: string, mapId: string) => {
     return fetchApi<{ success: boolean; hearted: boolean; hearts: number }>('/api/map/heartMap', {
       method: 'POST',

@@ -70,6 +70,7 @@ export default function RootLayout() {
             headerShown: false,
             contentStyle: { backgroundColor: colors.background },
             animation: 'slide_from_right',
+            freezeOnBlur: false,
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

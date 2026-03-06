@@ -11,6 +11,7 @@ import {
   ImageBackground,
   useWindowDimensions,
   Image,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -19,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/shared';
 import { api, MapItem } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
+import { onHeartUpdate, emitHeartUpdate } from '../../src/store/heartSync';
 
 // ── Section config ──────────────────────────────────────────
 const SECTION_ORDER = ['myMaps', 'likedMaps', 'countryMaps', 'spotlight', 'popular', 'recent'] as const;
@@ -82,6 +84,7 @@ function MapTile({
         pressed && styles.tilePressed,
       ]}
       onPress={onPress}
+      onLongPress={() => Alert.alert(map.name)}
     >
       {/* Country flag background */}
       {flagUrl && (
@@ -104,12 +107,12 @@ function MapTile({
       <View style={styles.tileContent}>
         {/* Top: name + hearts */}
         <View style={styles.tileTop}>
-          <Text style={[styles.tileName, isCountry && styles.tileNameCountry]} numberOfLines={2}>
+          <Text style={[styles.tileName, isCountry && styles.tileNameCountry]} numberOfLines={3}>
             {map.name}
           </Text>
           {!isCountry && (
             <Pressable
-              style={({ pressed }) => [styles.tileHearts, map.hearted && styles.tileHeartsActive, (pressed || heartDisabled) && { opacity: 0.4 }]}
+              style={({ pressed }) => [styles.tileHearts, map.hearted && styles.tileHeartsActive, heartDisabled && styles.tileHeartsDisabled, pressed && !heartDisabled && { opacity: 0.6 }]}
               onPress={(e) => { e.stopPropagation(); onHeart?.(); }}
               disabled={heartDisabled}
               hitSlop={6}
@@ -236,22 +239,41 @@ export default function MapsScreen() {
   const numCols = isLandscape ? 3 : 2;
   const countryNumCols = isLandscape ? 4 : 3;
 
-  const fetchMapHome = useCallback(async () => {
+  const fetchMapHome = useCallback(async (showSpinner = false) => {
     setError(false);
+    if (showSpinner) setLoading(true);
     try {
       const data = await api.mapHome(secret || undefined);
       setMapHome(data as Record<string, MapItem[]>);
     } catch (e) {
       console.error('Failed to fetch maps:', e);
-      setError(true);
+      if (showSpinner) setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, [secret]);
 
+  // Initial load
   useEffect(() => {
-    fetchMapHome();
+    fetchMapHome(true);
+  }, [fetchMapHome]);
+
+  // Listen for heart updates from detail page
+  useEffect(() => {
+    return onHeartUpdate(({ mapId, hearted, hearts }) => {
+      setMapHome((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((section) => {
+          if (Array.isArray(updated[section])) {
+            updated[section] = updated[section].map((m) =>
+              m.id === mapId ? { ...m, hearts, hearted } : m
+            );
+          }
+        });
+        return updated;
+      });
+    });
   }, []);
 
   const handleSearch = useCallback((text: string) => {
@@ -287,37 +309,65 @@ export default function MapsScreen() {
       handleSearch(searchQuery);
       setRefreshing(false);
     } else {
-      fetchMapHome();
+      fetchMapHome(false);
     }
   }, [searchQuery, fetchMapHome, handleSearch]);
 
   const handleMapPress = (map: MapItem) => {
     const slug = map.countryMap || map.slug;
-    router.push(`/game/singleplayer?map=${slug}` as any);
+    router.push({
+      pathname: `/map/${slug}`,
+      params: {
+        hearts: String(map.hearts ?? ''),
+        hearted: map.hearted ? '1' : '0',
+      },
+    } as any);
   };
 
   const [heartingMap, setHeartingMap] = useState('');
+  const lastHeartTimeRef = useRef(0);
   const handleHeartMap = useCallback(async (map: MapItem) => {
     if (!secret) return;
     if (!map.id || heartingMap) return;
+    // Client-side rate limit (500ms)
+    const now = Date.now();
+    if (now - lastHeartTimeRef.current < 500) return;
+    lastHeartTimeRef.current = now;
     setHeartingMap(map.id);
+
+    const newHearted = !map.hearted;
+    const newHearts = map.hearts + (newHearted ? 1 : -1);
+
+    // Optimistic update
+    const updateMaps = (hearted: boolean, hearts: number) => {
+      setMapHome((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((section) => {
+          if (Array.isArray(updated[section])) {
+            updated[section] = updated[section].map((m) =>
+              m.id === map.id ? { ...m, hearts, hearted } : m
+            );
+          }
+        });
+        return updated;
+      });
+    };
+
+    updateMaps(newHearted, newHearts);
+
     try {
       const result = await api.heartMap(secret, map.id);
       if (result.success) {
-        setMapHome((prev) => {
-          const updated = { ...prev };
-          Object.keys(updated).forEach((section) => {
-            if (Array.isArray(updated[section])) {
-              updated[section] = updated[section].map((m) =>
-                m.id === map.id ? { ...m, hearts: result.hearts, hearted: result.hearted } : m
-              );
-            }
-          });
-          return updated;
-        });
+        updateMaps(result.hearted, result.hearts);
+        emitHeartUpdate({ mapId: map.id, hearted: result.hearted, hearts: result.hearts });
+      } else {
+        // Revert
+        updateMaps(map.hearted!, map.hearts);
       }
     } catch (e) {
       console.error('Heart map error:', e);
+      // Revert
+      updateMaps(map.hearted!, map.hearts);
     } finally {
       setHeartingMap('');
     }
@@ -653,6 +703,10 @@ const styles = StyleSheet.create({
   },
   tileHeartsActive: {
     backgroundColor: 'rgba(220,53,69,0.35)',
+  },
+  tileHeartsDisabled: {
+    opacity: 0.3,
+    backgroundColor: 'rgba(150,150,150,0.2)',
   },
   tileHeartsText: {
     fontSize: 12,

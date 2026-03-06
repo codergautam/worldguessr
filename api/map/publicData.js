@@ -9,8 +9,9 @@ export default async function handler(req, res) {
   const secret = await getServerSecret(req);
   const session = {};
   if(secret) {
-    await User.findOne({ secret }).select("secret staff").then((user) => {
+    await User.findOne({ secret }).select("secret staff hearted_maps").then((user) => {
       session.token = { secret, staff: user.staff };
+      session.hearted_maps = user?.hearted_maps;
     });
   }
 
@@ -62,11 +63,13 @@ export default async function handler(req, res) {
   }
 
   // Don't mutate the cached object - create a new response object
+  const hearted = session.hearted_maps ? session.hearted_maps.has(map._id.toString()) : false;
   const responseData = {
     ...map,
     created_by: authorUser?.username,
     created_at: msToTime(Date.now() - map.created_at),
-    locationcnt: locationcnt
+    locationcnt: locationcnt,
+    hearted
   };
 
   return res.json({
