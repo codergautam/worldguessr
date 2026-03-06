@@ -196,7 +196,7 @@ export default function StreetViewWebView({
       {(sources.primary || sources.secondary) && (
         <>
           {sources.primary && (
-            <Animated.View pointerEvents="none" style={[styles.webviewLayer, { opacity: primaryOpacity }]}> 
+            <Animated.View pointerEvents="none" style={[styles.webviewLayer, { opacity: primaryOpacity }]}>
               <WebView
                 source={{ html: sources.primary.html }}
                 style={styles.webview}
@@ -213,7 +213,7 @@ export default function StreetViewWebView({
             </Animated.View>
           )}
           {sources.secondary && (
-            <Animated.View pointerEvents="none" style={[styles.webviewLayer, { opacity: secondaryOpacity }]}> 
+            <Animated.View pointerEvents="none" style={[styles.webviewLayer, { opacity: secondaryOpacity }]}>
               <WebView
                 source={{ html: sources.secondary.html }}
                 style={styles.webview}
