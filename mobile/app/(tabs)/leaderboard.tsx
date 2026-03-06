@@ -268,7 +268,7 @@ export default function LeaderboardScreen() {
                 styles.exitButton,
                 pressed && { opacity: 0.8 },
               ]}
-              onPress={() => router.replace('/(tabs)/home')}
+              onPress={() => router.navigate('/(tabs)/home')}
             >
               <Ionicons name="arrow-back" size={16} color="#dc3545" />
               <Text style={styles.exitButtonText}>Back to Game</Text>

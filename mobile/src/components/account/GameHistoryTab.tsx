@@ -117,12 +117,6 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
 
   return (
     <View style={{ gap: 12 }}>
-      {/* Header */}
-      <GlassCard style={{ paddingVertical: 16 }}>
-        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontFamily: 'Lexend', textAlign: 'center' }}>
-          Total Games: {pagination.totalGames}
-        </Text>
-      </GlassCard>
 
       {/* Game Cards */}
       {games.map((game) => {

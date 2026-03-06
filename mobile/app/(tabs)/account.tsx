@@ -15,7 +15,7 @@ export default function AccountScreen() {
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/(tabs)/home');
+    router.navigate('/(tabs)/home');
   };
 
   const handleLogin = async () => {
@@ -59,7 +59,7 @@ export default function AccountScreen() {
       secret={secret!}
       user={user}
       onLogout={handleLogout}
-      onBack={() => router.push('/(tabs)/home')}
+      onBack={() => router.navigate('/(tabs)/home')}
       onRefreshUser={() => loadSession()}
       onNavigateToUser={(username) => router.push(`/user/${username}`)}
     />

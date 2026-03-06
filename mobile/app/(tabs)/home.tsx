@@ -227,7 +227,7 @@ export default function HomeScreen() {
       case 'joinGame':
         break;
       case 'communityMaps':
-        router.push('/(tabs)/maps');
+        router.navigate('/(tabs)/maps');
         break;
     }
   };
@@ -276,7 +276,7 @@ export default function HomeScreen() {
             <Animated.View
               style={{
                 opacity: titleAnim,
-                transform: [{ translateX: titleSlide }],
+                transform: [{ translateX: titleSlide }, { translateY: 30 }],
               }}
             >
               <OutlinedTitle>WorldGuessr</OutlinedTitle>
@@ -293,7 +293,7 @@ export default function HomeScreen() {
                         styles.accountBtn,
                         pressed && styles.accountBtnPressed,
                       ]}
-                      onPress={() => router.push('/(tabs)/account')}
+                      onPress={() => router.navigate('/(tabs)/account')}
                     >
                       <View style={styles.accountBtnContent}>
                         <Text style={styles.accountBtnText}>{user.username}</Text>
@@ -324,7 +324,7 @@ export default function HomeScreen() {
                         { backgroundColor: eloData.league.color },
                         pressed && styles.leagueBtnPressed,
                       ]}
-                      onPress={() => router.push('/(tabs)/account')}
+                      onPress={() => router.navigate('/(tabs)/account')}
                     >
                       <Text style={styles.leagueBtnText}>
                         {animatedElo} ELO {eloData.league.emoji}
@@ -414,7 +414,7 @@ export default function HomeScreen() {
           <View style={[styles.bottomIcons, isLandscape && styles.bottomIconsLandscape]}>
             <Pressable
               style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
-              onPress={() => router.push('/(tabs)/leaderboard')}
+              onPress={() => router.navigate('/(tabs)/leaderboard')}
             >
               <Ionicons name="trophy" size={24} color="rgba(255,255,255,0.85)" />
             </Pressable>
