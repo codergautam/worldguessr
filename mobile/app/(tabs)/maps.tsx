@@ -195,9 +195,23 @@ function MapSection({
 
   const toggleExpand = () => {
     const toExpanded = !expanded;
-    if (toExpanded && !hasExpanded) setHasExpanded(true);
     setExpanded(toExpanded);
 
+    if (toExpanded && !hasExpanded) {
+      // First expand: render tiles first, then animate on next frame
+      setHasExpanded(true);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          startAnimation(true);
+        });
+      });
+      return;
+    }
+
+    startAnimation(toExpanded);
+  };
+
+  const startAnimation = (toExpanded: boolean) => {
     // Scale duration by height: ~400px/s max speed, minimum 400ms, max 1800ms
     const duration = Math.max(400, Math.min((extraHeight / 400) * 1000, 1800));
     const easingFn = Easing.bezier(0.4, 0.0, 0.2, 1);
