@@ -83,6 +83,14 @@ export default function MapDetailScreen() {
     router.push(`/game/singleplayer?map=${mapSlug}` as any);
   };
 
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.navigate('/(tabs)/maps');
+  }, [router]);
+
   const lastHeartTime = useRef(0);
   const handleHeart = useCallback(async () => {
     if (!secret || !mapData?._id || hearting) return;
@@ -126,7 +134,7 @@ export default function MapDetailScreen() {
     if (!mapData?.data?.length) return;
     svTimer.current = setInterval(() => {
       setSvIndex((prev) => (prev + 1) % mapData.data.length);
-    }, 5000);
+    }, 6000);
     return () => { if (svTimer.current) clearInterval(svTimer.current); };
   }, [mapData?.data]);
 
@@ -180,7 +188,7 @@ export default function MapDetailScreen() {
           <View style={styles.centered}>
             <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.4)" />
             <Text style={styles.errorText}>Map not found</Text>
-            <Pressable style={styles.backBtn} onPress={() => router.navigate('/(tabs)/maps')}>
+            <Pressable style={styles.backBtn} onPress={handleBack}>
               <Text style={styles.backBtnText}>Go Back</Text>
             </Pressable>
           </View>
@@ -208,7 +216,7 @@ export default function MapDetailScreen() {
           {/* Back button */}
           <Pressable
             style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.7 }]}
-            onPress={() => router.navigate('/(tabs)/maps')}
+            onPress={handleBack}
           >
             <Ionicons name="arrow-back" size={20} color="#fff" />
             <Text style={styles.headerBackText}>Back</Text>
@@ -236,8 +244,10 @@ export default function MapDetailScreen() {
                 long={streetViewLocation.long}
                 fov={82}
                 pitch={12}
+                cropRightPx={96}
                 smoothTransitions
                 transitionDuration={450}
+                showInitialLoader={false}
               />
             ) : (
               <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,30,15,0.6)' }]} />

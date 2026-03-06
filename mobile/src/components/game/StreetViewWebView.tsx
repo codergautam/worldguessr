@@ -12,6 +12,9 @@ interface StreetViewWebViewProps {
   pitch?: number;
   smoothTransitions?: boolean;
   transitionDuration?: number;
+  cropRightPx?: number;
+  showInitialLoader?: boolean;
+  interactive?: boolean;
 }
 
 type SlotKey = 'primary' | 'secondary';
@@ -24,7 +27,14 @@ interface WebViewSourceState {
 // Google Maps API key - same as web version
 const GOOGLE_MAPS_API_KEY = 'AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI';
 
-function buildStreetViewHtml(lat: number, long: number, language: string, fov: number, pitch: number) {
+function buildStreetViewHtml(
+  lat: number,
+  long: number,
+  language: string,
+  fov: number,
+  pitch: number,
+  cropRightPx: number,
+) {
   const streetViewUrl = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=${GOOGLE_MAPS_API_KEY}&fov=${fov}&pitch=${pitch}&language=${language}`;
 
   return `
@@ -36,7 +46,7 @@ function buildStreetViewHtml(lat: number, long: number, language: string, fov: n
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
         iframe {
-          width: 100vw;
+          width: calc(100vw + ${cropRightPx}px);
           height: calc(100vh + 300px);
           border: none;
           transform: translateY(-285px);
@@ -64,6 +74,8 @@ export default function StreetViewWebView({
   pitch = 0,
   smoothTransitions = false,
   transitionDuration = 350,
+  cropRightPx = 0,
+  showInitialLoader = true,
 }: StreetViewWebViewProps) {
   const [sources, setSources] = useState<Record<SlotKey, WebViewSourceState | null>>({
     primary: null,
@@ -96,10 +108,10 @@ export default function StreetViewWebView({
   useEffect(() => {
     if (!isValidCoordinate) return;
 
-    const locationKey = `${lat}-${long}-${language}-${fov}-${pitch}`;
+    const locationKey = `${lat}-${long}-${language}-${fov}-${pitch}-${cropRightPx}`;
     const nextSource = {
       key: locationKey,
-      html: buildStreetViewHtml(lat, long, language, fov, pitch),
+      html: buildStreetViewHtml(lat, long, language, fov, pitch, cropRightPx),
     };
 
     const activeSlot = activeSlotRef.current;
@@ -136,7 +148,7 @@ export default function StreetViewWebView({
       ...prev,
       [nextSlot]: nextSource,
     }));
-  }, [lat, long, language, fov, pitch, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
+  }, [lat, long, language, fov, pitch, cropRightPx, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
 
   const handleLoadEnd = useCallback((slot: SlotKey) => {
     const pendingSlot = pendingSlotRef.current;
@@ -188,7 +200,7 @@ export default function StreetViewWebView({
 
   return (
     <View style={styles.container}>
-      {!hasLoadedOnce && isInitialLoading && (
+      {showInitialLoader && !hasLoadedOnce && isInitialLoading && (
         <View style={styles.loader}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -196,7 +208,7 @@ export default function StreetViewWebView({
       {(sources.primary || sources.secondary) && (
         <>
           {sources.primary && (
-            <Animated.View pointerEvents="none" style={[styles.webviewLayer, { opacity: primaryOpacity }]}>
+            <Animated.View style={[styles.webviewLayer, { opacity: primaryOpacity }]}>
               <WebView
                 source={{ html: sources.primary.html }}
                 style={styles.webview}

@@ -12,6 +12,8 @@ import {
   useWindowDimensions,
   Image,
   Alert,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -155,6 +157,8 @@ function MapSection({
   onHeartMap,
   heartingMapId,
   numCols,
+  scrollRef,
+  scrollOffsetRef,
 }: {
   title: string;
   maps: MapItem[];
@@ -163,19 +167,88 @@ function MapSection({
   onHeartMap?: (map: MapItem) => void;
   heartingMapId?: string;
   numCols: number;
+  scrollRef?: React.RefObject<ScrollView | null>;
+  scrollOffsetRef?: React.RefObject<number>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [hasExpanded, setHasExpanded] = useState(false); // defer rendering until first open
   const [gridWidth, setGridWidth] = useState(0);
+  const animValue = useRef(new Animated.Value(0)).current;
+
   const GAP = 10;
   const tileWidth = gridWidth > 0
     ? Math.floor((gridWidth - GAP * (numCols - 1)) / numCols)
     : 0;
   const defaultVisible = numCols * 2;
-  const displayedMaps = expanded ? maps : maps.slice(0, defaultVisible);
-  const showExpandBtn = maps.length > defaultVisible;
+  const baseMaps = maps.slice(0, defaultVisible);
+  const extraMaps = maps.slice(defaultVisible);
+  const showExpandBtn = extraMaps.length > 0;
+
+  // Calculate extra section height from tile dimensions
+  const TILE_HEIGHT = isCountry ? 80 : 110;
+  const extraRows = Math.ceil(extraMaps.length / numCols);
+  const extraHeight = extraRows * TILE_HEIGHT + (extraRows - 1) * GAP + GAP; // +GAP for top padding
+
+  const sectionRef = useRef<View>(null);
+
+  const scrollAnimValue = useRef(new Animated.Value(0)).current;
+
+  const toggleExpand = () => {
+    const toExpanded = !expanded;
+    if (toExpanded && !hasExpanded) setHasExpanded(true);
+    setExpanded(toExpanded);
+
+    // Scale duration by height: ~400px/s max speed, minimum 400ms, max 1800ms
+    const duration = Math.max(400, Math.min((extraHeight / 400) * 1000, 1800));
+    const easingFn = Easing.bezier(0.4, 0.0, 0.2, 1);
+
+    if (!toExpanded && scrollRef?.current && scrollOffsetRef) {
+      // Measure before animating, then animate scroll in parallel with collapse
+      const currentOffset = scrollOffsetRef.current;
+      sectionRef.current?.measureLayout(
+        scrollRef.current as any,
+        (_x, sectionY) => {
+          const targetOffset = sectionY < currentOffset
+            ? Math.max(0, currentOffset - extraHeight)
+            : currentOffset;
+
+          if (targetOffset !== currentOffset) {
+            scrollAnimValue.setValue(currentOffset);
+            const listenerId = scrollAnimValue.addListener(({ value }) => {
+              scrollRef.current?.scrollTo({ y: value, animated: false });
+            });
+
+            Animated.parallel([
+              Animated.timing(animValue, { toValue: 0, duration, easing: easingFn, useNativeDriver: false }),
+              Animated.timing(scrollAnimValue, { toValue: targetOffset, duration, easing: easingFn, useNativeDriver: false }),
+            ]).start(() => {
+              scrollAnimValue.removeListener(listenerId);
+            });
+          } else {
+            Animated.timing(animValue, { toValue: 0, duration, easing: easingFn, useNativeDriver: false }).start();
+          }
+        },
+        () => {
+          Animated.timing(animValue, { toValue: 0, duration, easing: easingFn, useNativeDriver: false }).start();
+        },
+      );
+    } else {
+      Animated.timing(animValue, {
+        toValue: toExpanded ? 1 : 0,
+        duration,
+        easing: easingFn,
+        useNativeDriver: false,
+      }).start();
+    }
+  };
+
+  const animatedHeight = animValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, extraHeight],
+  });
 
   return (
-    <View style={styles.section}>
+    <View ref={sectionRef} style={[styles.section, tileWidth === 0 && { opacity: 0 }]}>
       {/* Section title with green accent bar */}
       <View style={styles.sectionTitleRow}>
         <View style={styles.sectionAccent} />
@@ -185,10 +258,10 @@ function MapSection({
       {/* Section card */}
       <View style={styles.sectionCard}>
         <View
-          style={styles.tileGrid}
+          style={[styles.tileGrid, tileWidth === 0 && { minHeight: 1 }]}
           onLayout={(e) => setGridWidth(e.nativeEvent.layout.width)}
         >
-          {tileWidth > 0 && displayedMaps.map((map, i) => (
+          {tileWidth > 0 && baseMaps.map((map, i) => (
             <MapTile
               key={map.id || map.slug || i}
               map={map}
@@ -201,20 +274,38 @@ function MapSection({
           ))}
         </View>
 
-        {showExpandBtn && (
-          <Pressable
-            style={({ pressed }) => [styles.showMoreBtn, pressed && { opacity: 0.8 }]}
-            onPress={() => setExpanded(!expanded)}
-          >
-            <Ionicons
-              name={expanded ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color="white"
-            />
-            <Text style={styles.showMoreText}>
-              {expanded ? 'Show Less' : 'Show All'}
-            </Text>
-          </Pressable>
+        {tileWidth > 0 && showExpandBtn && (
+          <>
+            <Animated.View style={{ height: animatedHeight, overflow: 'hidden' }}>
+              <View style={[styles.tileGrid, { paddingTop: GAP }]}>
+                {hasExpanded && tileWidth > 0 && extraMaps.map((map, i) => (
+                  <MapTile
+                    key={map.id || map.slug || i}
+                    map={map}
+                    onPress={() => onMapPress(map)}
+                    onHeart={onHeartMap ? () => onHeartMap(map) : undefined}
+                    heartDisabled={heartingMapId === (map.id || map.slug)}
+                    isCountry={isCountry}
+                    tileWidth={tileWidth}
+                  />
+                ))}
+              </View>
+            </Animated.View>
+
+            <Pressable
+              style={({ pressed }) => [styles.showMoreBtn, pressed && { opacity: 0.8 }]}
+              onPress={toggleExpand}
+            >
+              <Ionicons
+                name={expanded ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color="white"
+              />
+              <Text style={styles.showMoreText}>
+                {expanded ? 'Show Less' : 'Show All'}
+              </Text>
+            </Pressable>
+          </>
         )}
       </View>
     </View>
@@ -234,6 +325,8 @@ export default function MapsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollOffsetRef = useRef(0);
 
   const isLandscape = width > 600;
   const numCols = isLandscape ? 3 : 2;
@@ -314,7 +407,7 @@ export default function MapsScreen() {
   }, [searchQuery, fetchMapHome, handleSearch]);
 
   const handleMapPress = (map: MapItem) => {
-    const slug = map.countryMap || map.slug;
+    const slug = map.slug || map.countryMap;
     router.push({
       pathname: `/map/${slug}`,
       params: {
@@ -443,8 +536,11 @@ export default function MapsScreen() {
           </View>
         ) : (
           <ScrollView
+            ref={scrollRef}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
+            onScroll={(e) => { scrollOffsetRef.current = e.nativeEvent.contentOffset.y; }}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -528,6 +624,8 @@ export default function MapsScreen() {
                       onHeartMap={secret ? handleHeartMap : undefined}
                       heartingMapId={heartingMap}
                       numCols={key === 'countryMaps' ? countryNumCols : numCols}
+                      scrollRef={scrollRef}
+                      scrollOffsetRef={scrollOffsetRef}
                     />
                   );
                 })}

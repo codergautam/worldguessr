@@ -361,7 +361,7 @@ export default function Home({ }) {
                 if (diff < 0) return Math.max(prev - step, eloData.elo);
                 return prev;
             });
-        }, 10);
+        }, 50);
 
         return () => clearInterval(interval);
     }, [eloData?.elo]);
@@ -1269,15 +1269,15 @@ export default function Home({ }) {
 
             // Use the passed options directly to avoid stale state issues
             const options = args[0] || multiplayerState.createOptions;
-            ws.send(JSON.stringify({ 
-                type: "setPrivateGameOptions", 
-                rounds: options.rounds, 
-                timePerRound: options.timePerRound, 
-                nm: options.nm, 
-                npz: options.npz, 
-                showRoadName: options.showRoadName, 
-                location: options.location, 
-                displayLocation: options.displayLocation 
+            ws.send(JSON.stringify({
+                type: "setPrivateGameOptions",
+                rounds: options.rounds,
+                timePerRound: options.timePerRound,
+                nm: options.nm,
+                npz: options.npz,
+                showRoadName: options.showRoadName,
+                location: options.location,
+                displayLocation: options.displayLocation
             }));
         }
 
@@ -1772,7 +1772,7 @@ export default function Home({ }) {
                 // Game was cancelled before it started (opponent left during countdown)
                 // No ELO was lost - just return to home and optionally re-queue
                 toast.info(text("opponentLeftBeforeStart") || "Opponent left before the game started. Returning to queue...");
-                
+
                 setScreen("home")
                 setMultiplayerChatEnabled(false)
 
