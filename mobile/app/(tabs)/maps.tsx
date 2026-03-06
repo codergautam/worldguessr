@@ -18,10 +18,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/shared';
 import { api, MapItem } from '../../src/services/api';
+import { useAuthStore } from '../../src/store/authStore';
 
 // ── Section config ──────────────────────────────────────────
-const SECTION_ORDER = ['countryMaps', 'spotlight', 'popular', 'recent'] as const;
+const SECTION_ORDER = ['myMaps', 'likedMaps', 'countryMaps', 'spotlight', 'popular', 'recent'] as const;
 const SECTION_LABELS: Record<string, string> = {
+  myMaps: 'My Maps',
+  likedMaps: 'Liked Maps',
   countryMaps: 'Country Maps',
   spotlight: 'Spotlight',
   popular: 'Popular',
@@ -54,13 +57,17 @@ function getFlagEmoji(countryCode: string): string {
 function MapTile({
   map,
   onPress,
+  onHeart,
   isCountry,
   tileWidth,
+  heartDisabled,
 }: {
   map: MapItem;
   onPress: () => void;
+  onHeart?: () => void;
   isCountry?: boolean;
   tileWidth: number;
+  heartDisabled?: boolean;
 }) {
   const flagUrl = isCountry && map.countryMap
     ? `https://flagcdn.com/h240/${map.countryMap.toLowerCase()}.png`
@@ -71,6 +78,7 @@ function MapTile({
       style={({ pressed }) => [
         styles.tile,
         { width: tileWidth },
+        isCountry && styles.tileCountry,
         pressed && styles.tilePressed,
       ]}
       onPress={onPress}
@@ -100,10 +108,15 @@ function MapTile({
             {map.name}
           </Text>
           {!isCountry && (
-            <View style={styles.tileHearts}>
+            <Pressable
+              style={({ pressed }) => [styles.tileHearts, map.hearted && styles.tileHeartsActive, (pressed || heartDisabled) && { opacity: 0.4 }]}
+              onPress={(e) => { e.stopPropagation(); onHeart?.(); }}
+              disabled={heartDisabled}
+              hitSlop={6}
+            >
               <Text style={styles.tileHeartsText}>{formatNumber(map.hearts)}</Text>
-              <Ionicons name="heart" size={12} color="#dc3545" />
-            </View>
+              <Ionicons name={map.hearted ? "heart" : "heart-outline"} size={16} color={map.hearted ? "#ff4d6d" : "#dc3545"} />
+            </Pressable>
           )}
         </View>
 
@@ -136,12 +149,16 @@ function MapSection({
   maps,
   isCountry,
   onMapPress,
+  onHeartMap,
+  heartingMapId,
   numCols,
 }: {
   title: string;
   maps: MapItem[];
   isCountry?: boolean;
   onMapPress: (map: MapItem) => void;
+  onHeartMap?: (map: MapItem) => void;
+  heartingMapId?: string;
   numCols: number;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -173,6 +190,8 @@ function MapSection({
               key={map.id || map.slug || i}
               map={map}
               onPress={() => onMapPress(map)}
+              onHeart={onHeartMap ? () => onHeartMap(map) : undefined}
+              heartDisabled={heartingMapId === (map.id || map.slug)}
               isCountry={isCountry}
               tileWidth={tileWidth}
             />
@@ -203,6 +222,7 @@ function MapSection({
 export default function MapsScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const { secret } = useAuthStore();
   const [mapHome, setMapHome] = useState<Record<string, MapItem[]>>({});
   const [searchResults, setSearchResults] = useState<MapItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,12 +232,14 @@ export default function MapsScreen() {
   const [error, setError] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const numCols = width > 600 ? 3 : 2;
+  const isLandscape = width > 600;
+  const numCols = isLandscape ? 3 : 2;
+  const countryNumCols = isLandscape ? 4 : 3;
 
   const fetchMapHome = useCallback(async () => {
     setError(false);
     try {
-      const data = await api.mapHome();
+      const data = await api.mapHome(secret || undefined);
       setMapHome(data as Record<string, MapItem[]>);
     } catch (e) {
       console.error('Failed to fetch maps:', e);
@@ -226,7 +248,7 @@ export default function MapsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [secret]);
 
   useEffect(() => {
     fetchMapHome();
@@ -273,6 +295,33 @@ export default function MapsScreen() {
     const slug = map.countryMap || map.slug;
     router.push(`/game/singleplayer?map=${slug}` as any);
   };
+
+  const [heartingMap, setHeartingMap] = useState('');
+  const handleHeartMap = useCallback(async (map: MapItem) => {
+    if (!secret) return;
+    if (!map.id || heartingMap) return;
+    setHeartingMap(map.id);
+    try {
+      const result = await api.heartMap(secret, map.id);
+      if (result.success) {
+        setMapHome((prev) => {
+          const updated = { ...prev };
+          Object.keys(updated).forEach((section) => {
+            if (Array.isArray(updated[section])) {
+              updated[section] = updated[section].map((m) =>
+                m.id === map.id ? { ...m, hearts: result.hearts, hearted: result.hearted } : m
+              );
+            }
+          });
+          return updated;
+        });
+      }
+    } catch (e) {
+      console.error('Heart map error:', e);
+    } finally {
+      setHeartingMap('');
+    }
+  }, [secret, heartingMap]);
 
   const isSearching = searchQuery.trim().length >= 3;
 
@@ -394,7 +443,7 @@ export default function MapsScreen() {
                         maps={matchingCountryMaps}
                         isCountry
                         onMapPress={handleMapPress}
-                        numCols={numCols}
+                        numCols={countryNumCols}
                       />
                     )}
                     {hasCommunity && (
@@ -402,6 +451,8 @@ export default function MapsScreen() {
                         title="Search Results"
                         maps={searchResults}
                         onMapPress={handleMapPress}
+                        onHeartMap={secret ? handleHeartMap : undefined}
+                        heartingMapId={heartingMap}
                         numCols={numCols}
                       />
                     )}
@@ -424,7 +475,9 @@ export default function MapsScreen() {
                       maps={maps}
                       isCountry={key === 'countryMaps'}
                       onMapPress={handleMapPress}
-                      numCols={numCols}
+                      onHeartMap={secret ? handleHeartMap : undefined}
+                      heartingMapId={heartingMap}
+                      numCols={key === 'countryMaps' ? countryNumCols : numCols}
                     />
                   );
                 })}
@@ -559,6 +612,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     overflow: 'hidden',
   },
+  tileCountry: {
+    height: 80,
+    padding: 10,
+  },
   tilePressed: {
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderColor: '#245734',
@@ -588,14 +645,17 @@ const styles = StyleSheet.create({
   tileHearts: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: 'rgba(220,53,69,0.2)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    gap: 4,
+    backgroundColor: 'rgba(220,53,69,0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  tileHeartsActive: {
+    backgroundColor: 'rgba(220,53,69,0.35)',
   },
   tileHeartsText: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Lexend-Medium',
     color: 'rgba(255,255,255,0.9)',
   },

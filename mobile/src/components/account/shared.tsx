@@ -76,11 +76,13 @@ export interface ProgressionEntry {
 export function GlassCard({ children, style }: { children: React.ReactNode; style?: any }) {
   return (
     <View style={[sharedStyles.glassCard, sharedStyles.glassCardShadow, style]}>
-      <BlurView
-        intensity={40}
-        tint="dark"
-        style={StyleSheet.absoluteFillObject}
-      />
+      <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', borderRadius: 16 }]}>
+        <BlurView
+          intensity={40}
+          tint="dark"
+          style={StyleSheet.absoluteFillObject}
+        />
+      </View>
       <View style={{ position: 'relative', zIndex: 1 }}>{children}</View>
     </View>
   );
@@ -408,7 +410,6 @@ export const sharedStyles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
-    overflow: 'hidden',
   },
   glassCardShadow: {
     shadowColor: '#000',

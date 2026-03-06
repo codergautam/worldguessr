@@ -268,14 +268,23 @@ export const api = {
   },
 
   // Maps
-  mapHome: async () => {
+  mapHome: async (secret?: string) => {
+    if (secret) {
+      // Authenticated POST — returns myMaps, likedMaps, hearted status
+      return fetchApi<Record<string, Array<MapItem>>>('/api/map/mapHome', {
+        method: 'POST',
+        body: JSON.stringify({ secret }),
+      });
+    }
     // Anonymous GET with ?anon=true (no auth needed, cacheable)
-    return fetchApi<{
-      countryMaps?: Array<MapItem>;
-      spotlight?: Array<MapItem>;
-      popular?: Array<MapItem>;
-      recent?: Array<MapItem>;
-    }>('/api/map/mapHome?anon=true');
+    return fetchApi<Record<string, Array<MapItem>>>('/api/map/mapHome?anon=true');
+  },
+
+  heartMap: async (secret: string, mapId: string) => {
+    return fetchApi<{ success: boolean; hearted: boolean; hearts: number }>('/api/map/heartMap', {
+      method: 'POST',
+      body: JSON.stringify({ secret, mapId }),
+    });
   },
 
   searchMap: async (query: string) => {

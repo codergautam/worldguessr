@@ -205,7 +205,7 @@ export default function ProfileView({
     if (!profileData?.username) return;
     const url = `https://worldguessr.com/user?u=${encodeURIComponent(profileData.username)}`;
     try {
-      await Share.share({ message: url, url });
+      await Share.share(Platform.OS === 'ios' ? { url } : { message: url });
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
     } catch (e) {
