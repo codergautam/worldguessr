@@ -116,10 +116,12 @@ export default function GameScreen() {
 
   // Animation values
   const loadingOpacity = useRef(new Animated.Value(1)).current;
+  const sceneOpacity = useRef(new Animated.Value(0)).current;
   const mapSlideAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
   const mapBtnsAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
   const bannerSlideAnim = useRef(new Animated.Value(300)).current;
   const fabScaleAnim = useRef(new Animated.Value(1)).current;
+  const hasCompletedInitialReveal = useRef(false);
 
   // Mount map eagerly once game loads — prevents first-touch being swallowed
   // by a freshly-mounted MapView when showing the first round's result
@@ -165,6 +167,28 @@ export default function GameScreen() {
       if (fadeOutTimer.current) clearTimeout(fadeOutTimer.current);
     };
   }, [showLoadingBanner]);
+
+  useEffect(() => {
+    if (showLoadingBanner) {
+      if (!hasCompletedInitialReveal.current) {
+        sceneOpacity.setValue(0);
+      }
+      return;
+    }
+
+    if (!hasCompletedInitialReveal.current) {
+      Animated.timing(sceneOpacity, {
+        toValue: 1,
+        duration: 550,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          hasCompletedInitialReveal.current = true;
+        }
+      });
+    }
+  }, [showLoadingBanner, sceneOpacity]);
 
   // Reset streetViewLoaded when round changes (between rounds)
   useEffect(() => {
@@ -482,240 +506,246 @@ export default function GameScreen() {
   }
 
   const lastGuess = gameState.guesses[gameState.guesses.length - 1];
-  const showFab = !miniMapShown && !gameState.isShowingResult;
+  const showFab = !showLoadingBanner && !miniMapShown && !gameState.isShowingResult;
+  const scenePointerEvents = showLoadingBanner && !hasCompletedInitialReveal.current ? 'none' : 'box-none';
 
   return (
     <View style={styles.container}>
-      {/* Street View - FULLSCREEN */}
-      <View style={StyleSheet.absoluteFillObject}>
-        {currentLocation && (
-          <StreetViewWebView
-            lat={currentLocation.lat}
-            long={currentLocation.long}
-            onLoad={handleStreetViewLoad}
-          />
-        )}
-      </View>
-
-      {/* Round/score pill - top right */}
-      {!gameState.isShowingResult && (
-        <SafeAreaView style={[styles.timerContainer, { paddingRight: Math.max(insets.right, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
-          <View style={styles.timerPill}>
-            <Text style={styles.timerText}>
-              Round {gameState.currentRound}/{gameState.totalRounds}
-            </Text>
-            <Text style={styles.timerScore}>
-              {gameState.totalScore.toLocaleString()} pts
-            </Text>
-          </View>
-          {!isSingleplayer && (
-            <GameTimer
-              timeRemaining={gameState.timePerRound}
-              onTimeUp={handleTimeUp}
-              isPaused={gameState.isShowingResult}
-            />
-          )}
-        </SafeAreaView>
-      )}
-
-      {/* Back button - top left (matches web navbar red back button) */}
-      <SafeAreaView style={[styles.backButtonContainer, { paddingLeft: Math.max(insets.left, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
-        <Pressable
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
-          ]}
-          onPress={handleQuit}
-        >
-          <LinearGradient
-            colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)', 'rgba(255,112,112,0.9)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.backButtonGradient}
-          >
-            <Ionicons name="arrow-back" size={22} color={colors.white} />
-          </LinearGradient>
-        </Pressable>
-      </SafeAreaView>
-
-      {/* ═══ MAP OVERLAY - slides up from bottom ═══ */}
       <Animated.View
-        style={[
-          styles.mapOverlay,
-          { height: mapHeight },
-        ]}
-        pointerEvents={miniMapShown || gameState.isShowingResult ? 'auto' : 'none'}
+        style={[StyleSheet.absoluteFillObject, { opacity: sceneOpacity }]}
+        pointerEvents={scenePointerEvents}
       >
-        {/* Inner wrapper gives MapView a fixed height so initialRegion works
-            even when the animated outer container starts at 0px height.
-            Use 70% height during gameplay so MKMapView's native gesture recognizers
-            don't extend into the Guess button area (iOS ignores overflow:hidden for
-            native gesture hit-testing). Full height during results (no buttons). */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: gameState.isShowingResult ? height : height * 0.7 }}>
-          {mapMounted && (
-            <GuessMap
-              guessPosition={guessPosition}
-              actualPosition={
-                gameState.isShowingResult
-                  ? { lat: currentLocation.lat, lng: currentLocation.long }
-                  : undefined
-              }
-              onMapPress={handleMapPress}
-              isExpanded={true}
-              extent={gameState.extent}
+        {/* Street View - FULLSCREEN */}
+        <View style={StyleSheet.absoluteFillObject}>
+          {currentLocation && (
+            <StreetViewWebView
+              lat={currentLocation.lat}
+              long={currentLocation.long}
+              onLoad={handleStreetViewLoad}
             />
           )}
         </View>
-      </Animated.View>
 
-      {/* ═══ MOBILE GUESS BUTTONS - above map when map is open ═══ */}
-      {/* Matches web: .mobile_minimap__btns.miniMapShown */}
-      {miniMapShown && !gameState.isShowingResult && (
-        <Animated.View
-          style={[
-            styles.mapButtonsRow,
-            { bottom: height * 0.7 + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
-            {
-              opacity: mapBtnsAnim,
-              transform: [{
-                translateY: mapBtnsAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [40, 0],
-                }),
-              }],
-            },
-          ]}
-        >
-          {/* Guess submit button (blue) */}
-          <Pressable
-            onPress={handleSubmitGuess}
-            disabled={!guessPosition}
-            style={({ pressed }) => [
-              styles.guessSubmitBtn,
-              !guessPosition && styles.guessSubmitBtnDisabled,
-              pressed && guessPosition && { opacity: 0.85 },
-            ]}
-          >
-            <LinearGradient
-              colors={guessPosition ? ['#1d1d5b', '#1e3e9c'] : ['#555', '#444']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.guessSubmitBtnGradient}
-            >
-              <Text style={[
-                styles.guessSubmitBtnText,
-                !guessPosition && { opacity: 0.5 },
-              ]}>
-                Guess
+        {/* Round/score pill - top right */}
+        {!gameState.isShowingResult && (
+          <SafeAreaView style={[styles.timerContainer, { paddingRight: Math.max(insets.right, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
+            <View style={styles.timerPill}>
+              <Text style={styles.timerText}>
+                Round {gameState.currentRound}/{gameState.totalRounds}
               </Text>
+              <Text style={styles.timerScore}>
+                {gameState.totalScore.toLocaleString()} pts
+              </Text>
+            </View>
+            {!isSingleplayer && (
+              <GameTimer
+                timeRemaining={gameState.timePerRound}
+                onTimeUp={handleTimeUp}
+                isPaused={gameState.isShowingResult}
+              />
+            )}
+          </SafeAreaView>
+        )}
+
+        {/* Back button - top left (matches web navbar red back button) */}
+        <SafeAreaView style={[styles.backButtonContainer, { paddingLeft: Math.max(insets.left, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
+          <Pressable
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
+            ]}
+            onPress={handleQuit}
+          >
+            <LinearGradient
+              colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)', 'rgba(255,112,112,0.9)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.backButtonGradient}
+            >
+              <Ionicons name="arrow-back" size={22} color={colors.white} />
             </LinearGradient>
           </Pressable>
+        </SafeAreaView>
 
-          {/* Map collapse toggle (small down arrow) - matches web mobileMiniMapExpandedToggle */}
-          <Pressable
-            onPress={() => setMiniMapShown(false)}
-            style={({ pressed }) => [
-              styles.mapCollapseBtn,
-              pressed && { opacity: 0.85 },
+        {/* ═══ MAP OVERLAY - slides up from bottom ═══ */}
+        <Animated.View
+          style={[
+            styles.mapOverlay,
+            { height: mapHeight },
+          ]}
+          pointerEvents={miniMapShown || gameState.isShowingResult ? 'auto' : 'none'}
+        >
+          {/* Inner wrapper gives MapView a fixed height so initialRegion works
+              even when the animated outer container starts at 0px height.
+              Use 70% height during gameplay so MKMapView's native gesture recognizers
+              don't extend into the Guess button area (iOS ignores overflow:hidden for
+              native gesture hit-testing). Full height during results (no buttons). */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: gameState.isShowingResult ? height : height * 0.7 }}>
+            {mapMounted && (
+              <GuessMap
+                guessPosition={guessPosition}
+                actualPosition={
+                  gameState.isShowingResult
+                    ? { lat: currentLocation.lat, lng: currentLocation.long }
+                    : undefined
+                }
+                onMapPress={handleMapPress}
+                isExpanded={true}
+                extent={gameState.extent}
+              />
+            )}
+          </View>
+        </Animated.View>
+
+        {/* ═══ MOBILE GUESS BUTTONS - above map when map is open ═══ */}
+        {/* Matches web: .mobile_minimap__btns.miniMapShown */}
+        {miniMapShown && !gameState.isShowingResult && (
+          <Animated.View
+            style={[
+              styles.mapButtonsRow,
+              { bottom: height * 0.7 + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
+              {
+                opacity: mapBtnsAnim,
+                transform: [{
+                  translateY: mapBtnsAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [40, 0],
+                  }),
+                }],
+              },
             ]}
           >
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.mapCollapseBtnInner}
-            >
-              <Ionicons name="arrow-down" size={24} color={colors.white} />
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
-      )}
-
-      {/* ═══ FLOATING GUESS FAB - bottom right when map hidden ═══ */}
-      {/* Matches web: .g2_mobile_guess button with map icon + "Guess" text */}
-      {showFab && (
-        <Animated.View
-          style={[
-            styles.guessFab,
-            {
-              transform: [{ scale: fabScaleAnim }],
-              bottom: Math.max(insets.bottom, 20) + 20,
-              right: Math.max(insets.right, 60),
-            },
-          ]}
-        >
-          <Pressable
-            onPress={() => setMiniMapShown(true)}
-            style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] }]}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.guessFabInner}
-            >
-              <Ionicons name="map" size={28} color={colors.white} />
-              <Text style={styles.guessFabText}>Guess</Text>
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
-      )}
-
-      {/* ═══ END BANNER - shown after guessing ═══ */}
-      {/* Matches web: #endBanner with glassmorphism, distance, points, next button */}
-      {gameState.isShowingResult && lastGuess && (
-        <Animated.View
-          style={[
-            styles.endBanner,
-            {
-              transform: [{ translateY: bannerSlideAnim }],
-              paddingBottom: Math.max(insets.bottom, spacing.lg),
-              paddingLeft: insets.left,
-              paddingRight: insets.right,
-            },
-          ]}
-        >
-          <View style={styles.endBannerContent}>
-            {/* Round & score context */}
-            <Text style={styles.endBannerRound}>
-              Round {gameState.currentRound}/{gameState.totalRounds}
-            </Text>
-
-            {/* Distance text */}
-            <Text style={styles.endBannerDistance}>
-              {lastGuess.distance >= 1
-                ? `Your guess was ${formatDist(lastGuess.distance)} away`
-                : `Your guess was ${Math.round(lastGuess.distance * 1000)} m away`
-              }
-            </Text>
-
-            {/* Points */}
-            <Text style={[styles.endBannerPoints, { color: getPointsColor(lastGuess.points) }]}>
-              {lastGuess.points.toLocaleString()} points
-            </Text>
-
-            {/* Next Round / View Results button */}
+            {/* Guess submit button (blue) */}
             <Pressable
-              onPress={handleNextRound}
-              style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+              onPress={handleSubmitGuess}
+              disabled={!guessPosition}
+              style={({ pressed }) => [
+                styles.guessSubmitBtn,
+                !guessPosition && styles.guessSubmitBtnDisabled,
+                pressed && guessPosition && { opacity: 0.85 },
+              ]}
+            >
+              <LinearGradient
+                colors={guessPosition ? ['#1d1d5b', '#1e3e9c'] : ['#555', '#444']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.guessSubmitBtnGradient}
+              >
+                <Text style={[
+                  styles.guessSubmitBtnText,
+                  !guessPosition && { opacity: 0.5 },
+                ]}>
+                  Guess
+                </Text>
+              </LinearGradient>
+            </Pressable>
+
+            {/* Map collapse toggle (small down arrow) - matches web mobileMiniMapExpandedToggle */}
+            <Pressable
+              onPress={() => setMiniMapShown(false)}
+              style={({ pressed }) => [
+                styles.mapCollapseBtn,
+                pressed && { opacity: 0.85 },
+              ]}
             >
               <LinearGradient
                 colors={[colors.primary, colors.primaryDark]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.nextRoundBtn}
+                style={styles.mapCollapseBtnInner}
               >
-                <Text style={styles.nextRoundBtnText}>
-                  {gameState.currentRound >= gameState.totalRounds
-                    ? 'View Results'
-                    : 'Next Round'
-                  }
-                </Text>
+                <Ionicons name="arrow-down" size={24} color={colors.white} />
               </LinearGradient>
             </Pressable>
-          </View>
-        </Animated.View>
-      )}
+          </Animated.View>
+        )}
+
+        {/* ═══ FLOATING GUESS FAB - bottom right when map hidden ═══ */}
+        {/* Matches web: .g2_mobile_guess button with map icon + "Guess" text */}
+        {showFab && (
+          <Animated.View
+            style={[
+              styles.guessFab,
+              {
+                transform: [{ scale: fabScaleAnim }],
+                bottom: Math.max(insets.bottom, 20) + 20,
+                right: Math.max(insets.right, 60),
+              },
+            ]}
+          >
+            <Pressable
+              onPress={() => setMiniMapShown(true)}
+              style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.96 }] }]}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.primaryDark]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.guessFabInner}
+              >
+                <Ionicons name="map" size={28} color={colors.white} />
+                <Text style={styles.guessFabText}>Guess</Text>
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
+        )}
+
+        {/* ═══ END BANNER - shown after guessing ═══ */}
+        {/* Matches web: #endBanner with glassmorphism, distance, points, next button */}
+        {gameState.isShowingResult && lastGuess && (
+          <Animated.View
+            style={[
+              styles.endBanner,
+              {
+                transform: [{ translateY: bannerSlideAnim }],
+                paddingBottom: Math.max(insets.bottom, spacing.lg),
+                paddingLeft: insets.left,
+                paddingRight: insets.right,
+              },
+            ]}
+          >
+            <View style={styles.endBannerContent}>
+              {/* Round & score context */}
+              <Text style={styles.endBannerRound}>
+                Round {gameState.currentRound}/{gameState.totalRounds}
+              </Text>
+
+              {/* Distance text */}
+              <Text style={styles.endBannerDistance}>
+                {lastGuess.distance >= 1
+                  ? `Your guess was ${formatDist(lastGuess.distance)} away`
+                  : `Your guess was ${Math.round(lastGuess.distance * 1000)} m away`
+                }
+              </Text>
+
+              {/* Points */}
+              <Text style={[styles.endBannerPoints, { color: getPointsColor(lastGuess.points) }]}> 
+                {lastGuess.points.toLocaleString()} points
+              </Text>
+
+              {/* Next Round / View Results button */}
+              <Pressable
+                onPress={handleNextRound}
+                style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.nextRoundBtn}
+                >
+                  <Text style={styles.nextRoundBtnText}>
+                    {gameState.currentRound >= gameState.totalRounds
+                      ? 'View Results'
+                      : 'Next Round'
+                    }
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </Animated.View>
+        )}
+      </Animated.View>
 
       {/* ═══ LOADING BANNER OVERLAY — initial load & between rounds ═══ */}
       <Animated.View
@@ -1012,6 +1042,7 @@ const styles = StyleSheet.create({
     zIndex: 2000,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#08120d',
   },
   loadingDarkOverlay: {
     ...StyleSheet.absoluteFillObject,

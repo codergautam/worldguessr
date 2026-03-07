@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 32,
-    fontWeight: '700',
+    fontFamily: 'Lexend-Bold',
     color: '#4CAF50',
     marginBottom: 16,
   },
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   controlButtonText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Lexend-Medium',
   },
   controlButtonActiveGreen: {
     backgroundColor: '#4CAF50',
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   controlButtonTextActiveGreen: {
     color: '#fff',
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
   },
   controlButtonActiveGold: {
     backgroundColor: '#FFD700',
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   },
   controlButtonTextActiveGold: {
     color: '#000',
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   exitButtonText: {
     color: '#dc3545',
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Lexend-Medium',
   },
 
   // ── Error ──────────────────────────────────────────────────
@@ -435,6 +435,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#721c24',
     fontSize: 16,
+    fontFamily: 'Lexend-Medium',
   },
 
   // ── Loading ────────────────────────────────────────────────
@@ -447,6 +448,7 @@ const styles = StyleSheet.create({
   loadingText: {
     color: 'rgba(255, 255, 255, 0.7)',
     fontSize: 16,
+    fontFamily: 'Lexend',
   },
 
   // ── Leaderboard Container ─────────────────────────────────
@@ -492,7 +494,7 @@ const styles = StyleSheet.create({
   },
   rankBadgeText: {
     color: '#fff',
-    fontWeight: '700',
+    fontFamily: 'Lexend-Bold',
     fontSize: 16,
   },
   playerInfo: {
@@ -501,16 +503,17 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 17,
-    fontWeight: '600',
+    fontFamily: 'Lexend-SemiBold',
     color: '#fff',
   },
   playerScore: {
     fontSize: 20,
-    fontWeight: '700',
+    fontFamily: 'Lexend-Bold',
     color: '#4CAF50',
   },
   scoreType: {
     fontSize: 13,
+    fontFamily: 'Lexend',
     opacity: 0.8,
   },
   myRankLabel: {
@@ -518,7 +521,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    fontWeight: '500',
+    fontFamily: 'Lexend-Medium',
   },
 
   // ── Leaderboard Item ──────────────────────────────────────
@@ -545,7 +548,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rankText: {
-    fontWeight: '700',
+    fontFamily: 'Lexend-Bold',
     fontSize: 16,
     color: 'rgba(255, 255, 255, 0.8)',
   },
@@ -565,7 +568,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: 'Lexend-Medium',
     color: '#fff',
     flexShrink: 1,
   },
@@ -580,11 +583,12 @@ const styles = StyleSheet.create({
   },
   score: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Lexend-Bold',
     color: '#4CAF50',
   },
   scoreLabel: {
     fontSize: 11,
+    fontFamily: 'Lexend-Medium',
     color: 'rgba(255, 255, 255, 0.6)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -598,6 +602,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
+    fontFamily: 'Lexend-Medium',
     color: 'rgba(255, 255, 255, 0.5)',
     marginTop: 16,
   },
