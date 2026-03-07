@@ -16,10 +16,10 @@ import {
   GlassCard,
   ProgressionGraph,
   msToTime,
-  getFlagEmoji,
   sharedStyles,
   ProgressionEntry,
 } from './shared';
+import CountryFlag from '../CountryFlag';
 
 interface ProfileTabProps {
   profileData: {
@@ -215,7 +215,7 @@ export default function ProfileTab({
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 {profileData.countryCode && (
-                  <Text style={{ fontSize: 18 }}>{getFlagEmoji(profileData.countryCode)}</Text>
+                  <CountryFlag countryCode={profileData.countryCode} size={20} />
                 )}
                 <Text style={sharedStyles.actionButtonText}>
                   {profileData.countryCode ? 'Change Flag' : 'Set Flag'}

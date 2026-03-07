@@ -20,16 +20,9 @@ import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
 import { api } from '../../src/services/api';
 import { spacing, borderRadius } from '../../src/styles/theme';
 import SetUsernameModal from '../../src/components/SetUsernameModal';
+import CountryFlag from '../../src/components/CountryFlag';
 
 type GameMode = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
-
-function getFlagEmoji(countryCode: string): string {
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map((char) => 0x1f1e6 - 65 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
-}
 
 interface MenuButtonProps {
   label: string;
@@ -298,9 +291,7 @@ export default function HomeScreen() {
                       <View style={styles.accountBtnContent}>
                         <Text style={styles.accountBtnText}>{user.username}</Text>
                         {user.countryCode && (
-                          <Text style={styles.accountBtnFlag}>
-                            {getFlagEmoji(user.countryCode)}
-                          </Text>
+                          <CountryFlag countryCode={user.countryCode} size={18} />
                         )}
                       </View>
                     </Pressable>
@@ -514,9 +505,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontFamily: 'Lexend-Bold',
     lineHeight: 20,
-  },
-  accountBtnFlag: {
-    fontSize: 14,
   },
   // Friends button - square, next to username (matches web .friendBtnFixed)
   friendBtn: {

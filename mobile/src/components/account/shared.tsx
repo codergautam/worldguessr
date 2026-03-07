@@ -90,14 +90,6 @@ function buildDailyProgressionEntries(
 
 // ── Helpers ──────────────────────────────────────────────────
 
-export function getFlagEmoji(countryCode: string): string {
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map(char => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
-}
-
 export function msToTime(duration: number): string {
   const msInDay = 1000 * 60 * 60 * 24;
   const days = Math.trunc(duration / msInDay);

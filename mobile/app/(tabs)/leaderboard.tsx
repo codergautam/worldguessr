@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/shared';
 import { api } from '../../src/services/api';
+import CountryFlag from '../../src/components/CountryFlag';
 
 interface LeaderboardEntry {
   rank: number;
@@ -35,13 +36,6 @@ interface LeaderboardData {
 type LeaderboardMode = 'elo' | 'xp';
 type TimePeriod = 'allTime' | 'daily';
 
-function getFlagEmoji(countryCode: string): string {
-  const codePoints = countryCode
-    .toUpperCase()
-    .split('')
-    .map(char => 127397 + char.charCodeAt(0));
-  return String.fromCodePoint(...codePoints);
-}
 
 function formatScore(value: number | undefined, isDailyLeaderboard: boolean): string {
   if (value == null) return '0';
@@ -122,7 +116,7 @@ export default function LeaderboardScreen() {
               {item.username}
             </Text>
             {item.countryCode && (
-              <Text style={styles.flag}>{getFlagEmoji(item.countryCode)}</Text>
+              <CountryFlag countryCode={item.countryCode} size={18} />
             )}
           </View>
         </View>
@@ -150,7 +144,7 @@ export default function LeaderboardScreen() {
             <View style={styles.usernameRow}>
               <Text style={styles.playerName}>{session.username}</Text>
               {data.myCountryCode && (
-                <Text style={styles.flag}>{getFlagEmoji(data.myCountryCode)}</Text>
+                <CountryFlag countryCode={data.myCountryCode} size={18} />
               )}
             </View>
             <Text style={styles.playerScore}>
@@ -571,9 +565,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Medium',
     color: '#fff',
     flexShrink: 1,
-  },
-  flag: {
-    fontSize: 14,
   },
 
   // ── Score ─────────────────────────────────────────────────

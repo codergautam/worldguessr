@@ -15,7 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
-import { getFlagEmoji, ProgressionEntry } from './shared';
+import { ProgressionEntry } from './shared';
+import CountryFlag from '../CountryFlag';
 import ProfileTab from './ProfileTab';
 import EloTab from './EloTab';
 import GameHistoryTab from './GameHistoryTab';
@@ -329,7 +330,7 @@ export default function ProfileView({
               <View style={styles.usernameRow}>
                 <Text style={styles.usernameText}>{profileData.username}</Text>
                 {profileData.countryCode && (
-                  <Text style={styles.flag}>{getFlagEmoji(profileData.countryCode)}</Text>
+                  <CountryFlag countryCode={profileData.countryCode} size={24} />
                 )}
                 {profileData.supporter && (
                   <LinearGradient
@@ -536,9 +537,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 2, height: 2 },
     textShadowRadius: 4,
-  },
-  flag: {
-    fontSize: 22,
   },
   supporterBadge: {
     paddingVertical: 4,
