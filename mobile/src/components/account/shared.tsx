@@ -6,10 +6,87 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
-  useWindowDimensions,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LineChart } from 'react-native-gifted-charts';
+
+const GRAPH_Y_AXIS_LABEL_WIDTH = 42;
+const GRAPH_MIN_PLOT_WIDTH = 170;
+const GRAPH_LEFT_TRIM = 12;
+const GRAPH_X_LABEL_WIDTH = 56;
+const DAY_MS = 1000 * 60 * 60 * 24;
+
+function getDayStart(dateLike: string | number | Date): number {
+  const date = new Date(dateLike);
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+function buildDailyProgressionEntries(
+  allEntries: ProgressionEntry[],
+  dateFilter: DateFilter,
+  now: Date,
+): ProgressionEntry[] {
+  if (allEntries.length === 0) return [];
+
+  const sortedEntries = [...allEntries].sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+  );
+  const todayStart = getDayStart(now);
+
+  let rangeStart = getDayStart(sortedEntries[0].timestamp);
+  let rangeEnd = getDayStart(sortedEntries[sortedEntries.length - 1].timestamp);
+
+  if (dateFilter === '7days') {
+    rangeStart = todayStart - 6 * DAY_MS;
+    rangeEnd = todayStart;
+  } else if (dateFilter === '30days') {
+    rangeStart = todayStart - 29 * DAY_MS;
+    rangeEnd = todayStart;
+  }
+
+  const latestEntryByDay = new Map<number, ProgressionEntry>();
+  for (const entry of sortedEntries) {
+    const day = getDayStart(entry.timestamp);
+    const existing = latestEntryByDay.get(day);
+    if (!existing || new Date(entry.timestamp).getTime() >= new Date(existing.timestamp).getTime()) {
+      latestEntryByDay.set(day, entry);
+    }
+  }
+
+  let carryEntry = sortedEntries.findLast((entry) => getDayStart(entry.timestamp) <= rangeStart);
+
+  if (!carryEntry) {
+    carryEntry = sortedEntries.find((entry) => getDayStart(entry.timestamp) >= rangeStart);
+    if (!carryEntry) return [];
+    rangeStart = getDayStart(carryEntry.timestamp);
+    rangeEnd = Math.max(rangeEnd, rangeStart);
+  }
+
+  const dailyEntries: ProgressionEntry[] = [];
+
+  for (let day = rangeStart; day <= rangeEnd; day += DAY_MS) {
+    const explicitEntry = latestEntryByDay.get(day);
+    if (explicitEntry) {
+      carryEntry = explicitEntry;
+      dailyEntries.push(explicitEntry);
+      continue;
+    }
+
+    if (!carryEntry) continue;
+
+    dailyEntries.push({
+      ...carryEntry,
+      timestamp: new Date(day).toISOString(),
+      xpGain: 0,
+      rankImprovement: 0,
+      eloChange: 0,
+      isSynthetic: true,
+    });
+  }
+
+  return dailyEntries;
+}
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -69,6 +146,7 @@ export interface ProgressionEntry {
   elo?: number;
   eloChange?: number;
   eloRank?: number;
+  isSynthetic?: boolean;
 }
 
 // ── GlassCard ────────────────────────────────────────────────
@@ -118,6 +196,7 @@ export function ProgressionGraph({
 }) {
   const [viewMode, setViewMode] = useState<'value' | 'rank'>('value');
   const [dateFilter, setDateFilter] = useState<DateFilter>('alltime');
+  const [chartContainerWidth, setChartContainerWidth] = useState(0);
 
   if (loading) {
     return (
@@ -145,16 +224,20 @@ export function ProgressionGraph({
   }
 
   const now = new Date();
-  const filteredData = data.filter((entry) => {
-    if (dateFilter === 'alltime') return true;
-    const entryDate = new Date(entry.timestamp);
-    const daysDiff = Math.floor((now.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24));
-    if (dateFilter === '7days') return daysDiff <= 7;
-    if (dateFilter === '30days') return daysDiff <= 30;
-    return true;
-  });
+  const chartEntries = buildDailyProgressionEntries(data, dateFilter, now);
 
-  const chartEntries = filteredData.length > 0 ? filteredData : [data[data.length - 1]];
+  if (chartEntries.length === 0) {
+    return (
+      <GlassCard>
+        <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+          <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lexend-SemiBold' }}>
+            No stats available
+          </Text>
+        </View>
+      </GlassCard>
+    );
+  }
+
   const isRankMode = viewMode === 'rank';
   const lineColor = isRankMode ? '#2196F3' : '#4CAF50';
 
@@ -189,27 +272,51 @@ export function ProgressionGraph({
 
   const chartMax = Math.max(...chartValues);
 
+  const fallbackContainerWidth = Math.max(240, screenWidth - 80);
+  const measuredContainerWidth = chartContainerWidth || fallbackContainerWidth;
+  const chartPlotWidth = Math.max(
+    GRAPH_MIN_PLOT_WIDTH,
+    measuredContainerWidth - GRAPH_Y_AXIS_LABEL_WIDTH - 6 + GRAPH_LEFT_TRIM,
+  );
+  const chartOriginLeft = Math.max(0, GRAPH_Y_AXIS_LABEL_WIDTH - GRAPH_LEFT_TRIM);
+
+  const averagePointSpacing = chartEntries.length > 1
+    ? chartPlotWidth / (chartEntries.length - 1)
+    : chartPlotWidth;
+
   const displayData = chartEntries.map((entry, i) => ({
     value: chartValues[i],
     label: '',
     timestamp: entry.timestamp,
+    hideDataPoint: entry.isSynthetic,
   }));
 
-  const xLabels: { text: string; position: number }[] = [];
-  if (chartEntries.length > 0) {
-    const fmt = (idx: number) => {
-      const d = new Date(chartEntries[idx].timestamp);
-      return `${d.getMonth() + 1}/${d.getDate()}`;
-    };
-    xLabels.push({ text: fmt(0), position: 0 });
-    if (chartEntries.length > 2) {
-      const mid = Math.floor(chartEntries.length / 2);
-      xLabels.push({ text: fmt(mid), position: 0.5 });
-    }
-    xLabels.push({ text: fmt(chartEntries.length - 1), position: 1 });
-  }
+  const xLabelIndices = chartEntries.length > 2
+    ? [0, Math.floor(chartEntries.length / 2), chartEntries.length - 1]
+    : chartEntries.map((_, index) => index);
+  const uniqueLabelIndices = xLabelIndices.filter((value, index, array) => array.indexOf(value) === index);
+  const xLabels = uniqueLabelIndices.map((index) => {
+    const d = new Date(chartEntries[index].timestamp);
+    const pointOffset = chartEntries.length <= 1
+      ? 0
+      : (index / (chartEntries.length - 1)) * chartPlotWidth;
+    const idealLeft = pointOffset - GRAPH_X_LABEL_WIDTH / 2;
+    const left = index === 0
+      ? 0
+      : index === chartEntries.length - 1
+        ? Math.max(0, chartPlotWidth - GRAPH_X_LABEL_WIDTH)
+        : Math.min(
+            Math.max(0, idealLeft),
+            Math.max(0, chartPlotWidth - GRAPH_X_LABEL_WIDTH),
+          );
 
-  const chartWidth = screenWidth - 170;
+    return {
+      index,
+      text: `${d.getMonth() + 1}/${d.getDate()}`,
+      left,
+      textAlign: index === 0 ? 'left' : index === chartEntries.length - 1 ? 'right' : 'center',
+    } as const;
+  });
 
   const filterSuffix =
     dateFilter === '7days' ? ' (7 Days)' : dateFilter === '30days' ? ' (30 Days)' : ' (All Time)';
@@ -300,102 +407,116 @@ export function ProgressionGraph({
 
       <View
         style={{ marginTop: 16 }}
+        onLayout={(event: LayoutChangeEvent) => {
+          const nextWidth = event.nativeEvent.layout.width;
+          if (Math.abs(nextWidth - chartContainerWidth) > 1) {
+            setChartContainerWidth(nextWidth);
+          }
+        }}
         onTouchStart={() => onChartTouch?.(false)}
         onTouchEnd={() => onChartTouch?.(true)}
         onTouchCancel={() => onChartTouch?.(true)}
       >
-        <LineChart
-          data={displayData}
-          width={chartWidth}
-          height={220}
-          spacing={Math.max(2, (chartWidth - 16) / Math.max(1, chartEntries.length - 1))}
-          initialSpacing={8}
-          endSpacing={8}
-          disableScroll
-          color={lineColor}
-          thickness={2}
-          hideDataPoints={chartEntries.length > 30}
-          dataPointsColor={lineColor}
-          dataPointsRadius={3}
-          areaChart
-          startFillColor={lineColor}
-          endFillColor={lineColor}
-          startOpacity={0.2}
-          endOpacity={0.02}
-          maxValue={chartMax}
-          noOfSections={4}
-          rulesColor="rgba(255, 255, 255, 0.08)"
-          rulesType="solid"
-          yAxisColor="rgba(255, 255, 255, 0.1)"
-          xAxisColor="rgba(255, 255, 255, 0.1)"
-          yAxisTextStyle={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 10, fontFamily: 'Lexend' }}
-          xAxisLabelTextStyle={{ fontSize: 0 }}
-          formatYLabel={formatYLabel}
-          backgroundColor="transparent"
-          yAxisLabelWidth={50}
-          pointerConfig={{
-            pointerStripColor: 'rgba(255, 255, 255, 0.2)',
-            pointerStripWidth: 1,
-            pointerColor: lineColor,
-            radius: 5,
-            pointerLabelWidth: 160,
-            pointerLabelHeight: 70,
-            activatePointersOnLongPress: false,
-            autoAdjustPointerLabelPosition: true,
-            persistPointer: true,
-            pointerLabelComponent: (items: any, _secondary: any, index: number) => {
-              const chartVal = (items[0]?.value ?? 0) + yAxisOffset;
-              const realVal = isRankMode
-                ? Math.round(maxVal + 1 - chartVal)
-                : Math.round(chartVal);
-              const displayVal = isRankMode
-                ? `#${realVal}`
-                : realVal.toLocaleString();
-              const ts = displayData[index]?.timestamp;
-              const dateStr = ts
-                ? (() => {
-                    const d = new Date(ts);
-                    return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-                  })()
-                : '';
-              return (
-                <View
-                  style={{
-                    backgroundColor: 'rgba(0,0,0,0.9)',
-                    borderRadius: 8,
-                    paddingVertical: 6,
-                    paddingHorizontal: 10,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.2)',
-                  }}
-                >
-                  {dateStr ? (
-                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, fontFamily: 'Lexend', textAlign: 'center', marginBottom: 2 }}>
-                      {dateStr}
+        <View style={{ marginLeft: -GRAPH_LEFT_TRIM }}>
+          <LineChart
+            data={displayData}
+            width={chartPlotWidth}
+            height={220}
+            spacing={averagePointSpacing}
+            initialSpacing={0}
+            endSpacing={0}
+            disableScroll
+            color={lineColor}
+            thickness={2}
+            hideDataPoints={chartEntries.length > 30}
+            dataPointsColor={lineColor}
+            dataPointsRadius={3}
+            areaChart
+            startFillColor={lineColor}
+            endFillColor={lineColor}
+            startOpacity={0.2}
+            endOpacity={0.02}
+            maxValue={chartMax}
+            noOfSections={4}
+            rulesColor="rgba(255, 255, 255, 0.08)"
+            rulesType="solid"
+            yAxisColor="rgba(255, 255, 255, 0.1)"
+            xAxisColor="rgba(255, 255, 255, 0.1)"
+            yAxisTextStyle={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: 10, fontFamily: 'Lexend' }}
+            xAxisLabelTextStyle={{ fontSize: 0 }}
+            formatYLabel={formatYLabel}
+            backgroundColor="transparent"
+            yAxisLabelWidth={GRAPH_Y_AXIS_LABEL_WIDTH}
+            pointerConfig={{
+              pointerStripColor: 'rgba(255, 255, 255, 0.2)',
+              pointerStripWidth: 1,
+              pointerColor: lineColor,
+              radius: 5,
+              pointerLabelWidth: 160,
+              pointerLabelHeight: 70,
+              activatePointersOnLongPress: false,
+              autoAdjustPointerLabelPosition: true,
+              persistPointer: true,
+              pointerLabelComponent: (items: any, _secondary: any, index: number) => {
+                const chartVal = (items[0]?.value ?? 0) + yAxisOffset;
+                const realVal = isRankMode
+                  ? Math.round(maxVal + 1 - chartVal)
+                  : Math.round(chartVal);
+                const displayVal = isRankMode
+                  ? `#${realVal}`
+                  : realVal.toLocaleString();
+                const ts = displayData[index]?.timestamp;
+                const dateStr = ts
+                  ? (() => {
+                      const d = new Date(ts);
+                      return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+                    })()
+                  : '';
+                return (
+                  <View
+                    style={{
+                      backgroundColor: 'rgba(0,0,0,0.9)',
+                      borderRadius: 8,
+                      paddingVertical: 6,
+                      paddingHorizontal: 10,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.2)',
+                    }}
+                  >
+                    {dateStr ? (
+                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, fontFamily: 'Lexend', textAlign: 'center', marginBottom: 2 }}>
+                        {dateStr}
+                      </Text>
+                    ) : null}
+                    <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'Lexend-Bold', textAlign: 'center' }}>
+                      {mode === 'xp'
+                        ? (isRankMode ? `Rank: ${displayVal}` : `XP: ${displayVal}`)
+                        : (isRankMode ? `Rank: ${displayVal}` : `ELO: ${displayVal}`)}
                     </Text>
-                  ) : null}
-                  <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'Lexend-Bold', textAlign: 'center' }}>
-                    {mode === 'xp'
-                      ? (isRankMode ? `Rank: ${displayVal}` : `XP: ${displayVal}`)
-                      : (isRankMode ? `Rank: ${displayVal}` : `ELO: ${displayVal}`)}
-                  </Text>
-                </View>
-              );
-            },
+                  </View>
+                );
+              },
+            }}
+          />
+        </View>
+        <View
+          style={{
+            position: 'relative',
+            height: 16,
+            width: chartPlotWidth,
+            marginLeft: chartOriginLeft,
+            marginTop: 4,
           }}
-        />
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingLeft: 50, marginTop: 4 }}>
+        >
           {xLabels.map((l, i) => (
-            <Text key={i} style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontFamily: 'Lexend' }}>
-              {l.text}
-            </Text>
+            <View key={`${l.index}-${i}`} style={{ position: 'absolute', left: l.left, width: GRAPH_X_LABEL_WIDTH }}>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontFamily: 'Lexend', textAlign: l.textAlign }}>
+                {l.text}
+              </Text>
+            </View>
           ))}
         </View>
       </View>
-
-      <Text style={sharedStyles.dataPointsText}>
-        {chartEntries.length} data points
-      </Text>
     </GlassCard>
   );
 }
