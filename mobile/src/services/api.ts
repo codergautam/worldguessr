@@ -59,6 +59,11 @@ export const api = {
       staff?: boolean;
       supporter?: boolean;
       needsUsername?: boolean;
+      pendingNameChange?: boolean;
+      pendingNameChangePublicNote?: string;
+      canChangeUsername?: boolean;
+      daysUntilNameChange?: number;
+      recentChange?: boolean;
     }>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ id_token: idToken }),
@@ -73,7 +78,7 @@ export const api = {
       body: JSON.stringify({ token: secret, username }),
     });
     const data = await response.json();
-    return data as { success?: boolean; message?: string };
+    return data as { success?: boolean; message?: string; pendingReview?: boolean };
   },
 
   // Restore session with stored secret (matches web auth.js flow)
@@ -89,7 +94,29 @@ export const api = {
       staff?: boolean;
       supporter?: boolean;
       error?: string;
+      pendingNameChange?: boolean;
+      pendingNameChangePublicNote?: string;
+      canChangeUsername?: boolean;
+      daysUntilNameChange?: number;
+      recentChange?: boolean;
     }>('/api/googleAuth', {
+      method: 'POST',
+      body: JSON.stringify({ secret }),
+    });
+  },
+
+  checkNameChangeStatus: async (secret: string) => {
+    return fetchApi<{
+      hasPendingRequest: boolean;
+      pendingNameChange: boolean;
+      request?: {
+        requestedUsername: string;
+        status: 'pending' | 'rejected';
+        rejectionReason?: string;
+        rejectionCount?: number;
+        createdAt: string;
+      } | null;
+    }>('/api/checkNameChangeStatus', {
       method: 'POST',
       body: JSON.stringify({ secret }),
     });

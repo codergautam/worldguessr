@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Modal,
   StyleSheet,
   ActivityIndicator,
-  Platform,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
@@ -34,6 +34,7 @@ interface ProfileTabProps {
     recentChange?: boolean;
     countryCode?: string;
     pendingNameChange?: boolean;
+    pendingNameChangePublicNote?: string;
   } | null;
   isOwnProfile: boolean;
   secret?: string;
@@ -45,6 +46,14 @@ interface ProfileTabProps {
   screenWidth: number;
   onScrollEnable?: (enabled: boolean) => void;
   viewingPublicProfile?: boolean;
+}
+
+interface ExistingRequest {
+  requestedUsername: string;
+  status: 'pending' | 'rejected';
+  rejectionReason?: string;
+  rejectionCount?: number;
+  createdAt: string;
 }
 
 export default function ProfileTab({
@@ -63,6 +72,11 @@ export default function ProfileTab({
   const [changingName, setChangingName] = useState(false);
   const [nameModalVisible, setNameModalVisible] = useState(false);
   const [newUsername, setNewUsername] = useState('');
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [existingRequest, setExistingRequest] = useState<ExistingRequest | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   if (!profileData) return null;
 
@@ -72,29 +86,71 @@ export default function ProfileTab({
 
   const gamesCount = profileData.gamesLen ?? profileData.gamesPlayed ?? 0;
 
-  const handleChangeName = () => {
+  const handleChangeName = async () => {
     if (!secret) return;
-    // Use cross-platform modal instead of iOS-only Alert.prompt
     setNewUsername('');
+    setModalError(null);
+    setSubmitSuccess(false);
+    setExistingRequest(null);
     setNameModalVisible(true);
+
+    // For forced name changes, check existing request status
+    if (profileData.pendingNameChange) {
+      setCheckingStatus(true);
+      try {
+        const status = await api.checkNameChangeStatus(secret);
+        if (status.request) {
+          setExistingRequest(status.request as ExistingRequest);
+        }
+      } catch {
+        // Silently fail — user can still submit
+      } finally {
+        setCheckingStatus(false);
+      }
+    }
+  };
+
+  const validateUsername = (name: string): string | null => {
+    if (name.length < 3 || name.length > 20) {
+      return 'Username must be between 3 and 20 characters';
+    }
+    if (!/^[a-zA-Z0-9_]+$/.test(name)) {
+      return 'Username can only contain letters, numbers, and underscores';
+    }
+    return null;
   };
 
   const submitNameChange = async () => {
     if (!secret || !newUsername.trim()) return;
-    setChangingName(true);
-    setNameModalVisible(false);
+
+    const trimmed = newUsername.trim();
+    const validationError = validateUsername(trimmed);
+    if (validationError) {
+      setModalError(validationError);
+      return;
+    }
+
+    setModalLoading(true);
+    setModalError(null);
+
     try {
-      const response = await api.setName(secret, newUsername.trim());
+      const response = await api.setName(secret, trimmed);
       if (response.message) {
-        Alert.alert('Error', response.message);
+        setModalError(response.message);
+      } else if (response.pendingReview) {
+        // Forced name change — submitted for review
+        setSubmitSuccess(true);
+        setExistingRequest({ requestedUsername: trimmed, status: 'pending', createdAt: new Date().toISOString() });
       } else {
+        // Normal name change — immediate success
+        setNameModalVisible(false);
         Alert.alert('Success', 'Username changed successfully');
         onUsernameChanged?.();
       }
-    } catch (error) {
-      Alert.alert('Error', 'An error occurred');
+    } catch {
+      setModalError('An error occurred. Please try again.');
     } finally {
-      setChangingName(false);
+      setModalLoading(false);
     }
   };
 
@@ -112,8 +168,6 @@ export default function ProfileTab({
       ]
     );
   };
-
-  const showNameChange = profileData.pendingNameChange || profileData.canChangeUsername;
 
   return (
     <View style={{ gap: 20 }}>
@@ -248,52 +302,152 @@ export default function ProfileTab({
         </Pressable>
       )}
 
-      {/* Cross-platform Name Change Modal */}
+      {/* Name Change Modal */}
       <Modal
         visible={nameModalVisible}
         transparent
         animationType="fade"
         statusBarTranslucent
-        onRequestClose={() => setNameModalVisible(false)}
+        onRequestClose={() => {
+          if (!profileData.pendingNameChange) setNameModalVisible(false);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {profileData.pendingNameChange ? 'Change Username (Required)' : 'Change Username'}
-            </Text>
-            {profileData.pendingNameChange && (
-              <Text style={styles.modalSubtext}>
-                Your username has been flagged and must be changed.
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalTitle}>
+                {profileData.pendingNameChange ? 'Username Change Required' : 'Change Username'}
               </Text>
-            )}
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Enter new username"
-              placeholderTextColor="rgba(255,255,255,0.4)"
-              value={newUsername}
-              onChangeText={setNewUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-              maxLength={20}
-            />
-            <View style={styles.modalButtons}>
-              {!profileData.pendingNameChange && (
-                <Pressable
-                  style={[styles.modalButton, styles.modalButtonCancel]}
-                  onPress={() => setNameModalVisible(false)}
-                >
-                  <Text style={styles.modalButtonText}>Cancel</Text>
-                </Pressable>
+
+              {/* Forced change description */}
+              {profileData.pendingNameChange && (
+                <Text style={styles.modalSubtext}>
+                  Your username has been flagged as inappropriate. You can still play singleplayer, but multiplayer is disabled until your new name is approved.
+                </Text>
               )}
-              <Pressable
-                style={[styles.modalButton, styles.modalButtonConfirm, !newUsername.trim() && { opacity: 0.5 }]}
-                onPress={submitNameChange}
-                disabled={!newUsername.trim()}
-              >
-                <Text style={styles.modalButtonText}>Change</Text>
-              </Pressable>
-            </View>
+
+              {/* Public note from moderator */}
+              {profileData.pendingNameChange && profileData.pendingNameChangePublicNote && (
+                <View style={styles.reasonBox}>
+                  <Text style={styles.reasonText}>
+                    Reason: {profileData.pendingNameChangePublicNote}
+                  </Text>
+                </View>
+              )}
+
+              {/* Loading status check */}
+              {checkingStatus && (
+                <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+                  <ActivityIndicator color="#fff" size="small" />
+                </View>
+              )}
+
+              {/* Pending review state */}
+              {!checkingStatus && existingRequest?.status === 'pending' && (
+                <View style={styles.pendingBox}>
+                  <Text style={styles.pendingTitle}>Awaiting Approval</Text>
+                  <Text style={styles.pendingText}>
+                    Your requested username "{existingRequest.requestedUsername}" is being reviewed by our moderation team.
+                  </Text>
+                  <Text style={styles.pendingNote}>
+                    You will be able to play multiplayer once approved. This usually takes less than 7 days.
+                  </Text>
+                  <View style={styles.divider}>
+                    <Text style={styles.dividerText}>or submit a different name</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Rejected state */}
+              {!checkingStatus && existingRequest?.status === 'rejected' && (
+                <View style={styles.rejectedBox}>
+                  <Text style={styles.rejectedTitle}>Name Rejected</Text>
+                  <Text style={styles.rejectedText}>
+                    Your requested username "{existingRequest.requestedUsername}" was rejected.
+                  </Text>
+                  {existingRequest.rejectionReason && (
+                    <Text style={styles.rejectedReason}>
+                      Reason: {existingRequest.rejectionReason}
+                    </Text>
+                  )}
+                  <Text style={styles.pendingNote}>
+                    Please choose a different username below.
+                  </Text>
+                </View>
+              )}
+
+              {/* Success after fresh submission */}
+              {submitSuccess && !existingRequest?.status ? (
+                <View style={styles.successBox}>
+                  <Text style={styles.successTitle}>Request Submitted</Text>
+                  <Text style={styles.successText}>
+                    Your name change request has been submitted for review.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  {/* Input */}
+                  <TextInput
+                    style={styles.modalInput}
+                    placeholder="Enter new username"
+                    placeholderTextColor="rgba(255,255,255,0.4)"
+                    value={newUsername}
+                    onChangeText={(text) => {
+                      setNewUsername(text);
+                      setModalError(null);
+                    }}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoFocus
+                    maxLength={20}
+                    editable={!modalLoading}
+                  />
+                  <Text style={styles.hintText}>
+                    3-20 characters, letters, numbers, and underscores only
+                  </Text>
+
+                  {/* Error */}
+                  {modalError && (
+                    <View style={styles.errorBox}>
+                      <Text style={styles.errorText}>{modalError}</Text>
+                    </View>
+                  )}
+
+                  {/* Buttons */}
+                  <View style={styles.modalButtons}>
+                    {!profileData.pendingNameChange && (
+                      <Pressable
+                        style={[styles.modalButton, styles.modalButtonCancel]}
+                        onPress={() => setNameModalVisible(false)}
+                        disabled={modalLoading}
+                      >
+                        <Text style={styles.modalButtonText}>Cancel</Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      style={[styles.modalButton, styles.modalButtonConfirm, (!newUsername.trim() || modalLoading) && { opacity: 0.5 }]}
+                      onPress={submitNameChange}
+                      disabled={!newUsername.trim() || modalLoading}
+                    >
+                      {modalLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <Text style={styles.modalButtonText}>
+                          {profileData.pendingNameChange ? 'Submit' : 'Change'}
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </>
+              )}
+
+              {/* Contact support */}
+              {profileData.pendingNameChange && (
+                <Text style={styles.contactText}>
+                  Need help? Contact support@worldguessr.com
+                </Text>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -360,7 +514,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend',
     textAlign: 'center',
   },
-  // Name change modal
+  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -374,6 +528,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     maxWidth: 400,
+    maxHeight: '80%',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
@@ -390,6 +545,98 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend',
     textAlign: 'center',
     marginBottom: 12,
+    lineHeight: 20,
+  },
+  reasonBox: {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  reasonText: {
+    color: '#e0e0e0',
+    fontSize: 13,
+    fontFamily: 'Lexend',
+  },
+  pendingBox: {
+    backgroundColor: 'rgba(210, 153, 34, 0.15)',
+    borderWidth: 1,
+    borderColor: '#d29922',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+  },
+  pendingTitle: {
+    color: '#d29922',
+    fontSize: 16,
+    fontFamily: 'Lexend-SemiBold',
+    marginBottom: 6,
+  },
+  pendingText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Lexend',
+    marginBottom: 6,
+  },
+  pendingNote: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    fontFamily: 'Lexend',
+  },
+  divider: {
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  dividerText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    fontFamily: 'Lexend',
+  },
+  rejectedBox: {
+    backgroundColor: 'rgba(248, 81, 73, 0.15)',
+    borderWidth: 1,
+    borderColor: '#f85149',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+  },
+  rejectedTitle: {
+    color: '#f85149',
+    fontSize: 16,
+    fontFamily: 'Lexend-SemiBold',
+    marginBottom: 6,
+  },
+  rejectedText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Lexend',
+    marginBottom: 6,
+  },
+  rejectedReason: {
+    color: '#f85149',
+    fontSize: 13,
+    fontFamily: 'Lexend',
+    fontStyle: 'italic',
+    marginBottom: 6,
+  },
+  successBox: {
+    backgroundColor: 'rgba(63, 185, 80, 0.15)',
+    borderWidth: 1,
+    borderColor: '#3fb950',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+  },
+  successTitle: {
+    color: '#3fb950',
+    fontSize: 16,
+    fontFamily: 'Lexend-SemiBold',
+    marginBottom: 6,
+  },
+  successText: {
+    color: '#fff',
+    fontSize: 14,
+    fontFamily: 'Lexend',
   },
   modalInput: {
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
@@ -400,8 +647,29 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontFamily: 'Lexend',
-    marginBottom: 16,
+    marginBottom: 4,
     marginTop: 8,
+  },
+  hintText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+    fontFamily: 'Lexend',
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  errorBox: {
+    backgroundColor: 'rgba(248, 81, 73, 0.15)',
+    borderWidth: 1,
+    borderColor: '#f85149',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: '#f85149',
+    fontSize: 13,
+    fontFamily: 'Lexend',
+    textAlign: 'center',
   },
   modalButtons: {
     flexDirection: 'row',
@@ -426,5 +694,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontFamily: 'Lexend-SemiBold',
     fontSize: 15,
+  },
+  contactText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 12,
+    fontFamily: 'Lexend',
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

@@ -12,6 +12,11 @@ export interface User {
   staff?: boolean;
   supporter?: boolean;
   created_at?: Date;
+  pendingNameChange?: boolean;
+  pendingNameChangePublicNote?: string;
+  canChangeUsername?: boolean;
+  daysUntilNameChange?: number;
+  recentChange?: boolean;
 }
 
 export interface UserStats {

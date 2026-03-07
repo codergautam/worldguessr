@@ -59,6 +59,8 @@ interface ProfileData {
   canChangeUsername?: boolean;
   daysUntilNameChange?: number;
   recentChange?: boolean;
+  pendingNameChange?: boolean;
+  pendingNameChangePublicNote?: string;
   duelStats?: {
     wins: number;
     losses: number;
@@ -151,6 +153,11 @@ export default function ProfileView({
           ...profileVal,
           countryCode: profileVal.countryCode ?? user.countryCode,
           supporter: profileVal.supporter ?? user.supporter,
+          canChangeUsername: user.canChangeUsername,
+          daysUntilNameChange: user.daysUntilNameChange,
+          recentChange: user.recentChange,
+          pendingNameChange: user.pendingNameChange,
+          pendingNameChangePublicNote: user.pendingNameChangePublicNote,
         });
       } else {
         setProfileData(profileVal);
