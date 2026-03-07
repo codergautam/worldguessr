@@ -114,9 +114,9 @@ function MapTile({
           </Text>
           {!isCountry && (
             <Pressable
-              style={({ pressed }) => [styles.tileHearts, map.hearted && styles.tileHeartsActive, heartDisabled && styles.tileHeartsDisabled, pressed && !heartDisabled && { opacity: 0.6 }]}
+              style={({ pressed }) => [styles.tileHearts, map.hearted && onHeart && styles.tileHeartsActive, heartDisabled && styles.tileHeartsDisabled, !onHeart && styles.tileHeartsLoggedOut, pressed && !heartDisabled && onHeart && { opacity: 0.6 }]}
               onPress={(e) => { e.stopPropagation(); onHeart?.(); }}
-              disabled={heartDisabled}
+              disabled={heartDisabled || !onHeart}
               hitSlop={6}
             >
               <Text style={styles.tileHeartsText}>{formatNumber(map.hearts)}</Text>
@@ -819,6 +819,9 @@ const styles = StyleSheet.create({
   tileHeartsDisabled: {
     opacity: 0.3,
     backgroundColor: 'rgba(150,150,150,0.2)',
+  },
+  tileHeartsLoggedOut: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   tileHeartsText: {
     fontSize: 12,
