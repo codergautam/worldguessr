@@ -719,7 +719,7 @@ export default function GameScreen() {
               </Text>
 
               {/* Points */}
-              <Text style={[styles.endBannerPoints, { color: getPointsColor(lastGuess.points) }]}> 
+              <Text style={[styles.endBannerPoints, { color: getPointsColor(lastGuess.points) }]}>
                 {lastGuess.points.toLocaleString()} points
               </Text>
 
