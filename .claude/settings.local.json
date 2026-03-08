@@ -16,7 +16,8 @@
       "Bash(find:*)",
       "Bash(cat:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(npx next build:*)"
+      "Bash(npx next build:*)",
+      "Bash(npx tsc --noEmit)"
     ],
     "deny": [
       "Bash(git push:*)"

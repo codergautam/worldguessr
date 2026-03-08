@@ -291,12 +291,38 @@ export const api = {
     return fetchApi<{
       game: {
         gameId: string;
-        rounds: Array<{
-          location: { lat: number; long: number };
-          guesses: Record<string, { guessLat: number; guessLong: number; points: number }>;
-        }>;
-        players: Array<{ username: string; totalScore: number }>;
+        gameType: string;
         settings: GameSettings;
+        rounds: Array<{
+          roundNumber: number;
+          location: { lat: number; long: number; panoId?: string };
+          guess: {
+            guessLat: number;
+            guessLong: number;
+            points: number;
+            timeTaken: number;
+            xpEarned?: number;
+            usedHint?: boolean;
+          } | null;
+          allGuesses: Array<{
+            playerId: string;
+            username: string;
+            guessLat: number;
+            guessLong: number;
+            points: number;
+            timeTaken: number;
+          }>;
+        }>;
+        players: Array<{
+          playerId: string;
+          username: string;
+          accountId: string;
+          totalPoints: number;
+          finalRank?: number;
+          elo?: { before?: number; after?: number; change?: number };
+        }>;
+        result: { maxPossiblePoints: number; isDraw?: boolean };
+        currentUserId: string;
       };
     }>('/api/gameDetails', {
       method: 'POST',

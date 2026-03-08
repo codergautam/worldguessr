@@ -6,6 +6,8 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
 import { GlassCard, formatTimeAgo, formatTime, sharedStyles } from './shared';
 
@@ -48,6 +50,7 @@ const GAME_TYPES: Record<string, { label: string; icon: string; color: string }>
 };
 
 export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistoryTabProps) {
+  const router = useRouter();
   const [games, setGames] = useState<Game[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -125,7 +128,15 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
         const isVictory = game.userStats?.finalRank === 1;
 
         return (
-          <GlassCard key={game.gameId} style={{ padding: 14 }}>
+          <Pressable
+            key={game.gameId}
+            onPress={() => router.push({
+              pathname: '/game/results',
+              params: { gameId: game.gameId, fromHistory: 'true' },
+            })}
+            style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+          >
+          <GlassCard style={{ padding: 14 }}>
             {/* Header row: type + date */}
             <View style={styles.gameHeader}>
               <View style={styles.gameTypeRow}>
@@ -134,7 +145,10 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
                   {typeInfo.label}
                 </Text>
               </View>
-              <Text style={styles.gameDate}>{formatTimeAgo(game.endedAt)}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.gameDate}>{formatTimeAgo(game.endedAt)}</Text>
+                <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.4)" />
+              </View>
             </View>
 
             {/* Stats */}
@@ -199,22 +213,26 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
 
             {/* Details row */}
             <View style={styles.gameDetailsRow}>
-              <View style={styles.gameDetail}>
-                <Text style={styles.gameDetailLabel}>Map</Text>
-                <Text style={styles.gameDetailValue}>{getLocationDisplay(game.settings.location)}</Text>
-              </View>
-              <View style={styles.gameDetail}>
-                <Text style={styles.gameDetailLabel}>Rounds</Text>
-                <Text style={styles.gameDetailValue}>{game.roundsPlayed}</Text>
-              </View>
-              {game.multiplayer && (
+              <View style={{ flexDirection: 'row', gap: 16, flex: 1 }}>
                 <View style={styles.gameDetail}>
-                  <Text style={styles.gameDetailLabel}>Players</Text>
-                  <Text style={styles.gameDetailValue}>{game.multiplayer.playerCount}</Text>
+                  <Text style={styles.gameDetailLabel}>Map</Text>
+                  <Text style={styles.gameDetailValue}>{getLocationDisplay(game.settings.location)}</Text>
                 </View>
-              )}
+                <View style={styles.gameDetail}>
+                  <Text style={styles.gameDetailLabel}>Rounds</Text>
+                  <Text style={styles.gameDetailValue}>{game.roundsPlayed}</Text>
+                </View>
+                {game.multiplayer && (
+                  <View style={styles.gameDetail}>
+                    <Text style={styles.gameDetailLabel}>Players</Text>
+                    <Text style={styles.gameDetailValue}>{game.multiplayer.playerCount}</Text>
+                  </View>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.3)" />
             </View>
           </GlassCard>
+          </Pressable>
         );
       })}
 
@@ -300,7 +318,7 @@ const styles = StyleSheet.create({
   },
   gameDetailsRow: {
     flexDirection: 'row',
-    gap: 16,
+    alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.08)',
     paddingTop: 10,

@@ -9,6 +9,7 @@ import {
   Linking,
   Platform,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -16,21 +17,60 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Polyline, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { colors } from '../../src/shared';
+import { findDistance } from '../../src/shared/game/calcPoints';
+import { api } from '../../src/services/api';
+import { useAuthStore } from '../../src/store/authStore';
 import PinMarker from '../../src/components/game/PinMarker';
 
 const guessPinImage = require('../../assets/marker-src.png');
 const actualPinImage = require('../../assets/marker-dest.png');
+const oppPinImage = require('../../assets/marker-opp.png');
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 
-interface RoundResult {
+interface OpponentGuess {
+  playerId: string;
+  username: string;
   guessLat: number;
   guessLong: number;
+  points: number;
+  timeTaken: number;
+}
+
+interface PlayerInfo {
+  playerId: string;
+  username: string;
+  totalPoints: number;
+  finalRank?: number;
+  elo?: { before?: number; after?: number; change?: number };
+}
+
+interface MultiplayerInfo {
+  gameType: string;
+  players: PlayerInfo[];
+  myId: string;
+  isDuel: boolean;
+  isWinner: boolean;
+  isDraw: boolean;
+}
+
+interface DuelOpponent {
+  username: string;
+  points: number;
+  didGuess: boolean;
+}
+
+interface RoundResult {
+  guessLat: number | null;
+  guessLong: number | null;
   actualLat?: number;
   actualLong?: number;
   panoId?: string;
   points: number;
   distance: number;
   timeTaken?: number;
+  didGuess: boolean;
+  opponents?: OpponentGuess[];       // opponents with valid coords (for map markers)
+  duelOpponent?: DuelOpponent;       // primary opponent info for duel UI (even if no guess)
 }
 
 // Star tier colors matching web exactly
@@ -84,11 +124,108 @@ function formatTime(seconds: number): string {
 const SIDEBAR_WIDTH = 340;
 
 export default function GameResultsScreen() {
-  const { totalScore, rounds, extent: extentParam } = useLocalSearchParams<{
+  const { totalScore, rounds, extent: extentParam, gameId, fromHistory } = useLocalSearchParams<{
     totalScore: string;
     rounds: string;
     extent?: string;
+    gameId?: string;
+    fromHistory?: string;
   }>();
+
+  const isHistoryView = fromHistory === 'true';
+
+  // History mode: fetch game details and transform into RoundResult[]
+  const [historyLoading, setHistoryLoading] = useState(!!gameId && !rounds);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyData, setHistoryData] = useState<{ score: number; rounds: RoundResult[] } | null>(null);
+  const [multiplayerInfo, setMultiplayerInfo] = useState<MultiplayerInfo | null>(null);
+
+  useEffect(() => {
+    if (!gameId || rounds) return;
+    const fetchHistory = async () => {
+      try {
+        const secret = useAuthStore.getState().secret;
+        if (!secret) { setHistoryError('Not authenticated'); setHistoryLoading(false); return; }
+        const data = await api.gameDetails(secret, gameId);
+        const game = data.game as any;
+        const myId: string = game.currentUserId;
+        const isDuel = game.gameType === 'ranked_duel';
+        const myPlayer = game.players.find((p: any) => p.accountId === myId);
+
+        const transformedRounds: RoundResult[] = game.rounds
+          .map((round: any) => {
+            const guess = round.guess;
+            const userDidGuess = guess != null && guess.guessLat != null && guess.guessLong != null;
+            const dist = userDidGuess
+              ? findDistance(round.location.lat, round.location.long, guess.guessLat, guess.guessLong)
+              : 0;
+
+            // Collect opponent guesses with valid coords (for map markers)
+            const opponents: OpponentGuess[] = (round.allGuesses || [])
+              .filter((g: any) => g.playerId !== myId && g.guessLat != null && g.guessLong != null)
+              .map((g: any) => ({
+                playerId: g.playerId,
+                username: g.username,
+                guessLat: g.guessLat,
+                guessLong: g.guessLong,
+                points: g.points,
+                timeTaken: g.timeTaken,
+              }));
+
+            // For duel UI: get primary opponent info even if they didn't guess
+            const oppAllGuess = (round.allGuesses || []).find((g: any) => g.playerId !== myId);
+            const duelOpponent: DuelOpponent | undefined = oppAllGuess
+              ? {
+                  username: oppAllGuess.username,
+                  points: oppAllGuess.points ?? 0,
+                  didGuess: oppAllGuess.guessLat != null && oppAllGuess.guessLong != null,
+                }
+              : undefined;
+
+            return {
+              guessLat: userDidGuess ? guess.guessLat : null,
+              guessLong: userDidGuess ? guess.guessLong : null,
+              actualLat: round.location.lat,
+              actualLong: round.location.long,
+              panoId: round.location.panoId ?? undefined,
+              points: guess?.points ?? 0,
+              distance: dist,
+              timeTaken: guess?.timeTaken,
+              didGuess: userDidGuess,
+              opponents: opponents.length > 0 ? opponents : undefined,
+              duelOpponent,
+            };
+          });
+
+        const total = transformedRounds.reduce((sum, r) => sum + r.points, 0);
+        setHistoryData({ score: total, rounds: transformedRounds });
+
+        // Build multiplayer info if more than 1 player
+        if (game.players.length > 1) {
+          setMultiplayerInfo({
+            gameType: game.gameType,
+            players: game.players.map((p: any) => ({
+              playerId: p.accountId,
+              username: p.username,
+              totalPoints: p.totalPoints,
+              finalRank: p.finalRank,
+              elo: p.elo,
+            })),
+            myId,
+            isDuel,
+            isWinner: myPlayer?.finalRank === 1,
+            isDraw: game.result?.isDraw ?? false,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching game details:', err);
+        setHistoryError('Failed to load game details');
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+    fetchHistory();
+  }, [gameId]);
 
   // Parse extent [west, south, east, north] if provided
   const extent: [number, number, number, number] | null = useMemo(() => {
@@ -114,10 +251,10 @@ export default function GameResultsScreen() {
   }, []);
 
   const parsedRounds: RoundResult[] = useMemo(
-    () => (rounds ? JSON.parse(rounds) : []),
-    [rounds],
+    () => historyData ? historyData.rounds : (rounds ? JSON.parse(rounds) : []),
+    [rounds, historyData],
   );
-  const score = parseInt(totalScore ?? '0', 10);
+  const score = historyData ? historyData.score : parseInt(totalScore ?? '0', 10);
   const maxScore = parsedRounds.length * 5000;
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
   const stars = useMemo(() => getStars(percentage), [percentage]);
@@ -209,6 +346,9 @@ export default function GameResultsScreen() {
       if (r.guessLat != null && r.guessLong != null) {
         coords.push({ latitude: r.guessLat, longitude: r.guessLong });
       }
+      r.opponents?.forEach((opp) => {
+        coords.push({ latitude: opp.guessLat, longitude: opp.guessLong });
+      });
     });
 
     // Include extent corners so the map shows the full playable area
@@ -248,6 +388,9 @@ export default function GameResultsScreen() {
       if (round.guessLat != null && round.guessLong != null) {
         coords.push({ latitude: round.guessLat, longitude: round.guessLong });
       }
+      round.opponents?.forEach((opp) => {
+        coords.push({ latitude: opp.guessLat, longitude: opp.guessLong });
+      });
 
       if (coords.length > 0) {
         mapRef.current.fitToCoordinates(coords, {
@@ -294,6 +437,43 @@ export default function GameResultsScreen() {
     router.replace('/(tabs)/home');
   };
 
+  // ── Helper: find my ELO data for duel header ─────────────
+  const myEloData = useMemo(() => {
+    if (!multiplayerInfo?.isDuel) return null;
+    const me = multiplayerInfo.players.find(p => p.playerId === multiplayerInfo.myId);
+    return me?.elo ?? null;
+  }, [multiplayerInfo]);
+
+  // ── Helper: find my rank for multiplayer header ──────────
+  const myRank = useMemo(() => {
+    if (!multiplayerInfo || multiplayerInfo.isDuel) return null;
+    const sorted = [...multiplayerInfo.players].sort((a, b) => b.totalPoints - a.totalPoints);
+    const idx = sorted.findIndex(p => p.playerId === multiplayerInfo.myId);
+    return idx >= 0 ? { rank: idx + 1, total: sorted.length } : null;
+  }, [multiplayerInfo]);
+
+  // ── History loading / error states ────────────────────────
+  if (historyLoading) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#4CAF50" />
+        <Text style={{ color: 'rgba(255,255,255,0.7)', marginTop: 16, fontFamily: 'Lexend' }}>
+          Loading game details...
+        </Text>
+      </View>
+    );
+  }
+  if (historyError) {
+    return (
+      <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: '#F44336', fontSize: 16, fontFamily: 'Lexend' }}>{historyError}</Text>
+        <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
+          <Text style={{ color: '#4CAF50', fontFamily: 'Lexend-SemiBold' }}>Go Back</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   // ── Map markers ────────────────────────────────────────────
   const renderMapMarkers = () =>
     parsedRounds.map((round, index) => {
@@ -332,7 +512,7 @@ export default function GameResultsScreen() {
           {hasGuess && (
             <PinMarker
               identifier={`guess-${index}`}
-              coordinate={{ latitude: round.guessLat, longitude: round.guessLong }}
+              coordinate={{ latitude: round.guessLat!, longitude: round.guessLong! }}
               imageSource={guessPinImage}
               stopPropagation
             >
@@ -355,13 +535,42 @@ export default function GameResultsScreen() {
             <Polyline
               coordinates={[
                 { latitude: round.actualLat!, longitude: round.actualLong! },
-                { latitude: round.guessLat, longitude: round.guessLong },
+                { latitude: round.guessLat!, longitude: round.guessLong! },
               ]}
               strokeColor={getPolylineColor(round.points)}
               strokeWidth={3}
               lineDashPattern={[10, 5]}
             />
           )}
+          {/* Opponent guesses */}
+          {hasActual && round.opponents?.map((opp) => (
+            <React.Fragment key={`opp-${index}-${opp.playerId}`}>
+              <PinMarker
+                identifier={`opp-${index}-${opp.playerId}`}
+                coordinate={{ latitude: opp.guessLat, longitude: opp.guessLong }}
+                imageSource={oppPinImage}
+                stopPropagation
+              >
+                <Callout>
+                  <View style={styles.calloutContainer}>
+                    <Text style={styles.calloutTitle}>{opp.username}</Text>
+                    <Text style={[styles.calloutPoints, { color: getPointsColor(opp.points) }]}>
+                      {opp.points.toLocaleString()} points
+                    </Text>
+                  </View>
+                </Callout>
+              </PinMarker>
+              <Polyline
+                coordinates={[
+                  { latitude: round.actualLat!, longitude: round.actualLong! },
+                  { latitude: opp.guessLat, longitude: opp.guessLong },
+                ]}
+                strokeColor={getPolylineColor(opp.points)}
+                strokeWidth={2}
+                lineDashPattern={[6, 4]}
+              />
+            </React.Fragment>
+          ))}
         </React.Fragment>
       );
     });
@@ -369,46 +578,81 @@ export default function GameResultsScreen() {
   // ── Sidebar header (stars + score + buttons) ───────────────
   const renderHeader = (compact: boolean) => (
     <View style={[styles.header, compact && styles.headerCompact]}>
-      {/* Stars */}
-      <View style={[styles.starsRow, compact && { marginBottom: 4 }]}>
-        {stars.map((starColor, i) => (
-          <Animated.View
-            key={i}
-            style={{
-              transform: [
-                {
-                  scale: starAnims[i]
-                    ? starAnims[i].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0, 1],
-                      })
-                    : 1,
-                },
-                {
-                  rotate: starAnims[i]
-                    ? starAnims[i].interpolate({
-                        inputRange: [0, 0.5, 1],
-                        outputRange: ['-180deg', '-90deg', '0deg'],
-                      })
-                    : '0deg',
-                },
-              ],
-              opacity: starAnims[i] || 1,
-            }}
-          >
-            <Ionicons
-              name="star"
-              size={compact ? 26 : 34}
-              color={starColor}
-              style={{
-                textShadowColor: starColor,
-                textShadowOffset: { width: 0, height: 0 },
-                textShadowRadius: 8,
-              }}
-            />
-          </Animated.View>
-        ))}
-      </View>
+      {/* Duel: Victory/Defeat/Draw title + ELO */}
+      {multiplayerInfo?.isDuel ? (
+        <>
+          <Text style={[
+            styles.duelTitle,
+            compact && { fontSize: 24 },
+            { color: multiplayerInfo.isDraw ? '#FFC107' : multiplayerInfo.isWinner ? '#4CAF50' : '#F44336' },
+          ]}>
+            {multiplayerInfo.isDraw ? 'Draw' : multiplayerInfo.isWinner ? 'Victory' : 'Defeat'}
+          </Text>
+          {myEloData && typeof myEloData.before === 'number' && typeof myEloData.after === 'number' && (
+            <View style={styles.eloContainer}>
+              <Text style={styles.eloLabel}>ELO</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.eloValue}>{myEloData.after}</Text>
+                <Text style={[
+                  styles.eloChange,
+                  { color: (myEloData.change ?? 0) >= 0 ? '#4CAF50' : '#F44336' },
+                ]}>
+                  {(myEloData.change ?? 0) > 0 ? '+' : ''}{myEloData.change ?? 0}
+                </Text>
+              </View>
+            </View>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Stars (singleplayer + multiplayer non-duel) */}
+          <View style={[styles.starsRow, compact && { marginBottom: 4 }]}>
+            {stars.map((starColor, i) => (
+              <Animated.View
+                key={i}
+                style={{
+                  transform: [
+                    {
+                      scale: starAnims[i]
+                        ? starAnims[i].interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 1],
+                          })
+                        : 1,
+                    },
+                    {
+                      rotate: starAnims[i]
+                        ? starAnims[i].interpolate({
+                            inputRange: [0, 0.5, 1],
+                            outputRange: ['-180deg', '-90deg', '0deg'],
+                          })
+                        : '0deg',
+                    },
+                  ],
+                  opacity: starAnims[i] || 1,
+                }}
+              >
+                <Ionicons
+                  name="star"
+                  size={compact ? 26 : 34}
+                  color={starColor}
+                  style={{
+                    textShadowColor: starColor,
+                    textShadowOffset: { width: 0, height: 0 },
+                    textShadowRadius: 8,
+                  }}
+                />
+              </Animated.View>
+            ))}
+          </View>
+          {/* Multiplayer rank */}
+          {myRank && (
+            <Text style={[styles.rankText, compact && { fontSize: 14 }]}>
+              Rank {myRank.rank}/{myRank.total}
+            </Text>
+          )}
+        </>
+      )}
 
       {/* Score */}
       <Text style={[styles.scoreValue, compact && { fontSize: 30 }]}>
@@ -438,41 +682,102 @@ export default function GameResultsScreen() {
             />
           </Pressable>
         )}
-        <Pressable
-          onPress={handlePlayAgain}
-          style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
-        >
-          <LinearGradient
-            colors={['#4CAF50', '#45a049']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.actionBtnPrimary}
+        {isHistoryView ? (
+          <Pressable
+            onPress={() => router.back()}
+            style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
           >
-            <Ionicons name="refresh" size={16} color={colors.white} />
-            <Text style={styles.actionBtnPrimaryText}>Play Again</Text>
-          </LinearGradient>
-        </Pressable>
-        <Pressable
-          onPress={handleGoHome}
-          style={({ pressed }) => [
-            styles.actionBtnSecondary,
-            pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
-          ]}
-        >
-          <Text style={styles.actionBtnSecondaryText}>Home</Text>
-        </Pressable>
+            <LinearGradient
+              colors={['#4CAF50', '#45a049']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.actionBtnPrimary}
+            >
+              <Ionicons name="arrow-back" size={16} color={colors.white} />
+              <Text style={styles.actionBtnPrimaryText}>Back</Text>
+            </LinearGradient>
+          </Pressable>
+        ) : (
+          <>
+            <Pressable
+              onPress={handlePlayAgain}
+              style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+            >
+              <LinearGradient
+                colors={['#4CAF50', '#45a049']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.actionBtnPrimary}
+              >
+                <Ionicons name="refresh" size={16} color={colors.white} />
+                <Text style={styles.actionBtnPrimaryText}>Play Again</Text>
+              </LinearGradient>
+            </Pressable>
+            <Pressable
+              onPress={handleGoHome}
+              style={({ pressed }) => [
+                styles.actionBtnSecondary,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] },
+              ]}
+            >
+              <Text style={styles.actionBtnSecondaryText}>Home</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </View>
   );
 
+  // ── Leaderboard for multiplayer non-duel ──────────────────
+  const renderLeaderboard = () => {
+    if (!multiplayerInfo || multiplayerInfo.isDuel) return null;
+    const sorted = [...multiplayerInfo.players].sort((a, b) => b.totalPoints - a.totalPoints);
+    const trophyColors = ['#FFD700', '#C0C0C0', '#CD7F32'];
+    return (
+      <View style={{ marginBottom: 8 }}>
+        <View style={styles.roundsHeader}>
+          <Text style={styles.roundsHeaderText}>Final Scores</Text>
+        </View>
+        {sorted.map((player, idx) => {
+          const isMe = player.playerId === multiplayerInfo.myId;
+          return (
+            <View
+              key={player.playerId}
+              style={[styles.roundItem, isMe && { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}
+            >
+              <View style={styles.roundItemHeader}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {idx < 3 && (
+                    <Ionicons name="trophy" size={16} color={trophyColors[idx]} />
+                  )}
+                  <Text style={[styles.roundNumber, isMe && { color: '#4CAF50' }]}>
+                    #{idx + 1} {player.username}{isMe ? ' (you)' : ''}
+                  </Text>
+                </View>
+                <Text style={[styles.roundPts, { color: getPointsColor(player.totalPoints) }]}>
+                  {player.totalPoints.toLocaleString()} pts
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   // ── Rounds list ────────────────────────────────────────────
   const renderRoundsList = () => (
     <>
+      {/* Multiplayer leaderboard */}
+      {renderLeaderboard()}
+
       <View style={styles.roundsHeader}>
         <Text style={styles.roundsHeaderText}>Round Details</Text>
       </View>
       {parsedRounds.map((round, index) => {
         const isActive = activeRound === index;
+        const duelOpp = round.duelOpponent;
+
         return (
           <Animated.View
             key={index}
@@ -501,32 +806,79 @@ export default function GameResultsScreen() {
               {/* Round header row */}
               <View style={styles.roundItemHeader}>
                 <Text style={styles.roundNumber}>Round {index + 1}</Text>
-                <Text style={[styles.roundPts, { color: getPointsColor(round.points) }]}>
-                  {round.points.toLocaleString()} pts
-                </Text>
+                {round.timeTaken != null && round.timeTaken > 0 && (
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'Lexend' }}>
+                    {formatTime(round.timeTaken)}
+                  </Text>
+                )}
               </View>
 
-              {/* Detail rows */}
-              <View style={styles.roundDetails}>
-                {round.distance != null && round.distance > 0 && (
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailLabel}>
-                      <Text style={styles.detailIcon}>📏</Text>
-                      <Text style={styles.detailText}>Distance</Text>
-                    </View>
-                    <Text style={styles.detailValue}>{formatDistance(round.distance)}</Text>
+              {/* Duel: side-by-side comparison */}
+              {multiplayerInfo?.isDuel && duelOpp ? (
+                <View style={styles.duelRoundRow}>
+                  <View style={styles.duelPlayerCol}>
+                    <Text style={styles.duelPlayerName}>You</Text>
+                    {round.didGuess ? (
+                      <Text style={[styles.duelPlayerScore, { color: getPointsColor(round.points) }]}>
+                        {round.points} pts
+                      </Text>
+                    ) : (
+                      <Text style={[styles.duelPlayerScore, { color: 'rgba(255,255,255,0.4)' }]}>
+                        No guess
+                      </Text>
+                    )}
+                    {round.didGuess && duelOpp.didGuess && round.points < duelOpp.points && (
+                      <Text style={styles.healthDamage}>
+                        -{duelOpp.points - round.points} ❤️
+                      </Text>
+                    )}
                   </View>
-                )}
-                {round.timeTaken != null && round.timeTaken > 0 && (
-                  <View style={styles.detailRow}>
-                    <View style={styles.detailLabel}>
-                      <Text style={styles.detailIcon}>⏱️</Text>
-                      <Text style={styles.detailText}>Time</Text>
-                    </View>
-                    <Text style={styles.detailValue}>{formatTime(round.timeTaken)}</Text>
+
+                  <Text style={styles.vsDivider}>VS</Text>
+
+                  <View style={styles.duelPlayerCol}>
+                    <Text style={styles.duelPlayerName}>{duelOpp.username}</Text>
+                    {duelOpp.didGuess ? (
+                      <Text style={[styles.duelPlayerScore, { color: getPointsColor(duelOpp.points) }]}>
+                        {duelOpp.points} pts
+                      </Text>
+                    ) : (
+                      <Text style={[styles.duelPlayerScore, { color: 'rgba(255,255,255,0.4)' }]}>
+                        No guess
+                      </Text>
+                    )}
+                    {round.didGuess && duelOpp.didGuess && duelOpp.points < round.points && (
+                      <Text style={styles.healthDamage}>
+                        -{round.points - duelOpp.points} ❤️
+                      </Text>
+                    )}
                   </View>
-                )}
-              </View>
+                </View>
+              ) : (
+                <>
+                  {/* Standard: points + details */}
+                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 }}>
+                    <Text style={[styles.roundPts, { color: getPointsColor(round.points) }]}>
+                      {round.points.toLocaleString()} pts
+                    </Text>
+                  </View>
+                </>
+              )}
+
+              {/* Detail rows (distance) — shown for non-duel types only */}
+              {!multiplayerInfo?.isDuel && (
+                <View style={styles.roundDetails}>
+                  {round.distance != null && round.distance > 0 && (
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailLabel}>
+                        <Text style={styles.detailIcon}>📏</Text>
+                        <Text style={styles.detailText}>Distance</Text>
+                      </View>
+                      <Text style={styles.detailValue}>{formatDistance(round.distance)}</Text>
+                    </View>
+                  )}
+                </View>
+              )}
             </Pressable>
           </Animated.View>
         );
@@ -926,5 +1278,76 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontFamily: 'Lexend-SemiBold',
+  },
+
+  // ── Duel header styles ─────────────────────────────────────
+  duelTitle: {
+    fontSize: 32,
+    fontFamily: 'Lexend-Bold',
+    marginBottom: 4,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 12,
+  },
+  eloContainer: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  eloLabel: {
+    fontSize: 11,
+    fontFamily: 'Lexend',
+    color: 'rgba(255, 255, 255, 0.6)',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  eloValue: {
+    fontSize: 22,
+    fontFamily: 'Lexend-Bold',
+    color: colors.white,
+  },
+  eloChange: {
+    fontSize: 16,
+    fontFamily: 'Lexend-Bold',
+  },
+  rankText: {
+    fontSize: 16,
+    fontFamily: 'Lexend-Bold',
+    color: colors.white,
+    marginBottom: 4,
+    opacity: 0.9,
+  },
+
+  // ── Duel round comparison styles ───────────────────────────
+  duelRoundRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  duelPlayerCol: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  duelPlayerName: {
+    fontSize: 12,
+    fontFamily: 'Lexend',
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 2,
+  },
+  duelPlayerScore: {
+    fontSize: 15,
+    fontFamily: 'Lexend-Bold',
+  },
+  healthDamage: {
+    fontSize: 12,
+    fontFamily: 'Lexend',
+    color: '#ff6b6b',
+    marginTop: 2,
+  },
+  vsDivider: {
+    paddingHorizontal: 12,
+    fontSize: 12,
+    fontFamily: 'Lexend-Bold',
+    color: 'rgba(255, 255, 255, 0.4)',
   },
 });

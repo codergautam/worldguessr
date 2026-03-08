@@ -25,6 +25,7 @@ const imageAssets = [
   require('../assets/street2.jpg'),
   require('../assets/marker-src.png'),
   require('../assets/marker-dest.png'),
+  require('../assets/marker-opp.png'),
 ];
 
 export default function RootLayout() {
