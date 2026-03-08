@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, getLeague } from '../../src/shared';
@@ -109,6 +109,7 @@ let modPopupDismissedNameChange = false;
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
   const { promptAsync, isReady: googleReady } = useGoogleAuth();
 
@@ -258,6 +259,56 @@ export default function HomeScreen() {
 
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
+  const shortestSide = Math.min(width, height);
+
+  const headerActionMetrics =
+    shortestSide >= 768
+      ? {
+          accountPaddingHorizontal: spacing.xl,
+          accountPaddingVertical: spacing.md,
+          accountFontSize: 20,
+          accountLineHeight: 24,
+          accountGap: spacing.md,
+          friendSize: 44,
+          friendIconSize: 26,
+          rowGap: 8,
+          flagSize: 20,
+          leagueMarginTop: 8,
+          leaguePaddingHorizontal: 12,
+          leaguePaddingVertical: 7,
+          leagueFontSize: 15,
+        }
+      : shortestSide >= 430
+        ? {
+            accountPaddingHorizontal: spacing.xl,
+            accountPaddingVertical: spacing.md,
+            accountFontSize: 18,
+            accountLineHeight: 22,
+            accountGap: spacing.sm,
+            friendSize: 40,
+            friendIconSize: 24,
+            rowGap: 7,
+            flagSize: 18,
+            leagueMarginTop: 7,
+            leaguePaddingHorizontal: 11,
+            leaguePaddingVertical: 6,
+            leagueFontSize: 14,
+          }
+        : {
+            accountPaddingHorizontal: spacing.lg,
+            accountPaddingVertical: spacing.sm,
+            accountFontSize: 17,
+            accountLineHeight: 20,
+            accountGap: spacing.sm,
+            friendSize: 36,
+            friendIconSize: 22,
+            rowGap: 6,
+            flagSize: 18,
+            leagueMarginTop: 6,
+            leaguePaddingHorizontal: 10,
+            leaguePaddingVertical: 5,
+            leagueFontSize: 13,
+          };
 
   let buttonIndex = 0;
   const getDelay = () => {
@@ -289,6 +340,138 @@ export default function HomeScreen() {
       />
 
       <SafeAreaView style={styles.content} edges={['top', 'bottom', 'left', 'right']}>
+        <View
+          style={[
+            styles.headerActionsOverlay,
+            {
+              top: insets.top + spacing.md,
+              right: Math.max(insets.right, spacing.xl),
+            },
+          ]}
+          pointerEvents="box-none"
+        >
+          <View style={styles.headerActionsOverlayInner} pointerEvents="box-none">
+            <View style={styles.headerRight}>
+              {loggedIn ? (
+                <>
+                  <View style={styles.loggedInRow}>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.accountBtn,
+                        {
+                          paddingHorizontal: headerActionMetrics.accountPaddingHorizontal,
+                          paddingVertical: headerActionMetrics.accountPaddingVertical,
+                        },
+                        pressed && styles.accountBtnPressed,
+                      ]}
+                      onPress={() => router.navigate('/(tabs)/account')}
+                    >
+                      <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
+                        <Text
+                          style={[
+                            styles.accountBtnText,
+                            {
+                              fontSize: headerActionMetrics.accountFontSize,
+                              lineHeight: headerActionMetrics.accountLineHeight,
+                            },
+                          ]}
+                        >
+                          {user.username}
+                        </Text>
+                        {user.countryCode && (
+                          <CountryFlag countryCode={user.countryCode} size={headerActionMetrics.flagSize} />
+                        )}
+                      </View>
+                    </Pressable>
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.friendBtn,
+                        {
+                          width: headerActionMetrics.friendSize,
+                          height: headerActionMetrics.friendSize,
+                        },
+                        pressed && styles.friendBtnPressed,
+                      ]}
+                      onPress={() => router.push('/friends')}
+                    >
+                      <Ionicons name="people" size={headerActionMetrics.friendIconSize} color={colors.white} />
+                    </Pressable>
+                  </View>
+
+                  {eloData && (
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.leagueBtn,
+                        {
+                          marginTop: headerActionMetrics.leagueMarginTop,
+                          paddingHorizontal: headerActionMetrics.leaguePaddingHorizontal,
+                          paddingVertical: headerActionMetrics.leaguePaddingVertical,
+                        },
+                        { backgroundColor: eloData.league.color },
+                        pressed && styles.leagueBtnPressed,
+                      ]}
+                      onPress={() => router.navigate('/(tabs)/account')}
+                    >
+                      <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
+                        {animatedElo} ELO {eloData.league.emoji}
+                      </Text>
+                    </Pressable>
+                  )}
+                </>
+              ) : (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.accountBtn,
+                    {
+                      paddingHorizontal: headerActionMetrics.accountPaddingHorizontal,
+                      paddingVertical: headerActionMetrics.accountPaddingVertical,
+                    },
+                    pressed && styles.accountBtnPressed,
+                    (loginLoading || authLoading) && styles.accountBtnDisabled,
+                  ]}
+                  onPress={handleLogin}
+                  disabled={loginLoading || authLoading || !googleReady}
+                >
+                  <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
+                    {loginLoading || authLoading ? (
+                      <>
+                        <Text
+                          style={[
+                            styles.accountBtnText,
+                            {
+                              fontSize: headerActionMetrics.accountFontSize,
+                              lineHeight: headerActionMetrics.accountLineHeight,
+                            },
+                          ]}
+                        >
+                          Login
+                        </Text>
+                        <ActivityIndicator size="small" color={colors.white} />
+                      </>
+                    ) : (
+                      <>
+                        <Ionicons name="logo-google" size={14} color={colors.white} />
+                        <Text
+                          style={[
+                            styles.accountBtnText,
+                            {
+                              fontSize: headerActionMetrics.accountFontSize,
+                              lineHeight: headerActionMetrics.accountLineHeight,
+                            },
+                          ]}
+                        >
+                          Login
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        </View>
+
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
@@ -307,22 +490,40 @@ export default function HomeScreen() {
             </Animated.View>
 
             {/* Right side: account area */}
-            <View style={styles.headerRight}>
+            <View
+              style={[styles.headerRight, styles.headerRightPlaceholder]}
+              pointerEvents="none"
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+            >
               {loggedIn ? (
                 <>
-                  {/* Top row: Username + Friends button */}
                   <View style={styles.loggedInRow}>
                     <Pressable
                       style={({ pressed }) => [
                         styles.accountBtn,
+                        {
+                          paddingHorizontal: headerActionMetrics.accountPaddingHorizontal,
+                          paddingVertical: headerActionMetrics.accountPaddingVertical,
+                        },
                         pressed && styles.accountBtnPressed,
                       ]}
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
-                      <View style={styles.accountBtnContent}>
-                        <Text style={styles.accountBtnText}>{user.username}</Text>
+                      <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
+                        <Text
+                          style={[
+                            styles.accountBtnText,
+                            {
+                              fontSize: headerActionMetrics.accountFontSize,
+                              lineHeight: headerActionMetrics.accountLineHeight,
+                            },
+                          ]}
+                        >
+                          {user.username}
+                        </Text>
                         {user.countryCode && (
-                          <CountryFlag countryCode={user.countryCode} size={18} />
+                          <CountryFlag countryCode={user.countryCode} size={headerActionMetrics.flagSize} />
                         )}
                       </View>
                     </Pressable>
@@ -330,25 +531,33 @@ export default function HomeScreen() {
                     <Pressable
                       style={({ pressed }) => [
                         styles.friendBtn,
+                        {
+                          width: headerActionMetrics.friendSize,
+                          height: headerActionMetrics.friendSize,
+                        },
                         pressed && styles.friendBtnPressed,
                       ]}
                       onPress={() => router.push('/friends')}
                     >
-                      <Ionicons name="people" size={22} color={colors.white} />
+                      <Ionicons name="people" size={headerActionMetrics.friendIconSize} color={colors.white} />
                     </Pressable>
                   </View>
 
-                  {/* ELO/League button below */}
                   {eloData && (
                     <Pressable
                       style={({ pressed }) => [
                         styles.leagueBtn,
+                        {
+                          marginTop: headerActionMetrics.leagueMarginTop,
+                          paddingHorizontal: headerActionMetrics.leaguePaddingHorizontal,
+                          paddingVertical: headerActionMetrics.leaguePaddingVertical,
+                        },
                         { backgroundColor: eloData.league.color },
                         pressed && styles.leagueBtnPressed,
                       ]}
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
-                      <Text style={styles.leagueBtnText}>
+                      <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
                         {animatedElo} ELO {eloData.league.emoji}
                       </Text>
                     </Pressable>
@@ -358,22 +567,46 @@ export default function HomeScreen() {
                 <Pressable
                   style={({ pressed }) => [
                     styles.accountBtn,
+                    {
+                      paddingHorizontal: headerActionMetrics.accountPaddingHorizontal,
+                      paddingVertical: headerActionMetrics.accountPaddingVertical,
+                    },
                     pressed && styles.accountBtnPressed,
                     (loginLoading || authLoading) && styles.accountBtnDisabled,
                   ]}
                   onPress={handleLogin}
                   disabled={loginLoading || authLoading || !googleReady}
                 >
-                  <View style={styles.accountBtnContent}>
+                  <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
                     {loginLoading || authLoading ? (
                       <>
-                        <Text style={styles.accountBtnText}>Login</Text>
+                        <Text
+                          style={[
+                            styles.accountBtnText,
+                            {
+                              fontSize: headerActionMetrics.accountFontSize,
+                              lineHeight: headerActionMetrics.accountLineHeight,
+                            },
+                          ]}
+                        >
+                          Login
+                        </Text>
                         <ActivityIndicator size="small" color={colors.white} />
                       </>
                     ) : (
                       <>
                         <Ionicons name="logo-google" size={14} color={colors.white} />
-                        <Text style={styles.accountBtnText}>Login</Text>
+                        <Text
+                          style={[
+                            styles.accountBtnText,
+                            {
+                              fontSize: headerActionMetrics.accountFontSize,
+                              lineHeight: headerActionMetrics.accountLineHeight,
+                            },
+                          ]}
+                        >
+                          Login
+                        </Text>
                       </>
                     )}
                   </View>
@@ -582,6 +815,13 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
   },
+  headerActionsOverlay: {
+    position: 'absolute',
+    zIndex: 10,
+  },
+  headerActionsOverlayInner: {
+    alignItems: 'flex-end',
+  },
   scrollView: {
     flex: 1,
   },
@@ -598,6 +838,9 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     alignItems: 'flex-end',
+  },
+  headerRightPlaceholder: {
+    opacity: 0,
   },
   title: {
     fontSize: 42,
