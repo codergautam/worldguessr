@@ -26,7 +26,7 @@
         rgba(0, 30, 15, 0.8) 50%,
         rgba(0, 0, 0, 0.9) 100%
     ),
-    url("/street2.webp");
+    var(--bg-street2);
     background-size: cover;
     background-position: center;
     /* Changed from background-attachment: fixed to position: fixed */
@@ -81,7 +81,6 @@
     font-size: 20px;
     font-weight: bold;
     transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
     box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
     position: relative;
     z-index: 1000;
@@ -145,7 +144,7 @@
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 25px;
     color: white;
@@ -154,7 +153,6 @@
     white-space: nowrap;
     font-size: 14px;
     font-weight: 500;
-    backdrop-filter: blur(10px);
     min-width: fit-content;
     flex-shrink: 0;
 }
@@ -349,7 +347,7 @@
             rgba(0, 20, 10, 0.9) 50%,
             rgba(0, 0, 0, 0.95) 100%
         ),
-        url("/street2.webp");
+        var(--bg-street2);
         background-size: cover;
         background-position: center;
     }

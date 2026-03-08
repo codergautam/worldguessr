@@ -6,12 +6,14 @@ import MapTile from "./mapTile";
 import { backupMapHome } from "../utils/backupMapHome.js";
 import config from "@/clientConfig";
 import { useMapSearch } from "../hooks/useMapSearch";
+import { asset } from '@/lib/basePath';
 
 export default function MapView({
     gameOptions,
     mapModalClosing,
     setGameOptions,
     showOptions,
+    showTimerOption,
     close,
     session,
     text,
@@ -412,6 +414,30 @@ export default function MapView({
         }} />
     </div>
 
+    {showTimerOption && (
+    <div className="map-option-timer">
+        <label htmlFor="enableTimer">{text('enableTimer')}&nbsp;</label>
+        <input id="enableTimer"
+        name="enableTimer"
+        type="checkbox" checked={gameOptions.timePerRound > 0} onChange={(e) => {
+            setGameOptions({ ...gameOptions, timePerRound: e.target.checked ? 30 : 0 })
+        }} />
+        {gameOptions.timePerRound > 0 && (
+            <div className="timer-slider">
+                <input
+                    type="range"
+                    min="10"
+                    max="300"
+                    step="10"
+                    value={gameOptions.timePerRound}
+                    onChange={(e) => setGameOptions({ ...gameOptions, timePerRound: parseInt(e.target.value) })}
+                />
+                <span className="timer-slider-value">{gameOptions.timePerRound}s</span>
+            </div>
+        )}
+    </div>
+    )}
+
                 </div>
             )}
 
@@ -432,7 +458,7 @@ export default function MapView({
                       (text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase()))) && (
                         <div className="all-countries-tile">
                             <MapTile
-                            bgImage={"url(\"/world.jpg\")"}
+                            bgImage={`url("${asset('/world.jpg')}")`}
                             forcedWidth="300px"
                                 map={{ name: text("allCountries"), slug: "all" }}
                                 onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}

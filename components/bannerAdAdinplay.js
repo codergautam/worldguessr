@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import useWindowDimensions from "./useWindowDimensions";
 import sendEvent from "./utils/sendEvent";
 import NextImage from "next/image";
+import { asset } from '@/lib/basePath';
 
 const AD_REFRESH_MS = 30000; // refresh ad every 60 seconds
 
@@ -113,7 +114,7 @@ export default function Ad({
             }).catch((e) => {
               console.log("Banner request error", e);
               document.getElementById(`worldguessr-com_${types[type][0]}x${types[type][1]}`).innerHTML = `
-              <img src='/ad_${types[type][0]}x${types[type][1]}.png' width='${types[type][0]}' height='${types[type][1]}' alt='Advertisement' />`;
+              <img src='${asset(`/ad_${types[type][0]}x${types[type][1]}.png`)}' width='${types[type][0]}' height='${types[type][1]}' alt='Advertisement' />`;
 
             });
 

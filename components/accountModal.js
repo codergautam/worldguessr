@@ -11,6 +11,7 @@ import { useTranslation } from '@/components/useTranslations';
 import FriendsModal from "@/components/friendModal";
 import { FaLink, FaCheck } from "react-icons/fa";
 import CountryFlag from './utils/countryFlag';
+import { navigate } from '@/lib/basePath';
 
 export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
     const { t: text } = useTranslation("common");
@@ -236,7 +237,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                     {accountData?.username && (
                                         <button
                                             onClick={() => {
-                                                const profileUrl = `${window.location.origin}/user?u=${encodeURIComponent(accountData.username)}`;
+                                                const profileUrl = `${window.location.origin}${navigate('/user')}?u=${encodeURIComponent(accountData.username)}`;
                                                 navigator.clipboard.writeText(profileUrl).then(() => {
                                                     setCopiedLink(true);
                                                     setTimeout(() => setCopiedLink(false), 2000);

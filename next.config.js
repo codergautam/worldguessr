@@ -24,6 +24,7 @@ const getBuildTime = () => {
 const __dirname = path.resolve();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    basePath: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
     env: {
         NEXT_PUBLIC_COMMIT_HASH: getCommitHash(),
         NEXT_PUBLIC_BUILD_TIME: getBuildTime(),
@@ -46,8 +47,6 @@ const nextConfig = {
             },
         ];
     },
-
-    // assetPrefix: './', we cant use this because it breaks dynamic paths (https://nextjs.org/docs/app/api-reference/config/next-config-js/assetPrefix)
 };
 
 // module.exports = nextConfig;

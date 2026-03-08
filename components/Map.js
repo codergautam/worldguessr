@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { CircleMarker, Marker, Polyline, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
+import { asset } from '@/lib/basePath';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
@@ -153,19 +154,19 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   // Cache icons to prevent repeated requests
   const icons = useMemo(() => ({
     dest: L.icon({
-      iconUrl: './dest.png',
+      iconUrl: asset('/dest.png'),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
       popupAnchor: [1, -34],
     }),
     src: L.icon({
-      iconUrl: './src.png',
+      iconUrl: asset('/src.png'),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
       popupAnchor: [1, -34],
     }),
     src2: L.icon({
-      iconUrl: './src2.png',
+      iconUrl: asset('/src2.png'),
       iconSize: [25, 41],
       iconAnchor: [12, 41],
       popupAnchor: [1, -34],
@@ -302,7 +303,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         // detectRetina={true}
       />
 
-    <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
+    <audio ref={plopSound} src={asset("/plop.mp3")} preload="auto"></audio>
 
     </MapContainer>
   );

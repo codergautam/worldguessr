@@ -27,6 +27,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
+import { asset, navigate, stripBase } from '@/lib/basePath';
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
@@ -96,7 +97,7 @@ export default function Home({ }) {
     const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
     const [gameOptionsModalShown, setGameOptionsModalShown] = useState(false);
     // location aka map slug
-    const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true }) // rate limit fix: showRoadName true
+    const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true, timePerRound: 0 }) // rate limit fix: showRoadName true
     const [showAnswer, setShowAnswer] = useState(false)
 
     const [pinPoint, setPinPoint] = useState(null)
@@ -321,7 +322,7 @@ export default function Home({ }) {
 
         // Fetch fresh data when account modal opens (to get updated elo after games)
         if (accountModalOpen) {
-            fetch(clientConfig().apiUrl + "/api/eloRank?username=" + session.token.username)
+            fetch(clientConfig().apiUrl + "/api/eloRank?username=" + session.token.username+"&secret=" + session.token.secret)
                 .then((res) => res.json())
                 .then((data) => {
                     if (data && data.elo !== undefined) {
@@ -972,13 +973,13 @@ export default function Home({ }) {
             const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
 
             const location = `/${options?.language !== "en" ? options?.language : ""}`
-            if (!window.location.pathname.includes(location)) {
+            if (!stripBase(window.location.pathname).includes(location)) {
                 console.log("changing lang", location)
-                window.location.href = location + qPsuffix;
+                window.location.href = navigate(location) + qPsuffix;
             }
-            if (options?.language === "en" && ["es", "fr", "de", "ru"].includes(window.location.pathname.split("/")[1])) {
+            if (options?.language === "en" && ["es", "fr", "de", "ru"].includes(stripBase(window.location.pathname).split("/")[1])) {
                 console.log("changing lang", location)
-                window.location.href = "/" + qPsuffix;
+                window.location.href = navigate("/") + qPsuffix;
             }
         } catch (e) { }
     }, [options?.language]);
@@ -1989,16 +1990,11 @@ export default function Home({ }) {
                 }
             }
 
-            // preload/cache src.png and dest.png and src2.png
-            const img = new Image();
-            img.src = "./src.png";
-            const img2 = new Image();
-            img2.src = "./dest.png";
-            const img3 = new Image();
-            img3.src = "./src2.png";
-            // easter eggs too
-            const polandball = new Image();
-            polandball.src = "./polandball.png";
+            // preload/cache pin images
+            ['/src.png', '/dest.png', '/src2.png', '/polandball.png'].forEach((p) => {
+                const img = new Image();
+                img.src = asset(p);
+            });
         } catch (e) { }
 
     }, [])
@@ -2086,7 +2082,7 @@ export default function Home({ }) {
 
         if (window.learnMode) {
             // redirect to home
-            window.location.href = "/"
+            window.location.href = navigate("/")
             return;
         }
 
@@ -2390,7 +2386,7 @@ export default function Home({ }) {
             if (window.banned) return;
             sendEvent("cheat_detected")
             // redirect to banned page
-            window.location.href = "/banned";
+            window.location.href = navigate("/banned");
             window.localStorage.setItem("banned", "true")
         }
         if (checkForCheats()) {
@@ -2468,7 +2464,7 @@ export default function Home({ }) {
                 }}>
                     <div>
                         {/* image /coolmath-splash.png */}
-                        <NextImage.default src={'/coolmath-splash.png'} draggable={false} fill alt="Coolmath Splash" style={{ objectFit: "contain", userSelect: 'none', opacity: coolmathSplash }} />
+                        <NextImage.default src={asset('/coolmath-splash.png')} draggable={false} fill alt="Coolmath Splash" style={{ objectFit: "contain", userSelect: 'none', opacity: coolmathSplash }} />
 
                     </div>
                 </div>
@@ -2493,7 +2489,7 @@ export default function Home({ }) {
                 msUserSelect: 'none',
                 pointerEvents: 'none',
             }}>
-                <NextImage.default src={'./street2.webp'}
+                <NextImage.default src={asset('/street2.webp')}
                     draggable={false}
                     width={1920}
                     height={1080}
@@ -2542,7 +2538,7 @@ export default function Home({ }) {
 
                 {/* Loading overlay - covers iframe with background image to prevent white flicker */}
                 <div className={`loading-overlay ${loading ? 'loading-overlay--visible' : ''}`}>
-                    <NextImage.default src={'./street2.webp'}
+                    <NextImage.default src={asset('/street2.webp')}
                         draggable={false}
                         width={1920}
                         height={1080}
@@ -2694,7 +2690,7 @@ export default function Home({ }) {
                 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
                     <div className="gameBtnContainer" style={{ position: 'fixed', top: width > 830 ? '90px' : '90px', left: width > 830 ? '10px' : '7px', zIndex: 1000000 }}>
 
-                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src="/return.png" alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
+                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src={asset("/return.png")} alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
                     </div>
                 )}
 
@@ -2855,7 +2851,7 @@ export default function Home({ }) {
                                                 <Link target="_blank" className="desktop" href={"https://www.coolmathgames.com/0-worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames">
                                                     {/* Todo; include coolmath logo here; url is /cmlogo.png*/}
 
-                                                    <NextImage.default src={'/cmlogo.png'} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" />
+                                                    <NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" />
 
                                                 </button>
                                                 </Link>
@@ -2937,6 +2933,7 @@ export default function Home({ }) {
                     } : null}
                     showAllCountriesOption={(gameOptionsModalShown && screen === "singleplayer")}
                     showOptions={screen === "singleplayer"}
+                    showTimerOption={screen === "singleplayer"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
                 {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={true} onClose={() => setSettingsModal(false)} />}
@@ -2962,7 +2959,7 @@ export default function Home({ }) {
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                        singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && <div className="home__onboarding">

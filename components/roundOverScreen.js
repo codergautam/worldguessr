@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
+import { asset } from '@/lib/basePath';
 import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag } from "react-icons/fa";
 import msToTime from "./msToTime";
 import formatTime from "../utils/formatTime";
@@ -105,21 +106,21 @@ const GameSummary = ({
     const checkLeaflet = () => {
       if (typeof window !== 'undefined' && window.L) {
         destIconRef.current = window.L.icon({
-          iconUrl: './dest.png',
+          iconUrl: asset('/dest.png'),
           iconSize: [30, 49],
           iconAnchor: [15, 49],
           popupAnchor: [1, -34],
         });
 
         srcIconRef.current = window.L.icon({
-          iconUrl: './src.png',
+          iconUrl: asset('/src.png'),
           iconSize: [30, 49],
           iconAnchor: [15, 49],
           popupAnchor: [1, -34],
         });
 
         src2IconRef.current = window.L.icon({
-          iconUrl: './src2.png',
+          iconUrl: asset('/src2.png'),
           iconSize: [30, 49],
           iconAnchor: [15, 49],
           popupAnchor: [1, -34],
@@ -230,7 +231,7 @@ const GameSummary = ({
       let newStars = [];
 
       const gold = "gold"; // Define gold color for stars
-      const platinum = "/platinum_star.png"; // Define platinum star image
+      const platinum = asset("/platinum_star.png"); // Define platinum star image
       const silver = "#CD7F32"; // Define silver color for stars
       const bronze = "#b6b2b2"; // Define bronze color for stars
 

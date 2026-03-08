@@ -1184,6 +1184,7 @@ h1, h2, h3, span, label {
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     margin-right: 10px;
     letter-spacing: 0.025em;
+    font-variant-numeric: tabular-nums;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -1192,6 +1193,30 @@ h1, h2, h3, span, label {
     transform: translateY(0) scale(1);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1001;
+}
+
+.timer--two-line {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 2px;
+    padding: 8px 20px 12px;
+}
+
+.timer__round-label {
+    font-size: 0.7em;
+    opacity: 0.75;
+    letter-spacing: 0.05em;
+}
+
+.timer__main-row {
+    font-size: 1.1em;
+}
+
+.timer__countdown {
+    display: inline-block;
+    text-align: center;
 }
 
 .timer.duel {

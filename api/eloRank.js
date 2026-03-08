@@ -33,15 +33,23 @@ export default async function handler(req, res) {
   try {
 
     let user;
-    if(username && typeof username === 'string') {
-      // Prevent NoSQL injection - username must be a string
-      user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).cache(120);
-    } else if(secret && typeof secret === 'string') {
+    let foundBySecret = false;
+
+    if(secret && typeof secret === 'string') {
       // Prevent NoSQL injection - secret must be a string
       user = await User.findOne({ secret }).cache(120);
+      if (user) foundBySecret = true;
+    } else if(username && typeof username === 'string') {
+      // Prevent NoSQL injection - username must be a string
+      user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).cache(120);
     }
 
     if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // If not found by their own secret, hide banned or pending-name-change users
+    if (!foundBySecret && (user.banned || user.pendingNameChange)) {
       return res.status(404).json({ message: 'User not found' });
     }
 

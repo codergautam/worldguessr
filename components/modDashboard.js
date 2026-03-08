@@ -4,6 +4,7 @@ import GameHistory from './gameHistory';
 import HistoricalGameView from './historicalGameView';
 import ReportActionButtons from './ReportActionButtons';
 import styles from '../styles/modDashboard.module.css';
+import { navigate } from '@/lib/basePath';
 
 function DailyReportsChart({ dailyReports, selectedMod, dailyByModerator, moderators }) {
   const canvasRef = useRef(null);
@@ -247,7 +248,7 @@ export default function ModDashboard({ session }) {
           <p>You need staff privileges to access the WorldGuessr mod dashboard.</p>
           <button
             className={styles.backBtn}
-            onClick={() => window.location.href = '/'}
+            onClick={() => window.location.href = navigate('/')}
           >
             Return to Home
           </button>
