@@ -1,5 +1,6 @@
 export interface User {
   secret?: string;
+  accountId?: string;
   username: string;
   email?: string;
   elo: number;
@@ -8,7 +9,8 @@ export interface User {
   countryCode?: string;
   banned?: boolean;
   banType?: string;
-  banExpiresAt?: Date;
+  banExpiresAt?: string;
+  banPublicNote?: string;
   staff?: boolean;
   supporter?: boolean;
   created_at?: Date;

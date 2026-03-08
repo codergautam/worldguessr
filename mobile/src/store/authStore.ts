@@ -52,6 +52,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({
           secret: response.secret,
           user: {
+            accountId: response.accountId,
             username: response.username || '',
             email: response.email,
             elo: response.elo ?? 1000,
@@ -60,6 +61,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             countryCode: response.countryCode,
             staff: response.staff,
             supporter: response.supporter,
+            banned: response.banned,
+            banType: response.banType,
+            banExpiresAt: response.banExpiresAt,
+            banPublicNote: response.banPublicNote,
             pendingNameChange: response.pendingNameChange,
             pendingNameChangePublicNote: response.pendingNameChangePublicNote,
             canChangeUsername: response.canChangeUsername,
@@ -90,6 +95,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({
           secret: response.secret,
           user: {
+            accountId: response.accountId,
             username: response.username || '',
             email: response.email,
             elo: response.elo ?? 1000,
@@ -98,6 +104,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             countryCode: response.countryCode,
             staff: response.staff,
             supporter: response.supporter,
+            banned: response.banned,
+            banType: response.banType,
+            banExpiresAt: response.banExpiresAt,
+            banPublicNote: response.banPublicNote,
             pendingNameChange: response.pendingNameChange,
             pendingNameChangePublicNote: response.pendingNameChangePublicNote,
             canChangeUsername: response.canChangeUsername,

@@ -59,6 +59,11 @@ export const api = {
       staff?: boolean;
       supporter?: boolean;
       needsUsername?: boolean;
+      accountId?: string;
+      banned?: boolean;
+      banType?: string;
+      banExpiresAt?: string;
+      banPublicNote?: string;
       pendingNameChange?: boolean;
       pendingNameChangePublicNote?: string;
       canChangeUsername?: boolean;
@@ -94,6 +99,11 @@ export const api = {
       staff?: boolean;
       supporter?: boolean;
       error?: string;
+      accountId?: string;
+      banned?: boolean;
+      banType?: string;
+      banExpiresAt?: string;
+      banPublicNote?: string;
       pendingNameChange?: boolean;
       pendingNameChangePublicNote?: string;
       canChangeUsername?: boolean;
@@ -171,7 +181,7 @@ export const api = {
     }>(`/api/eloRank?username=${encodeURIComponent(username)}`);
   },
 
-  userProgression: async (username: string) => {
+  userProgression: async (identifier: { username: string } | { userId: string }) => {
     return fetchApi<{
       progression: Array<{
         timestamp: string;
@@ -185,7 +195,7 @@ export const api = {
       }>;
     }>('/api/userProgression', {
       method: 'POST',
-      body: JSON.stringify({ username }),
+      body: JSON.stringify(identifier),
     });
   },
 

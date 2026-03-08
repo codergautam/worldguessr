@@ -60,7 +60,7 @@ export default function AccountScreen() {
       user={user}
       onLogout={handleLogout}
       onBack={() => router.navigate('/(tabs)/home')}
-      onRefreshUser={() => loadSession()}
+      onRefreshUser={loadSession}
       onNavigateToUser={(username) => router.push(`/user/${username}`)}
     />
   );

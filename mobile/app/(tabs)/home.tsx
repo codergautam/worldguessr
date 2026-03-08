@@ -103,6 +103,10 @@ function OutlinedTitle({ children }: { children: string }) {
   );
 }
 
+// Module-level flags so moderation popup only shows once per app session
+let modPopupDismissedBan = false;
+let modPopupDismissedNameChange = false;
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
@@ -112,6 +116,10 @@ export default function HomeScreen() {
   const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
   const [animatedElo, setAnimatedElo] = useState(0);
   const [loginLoading, setLoginLoading] = useState(false);
+  const [dismissedBanBanner, setDismissedBanBanner] = useState(modPopupDismissedBan);
+  const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(modPopupDismissedNameChange);
+  const [modPopupReady, setModPopupReady] = useState(false);
+  const modPopupAnim = useRef(new Animated.Value(0)).current;
 
   const titleAnim = useRef(new Animated.Value(0)).current;
   const titleSlide = useRef(new Animated.Value(-30)).current;
@@ -182,6 +190,29 @@ export default function HomeScreen() {
       setAnimatedElo(0);
     }
   }, [isAuthenticated]);
+
+  // Delay moderation popup to avoid flashbang on load
+  const showModPopup = !!(
+    (user?.pendingNameChange && !dismissedNameChangeBanner) ||
+    (user?.banned && !user?.pendingNameChange && !dismissedBanBanner)
+  );
+  useEffect(() => {
+    if (showModPopup && !modPopupReady) {
+      const timer = setTimeout(() => {
+        setModPopupReady(true);
+        Animated.timing(modPopupAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+    if (!showModPopup) {
+      setModPopupReady(false);
+      modPopupAnim.setValue(0);
+    }
+  }, [showModPopup]);
 
   const handleLogin = useCallback(async () => {
     if (loginLoading || authLoading) return;
@@ -419,6 +450,114 @@ export default function HomeScreen() {
         </ScrollView>
       </SafeAreaView>
 
+      {/* Moderation Popup - animated in after delay */}
+      {modPopupReady && (
+        <Animated.View
+          style={[styles.modPopupOverlay, { opacity: modPopupAnim }]}
+          pointerEvents="auto"
+        >
+          <Animated.View
+            style={[
+              styles.modPopupCard,
+              user?.pendingNameChange
+                ? styles.modPopupCardWarning
+                : styles.modPopupCardError,
+              {
+                opacity: modPopupAnim,
+                transform: [{
+                  scale: modPopupAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.9, 1],
+                  }),
+                }],
+              },
+            ]}
+          >
+            {/* Name Change Required */}
+            {user?.pendingNameChange && (
+              <>
+                <Text style={styles.modPopupEmoji}>⚠️</Text>
+                <Text style={[styles.modPopupTitle, { color: '#ff9800' }]}>
+                  Username Change Required
+                </Text>
+                {user.pendingNameChangePublicNote && (
+                  <View style={styles.modPopupReasonBox}>
+                    <Text style={styles.modPopupReasonLabel}>REASON</Text>
+                    <Text style={styles.modPopupReasonText}>
+                      {user.pendingNameChangePublicNote}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.modPopupDesc}>
+                  Your username has been flagged as inappropriate. Please change it from your profile.
+                </Text>
+                <Pressable
+                  style={({ pressed }) => [styles.modPopupActionBtn, { backgroundColor: '#ff9800' }, pressed && { opacity: 0.8 }]}
+                  onPress={() => {
+                    { modPopupDismissedNameChange = true; setDismissedNameChangeBanner(true); };
+                    router.navigate('/(tabs)/account');
+                  }}
+                >
+                  <Text style={[styles.modPopupActionBtnText, { color: '#000' }]}>Change Name</Text>
+                </Pressable>
+              </>
+            )}
+
+            {/* Account Banned */}
+            {user?.banned && !user?.pendingNameChange && (
+              <>
+                <Text style={styles.modPopupEmoji}>⛔</Text>
+                <Text style={[styles.modPopupTitle, { color: '#f44336' }]}>
+                  {user.banType === 'temporary' ? 'Account Temporarily Suspended' : 'Account Suspended'}
+                </Text>
+                {user.banType === 'temporary' && user.banExpiresAt && (
+                  <Text style={styles.modPopupExpires}>
+                    Expires: {new Date(user.banExpiresAt).toLocaleString()}
+                  </Text>
+                )}
+                {user.banPublicNote && (
+                  <View style={styles.modPopupReasonBox}>
+                    <Text style={styles.modPopupReasonLabel}>REASON</Text>
+                    <Text style={styles.modPopupReasonText}>{user.banPublicNote}</Text>
+                  </View>
+                )}
+                <Text style={styles.modPopupDesc}>
+                  {user.banType === 'temporary'
+                    ? 'Your account has been temporarily suspended. You will regain access when the suspension expires.'
+                    : 'Your account has been permanently suspended.'}
+                </Text>
+                <Pressable
+                  style={({ pressed }) => [styles.modPopupActionBtn, { backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }, pressed && { opacity: 0.8 }]}
+                  onPress={() => {
+                    { modPopupDismissedBan = true; setDismissedBanBanner(true); };
+                    router.navigate('/(tabs)/account');
+                  }}
+                >
+                  <Text style={styles.modPopupActionBtnText}>View Details</Text>
+                </Pressable>
+              </>
+            )}
+
+            {/* Dismiss button */}
+            <Pressable
+              style={({ pressed }) => [styles.modPopupDismissBtn, pressed && { opacity: 0.7 }]}
+              onPress={() => {
+                Animated.timing(modPopupAnim, {
+                  toValue: 0,
+                  duration: 200,
+                  useNativeDriver: true,
+                }).start(() => {
+                  if (user?.pendingNameChange) { modPopupDismissedNameChange = true; setDismissedNameChangeBanner(true); }
+                  else { modPopupDismissedBan = true; setDismissedBanBanner(true); }
+                });
+              }}
+            >
+              <Text style={styles.modPopupDismissBtnText}>Dismiss</Text>
+            </Pressable>
+          </Animated.View>
+        </Animated.View>
+      )}
+
       {/* Set Username Modal for new signups */}
       <SetUsernameModal />
     </View>
@@ -589,5 +728,94 @@ const styles = StyleSheet.create({
   },
   iconButtonPressed: {
     backgroundColor: 'rgba(20, 65, 25, 0.75)',
+  },
+  // Moderation popup
+  modPopupOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+    zIndex: 9999,
+  },
+  modPopupCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+  },
+  modPopupCardWarning: {
+    backgroundColor: '#1a1a0a',
+    borderWidth: 2,
+    borderColor: '#ff9800',
+  },
+  modPopupCardError: {
+    backgroundColor: '#1a0a0a',
+    borderWidth: 2,
+    borderColor: '#f44336',
+  },
+  modPopupEmoji: {
+    fontSize: 40,
+    marginBottom: 12,
+  },
+  modPopupTitle: {
+    fontSize: 20,
+    fontFamily: 'Lexend-Bold',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  modPopupExpires: {
+    color: '#ffd700',
+    fontSize: 14,
+    fontFamily: 'Lexend-Medium',
+    marginBottom: 12,
+  },
+  modPopupReasonBox: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 10,
+    padding: 12,
+    width: '100%',
+    marginBottom: 12,
+  },
+  modPopupReasonLabel: {
+    color: '#888',
+    fontSize: 10,
+    fontFamily: 'Lexend-Medium',
+    marginBottom: 4,
+  },
+  modPopupReasonText: {
+    color: '#e0e0e0',
+    fontSize: 14,
+    fontFamily: 'Lexend',
+    lineHeight: 20,
+  },
+  modPopupDesc: {
+    color: '#999',
+    fontSize: 13,
+    fontFamily: 'Lexend',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  modPopupActionBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  modPopupActionBtnText: {
+    color: '#fff',
+    fontFamily: 'Lexend-Bold',
+    fontSize: 14,
+  },
+  modPopupDismissBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  modPopupDismissBtnText: {
+    color: '#666',
+    fontFamily: 'Lexend',
+    fontSize: 13,
   },
 });

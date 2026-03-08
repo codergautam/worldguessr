@@ -245,7 +245,7 @@ export default function ProfileTab({
             {!profileData.pendingNameChange && profileData.recentChange && (
               <View style={styles.warningCard}>
                 <Text style={styles.warningText}>
-                  Username was recently changed
+                  Username was recently changed, might take a few hours to fully update
                 </Text>
               </View>
             )}
@@ -308,12 +308,17 @@ export default function ProfileTab({
         transparent
         animationType="fade"
         statusBarTranslucent
-        onRequestClose={() => {
-          if (!profileData.pendingNameChange) setNameModalVisible(false);
-        }}
+        onRequestClose={() => setNameModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
+            {/* Close button */}
+            <Pressable
+              style={({ pressed }) => [styles.modalCloseBtn, pressed && { opacity: 0.6 }]}
+              onPress={() => setNameModalVisible(false)}
+            >
+              <Text style={styles.modalCloseBtnText}>×</Text>
+            </Pressable>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.modalTitle}>
                 {profileData.pendingNameChange ? 'Username Change Required' : 'Change Username'}
@@ -521,6 +526,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+  },
+  modalCloseBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  modalCloseBtnText: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    lineHeight: 22,
   },
   modalCard: {
     backgroundColor: 'rgba(36, 87, 52, 0.95)',

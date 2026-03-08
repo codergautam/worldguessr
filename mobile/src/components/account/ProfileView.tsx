@@ -82,6 +82,7 @@ interface ProfileViewProps {
   isOwnProfile: boolean;
   secret?: string;
   user?: {
+    accountId?: string;
     username: string;
     elo?: number;
     totalXp?: number;
@@ -89,9 +90,18 @@ interface ProfileViewProps {
     countryCode?: string;
     supporter?: boolean;
     staff?: boolean;
+    banned?: boolean;
+    banType?: string;
+    banExpiresAt?: string;
+    banPublicNote?: string;
+    pendingNameChange?: boolean;
+    pendingNameChangePublicNote?: string;
+    canChangeUsername?: boolean;
+    daysUntilNameChange?: number;
+    recentChange?: boolean;
   };
   onLogout?: () => void;
-  onRefreshUser?: () => void;
+  onRefreshUser?: () => void | Promise<void>;
   // Public profile
   username?: string;
   // Navigation
@@ -110,6 +120,7 @@ export default function ProfileView({
   onNavigateToUser,
 }: ProfileViewProps) {
   const resolvedUsername = isOwnProfile ? user?.username : publicUsername;
+  const accountId = isOwnProfile ? user?.accountId : undefined;
   const tabs = isOwnProfile ? OWN_TABS : PUBLIC_TABS;
 
   const [activeTab, setActiveTab] = useState<TabKey>('profile');
@@ -130,57 +141,88 @@ export default function ProfileView({
   }, []);
 
   const fetchProfile = useCallback(async () => {
-    if (!resolvedUsername) return;
     setLoading(true);
     setError(null);
 
     try {
-      const [profile, elo] = await Promise.allSettled([
-        api.publicProfile(resolvedUsername),
-        api.eloRank(resolvedUsername),
-      ]);
+      if (isOwnProfile && accountId) {
+        // Own profile: use publicAccount (by ID, not username) like web does
+        const [account, elo] = await Promise.allSettled([
+          api.publicAccount(accountId),
+          resolvedUsername ? api.eloRank(resolvedUsername) : Promise.reject('no username'),
+        ]);
 
-      if (profile.status === 'rejected') {
-        setError('User not found');
-        setLoading(false);
-        return;
-      }
+        if (account.status === 'rejected') {
+          setError('Failed to load profile');
+          setLoading(false);
+          return;
+        }
 
-      // For own profile, merge in account-specific fields from user object
-      const profileVal = profile.value;
-      if (isOwnProfile && user) {
+        const accountVal = account.value;
         setProfileData({
-          ...profileVal,
-          countryCode: profileVal.countryCode ?? user.countryCode,
-          supporter: profileVal.supporter ?? user.supporter,
-          canChangeUsername: user.canChangeUsername,
-          daysUntilNameChange: user.daysUntilNameChange,
-          recentChange: user.recentChange,
-          pendingNameChange: user.pendingNameChange,
-          pendingNameChangePublicNote: user.pendingNameChangePublicNote,
+          username: accountVal.username,
+          elo: user?.elo ?? 1000,
+          totalXp: accountVal.totalXp,
+          gamesLen: accountVal.gamesLen,
+          createdAt: accountVal.createdAt,
+          countryCode: accountVal.countryCode ?? user?.countryCode,
+          supporter: user?.supporter,
+          canChangeUsername: accountVal.canChangeUsername,
+          daysUntilNameChange: accountVal.daysUntilNameChange,
+          recentChange: accountVal.recentChange,
+          pendingNameChange: user?.pendingNameChange,
+          pendingNameChangePublicNote: user?.pendingNameChangePublicNote,
         });
-      } else {
-        setProfileData(profileVal);
-      }
 
-      if (elo.status === 'fulfilled') {
-        setEloData(elo.value);
+        if (elo.status === 'fulfilled') {
+          setEloData(elo.value);
+        } else {
+          setEloData({
+            elo: user?.elo || 1000,
+            rank: 0,
+            duels_wins: 0,
+            duels_losses: 0,
+            duels_tied: 0,
+            win_rate: 0,
+          });
+        }
       } else {
-        setEloData({
-          elo: profileVal.elo || 1000,
-          rank: profileVal.rank || 0,
-          duels_wins: profileVal.duelStats?.wins || 0,
-          duels_losses: profileVal.duelStats?.losses || 0,
-          duels_tied: profileVal.duelStats?.ties || 0,
-          win_rate: profileVal.duelStats?.winRate || 0,
-        });
+        // Public profile: use publicProfile (by username)
+        if (!resolvedUsername) return;
+
+        const [profile, elo] = await Promise.allSettled([
+          api.publicProfile(resolvedUsername),
+          api.eloRank(resolvedUsername),
+        ]);
+
+        if (profile.status === 'rejected') {
+          setError('User not found');
+          setLoading(false);
+          return;
+        }
+
+        const profileVal = profile.value;
+        setProfileData(profileVal);
+
+        if (elo.status === 'fulfilled') {
+          setEloData(elo.value);
+        } else {
+          setEloData({
+            elo: profileVal.elo || 1000,
+            rank: profileVal.rank || 0,
+            duels_wins: profileVal.duelStats?.wins || 0,
+            duels_losses: profileVal.duelStats?.losses || 0,
+            duels_tied: profileVal.duelStats?.ties || 0,
+            win_rate: profileVal.duelStats?.winRate || 0,
+          });
+        }
       }
     } catch (e) {
       setError('Failed to load profile');
     } finally {
       setLoading(false);
     }
-  }, [resolvedUsername, isOwnProfile, user]);
+  }, [accountId, resolvedUsername, isOwnProfile, user]);
 
   useEffect(() => {
     fetchProfile();
@@ -188,14 +230,19 @@ export default function ProfileView({
 
   // Fetch progression data
   useEffect(() => {
-    if (!resolvedUsername) return;
+    const identifier = isOwnProfile && accountId
+      ? { userId: accountId }
+      : resolvedUsername
+        ? { username: resolvedUsername }
+        : null;
+    if (!identifier) return;
     setProgressionLoading(true);
     api
-      .userProgression(resolvedUsername)
+      .userProgression(identifier)
       .then((res) => setProgression(res.progression || []))
       .catch(() => setProgression([]))
       .finally(() => setProgressionLoading(false));
-  }, [resolvedUsername]);
+  }, [isOwnProfile, accountId, resolvedUsername]);
 
   const handleCountrySelect = (code: string) => {
     if (profileData) {
@@ -204,9 +251,10 @@ export default function ProfileView({
     onRefreshUser?.();
   };
 
-  const handleUsernameChanged = () => {
+  const handleUsernameChanged = async () => {
+    // Refresh auth store first (updates user.username), then re-fetch profile by accountId
+    await onRefreshUser?.();
     fetchProfile();
-    onRefreshUser?.();
   };
 
   const handleShareProfile = async () => {
@@ -260,7 +308,17 @@ export default function ProfileView({
       case 'friends':
         return <FriendsTab secret={secret!} />;
       case 'moderation':
-        return <ModerationTab secret={secret!} />;
+        return (
+          <ModerationTab
+            secret={secret!}
+            banned={user?.banned}
+            banType={user?.banType}
+            banExpiresAt={user?.banExpiresAt}
+            banPublicNote={user?.banPublicNote}
+            pendingNameChange={user?.pendingNameChange}
+            pendingNameChangePublicNote={user?.pendingNameChangePublicNote}
+          />
+        );
       default:
         return null;
     }
