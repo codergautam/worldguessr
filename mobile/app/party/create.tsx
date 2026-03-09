@@ -236,7 +236,7 @@ export default function PartyCreateScreen() {
               const dispMap = isHost ? mapName : (serverDisplayLocation ?? 'All Countries');
               const dispRounds = isHost ? rounds : (serverRounds ?? 5);
               const t = isHost ? timePerRound : ((serverTimePerRound ?? 30000) / 1000);
-              const dispTimer = t > 0 ? `${t}s` : 'Off';
+              const dispTimer = t > 0 ? `${t}s` : 'Timer Off';
               const dispNmpz = (isHost ? nmpz : serverNm) ? 'NMPZ' : null;
               return (
                 <Text style={styles.settingsPreviewText}>

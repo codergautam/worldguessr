@@ -23,7 +23,6 @@ import { api } from '../../src/services/api';
 import { spacing, borderRadius } from '../../src/styles/theme';
 import SetUsernameModal from '../../src/components/SetUsernameModal';
 import CountryFlag from '../../src/components/CountryFlag';
-import QueueOverlay from '../../src/components/multiplayer/QueueOverlay';
 
 type GameMode = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
 
@@ -270,9 +269,9 @@ export default function HomeScreen() {
   useEffect(() => {
     if (nextGameQueued && connected && !inGame && !gameQueued) {
       useMultiplayerStore.setState({ nextGameQueued: false, nextGameType: null });
-      // Re-queue for ranked duel
       wsService.send({ type: 'publicDuel' });
       useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
+      router.push('/queue');
     }
   }, [nextGameQueued, connected, inGame, gameQueued]);
 
@@ -285,14 +284,14 @@ export default function HomeScreen() {
         });
         break;
       case 'rankedDuel':
-        // Send queue message to WS server (ported from home.js:1172)
         wsService.send({ type: 'publicDuel' });
         useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
+        router.push('/queue');
         break;
       case 'unrankedDuel':
-        // Send queue message to WS server (ported from home.js:1185)
         wsService.send({ type: 'unrankedDuel' });
         useMultiplayerStore.setState({ gameQueued: 'unrankedDuel' });
+        router.push('/queue');
         break;
       case 'createGame':
         createdByButton.current = true;
@@ -859,12 +858,6 @@ export default function HomeScreen() {
       {/* Set Username Modal for new signups */}
       <SetUsernameModal />
 
-      {/* Queue overlay — shown while searching for a multiplayer match */}
-      {gameQueued && (
-        <QueueOverlay
-          onCancel={() => useMultiplayerStore.setState({ gameQueued: false })}
-        />
-      )}
     </View>
   );
 }

@@ -48,7 +48,7 @@ export default function GameTimer({
     const update = () => {
       const remaining = Math.max(
         0,
-        Math.ceil((serverEndTime - Date.now() - timeOffset) / 1000),
+        Math.round((serverEndTime - Date.now() - timeOffset) / 100) / 10,
       );
       setTimeRemaining(remaining);
       if (remaining <= 0) {
@@ -68,17 +68,18 @@ export default function GameTimer({
 
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
-        if (prev <= 1) {
+        const next = Math.round((prev - 0.1) * 10) / 10;
+        if (next <= 0) {
           clearInterval(interval);
           onTimeUp();
           return 0;
         }
-        return prev - 1;
+        return next;
       });
-    }, 1000);
+    }, 100);
 
     return () => clearInterval(interval);
-  }, [isServerDriven, showTimer, isPaused, timeRemaining, onTimeUp]);
+  }, [isServerDriven, showTimer, isPaused, timeRemaining <= 0, onTimeUp]);
 
   // Pulse animation when critical (<=5s)
   const isCritical = showTimer && timeRemaining <= 5 && timeRemaining > 0 && !isPaused;
@@ -107,7 +108,10 @@ export default function GameTimer({
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return mins > 0 ? `${mins}:${secs.toString().padStart(2, '0')}` : `${secs}`;
+    if (mins > 0) {
+      return `${mins}:${Math.floor(secs).toString().padStart(2, '0')}.${Math.round((secs % 1) * 10)}`;
+    }
+    return secs.toFixed(1);
   };
 
   return (

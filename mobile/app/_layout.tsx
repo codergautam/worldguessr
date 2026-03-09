@@ -94,6 +94,7 @@ export default function RootLayout() {
           <Stack.Screen name="party/create" options={{ headerShown: false }} />
           <Stack.Screen name="party/join" options={{ headerShown: false }} />
           <Stack.Screen name="party/[code]" options={{ headerShown: false }} />
+          <Stack.Screen name="queue" options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen name="friends" options={{ presentation: 'modal' }} />
           <Stack.Screen name="history/[gameId]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="user/[username]" options={{ headerShown: false, animation: 'fade' }} />

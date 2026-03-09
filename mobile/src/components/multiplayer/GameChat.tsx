@@ -61,7 +61,10 @@ export default function GameChat() {
 
   const handleSend = () => {
     const trimmed = message.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      inputRef.current?.blur();
+      return;
+    }
 
     const now = Date.now();
     if (now - lastSentRef.current < RATE_LIMIT_MS) return;
@@ -84,9 +87,9 @@ export default function GameChat() {
   );
 
   return (
-    <View style={styles.container} pointerEvents="box-none">
+    <View style={[styles.container, !isOpen && { zIndex: 5 }]} pointerEvents="box-none">
       {/* Chat panel */}
-      <Animated.View style={[styles.panel, { height: panelHeight }]}>
+      <Animated.View style={[styles.panel, { height: panelHeight }, !isOpen && { borderWidth: 0, marginBottom: 0 }]}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}

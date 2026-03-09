@@ -217,7 +217,7 @@ export default function MapSelectorModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
         {/* List view - slides left when detail is shown */}
         <Animated.View style={[
           styles.slidePanel,
@@ -314,7 +314,7 @@ export default function MapSelectorModal({
                   <View style={styles.stepperRow}>
                     <Pressable
                       style={({ pressed }) => [styles.stepperBtn, pressed && { opacity: 0.6 }, timerDuration <= 10 && { opacity: 0.3 }]}
-                      onPress={() => onTimerDurationChange(Math.max(10, timerDuration - 10))}
+                      onPress={() => onTimerDurationChange(Math.max(10, timerDuration - 5))}
                       disabled={timerDuration <= 10}
                     >
                       <Ionicons name="remove" size={20} color="#fff" />
@@ -322,7 +322,7 @@ export default function MapSelectorModal({
                     <Text style={styles.stepperValue}>{timerDuration}s</Text>
                     <Pressable
                       style={({ pressed }) => [styles.stepperBtn, pressed && { opacity: 0.6 }, timerDuration >= 300 && { opacity: 0.3 }]}
-                      onPress={() => onTimerDurationChange(Math.min(300, timerDuration + 10))}
+                      onPress={() => onTimerDurationChange(Math.min(300, timerDuration + 5))}
                       disabled={timerDuration >= 300}
                     >
                       <Ionicons name="add" size={20} color="#fff" />
@@ -438,7 +438,7 @@ export default function MapSelectorModal({
           <Animated.View style={[
             styles.slidePanel,
             styles.detailPanel,
-            { paddingTop: insets.top },
+            { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
             {
               transform: [{
                 translateX: slideAnim.interpolate({
