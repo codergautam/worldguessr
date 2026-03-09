@@ -20,6 +20,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useNavigation } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -118,7 +119,7 @@ export default function PartyCreateScreen() {
 
   const handleCopyCode = async () => {
     if (gameCode) {
-      alert('Game code: ' + gameCode);
+      await Clipboard.setStringAsync(gameCode);
       setCodeCopied(true);
       setTimeout(() => setCodeCopied(false), 2000);
     }
