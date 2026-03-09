@@ -181,7 +181,7 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
                   )}
                   <View style={styles.gameStat}>
                     <Text style={styles.gameStatLabel}>Duration</Text>
-                    <Text style={styles.gameStatValue}>{formatTime(game.totalDuration)}</Text>
+                    <Text style={styles.gameStatValue}>{formatTime(game.totalDuration * 1000)}</Text>
                   </View>
                 </>
               ) : (
@@ -206,7 +206,7 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
               {!isRankedDuel && (
                 <View style={styles.gameStat}>
                   <Text style={styles.gameStatLabel}>Duration</Text>
-                  <Text style={styles.gameStatValue}>{formatTime(game.totalDuration)}</Text>
+                  <Text style={styles.gameStatValue}>{formatTime(game.totalDuration * 1000)}</Text>
                 </View>
               )}
             </View>

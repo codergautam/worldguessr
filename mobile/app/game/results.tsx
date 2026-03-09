@@ -10,6 +10,11 @@ import {
   Platform,
   useWindowDimensions,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,6 +26,7 @@ import { findDistance } from '../../src/shared/game/calcPoints';
 import { api } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import PinMarker from '../../src/components/game/PinMarker';
+import CountryFlag from '../../src/components/CountryFlag';
 
 const guessPinImage = require('../../assets/marker-src.png');
 const actualPinImage = require('../../assets/marker-dest.png');
@@ -30,15 +36,24 @@ import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 interface OpponentGuess {
   playerId: string;
   username: string;
+  countryCode?: string;
   guessLat: number;
   guessLong: number;
   points: number;
   timeTaken: number;
 }
 
+interface PlayerRoundData {
+  roundNumber: number;
+  points: number;
+  distance?: number;
+  timeTaken?: number;
+}
+
 interface PlayerInfo {
   playerId: string;
   username: string;
+  countryCode?: string;
   totalPoints: number;
   finalRank?: number;
   elo?: { before?: number; after?: number; change?: number };
@@ -51,10 +66,12 @@ interface MultiplayerInfo {
   isDuel: boolean;
   isWinner: boolean;
   isDraw: boolean;
+  roundData: Record<string, PlayerRoundData[]>;
 }
 
 interface DuelOpponent {
   username: string;
+  countryCode?: string;
   points: number;
   didGuess: boolean;
 }
@@ -68,9 +85,10 @@ interface RoundResult {
   points: number;
   distance: number;
   timeTaken?: number;
+  xpEarned?: number;
   didGuess: boolean;
-  opponents?: OpponentGuess[];       // opponents with valid coords (for map markers)
-  duelOpponent?: DuelOpponent;       // primary opponent info for duel UI (even if no guess)
+  opponents?: OpponentGuess[];
+  duelOpponent?: DuelOpponent;
 }
 
 // Star tier colors matching web exactly
@@ -166,6 +184,7 @@ export default function GameResultsScreen() {
               .map((g: any) => ({
                 playerId: g.playerId,
                 username: g.username,
+                countryCode: g.countryCode,
                 guessLat: g.guessLat,
                 guessLong: g.guessLong,
                 points: g.points,
@@ -177,6 +196,7 @@ export default function GameResultsScreen() {
             const duelOpponent: DuelOpponent | undefined = oppAllGuess
               ? {
                   username: oppAllGuess.username,
+                  countryCode: oppAllGuess.countryCode,
                   points: oppAllGuess.points ?? 0,
                   didGuess: oppAllGuess.guessLat != null && oppAllGuess.guessLong != null,
                 }
@@ -191,6 +211,7 @@ export default function GameResultsScreen() {
               points: guess?.points ?? 0,
               distance: dist,
               timeTaken: guess?.timeTaken,
+              xpEarned: guess?.xpEarned,
               didGuess: userDidGuess,
               opponents: opponents.length > 0 ? opponents : undefined,
               duelOpponent,
@@ -200,6 +221,23 @@ export default function GameResultsScreen() {
         const total = transformedRounds.reduce((sum, r) => sum + r.points, 0);
         setHistoryData({ score: total, rounds: transformedRounds });
 
+        // Build per-player round data for drill-down
+        const roundData: Record<string, PlayerRoundData[]> = {};
+        game.rounds.forEach((round: any, idx: number) => {
+          (round.allGuesses || []).forEach((g: any) => {
+            if (!roundData[g.playerId]) roundData[g.playerId] = [];
+            const d = (g.guessLat != null && g.guessLong != null)
+              ? findDistance(round.location.lat, round.location.long, g.guessLat, g.guessLong)
+              : undefined;
+            roundData[g.playerId].push({
+              roundNumber: idx + 1,
+              points: g.points ?? 0,
+              distance: d,
+              timeTaken: g.timeTaken,
+            });
+          });
+        });
+
         // Build multiplayer info if more than 1 player
         if (game.players.length > 1) {
           setMultiplayerInfo({
@@ -207,6 +245,7 @@ export default function GameResultsScreen() {
             players: game.players.map((p: any) => ({
               playerId: p.accountId,
               username: p.username,
+              countryCode: p.countryCode,
               totalPoints: p.totalPoints,
               finalRank: p.finalRank,
               elo: p.elo,
@@ -215,6 +254,7 @@ export default function GameResultsScreen() {
             isDuel,
             isWinner: myPlayer?.finalRank === 1,
             isDraw: game.result?.isDraw ?? false,
+            roundData,
           });
         }
       } catch (err) {
@@ -262,6 +302,18 @@ export default function GameResultsScreen() {
   const [activeRound, setActiveRound] = useState<number | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [collapsedContentHeight, setCollapsedContentHeight] = useState(0);
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+
+  // Report modal state
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportReason, setReportReason] = useState<'inappropriate_username' | 'cheating' | 'other' | ''>('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportTarget, setReportTarget] = useState<string | null>(null);
+
+  // ELO animation
+  const [animatedElo, setAnimatedElo] = useState<number | null>(null);
+  const eloAnimComplete = useRef(false);
 
   // Animated panel height for smooth expand/collapse
   const panelAnim = useRef(new Animated.Value(0)).current; // 0 = collapsed, 1 = expanded
@@ -452,6 +504,46 @@ export default function GameResultsScreen() {
     return idx >= 0 ? { rank: idx + 1, total: sorted.length } : null;
   }, [multiplayerInfo]);
 
+  // ── ELO animation effect ────────────────────────────────
+  useEffect(() => {
+    if (!myEloData?.before || !myEloData?.after || eloAnimComplete.current) return;
+    const { before, after } = myEloData;
+    const steps = Math.abs(after - before);
+    if (steps === 0) { setAnimatedElo(after); eloAnimComplete.current = true; return; }
+    const stepTime = Math.max(10, 1500 / steps);
+    let current = before;
+    const interval = setInterval(() => {
+      current += current < after ? 1 : -1;
+      setAnimatedElo(current);
+      if (current === after) { clearInterval(interval); eloAnimComplete.current = true; }
+    }, stepTime);
+    return () => clearInterval(interval);
+  }, [myEloData]);
+
+  // ── Report submit handler ─────────────────────────────
+  const handleSubmitReport = async () => {
+    if (!reportReason || !reportTarget) return;
+    const words = reportDescription.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 5) { Alert.alert('Error', 'Description must be at least 5 words.'); return; }
+    if (words.length > 100) { Alert.alert('Error', 'Description must be 100 words or less.'); return; }
+    const secret = useAuthStore.getState().secret;
+    if (!secret) return;
+    setReportSubmitting(true);
+    try {
+      await api.submitReport(secret, reportReason as any, reportDescription.trim(), gameId!, multiplayerInfo!.gameType, reportTarget);
+      Alert.alert('Report Submitted', 'Thank you for your report. Our team will review it.');
+      setReportModalVisible(false);
+      setReportReason('');
+      setReportDescription('');
+      setReportTarget(null);
+    } catch (err: any) {
+      console.log('Error submitting report:', err);
+      Alert.alert('Error', err?.message || 'Failed to submit report. Please try again.');
+    } finally {
+      setReportSubmitting(false);
+    }
+  };
+
   // ── History loading / error states ────────────────────────
   if (historyLoading) {
     return (
@@ -592,7 +684,7 @@ export default function GameResultsScreen() {
             <View style={styles.eloContainer}>
               <Text style={styles.eloLabel}>ELO</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.eloValue}>{myEloData.after}</Text>
+                <Text style={styles.eloValue}>{animatedElo ?? myEloData.after}</Text>
                 <Text style={[
                   styles.eloChange,
                   { color: (myEloData.change ?? 0) >= 0 ? '#4CAF50' : '#F44336' },
@@ -725,6 +817,38 @@ export default function GameResultsScreen() {
           </>
         )}
       </View>
+
+      {/* Game ID + Report row */}
+      {gameId && isHistoryView && (
+        <View style={styles.gameMetaRow}>
+          <Pressable
+            onPress={() => { Share.share({ message: gameId }); }}
+            style={styles.gameIdBtn}
+          >
+            <Text style={styles.gameIdText}>ID: {gameId.slice(0, 8)}...</Text>
+            <Ionicons name="copy-outline" size={12} color="rgba(255,255,255,0.5)" />
+          </Pressable>
+          {multiplayerInfo && (
+            <Pressable
+              onPress={() => {
+                // Determine report target
+                const opponents = multiplayerInfo.players.filter(p => p.playerId !== multiplayerInfo.myId);
+                if (opponents.length === 1) {
+                  setReportTarget(opponents[0].playerId);
+                  setReportModalVisible(true);
+                } else if (opponents.length > 1) {
+                  setReportTarget(null);
+                  setReportModalVisible(true);
+                }
+              }}
+              style={styles.reportBtn}
+            >
+              <Ionicons name="flag-outline" size={14} color="#F44336" />
+              <Text style={styles.reportBtnText}>Report</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
     </View>
   );
 
@@ -740,28 +864,141 @@ export default function GameResultsScreen() {
         </View>
         {sorted.map((player, idx) => {
           const isMe = player.playerId === multiplayerInfo.myId;
+          const isSelected = selectedPlayer === player.playerId;
+          const playerRounds = multiplayerInfo.roundData[player.playerId];
           return (
-            <View
-              key={player.playerId}
-              style={[styles.roundItem, isMe && { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}
-            >
-              <View style={styles.roundItemHeader}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  {idx < 3 && (
-                    <Ionicons name="trophy" size={16} color={trophyColors[idx]} />
-                  )}
-                  <Text style={[styles.roundNumber, isMe && { color: '#4CAF50' }]}>
-                    #{idx + 1} {player.username}{isMe ? ' (you)' : ''}
-                  </Text>
+            <React.Fragment key={player.playerId}>
+              <Pressable
+                onPress={() => setSelectedPlayer(isSelected ? null : player.playerId)}
+                style={[styles.roundItem, isMe && { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}
+              >
+                <View style={styles.roundItemHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {idx < 3 && (
+                      <Ionicons name="trophy" size={16} color={trophyColors[idx]} />
+                    )}
+                    {player.countryCode && <CountryFlag countryCode={player.countryCode} size={14} />}
+                    <Text style={[styles.roundNumber, isMe && { color: '#4CAF50' }]}>
+                      #{idx + 1} {player.username}{isMe ? ' (you)' : ''}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[styles.roundPts, { color: getPointsColor(player.totalPoints) }]}>
+                      {player.totalPoints.toLocaleString()} pts
+                    </Text>
+                    <Ionicons
+                      name={isSelected ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color="rgba(255,255,255,0.4)"
+                    />
+                  </View>
                 </View>
-                <Text style={[styles.roundPts, { color: getPointsColor(player.totalPoints) }]}>
-                  {player.totalPoints.toLocaleString()} pts
-                </Text>
-              </View>
-            </View>
+              </Pressable>
+              {/* Per-player round drill-down */}
+              {isSelected && playerRounds && (
+                <View style={styles.playerDrillDown}>
+                  {playerRounds.map((pr) => (
+                    <View key={pr.roundNumber} style={styles.playerDrillDownRow}>
+                      <Text style={styles.playerDrillDownLabel}>Round {pr.roundNumber}</Text>
+                      <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                        {pr.distance != null && (
+                          <Text style={styles.playerDrillDownDetail}>{formatDistance(pr.distance)}</Text>
+                        )}
+                        <Text style={[styles.playerDrillDownPts, { color: getPointsColor(pr.points) }]}>
+                          {pr.points.toLocaleString()} pts
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </React.Fragment>
           );
         })}
       </View>
+    );
+  };
+
+  // ── Report modal ──────────────────────────────────────────
+  const renderReportModal = () => {
+    const opponents = multiplayerInfo?.players.filter(p => p.playerId !== multiplayerInfo?.myId) ?? [];
+    const wordCount = reportDescription.trim().split(/\s+/).filter(Boolean).length;
+    return (
+      <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => setReportModalVisible(false)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Report Player</Text>
+            <Text style={styles.modalWarning}>
+              False reports may result in action against your account.
+            </Text>
+
+            {/* Player selection (multiplayer with >1 opponent) */}
+            {!reportTarget && opponents.length > 1 && (
+              <View style={{ marginBottom: 12 }}>
+                <Text style={styles.modalLabel}>Select Player</Text>
+                {opponents.map(opp => (
+                  <Pressable
+                    key={opp.playerId}
+                    onPress={() => setReportTarget(opp.playerId)}
+                    style={[styles.reasonOption, reportTarget === opp.playerId && styles.reasonOptionActive]}
+                  >
+                    <Text style={styles.reasonOptionText}>{opp.username}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {/* Reason selection */}
+            <Text style={styles.modalLabel}>Reason</Text>
+            <View style={{ gap: 6, marginBottom: 12 }}>
+              {([
+                ['inappropriate_username', 'Inappropriate Username'],
+                ['cheating', 'Cheating'],
+                ['other', 'Other'],
+              ] as const).map(([value, label]) => (
+                <Pressable
+                  key={value}
+                  onPress={() => setReportReason(value)}
+                  style={[styles.reasonOption, reportReason === value && styles.reasonOptionActive]}
+                >
+                  <Text style={[styles.reasonOptionText, reportReason === value && { color: '#fff' }]}>{label}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* Description */}
+            <Text style={styles.modalLabel}>Description (5-100 words)</Text>
+            <TextInput
+              style={styles.reportInput}
+              multiline
+              numberOfLines={4}
+              placeholder="Describe the issue..."
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              value={reportDescription}
+              onChangeText={setReportDescription}
+              textAlignVertical="top"
+            />
+            <Text style={styles.wordCount}>{wordCount}/100 words</Text>
+
+            {/* Buttons */}
+            <View style={styles.modalButtons}>
+              <Pressable
+                onPress={() => { setReportModalVisible(false); setReportReason(''); setReportDescription(''); setReportTarget(null); }}
+                style={styles.modalCancelBtn}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSubmitReport}
+                disabled={reportSubmitting || !reportReason || !reportTarget || wordCount < 5}
+                style={[styles.modalSubmitBtn, (reportSubmitting || !reportReason || !reportTarget || wordCount < 5) && { opacity: 0.5 }]}
+              >
+                <Text style={styles.modalSubmitText}>{reportSubmitting ? 'Submitting...' : 'Submit'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     );
   };
 
@@ -817,7 +1054,12 @@ export default function GameResultsScreen() {
               {multiplayerInfo?.isDuel && duelOpp ? (
                 <View style={styles.duelRoundRow}>
                   <View style={styles.duelPlayerCol}>
-                    <Text style={styles.duelPlayerName}>You</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      {useAuthStore.getState().user?.countryCode && (
+                        <CountryFlag countryCode={useAuthStore.getState().user!.countryCode!} size={12} />
+                      )}
+                      <Text style={styles.duelPlayerName}>You</Text>
+                    </View>
                     {round.didGuess ? (
                       <Text style={[styles.duelPlayerScore, { color: getPointsColor(round.points) }]}>
                         {round.points} pts
@@ -837,7 +1079,10 @@ export default function GameResultsScreen() {
                   <Text style={styles.vsDivider}>VS</Text>
 
                   <View style={styles.duelPlayerCol}>
-                    <Text style={styles.duelPlayerName}>{duelOpp.username}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      {duelOpp.countryCode && <CountryFlag countryCode={duelOpp.countryCode} size={12} />}
+                      <Text style={styles.duelPlayerName}>{duelOpp.username}</Text>
+                    </View>
                     {duelOpp.didGuess ? (
                       <Text style={[styles.duelPlayerScore, { color: getPointsColor(duelOpp.points) }]}>
                         {duelOpp.points} pts
@@ -865,7 +1110,7 @@ export default function GameResultsScreen() {
                 </>
               )}
 
-              {/* Detail rows (distance) — shown for non-duel types only */}
+              {/* Detail rows — shown for non-duel types only */}
               {!multiplayerInfo?.isDuel && (
                 <View style={styles.roundDetails}>
                   {round.distance != null && round.distance > 0 && (
@@ -875,6 +1120,24 @@ export default function GameResultsScreen() {
                         <Text style={styles.detailText}>Distance</Text>
                       </View>
                       <Text style={styles.detailValue}>{formatDistance(round.distance)}</Text>
+                    </View>
+                  )}
+                  {round.timeTaken != null && round.timeTaken > 0 && (
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailLabel}>
+                        <Text style={styles.detailIcon}>⏱️</Text>
+                        <Text style={styles.detailText}>Time</Text>
+                      </View>
+                      <Text style={styles.detailValue}>{formatTime(round.timeTaken)}</Text>
+                    </View>
+                  )}
+                  {round.xpEarned != null && round.xpEarned > 0 && (
+                    <View style={styles.detailRow}>
+                      <View style={styles.detailLabel}>
+                        <Text style={styles.detailIcon}>⭐</Text>
+                        <Text style={styles.detailText}>XP</Text>
+                      </View>
+                      <Text style={[styles.detailValue, { color: '#FFC107' }]}>+{round.xpEarned}</Text>
                     </View>
                   )}
                 </View>
@@ -939,6 +1202,7 @@ export default function GameResultsScreen() {
             </LinearGradient>
           </View>
         </View>
+        {renderReportModal()}
       </View>
     );
   }
@@ -1033,6 +1297,7 @@ export default function GameResultsScreen() {
           )}
         </LinearGradient>
       </Animated.View>
+      {renderReportModal()}
     </View>
   );
 }
@@ -1349,5 +1614,172 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Lexend-Bold',
     color: 'rgba(255, 255, 255, 0.4)',
+  },
+  // Game meta row (game ID + report)
+  gameMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+  },
+  gameIdBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  gameIdText: {
+    fontSize: 11,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.4)',
+  },
+  reportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: 'rgba(244,67,54,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(244,67,54,0.2)',
+  },
+  reportBtnText: {
+    fontSize: 11,
+    fontFamily: 'Lexend-Medium',
+    color: '#F44336',
+  },
+  // Player drill-down
+  playerDrillDown: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderLeftWidth: 2,
+    borderLeftColor: 'rgba(255,255,255,0.15)',
+    marginLeft: 16,
+    paddingLeft: 12,
+    paddingVertical: 4,
+    marginBottom: 4,
+  },
+  playerDrillDownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 5,
+  },
+  playerDrillDownLabel: {
+    fontSize: 12,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.6)',
+  },
+  playerDrillDownDetail: {
+    fontSize: 12,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.5)',
+  },
+  playerDrillDownPts: {
+    fontSize: 12,
+    fontFamily: 'Lexend-SemiBold',
+  },
+  // Report modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#1a2a1a',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'Lexend-Bold',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  modalWarning: {
+    fontSize: 12,
+    fontFamily: 'Lexend',
+    color: '#FFC107',
+    marginBottom: 16,
+  },
+  modalLabel: {
+    fontSize: 13,
+    fontFamily: 'Lexend-Medium',
+    color: 'rgba(255,255,255,0.7)',
+    marginBottom: 6,
+  },
+  reasonOption: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  reasonOptionActive: {
+    backgroundColor: 'rgba(76, 175, 80, 0.3)',
+    borderColor: '#4CAF50',
+  },
+  reasonOptionText: {
+    fontSize: 13,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  reportInput: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    color: '#fff',
+    fontFamily: 'Lexend',
+    fontSize: 13,
+    padding: 10,
+    minHeight: 80,
+    marginTop: 4,
+  },
+  wordCount: {
+    fontSize: 11,
+    fontFamily: 'Lexend',
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'right',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontFamily: 'Lexend-Medium',
+    color: 'rgba(255,255,255,0.7)',
+  },
+  modalSubmitBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#F44336',
+    alignItems: 'center',
+  },
+  modalSubmitText: {
+    fontSize: 14,
+    fontFamily: 'Lexend-Medium',
+    color: '#fff',
   },
 });

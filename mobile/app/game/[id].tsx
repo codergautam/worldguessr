@@ -22,6 +22,7 @@ import { api } from '../../src/services/api';
 import StreetViewWebView from '../../src/components/game/StreetViewWebView';
 import GuessMap from '../../src/components/game/GuessMap';
 import GameTimer from '../../src/components/game/GameTimer';
+import MapSelectorModal from '../../src/components/game/MapSelectorModal';
 // Fetched at runtime from hosted URL (can't import from public/ in RN)
 let officialCountryMapsCache: any[] | null = null;
 async function getOfficialCountryMaps(): Promise<any[]> {
@@ -75,6 +76,9 @@ const DEFAULT_GAME_OPTIONS = {
   maxDist: 20000,
 };
 
+/** Fraction of screen height the expanded minimap occupies during gameplay (0–1) */
+const EXPANDED_MAP_HEIGHT_RATIO = 0.5;
+
 export default function GameScreen() {
   const { id, map, rounds, time } = useLocalSearchParams<{
     id: string;
@@ -91,6 +95,14 @@ export default function GameScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [allLocations, setAllLocations] = useState<Location[]>([]);
   const roundStartTimeRef = useRef<number>(Date.now());
+
+  // Singleplayer game options
+  const [currentMapSlug, setCurrentMapSlug] = useState(map || 'all');
+  const [currentMapName, setCurrentMapName] = useState('All Countries');
+  const [nmpzEnabled, setNmpzEnabled] = useState(false);
+  const [timerEnabled, setTimerEnabled] = useState(false);
+  const [timerDuration, setTimerDuration] = useState(30);
+  const [mapModalVisible, setMapModalVisible] = useState(false);
 
   const [gameState, setGameState] = useState<GameState>({
     currentRound: 1,
@@ -281,28 +293,34 @@ export default function GameScreen() {
     }
   }, [isLoading, miniMapShown, gameState.isShowingResult]);
 
-  // Map height interpolation: 0 = hidden (0px), 1 = 70% of screen (or 100% when answer shown)
+  // Map height interpolation: 0 = hidden (0px), 1 = EXPANDED_MAP_HEIGHT_RATIO of screen (or 100% when answer shown)
   const mapHeight = mapSlideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, gameState.isShowingResult ? height : height * 0.7],
+    outputRange: [0, gameState.isShowingResult ? height : height * EXPANDED_MAP_HEIGHT_RATIO],
   });
 
-  // Fetch locations from server on mount
+  // Fetch locations from server based on currentMapSlug
   useEffect(() => {
     async function fetchLocations() {
       try {
         setIsLoading(true);
         setLoadError(null);
 
-        let data;
-        const mapSlug = map || 'all';
+        let data: any;
+        const mapSlug = currentMapSlug;
 
         if (mapSlug === 'all') {
           data = await api.fetchAllLocations();
+          setCurrentMapName('All Countries');
         } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
           data = await api.fetchCountryLocations(mapSlug);
+          // Look up country name from officialCountryMaps
+          const officialCountryMaps = await getOfficialCountryMaps();
+          const countryEntry = officialCountryMaps.find((m: any) => m.countryCode === mapSlug);
+          setCurrentMapName(countryEntry?.name || mapSlug);
         } else {
           data = await api.fetchMapLocations(mapSlug);
+          setCurrentMapName((data as any).name || mapSlug);
         }
 
         if (!data.ready || !data.locations || data.locations.length === 0) {
@@ -325,7 +343,6 @@ export default function GameScreen() {
         if (mapSlug === 'all') {
           extent = null; // World view
         } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
-          // Country map — look up extent from officialCountryMaps
           const officialCountryMaps = await getOfficialCountryMaps();
           const countryMap = officialCountryMaps.find(
             (m: any) => m.countryCode === mapSlug
@@ -360,7 +377,7 @@ export default function GameScreen() {
     }
 
     fetchLocations();
-  }, [map]);
+  }, [currentMapSlug]);
 
   const currentLocation = gameState.locations[gameState.currentRound - 1];
 
@@ -480,6 +497,27 @@ export default function GameScreen() {
     router.replace('/(tabs)/home');
   };
 
+  const handleMapSelect = useCallback((slug: string, name: string) => {
+    setMapModalVisible(false);
+    if (slug === currentMapSlug) return;
+    setIsLoading(true);
+    setLoadError(null);
+    setCurrentMapSlug(slug);
+    setCurrentMapName(name);
+    // Full game reset
+    setGameState((prev) => ({
+      ...prev,
+      currentRound: 1,
+      guesses: [],
+      totalScore: 0,
+      isShowingResult: false,
+      locations: [],
+    }));
+    setGuessPosition(null);
+    setMiniMapShown(false);
+    setStreetViewLoaded(false);
+  }, [currentMapSlug]);
+
   const getPointsColor = (pts: number) => {
     if (pts >= 4000) return colors.success;
     if (pts >= 2000) return colors.warning;
@@ -522,13 +560,26 @@ export default function GameScreen() {
               lat={currentLocation.lat}
               long={currentLocation.long}
               onLoad={handleStreetViewLoad}
+              nmpz={nmpzEnabled}
             />
           )}
         </View>
 
-        {/* Round/score pill - top right */}
+        {/* Round/score pill + map selector - top right */}
         {!gameState.isShowingResult && (
           <SafeAreaView style={[styles.timerContainer, { paddingRight: Math.max(insets.right, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
+            {/* Map selector button (singleplayer only) */}
+            {isSingleplayer && (
+              <Pressable
+                style={({ pressed }) => [styles.mapSelectorBtn, pressed && { opacity: 0.85 }]}
+                onPress={() => setMapModalVisible(true)}
+              >
+                <Text style={styles.mapSelectorText} numberOfLines={1}>
+                  {currentMapName}{nmpzEnabled ? ', NMPZ' : ''}
+                </Text>
+                <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+            )}
             <View style={styles.timerPill}>
               <Text style={styles.timerText}>
                 Round {gameState.currentRound}/{gameState.totalRounds}
@@ -537,11 +588,12 @@ export default function GameScreen() {
                 {gameState.totalScore.toLocaleString()} pts
               </Text>
             </View>
-            {!isSingleplayer && (
+            {(!isSingleplayer || (isSingleplayer && timerEnabled)) && (
               <GameTimer
-                timeRemaining={gameState.timePerRound}
+                timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
                 onTimeUp={handleTimeUp}
-                isPaused={gameState.isShowingResult}
+                isPaused={gameState.isShowingResult || mapModalVisible}
+                roundKey={gameState.currentRound}
               />
             )}
           </SafeAreaView>
@@ -577,10 +629,10 @@ export default function GameScreen() {
         >
           {/* Inner wrapper gives MapView a fixed height so initialRegion works
               even when the animated outer container starts at 0px height.
-              Use 70% height during gameplay so MKMapView's native gesture recognizers
+              Use EXPANDED_MAP_HEIGHT_RATIO height during gameplay so MKMapView's native gesture recognizers
               don't extend into the Guess button area (iOS ignores overflow:hidden for
               native gesture hit-testing). Full height during results (no buttons). */}
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: gameState.isShowingResult ? height : height * 0.7 }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: gameState.isShowingResult ? height : height * EXPANDED_MAP_HEIGHT_RATIO }}>
             {mapMounted && (
               <GuessMap
                 guessPosition={guessPosition}
@@ -603,7 +655,7 @@ export default function GameScreen() {
           <Animated.View
             style={[
               styles.mapButtonsRow,
-              { bottom: height * 0.7 + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
+              { bottom: height * EXPANDED_MAP_HEIGHT_RATIO + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
               {
                 opacity: mapBtnsAnim,
                 transform: [{
@@ -766,6 +818,22 @@ export default function GameScreen() {
           <Text style={styles.loadingBannerText}>Loading...</Text>
         </View>
       </Animated.View>
+
+      {/* ═══ MAP SELECTOR MODAL (singleplayer) ═══ */}
+      {isSingleplayer && (
+        <MapSelectorModal
+          visible={mapModalVisible}
+          onClose={() => setMapModalVisible(false)}
+          onSelectMap={handleMapSelect}
+          currentMapSlug={currentMapSlug}
+          nmpzEnabled={nmpzEnabled}
+          onNmpzToggle={setNmpzEnabled}
+          timerEnabled={timerEnabled}
+          onTimerToggle={setTimerEnabled}
+          timerDuration={timerDuration}
+          onTimerDurationChange={setTimerDuration}
+        />
+      )}
     </View>
   );
 }
@@ -812,11 +880,28 @@ const styles = StyleSheet.create({
     top: 0,
     right: 0,
     zIndex: 102,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    alignItems: 'flex-end',
+    gap: spacing.xs,
     paddingRight: spacing.lg,
     paddingTop: spacing.sm,
+  },
+  mapSelectorBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Platform.OS === 'android' ? '#1a4423' : 'rgba(26, 68, 35, 0.85)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    maxWidth: 180,
+  },
+  mapSelectorText: {
+    color: colors.white,
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: fontSizes.xs,
+    flexShrink: 1,
   },
   timerPill: {
     backgroundColor: Platform.OS === 'android' ? '#1a4423' : colors.primaryTransparent,

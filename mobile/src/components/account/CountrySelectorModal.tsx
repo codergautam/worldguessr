@@ -10,6 +10,8 @@ import {
   StyleSheet,
   Image,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { api } from '../../services/api';
 import * as countryCodes from 'countries-code';
@@ -122,7 +124,7 @@ export default function CountrySelectorModal({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.card}>
           <Text style={styles.title}>Select Your Country Flag</Text>
 
@@ -166,7 +168,7 @@ export default function CountrySelectorModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

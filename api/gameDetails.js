@@ -74,6 +74,7 @@ export default async function handler(req, res) {
           allGuesses: round.playerGuesses.map(guess => ({
             playerId: guess.accountId, // Use accountId instead of playerId to avoid exposing secrets
             username: guess.username,
+            countryCode: guess.countryCode,
             guessLat: guess.guessLat,
             guessLong: guess.guessLong,
             points: guess.points,
@@ -93,6 +94,7 @@ export default async function handler(req, res) {
         playerId: player.accountId, // Use accountId instead of playerId to avoid exposing secrets
         username: player.username,
         accountId: player.accountId,
+        countryCode: player.countryCode,
         totalPoints: player.totalPoints,
         totalXp: player.totalXp,
         averageTimePerRound: player.averageTimePerRound,

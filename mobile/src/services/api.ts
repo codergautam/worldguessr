@@ -39,7 +39,12 @@ async function fetchApi<T>(
   });
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+    let message = `API error: ${response.status}`;
+    try {
+      const body = await response.json();
+      if (body.message) message = body.message;
+    } catch {}
+    throw new Error(message);
   }
 
   return response.json();
@@ -307,16 +312,19 @@ export const api = {
           allGuesses: Array<{
             playerId: string;
             username: string;
+            countryCode?: string;
             guessLat: number;
             guessLong: number;
             points: number;
             timeTaken: number;
+            xpEarned?: number;
           }>;
         }>;
         players: Array<{
           playerId: string;
           username: string;
           accountId: string;
+          countryCode?: string;
           totalPoints: number;
           finalRank?: number;
           elo?: { before?: number; after?: number; change?: number };
@@ -381,13 +389,15 @@ export const api = {
   // Reports
   submitReport: async (
     secret: string,
-    reportedUser: string,
     reason: 'inappropriate_username' | 'cheating' | 'other',
-    details?: string
+    description: string,
+    gameId: string,
+    gameType: string,
+    reportedUserAccountId?: string,
   ) => {
-    return fetchApi<{ success: boolean }>('/api/submitReport', {
+    return fetchApi<{ message: string; reportId?: string }>('/api/submitReport', {
       method: 'POST',
-      body: JSON.stringify({ secret, reportedUser, reason, details }),
+      body: JSON.stringify({ secret, reason, description, gameId, gameType, reportedUserAccountId }),
     });
   },
 

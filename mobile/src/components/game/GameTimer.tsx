@@ -7,16 +7,17 @@ interface GameTimerProps {
   timeRemaining: number;
   onTimeUp: () => void;
   isPaused?: boolean;
+  roundKey?: number;
 }
 
-export default function GameTimer({ timeRemaining: initialTime, onTimeUp, isPaused }: GameTimerProps) {
+export default function GameTimer({ timeRemaining: initialTime, onTimeUp, isPaused, roundKey }: GameTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState(initialTime);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Reset timer when initialTime changes (new round)
   useEffect(() => {
     setTimeRemaining(initialTime);
-  }, [initialTime]);
+  }, [initialTime, roundKey]);
 
   // Timer countdown
   useEffect(() => {

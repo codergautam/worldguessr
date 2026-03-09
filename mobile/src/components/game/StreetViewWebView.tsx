@@ -15,6 +15,7 @@ interface StreetViewWebViewProps {
   cropRightPx?: number;
   showInitialLoader?: boolean;
   interactive?: boolean;
+  nmpz?: boolean;
 }
 
 type SlotKey = 'primary' | 'secondary';
@@ -34,6 +35,7 @@ function buildStreetViewHtml(
   fov: number,
   pitch: number,
   cropRightPx: number,
+  nmpz: boolean,
 ) {
   const streetViewUrl = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=${GOOGLE_MAPS_API_KEY}&fov=${fov}&pitch=${pitch}&language=${language}`;
 
@@ -50,6 +52,7 @@ function buildStreetViewHtml(
           height: calc(100vh + 300px);
           border: none;
           transform: translateY(-285px);
+          pointer-events: ${nmpz ? 'none' : 'auto'};
         }
       </style>
     </head>
@@ -76,6 +79,7 @@ export default function StreetViewWebView({
   transitionDuration = 350,
   cropRightPx = 0,
   showInitialLoader = true,
+  nmpz = false,
 }: StreetViewWebViewProps) {
   const [sources, setSources] = useState<Record<SlotKey, WebViewSourceState | null>>({
     primary: null,
@@ -108,10 +112,10 @@ export default function StreetViewWebView({
   useEffect(() => {
     if (!isValidCoordinate) return;
 
-    const locationKey = `${lat}-${long}-${language}-${fov}-${pitch}-${cropRightPx}`;
+    const locationKey = `${lat}-${long}-${language}-${fov}-${pitch}-${cropRightPx}-${nmpz}`;
     const nextSource = {
       key: locationKey,
-      html: buildStreetViewHtml(lat, long, language, fov, pitch, cropRightPx),
+      html: buildStreetViewHtml(lat, long, language, fov, pitch, cropRightPx, nmpz),
     };
 
     const activeSlot = activeSlotRef.current;
@@ -148,7 +152,7 @@ export default function StreetViewWebView({
       ...prev,
       [nextSlot]: nextSource,
     }));
-  }, [lat, long, language, fov, pitch, cropRightPx, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
+  }, [lat, long, language, fov, pitch, cropRightPx, nmpz, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
 
   const handleLoadEnd = useCallback((slot: SlotKey) => {
     const pendingSlot = pendingSlotRef.current;

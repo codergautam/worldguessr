@@ -180,7 +180,7 @@ export default function ReportModal({
               color: wordCount > 100 ? '#ff6b6b' : 'rgba(255, 255, 255, 0.6)',
               fontWeight: 'normal'
             }}>
-              {wordCount}/100 words
+              {wordCount > 4 ? `${wordCount}/100 words` : `Need ${5 - wordCount} more words`}
             </span>
           </label>
           <textarea
