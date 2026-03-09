@@ -12,6 +12,10 @@ interface GameTimerProps {
   totalRounds: number;
   totalScore: number;
   showTimer?: boolean;
+  /** Server-driven mode: the server timestamp when the current phase ends */
+  serverEndTime?: number;
+  /** Time offset between client and server clocks (from wsService.timeOffset) */
+  timeOffset?: number;
 }
 
 export default function GameTimer({
@@ -23,17 +27,43 @@ export default function GameTimer({
   totalRounds,
   totalScore,
   showTimer = true,
+  serverEndTime,
+  timeOffset = 0,
 }: GameTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState(initialTime);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const isServerDriven = serverEndTime !== undefined && serverEndTime > 0;
 
-  // Reset timer when initialTime changes (new round)
+  // Reset timer when initialTime changes (new round) — local mode only
   useEffect(() => {
-    setTimeRemaining(initialTime);
-  }, [initialTime, roundKey]);
+    if (!isServerDriven) {
+      setTimeRemaining(initialTime);
+    }
+  }, [initialTime, roundKey, isServerDriven]);
 
-  // Timer countdown
+  // Server-driven timer: calculate remaining from serverEndTime
   useEffect(() => {
+    if (!isServerDriven || !showTimer) return;
+
+    const update = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((serverEndTime - Date.now() - timeOffset) / 1000),
+      );
+      setTimeRemaining(remaining);
+      if (remaining <= 0) {
+        onTimeUp();
+      }
+    };
+
+    update();
+    const interval = setInterval(update, 100);
+    return () => clearInterval(interval);
+  }, [isServerDriven, serverEndTime, timeOffset, showTimer, onTimeUp]);
+
+  // Local countdown timer — only when NOT server-driven
+  useEffect(() => {
+    if (isServerDriven) return;
     if (!showTimer || isPaused || timeRemaining <= 0) return;
 
     const interval = setInterval(() => {
@@ -48,7 +78,7 @@ export default function GameTimer({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [showTimer, isPaused, timeRemaining, onTimeUp]);
+  }, [isServerDriven, showTimer, isPaused, timeRemaining, onTimeUp]);
 
   // Pulse animation when critical (<=5s)
   const isCritical = showTimer && timeRemaining <= 5 && timeRemaining > 0 && !isPaused;

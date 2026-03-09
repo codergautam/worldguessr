@@ -1,15 +1,29 @@
-import { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import { View, StyleSheet, Platform, GestureResponderEvent } from 'react-native';
 import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import { colors } from '../../shared';
 import PinMarker from './PinMarker';
 
 // Pre-create Asset objects (doesn't download yet)
 const guessPinModule = require('../../../assets/marker-src.png');
 const actualPinModule = require('../../../assets/marker-dest.png');
+const opponentPinModule = require('../../../assets/marker-opp.png');
+
+interface OpponentGuess {
+  lat: number;
+  lng: number;
+  username: string;
+  points?: number;
+}
 
 // extent = [west, south, east, north] i.e. [minLng, minLat, maxLng, maxLat]
 type Extent = [number, number, number, number] | null;
+
+/** Color based on points scored — matches web's getPointsColor (roundOverScreen.js:468-472) */
+function getPointsColor(points: number): string {
+  if (points >= 3000) return '#4CAF50'; // green
+  if (points >= 1500) return '#FFC107'; // yellow
+  return '#F44336';                      // red
+}
 
 interface GuessMapProps {
   guessPosition: { lat: number; lng: number } | null;
@@ -17,6 +31,9 @@ interface GuessMapProps {
   onMapPress: (lat: number, lng: number) => void;
   isExpanded?: boolean;
   extent?: Extent;
+  opponentGuesses?: OpponentGuess[];
+  /** Points scored for the player's own guess (determines line color) */
+  guessPoints?: number;
 }
 
 const TAP_SLOP = 10; // max px movement to count as tap
@@ -50,6 +67,8 @@ export default function GuessMap({
   onMapPress,
   isExpanded,
   extent,
+  opponentGuesses,
+  guessPoints,
 }: GuessMapProps) {
   const mapRef = useRef<MapView>(null);
   const touchStart = useRef({ x: 0, y: 0, time: 0 });
@@ -60,16 +79,15 @@ export default function GuessMap({
     if (!actualPosition || !mapRef.current) return;
 
     if (guessPosition) {
-      mapRef.current.fitToCoordinates(
-        [
-          { latitude: guessPosition.lat, longitude: guessPosition.lng },
-          { latitude: actualPosition.lat, longitude: actualPosition.lng },
-        ],
-        {
-          edgePadding: { top: 120, right: 120, bottom: 300, left: 120 },
-          animated: true,
-        },
-      );
+      const coords = [
+        { latitude: guessPosition.lat, longitude: guessPosition.lng },
+        { latitude: actualPosition.lat, longitude: actualPosition.lng },
+        ...(opponentGuesses ?? []).map((o) => ({ latitude: o.lat, longitude: o.lng })),
+      ];
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 120, right: 120, bottom: 300, left: 120 },
+        animated: true,
+      });
     } else {
       // No guess — just show actual location
       mapRef.current.animateToRegion(
@@ -189,6 +207,26 @@ export default function GuessMap({
           opacity={actualPosition ? 1 : 0}
         />
 
+        {/* Opponent markers + lines to actual */}
+        {actualPosition && opponentGuesses?.map((opp, i) => (
+          <React.Fragment key={`opp-${i}`}>
+            <PinMarker
+              coordinate={{ latitude: opp.lat, longitude: opp.lng }}
+              imageSource={opponentPinModule}
+              scale={MARKER_SCALE}
+              opacity={1}
+            />
+            <Polyline
+              coordinates={[
+                { latitude: opp.lat, longitude: opp.lng },
+                { latitude: actualPosition.lat, longitude: actualPosition.lng },
+              ]}
+              strokeColor={getPointsColor(opp.points ?? 0)}
+              strokeWidth={2}
+            />
+          </React.Fragment>
+        ))}
+
         {/* Line between guess and actual */}
         {guessPosition && actualPosition && (
           <Polyline
@@ -196,9 +234,8 @@ export default function GuessMap({
               { latitude: guessPosition.lat, longitude: guessPosition.lng },
               { latitude: actualPosition.lat, longitude: actualPosition.lng },
             ]}
-            strokeColor={colors.error}
-            strokeWidth={2}
-            lineDashPattern={[10, 5]}
+            strokeColor={getPointsColor(guessPoints ?? 0)}
+            strokeWidth={3}
           />
         )}
       </MapView>

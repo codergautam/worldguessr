@@ -32,6 +32,9 @@ interface MapSelectorModalProps {
   onTimerToggle: (v: boolean) => void;
   timerDuration: number;
   onTimerDurationChange: (s: number) => void;
+  /** Optional rounds stepper (for party mode) */
+  rounds?: number;
+  onRoundsChange?: (r: number) => void;
 }
 
 interface SelectedMapInfo {
@@ -51,6 +54,8 @@ export default function MapSelectorModal({
   onTimerToggle,
   timerDuration,
   onTimerDurationChange,
+  rounds,
+  onRoundsChange,
 }: MapSelectorModalProps) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -245,6 +250,35 @@ export default function MapSelectorModal({
             >
               {/* ── Game Options ── */}
               <View style={styles.optionsCard}>
+                {/* Rounds (party mode only) */}
+                {onRoundsChange && rounds !== undefined && (
+                  <>
+                    <View style={styles.optionRow}>
+                      <View style={styles.optionLabel}>
+                        <Ionicons name="repeat-outline" size={20} color="#fff" />
+                        <Text style={styles.optionText}>Rounds</Text>
+                      </View>
+                      <View style={styles.stepperRowInline}>
+                        <Pressable
+                          style={({ pressed }) => [styles.stepperBtn, pressed && { opacity: 0.6 }, rounds <= 1 && { opacity: 0.3 }]}
+                          onPress={() => onRoundsChange(Math.max(1, rounds - 1))}
+                          disabled={rounds <= 1}
+                        >
+                          <Ionicons name="remove" size={20} color="#fff" />
+                        </Pressable>
+                        <Text style={styles.stepperValue}>{rounds}</Text>
+                        <Pressable
+                          style={({ pressed }) => [styles.stepperBtn, pressed && { opacity: 0.6 }, rounds >= 20 && { opacity: 0.3 }]}
+                          onPress={() => onRoundsChange(Math.min(20, rounds + 1))}
+                          disabled={rounds >= 20}
+                        >
+                          <Ionicons name="add" size={20} color="#fff" />
+                        </Pressable>
+                      </View>
+                    </View>
+                    <View style={styles.divider} />
+                  </>
+                )}
                 {/* NMPZ Toggle */}
                 <View style={styles.optionRow}>
                   <View style={styles.optionLabel}>
@@ -432,7 +466,7 @@ export default function MapSelectorModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a1a',
+    backgroundColor: '#0a1a0c',
     overflow: 'hidden',
   },
   slidePanel: {
@@ -444,7 +478,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#0a0a1a',
+    backgroundColor: '#0a1a0c',
   },
   header: {
     flexDirection: 'row',
@@ -514,6 +548,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
     gap: 16,
+  },
+  stepperRowInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   stepperBtn: {
     width: 36,

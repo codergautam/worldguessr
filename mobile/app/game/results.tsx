@@ -27,6 +27,7 @@ import { api } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import PinMarker from '../../src/components/game/PinMarker';
 import CountryFlag from '../../src/components/CountryFlag';
+import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
 
 const guessPinImage = require('../../assets/marker-src.png');
 const actualPinImage = require('../../assets/marker-dest.png');
@@ -142,15 +143,19 @@ function formatTime(seconds: number): string {
 const SIDEBAR_WIDTH = 340;
 
 export default function GameResultsScreen() {
-  const { totalScore, rounds, extent: extentParam, gameId, fromHistory } = useLocalSearchParams<{
+  const { totalScore, rounds, extent: extentParam, gameId, fromHistory, multiplayer: mpParam, duelEnd: duelEndParam, players: playersParam } = useLocalSearchParams<{
     totalScore: string;
     rounds: string;
     extent?: string;
     gameId?: string;
     fromHistory?: string;
+    multiplayer?: string;
+    duelEnd?: string;
+    players?: string;
   }>();
 
   const isHistoryView = fromHistory === 'true';
+  const isLiveMultiplayer = mpParam === 'true';
 
   // History mode: fetch game details and transform into RoundResult[]
   const [historyLoading, setHistoryLoading] = useState(!!gameId && !rounds);
@@ -266,6 +271,34 @@ export default function GameResultsScreen() {
     };
     fetchHistory();
   }, [gameId]);
+
+  // Build multiplayer info from live game params
+  useEffect(() => {
+    if (!isLiveMultiplayer || !playersParam) return;
+    try {
+      const players = JSON.parse(playersParam);
+      const duelEnd = duelEndParam ? JSON.parse(duelEndParam) : null;
+      const myId = players.find((p: any) => p.id)?.id ?? '';
+
+      setMultiplayerInfo({
+        gameType: duelEnd ? 'ranked_duel' : 'party',
+        players: players.map((p: any) => ({
+          playerId: p.id,
+          username: p.username,
+          countryCode: p.countryCode,
+          totalPoints: p.score ?? 0,
+          elo: duelEnd && p.id === myId
+            ? { before: duelEnd.oldElo, after: duelEnd.newElo, change: duelEnd.newElo - duelEnd.oldElo }
+            : undefined,
+        })),
+        myId,
+        isDuel: !!duelEnd,
+        isWinner: duelEnd?.winner ?? false,
+        isDraw: duelEnd?.draw ?? false,
+        roundData: {},
+      });
+    } catch {}
+  }, [isLiveMultiplayer, playersParam, duelEndParam]);
 
   // Parse extent [west, south, east, north] if provided
   const extent: [number, number, number, number] | null = useMemo(() => {
@@ -479,6 +512,19 @@ export default function GameResultsScreen() {
   }, [detailsExpanded, panelAnim]);
 
   const handlePlayAgain = () => {
+    if (isLiveMultiplayer) {
+      // Clean up multiplayer state and go home to re-queue
+      const { useMultiplayerStore: mpStore } = require('../../src/store/multiplayerStore');
+      const { wsService: ws } = require('../../src/services/websocket');
+      mpStore.getState().reset();
+      // Auto re-queue for duels
+      if (multiplayerInfo?.isDuel) {
+        ws.send({ type: 'publicDuel' });
+        mpStore.setState({ gameQueued: 'publicDuel' as const });
+      }
+      router.replace('/(tabs)/home');
+      return;
+    }
     router.replace({
       pathname: '/game/[id]',
       params: { id: 'singleplayer', map: 'all', rounds: '5', time: '60' },
@@ -486,6 +532,10 @@ export default function GameResultsScreen() {
   };
 
   const handleGoHome = () => {
+    if (isLiveMultiplayer) {
+      const { useMultiplayerStore: mpStore } = require('../../src/store/multiplayerStore');
+      mpStore.getState().reset();
+    }
     router.replace('/(tabs)/home');
   };
 

@@ -16,6 +16,9 @@ import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import { colors } from '../src/shared';
 import { useAuthStore } from '../src/store/authStore';
+import { useWebSocket } from '../src/hooks/useWebSocket';
+import ToastProvider from '../src/components/multiplayer/ToastProvider';
+import WsIndicator from '../src/components/multiplayer/WsIndicator';
 
 // Keep splash screen visible while fonts + assets load
 SplashScreen.preventAutoHideAsync();
@@ -38,6 +41,9 @@ export default function RootLayout() {
   });
 
   const [assetsLoaded, setAssetsLoaded] = useState(false);
+
+  // Establish WebSocket connection (persists across all screens)
+  useWebSocket();
 
   useEffect(() => {
     Asset.loadAsync(imageAssets).then(() => setAssetsLoaded(true));
@@ -85,12 +91,15 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen name="game/results" options={{ headerShown: false }} />
-          <Stack.Screen name="party/create" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="party/create" options={{ headerShown: false }} />
+          <Stack.Screen name="party/join" options={{ headerShown: false }} />
           <Stack.Screen name="party/[code]" options={{ headerShown: false }} />
           <Stack.Screen name="friends" options={{ presentation: 'modal' }} />
           <Stack.Screen name="history/[gameId]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="user/[username]" options={{ headerShown: false, animation: 'fade' }} />
         </Stack>
+        <ToastProvider />
+        <WsIndicator />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

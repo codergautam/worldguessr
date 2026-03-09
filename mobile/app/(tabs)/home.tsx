@@ -16,11 +16,14 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, getLeague } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
+import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
+import { wsService } from '../../src/services/websocket';
 import { api } from '../../src/services/api';
 import { spacing, borderRadius } from '../../src/styles/theme';
 import SetUsernameModal from '../../src/components/SetUsernameModal';
 import CountryFlag from '../../src/components/CountryFlag';
+import QueueOverlay from '../../src/components/multiplayer/QueueOverlay';
 
 type GameMode = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
 
@@ -227,6 +230,52 @@ export default function HomeScreen() {
     }
   }, [promptAsync, loginLoading, authLoading]);
 
+  // Multiplayer state
+  const gameQueued = useMultiplayerStore((s) => s.gameQueued);
+  const inGame = useMultiplayerStore((s) => s.inGame);
+  const gameState = useMultiplayerStore((s) => s.gameData?.state);
+  const playerCount = useMultiplayerStore((s) => s.playerCount);
+  const connected = useMultiplayerStore((s) => s.connected);
+  const nextGameQueued = useMultiplayerStore((s) => s.nextGameQueued);
+  const nextGameType = useMultiplayerStore((s) => s.nextGameType);
+
+  // Navigate when matched into an active game (duel queue, game start, reconnect)
+  const hasAutoNavigated = useRef(false);
+  const createdByButton = useRef(false);
+  useEffect(() => {
+    if (!inGame || !gameState) {
+      hasAutoNavigated.current = false;
+      return;
+    }
+    if (hasAutoNavigated.current) return;
+    if (gameState === 'waiting') {
+      // If user pressed "Create Game", they already navigated — skip
+      if (createdByButton.current) {
+        createdByButton.current = false;
+        return;
+      }
+      // Reconnect restored a waiting lobby — auto-open party screen
+      hasAutoNavigated.current = true;
+      router.push('/party/create');
+      return;
+    }
+    hasAutoNavigated.current = true;
+    router.push({
+      pathname: '/game/[id]',
+      params: { id: 'multiplayer' },
+    });
+  }, [inGame, gameState]);
+
+  // Handle auto re-queue after gameCancelled (opponent left before start)
+  useEffect(() => {
+    if (nextGameQueued && connected && !inGame && !gameQueued) {
+      useMultiplayerStore.setState({ nextGameQueued: false, nextGameType: null });
+      // Re-queue for ranked duel
+      wsService.send({ type: 'publicDuel' });
+      useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
+    }
+  }, [nextGameQueued, connected, inGame, gameQueued]);
+
   const handleModePress = (mode: GameMode) => {
     switch (mode) {
       case 'singleplayer':
@@ -236,20 +285,21 @@ export default function HomeScreen() {
         });
         break;
       case 'rankedDuel':
-        router.push({
-          pathname: '/game/[id]',
-          params: { id: 'ranked-duel', map: 'all', rounds: '5', time: '60' },
-        });
+        // Send queue message to WS server (ported from home.js:1172)
+        wsService.send({ type: 'publicDuel' });
+        useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
         break;
       case 'unrankedDuel':
-        router.push({
-          pathname: '/game/[id]',
-          params: { id: 'unranked-duel', map: 'all', rounds: '5', time: '60' },
-        });
+        // Send queue message to WS server (ported from home.js:1185)
+        wsService.send({ type: 'unrankedDuel' });
+        useMultiplayerStore.setState({ gameQueued: 'unrankedDuel' });
         break;
       case 'createGame':
+        createdByButton.current = true;
+        router.push('/party/create');
         break;
       case 'joinGame':
+        router.push('/party/join');
         break;
       case 'communityMaps':
         router.navigate('/(tabs)/maps');
@@ -681,6 +731,21 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         </ScrollView>
+
+        {/* Online player count — bottom right */}
+        {connected && playerCount > 0 && (
+          <View
+            style={[
+              styles.onlineCountContainer,
+              { bottom: Math.max(insets.bottom, spacing.lg) + 8, right: Math.max(insets.right, spacing.xl) },
+            ]}
+            pointerEvents="none"
+          >
+            <Text style={[styles.onlineCount, { fontSize: shortestSide >= 768 ? 20 : shortestSide >= 430 ? 17 : 15 }]}>
+              {'\u{1F7E2}'} {playerCount} online
+            </Text>
+          </View>
+        )}
       </SafeAreaView>
 
       {/* Moderation Popup - animated in after delay */}
@@ -793,6 +858,13 @@ export default function HomeScreen() {
 
       {/* Set Username Modal for new signups */}
       <SetUsernameModal />
+
+      {/* Queue overlay — shown while searching for a multiplayer match */}
+      {gameQueued && (
+        <QueueOverlay
+          onCancel={() => useMultiplayerStore.setState({ gameQueued: false })}
+        />
+      )}
     </View>
   );
 }
@@ -857,6 +929,13 @@ const styles = StyleSheet.create({
     color: 'black',
     left: 2,
     top: 2,
+  },
+  onlineCountContainer: {
+    position: 'absolute',
+  },
+  onlineCount: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontFamily: 'Lexend',
   },
   // Logged-in top row: [Username] [Friends]
   loggedInRow: {
