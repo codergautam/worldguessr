@@ -241,17 +241,20 @@ export const api = {
   storeGame: async (
     secret: string,
     gameData: {
+      official: boolean;
+      location: string;
       rounds: Array<{
         lat: number;
         long: number;
-        guessLat: number;
-        guessLong: number;
+        actualLat: number;
+        actualLong: number;
+        panoId?: string;
+        usedHint: boolean;
+        maxDist: number;
+        roundTime: number;
+        xp: number;
         points: number;
-        time: number;
       }>;
-      settings: GameSettings;
-      totalScore: number;
-      totalXp: number;
     }
   ) => {
     return fetchApi<{ success: boolean; gameId?: string }>('/api/storeGame', {
@@ -424,6 +427,12 @@ export const api = {
       }>;
       maxDist?: number;
     }>(`/countryLocations/${countryCode}`);
+  },
+
+  trackMapPlay: async (slug: string) => {
+    try {
+      await fetch(`${API_URL}/mapPlay/${encodeURIComponent(slug)}`, { method: 'POST' });
+    } catch {}
   },
 
   fetchMapLocations: async (mapSlug: string) => {

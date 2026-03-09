@@ -1,16 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated } from 'react-native';
+import { Text, StyleSheet, Animated, Platform } from 'react-native';
 import { colors } from '../../shared';
-import { fontSizes, borderRadius, spacing } from '../../styles/theme';
+import { fontSizes } from '../../styles/theme';
 
 interface GameTimerProps {
   timeRemaining: number;
   onTimeUp: () => void;
   isPaused?: boolean;
   roundKey?: number;
+  currentRound: number;
+  totalRounds: number;
+  totalScore: number;
+  showTimer?: boolean;
 }
 
-export default function GameTimer({ timeRemaining: initialTime, onTimeUp, isPaused, roundKey }: GameTimerProps) {
+export default function GameTimer({
+  timeRemaining: initialTime,
+  onTimeUp,
+  isPaused,
+  roundKey,
+  currentRound,
+  totalRounds,
+  totalScore,
+  showTimer = true,
+}: GameTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState(initialTime);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -21,7 +34,7 @@ export default function GameTimer({ timeRemaining: initialTime, onTimeUp, isPaus
 
   // Timer countdown
   useEffect(() => {
-    if (isPaused || timeRemaining <= 0) return;
+    if (!showTimer || isPaused || timeRemaining <= 0) return;
 
     const interval = setInterval(() => {
       setTimeRemaining((prev) => {
@@ -35,31 +48,31 @@ export default function GameTimer({ timeRemaining: initialTime, onTimeUp, isPaus
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPaused, timeRemaining, onTimeUp]);
+  }, [showTimer, isPaused, timeRemaining, onTimeUp]);
 
-  // Pulse animation when time is low
+  // Pulse animation when critical (<=5s)
+  const isCritical = showTimer && timeRemaining <= 5 && timeRemaining > 0 && !isPaused;
   useEffect(() => {
-    if (timeRemaining <= 10 && timeRemaining > 0 && !isPaused) {
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.2,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+    if (isCritical) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.05,
+            duration: 500,
+            useNativeDriver: false,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: false,
+          }),
+        ]),
+      ).start();
+    } else {
+      pulseAnim.stopAnimation();
+      pulseAnim.setValue(1);
     }
-  }, [timeRemaining, isPaused]);
-
-  const getTimerColor = () => {
-    if (timeRemaining <= 5) return colors.error;
-    if (timeRemaining <= 10) return colors.warning;
-    return colors.white;
-  };
+  }, [isCritical]);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -70,32 +83,93 @@ export default function GameTimer({ timeRemaining: initialTime, onTimeUp, isPaus
   return (
     <Animated.View
       style={[
-        styles.container,
+        styles.pill,
+        isCritical && styles.pillCritical,
         { transform: [{ scale: pulseAnim }] },
-        timeRemaining <= 10 && styles.containerUrgent,
       ]}
     >
-      <Text style={[styles.time, { color: getTimerColor() }]}>
-        {formatTime(timeRemaining)}
+      <Text style={styles.roundLabel}>
+        Round {currentRound} of {totalRounds}
+      </Text>
+      <Text style={styles.mainRow}>
+        {showTimer && timeRemaining > 0 ? (
+          <>
+            <Text style={[styles.countdown, isCritical && styles.countdownCritical]}>
+              {formatTime(timeRemaining)}s
+            </Text>
+            <Text style={styles.separator}> · </Text>
+          </>
+        ) : null}
+        <Text style={styles.points}>{totalScore.toLocaleString()}</Text>
+        <Text style={styles.pointsLabel}> pts</Text>
       </Text>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    minWidth: 60,
+  pill: {
+    backgroundColor: Platform.OS === 'android' ? '#1a4423' : colors.primaryTransparent,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
     alignItems: 'center',
+    gap: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+      },
+      android: { elevation: 8 },
+    }),
   },
-  containerUrgent: {
-    backgroundColor: 'rgba(239, 68, 68, 0.3)',
+  pillCritical: {
+    backgroundColor: 'rgba(220, 100, 100, 0.9)',
+    borderColor: 'rgba(255, 200, 200, 0.5)',
+    ...Platform.select({
+      ios: {
+        shadowColor: 'rgba(220, 100, 100, 0.4)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 1,
+        shadowRadius: 20,
+      },
+    }),
   },
-  time: {
-    fontSize: fontSizes.lg,
-    fontFamily: 'Lexend-Bold',
+  roundLabel: {
+    color: colors.white,
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: fontSizes.xs,
+    opacity: 0.75,
+    letterSpacing: 0.6,
+  },
+  mainRow: {
+    color: colors.white,
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: fontSizes.md,
+    letterSpacing: 0.3,
+  },
+  countdown: {
+    fontFamily: 'Lexend-SemiBold',
+    fontVariant: ['tabular-nums'],
+    color: colors.white,
+  },
+  countdownCritical: {
+    color: '#fff',
+  },
+  separator: {
+    color: 'rgba(255, 255, 255, 0.6)',
+  },
+  points: {
+    color: colors.white,
+    fontFamily: 'Lexend-SemiBold',
+  },
+  pointsLabel: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontFamily: 'Lexend-SemiBold',
   },
 });

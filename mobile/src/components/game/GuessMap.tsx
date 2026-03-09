@@ -55,18 +55,32 @@ export default function GuessMap({
   const touchStart = useRef({ x: 0, y: 0, time: 0 });
   const lastFastTap = useRef(0);
 
-  // When showing result, fit both markers in view
+  // When showing result, fit markers in view (or pan to actual if no guess)
   useEffect(() => {
-    if (actualPosition && guessPosition && mapRef.current) {
-      const coordinates = [
-        { latitude: guessPosition.lat, longitude: guessPosition.lng },
-        { latitude: actualPosition.lat, longitude: actualPosition.lng },
-      ];
+    if (!actualPosition || !mapRef.current) return;
 
-      mapRef.current.fitToCoordinates(coordinates, {
-        edgePadding: { top: 120, right: 120, bottom:300, left: 120 },
-        animated: true,
-      });
+    if (guessPosition) {
+      mapRef.current.fitToCoordinates(
+        [
+          { latitude: guessPosition.lat, longitude: guessPosition.lng },
+          { latitude: actualPosition.lat, longitude: actualPosition.lng },
+        ],
+        {
+          edgePadding: { top: 120, right: 120, bottom: 300, left: 120 },
+          animated: true,
+        },
+      );
+    } else {
+      // No guess — just show actual location
+      mapRef.current.animateToRegion(
+        {
+          latitude: actualPosition.lat,
+          longitude: actualPosition.lng,
+          latitudeDelta: 5,
+          longitudeDelta: 5,
+        },
+        400,
+      );
     }
   }, [actualPosition, guessPosition]);
 

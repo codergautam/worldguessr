@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, calcPoints, findDistance } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { api } from '../../src/services/api';
+import { useAuthStore } from '../../src/store/authStore';
 
 import StreetViewWebView from '../../src/components/game/StreetViewWebView';
 import GuessMap from '../../src/components/game/GuessMap';
@@ -34,6 +35,18 @@ async function getOfficialCountryMaps(): Promise<any[]> {
     officialCountryMapsCache = [];
   }
   return officialCountryMapsCache!;
+}
+
+let countryMaxDistsCache: Record<string, number> | null = null;
+async function getCountryMaxDists(): Promise<Record<string, number>> {
+  if (countryMaxDistsCache) return countryMaxDistsCache;
+  try {
+    const res = await fetch('https://worldguessr.com/countryMaxDists.json');
+    countryMaxDistsCache = await res.json();
+  } catch {
+    countryMaxDistsCache = {};
+  }
+  return countryMaxDistsCache!;
 }
 
 interface Location {
@@ -90,6 +103,7 @@ export default function GameScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSingleplayer = id === 'singleplayer';
+  const secret = useAuthStore((s) => s.secret);
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -314,10 +328,15 @@ export default function GameScreen() {
           setCurrentMapName('All Countries');
         } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
           data = await api.fetchCountryLocations(mapSlug);
-          // Look up country name from officialCountryMaps
-          const officialCountryMaps = await getOfficialCountryMaps();
+          // Look up country name + maxDist from hosted JSON (matches web countryMaxDists import)
+          const [officialCountryMaps, countryMaxDists] = await Promise.all([
+            getOfficialCountryMaps(),
+            getCountryMaxDists(),
+          ]);
           const countryEntry = officialCountryMaps.find((m: any) => m.countryCode === mapSlug);
           setCurrentMapName(countryEntry?.name || mapSlug);
+          // Attach maxDist so it's picked up below
+          data.maxDist = countryMaxDists[mapSlug] ?? DEFAULT_GAME_OPTIONS.maxDist;
         } else {
           data = await api.fetchMapLocations(mapSlug);
           setCurrentMapName((data as any).name || mapSlug);
@@ -343,10 +362,9 @@ export default function GameScreen() {
         if (mapSlug === 'all') {
           extent = null; // World view
         } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
+          // officialCountryMaps already fetched above (cached)
           const officialCountryMaps = await getOfficialCountryMaps();
-          const countryMap = officialCountryMaps.find(
-            (m: any) => m.countryCode === mapSlug
-          );
+          const countryMap = officialCountryMaps.find((m: any) => m.countryCode === mapSlug);
           extent = countryMap?.extent ?? null;
         } else {
           // Community map — compute bounding box from all locations
@@ -369,6 +387,11 @@ export default function GameScreen() {
         }));
         setIsLoading(false);
         roundStartTimeRef.current = Date.now();
+
+        // Track map play (matches web behavior — skip default "all" map)
+        if (mapSlug !== 'all') {
+          api.trackMapPlay(mapSlug);
+        }
       } catch (error) {
         console.error('Failed to fetch locations:', error);
         setLoadError(error instanceof Error ? error.message : 'Failed to load game');
@@ -458,6 +481,27 @@ export default function GameScreen() {
 
   const handleNextRound = useCallback(() => {
     if (gameState.currentRound >= gameState.totalRounds) {
+      // Store game if logged in (matches web gameUI.js behavior)
+      if (secret && isSingleplayer && gameState.guesses.length > 0) {
+        const isOfficial = currentMapSlug === 'all' || (currentMapSlug.length === 2 && currentMapSlug === currentMapSlug.toUpperCase());
+        api.storeGame(secret, {
+          official: isOfficial,
+          location: currentMapName,
+          rounds: gameState.guesses.map((g) => ({
+            lat: g.guessLat,
+            long: g.guessLong,
+            actualLat: g.actualLat,
+            actualLong: g.actualLong,
+            panoId: g.panoId,
+            usedHint: false,
+            maxDist: gameState.maxDist,
+            roundTime: g.timeTaken,
+            xp: isOfficial ? Math.round(g.points / 50) : 0,
+            points: g.points,
+          })),
+        }).catch(() => {});
+      }
+
       router.push({
         pathname: '/game/results',
         params: {
@@ -491,7 +535,7 @@ export default function GameScreen() {
       setMiniMapShown(false);
       roundStartTimeRef.current = Date.now();
     });
-  }, [gameState, router]);
+  }, [gameState, router, secret, isSingleplayer, currentMapSlug, currentMapName]);
 
   const handleQuit = () => {
     router.replace('/(tabs)/home');
@@ -565,7 +609,7 @@ export default function GameScreen() {
           )}
         </View>
 
-        {/* Round/score pill + map selector - top right */}
+        {/* Round/score/timer pill + map selector - top right */}
         {!gameState.isShowingResult && (
           <SafeAreaView style={[styles.timerContainer, { paddingRight: Math.max(insets.right, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
             {/* Map selector button (singleplayer only) */}
@@ -580,22 +624,16 @@ export default function GameScreen() {
                 <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.7)" />
               </Pressable>
             )}
-            <View style={styles.timerPill}>
-              <Text style={styles.timerText}>
-                Round {gameState.currentRound}/{gameState.totalRounds}
-              </Text>
-              <Text style={styles.timerScore}>
-                {gameState.totalScore.toLocaleString()} pts
-              </Text>
-            </View>
-            {(!isSingleplayer || (isSingleplayer && timerEnabled)) && (
-              <GameTimer
-                timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
-                onTimeUp={handleTimeUp}
-                isPaused={gameState.isShowingResult || mapModalVisible}
-                roundKey={gameState.currentRound}
-              />
-            )}
+            <GameTimer
+              timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
+              onTimeUp={handleTimeUp}
+              isPaused={gameState.isShowingResult || mapModalVisible}
+              roundKey={gameState.currentRound}
+              currentRound={gameState.currentRound}
+              totalRounds={gameState.totalRounds}
+              totalScore={gameState.totalScore}
+              showTimer={!isSingleplayer || timerEnabled}
+            />
           </SafeAreaView>
         )}
 
@@ -764,9 +802,11 @@ export default function GameScreen() {
 
               {/* Distance text */}
               <Text style={styles.endBannerDistance}>
-                {lastGuess.distance >= 1
-                  ? `Your guess was ${formatDist(lastGuess.distance)} away`
-                  : `Your guess was ${Math.round(lastGuess.distance * 1000)} m away`
+                {lastGuess.guessLat === 0 && lastGuess.guessLong === 0
+                  ? "You didn't guess"
+                  : lastGuess.distance >= 1
+                    ? `Your guess was ${formatDist(lastGuess.distance)} away`
+                    : `Your guess was ${Math.round(lastGuess.distance * 1000)} m away`
                 }
               </Text>
 
@@ -902,35 +942,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-SemiBold',
     fontSize: fontSizes.xs,
     flexShrink: 1,
-  },
-  timerPill: {
-    backgroundColor: Platform.OS === 'android' ? '#1a4423' : colors.primaryTransparent,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.35,
-        shadowRadius: 16,
-      },
-      android: { elevation: 8 },
-    }),
-  },
-  timerText: {
-    color: colors.white,
-    fontFamily: 'Lexend-SemiBold',
-    fontSize: fontSizes.sm,
-    letterSpacing: 0.3,
-  },
-  timerScore: {
-    color: colors.textSecondary,
-    fontFamily: 'Lexend-SemiBold',
-    fontSize: fontSizes.xs,
   },
 
   // ── Back button (top left) — matches web red navbar back btn ──
