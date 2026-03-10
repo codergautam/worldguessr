@@ -1441,6 +1441,27 @@ try {
         }
 
       } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
+        // 1-second buffer for late-arriving guesses due to network latency.
+        // Players who click guess at the last second may have their packet
+        // arrive after the timer expires on the server.
+        if (!game.roundEndedAt) {
+          game.roundEndedAt = Date.now();
+        }
+
+        // Skip buffer if all players already submitted final guesses
+        let allFinal = true;
+        for (const p of Object.values(game.players)) {
+          if (!p.final) {
+            allFinal = false;
+            break;
+          }
+        }
+
+        if (!allFinal && Date.now() - game.roundEndedAt < 500) {
+          continue; // Still in grace period, accept late guesses
+        }
+
+        game.roundEndedAt = null;
         game.givePoints();
         game.saveRoundToHistory(); // Save the round data after points are calculated
         if(game.curRound <= game.rounds) {

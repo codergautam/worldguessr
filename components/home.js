@@ -1968,6 +1968,14 @@ export default function Home({ }) {
         if (!multiplayerState.inGame || multiplayerState.gameData?.state !== "guess" || !pinPoint) return;
         const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
 
+        // Optimistically update local player state so UI updates instantly
+        const me = multiplayerState.gameData.players.find(p => p.id === multiplayerState.gameData.myId);
+        if (me) {
+            me.final = true;
+            me.latLong = pinpointLatLong;
+        }
+        setMultiplayerChatEnabled(true);
+
         ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true }))
     }
 

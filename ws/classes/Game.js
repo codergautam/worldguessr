@@ -47,6 +47,7 @@ export default class Game {
     this.readyToEnd = false;
     this.roundHistory = []; // Store guess history for each round
     this.roundStartTimes = {}; // Track when each round started for each player
+    this.roundEndedAt = null; // Track when guess phase timer expired (for late guess buffer)
     this.disconnectedPlayer = null; // Track disconnected player for ranked duels
     this.rankedDuelPersistentData = {}; // Store persistent player data for ranked duels only
     this.saveInProgress = false; // Track if MongoDB save is in progress
@@ -361,6 +362,7 @@ export default class Game {
       player.final = false;
       player.roundTimeTaken = null; // Reset time for new round
     }
+    this.roundEndedAt = null; // Reset late guess buffer
     // Track when this round's guessing phase starts for time calculation
     this.roundStartTimes[this.curRound] = Date.now();
   }
