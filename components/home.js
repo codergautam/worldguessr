@@ -2172,12 +2172,20 @@ export default function Home({ }) {
         } else {
             setMultiplayerChatEnabled(false)
 
-            setScreen("home");
-            setGameOptions((prev) => ({
-                ...prev,
-                extent: null
-            }))
-            clearLocation();
+            const afterBack = () => {
+                setScreen("home");
+                setGameOptions((prev) => ({
+                    ...prev,
+                    extent: null
+                }))
+                clearLocation();
+            };
+            // Show midgame ad when leaving an active singleplayer game
+            if (screen === "singleplayer") {
+                crazyMidgame(afterBack);
+            } else {
+                afterBack();
+            }
         }
     }
 

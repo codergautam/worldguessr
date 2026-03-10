@@ -163,15 +163,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         console.log("Failed sending start event to CoolMathGames", e)
       }
       }
-    // this is now disabled due to issues with afterAd() not being called / next round button not working
-    if(false && window.show_videoad && !session?.token?.supporter) {
-      window.show_videoad((state) =>{
-        if(!['DISABLED', 'COOLDOWN'].includes(state)) {
-      toast.info(text("watchingAdsSupport"))
-        }
-
+    // Show GD midgame ad between singleplayer rounds (not on game-over/play-again which already shows an ad)
+    if(inGameDistribution && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
+      window.crazyMidgame(() => {
         afterAd()
-
         loadLocationFuncRaw()
       });
     } else {
@@ -501,6 +496,38 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       return;
     }
 
+    // GameDistribution: use rewarded ad for hints
+    if (inGameDistribution && typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
+      setHintLoading(true);
+      console.log('[GD] Requesting rewarded ad for hint...');
+      window.onGDRewardedComplete = () => {
+        console.log('[GD] Rewarded ad complete, granting hint');
+        window.onGDRewardedComplete = null;
+        grantHint();
+      };
+      // If ad fails/cancelled, SDK_GAME_START fires via onGDResumeGame — reset loading
+      const origResume = window.onGDResumeGame;
+      window.onGDResumeGame = () => {
+        window.onGDResumeGame = origResume;
+        if (origResume) origResume();
+        // If rewarded callback wasn't called, ad was skipped/errored
+        if (window.onGDRewardedComplete) {
+          console.log('[GD] Rewarded ad not completed, resetting');
+          window.onGDRewardedComplete = null;
+          setHintLoading(false);
+        }
+      };
+      try {
+        gdsdk.showAd('rewarded');
+      } catch (e) {
+        console.error('[GD] showAd rewarded error:', e);
+        window.onGDRewardedComplete = null;
+        window.onGDResumeGame = origResume;
+        grantHint();
+      }
+      return;
+    }
+
     if (!isApplixirEnabled || inCrazyGames || inCoolMathGames || inGameDistribution || !window.initializeAndOpenPlayer) {
       console.log('[Applixir] Skipping ad — showing hint directly');
       grantHint();
@@ -794,7 +821,7 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''} ${hintLoading ? 'hintLoading' : ''}`} style={hintLimitReached ? {display:'none'} : hintLoading ? {backgroundColor:'#888', pointerEvents:'none'} : {}} onClick={showHint}>{isApplixirEnabled && hasUsedHintBefore && (hintLoading ? <FaSpinner size={16} className="spinIcon" style={{marginRight: '6px', flexShrink: 0, animation: 'spin 1s linear infinite'}} /> : <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />)}{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''} ${hintLoading ? 'hintLoading' : ''}`} style={hintLimitReached ? {display:'none'} : hintLoading ? {backgroundColor:'#888', pointerEvents:'none'} : {}} onClick={showHint}>{(isApplixirEnabled || inGameDistribution) && hasUsedHintBefore && (hintLoading ? <FaSpinner size={16} className="spinIcon" style={{marginRight: '6px', flexShrink: 0, animation: 'spin 1s linear infinite'}} /> : <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />)}{text('hint')}</button>
           )}
         </div>
       </div>
@@ -809,7 +836,7 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''} ${hintLoading ? 'hintLoading' : ''}`} style={hintLimitReached ? {display:'none'} : hintLoading ? {backgroundColor:'#888', pointerEvents:'none'} : {}} onClick={showHint}>{isApplixirEnabled && hasUsedHintBefore && (hintLoading ? <FaSpinner size={16} className="spinIcon" style={{marginRight: '6px', flexShrink: 0, animation: 'spin 1s linear infinite'}} /> : <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />)}{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''} ${hintLoading ? 'hintLoading' : ''}`} style={hintLimitReached ? {display:'none'} : hintLoading ? {backgroundColor:'#888', pointerEvents:'none'} : {}} onClick={showHint}>{(isApplixirEnabled || inGameDistribution) && hasUsedHintBefore && (hintLoading ? <FaSpinner size={16} className="spinIcon" style={{marginRight: '6px', flexShrink: 0, animation: 'spin 1s linear infinite'}} /> : <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />)}{text('hint')}</button>
           )}
           </>
         )}
