@@ -3010,7 +3010,7 @@ export default function Home({ }) {
                             }
 
                             setOnboarding(null)
-                            if (!window.location.search.includes("app=true") && !inCrazyGames && !inCoolMathGames) {
+                            if (!window.location.search.includes("app=true") && !inCrazyGames && !inCoolMathGames && !inGameDistribution) {
                                 setShowSuggestLoginModal(true)
                             }
                             setScreen("home")
