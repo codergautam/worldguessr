@@ -7,7 +7,7 @@ import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
-import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown, FaClapperboard } from "react-icons/fa6";
+import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown, FaClapperboard, FaSpinner } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
 import OnboardingText from "./onboardingText";
@@ -130,6 +130,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         })
       } else if(setSinglePlayerRound) {
         // reset to default
+        setHintsUsedThisGame(0);
         setSinglePlayerRound({
           round: 1,
           totalRounds: 5,
@@ -204,6 +205,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
+  const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
+  const [hintLoading, setHintLoading] = useState(false);
 
 
    const isStartingDuel = (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)
@@ -439,7 +442,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   }, [loading, latLong, width])
 
-  const isApplixirEnabled = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('applixirtest') === 'true';
+  const isApplixirEnabled = typeof window !== 'undefined';
 
   useEffect(() => {
     if (!isApplixirEnabled || inCrazyGames || inCoolMathGames || inGameDistribution) {
@@ -476,13 +479,34 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     document.head.appendChild(ima);
   }, []);
 
+  const hasUsedHintBefore = typeof window !== 'undefined' && gameStorage.getItem("hasUsedHint") === "true";
+  const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
+
   function showHint() {
-    console.log('[Applixir] showHint called — enabled:', isApplixirEnabled, 'initializeAndOpenPlayer:', typeof window.initializeAndOpenPlayer);
-    if (!isApplixirEnabled || inCrazyGames || inCoolMathGames || inGameDistribution || !window.initializeAndOpenPlayer) {
-      console.log('[Applixir] Skipping ad — showing hint directly');
+    if (hintLimitReached || hintLoading) return;
+
+    function grantHint() {
       setHintShown(true);
+      setHintLoading(false);
+      setHintsUsedThisGame((prev) => prev + 1);
+      gameStorage.setItem("hasUsedHint", "true");
+    }
+
+    console.log('[Applixir] showHint called — enabled:', isApplixirEnabled, 'initializeAndOpenPlayer:', typeof window.initializeAndOpenPlayer);
+
+    // First-time hint is free (no ad)
+    if (!hasUsedHintBefore) {
+      console.log('[Hint] First-time hint — skipping ad');
+      grantHint();
       return;
     }
+
+    if (!isApplixirEnabled || inCrazyGames || inCoolMathGames || inGameDistribution || !window.initializeAndOpenPlayer) {
+      console.log('[Applixir] Skipping ad — showing hint directly');
+      grantHint();
+      return;
+    }
+    setHintLoading(true);
     console.log('[Applixir] Requesting ad...');
     const options = {
       apiKey: "7efcd3be-af05-43a7-89ec-d13d9e88b544",
@@ -490,19 +514,19 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       adStatusCallbackFn: (status) => {
         console.log('[Applixir] Ad status:', status.type);
         if (status.type === "complete" || status.type === "allAdsCompleted") {
-          setHintShown(true);
+          grantHint();
         }
       },
       adErrorCallbackFn: (error) => {
         console.error('[Applixir] Ad error:', error?.getError?.()?.data);
-        setHintShown(true);
+        grantHint();
       },
     };
     // Safety net for unhandled async errors inside AppLixir
     const onReject = (e) => {
       if (e.reason?.message?.includes('AdDisplayContainer') || e.reason?.message?.includes('ima')) {
         console.error('[Applixir] Async error caught, showing hint:', e.reason);
-        setHintShown(true);
+        grantHint();
         window.removeEventListener('unhandledrejection', onReject);
       }
     };
@@ -512,12 +536,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     } catch (e) {
       console.error('[Applixir] initializeAndOpenPlayer threw:', e);
       window.removeEventListener('unhandledrejection', onReject);
-      setHintShown(true);
+      grantHint();
     }
   }
   useEffect(() => {
     loadLocation()
     if(singlePlayerRound) {
+      setHintsUsedThisGame(0);
       setSinglePlayerRound({
         round: 1,
         totalRounds: 5,
@@ -769,7 +794,7 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>{isApplixirEnabled && <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />}{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''} ${hintLoading ? 'hintLoading' : ''}`} style={hintLimitReached ? {display:'none'} : hintLoading ? {backgroundColor:'#888', pointerEvents:'none'} : {}} onClick={showHint}>{isApplixirEnabled && hasUsedHintBefore && (hintLoading ? <FaSpinner size={16} className="spinIcon" style={{marginRight: '6px', flexShrink: 0, animation: 'spin 1s linear infinite'}} /> : <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />)}{text('hint')}</button>
           )}
         </div>
       </div>
@@ -784,7 +809,7 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>{isApplixirEnabled && <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />}{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''} ${hintLoading ? 'hintLoading' : ''}`} style={hintLimitReached ? {display:'none'} : hintLoading ? {backgroundColor:'#888', pointerEvents:'none'} : {}} onClick={showHint}>{isApplixirEnabled && hasUsedHintBefore && (hintLoading ? <FaSpinner size={16} className="spinIcon" style={{marginRight: '6px', flexShrink: 0, animation: 'spin 1s linear infinite'}} /> : <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />)}{text('hint')}</button>
           )}
           </>
         )}
@@ -897,7 +922,7 @@ session={session}/>
         {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (() => {
           // Double-check with fresh calculation to prevent flicker on slow devices
           // when state changes but timeToNextMultiplayerEvt hasn't been updated yet
-          const freshTime = multiplayerState?.gameData?.nextEvtTime 
+          const freshTime = multiplayerState?.gameData?.nextEvtTime
             ? Math.max(0, Math.floor(((multiplayerState.gameData.nextEvtTime - Date.now()) - timeOffset) / 100) / 10)
             : 0;
           return freshTime > 0 && freshTime < 5;
