@@ -1,5 +1,5 @@
 import HeadContent from "@/components/headContent";
-import { FaDiscord, FaGithub, FaBook } from "react-icons/fa";
+import { FaDiscord, FaBook } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import retryManager from "@/components/utils/retryFetch";
@@ -2864,16 +2864,7 @@ export default function Home({ }) {
 
                                         {!inCrazyGames && (
                                             <>
-                                                {/* <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link> */}
-                                                <Link target="_blank" className="desktop" href={"https://www.coolmathgames.com/0-worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames">
-                                                    {/* Todo; include coolmath logo here; url is /cmlogo.png*/}
-
-                                                    <NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" />
-
-                                                </button>
-                                                </Link>
-
-                                                <Link target="_blank" className="" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
+                                                <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
                                             </>
                                         )}
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
