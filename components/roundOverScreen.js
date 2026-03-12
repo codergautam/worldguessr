@@ -3,6 +3,7 @@ import dynamic from 'next/dynamic';
 import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
+import { getPinIcons } from '@/lib/markerIcons';
 import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag } from "react-icons/fa";
 import msToTime from "./msToTime";
 import formatTime from "../utils/formatTime";
@@ -91,7 +92,7 @@ const GameSummary = ({
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
-  const src2IconRef = useRef(null); // Green icon for opponent markers
+  const src2IconRef = useRef(null);
   const roundsContainerRef = useRef(null);
 
   // Animation states for duel
@@ -101,34 +102,16 @@ const GameSummary = ({
   const [stars, setStars] = useState([]);
   const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
 
-  // Initialize Leaflet icons when available
+  // Initialize Leaflet icons from shared cache (icons created once globally)
   useEffect(() => {
     const checkLeaflet = () => {
-      if (typeof window !== 'undefined' && window.L) {
-        destIconRef.current = window.L.icon({
-          iconUrl: asset('/dest.png'),
-          iconSize: [30, 49],
-          iconAnchor: [15, 49],
-          popupAnchor: [1, -34],
-        });
-
-        srcIconRef.current = window.L.icon({
-          iconUrl: asset('/src.png'),
-          iconSize: [30, 49],
-          iconAnchor: [15, 49],
-          popupAnchor: [1, -34],
-        });
-
-        src2IconRef.current = window.L.icon({
-          iconUrl: asset('/src2.png'),
-          iconSize: [30, 49],
-          iconAnchor: [15, 49],
-          popupAnchor: [1, -34],
-        });
-
+      const icons = getPinIcons();
+      if (icons) {
+        destIconRef.current = icons.dest;
+        srcIconRef.current = icons.src;
+        src2IconRef.current = icons.src2;
         setLeafletReady(true);
       } else {
-        // Retry if Leaflet isn't loaded yet
         setTimeout(checkLeaflet, 100);
       }
     };
@@ -152,7 +135,7 @@ const GameSummary = ({
 
       const animate = () => {
         if (cancelled) return;
-        
+
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
@@ -872,7 +855,9 @@ const GameSummary = ({
               />
 
               <TileLayer
-                url={`https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}`}
+                url={`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
+                subdomains={['0', '1', '2', '3']}
+                maxZoom={22}
               />
 
               {finalHistory.map((round, index) => {
@@ -1292,7 +1277,9 @@ const GameSummary = ({
           />
 
           <TileLayer
-            url={`https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}`}
+            url={`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
+            subdomains={['0', '1', '2', '3']}
+            maxZoom={22}
           />
 
           {finalHistory.map((round, index) => {

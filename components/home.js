@@ -28,6 +28,7 @@ import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
 import { asset, navigate, stripBase } from '@/lib/basePath';
+import { preloadPinImages } from '@/lib/markerIcons';
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
@@ -2010,11 +2011,8 @@ export default function Home({ }) {
                 }
             }
 
-            // preload/cache pin images
-            ['/src.png', '/dest.png', '/src2.png', '/polandball.png'].forEach((p) => {
-                const img = new Image();
-                img.src = asset(p);
-            });
+            // preload/cache pin images (kept alive in window.__pinImageCache)
+            preloadPinImages();
         } catch (e) { }
 
     }, [])
