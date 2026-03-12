@@ -564,6 +564,7 @@ export default function Home({ }) {
         } else if ( // check if domain is worldguessr.com
             typeof window !== "undefined" &&
             window.location.hostname === "worldguessr.com"
+            || window.location.hostname === "www.worldguessr.com"
         ) {
             return "worldguessr";
         } else {
@@ -577,7 +578,9 @@ export default function Home({ }) {
                     return "unknown_iframe";
                 }
             } else {
-                return "unknown";
+                if(typeof window !== "undefined" && window.location && window.location.hostname) {
+                    return window.location.hostname.slice(0, 20);
+                } else return "unknown";
             }
 
         }
