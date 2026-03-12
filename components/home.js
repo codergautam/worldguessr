@@ -4,7 +4,7 @@ import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import retryManager from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
@@ -100,7 +100,12 @@ export default function Home({ }) {
     const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true, timePerRound: 0 }) // rate limit fix: showRoadName true
     const [showAnswer, setShowAnswer] = useState(false)
 
-    const [pinPoint, setPinPoint] = useState(null)
+    const [pinPoint, setPinPointState] = useState(null)
+    const pinPointRef = useRef(null)
+    const setPinPoint = useCallback((val) => {
+        pinPointRef.current = val
+        setPinPointState(val)
+    }, [])
     const [hintShown, setHintShown] = useState(false)
     const [countryStreak, setCountryStreak] = useState(0)
     const [settingsModal, setSettingsModal] = useState(false)
@@ -1965,11 +1970,18 @@ export default function Home({ }) {
 
     function guessMultiplayer(send) {
         if (!send) return;
-        if (!multiplayerState.inGame || multiplayerState.gameData?.state !== "guess" || !pinPoint) return;
-        const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
+        // Use the ref to always get the latest pinPoint, avoiding stale closure issues
+        // where pinPoint from a previous render (or even previous round) could be sent
+        const latestPinPoint = pinPointRef.current;
+        if (!multiplayerState.inGame || multiplayerState.gameData?.state !== "guess" || !latestPinPoint) return;
+
+        // Prevent duplicate sends (e.g. space bar spam) — check optimistic final flag
+        const me = multiplayerState.gameData.players.find(p => p.id === multiplayerState.gameData.myId);
+        if (me?.final) return;
+
+        const pinpointLatLong = [latestPinPoint.lat, latestPinPoint.lng];
 
         // Optimistically update local player state so UI updates instantly
-        const me = multiplayerState.gameData.players.find(p => p.id === multiplayerState.gameData.myId);
         if (me) {
             me.final = true;
             me.latLong = pinpointLatLong;

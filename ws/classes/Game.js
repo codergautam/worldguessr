@@ -521,8 +521,19 @@ export default class Game {
       return;
     }
 
-    player.final = final;
-    player.guess = latLong;
+    if (final) {
+      player.final = true;
+      // When marking as final, prefer the coordinates already set by the most
+      // recent interim placement (final:false) — those come directly from the
+      // Leaflet click event and are always accurate.  The final:true message's
+      // coordinates can be stale due to React closure timing, so only use them
+      // as a fallback when no interim guess exists.
+      if (!player.guess) {
+        player.guess = latLong;
+      }
+    } else {
+      player.guess = latLong;
+    }
 
     // Track time taken for this round when player makes final guess
     if(final && this.roundStartTimes[this.curRound]) {
@@ -535,7 +546,7 @@ export default class Game {
         type: 'place',
         id: playerId,
         final: true,
-        latLong
+        latLong: player.guess
       });
 
       this.checkRemaining();
