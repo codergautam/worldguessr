@@ -478,7 +478,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
 
   function showHint() {
-    if (hintLimitReached || hintLoading) return;
+    if (hintLimitReached || hintLoading || hintShown) return;
 
     function grantHint() {
       setHintShown(true);
@@ -541,6 +541,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       adStatusCallbackFn: (status) => {
         console.log('[Applixir] Ad status:', status.type);
         if (status.type === "complete" || status.type === "allAdsCompleted") {
+          grantHint();
+        } else if (status.type === "manuallyEnded" || status.type === "skipped" || status.type === "consentDeclined") {
+          console.warn('[Applixir] Ad ended without completion:', status.type);
+          setHintLoading(false);
+        } else if (status.type === "thankYouModalClosed") {
+          // Thank you modal shown after ad — grant hint if not already granted
           grantHint();
         }
       },

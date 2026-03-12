@@ -24,8 +24,9 @@ function HintCircle({ location, gameOptions, round }) {
     zoom: () => setZoom(map.getZoom()),
   });
 
-  // 100px at zoom 1, doubles each zoom level
-  const ogRadius = 75
+  // Scale hint circle with maxDist (75px base at 20000km world map)
+  const maxDist = gameOptions?.maxDist ?? 20000;
+  const ogRadius = 75 * (maxDist / 20000);
   const pixelRadius = ogRadius * Math.pow(2, zoom - 1);
   // Offset the center by 0 to pixelRadius in a random direction (sqrt for uniform area distribution)
   const seed = (round ?? 1) + Math.abs(location.lat * ogRadius + location.long * ogRadius);
