@@ -1602,15 +1602,4 @@
     margin-left: 0 !important;
   }
 
-  /* Hide make map button on short screens */
-  .map-create-btn {
-    display: none !important;
-  }
-}
-
-/* Hide make map button on mobile screens */
-@media (max-width: 600px) {
-  .map-create-btn {
-    display: none !important;
-  }
 }
