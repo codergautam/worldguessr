@@ -28,6 +28,8 @@ export default class Player {
     this.receivedReq = [];
     this.allowFriendReq = true;
 
+    this.platform = "empty";
+
     this.disconnected = false;
     this.disconnectTime =0;
 
@@ -59,6 +61,7 @@ export default class Player {
       elo: this.elo,
       league: this.league,
       banned: this.banned,
+      platform: this.platform,
     }
   }
 
@@ -85,6 +88,10 @@ export default class Player {
         });
   }
   async verify(json) {
+    // Track client platform (max 20 chars, default "empty")
+    if (typeof json.platform === 'string' && json.platform.length <= 20) {
+      this.platform = json.platform;
+    }
 
     const handleReconnect = async (dcPlayerId, rejoinCode, accountId = null) => {
       const dcPlayer = players.get(dcPlayerId);
@@ -131,6 +138,7 @@ export default class Player {
       dcPlayer.disconnected = false;
       dcPlayer.disconnectTime = 0;
       dcPlayer.ip = this.ip;
+      dcPlayer.platform = this.platform;
 
 
       dcPlayer.send({

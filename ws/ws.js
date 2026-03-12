@@ -273,6 +273,19 @@ app.get('/playercnt', (res) => {
   res.end(String(players.size - disconnectedPlayers.size));
 });
 
+app.get('/platformdist', (res) => {
+  setCorsHeaders(res);
+  res.writeHeader('Content-Type', 'application/json');
+  res.writeStatus('200 OK');
+  const dist = {};
+  for (const player of players.values()) {
+    if (!player.verified || player.disconnected) continue;
+    const p = player.platform || 'empty';
+    dist[p] = (dist[p] || 0) + 1;
+  }
+  res.end(JSON.stringify(dist));
+});
+
 // maintenance mode
 if (process.env.MAINTENANCE_SECRET) {
   const maintenanceSecret = process.env.MAINTENANCE_SECRET;
@@ -724,6 +737,7 @@ app.ws('/wg', {
         const game = games.get(player.gameId);
         const latLong = json.latLong;
         const final = json.final;
+        const round = json.round;
 
         // make sure latLong is an array of floats with 2 elements
         if (!Array.isArray(latLong) || latLong.length !== 2) {
@@ -735,7 +749,14 @@ app.ws('/wg', {
           return;
         }
 
-        game.setGuess(player.id, latLong, final);
+        // validate round if provided (new clients send it, old clients may not)
+        if (round !== undefined && round !== null) {
+          if (typeof round !== 'number' || !Number.isInteger(round) || round < 1) {
+            return;
+          }
+        }
+
+        game.setGuess(player.id, latLong, final, round);
       }
 
       if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {

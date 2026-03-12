@@ -507,8 +507,14 @@ export default class Game {
 
     this.sendStateUpdate(true);
   }
-  setGuess(playerId, latLong, final) {
+  setGuess(playerId, latLong, final, round) {
     if(this.state !== 'guess') {
+      return;
+    }
+
+    // Reject if client-specified round doesn't match current round.
+    // Old clients that don't send round (undefined) are still accepted.
+    if (round !== undefined && round !== null && round !== this.curRound) {
       return;
     }
 

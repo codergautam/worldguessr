@@ -420,7 +420,7 @@ export default function Home({ }) {
                             // Store full auth data including extended fields (elo, rank, etc.)
                             setSession({ token: data })
                             // verify the ws
-                            window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username });
+                            window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username, platform: getPlatform() });
 
                             setWs((prev) => {
 
@@ -450,7 +450,7 @@ export default function Home({ }) {
 
                 window.verifyPayload = JSON.stringify({
                     type: "verify", secret: "not_logged_in", username: "not_logged_in",
-                    rejoinCode: rc
+                    rejoinCode: rc, platform: getPlatform()
                 });
                 setWs((prev) => {
                     if (prev) {
@@ -553,7 +553,45 @@ export default function Home({ }) {
     const [coolmathSplash, setCoolmathSplash] = useState(null);
     const [navSlideOut, setNavSlideOut] = useState(false);
 
-    // Close suggest login modal when user successfully logs in
+    function gPlatform() {
+        try {
+        if(process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
+            return "gamedistribution";
+        } else if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
+            return "coolmath";
+        } else if (window.CrazyGames) {
+            return "crazygames";
+        } else if ( // check if domain is worldguessr.com
+            typeof window !== "undefined" &&
+            window.location.hostname === "worldguessr.com"
+        ) {
+            return "worldguessr";
+        } else {
+            if(inIframe()) {
+                // return domain
+                try {
+                    const ancestorOrigin = window?.location?.ancestorOrigins[0] ?? document.referrer;
+                    const url = new URL(ancestorOrigin);
+                    return url.hostname.slice(0, 20);
+                } catch (e) {
+                    return "unknown_iframe";
+                }
+            } else {
+                return "unknown";
+            }
+
+        }
+    } catch (e) {
+            return "error";
+    }
+
+    }
+
+    function getPlatform() {
+        const platform = gPlatform();
+        console.log("detected platform:", platform);
+        return platform;
+    }    // Close suggest login modal when user successfully logs in
     useEffect(() => {
         if (session?.token?.secret && showSuggestLoginModal) {
             setShowSuggestLoginModal(false);
@@ -1367,7 +1405,7 @@ export default function Home({ }) {
                             if (secret !== "not_logged_in") {
                                 window.verified = true;
                             }
-                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode") }))
+                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode"), platform: getPlatform() }))
                         } else if (window.verifyPayload) {
                             console.log("sending verify from verifyPayload")
                             ws.send(window.verifyPayload)
@@ -1989,7 +2027,7 @@ export default function Home({ }) {
         }
         setMultiplayerChatEnabled(true);
 
-        ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true }))
+        ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true, round: multiplayerState.gameData?.curRound }))
     }
 
     function sendInvite(id) {

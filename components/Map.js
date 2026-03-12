@@ -82,7 +82,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         setPinPoint(e.latlng);
         if (currentMultiplayerState?.inGame && currentMultiplayerState.gameData?.state === "guess" && currentWs) {
           const pinpointLatLong = [e.latlng.lat, e.latlng.lng];
-          currentWs.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }));
+          currentWs.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false, round: currentMultiplayerState.gameData?.curRound }));
         }
         // play sound
         // playSound();
