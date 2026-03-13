@@ -550,7 +550,6 @@ export default function Home({ }) {
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
     const [adOverlayShown, setAdOverlayShown] = useState(false);
-    const [cgMidgameAdShown, setCgMidgameAdShown] = useState(false);
     const [coolmathSplash, setCoolmathSplash] = useState(null);
     const [navSlideOut, setNavSlideOut] = useState(false);
 
@@ -2072,16 +2071,14 @@ export default function Home({ }) {
     function crazyMidgame(adFinished = () => { }) {
         if (window.inCrazyGames && window.CrazyGames.SDK.environment !== "disabled") {
             try {
-                setCgMidgameAdShown(true);
                 const callbacks = {
-                    adFinished: () => { setCgMidgameAdShown(false); adFinished(); },
-                    adError: (error) => { setCgMidgameAdShown(false); adFinished(); },
+                    adFinished: () => adFinished(),
+                    adError: (error) => adFinished(),
                     adStarted: () => console.log("Start midgame ad"),
                 };
                 window.CrazyGames.SDK.ad.requestAd("midgame", callbacks);
             } catch (e) {
                 console.log("error requesting midgame ad", e)
-                setCgMidgameAdShown(false);
                 adFinished()
             }
         } else if (process.env.NEXT_PUBLIC_COOLMATH === "true" && Date.now() - window.lastCoolmathAd > 120000) {
@@ -2497,17 +2494,6 @@ export default function Home({ }) {
                 </div>
             )}
 
-            {cgMidgameAdShown && (
-                <div style={{
-                    position: 'fixed', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
-                    zIndex: 999999999, pointerEvents: 'none', userSelect: 'none',
-                    backgroundColor: 'rgba(0, 0, 0, 0.75)', padding: '10px 20px', borderRadius: '8px',
-                }}>
-                    <span style={{ color: 'white', fontSize: '14px', fontWeight: 600 }}>
-                        Play on the official WorldGuessr.com site for no video ads
-                    </span>
-                </div>
-            )}
 
             {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
