@@ -18,6 +18,7 @@ import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAdNitro";
 // import Ad from "./bannerAdAdinplay";
+import CrazyGamesBanner from "./bannerAdCrazyGames";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
@@ -163,8 +164,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         console.log("Failed sending start event to CoolMathGames", e)
       }
       }
-    // Show GD midgame ad between singleplayer rounds (not on game-over/play-again which already shows an ad)
-    if(inGameDistribution && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
+    // Show midgame ad between singleplayer rounds
+    if((inGameDistribution || inCrazyGames) && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
       window.crazyMidgame(() => {
         afterAd()
         loadLocationFuncRaw()
@@ -528,7 +529,16 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       return;
     }
 
-    if (!isApplixirEnabled || inCrazyGames || inCoolMathGames || inGameDistribution || !window.initializeAndOpenPlayer) {
+    // CrazyGames: show midgame ad before granting hint
+    if (inCrazyGames && window.crazyMidgame) {
+      setHintLoading(true);
+      window.crazyMidgame(() => {
+        grantHint();
+      });
+      return;
+    }
+
+    if (!isApplixirEnabled || inCoolMathGames || inGameDistribution || !window.initializeAndOpenPlayer) {
       console.log('[Applixir] Skipping ad — showing hint directly');
       grantHint();
       return;
@@ -694,6 +704,14 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       <Ad
       unit={"worldguessr_gameui_ad"}
     inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    </div>
+)}
+
+{ inCrazyGames && !onboarding && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
+    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'':''}`}>
+      <CrazyGamesBanner
+        id="cg-banner-gameui"
+        screenH={height} types={[[320,50],[468,60],[728,90]]} screenW={Math.max(400, width-350)} vertThresh={0.3} />
     </div>
 )}
 
