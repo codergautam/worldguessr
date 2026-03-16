@@ -224,6 +224,10 @@ html {
     background-position: center;
 }
 
+.home__content.g2_modal {
+    height: 100svh; // match .home's svh so scroll area isn't clipped on iOS
+}
+
 @keyframes nav_slide_in {
     from {
         transform: translateX(-100%);
