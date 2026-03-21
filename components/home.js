@@ -1097,10 +1097,6 @@ export default function Home({ }) {
         }
     }, [options])
 
-    useEffect(() => {
-        window.disableVideoAds = options?.disableVideoAds;
-    }, [options?.disableVideoAds]);
-
     // multiplayer stuff
     const [ws, setWs] = useState(null);
     const [multiplayerState, setMultiplayerState] = useState(
@@ -2509,15 +2505,6 @@ export default function Home({ }) {
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
-            <div className="videoAdParent hidden">
-                <div className="videoAdPlayer">
-                    <div className="messageContainer">
-                        <p className="thankYouMessage">{text("videoAdThanks")}<br />{text("enjoyGameplay")}</p>
-                    </div>
-                    <div id="videoad"></div>
-                </div>
-            </div>
-
             {typeof coolmathSplash === "number" && (
                 // black background
                 <div style={{
@@ -3129,15 +3116,7 @@ document.addEventListener(
   },
   { passive: false }
 );
-            window.lastAdShown = Date.now();
             window.gameOpen = Date.now();
-          //   try {
-          //   if(window.localStorage.getItem("lastAdShown")) {
-          //     window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
-          // }
-          //   } catch(e) {}
-            window.adInterval = 1800000;
-
 
             setTimeout(() => {
             if(window.PokiSDK) {
@@ -3158,7 +3137,6 @@ document.addEventListener(
 
   	window.aiptag = window.aiptag || {cmd: []};
 	aiptag.cmd.display = aiptag.cmd.display || [];
-	aiptag.cmd.player = aiptag.cmd.player || [];
 
 	//CMP tool settings
 	aiptag.cmp = {
@@ -3171,67 +3149,6 @@ document.addEventListener(
    window.adsbygoogle = window.adsbygoogle || [];
   window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
    adConfig({preloadAdBreaks: 'on'});
-
-   aiptag.cmd.player.push(function() {
-	aiptag.adplayer = new aipPlayer({
-		AD_WIDTH: Math.min(Math.max(window.innerWidth, 300), 1066),
-		AD_HEIGHT: Math.min(Math.max(window.innerHeight, 150), 600),
-		AD_DISPLAY: 'modal-center', //default, fullscreen, fill, center, modal-center
-		LOADING_TEXT: 'loading advertisement',
-		PREROLL_ELEM: function(){ return document.getElementById('videoad'); },
-		AIP_COMPLETE: function (state) {
-  document.querySelector('.videoAdParent').classList.add('hidden');
-
-    console.log("Ad complete", state)
-			// The callback will be executed once the video ad is completed.
-      window.lastAdShown = Date.now();
-      try {
-      window.localStorage.setItem("lastAdShown", window.lastAdShown)
-    } catch(e) {}
-
-
-			if (typeof aiptag.adplayer.adCompleteCallback === 'function') {
-				aiptag.adplayer.adCompleteCallback(state);
-			}
-		}
-	});
-});
-
-window.show_videoad = function(callback) {
-// if in crazygame (window.inCrazyGames) dont show ads
-if(window.inCrazyGames || window.inGameDistribution) {
-  console.log("In crazygames/gamedistribution, not showing ads")
-  callback("DISABLED");
-  return;
-}
-
-          if(window.disableVideoAds) {
-          console.log("Video ads disabled")
-            callback("DISABLED");
-            return;
-          }
-
-  if(window.lastAdShown + window.adInterval > Date.now()) {
-            callback("COOLDOWN");
-            return;
-          }
-
-	// Assign the callback to be executed when the ad is done
-	aiptag.adplayer.adCompleteCallback = callback;
-
-	// Check if the adslib is loaded correctly or blocked by adblockers etc.
-	if (typeof aiptag.adplayer !== 'undefined') {
-  console.log("Showing ad")
-  // remove 'hidden' class from the parent div
-  document.querySelector('.videoAdParent').classList.remove('hidden');
-		aiptag.cmd.player.push(function() { aiptag.adplayer.startVideoAd(); });
-	} else {
-   console.log("Adlib not loaded")
-		// Adlib didn't load; this could be due to an ad blocker, timeout, etc.
-		// Please add your script here that starts the content, this usually is the same script as added in AIP_COMPLETE.
-		aiptag.adplayer.aipConfig.AIP_COMPLETE();
-	}
-}
 
   `}
                 </Script>

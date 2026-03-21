@@ -7,13 +7,12 @@ import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
-import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown, FaClapperboard, FaSpinner } from "react-icons/fa6";
+import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
 import OnboardingText from "./onboardingText";
 import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
-import SaveStreakBanner from "./streakSaveBanner";
 import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAdNitro";
@@ -29,10 +28,7 @@ const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false 
 
 export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
-  const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
-
   function loadLocationFuncRaw() {
-    setShowStreakAdBanner(false)
     if(onboarding) {
       if(onboarding.completed) {
         // Reset onboarding to start over - preserve template locations
@@ -202,7 +198,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
   const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
-  const [hintLoading, setHintLoading] = useState(false);
 
 
    const isStartingDuel = (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)
@@ -438,149 +433,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   }, [loading, latLong, width])
 
-  const isApplixirEnabled = typeof window !== 'undefined';
-
-  useEffect(() => {
-    if (!isApplixirEnabled || inCrazyGames || inCoolMathGames || inGameDistribution) {
-      console.log('[Applixir] Skipping load — disabled or partner platform');
-      return;
-    }
-    if (window.initializeAndOpenPlayer) {
-      console.log('[Applixir] Already available');
-      return;
-    }
-    // Auto-accept consent before loading ad SDKs
-    window.__tcfapi = (cmd, version, cb) => {
-      if (cmd === 'addEventListener') cb({ tcString: '', eventStatus: 'tcloaded', gdprApplies: false }, true);
-      else cb(null, true);
-    };
-    window.__gpp = () => {};
-    // Load Google IMA SDK first (AppLixir depends on it)
-    console.log('[Applixir] Loading Google IMA SDK...');
-    const existing = document.querySelector('script[src*="applixir"]');
-    if (existing) existing.remove();
-    const ima = document.createElement('script');
-    ima.src = 'https://imasdk.googleapis.com/js/sdkloader/ima3.js';
-    ima.async = true;
-    ima.onload = () => {
-      console.log('[Applixir] IMA SDK loaded, loading AppLixir...');
-      const s = document.createElement('script');
-      s.src = 'https://cdn.applixir.com/applixir.app.v6.0.1.js';
-      s.async = true;
-      s.onload = () => console.log('[Applixir] Script loaded, initializeAndOpenPlayer:', typeof window.initializeAndOpenPlayer);
-      s.onerror = (e) => console.error('[Applixir] Script failed to load', e);
-      document.body.appendChild(s);
-    };
-    ima.onerror = (e) => console.error('[Applixir] IMA SDK failed to load', e);
-    document.head.appendChild(ima);
-  }, []);
-
-  const hasUsedHintBefore = typeof window !== 'undefined' && gameStorage.getItem("hasUsedHint") === "true";
   const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
 
   function showHint() {
-    if (hintLimitReached || hintLoading || hintShown) return;
+    if (hintLimitReached || hintShown) return;
 
-    function grantHint() {
-      setHintShown(true);
-      setHintLoading(false);
-      setHintsUsedThisGame((prev) => prev + 1);
-      gameStorage.setItem("hasUsedHint", "true");
-    }
-
-    console.log('[Applixir] showHint called — enabled:', isApplixirEnabled, 'initializeAndOpenPlayer:', typeof window.initializeAndOpenPlayer);
-
-    // First-time hint is free (no ad)
-    if (!hasUsedHintBefore) {
-      console.log('[Hint] First-time hint — skipping ad');
-      grantHint();
-      return;
-    }
-
-    // GameDistribution: use rewarded ad for hints
-    if (inGameDistribution && typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
-      setHintLoading(true);
-      console.log('[GD] Requesting rewarded ad for hint...');
-      window.onGDRewardedComplete = () => {
-        console.log('[GD] Rewarded ad complete, granting hint');
-        window.onGDRewardedComplete = null;
-        grantHint();
-      };
-      // If ad fails/cancelled, SDK_GAME_START fires via onGDResumeGame — reset loading
-      const origResume = window.onGDResumeGame;
-      window.onGDResumeGame = () => {
-        window.onGDResumeGame = origResume;
-        if (origResume) origResume();
-        // If rewarded callback wasn't called, ad was skipped/errored
-        if (window.onGDRewardedComplete) {
-          console.log('[GD] Rewarded ad not completed, resetting');
-          window.onGDRewardedComplete = null;
-          setHintLoading(false);
-        }
-      };
-      try {
-        gdsdk.showAd('rewarded');
-      } catch (e) {
-        console.error('[GD] showAd rewarded error:', e);
-        window.onGDRewardedComplete = null;
-        window.onGDResumeGame = origResume;
-        grantHint();
-      }
-      return;
-    }
-
-    // CrazyGames: show midgame ad before granting hint
-    if (inCrazyGames && window.crazyMidgame) {
-      setHintLoading(true);
-      window.crazyMidgame(() => {
-        grantHint();
-      });
-      return;
-    }
-
-    if (!isApplixirEnabled || inCoolMathGames || inGameDistribution || !window.initializeAndOpenPlayer) {
-      console.log('[Applixir] Skipping ad — showing hint directly');
-      grantHint();
-      return;
-    }
-    setHintLoading(true);
-    console.log('[Applixir] Requesting ad...');
-    const options = {
-      apiKey: "7efcd3be-af05-43a7-89ec-d13d9e88b544",
-      injectionElementId: "applixir_vanishing_div",
-      adStatusCallbackFn: (status) => {
-        console.log('[Applixir] Ad status:', status.type);
-        if (status.type === "complete" || status.type === "allAdsCompleted") {
-          grantHint();
-        } else if (status.type === "manuallyEnded" || status.type === "skipped" || status.type === "consentDeclined") {
-          console.warn('[Applixir] Ad ended without completion:', status.type);
-          setHintLoading(false);
-        } else if (status.type === "thankYouModalClosed") {
-          // Thank you modal shown after ad — grant hint if not already granted
-          grantHint();
-        }
-      },
-      adErrorCallbackFn: (error) => {
-        console.error('[Applixir] Ad error:', error?.getError?.()?.data);
-        grantHint();
-      },
-    };
-    // Safety net for unhandled async errors inside AppLixir
-    const onReject = (e) => {
-      if (e.reason?.message?.includes('AdDisplayContainer') || e.reason?.message?.includes('ima')) {
-        console.error('[Applixir] Async error caught, showing hint:', e.reason);
-        grantHint();
-        window.removeEventListener('unhandledrejection', onReject);
-      }
-    };
-    window.addEventListener('unhandledrejection', onReject);
-    try {
-      window.initializeAndOpenPlayer(options);
-    } catch (e) {
-      console.error('[Applixir] initializeAndOpenPlayer threw:', e);
-      window.removeEventListener('unhandledrejection', onReject);
-      grantHint();
-    }
+    setHintShown(true);
+    setHintsUsedThisGame((prev) => prev + 1);
   }
   useEffect(() => {
     loadLocation()
@@ -643,41 +502,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         setLostCountryStreak(0);
         if(country === latLong.country) {
           setCountryStreak(countryStreak + 1);
-          setShowStreakAdBanner(false);
         } else if(country !== "Unknown") {
           setCountryStreak(0);
           setLostCountryStreak(countryStreak);
-
-          // disable rewarded ads for iOS users due to navigation interference
-          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-          if(countryStreak > 0 && window.adBreak && !inCrazyGames && !inCoolMathGames && !inGameDistribution && !isIOS) {
-          console.log("requesting reward ad")
-          window.adBreak({
-            type: 'reward',  // rewarded ad
-            name: 'reward-continue',
-            beforeReward: (showAdFn) => {
-              window.showRewardedAdFn = () => { showAdFn();
-                sendEvent('reward_ad_play', { countryStreak });
-                };
-              // Rewarded ad available - prompt user for a rewarded ad
-              setShowStreakAdBanner(true);
-              sendEvent('reward_ad_available', { countryStreak });
-              console.log("reward ad available")
-            },
-            beforeAd: () => { },
-            adDismissed: () => {
-              toast.error(text("adDismissed"));
-              sendEvent('reward_ad_dismissed', { countryStreak });
-            },
-            adViewed: () => {
-              setCountryStreak(countryStreak);
-              setLostCountryStreak(0);
-              toast.success(text("streakRestored"));
-              sendEvent('reward_ad_viewed', { countryStreak });
-            },       // Reward granted - continue game at current score.
-            afterAd: () => { setShowStreakAdBanner(false) },
-          });
-        }
         }
       }
     findCountry({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
@@ -845,7 +672,7 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''} ${hintLoading ? 'hintLoading' : ''}`} style={hintLimitReached ? {display:'none'} : hintLoading ? {backgroundColor:'#888', pointerEvents:'none'} : {}} onClick={showHint}>{(isApplixirEnabled || inGameDistribution) && hasUsedHintBefore && (hintLoading ? <FaSpinner size={16} className="spinIcon" style={{marginRight: '6px', flexShrink: 0, animation: 'spin 1s linear infinite'}} /> : <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />)}{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
           )}
         </div>
       </div>
@@ -860,7 +687,7 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''} ${hintLoading ? 'hintLoading' : ''}`} style={hintLimitReached ? {display:'none'} : hintLoading ? {backgroundColor:'#888', pointerEvents:'none'} : {}} onClick={showHint}>{(isApplixirEnabled || inGameDistribution) && hasUsedHintBefore && (hintLoading ? <FaSpinner size={16} className="spinIcon" style={{marginRight: '6px', flexShrink: 0, animation: 'spin 1s linear infinite'}} /> : <FaClapperboard size={16} style={{marginRight: '6px', flexShrink: 0}} />)}{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
           )}
           </>
         )}
@@ -1031,10 +858,6 @@ session={session}/>
   { showAnswer && showClueBanner && (
 <ClueBanner session={session} explanations={explanations} close={() => {setShowClueBanner(false)}} />
   )}
-        <SaveStreakBanner shown={showStreakAdBanner} close={() => {
-          setShowStreakAdBanner(false)
-        }} lostCountryStreak={lostCountryStreak} playAd={()=>{window.showRewardedAdFn()}} setLostCountryStreak={setLostCountryStreak} countryStreak={countryStreak} setCountryStreak={setCountryStreak} />
-
 <EndBanner
 countryStreaksEnabled={gameOptions?.location === "all"}
 singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak}  usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
