@@ -550,7 +550,6 @@ export default function Home({ }) {
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
-    const [adOverlayShown, setAdOverlayShown] = useState(false);
     const [coolmathSplash, setCoolmathSplash] = useState(null);
     const [navSlideOut, setNavSlideOut] = useState(false);
 
@@ -639,14 +638,12 @@ export default function Home({ }) {
             setInGameDistribution(true);
             window.inGameDistribution = true;
 
-            // Set up GD SDK event callbacks for ad overlay
+            // Set up GD SDK event callbacks
             window.onGDPauseGame = () => {
                 console.log("GD: game paused for ad");
-                setAdOverlayShown(true);
             };
             window.onGDResumeGame = () => {
                 console.log("GD: game resumed after ad");
-                setAdOverlayShown(false);
                 if (window._gdAdTimeout) {
                     clearTimeout(window._gdAdTimeout);
                     window._gdAdTimeout = null;
@@ -2100,12 +2097,10 @@ export default function Home({ }) {
         } else if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
             try {
                 if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
-                    setAdOverlayShown(true);
                     window._gdAdFinished = adFinished;
                     // Safety timeout in case SDK events never fire (no fill, dev mode, errors)
                     window._gdAdTimeout = setTimeout(() => {
                         console.log("GD ad timeout, forcing resume");
-                        setAdOverlayShown(false);
                         if (window._gdAdFinished) {
                             window._gdAdFinished();
                             window._gdAdFinished = null;
@@ -2117,7 +2112,6 @@ export default function Home({ }) {
                 }
             } catch (e) {
                 console.log("error requesting GD midgame ad", e);
-                setAdOverlayShown(false);
                 adFinished();
             }
         } else {
@@ -2476,20 +2470,6 @@ export default function Home({ }) {
         <>
             <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} />
 
-            {adOverlayShown && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                    backgroundColor: 'rgba(0, 0, 0, 0.85)', zIndex: 99999999,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px'
-                }}>
-                    <div style={{
-                        width: '40px', height: '40px',
-                        border: '3px solid rgba(255, 255, 255, 0.2)', borderTop: '3px solid white',
-                        borderRadius: '50%', animation: 'spin 1s linear infinite'
-                    }}></div>
-                    <span style={{ color: 'white', fontSize: '18px', fontWeight: 600 }}>Loading advertisement...</span>
-                </div>
-            )}
 
 
             {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
