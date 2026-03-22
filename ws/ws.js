@@ -342,12 +342,19 @@ if (process.env.MAINTENANCE_SECRET) {
     bannedIps.add(ip);
     let cnt = 0;
     // kick all players with this ip
+    try {
     for (const player of players.values()) {
       if (player.ip.includes(ip)) {
-        player.ws.close();
+        if (player.ws) player.ws.close();
+        else {
+          console.log('Player with matching IP has no WebSocket connection', player.username, player.ip, currentDate());
+        }
         cnt++;
       }
     }
+  } catch(e) {
+    console.error('Error banning IP', e, currentDate());
+  }
 
     setCorsHeaders(res);
     res.writeHeader('Content-Type', 'text/htmk');
