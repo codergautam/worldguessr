@@ -18,7 +18,8 @@
       "mcp__ide__getDiagnostics",
       "Bash(npx next build:*)",
       "Bash(npx acorn:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(npx next:*)"
     ],
     "deny": [
       "Bash(git push:*)"

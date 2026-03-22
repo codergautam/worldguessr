@@ -54,6 +54,7 @@ import Stats from "stats.js";
 // import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
 import Ad from "./bannerAdNitro";
+import GameDistributionBanner from "./bannerAdGameDistribution";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 
 
@@ -2110,7 +2111,7 @@ export default function Home({ }) {
                             window._gdAdFinished = null;
                         }
                     }, 15000);
-                    gdsdk.showAd();
+                    gdsdk.showAd('interstitial');
                 } else {
                     adFinished();
                 }
@@ -2741,6 +2742,13 @@ export default function Home({ }) {
                             inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={height < 510 ? [[300, 250]] : [[320, 50], [300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 }
+                {inGameDistribution && screen === 'home' && (
+                    <div className="home_ad">
+                        <GameDistributionBanner
+                            id="gd-banner-home"
+                            screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
+                    </div>
+                )}
                 <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>

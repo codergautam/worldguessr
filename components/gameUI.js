@@ -18,6 +18,7 @@ import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAdNitro";
 // import Ad from "./bannerAdAdinplay";
 import CrazyGamesBanner from "./bannerAdCrazyGames";
+import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
@@ -539,6 +540,14 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       <CrazyGamesBanner
         id="cg-banner-gameui"
         screenH={height} types={[[320,50],[468,60],[728,90]]} screenW={Math.max(400, width-350)} vertThresh={0.3} />
+    </div>
+)}
+
+{ inGameDistribution && !onboarding && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
+    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
+      <GameDistributionBanner
+        id="gd-banner-gameui"
+        screenH={height} types={[[728,90]]} screenW={Math.max(400, width-350)} vertThresh={0.3} />
     </div>
 )}
 

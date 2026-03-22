@@ -102,9 +102,12 @@ ads.js"></script>*/
 
     } else if(process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
       window["GD_OPTIONS"] = {
-        "gameId": "327b25f595b6478789b18768fd909055",
+        "gameId": "fef00656129743768437b7589b7c48b1",
         "onEvent": function(event) {
           switch (event.name) {
+            case "SDK_READY":
+              console.log("[GD] SDK Ready");
+              break;
             case "SDK_GAME_START":
             case "SDK_ERROR":
             case "AD_ERROR":
@@ -118,6 +121,10 @@ ads.js"></script>*/
               break;
             case "SDK_REWARDED_WATCH_COMPLETE":
               if(window.onGDRewardedComplete) window.onGDRewardedComplete();
+              break;
+            case "SDK_REWARDED_WATCH_SKIPPED":
+              console.log("[GD] Rewarded ad skipped");
+              if(window.onGDRewardedSkipped) window.onGDRewardedSkipped();
               break;
           }
         },
