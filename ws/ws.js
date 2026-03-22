@@ -342,8 +342,9 @@ if (process.env.MAINTENANCE_SECRET) {
     bannedIps.add(ip);
     let cnt = 0;
     // kick all players with this ip
-    try {
     for (const player of players.values()) {
+    try {
+
       if (player.ip.includes(ip)) {
         if (player.ws) player.ws.close();
         else {
@@ -351,10 +352,11 @@ if (process.env.MAINTENANCE_SECRET) {
         }
         cnt++;
       }
-    }
-  } catch(e) {
+      } catch(e) {
     console.error('Error banning IP', e, currentDate());
   }
+    }
+
 
     setCorsHeaders(res);
     res.writeHeader('Content-Type', 'text/htmk');
