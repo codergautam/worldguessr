@@ -1,10 +1,10 @@
 import HeadContent from "@/components/headContent";
-import { FaDiscord, FaGithub } from "react-icons/fa";
+import { FaDiscord, FaBook } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import retryManager from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
@@ -28,6 +28,7 @@ import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
 import { asset, navigate, stripBase } from '@/lib/basePath';
+import { preloadPinImages } from '@/lib/markerIcons';
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
@@ -53,6 +54,7 @@ import Stats from "stats.js";
 // import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
 import Ad from "./bannerAdNitro";
+import GameDistributionBanner from "./bannerAdGameDistribution";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 
 
@@ -100,7 +102,12 @@ export default function Home({ }) {
     const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true, timePerRound: 0 }) // rate limit fix: showRoadName true
     const [showAnswer, setShowAnswer] = useState(false)
 
-    const [pinPoint, setPinPoint] = useState(null)
+    const [pinPoint, setPinPointState] = useState(null)
+    const pinPointRef = useRef(null)
+    const setPinPoint = useCallback((val) => {
+        pinPointRef.current = val
+        setPinPointState(val)
+    }, [])
     const [hintShown, setHintShown] = useState(false)
     const [countryStreak, setCountryStreak] = useState(0)
     const [settingsModal, setSettingsModal] = useState(false)
@@ -414,7 +421,7 @@ export default function Home({ }) {
                             // Store full auth data including extended fields (elo, rank, etc.)
                             setSession({ token: data })
                             // verify the ws
-                            window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username });
+                            window.verifyPayload = JSON.stringify({ type: "verify", secret: data.secret, username: data.username, platform: getPlatform() });
 
                             setWs((prev) => {
 
@@ -444,7 +451,7 @@ export default function Home({ }) {
 
                 window.verifyPayload = JSON.stringify({
                     type: "verify", secret: "not_logged_in", username: "not_logged_in",
-                    rejoinCode: rc
+                    rejoinCode: rc, platform: getPlatform()
                 });
                 setWs((prev) => {
                     if (prev) {
@@ -543,11 +550,51 @@ export default function Home({ }) {
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
-    const [adOverlayShown, setAdOverlayShown] = useState(false);
     const [coolmathSplash, setCoolmathSplash] = useState(null);
     const [navSlideOut, setNavSlideOut] = useState(false);
 
-    // Close suggest login modal when user successfully logs in
+    function gPlatform() {
+        try {
+        if(process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
+            return "gamedistribution";
+        } else if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
+            return "coolmath";
+        } else if (window.CrazyGames) {
+            return "crazygames";
+        } else if ( // check if domain is worldguessr.com
+            typeof window !== "undefined" &&
+            window.location.hostname === "worldguessr.com"
+            || window.location.hostname === "www.worldguessr.com"
+        ) {
+            return "worldguessr";
+        } else {
+            if(inIframe()) {
+                // return domain
+                try {
+                    const ancestorOrigin = window?.location?.ancestorOrigins[0] ?? document.referrer;
+                    const url = new URL(ancestorOrigin);
+                    return url.hostname.slice(0, 20);
+                } catch (e) {
+                    return "unknown_iframe";
+                }
+            } else {
+                if(typeof window !== "undefined" && window.location && window.location.hostname) {
+                    return window.location.hostname.slice(0, 20);
+                } else return "unknown";
+            }
+
+        }
+    } catch (e) {
+            return "error";
+    }
+
+    }
+
+    function getPlatform() {
+        const platform = gPlatform();
+        console.log("detected platform:", platform);
+        return platform;
+    }    // Close suggest login modal when user successfully logs in
     useEffect(() => {
         if (session?.token?.secret && showSuggestLoginModal) {
             setShowSuggestLoginModal(false);
@@ -591,14 +638,12 @@ export default function Home({ }) {
             setInGameDistribution(true);
             window.inGameDistribution = true;
 
-            // Set up GD SDK event callbacks for ad overlay
+            // Set up GD SDK event callbacks
             window.onGDPauseGame = () => {
                 console.log("GD: game paused for ad");
-                setAdOverlayShown(true);
             };
             window.onGDResumeGame = () => {
                 console.log("GD: game resumed after ad");
-                setAdOverlayShown(false);
                 if (window._gdAdTimeout) {
                     clearTimeout(window._gdAdTimeout);
                     window._gdAdTimeout = null;
@@ -1050,10 +1095,6 @@ export default function Home({ }) {
         }
     }, [options])
 
-    useEffect(() => {
-        window.disableVideoAds = options?.disableVideoAds;
-    }, [options?.disableVideoAds]);
-
     // multiplayer stuff
     const [ws, setWs] = useState(null);
     const [multiplayerState, setMultiplayerState] = useState(
@@ -1161,6 +1202,7 @@ export default function Home({ }) {
         if (multiplayerState.gameQueued || multiplayerState.connecting) return;
 
         if (action === "publicDuel") {
+            crazyMidgame(() => {
             setScreen("multiplayer")
             setMultiplayerState((prev) => ({
                 ...prev,
@@ -1170,9 +1212,11 @@ export default function Home({ }) {
             }))
             sendEvent("multiplayer_request_ranked_duel")
             ws.send(JSON.stringify({ type: "publicDuel" }))
+            })
         }
 
         if (action === "unrankedDuel") {
+            crazyMidgame(() => {
             setScreen("multiplayer")
             setMultiplayerState((prev) => ({
                 ...prev,
@@ -1183,6 +1227,7 @@ export default function Home({ }) {
             }))
             sendEvent("multiplayer_request_unranked_duel")
             ws.send(JSON.stringify({ type: "unrankedDuel" }))
+            })
         }
 
         if (action === "joinPrivateGame") {
@@ -1361,7 +1406,7 @@ export default function Home({ }) {
                             if (secret !== "not_logged_in") {
                                 window.verified = true;
                             }
-                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode") }))
+                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode"), platform: getPlatform() }))
                         } else if (window.verifyPayload) {
                             console.log("sending verify from verifyPayload")
                             ws.send(window.verifyPayload)
@@ -1965,10 +2010,25 @@ export default function Home({ }) {
 
     function guessMultiplayer(send) {
         if (!send) return;
-        if (!multiplayerState.inGame || multiplayerState.gameData?.state !== "guess" || !pinPoint) return;
-        const pinpointLatLong = [pinPoint.lat, pinPoint.lng];
+        // Use the ref to always get the latest pinPoint, avoiding stale closure issues
+        // where pinPoint from a previous render (or even previous round) could be sent
+        const latestPinPoint = pinPointRef.current;
+        if (!multiplayerState.inGame || multiplayerState.gameData?.state !== "guess" || !latestPinPoint) return;
 
-        ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true }))
+        // Prevent duplicate sends (e.g. space bar spam) — check optimistic final flag
+        const me = multiplayerState.gameData.players.find(p => p.id === multiplayerState.gameData.myId);
+        if (me?.final) return;
+
+        const pinpointLatLong = [latestPinPoint.lat, latestPinPoint.lng];
+
+        // Optimistically update local player state so UI updates instantly
+        if (me) {
+            me.final = true;
+            me.latLong = pinpointLatLong;
+        }
+        setMultiplayerChatEnabled(true);
+
+        ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true, round: multiplayerState.gameData?.curRound }))
     }
 
     function sendInvite(id) {
@@ -1990,11 +2050,8 @@ export default function Home({ }) {
                 }
             }
 
-            // preload/cache pin images
-            ['/src.png', '/dest.png', '/src2.png', '/polandball.png'].forEach((p) => {
-                const img = new Image();
-                img.src = asset(p);
-            });
+            // preload/cache pin images (kept alive in window.__pinImageCache)
+            preloadPinImages();
         } catch (e) { }
 
     }, [])
@@ -2040,24 +2097,21 @@ export default function Home({ }) {
         } else if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
             try {
                 if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
-                    setAdOverlayShown(true);
                     window._gdAdFinished = adFinished;
                     // Safety timeout in case SDK events never fire (no fill, dev mode, errors)
                     window._gdAdTimeout = setTimeout(() => {
                         console.log("GD ad timeout, forcing resume");
-                        setAdOverlayShown(false);
                         if (window._gdAdFinished) {
                             window._gdAdFinished();
                             window._gdAdFinished = null;
                         }
                     }, 15000);
-                    gdsdk.showAd();
+                    gdsdk.showAd('interstitial');
                 } else {
                     adFinished();
                 }
             } catch (e) {
                 console.log("error requesting GD midgame ad", e);
-                setAdOverlayShown(false);
                 adFinished();
             }
         } else {
@@ -2164,12 +2218,20 @@ export default function Home({ }) {
         } else {
             setMultiplayerChatEnabled(false)
 
-            setScreen("home");
-            setGameOptions((prev) => ({
-                ...prev,
-                extent: null
-            }))
-            clearLocation();
+            const afterBack = () => {
+                setScreen("home");
+                setGameOptions((prev) => ({
+                    ...prev,
+                    extent: null
+                }))
+                clearLocation();
+            };
+            // Show midgame ad when leaving an active singleplayer game
+            if (screen === "singleplayer") {
+                crazyMidgame(afterBack);
+            } else {
+                afterBack();
+            }
         }
     }
 
@@ -2408,20 +2470,7 @@ export default function Home({ }) {
         <>
             <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} />
 
-            {adOverlayShown && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                    backgroundColor: 'rgba(0, 0, 0, 0.85)', zIndex: 99999999,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px'
-                }}>
-                    <div style={{
-                        width: '40px', height: '40px',
-                        border: '3px solid rgba(255, 255, 255, 0.2)', borderTop: '3px solid white',
-                        borderRadius: '50%', animation: 'spin 1s linear infinite'
-                    }}></div>
-                    <span style={{ color: 'white', fontSize: '18px', fontWeight: 600 }}>Loading advertisement...</span>
-                </div>
-            )}
+
 
             {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
@@ -2436,15 +2485,6 @@ export default function Home({ }) {
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
-
-            <div className="videoAdParent hidden">
-                <div className="videoAdPlayer">
-                    <div className="messageContainer">
-                        <p className="thankYouMessage">{text("videoAdThanks")}<br />{text("enjoyGameplay")}</p>
-                    </div>
-                    <div id="videoad"></div>
-                </div>
-            </div>
 
             {typeof coolmathSplash === "number" && (
                 // black background
@@ -2679,9 +2719,16 @@ export default function Home({ }) {
                     <div className={`home_ad `} style={{ display: (screen === 'home' && (!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION)) ? '' : 'none' }}>
                         <Ad
                             unit={"worldguessr_home_ad"}
-                            inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.33 : 0.5} />
+                            inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={height < 510 ? [[300, 250]] : [[320, 50], [300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 }
+                {inGameDistribution && screen === 'home' && (
+                    <div className="home_ad">
+                        <GameDistributionBanner
+                            id="gd-banner-home"
+                            screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
+                    </div>
+                )}
                 <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>
@@ -2843,20 +2890,12 @@ export default function Home({ }) {
                             <div className="footer_btns">
                                 {!isApp && !inCoolMathGames && !inGameDistribution && (
                                     <>
+                                        <Link target="_blank" href={"https://forum.worldguessr.com/"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container forum" aria-label="Forum"><FaBook className="home__squarebtnicon" /></button></Link>
                                         <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
 
                                         {!inCrazyGames && (
                                             <>
                                                 <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                                                <Link target="_blank" className="desktop" href={"https://www.coolmathgames.com/0-worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames">
-                                                    {/* Todo; include coolmath logo here; url is /cmlogo.png*/}
-
-                                                    <NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" />
-
-                                                </button>
-                                                </Link>
-
-                                                <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                                             </>
                                         )}
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
@@ -2994,7 +3033,7 @@ export default function Home({ }) {
                             }
 
                             setOnboarding(null)
-                            if (!window.location.search.includes("app=true") && !inCrazyGames && !inCoolMathGames) {
+                            if (!window.location.search.includes("app=true") && !inCrazyGames && !inCoolMathGames && !inGameDistribution) {
                                 setShowSuggestLoginModal(true)
                             }
                             setScreen("home")
@@ -3065,15 +3104,7 @@ document.addEventListener(
   },
   { passive: false }
 );
-            window.lastAdShown = Date.now();
             window.gameOpen = Date.now();
-          //   try {
-          //   if(window.localStorage.getItem("lastAdShown")) {
-          //     window.lastAdShown = parseInt(window.localStorage.getItem("lastAdShown"))
-          // }
-          //   } catch(e) {}
-            window.adInterval = 1800000;
-
 
             setTimeout(() => {
             if(window.PokiSDK) {
@@ -3094,7 +3125,6 @@ document.addEventListener(
 
   	window.aiptag = window.aiptag || {cmd: []};
 	aiptag.cmd.display = aiptag.cmd.display || [];
-	aiptag.cmd.player = aiptag.cmd.player || [];
 
 	//CMP tool settings
 	aiptag.cmp = {
@@ -3107,67 +3137,6 @@ document.addEventListener(
    window.adsbygoogle = window.adsbygoogle || [];
   window.adBreak = adConfig = function(o) {adsbygoogle.push(o);}
    adConfig({preloadAdBreaks: 'on'});
-
-   aiptag.cmd.player.push(function() {
-	aiptag.adplayer = new aipPlayer({
-		AD_WIDTH: Math.min(Math.max(window.innerWidth, 300), 1066),
-		AD_HEIGHT: Math.min(Math.max(window.innerHeight, 150), 600),
-		AD_DISPLAY: 'modal-center', //default, fullscreen, fill, center, modal-center
-		LOADING_TEXT: 'loading advertisement',
-		PREROLL_ELEM: function(){ return document.getElementById('videoad'); },
-		AIP_COMPLETE: function (state) {
-  document.querySelector('.videoAdParent').classList.add('hidden');
-
-    console.log("Ad complete", state)
-			// The callback will be executed once the video ad is completed.
-      window.lastAdShown = Date.now();
-      try {
-      window.localStorage.setItem("lastAdShown", window.lastAdShown)
-    } catch(e) {}
-
-
-			if (typeof aiptag.adplayer.adCompleteCallback === 'function') {
-				aiptag.adplayer.adCompleteCallback(state);
-			}
-		}
-	});
-});
-
-window.show_videoad = function(callback) {
-// if in crazygame (window.inCrazyGames) dont show ads
-if(window.inCrazyGames || window.inGameDistribution) {
-  console.log("In crazygames/gamedistribution, not showing ads")
-  callback("DISABLED");
-  return;
-}
-
-          if(window.disableVideoAds) {
-          console.log("Video ads disabled")
-            callback("DISABLED");
-            return;
-          }
-
-  if(window.lastAdShown + window.adInterval > Date.now()) {
-            callback("COOLDOWN");
-            return;
-          }
-
-	// Assign the callback to be executed when the ad is done
-	aiptag.adplayer.adCompleteCallback = callback;
-
-	// Check if the adslib is loaded correctly or blocked by adblockers etc.
-	if (typeof aiptag.adplayer !== 'undefined') {
-  console.log("Showing ad")
-  // remove 'hidden' class from the parent div
-  document.querySelector('.videoAdParent').classList.remove('hidden');
-		aiptag.cmd.player.push(function() { aiptag.adplayer.startVideoAd(); });
-	} else {
-   console.log("Adlib not loaded")
-		// Adlib didn't load; this could be due to an ad blocker, timeout, etc.
-		// Please add your script here that starts the content, this usually is the same script as added in AIP_COMPLETE.
-		aiptag.adplayer.aipConfig.AIP_COMPLETE();
-	}
-}
 
   `}
                 </Script>

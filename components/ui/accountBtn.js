@@ -4,14 +4,14 @@ import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "../utils/sendEvent";
 import CountryFlag from '../utils/countryFlag';
 
-export default function AccountBtn({ session, openAccountModal, navbarMode, inCrazyGames, loginQueued, setLoginQueued }) {
+export default function AccountBtn({ session, openAccountModal, navbarMode, inCrazyGames, inGameDistribution, loginQueued, setLoginQueued }) {
   const { t: text } = useTranslation("common");
   const hasGoogleClientId = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   // Use countryCode from session (now included in googleAuth response)
   const countryCode = session?.token?.countryCode || null;
 
 
-  if(inCrazyGames && (!session || !session?.token?.secret)) {
+  if((inCrazyGames || inGameDistribution) && (!session || !session?.token?.secret)) {
     return null;
   }
 

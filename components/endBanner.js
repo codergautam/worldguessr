@@ -21,17 +21,20 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
             maxDist: multiplayerState?.gameData?.maxDist ?? 20000
         }) : 0);
 
-    // Trigger confetti for scores >= 4850
+    // Trigger confetti for scores >= 4850 (delay to let the map transition finish —
+    // firing while the pano is still visible causes white screen on mobile GPUs)
     useEffect(() => {
-        if (guessed && points >= 4850 && !confettiTriggered.current) {
+        let timer;
+        if (guessed && points >= 4850 && !panoShown && !confettiTriggered.current) {
             confettiTriggered.current = true;
-            triggerConfetti();
+            timer = setTimeout(() => triggerConfetti(), 500);
         }
         // Reset when banner hides
         if (!guessed) {
             confettiTriggered.current = false;
         }
-    }, [guessed, points]);
+        return () => clearTimeout(timer);
+    }, [guessed, points, panoShown]);
 
     return (
         <div id='endBanner' style={{ display: guessed ? '' : 'none' }}>

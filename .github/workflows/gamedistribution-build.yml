@@ -20,7 +20,7 @@ jobs:
       NEXT_PUBLIC_API_URL: api.worldguessr.com
       NEXT_PUBLIC_WS_HOST: server.worldguessr.com
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: 471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com
-
+      NEXT_PUBLIC_BASE_PATH: /fef00656129743768437b7589b7c48b1
     steps:
     - uses: actions/checkout@v4
 

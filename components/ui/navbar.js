@@ -80,6 +80,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && (
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
+                            inGameDistribution={inGameDistribution}
                             session={session}
                             navbarMode={screen !== "home"}
                             openAccountModal={openAccountModal}

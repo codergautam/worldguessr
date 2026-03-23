@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslation } from '@/components/useTranslations';
+import { preloadPinImages } from '@/lib/markerIcons';
 import styles from '../styles/gameHistory.module.css';
 
 const GameSummary = dynamic(() => import('./roundOverScreen'), { ssr: false });
@@ -12,6 +13,11 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
   const [error, setError] = useState(null);
   const [isExiting, setIsExiting] = useState(false);
   const [isEntering, setIsEntering] = useState(true);
+
+  // Ensure pin images are preloaded (may not have been called on non-home pages like /mod)
+  useEffect(() => {
+    preloadPinImages();
+  }, []);
 
   // Handle entering animation
   useEffect(() => {

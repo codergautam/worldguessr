@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { CircleMarker, Marker, Polyline, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
+import { getPinIcons } from '@/lib/markerIcons';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
@@ -23,8 +24,9 @@ function HintCircle({ location, gameOptions, round }) {
     zoom: () => setZoom(map.getZoom()),
   });
 
-  // 100px at zoom 1, doubles each zoom level
-  const ogRadius = 75
+  // Scale hint circle with maxDist (75px base at 20000km world map)
+  const maxDist = gameOptions?.maxDist ?? 20000;
+  const ogRadius = 75 * (maxDist / 20000);
   const pixelRadius = ogRadius * Math.pow(2, zoom - 1);
   // Offset the center by 0 to pixelRadius in a random direction (sqrt for uniform area distribution)
   const seed = (round ?? 1) + Math.abs(location.lat * ogRadius + location.long * ogRadius);
@@ -81,7 +83,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         setPinPoint(e.latlng);
         if (currentMultiplayerState?.inGame && currentMultiplayerState.gameData?.state === "guess" && currentWs) {
           const pinpointLatLong = [e.latlng.lat, e.latlng.lng];
-          currentWs.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }));
+          currentWs.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false, round: currentMultiplayerState.gameData?.curRound }));
         }
         // play sound
         // playSound();
@@ -151,33 +153,14 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
     return () => window.removeEventListener('resize', checkDevice);
   }, []);
 
-  // Cache icons to prevent repeated requests
-  const icons = useMemo(() => ({
-    dest: L.icon({
-      iconUrl: asset('/dest.png'),
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-    }),
-    src: L.icon({
-      iconUrl: asset('/src.png'),
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-    }),
-    src2: L.icon({
-      iconUrl: asset('/src2.png'),
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-    }),
-    polandball: L.icon({
-      iconUrl: './polandball.png',
-      iconSize: [50, 82],
-      iconAnchor: [25, 41],
-      popupAnchor: [1, 5],
-    })
-  }), []);
+  // Use shared icon cache (created once, reused across all mounts)
+  const sharedIcons = getPinIcons();
+  const icons = {
+    dest: sharedIcons?.destSmall,
+    src: sharedIcons?.srcSmall,
+    src2: sharedIcons?.src2Small,
+    polandball: sharedIcons?.polandball,
+  };
 
 
   useEffect(() => {

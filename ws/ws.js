@@ -273,6 +273,19 @@ app.get('/playercnt', (res) => {
   res.end(String(players.size - disconnectedPlayers.size));
 });
 
+app.get('/platformdist', (res) => {
+  setCorsHeaders(res);
+  res.writeHeader('Content-Type', 'application/json');
+  res.writeStatus('200 OK');
+  const dist = {};
+  for (const player of players.values()) {
+    if (!player.verified || player.disconnected) continue;
+    const p = player.platform || 'empty';
+    dist[p] = (dist[p] || 0) + 1;
+  }
+  res.end(JSON.stringify(dist));
+});
+
 // maintenance mode
 if (process.env.MAINTENANCE_SECRET) {
   const maintenanceSecret = process.env.MAINTENANCE_SECRET;
@@ -330,11 +343,20 @@ if (process.env.MAINTENANCE_SECRET) {
     let cnt = 0;
     // kick all players with this ip
     for (const player of players.values()) {
+    try {
+
       if (player.ip.includes(ip)) {
-        player.ws.close();
+        if (player.ws) player.ws.close();
+        else {
+          console.log('Player with matching IP has no WebSocket connection', player.username, player.ip, currentDate());
+        }
         cnt++;
       }
+      } catch(e) {
+    console.error('Error banning IP', e, currentDate());
+  }
     }
+
 
     setCorsHeaders(res);
     res.writeHeader('Content-Type', 'text/htmk');
@@ -724,6 +746,7 @@ app.ws('/wg', {
         const game = games.get(player.gameId);
         const latLong = json.latLong;
         const final = json.final;
+        const round = json.round;
 
         // make sure latLong is an array of floats with 2 elements
         if (!Array.isArray(latLong) || latLong.length !== 2) {
@@ -735,7 +758,14 @@ app.ws('/wg', {
           return;
         }
 
-        game.setGuess(player.id, latLong, final);
+        // validate round if provided (new clients send it, old clients may not)
+        if (round !== undefined && round !== null) {
+          if (typeof round !== 'number' || !Number.isInteger(round) || round < 1) {
+            return;
+          }
+        }
+
+        game.setGuess(player.id, latLong, final, round);
       }
 
       if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {
@@ -1441,6 +1471,27 @@ try {
         }
 
       } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
+        // 1-second buffer for late-arriving guesses due to network latency.
+        // Players who click guess at the last second may have their packet
+        // arrive after the timer expires on the server.
+        if (!game.roundEndedAt) {
+          game.roundEndedAt = Date.now();
+        }
+
+        // Skip buffer if all players already submitted final guesses
+        let allFinal = true;
+        for (const p of Object.values(game.players)) {
+          if (!p.final) {
+            allFinal = false;
+            break;
+          }
+        }
+
+        if (!allFinal && Date.now() - game.roundEndedAt < 500) {
+          continue; // Still in grace period, accept late guesses
+        }
+
+        game.roundEndedAt = null;
         game.givePoints();
         game.saveRoundToHistory(); // Save the round data after points are calculated
         if(game.curRound <= game.rounds) {

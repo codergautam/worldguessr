@@ -19,7 +19,10 @@
       "Bash(npx next build:*)",
       "Bash(npx tsc --noEmit)",
       "Bash(npx expo install expo-clipboard)",
-      "Bash(pnpm add expo-clipboard)"
+      "Bash(pnpm add expo-clipboard)",
+      "Bash(npx acorn:*)",
+      "WebSearch",
+      "Bash(npx next:*)"
     ],
     "deny": [
       "Bash(git push:*)"

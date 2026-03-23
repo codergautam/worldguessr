@@ -47,6 +47,7 @@ export default class Game {
     this.readyToEnd = false;
     this.roundHistory = []; // Store guess history for each round
     this.roundStartTimes = {}; // Track when each round started for each player
+    this.roundEndedAt = null; // Track when guess phase timer expired (for late guess buffer)
     this.disconnectedPlayer = null; // Track disconnected player for ranked duels
     this.rankedDuelPersistentData = {}; // Store persistent player data for ranked duels only
     this.saveInProgress = false; // Track if MongoDB save is in progress
@@ -361,6 +362,7 @@ export default class Game {
       player.final = false;
       player.roundTimeTaken = null; // Reset time for new round
     }
+    this.roundEndedAt = null; // Reset late guess buffer
     // Track when this round's guessing phase starts for time calculation
     this.roundStartTimes[this.curRound] = Date.now();
   }
@@ -505,8 +507,14 @@ export default class Game {
 
     this.sendStateUpdate(true);
   }
-  setGuess(playerId, latLong, final) {
+  setGuess(playerId, latLong, final, round) {
     if(this.state !== 'guess') {
+      return;
+    }
+
+    // Reject if client-specified round doesn't match current round.
+    // Old clients that don't send round (undefined) are still accepted.
+    if (round !== undefined && round !== null && round !== this.curRound) {
       return;
     }
 
@@ -519,8 +527,19 @@ export default class Game {
       return;
     }
 
-    player.final = final;
-    player.guess = latLong;
+    if (final) {
+      player.final = true;
+      // When marking as final, prefer the coordinates already set by the most
+      // recent interim placement (final:false) — those come directly from the
+      // Leaflet click event and are always accurate.  The final:true message's
+      // coordinates can be stale due to React closure timing, so only use them
+      // as a fallback when no interim guess exists.
+      if (!player.guess) {
+        player.guess = latLong;
+      }
+    } else {
+      player.guess = latLong;
+    }
 
     // Track time taken for this round when player makes final guess
     if(final && this.roundStartTimes[this.curRound]) {
@@ -533,7 +552,7 @@ export default class Game {
         type: 'place',
         id: playerId,
         final: true,
-        latLong
+        latLong: player.guess
       });
 
       this.checkRemaining();
