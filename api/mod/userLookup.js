@@ -24,6 +24,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: 'Unauthorized' });
     }
 
+    console.log('requestingUser', requestingUser.username, requestingUser.accountId, username);
     let targetUser;
     let searchType = null; // Track how we found the user
 
