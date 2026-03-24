@@ -291,7 +291,6 @@ async function buildUserResponse(targetUser) {
   const response = {
     targetUser: {
       username: targetUser.username,
-      secret: targetUser.secret,
       _id: targetUser._id,
       totalXp: targetUser.totalXp,
       totalGamesPlayed: targetUser.totalGamesPlayed,

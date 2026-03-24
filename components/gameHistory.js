@@ -5,7 +5,7 @@ import styles from '../styles/gameHistory.module.css';
 import Link from 'next/link';
 import CountryFlag from './utils/countryFlag';
 
-export default function GameHistory({ session, onGameClick, targetUserSecret = null, targetUserData = null, page = null, setPage = null }) {
+export default function GameHistory({ session, onGameClick, targetUserId = null, targetUserData = null, page = null, setPage = null }) {
   const { t: text } = useTranslation("common");
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +33,8 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          secret: targetUserSecret || session?.token?.secret,
+          secret: session?.token?.secret,
+          ...(targetUserId && { targetUserId }),
           page,
           limit: 10
         }),
@@ -59,7 +60,7 @@ export default function GameHistory({ session, onGameClick, targetUserSecret = n
     if (typeof window !== 'undefined' && session?.token?.secret && window.cConfig?.apiUrl) {
       fetchGames(currentPage);
     }
-  }, [session?.token?.secret, targetUserSecret, currentPage]);
+  }, [session?.token?.secret, targetUserId, currentPage]);
 
   const getGameTypeDisplay = (gameType) => {
     const types = {
