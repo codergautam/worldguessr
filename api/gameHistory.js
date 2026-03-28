@@ -7,7 +7,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { secret, page = 1, limit = 10 } = req.body;
+  const { secret, targetUserId, page = 1, limit = 10 } = req.body;
 
   // Validate secret
   if (!secret || typeof secret !== 'string') {
@@ -15,10 +15,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Verify user exists
-    const user = await User.findOne({ secret });
-    if (!user) {
+    // Verify requesting user exists
+    const requestingUser = await User.findOne({ secret });
+    if (!requestingUser) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    // If targetUserId is provided, verify the requester is staff
+    let user;
+    if (targetUserId) {
+      if (!requestingUser.staff) {
+        return res.status(403).json({ message: 'Unauthorized' });
+      }
+      user = await User.findById(targetUserId);
+      if (!user) {
+        return res.status(404).json({ message: 'Target user not found' });
+      }
+    } else {
+      user = requestingUser;
     }
 
     // Calculate pagination
@@ -48,13 +62,13 @@ export default async function handler(req, res) {
     // Format games for frontend
     const formattedGames = games.map(game => {
       // Find the user's player data  
-      const userPlayer = game.players.find(player => player.accountId === user._id.toString() || player.accountId === secret);
+      const userPlayer = game.players.find(player => player.accountId === user._id.toString());
       
       // For ranked duels, find opponent data
       let opponentPlayer = null;
       if (game.gameType === 'ranked_duel') {
-        opponentPlayer = game.players.find(player => 
-          player.accountId !== user._id.toString() && player.accountId !== secret
+        opponentPlayer = game.players.find(player =>
+          player.accountId !== user._id.toString()
         );
       }
       

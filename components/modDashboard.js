@@ -322,6 +322,7 @@ export default function ModDashboard({ session }) {
   const fetchGameById = async (gameId, targetUserId = null, reportedAccountId = null) => {
     if (!gameId) return;
 
+    setSavedScrollPosition(window.scrollY);
     setGameLoading(true);
     setError(null);
     setReportedUserId(reportedAccountId);
@@ -1808,7 +1809,7 @@ export default function ModDashboard({ session }) {
                   {/* Game History */}
                   <GameHistory
                     session={session}
-                    targetUserSecret={targetUser.secret}
+                    targetUserId={targetUser._id}
                     targetUserData={targetUser}
                     onGameClick={handleGameClick}
                     page={gameHistoryPage}
