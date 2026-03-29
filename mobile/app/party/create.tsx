@@ -59,12 +59,13 @@ export default function PartyCreateScreen() {
   const [mapName, setMapName] = useState('All Countries');
   const [mapModalVisible, setMapModalVisible] = useState(false);
 
-  // Auto-open options modal when game is created (host only)
+  // Auto-open options modal only when freshly creating a game (not reconnecting)
   const autoOpenedRef = useRef(false);
+  const wasAlreadyInGame = useRef(inGame);
   useEffect(() => {
-    if (inGame && gameCode && isHost && !autoOpenedRef.current) {
+    if (inGame && gameCode && isHost && !autoOpenedRef.current && !wasAlreadyInGame.current) {
       autoOpenedRef.current = true;
-      setMapModalVisible(true);
+      setTimeout(() => setMapModalVisible(true), 150);
     }
   }, [inGame, gameCode, isHost]);
 
@@ -131,7 +132,7 @@ export default function PartyCreateScreen() {
     }
   };
 
-  // Send leaveGame when screen is removed (back swipe, back button, or explicit leave)
+  // Send leaveGame when screen is removed (back button or programmatic navigation)
   const leftRef = useRef(false);
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
@@ -148,7 +149,7 @@ export default function PartyCreateScreen() {
     leftRef.current = true;
     wsService.send({ type: 'leaveGame' });
     useMultiplayerStore.getState().reset();
-    router.back();
+    router.dismissAll();
   };
 
   const playerCount = players?.length ?? 0;

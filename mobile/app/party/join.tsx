@@ -77,7 +77,7 @@ export default function PartyJoinScreen() {
     wsService.send({ type: 'joinPrivateGame', gameCode: code });
   };
 
-  // Send leaveGame when screen is removed (back swipe, back button, or explicit leave)
+  // Send leaveGame when screen is removed (back button or programmatic navigation)
   const leftRef = useRef(false);
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
@@ -96,7 +96,7 @@ export default function PartyJoinScreen() {
       wsService.send({ type: 'leaveGame' });
       useMultiplayerStore.getState().reset();
     }
-    router.back();
+    router.dismissAll();
   };
 
   // If we've joined a game, show the lobby

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  Modal,
   ScrollView,
   StyleSheet,
   Pressable,
@@ -10,7 +9,9 @@ import {
   Switch,
   ActivityIndicator,
   Animated,
+  PanResponder,
   useWindowDimensions,
+  BackHandler,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -57,9 +58,11 @@ export default function MapSelectorModal({
   rounds,
   onRoundsChange,
 }: MapSelectorModalProps) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { secret } = useAuthStore();
+  const SHEET_TOP = insets.top + 12; // space at top like iOS pageSheet
+  const SHEET_HEIGHT = height - SHEET_TOP;
 
   const [mapHome, setMapHome] = useState<Record<string, MapItem[]>>({});
   const [searchResults, setSearchResults] = useState<MapItem[]>([]);
@@ -76,18 +79,104 @@ export default function MapSelectorModal({
   const selectedMapRef = useRef<SelectedMapInfo | null>(null);
   const slideAnim = useRef(new Animated.Value(0)).current; // 0 = list, 1 = detail
 
-  const isLandscape = width > 600;
-  const numCols = isLandscape ? 3 : 2;
-  const countryNumCols = isLandscape ? 4 : 3;
+  // Sheet slide-up animation (mimics iOS pageSheet)
+  const sheetAnim = useRef(new Animated.Value(SHEET_HEIGHT)).current;
+  const backdropAnim = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(false);
+  const closingRef = useRef(false);
 
-  // Reset detail view when modal closes
+  const animateOpen = useCallback(() => {
+    sheetAnim.setValue(SHEET_HEIGHT);
+    backdropAnim.setValue(0);
+    Animated.parallel([
+      Animated.spring(sheetAnim, {
+        toValue: 0,
+        damping: 28,
+        stiffness: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [SHEET_HEIGHT]);
+
+  const animateClose = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    Animated.parallel([
+      Animated.timing(sheetAnim, {
+        toValue: SHEET_HEIGHT,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      closingRef.current = false;
+      onClose();
+    });
+  }, [SHEET_HEIGHT, onClose]);
+
   useEffect(() => {
-    if (!visible) {
+    if (visible) {
+      closingRef.current = false;
+      setMounted(true);
+      // Small delay so React renders the sheet before animating
+      requestAnimationFrame(() => animateOpen());
+    } else {
+      setMounted(false);
       setSelectedMap(null);
       selectedMapRef.current = null;
       slideAnim.setValue(0);
+      sheetAnim.setValue(SHEET_HEIGHT);
+      backdropAnim.setValue(0);
     }
   }, [visible]);
+
+  // Swipe-down to dismiss
+  const animateCloseRef = useRef(animateClose);
+  animateCloseRef.current = animateClose;
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 10 && Math.abs(g.dy) > Math.abs(g.dx),
+      onPanResponderMove: (_, g) => {
+        if (g.dy > 0) sheetAnim.setValue(g.dy);
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy > 120 || g.vy > 0.5) {
+          animateCloseRef.current();
+        } else {
+          Animated.spring(sheetAnim, {
+            toValue: 0,
+            damping: 28,
+            stiffness: 300,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  // Handle Android back button
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      animateClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, animateClose]);
+
+  const isLandscape = width > 600;
+  const numCols = isLandscape ? 3 : 2;
+  const countryNumCols = isLandscape ? 4 : 3;
 
   const showDetail = useCallback((map: SelectedMapInfo) => {
     selectedMapRef.current = map;
@@ -159,8 +248,10 @@ export default function MapSelectorModal({
     selectedMapRef.current = null;
     setSelectedMap(null);
     slideAnim.setValue(0);
-    onSelectMap(slug, name);
-  }, [onSelectMap, slideAnim]);
+    animateClose();
+    // Defer the actual selection until the close animation finishes
+    setTimeout(() => onSelectMap(slug, name), 260);
+  }, [onSelectMap, slideAnim, animateClose]);
 
   // Heart functionality (same as maps tab)
   const [heartingMap, setHeartingMap] = useState('');
@@ -210,16 +301,30 @@ export default function MapSelectorModal({
 
   const isSearching = searchQuery.trim().length >= 3;
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   return (
-    <Modal
-      visible
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
+    <View style={styles.overlay}>
+      {/* Dark backdrop */}
+      <Animated.View
+        style={[styles.backdrop, { opacity: backdropAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }) }]}
+      >
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={animateClose} />
+      </Animated.View>
+
+      {/* Sheet */}
+      <Animated.View
+        style={[
+          styles.sheet,
+          { top: SHEET_TOP, height: SHEET_HEIGHT, transform: [{ translateY: sheetAnim }] },
+        ]}
+      >
+        {/* Drag handle */}
+        <View style={styles.handleBar} {...panResponder.panHandlers}>
+          <View style={styles.handle} />
+        </View>
+
+        <View style={[styles.container, { paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }]}>
         {/* List view - slides left when detail is shown */}
         <Animated.View style={[
           styles.slidePanel,
@@ -237,9 +342,9 @@ export default function MapSelectorModal({
               <Text style={styles.headerTitle}>Game Options</Text>
               <Pressable
                 style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
-                onPress={onClose}
+                onPress={animateClose}
               >
-                <Ionicons name="close" size={24} color="#fff" />
+                <Ionicons name="checkmark" size={24} color="#fff" />
               </Pressable>
             </View>
 
@@ -346,7 +451,7 @@ export default function MapSelectorModal({
                   currentMapSlug === 'all' && styles.allCountriesTileActive,
                   pressed && { opacity: 0.8 },
                 ]}
-                onPress={() => onSelectMap('all', 'All Countries')}
+                onPress={() => { animateClose(); setTimeout(() => onSelectMap('all', 'All Countries'), 260); }}
               >
                 <LinearGradient
                   colors={['#1a4423', '#245734']}
@@ -440,7 +545,7 @@ export default function MapSelectorModal({
           <Animated.View style={[
             styles.slidePanel,
             styles.detailPanel,
-            { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
+            { paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right },
             {
               transform: [{
                 translateX: slideAnim.interpolate({
@@ -460,15 +565,43 @@ export default function MapSelectorModal({
             />
           </Animated.View>
         )}
-      </View>
-    </Modal>
+        </View>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    backgroundColor: '#0a1a0c',
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    overflow: 'hidden',
+  },
+  handleBar: {
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  handle: {
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
   container: {
     flex: 1,
-    backgroundColor: '#0a1a0c',
     overflow: 'hidden',
   },
   slidePanel: {

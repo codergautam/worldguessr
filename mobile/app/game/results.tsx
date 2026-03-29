@@ -522,7 +522,7 @@ export default function GameResultsScreen() {
         ws.send({ type: 'publicDuel' });
         mpStore.setState({ gameQueued: 'publicDuel' as const });
       }
-      router.replace('/(tabs)/home');
+      router.dismissAll();
       return;
     }
     router.replace({
@@ -536,7 +536,7 @@ export default function GameResultsScreen() {
       const { useMultiplayerStore: mpStore } = require('../../src/store/multiplayerStore');
       mpStore.getState().reset();
     }
-    router.replace('/(tabs)/home');
+    router.dismissAll();
   };
 
   // ── Helper: find my ELO data for duel header ─────────────

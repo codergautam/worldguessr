@@ -41,10 +41,27 @@ export default function ToastProvider() {
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!latestToast) return;
+    // Clear previous timer on any change
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
 
-    // Clear previous timer
-    if (hideTimer.current) clearTimeout(hideTimer.current);
+    if (!latestToast) {
+      // Store was reset — dismiss any visible toast immediately
+      if (visible) {
+        Animated.timing(slideAnim, {
+          toValue: -100,
+          duration: 150,
+          easing: Easing.in(Easing.ease),
+          useNativeDriver: true,
+        }).start(() => {
+          setVisible(false);
+          setCurrentToast(null);
+        });
+      }
+      return;
+    }
 
     setCurrentToast(latestToast);
     setVisible(true);
@@ -70,11 +87,7 @@ export default function ToastProvider() {
         setCurrentToast(null);
       });
     }, TOAST_DURATION);
-
-    return () => {
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-    };
-  }, [latestToast?.timestamp]);
+  }, [latestToast]);
 
   if (!visible || !currentToast) return null;
 

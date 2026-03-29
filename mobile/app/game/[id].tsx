@@ -127,7 +127,7 @@ export default function GameScreen() {
   // Navigate home if multiplayer game shuts down
   useEffect(() => {
     if (isMultiplayer && !inGame) {
-      router.replace('/(tabs)/home');
+      router.dismissAll();
     }
   }, [isMultiplayer, inGame]);
 
@@ -574,9 +574,12 @@ export default function GameScreen() {
   }, [guessPosition, currentLocation, gameState.isShowingResult, handleSubmitGuess, isMultiplayer]);
 
   // Multiplayer: navigate to results when duelEnd arrives or final round ends
+  const mpResultsNavigated = useRef(false);
   useEffect(() => {
     if (!isMultiplayer || !gameData) return;
+    if (mpResultsNavigated.current) return;
     if (gameData.duelEnd || (gameData.state === 'end' && gameData.curRound >= gameData.rounds)) {
+      mpResultsNavigated.current = true;
       // Small delay so user sees the end banner
       const timer = setTimeout(() => {
         router.push({
@@ -657,7 +660,7 @@ export default function GameScreen() {
       wsService.send({ type: 'leaveGame' });
       useMultiplayerStore.getState().reset();
     }
-    router.replace('/(tabs)/home');
+    router.dismissAll();
   };
 
   const handleMapSelect = useCallback((slug: string, name: string) => {

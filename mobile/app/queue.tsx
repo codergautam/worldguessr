@@ -27,11 +27,8 @@ export default function QueueScreen() {
   const subTextSize = Math.min(24, Math.max(16, width * 0.05));
 
   const goBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)/home');
-    }
+    navigation.setOptions({ animation: 'none' });
+    router.dismissAll();
   };
 
   const leaveQueue = () => {

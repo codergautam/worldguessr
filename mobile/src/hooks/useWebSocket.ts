@@ -62,7 +62,7 @@ export function useWebSocket() {
           },
         });
         try {
-          router.replace('/(tabs)/home');
+          router.dismissAll();
         } catch {
           // Navigation may fail if already on home
         }

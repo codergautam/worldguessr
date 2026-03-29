@@ -251,6 +251,7 @@ export default function HomeScreen() {
       // If user pressed "Create Game", they already navigated — skip
       if (createdByButton.current) {
         createdByButton.current = false;
+        hasAutoNavigated.current = true;
         return;
       }
       // Reconnect restored a waiting lobby — auto-open party screen
