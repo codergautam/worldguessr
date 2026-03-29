@@ -374,7 +374,10 @@ export default function GameScreen() {
   // Fetch locations from server based on currentMapSlug (singleplayer only)
   useEffect(() => {
     if (isMultiplayer) return; // Multiplayer locations come from gameData
-    async function fetchLocations() {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 2000;
+
+    async function fetchLocations(attempt = 1) {
       try {
         setIsLoading(true);
         setLoadError(null);
@@ -452,7 +455,12 @@ export default function GameScreen() {
           api.trackMapPlay(mapSlug);
         }
       } catch (error) {
-        console.error('Failed to fetch locations:', error);
+        if (attempt < MAX_RETRIES) {
+          console.warn(`Failed to fetch locations (attempt ${attempt}/${MAX_RETRIES}), retrying...`);
+          setTimeout(() => fetchLocations(attempt + 1), RETRY_DELAY);
+          return;
+        }
+        console.error('Failed to fetch locations after all retries:', error);
         setLoadError(error instanceof Error ? error.message : 'Failed to load game');
         setIsLoading(false);
       }

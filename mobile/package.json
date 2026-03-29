@@ -7,7 +7,8 @@
     "start:tunnel": "expo start --tunnel",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "build:dev:ios": "eas build --profile development --platform ios"
   },
   "dependencies": {
     "@expo-google-fonts/jockey-one": "^0.4.1",

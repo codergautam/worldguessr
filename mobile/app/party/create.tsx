@@ -19,6 +19,7 @@ import {
   ImageBackground,
   ActivityIndicator,
   Alert,
+  Animated,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -47,6 +48,7 @@ export default function PartyCreateScreen() {
   const serverDisplayLocation = useMultiplayerStore((s) => s.gameData?.displayLocation);
   const serverNm = useMultiplayerStore((s) => s.gameData?.nm);
   const [codeCopied, setCodeCopied] = useState(false);
+  const copyIconScale = useRef(new Animated.Value(1)).current;
   const sentRef = useRef(false);
 
   // Game settings (host controls)
@@ -119,8 +121,12 @@ export default function PartyCreateScreen() {
 
   const handleCopyCode = async () => {
     if (gameCode) {
-      await Clipboard.setStringAsync(gameCode);
+      await Clipboard.setStringAsync(String(gameCode));
       setCodeCopied(true);
+      Animated.sequence([
+        Animated.timing(copyIconScale, { toValue: 1.4, duration: 150, useNativeDriver: true }),
+        Animated.timing(copyIconScale, { toValue: 1, duration: 150, useNativeDriver: true }),
+      ]).start();
       setTimeout(() => setCodeCopied(false), 2000);
     }
   };
@@ -200,15 +206,14 @@ export default function PartyCreateScreen() {
             <Text style={styles.codeLabel}>GAME CODE</Text>
             <Pressable onPress={handleCopyCode} style={styles.codeRow}>
               <Text style={styles.codeText}>{gameCode}</Text>
-              <Ionicons
-                name={codeCopied ? 'checkmark' : 'copy'}
-                size={20}
-                color={codeCopied ? colors.success : 'rgba(255,255,255,0.6)'}
-              />
+              <Animated.View style={{ transform: [{ scale: copyIconScale }] }}>
+                <Ionicons
+                  name={codeCopied ? 'checkmark' : 'copy'}
+                  size={20}
+                  color={codeCopied ? colors.success : 'rgba(255,255,255,0.6)'}
+                />
+              </Animated.View>
             </Pressable>
-            {codeCopied && (
-              <Text style={styles.copiedText}>Copied!</Text>
-            )}
           </View>
 
           {/* Players */}
@@ -375,12 +380,6 @@ const styles = StyleSheet.create({
     fontSize: 36,
     fontFamily: 'Lexend-Bold',
     letterSpacing: 8,
-  },
-  copiedText: {
-    color: colors.success,
-    fontSize: fontSizes.xs,
-    fontFamily: 'Lexend',
-    marginTop: spacing.xs,
   },
   section: {
     gap: spacing.md,

@@ -1,7 +1,7 @@
 // WebSocket server URL configuration
 // In dev, point to local server; in production, use the live server
 export const WS_URL = __DEV__
-  ? 'ws://172.20.10.2:3002/wg'
+  ? 'ws://192.168.4.32:3002/wg'
   : 'wss://server.worldguessr.com/wg';
 
 // Connection parameters (ported from web initWebsocket.js)

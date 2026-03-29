@@ -71,6 +71,12 @@ class WebSocketService {
    * Ported from initWebsocket.js + home.js:1297-1391.
    */
   async connect(secret: string | null): Promise<void> {
+    // Skip if already connected with the same secret
+    if (this.isConnected && this._secret === secret) {
+      console.log('[WS] Already connected with same secret, skipping');
+      return;
+    }
+
     // Bump generation so any in-flight retry chain from a previous connect() is abandoned
     const gen = ++this._generation;
     console.log(`[WS] connect() called (gen=${gen}, secret=${secret ? 'yes' : 'no'})`);

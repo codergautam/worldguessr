@@ -210,9 +210,11 @@ export default function MapSelectorModal({
 
   const isSearching = searchQuery.trim().length >= 3;
 
+  if (!visible) return null;
+
   return (
     <Modal
-      visible={visible}
+      visible
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onClose}

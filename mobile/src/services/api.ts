@@ -2,7 +2,7 @@ import { GameSettings } from '../shared';
 
 // TODO: Replace with environment variable
 // const API_URL = 'https://api.worldguessr.com';
-const API_URL = 'http://172.20.10.2:3001'; // Local dev server (use your machine's local IP)
+const API_URL = 'http://192.168.4.32:3001'; // Local dev server (use your machine's local IP)
 export interface MapItem {
   id?: string;
   slug: string;

@@ -71,7 +71,8 @@ export default function GameTimer({
         const next = Math.round((prev - 0.1) * 10) / 10;
         if (next <= 0) {
           clearInterval(interval);
-          onTimeUp();
+          // Defer onTimeUp to avoid setState during render
+          setTimeout(onTimeUp, 0);
           return 0;
         }
         return next;
