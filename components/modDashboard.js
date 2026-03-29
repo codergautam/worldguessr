@@ -981,6 +981,24 @@ export default function ModDashboard({ session }) {
 
             <div className={styles.formGroup}>
               <label>🔒 Internal Reason (required, NOT shown to user):</label>
+              <div className={styles.prefilledButtons}>
+                {[
+                  { label: 'Cheating', text: 'Cheating / using external help' },
+                  { label: 'Inappropriate name', text: 'Inappropriate username' },
+                  { label: 'Toxicity', text: 'Toxic behavior' },
+                  { label: 'Ban evasion', text: 'Ban evasion detected' },
+                  { label: 'Suspicious activity', text: 'Suspicious activity / possible bot' },
+                ].map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    className={styles.prefilledBtn}
+                    onClick={() => setActionReason(preset.text)}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
               <textarea
                 value={actionReason}
                 onChange={(e) => setActionReason(e.target.value)}
@@ -997,6 +1015,23 @@ export default function ModDashboard({ session }) {
             {!['unban', 'undo_force_name_change', 'ignore', 'mark_resolved'].includes(type) && (
               <div className={styles.formGroup}>
                 <label>📢 Public Note (optional, SHOWN to user on their ban/name change banner):</label>
+                <div className={styles.prefilledButtons}>
+                  {[
+                    { label: 'External help', text: 'Using external help is not allowed, if you think the ban was unfair join the discord server and appeal the ban.' },
+                    { label: 'Inappropriate name', text: 'Your username was flagged as inappropriate. Please choose a new name that follows our community guidelines.' },
+                    { label: 'Toxic behavior', text: 'Your account has been suspended due to inappropriate behavior. If you think this was unfair, join the discord server and appeal.' },
+                    { label: 'Ban evasion', text: 'Circumventing a ban is not allowed. If you wish to appeal, join the discord server.' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      className={styles.prefilledBtn}
+                      onClick={() => setActionPublicNote(preset.text)}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
                 <textarea
                   value={actionPublicNote}
                   onChange={(e) => setActionPublicNote(e.target.value)}

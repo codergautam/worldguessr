@@ -2224,3 +2224,29 @@
     padding: 8px 6px;
   }
 }
+
+/* Prefilled message buttons */
+.prefilledButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.prefilledBtn {
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  background: #21262d;
+  color: #8b949e;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.prefilledBtn:hover {
+  background: #30363d;
+  color: #e6edf3;
+  border-color: #58a6ff;
+}
