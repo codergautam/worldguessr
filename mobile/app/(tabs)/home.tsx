@@ -9,6 +9,7 @@ import {
   ScrollView,
   useWindowDimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -277,6 +278,16 @@ export default function HomeScreen() {
   }, [nextGameQueued, connected, inGame, gameQueued]);
 
   const handleModePress = (mode: GameMode) => {
+    const needsConnection = mode === 'rankedDuel' || mode === 'unrankedDuel' || mode === 'createGame' || mode === 'joinGame';
+    if (needsConnection && !connected) {
+      Alert.alert(
+        'Not Connected',
+        'You are not connected to the server. Closing and re-opening the app can help.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
+
     switch (mode) {
       case 'singleplayer':
         router.push({

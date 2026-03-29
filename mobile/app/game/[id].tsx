@@ -294,20 +294,20 @@ export default function GameScreen() {
       Animated.spring(mapSlideAnim, {
         toValue: 1,
         friction: 10,
-        tension: 50,
+        tension: 80,
         useNativeDriver: false,
       }).start();
     } else if (miniMapShown) {
       Animated.spring(mapSlideAnim, {
         toValue: 1,
         friction: 10,
-        tension: 50,
+        tension: 80,
         useNativeDriver: false,
       }).start();
     } else {
       Animated.timing(mapSlideAnim, {
         toValue: 0,
-        duration: 250,
+        duration: 150,
         easing: Easing.ease,
         useNativeDriver: false,
       }).start();

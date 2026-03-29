@@ -295,7 +295,6 @@ export default function PartyCreateScreen() {
         onSelectMap={(slug, name) => {
           setMapSlug(slug);
           setMapName(name);
-          setMapModalVisible(false);
         }}
         currentMapSlug={mapSlug}
         nmpzEnabled={nmpz}
