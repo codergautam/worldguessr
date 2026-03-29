@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { api, MapItem } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
-import { emitHeartUpdate } from '../../store/heartSync';
+import { emitHeartUpdate, onHeartUpdate } from '../../store/heartSync';
 import MapSection, { SECTION_ORDER, SECTION_LABELS } from '../maps/MapSection';
 import MapDetailView from '../maps/MapDetailView';
 
@@ -223,15 +223,27 @@ export default function MapSelectorModal({
     setSearchLoading(true);
     searchTimeoutRef.current = setTimeout(async () => {
       try {
+        const q = text.trim().toLowerCase();
+        // Filter local country maps by substring match
+        const countryMaps = (mapHome['countryMaps'] ?? []).filter(
+          (m) => m.name?.toLowerCase().includes(q)
+        );
         const results = await api.searchMap(text.trim());
-        setSearchResults(Array.isArray(results) ? results : []);
+        const communityResults = Array.isArray(results) ? results : [];
+        // Country matches first, then community results
+        setSearchResults([...countryMaps, ...communityResults]);
       } catch {
-        setSearchResults([]);
+        // Still show country matches even if API fails
+        const q = text.trim().toLowerCase();
+        const countryMaps = (mapHome['countryMaps'] ?? []).filter(
+          (m) => m.name?.toLowerCase().includes(q)
+        );
+        setSearchResults(countryMaps);
       } finally {
         setSearchLoading(false);
       }
     }, 400);
-  }, []);
+  }, [mapHome]);
 
   // Navigate to inline detail view with slide animation
   const handleMapPress = useCallback((map: MapItem) => {
@@ -248,10 +260,29 @@ export default function MapSelectorModal({
     selectedMapRef.current = null;
     setSelectedMap(null);
     slideAnim.setValue(0);
+    onSelectMap(slug, name);
     animateClose();
-    // Defer the actual selection until the close animation finishes
-    setTimeout(() => onSelectMap(slug, name), 260);
   }, [onSelectMap, slideAnim, animateClose]);
+
+  // Sync heart changes from detail page back to tile lists
+  useEffect(() => {
+    return onHeartUpdate(({ mapId, hearted: h, hearts: hc }) => {
+      setMapHome((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((section) => {
+          if (Array.isArray(updated[section])) {
+            updated[section] = updated[section].map((m) =>
+              m.id === mapId ? { ...m, hearts: hc, hearted: h } : m
+            );
+          }
+        });
+        return updated;
+      });
+      setSearchResults((prev) =>
+        prev.map((m) => (m.id === mapId ? { ...m, hearts: hc, hearted: h } : m))
+      );
+    });
+  }, []);
 
   // Heart functionality (same as maps tab)
   const [heartingMap, setHeartingMap] = useState('');
@@ -267,33 +298,36 @@ export default function MapSelectorModal({
     const newHearted = !map.hearted;
     const newHearts = map.hearts + (newHearted ? 1 : -1);
 
-    const updateMaps = (hearted: boolean, hearts: number) => {
+    const updateMaps = (mapId: string, hearted: boolean, hearts: number) => {
       setMapHome((prev) => {
         const updated = { ...prev };
         Object.keys(updated).forEach((section) => {
           if (Array.isArray(updated[section])) {
             updated[section] = updated[section].map((m) =>
-              m.id === map.id ? { ...m, hearts, hearted } : m
+              m.id === mapId ? { ...m, hearts, hearted } : m
             );
           }
         });
         return updated;
       });
+      setSearchResults((prev) =>
+        prev.map((m) => (m.id === mapId ? { ...m, hearts, hearted } : m))
+      );
     };
 
-    updateMaps(newHearted, newHearts);
+    updateMaps(map.id, newHearted, newHearts);
 
     try {
       const result = await api.heartMap(secret, map.id);
       if (result.success) {
-        updateMaps(result.hearted, result.hearts);
+        updateMaps(map.id, result.hearted, result.hearts);
         emitHeartUpdate({ mapId: map.id, hearted: result.hearted, hearts: result.hearts });
       } else {
-        updateMaps(map.hearted!, map.hearts);
+        updateMaps(map.id, map.hearted!, map.hearts);
       }
     } catch (e) {
       console.error('Heart map error:', e);
-      updateMaps(map.hearted!, map.hearts);
+      updateMaps(map.id, map.hearted!, map.hearts);
     } finally {
       setHeartingMap('');
     }
@@ -444,14 +478,14 @@ export default function MapSelectorModal({
                 <Text style={styles.sectionHeaderText}>Select Map</Text>
               </View>
 
-              {/* All Countries option */}
+              {/* World map option */}
               <Pressable
                 style={({ pressed }) => [
                   styles.allCountriesTile,
                   currentMapSlug === 'all' && styles.allCountriesTileActive,
                   pressed && { opacity: 0.8 },
                 ]}
-                onPress={() => { animateClose(); setTimeout(() => onSelectMap('all', 'All Countries'), 260); }}
+                onPress={() => { onSelectMap('all', 'World'); animateClose(); }}
               >
                 <LinearGradient
                   colors={['#1a4423', '#245734']}
@@ -460,7 +494,7 @@ export default function MapSelectorModal({
                   style={StyleSheet.absoluteFillObject}
                 />
                 <Ionicons name="globe-outline" size={24} color="#fff" />
-                <Text style={styles.allCountriesText}>All Countries</Text>
+                <Text style={styles.allCountriesText}>World</Text>
                 {currentMapSlug === 'all' && (
                   <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
                 )}
@@ -493,16 +527,35 @@ export default function MapSelectorModal({
                 </View>
               ) : isSearching ? (
                 <>
-                  {searchResults.length > 0 && (
-                    <MapSection
-                      title="Search Results"
-                      maps={searchResults}
-                      onMapPress={handleMapPress}
-                      onHeartMap={secret ? handleHeartMap : undefined}
-                      heartingMapId={heartingMap}
-                      numCols={numCols}
-                    />
-                  )}
+                  {(() => {
+                    const countryResults = searchResults.filter((m) => m.countryMap);
+                    const communityResults = searchResults.filter((m) => !m.countryMap);
+                    return (
+                      <>
+                        {countryResults.length > 0 && (
+                          <MapSection
+                            title="Countries"
+                            maps={countryResults}
+                            isCountry
+                            onMapPress={handleMapPress}
+                            onHeartMap={secret ? handleHeartMap : undefined}
+                            heartingMapId={heartingMap}
+                            numCols={countryNumCols}
+                          />
+                        )}
+                        {communityResults.length > 0 && (
+                          <MapSection
+                            title="Community Maps"
+                            maps={communityResults}
+                            onMapPress={handleMapPress}
+                            onHeartMap={secret ? handleHeartMap : undefined}
+                            heartingMapId={heartingMap}
+                            numCols={numCols}
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
                   {!searchLoading && searchResults.length === 0 && (
                     <View style={styles.centered}>
                       <Ionicons name="search" size={32} color="rgba(255,255,255,0.3)" />

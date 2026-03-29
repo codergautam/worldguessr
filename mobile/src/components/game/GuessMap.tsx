@@ -113,6 +113,15 @@ export default function GuessMap({
     prevActualPosition.current = actualPosition;
   }, [actualPosition]);
 
+  // When extent changes (map switched), animate to the new region
+  const prevExtent = useRef(extent);
+  useEffect(() => {
+    if (prevExtent.current !== extent && mapRef.current && !actualPosition) {
+      mapRef.current.animateToRegion(defaultRegion, 300);
+    }
+    prevExtent.current = extent;
+  }, [extent]);
+
   // Force correct region after map initialization (safety net for 0-height mount)
   const handleMapReady = useCallback(() => {
     if (mapRef.current && !actualPosition) {

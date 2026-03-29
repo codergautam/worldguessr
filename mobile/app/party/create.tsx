@@ -56,7 +56,7 @@ export default function PartyCreateScreen() {
   const [timePerRound, setTimePerRound] = useState(30);
   const [nmpz, setNmpz] = useState(false);
   const [mapSlug, setMapSlug] = useState('all');
-  const [mapName, setMapName] = useState('All Countries');
+  const [mapName, setMapName] = useState('World');
   const [mapModalVisible, setMapModalVisible] = useState(false);
 
   // Auto-open options modal only when freshly creating a game (not reconnecting)
@@ -240,7 +240,7 @@ export default function PartyCreateScreen() {
           {/* Compact settings preview */}
           <View style={styles.settingsPreview}>
             {(() => {
-              const dispMap = isHost ? mapName : (serverDisplayLocation ?? 'All Countries');
+              const dispMap = isHost ? mapName : (serverDisplayLocation ?? 'World');
               const dispRounds = isHost ? rounds : (serverRounds ?? 5);
               const t = isHost ? timePerRound : ((serverTimePerRound ?? 30000) / 1000);
               const dispTimer = t > 0 ? `${t}s` : 'Timer Off';

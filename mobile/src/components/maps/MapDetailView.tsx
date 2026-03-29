@@ -7,6 +7,7 @@ import {
   Pressable,
   ActivityIndicator,
   Image,
+  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -116,6 +117,19 @@ export default function MapDetailView({
 
   const [svIndex, setSvIndex] = useState(0);
   const svTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const svBannerOpacity = useRef(new Animated.Value(0)).current;
+  const [svReady, setSvReady] = useState(false);
+
+  const handleSvLoad = useCallback(() => {
+    if (!svReady) {
+      setSvReady(true);
+      Animated.timing(svBannerOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [svReady]);
 
   useEffect(() => {
     if (!mapData?.data?.length) return;
@@ -181,16 +195,19 @@ export default function MapDetailView({
         {flagUrl ? (
           <Image source={{ uri: flagUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
         ) : streetViewLocation ? (
-          <StreetViewWebView
-            lat={streetViewLocation.lat}
-            long={streetViewLocation.long}
-            fov={82}
-            pitch={12}
-            cropRightPx={96}
-            smoothTransitions
-            transitionDuration={450}
-            showInitialLoader={false}
-          />
+          <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: svBannerOpacity }]}>
+            <StreetViewWebView
+              lat={streetViewLocation.lat}
+              long={streetViewLocation.long}
+              fov={82}
+              pitch={12}
+              cropRightPx={96}
+              smoothTransitions
+              transitionDuration={450}
+              showInitialLoader={false}
+              onLoad={handleSvLoad}
+            />
+          </Animated.View>
         ) : (
           <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,30,15,0.6)' }]} />
         )}

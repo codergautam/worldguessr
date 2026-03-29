@@ -170,7 +170,7 @@ export default function GameScreen() {
 
   // Singleplayer game options
   const [currentMapSlug, setCurrentMapSlug] = useState(map || 'all');
-  const [currentMapName, setCurrentMapName] = useState('All Countries');
+  const [currentMapName, setCurrentMapName] = useState('World');
   const [nmpzEnabled, setNmpzEnabled] = useState(false);
   const [timerEnabled, setTimerEnabled] = useState(false);
   const [timerDuration, setTimerDuration] = useState(30);
@@ -232,7 +232,11 @@ export default function GameScreen() {
     if (showLoadingBanner) {
       // If handleNextRound is running a manual fade-in, don't snap
       if (!isManualFadeIn.current) {
-        loadingOpacity.setValue(1);
+        Animated.timing(loadingOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
       }
     } else {
       isManualFadeIn.current = false;
@@ -387,7 +391,7 @@ export default function GameScreen() {
 
         if (mapSlug === 'all') {
           data = await api.fetchAllLocations();
-          setCurrentMapName('All Countries');
+          setCurrentMapName('World');
         } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
           data = await api.fetchCountryLocations(mapSlug);
           // Look up country name + maxDist from hosted JSON (matches web countryMaxDists import)
@@ -667,8 +671,10 @@ export default function GameScreen() {
   };
 
   const handleMapSelect = useCallback((slug: string, name: string) => {
-    setMapModalVisible(false);
-    if (slug === currentMapSlug) return;
+    if (slug === currentMapSlug) {
+      setMapModalVisible(false);
+      return;
+    }
     setIsLoading(true);
     setLoadError(null);
     setCurrentMapSlug(slug);
@@ -681,6 +687,7 @@ export default function GameScreen() {
       totalScore: 0,
       isShowingResult: false,
       locations: [],
+      extent: null,
     }));
     setGuessPosition(null);
     setMiniMapShown(false);
