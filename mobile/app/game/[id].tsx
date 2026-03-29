@@ -597,8 +597,11 @@ export default function GameScreen() {
     }
   }, [isMultiplayer, gameData?.duelEnd, gameData?.state, gameData?.curRound]);
 
+  const spResultsNavigated = useRef(false);
   const handleNextRound = useCallback(() => {
     if (gameState.currentRound >= gameState.totalRounds) {
+      if (spResultsNavigated.current) return;
+      spResultsNavigated.current = true;
       // Store game if logged in (matches web gameUI.js behavior)
       if (secret && isSingleplayer && gameState.guesses.length > 0) {
         const isOfficial = currentMapSlug === 'all' || (currentMapSlug.length === 2 && currentMapSlug === currentMapSlug.toUpperCase());
