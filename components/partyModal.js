@@ -212,7 +212,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                 </button>
                             </div>
                             <span className="party-modal__hint">10-300 seconds</span>
-                            {!isValidRoundTime && <span style={{ color: '#ff6b6b', fontSize: '0.8rem' }}>{text("timePerRoundError") || "Must be between 10 and 300 seconds"}</span>}
+                            {!isValidRoundTime && <span style={{ color: '#ff6b6b', fontSize: '0.8rem' }}>{text("timePerRoundError")}</span>}
                         </div>
                     )}
                     
