@@ -2674,6 +2674,7 @@ export default function ModDashboard({ session }) {
                         <th>Avg Pts (all)</th>
                         <th>Games</th>
                         <th>Last Seen</th>
+                        <th>Reports</th>
                         <th>Status</th>
                       </tr>
                     </thead>
@@ -2699,6 +2700,7 @@ export default function ModDashboard({ session }) {
                           <td>{s.avgPointsAll}</td>
                           <td>{s.gameCount}</td>
                           <td>{new Date(s.lastSeen).toLocaleDateString()}</td>
+                          <td className={s.pendingReports > 0 ? styles.suspectHighlight : ''}>{s.pendingReports}</td>
                           <td>
                             {s.banned ? (
                               <span className={styles.bannedBadge}>

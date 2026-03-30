@@ -1,5 +1,6 @@
 import User from '../../models/User.js';
 import Game from '../../models/Game.js';
+import Report from '../../models/Report.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -97,11 +98,30 @@ export default async function handler(req, res) {
     const userMap = {};
     users.forEach(u => { userMap[u._id.toString()] = u; });
 
+    // Count pending reports per suspect
+    const pendingReports = await Report.aggregate([
+      {
+        $match: {
+          'reportedUser.accountId': { $in: accountIds },
+          status: 'pending'
+        }
+      },
+      {
+        $group: {
+          _id: '$reportedUser.accountId',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    const pendingMap = {};
+    pendingReports.forEach(r => { pendingMap[r._id] = r.count; });
+
     const enriched = suspects.slice(0, limit).map(s => ({
       ...s,
       banned: userMap[s.accountId]?.banned || false,
       banType: userMap[s.accountId]?.banType || null,
-      elo: userMap[s.accountId]?.elo || 0
+      elo: userMap[s.accountId]?.elo || 0,
+      pendingReports: pendingMap[s.accountId] || 0
     }));
 
     return res.status(200).json({
