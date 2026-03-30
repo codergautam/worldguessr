@@ -199,7 +199,16 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
   const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
+  const [cmgAdsEnabled, setCmgAdsEnabled] = useState(false);
 
+  useEffect(() => {
+    if (!inCoolMathGames) return;
+    fetch('https://www.worldguessr.com/cmgopt.txt')
+      .then(res => res.text())
+      .then(text => setCmgAdsEnabled(text.trim() === 'true'))
+      .catch(() => {});
+    // setCmgAdsEnabled(true);
+  }, [inCoolMathGames]);
 
    const isStartingDuel = (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)
 
@@ -527,7 +536,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   return (
     <div className="gameUI">
 
-{ !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
+{ !inCrazyGames && !inCoolMathGames && !inGameDistribution && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
       unit={"worldguessr_gameui_ad"}
@@ -535,7 +544,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     </div>
 )}
 
-{ inCrazyGames && !onboarding && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
+{ inCrazyGames && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'':''}`}>
       <CrazyGamesBanner
         id="cg-banner-gameui"
@@ -543,7 +552,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     </div>
 )}
 
-{ inGameDistribution && !onboarding && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
+{ inCoolMathGames && cmgAdsEnabled && !singlePlayerRound?.done && !onboarding?.completed && (
+    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
+      <Ad
+      unit={"worldguessr_cmg_gameui_ad"}
+    showAdvertisementText={false} screenH={height} types={[[320,50]]} screenW={width} vertThresh={0.3} />
+    </div>
+)}
+
+{ inGameDistribution && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <GameDistributionBanner
         id="gd-banner-gameui"

@@ -82,9 +82,17 @@ ads.js"></script>*/
       script2.async = false;
       document.body.appendChild(script2);
 
+      // Also load NitroPay for optional CMG ads
+      window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
+      const nitroScript = document.createElement('script');
+      nitroScript.src = "https://s.nitropay.com/ads-2071.js";
+      nitroScript.async = true;
+      document.head.appendChild(nitroScript);
+
       return () => {
         document.body.removeChild(script);
         document.body.removeChild(script2);
+        document.head.removeChild(nitroScript);
       }
 
     }else if(process.env.NEXT_PUBLIC_POKI === "true") {
