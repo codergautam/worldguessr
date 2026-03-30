@@ -20,6 +20,7 @@
   "go": "Los",
   "numOfRounds": "Anzahl der Runden",
   "timePerRoundSecs": "Zeit pro Runde (Sekunden)",
+  "timePerRoundError": "Muss zwischen 10 und 300 Sekunden liegen",
   "country": "Land",
   "change": "Ändern",
   "creating": "Erstellen",
