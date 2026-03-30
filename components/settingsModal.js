@@ -113,6 +113,9 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                             <NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" style={{ objectFit: 'contain', padding: '4px' }} />
                         </button>
                     </a>
+                    <a href="https://worldguessr.com/privacy.html" target="_blank" rel="noreferrer">
+                        <button className="g2_hover_effect gameBtn g2_container_full" aria-label="Terms & Privacy" style={{ height: '50px', padding: '0 12px', color: 'white', fontSize: '13px', whiteSpace: 'nowrap' }}>Terms & Privacy</button>
+                    </a>
                 </div>
             )}
         </Modal>
