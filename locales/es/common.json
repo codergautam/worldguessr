@@ -20,6 +20,7 @@
   "go": "Ir",
   "numOfRounds": "Número de rondas",
   "timePerRoundSecs": "Tiempo por ronda (segundos)",
+  "timePerRoundError": "Debe estar entre 10 y 300 segundos",
   "country": "País",
   "change": "Cambiar",
   "creating": "Creando",
