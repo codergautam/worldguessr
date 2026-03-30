@@ -20,6 +20,7 @@
   "go": "Valider",
   "numOfRounds": "Nombre de manches",
   "timePerRoundSecs": "Temps par manche (secondes)",
+  "timePerRoundError": "Doit être entre 10 et 300 secondes",
   "country": "Pays",
   "change": "Changer",
   "creating": "Création",
