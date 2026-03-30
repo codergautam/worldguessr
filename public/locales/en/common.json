@@ -20,6 +20,7 @@
   "go": "Go",
   "numOfRounds": "Number of rounds",
   "timePerRoundSecs": "Time per round (seconds)",
+  "timePerRoundError": "Must be between 10 and 300 seconds",
   "country": "Country",
   "change": "Change",
   "creating": "Creating",

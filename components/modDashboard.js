@@ -189,6 +189,13 @@ export default function ModDashboard({ session }) {
   const [activityYear, setActivityYear] = useState(new Date().getFullYear());
   const [activityChartMod, setActivityChartMod] = useState('all');
 
+  // Suspicious 5k state
+  const [suspects, setSuspects] = useState([]);
+  const [suspectsLoading, setSuspectsLoading] = useState(false);
+  const [suspectsDays, setSuspectsDays] = useState(30);
+  const [suspectsMinPoints, setSuspectsMinPoints] = useState(4950);
+  const [suspectsMinRounds, setSuspectsMinRounds] = useState(10);
+
   // Clear messages after delay
   useEffect(() => {
     if (successMessage) {
@@ -602,6 +609,29 @@ export default function ModDashboard({ session }) {
     }
   };
 
+  const fetchSuspects = async (days, minPoints, minRounds) => {
+    setSuspectsLoading(true);
+    try {
+      const response = await fetch(window.cConfig?.apiUrl+'/api/mod/suspicious5k', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: session.token.secret,
+          days: days ?? suspectsDays,
+          minPoints: minPoints ?? suspectsMinPoints,
+          minRounds: minRounds ?? suspectsMinRounds
+        })
+      });
+      if (!response.ok) throw new Error('Failed to fetch suspects');
+      const data = await response.json();
+      setSuspects(data.suspects || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSuspectsLoading(false);
+    }
+  };
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     if (tab === 'reports' && groupedReports.length === 0 && flatReports.length === 0) {
@@ -615,6 +645,9 @@ export default function ModDashboard({ session }) {
     }
     if (tab === 'activity' && !activityData) {
       fetchModActivity();
+    }
+    if (tab === 'suspects' && suspects.length === 0) {
+      fetchSuspects();
     }
   };
 
@@ -848,20 +881,11 @@ export default function ModDashboard({ session }) {
   };
 
   // Render reporter stats badge
-  const renderReporterStats = (stats, status) => {
+  const renderReporterStats = (stats) => {
     if (!stats) return null;
     const total = (stats.helpfulReports || 0) + (stats.unhelpfulReports || 0);
 
     const badges = [];
-
-    // Add ban history badge if reporter has been banned before
-    if (status?.hasBanHistory) {
-      badges.push(
-        <span key="ban-history" className={styles.reporterBanHistory}>
-          banned
-        </span>
-      );
-    }
 
     // Add reporter stats badge
     if (total === 0) {
@@ -1609,6 +1633,12 @@ export default function ModDashboard({ session }) {
             >
               📊 Activity
             </button>
+            <button
+              className={`${styles.tab} ${activeTab === 'suspects' ? styles.activeTab : ''}`}
+              onClick={() => handleTabChange('suspects')}
+            >
+              🎯 5k Tracker
+            </button>
           </div>
 
           <div className={styles.searchSection}>
@@ -2033,7 +2063,7 @@ export default function ModDashboard({ session }) {
                                 >
                                   {report.reportedBy.username}
                                 </span>
-                                {renderReporterStats(report.reporterStats, report.reporterStatus)}
+                                {renderReporterStats(report.reporterStats)}
                                 {renderUserStatusBadges(report.reporterStatus)}
                               </div>
                             </div>
@@ -2089,7 +2119,7 @@ export default function ModDashboard({ session }) {
                             <span className={styles.username} onClick={() => handleUserLookupById(report.reportedBy.accountId, report.reportedBy.username)}>
                               {report.reportedBy.username}
                             </span>
-                            {renderReporterStats(report.reporterStats, report.reporterStatus)}
+                            {renderReporterStats(report.reporterStats)}
                             {renderUserStatusBadges(report.reporterStatus)}
                           </div>
                           <div className={styles.userInfo}>
@@ -2566,6 +2596,113 @@ export default function ModDashboard({ session }) {
                   </div>
                 );
               })()}
+            </div>
+          )}
+
+          {/* Suspicious 5k Tab */}
+          {activeTab === 'suspects' && (
+            <div className={styles.reportsSection}>
+              <div className={styles.filterBar}>
+                <label>
+                  Period:
+                  <select value={suspectsDays} onChange={(e) => { setSuspectsDays(Number(e.target.value)); }}>
+                    <option value={7}>Last 7 days</option>
+                    <option value={14}>Last 14 days</option>
+                    <option value={30}>Last 30 days</option>
+                    <option value={90}>Last 90 days</option>
+                  </select>
+                </label>
+                <label>
+                  Min pts:
+                  <select value={suspectsMinPoints} onChange={(e) => { setSuspectsMinPoints(Number(e.target.value)); }}>
+                    <option value={5000}>5000 only</option>
+                    <option value={4990}>4990+</option>
+                    <option value={4950}>4950+</option>
+                    <option value={4900}>4900+</option>
+                  </select>
+                </label>
+                <label>
+                  Min rounds:
+                  <select value={suspectsMinRounds} onChange={(e) => { setSuspectsMinRounds(Number(e.target.value)); }}>
+                    <option value={5}>5+</option>
+                    <option value={10}>10+</option>
+                    <option value={20}>20+</option>
+                    <option value={50}>50+</option>
+                  </select>
+                </label>
+                <button className={styles.searchBtn} onClick={() => fetchSuspects()} disabled={suspectsLoading}>
+                  {suspectsLoading ? 'Loading...' : 'Search'}
+                </button>
+              </div>
+
+              {suspectsLoading ? (
+                <div className={styles.loadingText}>Scanning duel rounds...</div>
+              ) : suspects.length === 0 ? (
+                <div className={styles.noReports}>
+                  <span style={{ fontSize: '48px', marginBottom: '16px' }}>🎯</span>
+                  <p>No suspects found with current filters</p>
+                </div>
+              ) : (
+                <div className={styles.suspectsTableWrap}>
+                  <div className={styles.statsBar}>
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>{suspects.length}</span>
+                      <span className={styles.statLabel}>Players flagged</span>
+                    </div>
+                    <div className={styles.stat}>
+                      <span className={styles.statValue}>{suspects.filter(s => !s.banned).length}</span>
+                      <span className={styles.statLabel}>Not yet banned</span>
+                    </div>
+                  </div>
+                  <table className={styles.suspectsTable}>
+                    <thead>
+                      <tr>
+                        <th>Player</th>
+                        <th>ELO</th>
+                        <th>{suspectsMinPoints}+ Rounds</th>
+                        <th>Total Rounds</th>
+                        <th>High %</th>
+                        <th>Avg Pts (high)</th>
+                        <th>Avg Pts (all)</th>
+                        <th>Games</th>
+                        <th>Last Seen</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {suspects.map((s) => (
+                        <tr key={s.accountId} className={s.banned ? styles.suspectBanned : ''}>
+                          <td>
+                            <span
+                              className={styles.username}
+                              onClick={() => handleUserLookupById(s.accountId, s.username)}
+                            >
+                              {s.username}
+                            </span>
+                          </td>
+                          <td>{s.elo}</td>
+                          <td className={styles.suspectHighlight}>{s.highRounds}</td>
+                          <td>{s.totalRounds}</td>
+                          <td className={s.highRoundPct >= 50 ? styles.suspectDanger : ''}>{s.highRoundPct}%</td>
+                          <td>{s.avgPointsHigh}</td>
+                          <td>{s.avgPointsAll}</td>
+                          <td>{s.gameCount}</td>
+                          <td>{new Date(s.lastSeen).toLocaleDateString()}</td>
+                          <td>
+                            {s.banned ? (
+                              <span className={styles.bannedBadge}>
+                                {s.banType === 'temporary' ? 'TEMP' : 'BANNED'}
+                              </span>
+                            ) : (
+                              <span className={styles.suspectActive}>Active</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
         </div>

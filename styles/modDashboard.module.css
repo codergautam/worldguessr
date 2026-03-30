@@ -2250,3 +2250,54 @@
   color: #e6edf3;
   border-color: #58a6ff;
 }
+
+/* Suspicious 5k Tracker */
+.suspectsTableWrap {
+  overflow-x: auto;
+}
+
+.suspectsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.suspectsTable th {
+  background: #161b22;
+  color: #8b949e;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 2px solid #30363d;
+  white-space: nowrap;
+}
+
+.suspectsTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #21262d;
+  color: #c9d1d9;
+}
+
+.suspectsTable tbody tr:hover {
+  background: #161b22;
+}
+
+.suspectBanned {
+  opacity: 0.5;
+}
+
+.suspectHighlight {
+  color: #f85149;
+  font-weight: 700;
+}
+
+.suspectDanger {
+  color: #f85149;
+  font-weight: 700;
+}
+
+.suspectActive {
+  color: #3fb950;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
