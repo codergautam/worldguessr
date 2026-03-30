@@ -82,17 +82,30 @@ ads.js"></script>*/
       script2.async = false;
       document.body.appendChild(script2);
 
-      // Also load NitroPay for optional CMG ads
-      window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
-      const nitroScript = document.createElement('script');
-      nitroScript.src = "https://s.nitropay.com/ads-2071.js";
-      nitroScript.async = true;
-      document.head.appendChild(nitroScript);
+      // Only load NitroPay if cmgopt flag is true
+      let nitroScript = null;
+      let unmounted = false;
+      fetch('https://www.worldguessr.com/cmgopt.txt')
+        .then(res => res.text())
+        .then(text => {
+          if (unmounted) return;
+          if (text.trim() === 'true') {
+            window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
+            nitroScript = document.createElement('script');
+            nitroScript.src = "https://s.nitropay.com/ads-2071.js";
+            nitroScript.async = true;
+            document.head.appendChild(nitroScript);
+          }
+        })
+        .catch(() => {});
 
       return () => {
+        unmounted = true;
         document.body.removeChild(script);
         document.body.removeChild(script2);
-        document.head.removeChild(nitroScript);
+        if (nitroScript && nitroScript.parentNode) {
+          document.head.removeChild(nitroScript);
+        }
       }
 
     }else if(process.env.NEXT_PUBLIC_POKI === "true") {

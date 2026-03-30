@@ -607,27 +607,20 @@ export default function Home({ }) {
             setInCoolMathGames(true);
             window.lastCoolmathAd = Date.now();
 
-            setCoolmathSplash(0);
-            let interval = setInterval(() => {
-                setCoolmathSplash((prev) => {
-                    if (prev >= 1) {
-                        clearInterval(interval);
-                        interval = setInterval(() => {
-                            setCoolmathSplash((prev) => {
-                                if (prev <= 0) {
-                                    clearInterval(interval);
-                                    return null;
-                                }
-                                return prev - 0.1
-                            })
-                        }, 100)
-                    }
-                    return prev + 0.1
-                })
-            }, 100)
+            setCoolmathSplash({ bg: 1, img: 0 });
+            requestAnimationFrame(() => {
+                setCoolmathSplash({ bg: 1, img: 1 });
+            });
+            const fadeOutTimer = setTimeout(() => {
+                setCoolmathSplash({ bg: 0, img: 0 });
+            }, 1000);
+            const removeTimer = setTimeout(() => {
+                setCoolmathSplash(null);
+            }, 1400);
 
             return () => {
-                clearInterval(interval);
+                clearTimeout(fadeOutTimer);
+                clearTimeout(removeTimer);
             }
         }
     }, [])
@@ -2500,7 +2493,7 @@ export default function Home({ }) {
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
-            {typeof coolmathSplash === "number" && (
+            {coolmathSplash && (
                 // black background
                 <div style={{
                     position: 'fixed',
@@ -2514,12 +2507,13 @@ export default function Home({ }) {
                     justifyContent: 'center',
                     alignItems: 'center',
                     color: 'white',
-                    fontSize: '2em'
+                    fontSize: '2em',
+                    opacity: coolmathSplash.bg,
+                    transition: 'opacity 1s ease'
                 }}>
-                    <div>
+                    <div style={{ position: 'relative', width: '80vw', height: '80vh' }}>
                         {/* image /coolmath-splash.png */}
-                        <NextImage.default src={asset('/coolmath-splash.png')} draggable={false} fill alt="Coolmath Splash" style={{ objectFit: "contain", userSelect: 'none', opacity: coolmathSplash }} />
-
+                        <NextImage.default src={asset('/coolmath-splash.png')} draggable={false} fill alt="Coolmath Splash" style={{ objectFit: "contain", userSelect: 'none', opacity: coolmathSplash.img, transition: 'opacity 1s ease' }} />
                     </div>
                 </div>
 
