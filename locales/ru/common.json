@@ -20,6 +20,7 @@
   "go": "Начать",
   "numOfRounds": "Количество раундов",
   "timePerRoundSecs": "Время на раунд (секунды)",
+  "timePerRoundError": "Должно быть от 10 до 300 секунд",
   "country": "Страна",
   "change": "Изменить",
   "creating": "Создание",
