@@ -6,6 +6,9 @@ export default function LocalizedHome({ path }) {
 
   useEffect(() => {
 
+    // GameDistribution runs in an iframe with a fixed base path — language routes are inaccessible
+    if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") return;
+
     let language = "en";
     const langs = ["en", "es", "fr", "de", "ru"];
     if(typeof window !== "undefined") {

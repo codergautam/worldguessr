@@ -654,6 +654,16 @@ export default function Home({ }) {
                 }
             };
 
+            // Show interstitial pre-roll immediately
+            try {
+                console.log("GD preroll", gdsdk)
+                if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
+                    gdsdk.showAd('interstitial');
+                }
+            } catch (e) {
+                console.log("GD preroll error:", e);
+            }
+
             // Handle Google OAuth redirect callback (redirect flow for iframe compatibility)
             const params = new URLSearchParams(window.location.search);
             const code = params.get("code");
@@ -1014,6 +1024,10 @@ export default function Home({ }) {
             window.localStorage.setItem("lang", options?.language)
             window.language = options?.language;
             console.log("set lang", options?.language)
+
+            // GameDistribution runs in an iframe — language routes are inaccessible, skip redirect
+            if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") return;
+
             const currentQueryParams = new URLSearchParams(window.location.search);
             const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
 
@@ -2975,7 +2989,7 @@ export default function Home({ }) {
                     showTimerOption={screen === "singleplayer"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
-                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} options={options} setOptions={setOptions} shown={true} onClose={() => setSettingsModal(false)} />}
+                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} shown={true} onClose={() => setSettingsModal(false)} />}
 
                 {connectionErrorModalShown && <AlertModal
                     isOpen={true}

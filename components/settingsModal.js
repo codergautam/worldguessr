@@ -4,7 +4,7 @@ import { asset, navigate } from '@/lib/basePath';
 import { FaGithub } from "react-icons/fa";
 import NextImage from "next/image";
 
-export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames }) {
+export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution }) {
     const { t: text } = useTranslation("common");
 
     const handleUnitsChange = (event) => {
@@ -77,7 +77,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                     </select>
                 </div>
 
-                {!inCrazyGames && (<>
+                {!inCrazyGames && !inGameDistribution && (<>
                     <div className="settingsModalInner">
                         <label htmlFor="mapType">{text("language")}: </label>
                         <select className="g2_input" id="mapType" value={options.language} onChange={handleLanguageChange}>
