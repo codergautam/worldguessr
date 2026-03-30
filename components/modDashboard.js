@@ -848,20 +848,11 @@ export default function ModDashboard({ session }) {
   };
 
   // Render reporter stats badge
-  const renderReporterStats = (stats, status) => {
+  const renderReporterStats = (stats) => {
     if (!stats) return null;
     const total = (stats.helpfulReports || 0) + (stats.unhelpfulReports || 0);
 
     const badges = [];
-
-    // Add ban history badge if reporter has been banned before
-    if (status?.hasBanHistory) {
-      badges.push(
-        <span key="ban-history" className={styles.reporterBanHistory}>
-          banned
-        </span>
-      );
-    }
 
     // Add reporter stats badge
     if (total === 0) {
@@ -2033,7 +2024,7 @@ export default function ModDashboard({ session }) {
                                 >
                                   {report.reportedBy.username}
                                 </span>
-                                {renderReporterStats(report.reporterStats, report.reporterStatus)}
+                                {renderReporterStats(report.reporterStats)}
                                 {renderUserStatusBadges(report.reporterStatus)}
                               </div>
                             </div>
@@ -2089,7 +2080,7 @@ export default function ModDashboard({ session }) {
                             <span className={styles.username} onClick={() => handleUserLookupById(report.reportedBy.accountId, report.reportedBy.username)}>
                               {report.reportedBy.username}
                             </span>
-                            {renderReporterStats(report.reporterStats, report.reporterStatus)}
+                            {renderReporterStats(report.reporterStats)}
                             {renderUserStatusBadges(report.reporterStatus)}
                           </div>
                           <div className={styles.userInfo}>
