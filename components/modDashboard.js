@@ -2619,6 +2619,7 @@ export default function ModDashboard({ session }) {
                     <option value={4990}>4990+</option>
                     <option value={4950}>4950+</option>
                     <option value={4900}>4900+</option>
+                    <option value={4800}>4800+</option>
                   </select>
                 </label>
                 <label>
@@ -2670,7 +2671,10 @@ export default function ModDashboard({ session }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {suspects.map((s) => (
+                      {[...suspects].sort((a, b) => {
+                        if (a.banned !== b.banned) return a.banned ? 1 : -1;
+                        return b.highRoundPct - a.highRoundPct;
+                      }).map((s) => (
                         <tr key={s.accountId} className={s.banned ? styles.suspectBanned : ''}>
                           <td>
                             <span
