@@ -6,7 +6,7 @@ import ReportActionButtons from './ReportActionButtons';
 import styles from '../styles/modDashboard.module.css';
 import { navigate } from '@/lib/basePath';
 
-function DailyReportsChart({ dailyReports, selectedMod, dailyByModerator, moderators }) {
+function DailyReportsChart({ dailyReports, selectedMod, dailyByModerator, dailyReportsByModerator, moderators }) {
   const canvasRef = useRef(null);
   const chartRef = useRef(null);
 
@@ -26,6 +26,12 @@ function DailyReportsChart({ dailyReports, selectedMod, dailyByModerator, modera
 
       const datasets = isModView
         ? [
+            {
+              label: `${modName} - Reports Handled`,
+              data: dailyReportsByModerator?.[selectedMod] || dailyReports.map(() => 0),
+              backgroundColor: 'rgba(63, 185, 80, 0.8)',
+              borderRadius: 2,
+            },
             {
               label: `${modName} - Actions`,
               data: dailyByModerator?.[selectedMod] || dailyReports.map(() => 0),
@@ -63,7 +69,7 @@ function DailyReportsChart({ dailyReports, selectedMod, dailyByModerator, modera
             },
             title: {
               display: true,
-              text: isModView ? `${modName} - Daily Actions` : 'Daily Reports: Incoming vs Handled',
+              text: isModView ? `${modName} - Daily Reports & Actions` : 'Daily Reports: Incoming vs Handled',
               color: '#e6edf3',
               font: { size: 14, weight: '600' },
             },
@@ -103,7 +109,7 @@ function DailyReportsChart({ dailyReports, selectedMod, dailyByModerator, modera
         chartRef.current = null;
       }
     };
-  }, [dailyReports, selectedMod, dailyByModerator, moderators]);
+  }, [dailyReports, selectedMod, dailyByModerator, dailyReportsByModerator, moderators]);
 
   return (
     <div className={styles.activityChartWrapper}>
@@ -2528,6 +2534,7 @@ export default function ModDashboard({ session }) {
                     dailyReports={activityData.dailyReports}
                     selectedMod={activityChartMod}
                     dailyByModerator={activityData.dailyByModerator}
+                    dailyReportsByModerator={activityData.dailyReportsByModerator}
                     moderators={activityData.moderators}
                   />
                 </>
