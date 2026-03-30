@@ -56,6 +56,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
         commitTime(current + delta);
     };
 
+
+    const isValidRoundTime = isTimerDisabled || (!isNaN(parseInt(localTime)) && parseInt(localTime) >= 10 && parseInt(localTime) <= 300);
+
     if (selectCountryModalShown) {
         return (
             <MapsModal 
@@ -209,6 +212,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                 </button>
                             </div>
                             <span className="party-modal__hint">10-300 seconds</span>
+                            {!isValidRoundTime && <span style={{ color: '#ff6b6b', fontSize: '0.8rem' }}>{text("timePerRoundError") || "Must be between 10 and 300 seconds"}</span>}
                         </div>
                     )}
                     
@@ -259,8 +263,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 
                 {/* Footer */}
                 <div className="party-modal__footer">
-                    <button 
+                    <button
                         className="party-modal__save-btn"
+                        disabled={!isValidRoundTime}
                         onClick={() => {
                             // Construct the complete options object with all current values
                             const finalOptions = {
@@ -269,13 +274,13 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                                 npz: gameOptions.npz,
                                 showRoadName: gameOptions.showRoadName
                             };
-                            
+
                             // Update local state
                             setMultiplayerState(prev => ({
                                 ...prev,
                                 createOptions: finalOptions
                             }));
-                            
+
                             // Send to server with the complete options
                             handleAction("setPrivateGameOptions", finalOptions);
                             onClose();
@@ -551,6 +556,13 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 
                 .party-modal__save-btn:active {
                     transform: translateY(0);
+                }
+
+                .party-modal__save-btn:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                    transform: none;
+                    box-shadow: none;
                 }
                 
                 @media (max-width: 480px) {
