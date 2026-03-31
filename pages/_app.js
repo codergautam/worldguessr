@@ -23,6 +23,7 @@ function App({ Component, pageProps }) {
       'net::ERR_',
       'CORS',
       'Script error',
+      'Load failed',
     ];
     const shouldIgnore = (msg) => !msg || ignoredErrors.some((e) => msg.includes(e));
 
