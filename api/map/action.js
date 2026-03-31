@@ -150,9 +150,12 @@ export default async function handler(req, res) {
     return res.status(404).json({ message: 'User not found' });
   }
 
-  // prevent banned users from creating/editing maps
+  // prevent banned or force-name-changed users from creating/editing maps
   if(user.banned) {
     return res.status(403).json({ message: 'Your account is suspended. You cannot create or edit maps.' });
+  }
+  if(user.pendingNameChange) {
+    return res.status(403).json({ message: 'You must change your name before you can create or edit maps.' });
   }
 
   // creating map
