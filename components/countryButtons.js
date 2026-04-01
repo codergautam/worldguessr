@@ -15,16 +15,16 @@ function countryDiv({country, onPress, index, interactive}) {
   return (
     <button
       key={country}
-      className={`cgBtn ${interactive ? '' : 'cgBtn--noHover'}`}
+      className={`countryGuessrBtn ${interactive ? '' : 'countryGuessrBtn--noHover'}`}
       style={{ animationDelay: `${index * 0.07}s` }}
       onClick={() => interactive && onPress(country)}
     >
       <img
-        className="cgBtn__flag"
+        className="countryGuessrBtn__flag"
         src={`https://flagcdn.com/w80/${country?.toLowerCase()}.png`}
         alt={nameFromCode(country)}
       />
-      <span className="cgBtn__name">{nameFromCode(country)}</span>
+      <span className="countryGuessrBtn__name">{nameFromCode(country)}</span>
     </button>
   )
 }
@@ -33,12 +33,12 @@ function continentDiv({continent, onPress, index, interactive}) {
   return (
     <button
       key={continent}
-      className={`cgBtn cgBtn--continent ${interactive ? '' : 'cgBtn--noHover'}`}
+      className={`countryGuessrBtn countryGuessrBtn--continent ${interactive ? '' : 'countryGuessrBtn--noHover'}`}
       style={{ animationDelay: `${index * 0.06}s` }}
       onClick={() => interactive && onPress(continent)}
     >
-      <span className="cgBtn__emoji">{CONTINENT_EMOJIS[continent] || "🌐"}</span>
-      <span className="cgBtn__name">{continent}</span>
+      <span className="countryGuessrBtn__emoji">{CONTINENT_EMOJIS[continent] || "🌐"}</span>
+      <span className="countryGuessrBtn__name">{continent}</span>
     </button>
   )
 }
@@ -57,8 +57,8 @@ export default function CountryBtns({ countries, onCountryPress, shown, mode }) 
 
   return (
     <div className={`countryGuessrOptions ${shown ? "shown" : ""} ${isContinent ? "continentMode" : ""}`}>
-      <p className="cgPrompt">{isContinent ? text("whichContinent") : text("whichCountry")}</p>
-      <div className="cgBtnRow">
+      <p className="countryGuessrPrompt">{isContinent ? text("whichContinent") : text("whichCountry")}</p>
+      <div className="countryGuessrBtnRow">
         {countries.map((item, i) => {
           if (isContinent) {
             return continentDiv({ continent: item, onPress: onCountryPress, index: i, interactive })

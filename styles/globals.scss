@@ -2159,13 +2159,13 @@ h1, h2, h3, span, label {
     transition: all 1000ms ease;
 }
 
-#miniMapArea.cgMapReveal {
+#miniMapArea.countryGuessrMapReveal {
     transform: none;
     animation: mapFadeReveal 0.5s ease forwards;
 }
 
-#miniMapArea.cgMapFadeOut {
-    animation: mapFadeOut 0.4s ease forwards;
+#miniMapArea.countryGuessrMapFadeOut {
+    animation: mapFadeOut 0.3s ease forwards;
 }
 
 @keyframes mapFadeReveal {
@@ -2268,7 +2268,7 @@ h1, h2, h3, span, label {
     pointer-events: all;
 }
 
-#endBanner.cgDelayed {
+#endBanner.countryGuessrDelayed {
     animation: bannerFadeIn 0.5s ease 0.8s both;
 }
 
@@ -2394,7 +2394,7 @@ h1, h2, h3, span, label {
 }
 
 .bannerPoints {
-    font-weight: 600;
+    font-weight: 100 900;
     font-size: 0.95em !important;
 }
 
@@ -3096,7 +3096,7 @@ img[alt="Google"] {
     display: flex;
 }
 
-.cgPrompt {
+.countryGuessrPrompt {
     color: rgba(255, 255, 255, 0.85);
     font-family: "Lexend", sans-serif;
     font-size: 0.85rem;
@@ -3105,13 +3105,13 @@ img[alt="Google"] {
     padding: 0;
 }
 
-.cgBtnRow {
+.countryGuessrBtnRow {
     display: flex;
     gap: 8px;
     justify-content: center;
 }
 
-.cgBtn {
+.countryGuessrBtn {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -3142,7 +3142,7 @@ img[alt="Google"] {
     }
 }
 
-.cgBtn__flag {
+.countryGuessrBtn__flag {
     width: 48px;
     height: 32px;
     object-fit: contain;
@@ -3150,57 +3150,57 @@ img[alt="Google"] {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
-.cgBtn__emoji {
+.countryGuessrBtn__emoji {
     font-size: 1.6rem;
 }
 
-.cgBtn__name {
+.countryGuessrBtn__name {
     font-size: 0.8rem;
     font-weight: 600;
     text-align: center;
     line-height: 1.2;
 }
 
-.cgBtn--continent {
+.countryGuessrBtn--continent {
     min-width: 90px;
     padding: 8px 12px;
 }
 
-.cgBtn--noHover {
+.countryGuessrBtn--noHover {
     pointer-events: none;
 }
 
 @media screen and (min-width: 1200px) {
-    .cgPrompt {
+    .countryGuessrPrompt {
         font-size: 1rem;
     }
 
-    .cgBtnRow {
+    .countryGuessrBtnRow {
         gap: 12px;
     }
 
-    .cgBtn {
+    .countryGuessrBtn {
         padding: 14px 22px;
         min-width: 130px;
         gap: 8px;
         border-radius: 14px;
     }
 
-    .cgBtn__flag {
+    .countryGuessrBtn__flag {
         width: 72px;
         height: 48px;
         border-radius: 4px;
     }
 
-    .cgBtn__emoji {
+    .countryGuessrBtn__emoji {
         font-size: 2.2rem;
     }
 
-    .cgBtn__name {
+    .countryGuessrBtn__name {
         font-size: 0.95rem;
     }
 
-    .cgBtn--continent {
+    .countryGuessrBtn--continent {
         min-width: 110px;
         padding: 12px 16px;
     }
@@ -3255,27 +3255,27 @@ img[alt="Google"] {
         padding: 10px;
     }
 
-    .cgBtnRow {
+    .countryGuessrBtnRow {
         width: 100%;
         flex-wrap: wrap;
     }
 
-    .cgBtn {
+    .countryGuessrBtn {
         flex: 1 1 40%;
         min-width: 0;
         padding: 8px 8px;
     }
 
-    .cgBtn__flag {
+    .countryGuessrBtn__flag {
         width: 36px;
         height: 24px;
     }
 
-    .cgBtn__name {
+    .countryGuessrBtn__name {
         font-size: 0.72rem;
     }
 
-    .cgBtn--continent {
+    .countryGuessrBtn--continent {
         flex: 1 1 30%;
         min-width: 0;
         padding: 6px 6px;
@@ -5864,7 +5864,7 @@ div:hover .elo-badge {
 }
 
 /* ===== Country Guesser Config ===== */
-.cg-config {
+.countryGuessr-config {
     position: fixed;
     top: 0;
     left: 0;
@@ -5882,7 +5882,7 @@ div:hover .elo-badge {
     to { opacity: 1; transform: translateY(0); }
 }
 
-.cg-config__inner {
+.countryGuessr-config__inner {
     width: 100%;
     height: 100%;
     display: flex;
@@ -5895,20 +5895,20 @@ div:hover .elo-badge {
     overflow-y: auto;
 }
 
-.cg-config__title {
+.countryGuessr-config__title {
     font-size: 2rem;
     font-weight: 700;
     color: #3fb950;
     margin-bottom: 8px;
 }
 
-.cg-config__subtitle {
+.countryGuessr-config__subtitle {
     font-size: 0.9rem;
     color: rgba(255, 255, 255, 0.7);
     margin-bottom: 12px;
 }
 
-.cg-config__modes {
+.countryGuessr-config__modes {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -5917,7 +5917,7 @@ div:hover .elo-badge {
     margin-bottom: 16px;
 }
 
-.cg-config__mode-btn {
+.countryGuessr-config__mode-btn {
     display: flex;
     flex-direction: column;
     padding: 14px 18px;
@@ -5951,7 +5951,7 @@ div:hover .elo-badge {
     }
 }
 
-.cg-config__divider {
+.countryGuessr-config__divider {
     width: 100%;
     max-width: 400px;
     height: 1px;
@@ -5959,7 +5959,7 @@ div:hover .elo-badge {
     margin: 12px 0;
 }
 
-.cg-config__regions {
+.countryGuessr-config__regions {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
@@ -5968,7 +5968,7 @@ div:hover .elo-badge {
     margin-bottom: 16px;
 }
 
-.cg-config__region-chip {
+.countryGuessr-config__region-chip {
     padding: 8px 14px;
     border-radius: 20px;
     border: 1.5px solid rgba(255, 255, 255, 0.2);
@@ -5990,18 +5990,18 @@ div:hover .elo-badge {
     }
 }
 
-.cg-config__warning {
+.countryGuessr-config__warning {
     color: #f0ad4e;
     font-size: 0.8rem;
     margin-bottom: 12px;
 }
 
-.cg-config__play-btn {
+.countryGuessr-config__play-btn {
     width: 200px;
     margin-bottom: 12px;
 }
 
-.cg-config__back-btn {
+.countryGuessr-config__back-btn {
     background: none;
     border: none;
     color: rgba(255, 255, 255, 0.5);
@@ -6126,7 +6126,7 @@ div:hover .elo-badge {
         width: 90%;
     }
 
-    .cg-config__regions {
+    .countryGuessr-config__regions {
         max-width: 100%;
     }
 

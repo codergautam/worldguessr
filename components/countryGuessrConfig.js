@@ -21,26 +21,26 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
   const showWarning = subMode === "continent" && region !== "all";
 
   return (
-    <div className="cg-config">
-      <div className="cg-config__inner" style={{
+    <div className="countryGuessr-config">
+      <div className="countryGuessr-config__inner" style={{
         background: `linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 30, 15, 0.6) 100%), url("${asset('/street2.webp')}")`,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}>
-        <h1 className="cg-config__title">{text("countryGuesser")}</h1>
+        <h1 className="countryGuessr-config__title">{text("countryGuesser")}</h1>
 
-        <p className="cg-config__subtitle">{text("pickChallenge")}</p>
+        <p className="countryGuessr-config__subtitle">{text("pickChallenge")}</p>
 
-        <div className="cg-config__modes">
+        <div className="countryGuessr-config__modes">
           <button
-            className={`cg-config__mode-btn ${subMode === "country" ? "active" : ""}`}
+            className={`countryGuessr-config__mode-btn ${subMode === "country" ? "active" : ""}`}
             onClick={() => setSubMode("country")}
           >
             <strong>🏳️ {text("countryGuesser")}</strong>
             <span>{text("countryGuessrDesc")}</span>
           </button>
           <button
-            className={`cg-config__mode-btn ${subMode === "continent" ? "active" : ""}`}
+            className={`countryGuessr-config__mode-btn ${subMode === "continent" ? "active" : ""}`}
             onClick={() => setSubMode("continent")}
           >
             <strong>🌎 {text("continentGuesser")}</strong>
@@ -48,15 +48,15 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
           </button>
         </div>
 
-        <div className="cg-config__divider" />
+        <div className="countryGuessr-config__divider" />
 
-        <p className="cg-config__subtitle">{text("regionFilter")}</p>
+        <p className="countryGuessr-config__subtitle">{text("regionFilter")}</p>
 
-        <div className="cg-config__regions">
+        <div className="countryGuessr-config__regions">
           {REGIONS.map((r) => (
             <button
               key={r.id}
-              className={`cg-config__region-chip ${region === r.id ? "active" : ""}`}
+              className={`countryGuessr-config__region-chip ${region === r.id ? "active" : ""}`}
               onClick={() => setRegion(r.id)}
             >
               {r.emoji} {r.label}
@@ -65,19 +65,19 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
         </div>
 
         {showWarning && (
-          <p className="cg-config__warning">
+          <p className="countryGuessr-config__warning">
             {text("continentWorldWarning")}
           </p>
         )}
 
-        <button className="g2_green_button cg-config__play-btn" onClick={() => {
+        <button className="g2_green_button countryGuessr-config__play-btn" onClick={() => {
           sendEvent("casual_mode_configured", { challenge: subMode, region });
           onStart({ subMode, region });
         }}>
           {text("play")}
         </button>
 
-        <button className="cg-config__back-btn" onClick={onBack}>
+        <button className="countryGuessr-config__back-btn" onClick={onBack}>
           ← {text("back")}
         </button>
       </div>

@@ -45,11 +45,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         setOnboarding((prev)=>{
           const completedOnboarding = {
             completed: true,
-            finalOnboardingShown: true, // Prevent duplicate RoundOverScreen in home.js
-            round: prev.round, // Preserve round for parent component condition
+            finalOnboardingShown: true,
+            round: prev.round,
             points: prev.points,
+            mode: prev.mode,
             timeTaken: Date.now() - prev.startTime,
-            locations: prev.gameResults || [] // Use gameResults for the summary
+            locations: prev.gameResults || []
           };
           console.log("Completed onboarding state:", completedOnboarding);
           return completedOnboarding;
@@ -117,7 +118,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     } else {
 
 
-      loadLocation()
+      loadLocation({ keepAnswer })
 
       if(singlePlayerRound && !singlePlayerRound?.done) {
         setSinglePlayerRound((prev) => {
@@ -186,10 +187,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [miniMapFullscreen, setMiniMapFullscreen] = useState(false)
   const [roundStartTime, setRoundStartTime] = useState(null);
   const [lostCountryStreak, setLostCountryStreak] = useState(0);
-  const [cgStreak, setCgStreak] = useState(() => {
-    try { return parseInt(gameStorage.getItem("cgStreak")) || 0; } catch(e) { return 0; }
+  const [countryGuessrStreak, setCgStreak] = useState(() => {
+    try { return parseInt(gameStorage.getItem("countryGuessrStreak")) || 0; } catch(e) { return 0; }
   });
-  const [lostCgStreak, setLostCgStreak] = useState(0);
+  const [lostCountryGuessrStreak, setLostCgStreak] = useState(0);
   const [mapFadingOut, setMapFadingOut] = useState(false);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
   const [timeToNextRound, setTimeToNextRound] = useState(0); //only for onboarding
@@ -366,8 +367,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   }, [countryStreak])
 
   useEffect(() => {
-    try { gameStorage.setItem("cgStreak", cgStreak); } catch(e) {}
-  }, [cgStreak])
+    try { gameStorage.setItem("countryGuessrStreak", countryGuessrStreak); } catch(e) {}
+  }, [countryGuessrStreak])
 
   useEffect(() => {
     // No typewriter text — modal handles intro, country buttons show immediately
@@ -638,7 +639,7 @@ session={session}/>
         if(mapPinned) return;
         // todo: if mouse down, don't collapse
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${!welcomeOverlayShown && (miniMapShown||showAnswer||mapFadingOut)&&(!singlePlayerRound?.done && !onboarding?.completed && ((!showPanoOnResult && showAnswer) || (!showAnswer) || mapFadingOut)) && !(onboarding && !showAnswer && !mapFadingOut && onboarding.mode !== 'classic') ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${(showAnswer && countryGuesser && !showPanoOnResult) || mapFadingOut ? 'cgMapReveal' : ''} ${mapFadingOut ? 'cgMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${!welcomeOverlayShown && (miniMapShown||showAnswer||mapFadingOut)&&(!singlePlayerRound?.done && !onboarding?.completed && ((!showPanoOnResult && showAnswer) || (!showAnswer) || mapFadingOut)) && !(onboarding && !showAnswer && !mapFadingOut && onboarding.mode !== 'classic') ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${(showAnswer && countryGuesser && !showPanoOnResult) || mapFadingOut ? 'countryGuessrMapReveal' : ''} ${mapFadingOut ? 'countryGuessrMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 
 {!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
@@ -718,7 +719,7 @@ session={session}/>
           if (isCorrect) {
             setCgStreak(prev => prev + 1);
           } else {
-            setLostCgStreak(cgStreak);
+            setLostCgStreak(countryGuessrStreak);
             setCgStreak(0);
           }
           guess(isCorrect);
@@ -843,15 +844,20 @@ session={session}/>
   )}
 <EndBanner
 countryStreaksEnabled={gameOptions?.location === "all"}
-singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryGuesser ? cgStreak : countryStreak} lostCountryStreak={countryGuesser ? lostCgStreak : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
-  setMapFadingOut(true);
-  window._cgKeepAnswer = true;
-  loadLocationFunc(true);
-  setTimeout(() => {
-    setMapFadingOut(false);
-    setShowAnswer(false);
-    window._cgKeepAnswer = false;
-  }, 500);
+singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryGuesser ? countryGuessrStreak : countryStreak} lostCountryStreak={countryGuesser ? lostCountryGuessrStreak : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
+  const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
+  if (isCountryGuessrMode) {
+    setMapFadingOut(true);
+    window._countryGuessrKeepAnswer = true;
+    loadLocationFunc(true);
+    setTimeout(() => {
+      setMapFadingOut(false);
+      setShowAnswer(false);
+      window._countryGuessrKeepAnswer = false;
+    }, 300);
+  } else {
+    loadLocationFunc();
+  }
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {
     setShowPanoOnResult(!showPanoOnResult)
   }} panoShown={showPanoOnResult} />

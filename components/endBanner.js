@@ -86,7 +86,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         ? text(ONBOARDING_FACTS[onboarding.round - 1] || "")
         : null;
 
-    const isCgRound = countryGuesser && !pinPoint;
+    const isCountryGuessrRound = countryGuesser && !pinPoint;
     const isClassicRound = !countryGuesser;
     const showStreaks = (countryStreaksEnabled || countryGuesser) && (countryStreak > 0 || lostCountryStreak > 0);
 
@@ -96,7 +96,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         : (singlePlayerRound?.lastPoint ?? points);
 
     return (
-        <div id='endBanner' className={isCgRound && guessed ? 'cgDelayed' : ''} style={{ display: guessed && !hiding ? '' : 'none' }}>
+        <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !hiding ? '' : 'none' }}>
 
             <button className="openInMaps topGameInfoButton" onClick={toggleMap}>
                 {panoShown ? text("showMap") : text("showPano")}

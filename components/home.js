@@ -114,7 +114,7 @@ export default function Home({ }) {
     }, [])
     const [hintShown, setHintShown] = useState(false)
     const [countryStreak, setCountryStreak] = useState(0)
-    const [cgStreak, setCgStreak] = useState(0)
+    const [countryGuessrStreak, setCgStreak] = useState(0)
     const [settingsModal, setSettingsModal] = useState(false)
     const [mapModal, setMapModal] = useState(false)
     const [friendsModal, setFriendsModal] = useState(false)
@@ -788,7 +788,7 @@ export default function Home({ }) {
 
     useEffect(() => {
         if (onboarding?.round > 1) {
-            loadLocation({ keepAnswer: !!window._cgKeepAnswer })
+            loadLocation({ keepAnswer: !!window._countryGuessrKeepAnswer })
         }
     }, [onboarding?.round])
 
@@ -1942,7 +1942,7 @@ export default function Home({ }) {
             // Always disable chat when WebSocket disconnects to prevent chat button showing in menu
             setMultiplayerChatEnabled(false)
             setMultiplayerChatOpen(false)
-            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
+            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "countryGuessrConfig") {
                 setMultiplayerError(true)
                 setLoading(false)
 
@@ -1968,7 +1968,7 @@ export default function Home({ }) {
             setMultiplayerChatEnabled(false)
             setMultiplayerChatOpen(false)
 
-            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
+            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "countryGuessrConfig") {
                 setMultiplayerError(true)
 
                 toast.info(text("connectionLostRecov"))
@@ -2054,7 +2054,7 @@ export default function Home({ }) {
                     gameStorage.setItem("countryStreak", 0)
                 }
             }
-            const cgs = gameStorage.getItem("cgStreak");
+            const cgs = gameStorage.getItem("countryGuessrStreak");
             if (cgs) {
                 const parsed = parseInt(cgs);
                 if (!isNaN(parsed)) setCgStreak(parsed);
@@ -2138,6 +2138,9 @@ export default function Home({ }) {
 
     function backBtnPressed(queueNextGame = false, nextGameType) {
         setOnboardingCompleted(true)
+        setLatLong(null)
+        setShowAnswer(false)
+        setPinPoint(null)
 
         if (loading) setLoading(false);
         if (multiplayerError) setMultiplayerError(false)
@@ -2151,6 +2154,8 @@ export default function Home({ }) {
         }
 
         if (screen === "onboarding") {
+            setLatLong(null)
+            setShowAnswer(false)
             setScreen("home")
             setOnboarding(null)
             gameStorage.setItem("onboarding", 'done')
@@ -2546,6 +2551,8 @@ export default function Home({ }) {
                             gameStorage.setItem("onboarding_seen", "true");
                             gameStorage.setItem("onboarding", "done");
                         } catch(e) {}
+                        setLatLong(null);
+                        setShowAnswer(false);
                         setWelcomeOverlayShown(false);
                         setOnboarding(null);
                         setOnboardingCompleted(true);
@@ -2700,7 +2707,7 @@ export default function Home({ }) {
                     onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("list"); }}
                     loginQueued={loginQueued}
                     setLoginQueued={setLoginQueued}
-                    inGame={multiplayerState?.inGame || screen === "singleplayer"}
+                    inGame={multiplayerState?.inGame || screen === "singleplayer" || screen === "countryGuesser"}
                     openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
                     session={session}
                     reloadBtnPressed={reloadBtnPressed}
@@ -3116,6 +3123,8 @@ export default function Home({ }) {
                             onKeepPlaying={() => {
                                 sendEvent("tutorial_end");
                                 try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setLatLong(null);
+                                setShowAnswer(false);
                                 setOnboarding(null);
                                 setOnboardingCompleted(true);
                                 const m = onboarding.mode || "classic";
@@ -3129,6 +3138,8 @@ export default function Home({ }) {
                             onTryOtherMode={(newMode) => {
                                 sendEvent("tutorial_end");
                                 try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setLatLong(null);
+                                setShowAnswer(false);
                                 setOnboarding(null);
                                 setOnboardingCompleted(true);
                                 if (newMode === "classic") {
@@ -3141,6 +3152,8 @@ export default function Home({ }) {
                             onExploreMaps={() => {
                                 sendEvent("tutorial_end");
                                 try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setLatLong(null);
+                                setShowAnswer(false);
                                 setOnboarding(null);
                                 setOnboardingCompleted(true);
                                 setScreen("home");
@@ -3149,6 +3162,8 @@ export default function Home({ }) {
                             onSignIn={() => {
                                 sendEvent("tutorial_end");
                                 try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setLatLong(null);
+                                setShowAnswer(false);
                                 setOnboarding(null);
                                 setOnboardingCompleted(true);
                                 setScreen("home");
@@ -3158,6 +3173,8 @@ export default function Home({ }) {
                         <RoundOverScreen points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={onboarding.mode === "classic" ? 15000 : 3000} history={onboarding.locations || []} options={options} button1Text={text("home")} button1Press={() => {
                             sendEvent("tutorial_end");
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setLatLong(null);
+                            setShowAnswer(false);
                             setOnboarding(null);
                             setOnboardingCompleted(true);
                             setScreen("home");
