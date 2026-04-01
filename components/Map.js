@@ -1,11 +1,53 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { Circle, Marker, Polyline, Popup, Tooltip, useMapEvents } from "react-leaflet";
+import { CircleMarker, Marker, Polyline, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
+import { asset } from '@/lib/basePath';
+import { getPinIcons } from '@/lib/markerIcons';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
-const hintMul = 5000000 / 20000; //5000000 for all countries (20,000 km)
+import CountryFlag from './utils/countryFlag';
+const hintMul = 7500000 / 20000; //7500000 for all countries (20,000 km)
+
+// Simple seeded random for stable hint offset per round
+function seededRandom(seed) {
+  const x = Math.sin(seed * 9999) * 10000;
+  return x - Math.floor(x);
+}
+
+// HintCircle component that scales with zoom
+function HintCircle({ location, gameOptions, round }) {
+  const [zoom, setZoom] = useState(2);
+
+  const map = useMapEvents({
+    zoom: () => setZoom(map.getZoom()),
+  });
+
+  // Scale hint circle with maxDist (75px base at 20000km world map)
+  const maxDist = gameOptions?.maxDist ?? 20000;
+  const ogRadius = 75 * (maxDist / 20000);
+  const pixelRadius = ogRadius * Math.pow(2, zoom - 1);
+  // Offset the center by 0 to pixelRadius in a random direction (sqrt for uniform area distribution)
+  const seed = (round ?? 1) + Math.abs(location.lat * ogRadius + location.long * ogRadius);
+  const offsetAngle = seededRandom(seed * 3) * 2 * Math.PI;
+  const offsetAmount = Math.sqrt(seededRandom(seed * 7)) * pixelRadius;
+  const offsetX = offsetAmount * Math.cos(offsetAngle);
+  const offsetY = offsetAmount * Math.sin(offsetAngle);
+
+  // Convert pixel offset back to lat/lng
+  const pointC = map.latLngToContainerPoint(L.latLng(location.lat, location.long));
+  const offsetPoint = L.point(pointC.x + offsetX, pointC.y + offsetY);
+  const offsetCenter = map.containerPointToLatLng(offsetPoint);
+
+  return (
+    <CircleMarker
+      center={offsetCenter}
+      radius={pixelRadius}
+      className="hintCircle"
+    />
+  );
+}
 
 // Dynamic import of react-leaflet components
 const MapContainer = dynamic(
@@ -41,7 +83,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         setPinPoint(e.latlng);
         if (currentMultiplayerState?.inGame && currentMultiplayerState.gameData?.state === "guess" && currentWs) {
           const pinpointLatLong = [e.latlng.lat, e.latlng.lng];
-          currentWs.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false }));
+          currentWs.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: false, round: currentMultiplayerState.gameData?.curRound }));
         }
         // play sound
         // playSound();
@@ -95,36 +137,30 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
 const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, round, focused, gameOptions }) => {
   const mapRef = React.useRef(null);
   const plopSound = React.useRef();
+  const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
 
   const { t: text } = useTranslation("common");
 
-  // Cache icons to prevent repeated requests
-  const icons = useMemo(() => ({
-    dest: L.icon({
-      iconUrl: './dest.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-    }),
-    src: L.icon({
-      iconUrl: './src.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-    }),
-    src2: L.icon({
-      iconUrl: './src2.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-    }),
-    polandball: L.icon({
-      iconUrl: './polandball.png',
-      iconSize: [50, 82],
-      iconAnchor: [25, 41],
-      popupAnchor: [1, 5],
-    })
-  }), []);
+  // Detect mobile/tablet devices
+  useEffect(() => {
+    const checkDevice = () => {
+      const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const isSmallScreen = window.innerWidth <= 1024;
+      setIsMobileOrTablet(isTouchDevice || isSmallScreen);
+    };
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
+
+  // Use shared icon cache (created once, reused across all mounts)
+  const sharedIcons = getPinIcons();
+  const icons = {
+    dest: sharedIcons?.destSmall,
+    src: sharedIcons?.srcSmall,
+    src2: sharedIcons?.src2Small,
+    polandball: sharedIcons?.polandball,
+  };
 
 
   useEffect(() => {
@@ -155,7 +191,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
     >
 
       <div className='mapAttr'>
-        <img width="60" src='https://lh3.googleusercontent.com/d_S5gxu_S1P6NR1gXeMthZeBzkrQMHdI5uvXrpn3nfJuXpCjlqhLQKH_hbOxTHxFhp5WugVOEcl4WDrv9rmKBDOMExhKU5KmmLFQVg' />
+        <img width="60" src='https://lh3.googleusercontent.com/d_S5gxu_S1P6NR1gXeMthZeBzkrQMHdI5uvXrpn3nfJuXpCjlqhLQKH_hbOxTHxFhp5WugVOEcl4WDrv9rmKBDOMExhKU5KmmLFQVg' alt="Google" />
       </div>
       <MapPlugin playSound={
         () => {
@@ -196,7 +232,10 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
           <>
             <Marker key={(index*2)} position={{ lat: latLong[0], lng: latLong[1] }} icon={tIcon}>
             <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent  position={{ lat: latLong[0], lng: latLong[1] }}>
-              <span style={{color: "black"}}>{name}</span>
+              <span style={{color: "black", display: 'flex', alignItems: 'center', gap: '4px'}}>
+                {name}
+                {player.countryCode && <CountryFlag countryCode={player.countryCode} style={{ fontSize: '0.9em', marginRight: '0' }} />}
+              </span>
             </Tooltip>
             </Marker>
             <Polyline key={(index*2)+1} positions={[{ lat: latLong[0], lng: latLong[1] }, { lat: location.lat, lng: location.long }]} color="green" />
@@ -232,19 +271,22 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   } */}
 
       {showHint && location && (
-        <Circle center={{ lat: location.lat, lng: location.long }} radius={hintMul * (gameOptions?.maxDist) ?? 0} />
+        <HintCircle location={location} gameOptions={gameOptions} round={round} />
       )}
 
       <TileLayer
+        key={isMobileOrTablet ? 'mobile' : 'desktop'}
         noWrap={true}
-        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}`}
+        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
         subdomains={['0', '1', '2', '3']}
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}
-        zoomOffset={0}
+        // tileSize={isMobileOrTablet ? 512 : 256}
+        // zoomOffset={isMobileOrTablet ? -1 : 0}
+        // detectRetina={true}
       />
 
-    <audio ref={plopSound} src="/plop.mp3" preload="auto"></audio>
+    <audio ref={plopSound} src={asset("/plop.mp3")} preload="auto"></audio>
 
     </MapContainer>
   );

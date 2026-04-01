@@ -2,11 +2,16 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
-import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt } from "react-icons/fa";
+import { asset } from '@/lib/basePath';
+import { getPinIcons } from '@/lib/markerIcons';
+import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag } from "react-icons/fa";
 import msToTime from "./msToTime";
 import formatTime from "../utils/formatTime";
 import { toast } from "react-toastify";
 import 'leaflet/dist/leaflet.css';
+import ReportModal from './reportModal';
+import UsernameWithFlag from './utils/usernameWithFlag';
+import CountryFlag from './utils/countryFlag';
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -82,46 +87,31 @@ const GameSummary = ({
   const [headerCompact, setHeaderCompact] = useState(false);
   const [userHasInteracted, setUserHasInteracted] = useState(false); // Track if user has manually moved the map
   const [copiedGameId, setCopiedGameId] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null);
   const mapRef = useRef(null);
   const destIconRef = useRef(null);
   const srcIconRef = useRef(null);
-  const src2IconRef = useRef(null); // Green icon for opponent markers
+  const src2IconRef = useRef(null);
   const roundsContainerRef = useRef(null);
 
   // Animation states for duel
   const [animatedPoints, setAnimatedPoints] = useState(0);
+  const [pointsAnimating, setPointsAnimating] = useState(false);
   const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
   const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
 
-  // Initialize Leaflet icons when available
+  // Initialize Leaflet icons from shared cache (icons created once globally)
   useEffect(() => {
     const checkLeaflet = () => {
-      if (typeof window !== 'undefined' && window.L) {
-        destIconRef.current = window.L.icon({
-          iconUrl: './dest.png',
-          iconSize: [30, 49],
-          iconAnchor: [15, 49],
-          popupAnchor: [1, -34],
-        });
-
-        srcIconRef.current = window.L.icon({
-          iconUrl: './src.png',
-          iconSize: [30, 49],
-          iconAnchor: [15, 49],
-          popupAnchor: [1, -34],
-        });
-
-        src2IconRef.current = window.L.icon({
-          iconUrl: './src2.png',
-          iconSize: [30, 49],
-          iconAnchor: [15, 49],
-          popupAnchor: [1, -34],
-        });
-
+      const icons = getPinIcons();
+      if (icons) {
+        destIconRef.current = icons.dest;
+        srcIconRef.current = icons.src;
+        src2IconRef.current = icons.src2;
         setLeafletReady(true);
       } else {
-        // Retry if Leaflet isn't loaded yet
         setTimeout(checkLeaflet, 100);
       }
     };
@@ -136,33 +126,42 @@ const GameSummary = ({
       const endValue = points;
       const duration = 1200; // Slightly longer for more dramatic effect
       const startTime = Date.now();
+      let animationFrameId = null;
+      let timeoutId = null;
+      let cancelled = false;
+
+      // Start the CSS animation
+      setPointsAnimating(true);
 
       const animate = () => {
+        if (cancelled) return;
+
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Enhanced easing - combines ease-out with a slight bounce
-        const easeOutBack = (x) => {
-          const c1 = 1.70158;
-          const c3 = c1 + 1;
-          return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
-        };
-
-        const easedProgress = progress < 0.7
-          ? 4 * Math.pow(progress, 3) // Ease out cubic for first 70%
-          : 1 - Math.pow(-2 * progress + 2, 3) / 2; // Smooth transition to end
+        // Ease-out cubic: starts fast, slows down at end (no overshoot)
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
 
         const currentValue = startValue + (endValue - startValue) * easedProgress;
         setAnimatedPoints(Math.round(currentValue));
 
         if (progress < 1) {
-          requestAnimationFrame(animate);
+          animationFrameId = requestAnimationFrame(animate);
         } else {
           setAnimatedPoints(endValue);
+          // End the CSS animation after a brief delay for the glow to fade
+          timeoutId = setTimeout(() => setPointsAnimating(false), 300);
         }
       };
 
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
+
+      // Cleanup: cancel animation and timeout if points changes or component unmounts
+      return () => {
+        cancelled = true;
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        if (timeoutId) clearTimeout(timeoutId);
+      };
     }
   }, [points, duel]);
 
@@ -215,7 +214,7 @@ const GameSummary = ({
       let newStars = [];
 
       const gold = "gold"; // Define gold color for stars
-      const platinum = "/platinum_star.png"; // Define platinum star image
+      const platinum = asset("/platinum_star.png"); // Define platinum star image
       const silver = "#CD7F32"; // Define silver color for stars
       const bronze = "#b6b2b2"; // Define bronze color for stars
 
@@ -353,16 +352,17 @@ const GameSummary = ({
       if (round.players) {
         Object.entries(round.players).forEach(([playerId, player]) => {
           if (!allPlayers.has(playerId)) {
-            allPlayers.set(playerId, player.username);
+            allPlayers.set(playerId, { username: player.username, countryCode: player.countryCode });
           }
         });
       }
     });
 
     const players = Array.from(allPlayers.entries())
-      .map(([playerId, username]) => ({
+      .map(([playerId, playerData]) => ({
         playerId,
-        username,
+        username: playerData.username,
+        countryCode: playerData.countryCode,
         totalScore: finalHistory.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
       }))
       .sort((a, b) => b.totalScore - a.totalScore);
@@ -381,16 +381,17 @@ const GameSummary = ({
       if (round.players) {
         Object.entries(round.players).forEach(([playerId, player]) => {
           if (!allPlayers.has(playerId)) {
-            allPlayers.set(playerId, player.username);
+            allPlayers.set(playerId, { username: player.username, countryCode: player.countryCode });
           }
         });
       }
     });
 
     const players = Array.from(allPlayers.entries())
-      .map(([playerId, username]) => ({
+      .map(([playerId, playerData]) => ({
         playerId,
-        username,
+        username: playerData.username,
+        countryCode: playerData.countryCode,
         totalScore: finalHistory.reduce((total, round) => total + (round.players?.[playerId]?.points || 0), 0)
       }))
       .sort((a, b) => b.totalScore - a.totalScore);
@@ -400,6 +401,7 @@ const GameSummary = ({
     return displayPlayers.map((player, index) => {
       const isCurrentPlayer = player.playerId === multiplayerState?.gameData?.myId;
       const isSelected = selectedPlayer === player.playerId;
+      const isReportedUser = options?.reportedUserId && player.playerId === options.reportedUserId;
 
       return (
         <React.Fragment key={player.playerId}>
@@ -407,7 +409,8 @@ const GameSummary = ({
             className={`round-item round-animation ${isSelected ? 'active' : ''}`}
             style={{
               animationDelay: `${index * 0.1}s`,
-              cursor: 'pointer'
+              cursor: 'pointer',
+              ...(isReportedUser && { borderLeft: '3px solid #f44336' })
             }}
             onClick={() => handlePlayerSelect(player.playerId)}
           >
@@ -425,8 +428,15 @@ const GameSummary = ({
                   {index === 1 && <FaTrophy style={{ color: '#C0C0C0', fontSize: '1.1rem', filter: 'drop-shadow(0 2px 4px rgba(192, 192, 192, 0.3))' }} />}
                   {index === 2 && <FaTrophy style={{ color: '#CD7F32', fontSize: '1rem', filter: 'drop-shadow(0 2px 4px rgba(205, 127, 50, 0.3))' }} />}
                 </div>
-                <span className="round-number">
-                  #{index + 1} {player.username} {isCurrentPlayer && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
+                <span className="round-number" style={isReportedUser ? { color: '#f44336', fontWeight: 'bold' } : {}}>
+                  #{index + 1}{' '}
+                  <UsernameWithFlag
+                    username={player.username}
+                    countryCode={player.countryCode}
+                    isGuest={process.env.NEXT_PUBLIC_COOLMATH}
+                  />
+                  {isCurrentPlayer && !options?.isModView && <span style={{ color: '#888', fontStyle: 'italic', marginLeft: '4px' }}>({text("you")})</span>}
+                  {isReportedUser && <span style={{ color: '#f44336', fontStyle: 'italic', marginLeft: '4px' }}>(reported)</span>}
                 </span>
               </div>
               {renderPoints(player.totalScore)}
@@ -455,8 +465,9 @@ const GameSummary = ({
     // Check if we're on CrazyGames or CoolMathGames platforms
     const isCrazyGames = typeof window !== 'undefined' && window.inCrazyGames;
     const isCoolMathGames = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_COOLMATH === "true";
+    const isGameDistribution = typeof process !== 'undefined' && process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true";
 
-    if (isCrazyGames || isCoolMathGames) {
+    if (isCrazyGames || isCoolMathGames || isGameDistribution) {
       // Copy URL to clipboard instead of opening
       navigator.clipboard.writeText(url).then(() => {
         toast.success(text("copiedToClipboard"));
@@ -758,13 +769,73 @@ const GameSummary = ({
   // Use the constructed or provided history
   const finalHistory = gameHistory;
 
+  // Helper function to open report modal
+  const handleReportUser = (accountId, username) => {
+    setReportTarget({ accountId, username });
+    setReportModalOpen(true);
+  };
+
   // DUEL SCREEN IMPLEMENTATION
   if (duel && data) {
     const { winner, draw, oldElo, newElo } = data;
     const eloChange = newElo - oldElo;
 
+    // Get opponent information for ranked duels
+    const getOpponentInfo = () => {
+      const myId = multiplayerState?.gameData?.myId;
+
+      // Try to get from roundHistory first (for ranked duels)
+      if (multiplayerState?.gameData?.roundHistory?.length > 0) {
+        const firstRound = multiplayerState.gameData.roundHistory[0];
+        if (firstRound?.players) {
+          const opponentEntries = Object.entries(firstRound.players).filter(([id]) => id !== myId);
+          if (opponentEntries.length > 0) {
+            const [opponentId, opponentData] = opponentEntries[0];
+            return {
+              accountId: opponentId,
+              username: opponentData.username
+            };
+          }
+        }
+      }
+
+      // Fallback to finalHistory
+      if (finalHistory.length > 0) {
+        const firstRound = finalHistory[0];
+        if (firstRound?.players) {
+          const opponentEntries = Object.entries(firstRound.players).filter(([id]) => id !== myId);
+          if (opponentEntries.length > 0) {
+            const [opponentId, opponentData] = opponentEntries[0];
+            return {
+              accountId: opponentId,
+              username: opponentData.username
+            };
+          }
+        }
+      }
+
+      return null;
+    };
+
+    const opponentInfo = getOpponentInfo();
+
     return (
       <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
+        {/* Report Modal */}
+        {reportTarget && (
+          <ReportModal
+            isOpen={reportModalOpen}
+            onClose={() => {
+              setReportModalOpen(false);
+              setReportTarget(null);
+            }}
+            reportedUser={reportTarget}
+            gameId={gameId}
+            gameType={multiplayerState?.gameData?.public ? 'unranked_multiplayer' : 'ranked_duel'}
+            session={session}
+          />
+        )}
+
         <div className="game-summary-container">
           <div className="game-summary-map">
             <MapContainer
@@ -784,7 +855,9 @@ const GameSummary = ({
               />
 
               <TileLayer
-                url={`https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}`}
+                url={`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
+                subdomains={['0', '1', '2', '3']}
+                maxZoom={22}
               />
 
               {finalHistory.map((round, index) => {
@@ -845,7 +918,7 @@ const GameSummary = ({
                         >
                           <Popup>
                             <div>
-                              <strong>{text("yourGuess")}</strong><br />
+                              <strong>{options?.isModView ? (round.players?.[multiplayerState?.gameData?.myId]?.username || text("player")) : text("yourGuess")}</strong><br />
                               {text("roundNo", { r: index + 1 })}<br />
                               {round.points} {text("points")}
                             </div>
@@ -875,6 +948,7 @@ const GameSummary = ({
                       }
 
                       const playerColor = getPlayerColor(playerId, false);
+                      const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
                       return (
                         <React.Fragment key={`${index}-${playerId}`}>
                           <Marker
@@ -883,7 +957,15 @@ const GameSummary = ({
                           >
                             <Popup>
                               <div>
-                                <strong>{player.username || text("opponent")}</strong><br />
+                                <strong
+                                  style={{
+                                    cursor: 'default',
+                                    textDecoration: 'none',
+                                    color: 'inherit'
+                                  }}
+                                >
+                                  {player.username || text("opponent")}{isPlayerReported && ' (reported)'}
+                                </strong><br />
                                 {text("roundNo", { r: index + 1 })}<br />
                                 {player.points} {text("points")}
                               </div>
@@ -983,6 +1065,27 @@ const GameSummary = ({
                     {button2Text}
                   </button>
                 )}
+
+                {/* Report button for ranked duels - only show if logged in, in a ranked game, opponent exists, and not in mod view */}
+                {!options?.isModView && (multiplayerState?.gameData?.public === false || (multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public !== true)) && opponentInfo && session?.token?.secret && (
+                  <button
+                    className="action-btn report-btn"
+                    onClick={() => handleReportUser(opponentInfo.accountId, opponentInfo.username)}
+                    style={{
+                      background: 'rgba(255, 69, 58, 0.2)',
+                      border: '1px solid rgba(255, 69, 58, 0.4)',
+                      color: 'white',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '0.9rem'
+                    }}
+                    title="Report player"
+                  >
+                    <FaFlag size={14} />
+                    Report
+                  </button>
+                )}
               </div>
             </div>
 
@@ -997,7 +1100,9 @@ const GameSummary = ({
 
                     // Find opponent more robustly
                     const opponentEntries = Object.entries(round.players || {}).filter(([id]) => id !== myId);
+                    const opponentId = opponentEntries.length > 0 ? opponentEntries[0][0] : null;
                     const opponentData = opponentEntries.length > 0 ? opponentEntries[0][1] : null;
+                    const isOpponentReported = options?.reportedUserId && opponentId === options.reportedUserId;
 
                     const myPoints = myData?.points || 0;
                     const opponentPoints = opponentData?.points || 0;
@@ -1064,7 +1169,10 @@ const GameSummary = ({
                         <div className="round-details">
                           <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{text("you")}</span>
+                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                {options?.isModView ? (myData?.username || text("player1")) : text("you")}
+                                {myData?.countryCode && <CountryFlag countryCode={myData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
+                              </span>
                               <span className="score-points" style={{ color: getPointsColor(myPoints), fontWeight: 'bold' }}>
                                 {myPoints} {text("pts")}
                               </span>
@@ -1085,7 +1193,20 @@ const GameSummary = ({
                             )}
 
                             <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                              <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{opponentData?.username || text("opponent")}</span>
+                              <span
+                                className="player-name"
+                                style={{
+                                  fontSize: '0.9em',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+
+                              >
+                                {opponentData?.username || text("opponent")}
+                                {opponentData?.countryCode && <CountryFlag countryCode={opponentData.countryCode} style={{ fontSize: '1em', marginRight: '2px' }} />}
+                                {isOpponentReported && ' (reported)'}
+                              </span>
                               <span className="score-points" style={{ color: getPointsColor(opponentPoints), fontWeight: 'bold' }}>
                                 {opponentPoints} {text("pts")}
                               </span>
@@ -1135,7 +1256,9 @@ const GameSummary = ({
   // REGULAR GAME SCREEN IMPLEMENTATION
 
   return (
-    <div className="game-summary-container">
+    <div className={`round-over-screen ${hidden ? 'hidden' : ''}`}>
+
+    <div className={`game-summary-container `}>
       <div className="game-summary-map">
         <MapContainer
           center={[0, 0]}
@@ -1154,7 +1277,9 @@ const GameSummary = ({
           />
 
           <TileLayer
-            url={`https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}`}
+            url={`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
+            subdomains={['0', '1', '2', '3']}
+            maxZoom={22}
           />
 
           {finalHistory.map((round, index) => {
@@ -1205,7 +1330,7 @@ const GameSummary = ({
                     >
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
-                          <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("yourGuess")}</div>
+                          <div className="popup-round">{text("roundNumber", {number: index + 1})} - {options?.isModView ? (multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.username || text("player")) : text("yourGuess")}</div>
                           <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
                             {round.points} {text("points")}
                           </div>
@@ -1249,6 +1374,7 @@ const GameSummary = ({
                     }
 
                     const playerColor = getPlayerColor(playerId, false);
+                    const isPlayerReported = options?.reportedUserId && playerId === options.reportedUserId;
                     return (
                       <React.Fragment key={`${index}-${playerId}`}>
                         <Marker
@@ -1257,7 +1383,15 @@ const GameSummary = ({
                         >
                           <Popup>
                             <div>
-                              <strong>{player.username || text("opponent")}</strong><br />
+                              <strong
+                                style={{
+                                  cursor:  'default',
+                                  textDecoration:  'none',
+                                  color: 'inherit'
+                                }}
+                              >
+                                {player.username || text("opponent")}{isPlayerReported && ' (reported)'}
+                              </strong><br />
                               {text("roundNo", { r: index + 1 })}<br />
                               {player.points} {text("points")}
                             </div>
@@ -1362,7 +1496,7 @@ const GameSummary = ({
             })()}
 
             <div
-              className={`summary-score points-display ${animatedPoints < points ? 'animating' : ''}`}
+              className={`summary-score points-display ${pointsAnimating ? 'animating' : ''}`}
               style={{
                 transition: 'all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 ...(mobileExpanded && typeof window !== 'undefined' && window.innerWidth <= 1024 ? {
@@ -1553,6 +1687,7 @@ const GameSummary = ({
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 };

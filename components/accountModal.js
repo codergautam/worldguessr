@@ -4,12 +4,16 @@ import AccountView from "./accountView";
 import EloView from "./eloView";
 import GameHistory from "./gameHistory";
 import HistoricalGameView from "./historicalGameView";
+import ModerationView from "./moderationView";
 import { getLeague, leagues } from "./utils/leagues";
 import { signOut } from "@/components/auth/auth";
 import { useTranslation } from '@/components/useTranslations';
 import FriendsModal from "@/components/friendModal";
+import { FaLink, FaCheck } from "react-icons/fa";
+import CountryFlag from './utils/countryFlag';
+import { navigate } from '@/lib/basePath';
 
-export default function AccountModal({ session, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
+export default function AccountModal({ session, setSession, shown, setAccountModalOpen, eloData, inCrazyGames, friendModal, accountModalPage, setAccountModalPage, ws, sendInvite, canSendInvite, options }) {
     const { t: text } = useTranslation("common");
     const [accountData, setAccountData] = useState({});
     const [friends, setFriends] = useState([]);
@@ -18,6 +22,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
     const [selectedGame, setSelectedGame] = useState(null);
     const [showingGameAnalysis, setShowingGameAnalysis] = useState(false);
     const [isTouchDevice, setIsTouchDevice] = useState(false);
+    const [copiedLink, setCopiedLink] = useState(false);
     const badgeStyle = {
         marginLeft: '15px',
         color: 'black',
@@ -36,40 +41,49 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
             const isTouchCapable = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
             setIsTouchDevice(hasCoarsePointer || isTouchCapable);
         };
-        
+
         checkTouchDevice();
         const mediaQuery = window.matchMedia('(pointer: coarse)');
         mediaQuery.addListener(checkTouchDevice);
-        
+
         return () => {
             mediaQuery.removeListener(checkTouchDevice);
         };
     }, []);
 
+    // Use session data for instant display, then fetch fresh data
     useEffect(() => {
-        if (shown) {
-            const fetchData = async () => {
-                const response = await fetch(window.cConfig.apiUrl + '/api/publicAccount', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ id: session?.token?.accountId }),
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setAccountData(data);
-                } else {
-                    alert('An error occurred');
-                }
-            }
-            fetchData();
-        } else {
+        if (shown && session?.token) {
+            // Immediately show session data (may be stale but instant)
+            setAccountData({
+                username: session.token.username,
+                totalXp: session.token.totalXp || 0,
+                createdAt: session.token.createdAt,
+                gamesLen: session.token.gamesLen || 0,
+                lastLogin: session.token.lastLogin,
+                canChangeUsername: session.token.canChangeUsername,
+                daysUntilNameChange: session.token.daysUntilNameChange || 0,
+                recentChange: session.token.recentChange || false,
+                countryCode: session.token.countryCode || null,
+            });
+
+            // Fetch fresh data to update stale values (totalXp, gamesLen, etc.)
+            fetch(window.cConfig.apiUrl + '/api/publicAccount', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: session.token.accountId }),
+            })
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (data) setAccountData(data);
+                })
+                .catch(() => {}); // Keep session data on error
+        } else if (!shown) {
             // Reset game analysis state when modal is closed
             setShowingGameAnalysis(false);
             setSelectedGame(null);
         }
-    }, [shown, session?.token?.secret]);
+    }, [shown, session?.token?.accountId]);
 
     // Reset game analysis when switching away from history tab
     useEffect(() => {
@@ -85,7 +99,8 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         { key: "profile", label: text("profile"), icon: "👤" },
         { key: "history", label: text("history"), icon: "📜" },
         { key: "elo", label: text("ELO"), icon: "🏆" },
-        { key: "list", label: text("friends", {cnt: friends.length}), icon: "👥" }
+        { key: "list", label: text("friendsText"), icon: "👥" },
+        { key: "moderation", label: text("moderationTab"), icon: "⚖️" }
     ];
 
 
@@ -96,9 +111,12 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     <div className="profile-content">
                         <AccountView
                             accountData={accountData}
+                            setAccountData={setAccountData}
                             supporter={session?.token?.supporter}
                             eloData={eloData}
                             session={session}
+                            setSession={setSession}
+                            ws={ws}
                         />
 
                         {!inCrazyGames && (
@@ -115,7 +133,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 );
             case "history":
                 return (
-                    <GameHistory 
+                    <GameHistory
                         session={session}
                         onGameClick={(game) => {
                             setSelectedGame(game);
@@ -125,6 +143,8 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                 );
             case "elo":
                 return <EloView eloData={eloData} session={session} />;
+            case "moderation":
+                return <ModerationView session={session} />;
             case "list":
             default:
                 return (
@@ -150,7 +170,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
         <>
             {/* Game Analysis - Render outside modal when active */}
             {accountModalPage === "history" && showingGameAnalysis && selectedGame && (
-                <HistoricalGameView 
+                <HistoricalGameView
                     game={selectedGame}
                     session={session}
                     options={options}
@@ -160,7 +180,7 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                     }}
                 />
             )}
-            
+
             {/* Main Modal */}
                 <Modal
                     styles={{
@@ -211,7 +231,48 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                                 padding: isTouchDevice ? '10px 20px' : undefined,
                                 minHeight: isTouchDevice ? '50px' : undefined
                             }}>
-                                <h1 className="account-modal-title">{accountData?.username || text("account")} {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}</h1>
+                                <h1 className="account-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    {accountData?.username || text("account")}
+                                    {accountData?.countryCode && <CountryFlag countryCode={accountData.countryCode} style={{ fontSize: '0.8em' }} />}
+                                    {accountData?.username && (
+                                        <button
+                                            onClick={() => {
+                                                const profileUrl = `${window.location.origin}${navigate('/user')}?u=${encodeURIComponent(accountData.username)}`;
+                                                navigator.clipboard.writeText(profileUrl).then(() => {
+                                                    setCopiedLink(true);
+                                                    setTimeout(() => setCopiedLink(false), 2000);
+                                                });
+                                            }}
+                                            title={text("copyProfileLink") || "Copy profile link"}
+                                            style={{
+                                                marginLeft: '10px',
+                                                background: 'rgba(255,255,255,0.1)',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                padding: '6px 10px',
+                                                cursor: 'pointer',
+                                                color: copiedLink ? '#4ade80' : 'rgba(255,255,255,0.7)',
+                                                fontSize: '0.8rem',
+                                                transition: 'all 0.2s ease',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '5px',
+                                                verticalAlign: 'middle'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                                if (!copiedLink) e.target.style.color = '#fff';
+                                                e.target.style.background = 'rgba(255,255,255,0.2)';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                                if (!copiedLink) e.target.style.color = 'rgba(255,255,255,0.7)';
+                                                e.target.style.background = 'rgba(255,255,255,0.1)';
+                                            }}
+                                        >
+                                            {copiedLink ? <FaCheck /> : <FaLink />}
+                                        </button>
+                                    )}
+                                    {accountData?.supporter && <span style={badgeStyle}>{text("supporter")}</span>}
+                                </h1>
 
 
                                 <button
@@ -250,27 +311,26 @@ export default function AccountModal({ session, shown, setAccountModalOpen, eloD
                             {/* Content Area - Single scroll container for iOS */}
                             <div className="account-modal-body" style={{
                                 height: '100%',
-                                overflowY: 'scroll', // Force scroll instead of auto
+                                overflowY: 'auto',
                                 overflowX: 'hidden',
                                 WebkitOverflowScrolling: 'touch',
-                                touchAction: 'pan-y pinch-zoom', // Allow vertical pan and pinch
+                                touchAction: 'pan-y pinch-zoom',
                                 overscrollBehavior: 'contain',
                                 scrollbarGutter: 'stable',
-                                transform: 'translateZ(0)', // Force hardware acceleration
-                                willChange: 'scroll-position', // Optimize for scroll performance
                                 flex: '1 1 auto',
                                 minHeight: 0,
                                 minWidth: 0,
                                 boxSizing: 'border-box'
+                                // Removed: transform, willChange - these cause flickering with backdrop-filter
                             }}>
                                 <div style={{
                                     width: '100%',
                                     overflowY: 'visible',
                                     overflowX: 'hidden',
-                                    // Only apply large minHeight for pages that can have lots of content (history, profile)
+                                    // Only apply large minHeight for pages that can have lots of content (history, profile, elo, moderation)
                                     // For friends tabs (list, add, sent, received), use natural height to prevent unnecessary scroll space
-                                    minHeight: (accountModalPage === 'history' || accountModalPage === 'profile' || accountModalPage === 'elo') 
-                                        ? 'calc(100vh + 1px)' 
+                                    minHeight: (accountModalPage === 'history' || accountModalPage === 'profile' || accountModalPage === 'elo' || accountModalPage === 'moderation')
+                                        ? 'calc(100vh + 1px)'
                                         : 'calc(100% + 1px)', // Minimal height for iOS scroll to work
                                     paddingBottom: '40px'
                                 }}>

@@ -12,7 +12,6 @@ https://github.com/codergautam/worldguessr
 
 import fs from 'fs';
 import { config } from 'dotenv';
-import lookup from "coordinate_to_country"
 const __dirname = import.meta.dirname;
 
 config();
@@ -24,7 +23,6 @@ cachegoose(mongoose, {
   engine: "memory"
 });
 
-import Clue from './models/Clue.js';
 import findLatLongRandom from './components/findLatLongServer.js';
 import path from 'path';
 import MapModel from './models/Map.js';
@@ -33,6 +31,7 @@ import countries from './public/countries.json' with { type: "json" };
 
 // colors
 import colors from 'colors';
+import shuffle from './utils/shuffle.js';
 
 // express
 import express from 'express';
@@ -48,6 +47,18 @@ function currentDate() {
 app.use(cors());
 app.use(bodyParser.json({limit: '30mb'}));
 app.use(bodyParser.urlencoded({limit: '30mb', extended: true, parameterLimit: 50000}));
+
+// Request timing middleware - log slow requests
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    if (duration > 100) { // Log requests over 100ms
+      console.log(`[SLOW] ${req.method} ${req.path} - ${duration}ms`);
+    }
+  });
+  next();
+});
 
 // Setup  /api routes
 const apiFolder = path.join(__dirname, 'api');
@@ -113,59 +124,31 @@ let recentPlays = {}; // track the recent play gains of maps
 
 async function updateRecentPlays() {
   if(!dbEnabled) return;
-  for(const mapSlug of Object.keys(recentPlays)) {
-    if(recentPlays[mapSlug] > 0) {
-
-      const map = await MapModel.findOne({ slug: mapSlug });
-      if(map && map.accepted) {
-        map.plays += recentPlays[mapSlug];
-        await map.save();
-      }
-    }
-  }
+  
+  // Grab and clear recentPlays atomically to avoid blocking
+  const playsToUpdate = { ...recentPlays };
   recentPlays = {};
+  
+  const slugs = Object.keys(playsToUpdate).filter(slug => playsToUpdate[slug] > 0);
+  if (slugs.length === 0) return;
+  
+  try {
+    // Use bulkWrite for a single database round-trip instead of N sequential queries
+    const bulkOps = slugs.map(slug => ({
+      updateOne: {
+        filter: { slug, accepted: true },
+        update: { $inc: { plays: playsToUpdate[slug] } }
+      }
+    }));
+    
+    await MapModel.bulkWrite(bulkOps, { ordered: false });
+  } catch (error) {
+    console.error('[ERROR] updateRecentPlays failed:', error.message);
+  }
 }
 
 setInterval(updateRecentPlays, 60000);
 
-let clueLocations = [];
-
-
-// clue locations
-// get all clues
-const generateClueLocations = async () => {
-  if(!dbEnabled) return;
-  const clues = await Clue.find({});
-  // remove duplicate latlong
-  const uniqueClues = [];
-  let uniqueLatLongs = new Set();
-  for(const clue of clues) {
-    const latLong = `${clue.lat},${clue.lng}`;
-    if(!uniqueLatLongs.has(latLong)) {
-      uniqueLatLongs.add(latLong);
-      uniqueClues.push(clue);
-    }
-  }
-
-  // shuffle
-  uniqueLatLongs = new Set([...uniqueLatLongs].sort(() => Math.random() - 0.5));
-  // populate clueLocations
-  // ex format: {"lat":17.90240017665545,"long":102.7868538747363,"country":"TH"}
-  clueLocations = [];
-  for(const clue of uniqueClues) {
-    const country = lookup(clue.lat, clue.lng, true)[0];
-    clueLocations.push({
-      lat: clue.lat,
-      lng: clue.lng,
-      country
-    });
-  }
-}
-
-generateClueLocations();
-setTimeout(() => {
-  generateClueLocations();
-}, 20000);
 
   app.get('/', (req, res) => {
     res.status(200).send('WorldGuessr API - by Gautam');
@@ -196,9 +179,9 @@ setTimeout(() => {
 }, 2000);
 
 app.get('/allCountries.json', (req, res) => {
-
+    // Cache for 10 minutes on Cloudflare and browser
+    res.set('Cache-Control', 'public, max-age=600, s-maxage=600');
     res.json({ ready: true, locations: allCountriesCache });
-
 });
 
 
@@ -218,19 +201,19 @@ for (const country of countries) {
   countryLocations[country] = [];
 }
 app.get('/countryLocations/:country', (req, res) => {
-
+  // Cache for 10 minutes on Cloudflare and browser
+  res.set('Cache-Control', 'public, max-age=600, s-maxage=600');
 
   if(!countryLocations[req.params.country]) {
     return res.status(404).json({ message: 'Country not found' });
   }
 
   if(countryLocations[req.params.country].cacheUpdate && Date.now() - countryLocations[req.params.country].cacheUpdate < 60 * 1000) {
-
     return res.json({ ready: countryLocations[req.params.country].locations.length>0, locations: countryLocations[req.params.country].locations });
   } else {
 
     if( rawOverrides[req.params.country]) {
-      countryLocations[req.params.country].locations = rawOverrides[req.params.country].customCoordinates.sort(() => Math.random() - 0.5).slice(0, 1000).map(loc => {
+      countryLocations[req.params.country].locations = shuffle(rawOverrides[req.params.country].customCoordinates).slice(0, 1000).map(loc => {
         return {
           lat: loc.lat,
           long: loc.lng,

@@ -1,5 +1,6 @@
 import {Modal} from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations'
+import { asset } from '@/lib/basePath';
 
 export default function MerchModal({ shown, onClose, session }) {
     const { t: text } = useTranslation("common");
@@ -31,7 +32,7 @@ export default function MerchModal({ shown, onClose, session }) {
          Also comes with a shiny <span className="badge">supporter</span> badge in-game!
       </p>
 
-      <img src="/merch.png" style={{width: '100%', maxWidth: '400px', margin: '20px 0'}} />
+      <img src={asset("/merch.png")} style={{width: '100%', maxWidth: '400px', margin: '20px 0'}} />
 
 <br/>
 

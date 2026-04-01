@@ -1,4 +1,5 @@
 import NextImage from "next/image"
+import { asset } from '@/lib/basePath'
 
 export default function BannerText({shown, text, hideCompass, subText, position}) {
   return (
@@ -19,7 +20,7 @@ export default function BannerText({shown, text, hideCompass, subText, position}
           {text || 'Loading...'}
         </span>
         { !hideCompass && (
-          <NextImage.default alt="Loading compass" src={'./loader.gif'} width={100} height={100} />
+          <NextImage.default alt="Loading compass" src={asset('/loader.gif')} width={100} height={100} />
         )}
       </div>
       {subText && (

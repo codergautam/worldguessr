@@ -2,26 +2,45 @@ import { signIn } from "@/components/auth/auth";
 import { FaGoogle } from "react-icons/fa";
 import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "../utils/sendEvent";
+import CountryFlag from '../utils/countryFlag';
 
-export default function AccountBtn({ session, openAccountModal, navbarMode, inCrazyGames }) {
+export default function AccountBtn({ session, openAccountModal, navbarMode, inCrazyGames, inGameDistribution, loginQueued, setLoginQueued }) {
   const { t: text } = useTranslation("common");
+  const hasGoogleClientId = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  // Use countryCode from session (now included in googleAuth response)
+  const countryCode = session?.token?.countryCode || null;
 
 
-  if(inCrazyGames && (!session || !session?.token?.secret)) {
+  if((inCrazyGames || inGameDistribution) && (!session || !session?.token?.secret)) {
     return null;
   }
 
   return (
     <>
     {!session || !session?.token?.secret ? (
-        <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn'}`} disabled={inCrazyGames} onClick={() => {
-          if(session === null) {
+        <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn'}`} disabled={inCrazyGames || loginQueued} onClick={() => {
+          if(session === null && !loginQueued) {
+            if (hasGoogleClientId) {
+              setLoginQueued?.(true);
+            }
             sendEvent("login_attempt")
             signIn('google')
           }
           }}>
 
-        { !session?.token?.secret && session !== null ? '...' :
+        { loginQueued ? (
+          <div style={{ marginRight: '10px', marginLeft: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {text("login")}&nbsp;&nbsp;
+            <div style={{
+              width: '16px',
+              height: '16px',
+              border: '2px solid rgba(255, 255, 255, 0.3)',
+              borderTop: '2px solid white',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}></div>
+          </div>
+        ) : !session?.token?.secret && session !== null ? '...' :
         (
           // <div style="margin-right: 10px; margin-left: 10px; display: flex; align-items: center; justify-content: center;">
           <div style={{marginRight: '10px',marginLeft: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
@@ -43,7 +62,12 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
         <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn loggedIn'} ${session?.token?.supporter ? 'supporterBtn' : ''}`} onClick={() => {
         openAccountModal()
         }}>
-          {session?.token?.username ? <p style={{ color:'white', paddingRight: '-13px',marginLeft: '0px', fontSize: "1.4em", fontWeight: 700 }}>{session?.token?.username}</p> : null}
+          {session?.token?.username ? (
+            <p style={{ color:'white', paddingRight: '-13px',marginLeft: '0px', fontSize: "1.4em", fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {session?.token?.username}
+              {countryCode && <CountryFlag countryCode={countryCode} style={{ fontSize: '1em' }} marginRight="0px" />}
+            </p>
+          ) : null}
 
         </button>
     )}

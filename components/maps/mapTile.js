@@ -134,7 +134,7 @@ export default function MapTile({
                     <div className="map-tile__content">
                         {/* Top section with title and actions */}
                         <div className="map-tile__top-section">
-                            <div className="map-tile__name">
+                            <div className="map-tile__name" title={map.name}>
                                 <h3>{highlightMatch(map.name, searchTerm)}</h3>
 
                                 {/* Status indicators */}

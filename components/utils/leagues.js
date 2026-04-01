@@ -38,6 +38,8 @@ export const getLeague = (elo) => {
       return leagues[league];
     }
   }
+  // return first league
+  return leagues[Object.keys(leagues)[0]];
 }
 
 export const getLeagueRange = (name) => {

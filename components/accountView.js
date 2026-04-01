@@ -2,12 +2,36 @@ import msToTime from "./msToTime";
 import { useTranslation } from '@/components/useTranslations'
 import { getLeague, leagues } from "./utils/leagues";
 import { useEffect, useState } from "react";
-import { FaClock, FaGamepad, FaStar } from "react-icons/fa6";
+import { createPortal } from "react-dom";
+import { FaClock, FaGamepad, FaStar, FaEye, FaUsers } from "react-icons/fa6";
 import XPGraph from "./XPGraph";
+import PendingNameChangeModal from "./pendingNameChangeModal";
+import CountrySelectorModal from "./countrySelectorModal";
+import CountryFlag from "./utils/countryFlag";
 
-export default function AccountView({ accountData, supporter, eloData, session }) {
+export default function AccountView({ accountData, setAccountData, supporter, eloData, session, setSession, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
     const { t: text } = useTranslation("common");
+    const [showForcedNameChangeModal, setShowForcedNameChangeModal] = useState(false);
+    const [showCountrySelector, setShowCountrySelector] = useState(false);
+    const [currentCountry, setCurrentCountry] = useState(null);
+
+    // Check if user is forced to change their name
+    const isForcedNameChange = !isPublic && session?.token?.pendingNameChange;
+
+    // Load current country from accountData (fetched fresh when modal opens)
+    useEffect(() => {
+        if (!isPublic && accountData?.countryCode !== undefined) {
+            setCurrentCountry(accountData.countryCode || null);
+        }
+    }, [isPublic, accountData?.countryCode]);
+
     const changeName = async () => {
+        // If forced to change name, open the proper modal instead of prompt
+        if (isForcedNameChange) {
+            setShowForcedNameChangeModal(true);
+            return;
+        }
+
         if (window.settingName) return;
         const secret = session?.token?.secret;
         if (!secret) return alert("An error occurred (log out and log back in)");
@@ -68,7 +92,7 @@ export default function AccountView({ accountData, supporter, eloData, session }
         alignItems: 'flexStart',
         textAlign: "left",
         color: '#fff',
-        fontFamily: 'Arial, sans-serif',
+        fontFamily: '"Lexend", sans-serif',
         paddingBottom: '20px',
         boxSizing: 'border-box',
         borderRadius: '10px',
@@ -118,7 +142,8 @@ export default function AccountView({ accountData, supporter, eloData, session }
         transition: 'all 0.3s ease',
         boxShadow: '0 4px 15px rgba(40, 167, 69, 0.3)',
         textTransform: 'uppercase',
-        letterSpacing: '0.5px'
+        letterSpacing: '0.5px',
+        display: 'block'
     };
 
     const warningStyle = {
@@ -138,6 +163,12 @@ export default function AccountView({ accountData, supporter, eloData, session }
                     {text("joined", { t: msToTime(Date.now() - new Date(accountData.createdAt).getTime()) })}
                 </div>
 
+                {accountData.lastLogin && viewingPublicProfile && false && (
+                    <div style={textStyle}>
+                        <FaEye style={iconStyle} />
+                        {text("lastSeen")}: {msToTime(Date.now() - new Date(accountData.lastLogin).getTime())} {text("ago")}
+                    </div>
+                )}
                 <div style={textStyle}>
                     <FaStar style={{ ...iconStyle }} />
                     {accountData.totalXp} XP
@@ -145,41 +176,133 @@ export default function AccountView({ accountData, supporter, eloData, session }
 
                 <div style={textStyle}>
                     <FaGamepad style={iconStyle} />
-                    {text("gamesPlayed", { games: accountData.gamesLen })}
+                    {text("gamesPlayed", { games: accountData.gamesLen || accountData.gamesPlayed || 0 })}
                 </div>
 
-                {/* change name button */}
-                {accountData.canChangeUsername ? (
+                {viewingPublicProfile && accountData.profileViews !== undefined && (
+                    <div style={textStyle}>
+                        <FaUsers style={iconStyle} />
+                        {text("profileViews") || "Profile Views"}: {accountData.profileViews.toLocaleString()}
+                    </div>
+                )}
+
+                {/* change name button - hidden in public view */}
+                {!isPublic && (
+                    <>
+                        {isForcedNameChange ? (
+                            // Forced name change - always show button, ignore cooldowns
+                            <button
+                                style={{
+                                    ...buttonStyle,
+                                    background: 'linear-gradient(135deg, #f0883e, #d29922)',
+                                    boxShadow: '0 4px 15px rgba(240, 136, 62, 0.3)',
+                                }}
+                                onClick={changeName}
+                                onMouseEnter={(e) => {
+                                    e.target.style.transform = 'translateY(-2px)';
+                                    e.target.style.boxShadow = '0 6px 20px rgba(240, 136, 62, 0.4)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.transform = 'translateY(0)';
+                                    e.target.style.boxShadow = '0 4px 15px rgba(240, 136, 62, 0.3)';
+                                }}
+                            >
+                                ⚠️ {text("changeName")} ({text("required") || "Required"})
+                            </button>
+                        ) : accountData.canChangeUsername ? (
+                            <button
+                                style={buttonStyle}
+                                onClick={changeName}
+                                onMouseEnter={(e) => {
+                                    e.target.style.transform = 'translateY(-2px)';
+                                    e.target.style.boxShadow = '0 6px 20px rgba(40, 167, 69, 0.4)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.target.style.transform = 'translateY(0)';
+                                    e.target.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+                                }}
+                            >
+                                {text("changeName")}
+                            </button>
+                        ) : accountData.recentChange ? (
+                            <div style={warningStyle}>
+                                <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
+                                {text("recentChange")}
+                            </div>
+                        ) : null}
+
+                        {!isForcedNameChange && accountData.daysUntilNameChange > 0 && (
+                            <div style={warningStyle}>
+                                <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
+                                {text("nameChangeCooldown", { days: accountData.daysUntilNameChange })}
+                            </div>
+                        )}
+                    </>
+                )}
+
+                {/* Change country flag button - hidden in public view */}
+                {!isPublic && (
                     <button
-                        style={buttonStyle}
-                        onClick={changeName}
+                        style={{
+                            ...buttonStyle,
+                            background: 'linear-gradient(135deg, #2196F3, #1976D2)',
+                            boxShadow: '0 4px 15px rgba(33, 150, 243, 0.3)',
+                        }}
+                        onClick={() => setShowCountrySelector(true)}
                         onMouseEnter={(e) => {
                             e.target.style.transform = 'translateY(-2px)';
-                            e.target.style.boxShadow = '0 6px 20px rgba(40, 167, 69, 0.4)';
+                            e.target.style.boxShadow = '0 6px 20px rgba(33, 150, 243, 0.4)';
                         }}
                         onMouseLeave={(e) => {
                             e.target.style.transform = 'translateY(0)';
-                            e.target.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.3)';
+                            e.target.style.boxShadow = '0 4px 15px rgba(33, 150, 243, 0.3)';
                         }}
                     >
-                        {text("changeName")}
+                        {currentCountry
+                            ? <><CountryFlag countryCode={currentCountry} size={1.2} style={{ marginRight: '8px' }} />{text("changeFlag") || "Change Flag"}</>
+                            : `🌍 ${text("setFlag") || "Set Flag"}`
+                        }
                     </button>
-                ) : accountData.recentChange ? (
-                    <div style={warningStyle}>
-                        <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
-                        {text("recentChange")}
-                    </div>
-                ) : null}
-
-                {accountData.daysUntilNameChange > 0 && (
-                    <div style={warningStyle}>
-                        <i className="fas fa-exclamation-triangle" style={iconStyle}></i>
-                        {text("nameChangeCooldown", { days: accountData.daysUntilNameChange })}
-                    </div>
                 )}
             </div>
 
-            <XPGraph session={session} />
+            <XPGraph session={session} isPublic={isPublic} username={username} />
+
+            {/* Forced Name Change Modal - use portal to escape parent container's backdrop-filter */}
+            {showForcedNameChangeModal && typeof document !== 'undefined' && createPortal(
+                <PendingNameChangeModal
+                    session={session}
+                    isOpen={showForcedNameChangeModal}
+                    onClose={() => setShowForcedNameChangeModal(false)}
+                />,
+                document.body
+            )}
+
+            {/* Country Selector Modal */}
+            {showCountrySelector && (
+                <CountrySelectorModal
+                    shown={showCountrySelector}
+                    onClose={() => setShowCountrySelector(false)}
+                    currentCountry={currentCountry}
+                    onSelect={(newCountry) => {
+                        // Update local state
+                        setCurrentCountry(newCountry);
+                        // Update accountData for immediate UI update
+                        if (setAccountData) {
+                            setAccountData(prev => ({ ...prev, countryCode: newCountry }));
+                        }
+                        // Update session so accountBtn and other components reflect the change
+                        if (setSession) {
+                            setSession(prev => ({
+                                ...prev,
+                                token: { ...prev?.token, countryCode: newCountry }
+                            }));
+                        }
+                    }}
+                    session={session}
+                    ws={ws}
+                />
+            )}
         </div>
     );
 }

@@ -1,8 +1,40 @@
+import { useEffect, useRef } from "react";
 import calcPoints from "./calcPoints";
 import { useTranslation } from '@/components/useTranslations'
+import triggerConfetti from "./utils/triggerConfetti";
 
 export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
     const { t: text } = useTranslation("common");
+    const confettiTriggered = useRef(false);
+
+    // Calculate points for confetti check
+    // For singleplayer (not in multiplayer), use lastPoint (already calculated with correct maxDist for custom maps)
+    // For multiplayer, calculate using multiplayer gameData
+    const points = (!multiplayerState?.inGame && singlePlayerRound?.lastPoint != null)
+        ? singlePlayerRound.lastPoint
+        : (latLong && pinPoint ? calcPoints({
+            lat: latLong.lat,
+            lon: latLong.long,
+            guessLat: pinPoint.lat,
+            guessLon: pinPoint.lng,
+            usedHint: false,
+            maxDist: multiplayerState?.gameData?.maxDist ?? 20000
+        }) : 0);
+
+    // Trigger confetti for scores >= 4850 (delay to let the map transition finish —
+    // firing while the pano is still visible causes white screen on mobile GPUs)
+    useEffect(() => {
+        let timer;
+        if (guessed && points >= 4850 && !panoShown && !confettiTriggered.current) {
+            confettiTriggered.current = true;
+            timer = setTimeout(() => triggerConfetti(), 500);
+        }
+        // Reset when banner hides
+        if (!guessed) {
+            confettiTriggered.current = false;
+        }
+        return () => clearTimeout(timer);
+    }, [guessed, points, panoShown]);
 
     return (
         <div id='endBanner' style={{ display: guessed ? '' : 'none' }}>

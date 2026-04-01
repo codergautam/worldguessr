@@ -2,11 +2,19 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 import formatTime from '../utils/formatTime';
 import styles from '../styles/gameHistory.module.css';
+import Link from 'next/link';
+import CountryFlag from './utils/countryFlag';
 
-export default function GameHistory({ session, onGameClick }) {
+export default function GameHistory({ session, onGameClick, targetUserId = null, targetUserData = null, page = null, setPage = null }) {
   const { t: text } = useTranslation("common");
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Use external page state if provided, otherwise use internal state
+  const [internalPage, setInternalPage] = useState(1);
+  const currentPage = page !== null ? page : internalPage;
+  const setCurrentPage = setPage !== null ? setPage : setInternalPage;
+
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -26,6 +34,7 @@ export default function GameHistory({ session, onGameClick }) {
         },
         body: JSON.stringify({
           secret: session?.token?.secret,
+          ...(targetUserId && { targetUserId }),
           page,
           limit: 10
         }),
@@ -49,9 +58,9 @@ export default function GameHistory({ session, onGameClick }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && session?.token?.secret && window.cConfig?.apiUrl) {
-      fetchGames(1);
+      fetchGames(currentPage);
     }
-  }, [session?.token?.secret]);
+  }, [session?.token?.secret, targetUserId, currentPage]);
 
   const getGameTypeDisplay = (gameType) => {
     const types = {
@@ -115,7 +124,32 @@ export default function GameHistory({ session, onGameClick }) {
   return (
     <div className={styles.gameHistory}>
       <div className={styles.gameHistoryHeader}>
-        <h3>{text('gameHistory')}</h3>
+        <h3>
+          {targetUserData ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Game History for {targetUserData.username}
+              {targetUserData.countryCode && <CountryFlag countryCode={targetUserData.countryCode} style={{ fontSize: '0.9em' }} />}
+            </span>
+          ) : text('gameHistory')}
+        </h3>
+        {targetUserData && (
+          <div className="mod-user-info" style={{
+            fontSize: '0.9rem',
+            color: '#666',
+            marginTop: '5px',
+            display: 'flex',
+            gap: '15px',
+            flexWrap: 'wrap'
+          }}>
+            <span>Total XP: {targetUserData.totalXp?.toLocaleString()}</span>
+            <span>Elo: {targetUserData.elo}</span>
+            <span>Games: {targetUserData.totalGamesPlayed}</span>
+            <span>Joined: {new Date(targetUserData.created_at).toLocaleDateString()}</span>
+            {targetUserData.banned && <span style={{color: '#f44336', fontWeight: 'bold'}}>BANNED</span>}
+            {targetUserData.staff && <span style={{color: '#2196f3', fontWeight: 'bold'}}>STAFF</span>}
+            {targetUserData.supporter && <span style={{color: '#ff9800', fontWeight: 'bold'}}>SUPPORTER</span>}
+          </div>
+        )}
         <span className={styles.totalGames}>
           {text('totalGames', { count: pagination.totalGames })}
         </span>
@@ -167,8 +201,22 @@ export default function GameHistory({ session, onGameClick }) {
                     </div>
                     <div className={styles.statItem}>
                       <span className={styles.statLabel}>{text('opponent')}</span>
-                      <span className={styles.statValue}>
-                        {game.opponent?.username || text('unknown')}
+                      <span className={styles.statValue} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {game.opponent?.username ? (
+                          <>
+                            <Link
+                              href={`/user?u=${encodeURIComponent(game.opponent.username)}`}
+                              onClick={(e) => e.stopPropagation()}
+                              target="_blank"
+                              style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
+                            >
+                              {game.opponent.username}
+                            </Link>
+                            {game.opponent.countryCode && <CountryFlag countryCode={game.opponent.countryCode} style={{ fontSize: '0.9em' }} />}
+                          </>
+                        ) : (
+                          text('unknown')
+                        )}
                       </span>
                     </div>
                     <div className={styles.statItem}>
@@ -238,9 +286,17 @@ export default function GameHistory({ session, onGameClick }) {
       {pagination.totalPages > 1 && (
         <div className={styles.pagination}>
           <button
+            className={`${styles.paginationBtn} desktop`}
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(1)}
+          >
+            ⏮ First
+          </button>
+
+          <button
             className={styles.paginationBtn}
             disabled={!pagination.hasPrevPage}
-            onClick={() => fetchGames(pagination.currentPage - 1)}
+            onClick={() => setCurrentPage(currentPage - 1)}
           >
             ← {text('previous')}
           </button>
@@ -255,9 +311,17 @@ export default function GameHistory({ session, onGameClick }) {
           <button
             className={styles.paginationBtn}
             disabled={!pagination.hasNextPage}
-            onClick={() => fetchGames(pagination.currentPage + 1)}
+            onClick={() => setCurrentPage(currentPage + 1)}
           >
             {text('next')} →
+          </button>
+
+          <button
+            className={`${styles.paginationBtn} desktop`}
+            disabled={currentPage === pagination.totalPages}
+            onClick={() => setCurrentPage(pagination.totalPages)}
+          >
+            Last ⏭
           </button>
         </div>
       )}

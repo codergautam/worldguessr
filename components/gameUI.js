@@ -7,18 +7,18 @@ import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
-import { FaExpand, FaMinimize, FaThumbtack } from "react-icons/fa6";
+import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
 import OnboardingText from "./onboardingText";
 import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
-import SaveStreakBanner from "./streakSaveBanner";
 import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAdNitro";
 // import Ad from "./bannerAdAdinplay";
-import fixBranding from "./utils/fixBranding";
+import CrazyGamesBanner from "./bannerAdCrazyGames";
+import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
@@ -27,12 +27,9 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
   const { t: text } = useTranslation("common");
-  const [showStreakAdBanner, setShowStreakAdBanner] = useState(false);
-
   function loadLocationFuncRaw() {
-    setShowStreakAdBanner(false)
     if(onboarding) {
       if(onboarding.completed) {
         // Reset onboarding to start over - preserve template locations
@@ -131,6 +128,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
         })
       } else if(setSinglePlayerRound) {
         // reset to default
+        setHintsUsedThisGame(0);
         setSinglePlayerRound({
           round: 1,
           totalRounds: 5,
@@ -149,7 +147,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
       const loadTime = window.gameOpen;
       const lastDiscordShown = gameStorage.getItem("shownDiscordModal");
       if(lastDiscordShown) return console.log("Discord modal already shown");
-      if(Date.now() - loadTime > 600000 && !process.env.NEXT_PUBLIC_COOLMATH) {
+      if(Date.now() - loadTime > 600000 && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
         setShowDiscordModal(true)
         sendEvent('discord_modal_shown')
       } else console.log("Not showing discord modal, waiting for "+(600000 - (Date.now() - loadTime))+"ms")
@@ -163,15 +161,10 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
         console.log("Failed sending start event to CoolMathGames", e)
       }
       }
-    // this is now disabled due to issues with afterAd() not being called / next round button not working
-    if(false && window.show_videoad && !session?.token?.supporter) {
-      window.show_videoad((state) =>{
-        if(!['DISABLED', 'COOLDOWN'].includes(state)) {
-      toast.info(text("watchingAdsSupport"))
-        }
-
+    // Show midgame ad between singleplayer rounds
+    if((inGameDistribution || inCrazyGames) && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
+      window.crazyMidgame(() => {
         afterAd()
-
         loadLocationFuncRaw()
       });
     } else {
@@ -195,6 +188,7 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
   const [lostCountryStreak, setLostCountryStreak] = useState(0);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
   const [timeToNextRound, setTimeToNextRound] = useState(0); //only for onboarding
+  const [singlePlayerTimeLeft, setSinglePlayerTimeLeft] = useState(0);
   const [mapPinned, setMapPinned] = useState(false);
   // dist between guess & target
   const [km, setKm] = useState(null);
@@ -204,7 +198,17 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
+  const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
+  const [cmgAdsEnabled, setCmgAdsEnabled] = useState(false);
 
+  useEffect(() => {
+    if (!inCoolMathGames) return;
+    fetch('https://www.worldguessr.com/cmgopt.txt')
+      .then(res => res.text())
+      .then(text => setCmgAdsEnabled(text.trim() === 'true'))
+      .catch(() => {});
+    // setCmgAdsEnabled(true);
+  }, [inCoolMathGames]);
 
    const isStartingDuel = (multiplayerState && multiplayerState.inGame && multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)
 
@@ -277,6 +281,78 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
     }
   }, [onboarding?.nextRoundTime])
 
+  // Singleplayer countdown timer
+  const singlePlayerTimerRef = useRef(null);
+  const pinPointRef = useRef(pinPoint);
+  pinPointRef.current = pinPoint;
+  const modalWasOpenRef = useRef(false);
+  const wasLoadingRef = useRef(loading);
+
+  useEffect(() => {
+    if (singlePlayerTimerRef.current) {
+      clearInterval(singlePlayerTimerRef.current);
+      singlePlayerTimerRef.current = null;
+    }
+
+    const modalOpen = gameOptionsModalShown || mapModal;
+
+    if (!singlePlayerRound || singlePlayerRound.done || !gameOptions.timePerRound || showAnswer || loading || !roundStartTime || modalOpen) {
+      setSinglePlayerTimeLeft(0);
+      if (modalOpen) modalWasOpenRef.current = true;
+      if (loading) wasLoadingRef.current = true;
+      return;
+    }
+
+    // Reset timer when returning from a modal or when loading just finished
+    if (modalWasOpenRef.current || wasLoadingRef.current) {
+      modalWasOpenRef.current = false;
+      wasLoadingRef.current = false;
+      setRoundStartTime(Date.now());
+      return;
+    }
+
+    const deadline = roundStartTime + gameOptions.timePerRound * 1000;
+    singlePlayerTimerRef.current = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((deadline - Date.now()) / 100) / 10);
+      setSinglePlayerTimeLeft(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(singlePlayerTimerRef.current);
+        singlePlayerTimerRef.current = null;
+        if (pinPointRef.current) {
+          // Player placed a pin — submit their guess normally
+          document.querySelector('.guessBtn')?.click();
+        } else {
+          // No pin placed — score 0 points and show answer
+          setShowAnswer(true);
+          setCountryStreak(0);
+          setSinglePlayerRound((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              locations: [...prev.locations, {
+                lat: latLong.lat, long: latLong.long,
+                panoId: latLong.panoId || null,
+                guessLat: null, guessLong: null,
+                points: 0,
+                timeTaken: gameOptions.timePerRound,
+                xpEarned: 0
+              }],
+              lastPoint: 0
+            };
+          });
+        }
+      }
+    }, 100);
+
+    return () => {
+      if (singlePlayerTimerRef.current) {
+        clearInterval(singlePlayerTimerRef.current);
+        singlePlayerTimerRef.current = null;
+      }
+    };
+  }, [roundStartTime, singlePlayerRound?.done, gameOptions.timePerRound, showAnswer, loading, gameOptionsModalShown, mapModal])
+
   useEffect(() => {
     if(multiplayerState?.inGame) return;
     if (!latLong) {
@@ -340,11 +416,9 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
       }
 
       if(explanationModalShown) return;
+      // Don't handle space during onboarding completion - let home button handle it
+      if(onboarding?.completed) return;
       if(singlePlayerRound?.done && e.key === ' ') {
-        loadLocationFunc()
-        return;
-      }
-      if(onboarding?.completed && e.key === ' ') {
         loadLocationFunc()
         return;
       }
@@ -369,12 +443,18 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
     }
   }, [loading, latLong, width])
 
+  const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
+
   function showHint() {
-    setHintShown(true)
+    if (hintLimitReached || hintShown) return;
+
+    setHintShown(true);
+    setHintsUsedThisGame((prev) => prev + 1);
   }
   useEffect(() => {
     loadLocation()
     if(singlePlayerRound) {
+      setHintsUsedThisGame(0);
       setSinglePlayerRound({
         round: 1,
         totalRounds: 5,
@@ -432,41 +512,9 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
         setLostCountryStreak(0);
         if(country === latLong.country) {
           setCountryStreak(countryStreak + 1);
-          setShowStreakAdBanner(false);
         } else if(country !== "Unknown") {
           setCountryStreak(0);
           setLostCountryStreak(countryStreak);
-
-          // disable rewarded ads for iOS users due to navigation interference
-          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-          if(countryStreak > 0 && window.adBreak && !inCrazyGames && !inCoolMathGames && !isIOS) {
-          console.log("requesting reward ad")
-          window.adBreak({
-            type: 'reward',  // rewarded ad
-            name: 'reward-continue',
-            beforeReward: (showAdFn) => {
-              window.showRewardedAdFn = () => { showAdFn();
-                sendEvent('reward_ad_play', { countryStreak });
-                };
-              // Rewarded ad available - prompt user for a rewarded ad
-              setShowStreakAdBanner(true);
-              sendEvent('reward_ad_available', { countryStreak });
-              console.log("reward ad available")
-            },
-            beforeAd: () => { },
-            adDismissed: () => {
-              toast.error(text("adDismissed"));
-              sendEvent('reward_ad_dismissed', { countryStreak });
-            },
-            adViewed: () => {
-              setCountryStreak(countryStreak);
-              setLostCountryStreak(0);
-              toast.success(text("streakRestored"));
-              sendEvent('reward_ad_viewed', { countryStreak });
-            },       // Reward granted - continue game at current score.
-            afterAd: () => { setShowStreakAdBanner(false) },
-          });
-        }
         }
       }
     findCountry({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
@@ -481,16 +529,6 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
 
 
 
-  useEffect(() => {
-    const int= setInterval(() => {
-      fixBranding();
-    },500)
-    return () => {
-      clearInterval(int)
-    }
-  },[])
-
-
 
 
   const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
@@ -498,11 +536,35 @@ export default function GameUI({ inCoolMathGames, miniMapShown, setMiniMapShown,
   return (
     <div className="gameUI">
 
-{ !onboarding && !inCrazyGames && !inCoolMathGames && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
+{ !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
       unit={"worldguessr_gameui_ad"}
     inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    </div>
+)}
+
+{ inCrazyGames && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
+    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'':''}`}>
+      <CrazyGamesBanner
+        id="cg-banner-gameui"
+        screenH={height} types={[[320,50],[468,60],[728,90]]} screenW={Math.max(400, width-350)} vertThresh={0.3} />
+    </div>
+)}
+
+{ inCoolMathGames && cmgAdsEnabled && !singlePlayerRound?.done && !onboarding?.completed && (
+    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
+      <Ad
+      unit={"worldguessr_cmg_gameui_ad"}
+    showAdvertisementText={false} screenH={height} types={[[320,50]]} screenW={width} vertThresh={0.3} />
+    </div>
+)}
+
+{ inGameDistribution && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
+    <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
+      <GameDistributionBanner
+        id="gd-banner-gameui"
+        screenH={height} types={[[728,90]]} screenW={Math.max(400, width-350)} vertThresh={0.3} />
     </div>
 )}
 
@@ -521,7 +583,9 @@ multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameDat
 text("you")
 }
 isStartingDuel={isStartingDuel}
-elo={multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.elo} start={isStartingDuel} />
+elo={multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.elo}
+countryCode={multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.countryCode}
+start={isStartingDuel} />
 </div>
 
 
@@ -542,7 +606,10 @@ isStartingDuel={isStartingDuel}
 name={
 // get your name from the game state
 multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.username
-} elo={multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.elo} start={true || isStartingDuel} />
+}
+elo={multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.elo}
+countryCode={multiplayerState?.gameData?.players.find(p => p.id !== multiplayerState?.gameData?.myId)?.countryCode}
+start={true || isStartingDuel} isOpponent={true} />
 </div>
 </div>
 
@@ -631,7 +698,7 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
           )}
         </div>
       </div>
@@ -646,14 +713,23 @@ session={session}/>
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} onClick={showHint}>{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
           )}
           </>
         )}
         {!loading && (
           <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
             setMiniMapShown(!miniMapShown)
-          }}><FaMap size={miniMapShown ? 30 : 50} /> {!miniMapShown ? text("guess") : ''} </button>
+          }}>
+              {!miniMapShown ? (
+                <>
+            <FaMap size={miniMapShown ? 30 : 50} /> {!miniMapShown ? text("guess") : ''}
+            </>
+            ) : (
+              <FaArrowDown size={30} />
+            ) }
+
+            </button>
         )}
       </div>
       </>
@@ -692,34 +768,50 @@ session={session}/>
         }
         }} />
       )}
-      <span className={`timer ${multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public ? 'duel' : ''} ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+      {/* Duel timer — single line, old style */}
+      {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && (
+      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+        {multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120
+          ? text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})
+          : text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
+      </span>
+      )}
 
-{/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
-      {
-multiplayerState?.gameData?.timePerRound === 86400000 &&
-timeToNextMultiplayerEvt > 120
-?
-text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})
-
-:
-
-      text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
+      {/* Non-duel multiplayer timer — two line style */}
+      {!(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && (
+      <span className={`timer timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
+        <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
+        <span className="timer__main-row">
+          {!(multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120)
+            ? <><span className="timer__countdown">{timeToNextMultiplayerEvt.toFixed(1)}s</span></>
+            : null
+          }
         </span>
+      </span>
+      )}
 
-        <span className={`timer ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 && !showAnswer && !pinPoint && onboarding ? 'critical' : ''}`}>
-
-{/* Round #{multiplayerState?.gameData?.curRound} / {multiplayerState?.gameData?.rounds} - {timeToNextMultiplayerEvt}s */}
-      {timeToNextRound ?
-      text("roundTimer", {r:onboarding?.round, mr: 5, t: timeToNextRound.toFixed(1)})
-      : text("round", {r:onboarding?.round, mr: 5})} - <AnimatedCounter value={onboarding?.points || 0} showIncrement={false} /> {text("points")}
-
+      <span className={`timer timer--two-line ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 && !showAnswer && !pinPoint && onboarding ? 'critical' : ''}`}>
+        <span className="timer__round-label">{text("round", {r:onboarding?.round, mr: 5})}</span>
+        <span className="timer__main-row">
+          {timeToNextRound
+            ? <><span className="timer__countdown">{timeToNextRound.toFixed(1)}s</span> &middot; </>
+            : null
+          }
+          <AnimatedCounter value={onboarding?.points || 0} showIncrement={false} /> {text("points")}
         </span>
+      </span>
 
         {
           singlePlayerRound && !singlePlayerRound?.done && (
-            <span className="timer shown">
-              {text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})} - <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} showIncrement={false} /> {text("points")}
-
+            <span className={`timer timer--two-line shown ${singlePlayerTimeLeft <= 5 && singlePlayerTimeLeft > 0 && gameOptions.timePerRound > 0 && !showAnswer && !pinPoint ? 'critical' : ''}`}>
+              <span className="timer__round-label">{text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})}</span>
+              <span className="timer__main-row">
+                {gameOptions.timePerRound > 0 && !showAnswer && singlePlayerTimeLeft > 0
+                  ? <><span className="timer__countdown">{singlePlayerTimeLeft.toFixed(1)}s</span> &middot; </>
+                  : null
+                }
+                <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} showIncrement={false} /> {text("points")}
+              </span>
             </span>
           )
         }
@@ -731,7 +823,14 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (
+        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (() => {
+          // Double-check with fresh calculation to prevent flicker on slow devices
+          // when state changes but timeToNextMultiplayerEvt hasn't been updated yet
+          const freshTime = multiplayerState?.gameData?.nextEvtTime
+            ? Math.max(0, Math.floor(((multiplayerState.gameData.nextEvtTime - Date.now()) - timeOffset) / 100) / 10)
+            : 0;
+          return freshTime > 0 && freshTime < 5;
+        })() && (
           <PlayerList multiplayerState={multiplayerState} playAgain={() => {
             backBtnPressed(true, "unranked")
           }} backBtn={() => {
@@ -739,12 +838,14 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
           }} />
         )}
 
+
         {/* Private game over screen */}
         {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "end" && (
           <RoundOverScreen
             history={multiplayerState?.gameData?.history || []}
             duel={false}
             multiplayerState={multiplayerState}
+            gameId={multiplayerState?.gameData?.code}
             points={multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.score || 0}
             maxPoints={multiplayerState?.gameData?.rounds * 5000}
             button1Text={multiplayerState?.gameData?.public ? text("playAgain") : null}
@@ -763,6 +864,7 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
             duel={true}
             data={multiplayerState?.gameData?.duelEnd}
             multiplayerState={multiplayerState}
+            gameId={multiplayerState?.gameData?.code}
             button1Text={multiplayerState?.gameData?.public ? text("playAgain") : null}
             button1Press={multiplayerState?.gameData?.public ? () => backBtnPressed(true, "ranked") : null}
             button2Text={(multiplayerState?.gameData?.public || multiplayerState?.gameData?.host) ? text("back") : null}
@@ -782,10 +884,6 @@ text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gam
   { showAnswer && showClueBanner && (
 <ClueBanner session={session} explanations={explanations} close={() => {setShowClueBanner(false)}} />
   )}
-        <SaveStreakBanner shown={showStreakAdBanner} close={() => {
-          setShowStreakAdBanner(false)
-        }} lostCountryStreak={lostCountryStreak} playAd={()=>{window.showRewardedAdFn()}} setLostCountryStreak={setLostCountryStreak} countryStreak={countryStreak} setCountryStreak={setCountryStreak} />
-
 <EndBanner
 countryStreaksEnabled={gameOptions?.location === "all"}
 singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak}  usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{

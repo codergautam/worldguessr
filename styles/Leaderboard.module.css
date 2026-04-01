@@ -8,7 +8,7 @@
     rgba(20, 26, 57, 0.8) 50%,
     rgba(0, 0, 0, 0.9) 100%
   ),
-  url("/street2.jpg");
+  var(--bg-street2);
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
@@ -371,6 +371,13 @@
   font-size: 1.1rem;
   font-weight: 500;
   color: white;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.username:hover {
+  color: #4CAF50;
+  text-decoration: underline;
 }
 
 .scoreContainer {

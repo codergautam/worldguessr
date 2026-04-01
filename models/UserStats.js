@@ -43,7 +43,7 @@ const userStatsSchema = new mongoose.Schema({
   // Additional context (optional)
   triggerEvent: {
     type: String,
-    enum: ['game_completed', 'weekly_update', 'account_created'],
+    enum: ['game_completed', 'weekly_update', 'account_created', 'elo_refund'],
     default: 'game_completed'
   },
   
@@ -51,6 +51,14 @@ const userStatsSchema = new mongoose.Schema({
   gameId: {
     type: String,
     default: null
+  },
+  
+  // ELO refund details (only for triggerEvent: 'elo_refund')
+  eloRefundDetails: {
+    amount: { type: Number, default: null },           // Amount of ELO refunded
+    bannedUserId: { type: String, default: null },     // The user who was banned
+    bannedUsername: { type: String, default: null },   // Username of banned user at time of refund
+    moderationLogId: { type: String, default: null }   // Reference to moderation log
   },
   
   // Metadata
@@ -63,6 +71,7 @@ const userStatsSchema = new mongoose.Schema({
 // Production-grade indexes for 2M+ users with 20k daily active
 userStatsSchema.index({ userId: 1, timestamp: -1 }); // User's stats over time (descending)
 userStatsSchema.index({ userId: 1, timestamp: 1 });  // User's stats over time (ascending)
+userStatsSchema.index({ userId: 1, triggerEvent: 1, timestamp: 1 }); // For getUserProgression filtering out elo_refund
 userStatsSchema.index({ timestamp: -1, xpRank: 1 });  // Leaderboard snapshots by XP
 userStatsSchema.index({ timestamp: -1, eloRank: 1 }); // Leaderboard snapshots by ELO
 

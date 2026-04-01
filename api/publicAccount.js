@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
   try {
     // Find user by the provided ID only (no secrets in public endpoints)
-    const user = await User.findById(id).cache(0, `publicData_${id}`);
+    const user = await User.findById(id).cache(20, `publicData_${id}`);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -32,9 +32,11 @@ export default async function handler(req, res) {
       totalXp: user.totalXp,
       createdAt: user.created_at,
       gamesLen: user.totalGamesPlayed || 0,
+      lastLogin: user.lastLogin || user.created_at,
       canChangeUsername: !user.lastNameChange || Date.now() - lastNameChange > USERNAME_CHANGE_COOLDOWN,
       daysUntilNameChange: lastNameChange ? Math.max(0, Math.ceil((lastNameChange + USERNAME_CHANGE_COOLDOWN - Date.now()) / (24 * 60 * 60 * 1000))) : 0,
       recentChange: user.lastNameChange ? Date.now() - lastNameChange < 24 * 60 * 60 * 1000 : false,
+      countryCode: user.countryCode || null,
     };
 
     // Return the public data

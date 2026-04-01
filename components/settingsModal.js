@@ -1,7 +1,10 @@
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
+import { asset, navigate } from '@/lib/basePath';
+import { FaGithub } from "react-icons/fa";
+import NextImage from "next/image";
 
-export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames }) {
+export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution }) {
     const { t: text } = useTranslation("common");
 
     const handleUnitsChange = (event) => {
@@ -31,7 +34,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 maxWidth: '500px',
                 textAlign: 'center',
                 position: "absolute",
-                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("/street2.jpg")`,
+                background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("${asset('/street2.webp')}")`,
                 objectFit: "cover",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
@@ -53,7 +56,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 <button className="g2_nav_text singleplayer red" onClick={onClose}>{text("back")}</button>
             </div>
             <div className="g2_content settingsModal">
-                <div style={{ height: "50px" }}></div> 
+                <div style={{ height: "50px" }}></div>
 
 
                 <div className="settingsModalInner">
@@ -74,7 +77,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                     </select>
                 </div>
 
-                {!inCrazyGames && (<>
+                {!inCrazyGames && !inGameDistribution && (<>
                     <div className="settingsModalInner">
                         <label htmlFor="mapType">{text("language")}: </label>
                         <select className="g2_input" id="mapType" value={options.language} onChange={handleLanguageChange}>
@@ -94,12 +97,27 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
 
 
                 {inCrazyGames && (
-                    <a href="/privacy-crazygames" target="_blank" rel="noreferrer" style={{ marginTop: '20px', display: 'block', color: "white" }}>Privacy Policy</a>
+                    <a href={navigate("/privacy-crazygames")} target="_blank" rel="noreferrer" style={{ marginTop: '20px', display: 'block', color: "white" }}>Privacy Policy</a>
                 )}
 
                 <div style={{height: "40vh"} }></div>
 
             </div>
+            {!inCrazyGames && (
+                <div className="g2_slide_in" style={{ position: 'absolute', bottom: '25px', left: '25px', display: 'flex', gap: '8px', zIndex: 10 }}>
+                    <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">
+                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github" style={{ width: '50px', height: '50px', padding: '0', color: 'white' }}><FaGithub size={24} /></button>
+                    </a>
+                    <a href="https://www.coolmathgames.com/0-worldguessr" target="_blank" rel="noreferrer">
+                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames" style={{ width: '50px', height: '50px', padding: '0', position: 'relative', overflow: 'hidden' }}>
+                            <NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" style={{ objectFit: 'contain', padding: '4px' }} />
+                        </button>
+                    </a>
+                    <a href="https://worldguessr.com/privacy.html" target="_blank" rel="noreferrer">
+                        <button className="g2_hover_effect gameBtn g2_container_full" aria-label="Terms & Privacy" style={{ height: '50px', padding: '0 12px', color: 'white', fontSize: '13px', whiteSpace: 'nowrap' }}>Terms & Privacy</button>
+                    </a>
+                </div>
+            )}
         </Modal>
     );
 }

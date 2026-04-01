@@ -28,6 +28,8 @@ export default class Player {
     this.receivedReq = [];
     this.allowFriendReq = true;
 
+    this.platform = "empty";
+
     this.disconnected = false;
     this.disconnectTime =0;
 
@@ -41,6 +43,7 @@ export default class Player {
       ws: null,
       username: this.username,
       accountId: this.accountId,
+      countryCode: this.countryCode,
       gameId: this.gameId,
       inQueue: false,
       lastMessage: this.lastMessage,
@@ -58,6 +61,7 @@ export default class Player {
       elo: this.elo,
       league: this.league,
       banned: this.banned,
+      platform: this.platform,
     }
   }
 
@@ -69,6 +73,10 @@ export default class Player {
 
   setElo(newElo, gameData) {
     if(!this.accountId) return;
+    if(newElo === undefined || newElo === null || isNaN(newElo)) {
+      console.error('Invalid ELO value passed to setElo:', newElo, 'for account:', this.accountId);
+      return;
+    }
     this.elo = newElo;
     this.league = getLeague(newElo).name;
     setElo(this.accountId, newElo, gameData);
@@ -80,10 +88,47 @@ export default class Player {
         });
   }
   async verify(json) {
+    // Track client platform (max 20 chars, default "empty")
+    if (typeof json.platform === 'string' && json.platform.length <= 20) {
+      this.platform = json.platform;
+    }
 
-    const handleReconnect = (dcPlayerId, rejoinCode) => {
+    const handleReconnect = async (dcPlayerId, rejoinCode, accountId = null) => {
       const dcPlayer = players.get(dcPlayerId);
       if(dcPlayer && this.ws) {
+
+      // Re-check ban status from database on reconnect
+      // This ensures users banned/forced to change name while disconnected are properly blocked
+      if (accountId) {
+        try {
+          const freshUserData = await User.findById(accountId).select('banned banType banExpiresAt pendingNameChange countryCode');
+          if (freshUserData) {
+            let isBanned = freshUserData.banned;
+
+            // Handle temp ban expiration
+            if (freshUserData.banned && freshUserData.banType === 'temporary' && freshUserData.banExpiresAt) {
+              if (new Date() >= new Date(freshUserData.banExpiresAt)) {
+                isBanned = false;
+                User.findByIdAndUpdate(accountId, {
+                  banned: false,
+                  banType: 'none',
+                  banExpiresAt: null
+                }).catch(err => console.error('Error auto-unbanning on reconnect:', err));
+              }
+            }
+
+            dcPlayer.banned = isBanned;
+            dcPlayer.pendingNameChange = freshUserData.pendingNameChange;
+            dcPlayer.countryCode = freshUserData.countryCode;
+            // Also set banned if pending name change
+            if (dcPlayer.pendingNameChange) {
+              dcPlayer.banned = true;
+            }
+          }
+        } catch (err) {
+          console.error('Error re-checking ban status on reconnect:', err);
+        }
+      }
 
       // remove from disconnected players
       disconnectedPlayers.delete(rejoinCode);
@@ -93,10 +138,15 @@ export default class Player {
       dcPlayer.disconnected = false;
       dcPlayer.disconnectTime = 0;
       dcPlayer.ip = this.ip;
+      dcPlayer.platform = this.platform;
 
 
       dcPlayer.send({
         type: 'verify',
+      });
+      dcPlayer.send({
+        type: 'cnt',
+        c: players.size-disconnectedPlayers.size
       });
 
 
@@ -123,7 +173,8 @@ export default class Player {
         // account verification
         if((!json.secret) ||(json.secret === 'not_logged_in')) {
           if(!this.verified) {
-            if(json.rejoinCode) {
+            if(typeof json.rejoinCode === 'string' && json.rejoinCode.includes('-')) {
+              // Only accept UUID format rejoinCodes (contain dashes), reject MongoDB ObjectIds
               const dcPlayerId = disconnectedPlayers.get(json.rejoinCode);
               if(dcPlayerId) {
                 handleReconnect(dcPlayerId, json.rejoinCode);
@@ -157,7 +208,7 @@ export default class Player {
           // check if the user can be reconnected to previous session
           const dcPlayerId = disconnectedPlayers.get(valid._id.toString());
           if(dcPlayerId) {
-            handleReconnect(dcPlayerId, valid._id.toString());
+            await handleReconnect(dcPlayerId, valid._id.toString(), valid._id.toString());
             return;
           }
 
@@ -184,15 +235,46 @@ export default class Player {
                 console.log('User already connected:', valid.username
                 );
 
-                handleReconnect(p.id, p.accountId);
+                await handleReconnect(p.id, p.accountId, p.accountId);
               }
             }
             this.verified = true;
             this.supporter = valid.supporter;
             this.username = valid.username;
             this.accountId = valid._id.toString();
+            this.countryCode = valid.countryCode;
             this.elo = valid.elo;
-            this.banned = valid.banned;
+
+            // Check ban status - handle temp bans that may have expired
+            let isBanned = valid.banned;
+            if (valid.banned) {
+              // Handle temp ban expiration
+              if (valid.banType === 'temporary' && valid.banExpiresAt) {
+                if (new Date() >= new Date(valid.banExpiresAt)) {
+                  // Temp ban has expired - clear it (async, don't wait)
+                  isBanned = false;
+                  User.findByIdAndUpdate(valid._id, {
+                    banned: false,
+                    banType: 'none',
+                    banExpiresAt: null
+                  }).catch(err => console.error('Error auto-unbanning user:', err));
+                }
+              }
+              // Handle legacy bans (banned: true but no banType) - migrate to permanent
+              else if (!valid.banType || valid.banType === 'none') {
+                User.findByIdAndUpdate(valid._id, {
+                  banType: 'permanent'
+                }).catch(err => console.error('Error migrating legacy ban:', err));
+              }
+            }
+            this.banned = isBanned;
+
+            // Also block users who need to change their name
+            this.pendingNameChange = valid.pendingNameChange;
+            if (this.pendingNameChange) {
+              this.banned = true; // Treat as banned for gameplay purposes
+            }
+
             this.league = getLeague(this.elo).name;
             this.send({
             type: 'verify'
@@ -202,6 +284,9 @@ export default class Player {
             c: players.size-disconnectedPlayers.size
           })
 
+          // Always update lastLogin on verify
+          const updateFields = { lastLogin: Date.now() };
+          
           if (json.tz && isValidTimezone(json.tz)) {
             const existingTimeZone = valid.timeZone;
             let streak = valid.streak;
@@ -231,8 +316,12 @@ export default class Player {
               })
             }
 
-            await User.updateOne({_id: this.accountId}, {timeZone: json.tz, lastLogin: Date.now(), streak, firstLoginComplete: true})
+            updateFields.timeZone = json.tz;
+            updateFields.streak = streak;
+            updateFields.firstLoginComplete = true;
           }
+          
+          await User.updateOne({_id: this.accountId}, updateFields);
 
           this.friends = valid.friends.map((id)=>({id}));
           this.sentReq = valid.sentReq.map((id)=>({id}));

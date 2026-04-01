@@ -21,7 +21,7 @@ async function updateAllUserStats() {
         let totalErrors = 0;
 
         while (true) {
-            const users = await User.find({ banned: { $ne: true } })
+            const users = await User.find({ banned: false })
                 .select('_id username totalXp elo')
                 .skip(skip)
                 .limit(batchSize)

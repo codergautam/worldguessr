@@ -18,9 +18,12 @@ class UserStatsService {
         return null;
       }
 
+      // Use provided newElo if available (avoids race condition with setElo)
+      const eloToRecord = gameData.newElo ?? user.elo ?? 1000;
+
       // Get current rankings
-      const xpRank = await this.calculateXPRank(user.totalXp);
-      const eloRankResult = await this.calculateELORank(user.elo || 1000);
+      const xpRank = await this.calculateXPRank(user.totalXp || 0);
+      const eloRankResult = await this.calculateELORank(eloToRecord);
       const eloRank = typeof eloRankResult === 'object' ? eloRankResult.rank : eloRankResult;
 
       // Record the stats snapshot
@@ -29,7 +32,7 @@ class UserStatsService {
         timestamp: new Date(),
         totalXp: user.totalXp || 0,
         xpRank: xpRank,
-        elo: user.elo || 1000,
+        elo: eloToRecord,
         eloRank: eloRank,
         triggerEvent: gameData?.triggerEvent || 'game_completed',
         gameId: gameId
@@ -50,7 +53,7 @@ class UserStatsService {
     try {
       const higherXPCount = await User.countDocuments({
         totalXp: { $gt: userXP },
-        banned: { $ne: true }
+        banned: false
       });
       return higherXPCount + 1;
     } catch (error) {
@@ -66,7 +69,7 @@ class UserStatsService {
     try {
       const higherEloCount = await User.countDocuments({
         elo: { $gt: userElo },
-        banned: { $ne: true }
+        banned: false
       });
       const rank = higherEloCount + 1;
 
@@ -82,7 +85,13 @@ class UserStatsService {
    */
   static async getUserProgression(userId, days = null) {
     try {
-      const query = { userId: userId };
+      // Ensure userId is a string (UserStats stores userId as String, not ObjectId)
+      const userIdStr = userId?.toString?.() || userId;
+
+      const query = {
+        userId: userIdStr,
+        triggerEvent: { $ne: 'elo_refund' } // Exclude elo_refund entries from progression
+      };
 
       // Only add timestamp filter if days is specified
       if (days !== null) {
@@ -91,7 +100,34 @@ class UserStatsService {
         query.timestamp = { $gte: startDate };
       }
 
-      const progression = await UserStats.find(query).sort({ timestamp: 1 }).lean();
+      // Count first to avoid querying too many entries
+      // Uses compound index: { userId: 1, triggerEvent: 1, timestamp: 1 }
+      const count = await UserStats.countDocuments(query);
+
+      let progression;
+      if (count > 1000) {
+        // Too many entries - aggregate to 1 per day (latest entry for each day)
+        const matchStage = { $match: query };
+
+        progression = await UserStats.aggregate([
+          matchStage,
+          { $sort: { timestamp: -1 } }, // Sort descending to get latest per day
+          {
+            $group: {
+              _id: {
+                year: { $year: '$timestamp' },
+                month: { $month: '$timestamp' },
+                day: { $dayOfMonth: '$timestamp' }
+              },
+              doc: { $first: '$$ROOT' } // Get latest entry for each day
+            }
+          },
+          { $replaceRoot: { newRoot: '$doc' } },
+          { $sort: { timestamp: 1 } } // Sort ascending for frontend
+        ]);
+      } else {
+        progression = await UserStats.find(query).sort({ timestamp: 1 }).lean();
+      }
 
       // Add calculated fields for frontend
       return progression.map((stat, index, arr) => {

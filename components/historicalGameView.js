@@ -1,17 +1,23 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useTranslation } from '@/components/useTranslations';
+import { preloadPinImages } from '@/lib/markerIcons';
 import styles from '../styles/gameHistory.module.css';
 
 const GameSummary = dynamic(() => import('./roundOverScreen'), { ssr: false });
 
-export default function HistoricalGameView({ game, session, onBack, options }) {
+export default function HistoricalGameView({ game, session, onBack, options, onUsernameLookup }) {
   const { t: text } = useTranslation("common");
   const [fullGameData, setFullGameData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isExiting, setIsExiting] = useState(false);
   const [isEntering, setIsEntering] = useState(true);
+
+  // Ensure pin images are preloaded (may not have been called on non-home pages like /mod)
+  useEffect(() => {
+    preloadPinImages();
+  }, []);
 
   // Handle entering animation
   useEffect(() => {
@@ -73,7 +79,11 @@ export default function HistoricalGameView({ game, session, onBack, options }) {
       }
     };
 
-    if (typeof window !== 'undefined' && game && session?.token?.secret && window.cConfig?.apiUrl) {
+    // Check if game already has full data (from mod dashboard pre-fetch)
+    if (game && game.rounds && game.players && options?.isModView) {
+      setFullGameData(game);
+      setLoading(false);
+    } else if (typeof window !== 'undefined' && game && session?.token?.secret && window.cConfig?.apiUrl) {
       fetchFullGameData();
     }
   }, [game, session?.token?.secret]);
@@ -125,8 +135,34 @@ export default function HistoricalGameView({ game, session, onBack, options }) {
   }
 
   // Transform the historical game data to match the format expected by GameSummary
+  const isModView = options?.isModView;
+  const reportedUserId = options?.reportedUserId;
+  const targetUserId = options?.targetUserId;
+
   const transformedHistory = fullGameData.rounds.map((round, index) => {
-    if (!round.guess) {
+    // For mod view, if round.guess is null, try to use data from allGuesses
+    let guessData = round.guess;
+
+    if (!guessData && isModView && round.allGuesses && round.allGuesses.length > 0) {
+      // For mod view, use target user's guess if available (from user lookup),
+      // otherwise reported user's guess (from reports), otherwise first player's guess
+      const targetUserGuess = targetUserId ?
+        round.allGuesses.find(g => g.playerId === targetUserId) : null;
+      const reportedUserGuess = reportedUserId ?
+        round.allGuesses.find(g => g.playerId === reportedUserId) : null;
+      const fallbackGuess = targetUserGuess || reportedUserGuess || round.allGuesses[0];
+
+      guessData = {
+        guessLat: fallbackGuess.guessLat,
+        guessLong: fallbackGuess.guessLong,
+        points: fallbackGuess.points,
+        timeTaken: fallbackGuess.timeTaken,
+        xpEarned: fallbackGuess.xpEarned || 0,
+        usedHint: fallbackGuess.usedHint || false
+      };
+    }
+
+    if (!guessData) {
       // User didn't participate in this round
       return null;
     }
@@ -149,12 +185,12 @@ export default function HistoricalGameView({ game, session, onBack, options }) {
       lat: round.location.lat,
       long: round.location.long,
       panoId: round.location.panoId, // Include panoId for Google Maps Street View
-      guessLat: round.guess.guessLat,
-      guessLong: round.guess.guessLong,
-      points: round.guess.points,
-      timeTaken: round.guess.timeTaken,
-      xpEarned: round.guess.xpEarned,
-      usedHint: round.guess.usedHint,
+      guessLat: guessData.guessLat,
+      guessLong: guessData.guessLong,
+      points: guessData.points,
+      timeTaken: guessData.timeTaken,
+      xpEarned: guessData.xpEarned,
+      usedHint: guessData.usedHint,
       players: players // Include players data for duels/multiplayer
     };
   }).filter(round => round !== null); // Remove null entries
@@ -166,11 +202,37 @@ export default function HistoricalGameView({ game, session, onBack, options }) {
   // Determine if this is a duel
   const isDuel = fullGameData.gameType === 'ranked_duel';
 
+  // Find the perspective player (the user whose view we're showing)
+  // For mod view, use target user if available, otherwise reported user, otherwise first player
+  const findPerspectivePlayer = () => {
+    // For mod view, first try to use target user (from user lookup)
+    if (isModView && targetUserId) {
+      const player = fullGameData.players.find(p => p.accountId === targetUserId || p.playerId === targetUserId);
+      if (player) return player;
+    }
+
+    // For mod view, try to use reported user (from reports)
+    if (isModView && reportedUserId) {
+      const player = fullGameData.players.find(p => p.accountId === reportedUserId || p.playerId === reportedUserId);
+      if (player) return player;
+    }
+
+    // Try to match by currentUserId (for regular users viewing their own games)
+    let player = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
+    if (player) return player;
+
+    // Fallback to first player
+    return fullGameData.players[0];
+  };
+
+  const perspectivePlayer = findPerspectivePlayer();
+
   // For duels, prepare the data structure
   let duelData = null;
   if (isDuel) {
     // Support both data structures: userPlayer (gameDetails API) and userStats (gameHistory API)
-    const playerData = fullGameData.userPlayer || fullGameData.userStats;
+    // For mod view, use the perspective player if userPlayer is not available
+    const playerData = fullGameData.userPlayer || fullGameData.userStats || perspectivePlayer;
 
     if (playerData) {
       const eloData = playerData.elo || {};
@@ -180,8 +242,8 @@ export default function HistoricalGameView({ game, session, onBack, options }) {
         eloDiff: eloData.change || 0,
         winner: playerData.finalRank === 1,
         draw: fullGameData.result?.isDraw || false,
-        // Add opponent info if available
-        opponent: fullGameData.players?.find(p => p.accountId !== fullGameData.currentUserId)
+        // Add opponent info if available (find player that isn't the perspective player)
+        opponent: fullGameData.players?.find(p => p.accountId !== perspectivePlayer?.accountId && p.playerId !== perspectivePlayer?.playerId)
       };
     }
   }
@@ -189,9 +251,8 @@ export default function HistoricalGameView({ game, session, onBack, options }) {
   // For multiplayer games, prepare the state
   let multiplayerState = null;
   if (fullGameData.gameType !== 'singleplayer') {
-    // Find the current user's playerId from the players array
-    const currentUserPlayer = fullGameData.players.find(p => p.accountId === fullGameData.currentUserId);
-    const myPlayerId = currentUserPlayer ? currentUserPlayer.playerId : fullGameData.currentUserId;
+    // Use the perspective player's ID
+    const myPlayerId = perspectivePlayer?.playerId || perspectivePlayer?.accountId || fullGameData.currentUserId;
 
     multiplayerState = {
       gameData: {
@@ -245,8 +306,14 @@ export default function HistoricalGameView({ game, session, onBack, options }) {
         button2Press={null}
         button2Text=""
         hidden={false}
+        session={session}
         gameId={game?.gameId || game?._id}
-        options={options}
+        options={{
+          ...options,
+          onUsernameLookup: onUsernameLookup,
+          isModView: options?.isModView,
+          reportedUserId: options?.reportedUserId
+        }}
       />
     </div>
   );

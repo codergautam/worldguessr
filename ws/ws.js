@@ -3,7 +3,7 @@ import fs from 'fs';
 import { config } from 'dotenv';
 import Player from './classes/Player.js';
 import { v4 as uuidv4 } from 'uuid';
-import User from '../models/User.js';
+import User, { USERNAME_COLLATION } from '../models/User.js';
 import mongoose from 'mongoose';
 import { Filter } from 'bad-words';
 import Game from './classes/Game.js';
@@ -13,7 +13,7 @@ import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
-import { getLeagueRange } from '../components/utils/leagues.js';
+import { getLeagueRange, leagues } from '../components/utils/leagues.js';
 import calculateOutcomes from '../components/utils/eloSystem.js';
 import { tmpdir } from 'os';
 
@@ -28,7 +28,7 @@ import { createClient } from 'redis';
 
 let redisClient;
 if(!process.env.REDIS_URI) {
-  console.log("[MISSING-ENV WARN] REDIS_URI env variable not set".yellow);
+  console.log("[MISSING-ENV WARN] REDIS_URI env variable not set");
 } else {
 redisClient = createClient({
   url: process.env.REDIS_URI,
@@ -52,7 +52,7 @@ function pick5RandomArb() {
   while(rand.size < 5) {
     rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
   }
-  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: lookup(r.lat, r.lng, true) ? lookup(r.lat, r.lng, true)[0] : 'unknown' }));
+  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: r.country || 'unknown' }));
 }
 
 
@@ -69,7 +69,7 @@ const dev = process.env.NODE_ENV !== 'production'
 const port = process.env.WS_PORT || 3002;
 
 const playersInQueue = new Map();
-
+const lastDuelOpponent = new Map(); // accountId -> accountId (prevents same matchup twice in a row)
 
 let maintenanceMode = false;
 let dbEnabled = true;
@@ -124,7 +124,7 @@ function joinGameByCode(code, onFull, onInvalid, onSuccess) {
 
 // connect to db
 if (!process.env.MONGODB) {
-  console.log("[MISSING-ENV WARN] MONGODB env variable not set".yellow);
+  console.log("[MISSING-ENV WARN] MONGODB env variable not set");
   dbEnabled = false;
 } else {
   // Connect to MongoDB
@@ -133,7 +133,7 @@ if (!process.env.MONGODB) {
       await mongoose.connect(process.env.MONGODB);
       console.log('[INFO] Database Connected');
     } catch (error) {
-      console.error('[ERROR] Database connection failed!'.red, error.message);
+      console.error('[ERROR] Database connection failed!', error.message);
       console.log(error);
       dbEnabled = false;
     }
@@ -266,6 +266,26 @@ app.get('/', (res, req) => {
   res.end("WorldGuessr - Powered by uWebSockets.js<br>Headers: "+headerKb.toFixed(2)+'kb');
 });
 
+app.get('/playercnt', (res) => {
+  setCorsHeaders(res);
+  res.writeHeader('Content-Type', 'text/plain');
+  res.writeStatus('200 OK');
+  res.end(String(players.size - disconnectedPlayers.size));
+});
+
+app.get('/platformdist', (res) => {
+  setCorsHeaders(res);
+  res.writeHeader('Content-Type', 'application/json');
+  res.writeStatus('200 OK');
+  const dist = {};
+  for (const player of players.values()) {
+    if (!player.verified || player.disconnected) continue;
+    const p = player.platform || 'empty';
+    dist[p] = (dist[p] || 0) + 1;
+  }
+  res.end(JSON.stringify(dist));
+});
+
 // maintenance mode
 if (process.env.MAINTENANCE_SECRET) {
   const maintenanceSecret = process.env.MAINTENANCE_SECRET;
@@ -323,11 +343,20 @@ if (process.env.MAINTENANCE_SECRET) {
     let cnt = 0;
     // kick all players with this ip
     for (const player of players.values()) {
+    try {
+
       if (player.ip.includes(ip)) {
-        player.ws.close();
+        if (player.ws) player.ws.close();
+        else {
+          console.log('Player with matching IP has no WebSocket connection', player.username, player.ip, currentDate());
+        }
         cnt++;
       }
+      } catch(e) {
+    console.error('Error banning IP', e, currentDate());
+  }
     }
+
 
     setCorsHeaders(res);
     res.writeHeader('Content-Type', 'text/htmk');
@@ -348,6 +377,101 @@ if (process.env.MAINTENANCE_SECRET) {
     setCorsHeaders(res);
     res.writeHeader('Content-Type', 'application/json');
     res.end(JSON.stringify(ipCounts));
+  });
+
+  app.get(`/enforce-ban/${maintenanceSecret}/:accountId`, (res, req) => {
+    const accountId = req.getParameter(0);
+
+    if (!accountId) {
+      setCorsHeaders(res);
+      res.writeStatus('400 Bad Request');
+      res.writeHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        success: false,
+        error: 'Account ID required',
+        playerFound: false
+      }));
+      return;
+    }
+
+    // Find player by accountId
+    const player = Array.from(players.values()).find(p => p.accountId === accountId);
+
+    if (!player) {
+      // Player not connected - this is OK, return success
+      setCorsHeaders(res);
+      res.writeHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({
+        success: true,
+        playerFound: false,
+        playerDisconnected: false,
+        wasInGame: false,
+        message: 'Player not currently connected'
+      }));
+      console.log('Ban enforcement: Player not connected', accountId, currentDate());
+      return;
+    }
+
+    let gameInfo = {
+      wasInGame: false,
+      gameId: null,
+      gameType: null,
+      opponentRefunded: false,
+      opponentAccountId: null
+    };
+
+    // Handle active game
+    if (player.gameId && games.has(player.gameId)) {
+      const game = games.get(player.gameId);
+      gameInfo.wasInGame = true;
+      gameInfo.gameId = game.id;
+
+      // Determine game type
+      if (game.duel && game.public) {
+        gameInfo.gameType = 'ranked_duel';
+
+        // For ranked duels, identify opponent
+        const playerTag = Object.values(game.players).find(p => p.id === player.id)?.tag;
+        if (playerTag && game.accountIds) {
+          // Find opponent
+          const opponentTag = playerTag === 'p1' ? 'p2' : 'p1';
+          const opponentAccountId = game.accountIds[opponentTag];
+
+          if (opponentAccountId) {
+            gameInfo.opponentAccountId = opponentAccountId;
+            gameInfo.opponentRefunded = true; // Opponent will win via forfeit logic
+          }
+        }
+      } else if (game.public) {
+        gameInfo.gameType = 'unranked_multiplayer';
+      } else {
+        gameInfo.gameType = 'private_multiplayer';
+      }
+
+      // Remove player from game (will trigger game.end() if duel)
+      game.removePlayer(player, true);
+    }
+
+    // Close WebSocket connection
+    try {
+      player.ws.close();
+      console.log('Ban enforcement: Disconnected player', player.username, accountId, currentDate());
+    } catch (e) {
+      console.error('Ban enforcement: Error closing WebSocket', e, currentDate());
+    }
+
+    // Return success response
+    setCorsHeaders(res);
+    res.writeHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({
+      success: true,
+      playerFound: true,
+      playerDisconnected: true,
+      ...gameInfo,
+      message: gameInfo.wasInGame
+        ? `Player banned and disconnected from ${gameInfo.gameType}${gameInfo.opponentRefunded ? '. Opponent will be awarded win.' : ''}`
+        : 'Player banned and disconnected'
+    }));
   });
 
 }
@@ -403,8 +527,8 @@ function updateGameOptions(game, rounds=5, timePerRound=30, location="all", nm=f
 app.ws('/wg', {
   /* Options */
   compression: uws.SHARED_COMPRESSOR,
-  maxPayloadLength: 16 * 1024 * 1024,
-  idleTimeout: 60,
+  maxPayloadLength: 64 * 1024 * 1024,
+  idleTimeout: 300,
   /* Handlers */
   upgrade: (res, req, context) => {
     let ip =  req.getHeader('x-forwarded-for') || req.getHeader('cf-connecting-ip') || 'unknown';
@@ -429,10 +553,10 @@ app.ws('/wg', {
     const ip = ws.ip;
     const id = ws.id;
     const connectTime = Date.now();
-    
+
     // Store connection time for disconnect analysis
     ws.connectTime = connectTime;
-    
+
     const player = new Player(ws, id, ip);
     if(ip !== 'unknown') ipConnectionCount.set(ip, (ipConnectionCount.get(ip) || 0) + 1);
 
@@ -477,6 +601,16 @@ app.ws('/wg', {
       }
       if (json.type === "pong") {
         player.lastPong = Date.now();
+        return;
+      }
+      if (json.type === "timeSync") {
+        if (typeof json.clientSentAt === "number") {
+          player.send({
+            type: "timeSync",
+            clientSentAt: json.clientSentAt,
+            serverNow: Date.now()
+          });
+        }
         return;
       }
       if (json.type === 'verify') {
@@ -612,6 +746,7 @@ app.ws('/wg', {
         const game = games.get(player.gameId);
         const latLong = json.latLong;
         const final = json.final;
+        const round = json.round;
 
         // make sure latLong is an array of floats with 2 elements
         if (!Array.isArray(latLong) || latLong.length !== 2) {
@@ -623,7 +758,14 @@ app.ws('/wg', {
           return;
         }
 
-        game.setGuess(player.id, latLong, final);
+        // validate round if provided (new clients send it, old clients may not)
+        if (round !== undefined && round !== null) {
+          if (typeof round !== 'number' || !Number.isInteger(round) || round < 1) {
+            return;
+          }
+        }
+
+        game.setGuess(player.id, latLong, final, round);
       }
 
       if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {
@@ -647,6 +789,11 @@ app.ws('/wg', {
       if (json.type === 'leaveGame' && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
         game.removePlayer(player);
+      }
+
+      if (json.type === 'updateCountryCode' && player.accountId && typeof json.countryCode === 'string') {
+        // Update player's countryCode
+        player.countryCode = json.countryCode || null;
       }
 
       if (json.type === "inviteFriend" && player.accountId && json.friendId && player.gameId) {
@@ -704,6 +851,16 @@ app.ws('/wg', {
 
 
       if (json.type === 'acceptInvite' && json.code && player.accountId) {
+        // Block banned users and users with pending name changes from multiplayer
+        if (player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'accountSuspended',
+            toastType: 'error'
+          });
+          return;
+        }
+
         joinGameByCode(json.code, () => {
           player.send({
             type: 'toast',
@@ -778,6 +935,16 @@ app.ws('/wg', {
 
       if (json.type === 'createPrivateGame' && !player.gameId) {
 
+        // Block banned users and users with pending name changes from multiplayer
+        if (player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'accountSuspended',
+            toastType: 'error'
+          });
+          return;
+        }
+
         // send toast if maintenance
         if (maintenanceMode) {
           player.send({
@@ -845,6 +1012,16 @@ app.ws('/wg', {
       }
 
       if (json.type === 'joinPrivateGame' && !player.gameId) {
+        // Block banned users and users with pending name changes from multiplayer
+        if (player.banned) {
+          player.send({
+            type: 'toast',
+            key: 'accountSuspended',
+            toastType: 'error'
+          });
+          return;
+        }
+
         let code = json.gameCode;
 
         // find game by code
@@ -866,9 +1043,7 @@ app.ws('/wg', {
       if (json.type === 'startGameHost' && player.gameId && games.has(player.gameId)) {
         const game = games.get(player.gameId);
         if (game.players[player.id].host) {
-
-
-          game.start();
+          game.start(player);
         }
       }
 
@@ -895,7 +1070,8 @@ app.ws('/wg', {
           player.send({ type: 'friendReqState', state: 7 })
           return;
         }
-        User.findOne({ username: { $regex: new RegExp('^' + json.name + '$', "i") } }).then(async (friend) => {
+        console.log(`[WS] friendRequest lookup: ${json.name}`);
+        User.findOne({ username: json.name }).collation(USERNAME_COLLATION).then(async (friend) => {
           if (!friend) {
             player.send({ type: 'friendReqState', state: 3 })
             return;
@@ -1091,9 +1267,9 @@ app.ws('/wg', {
   close: (ws, code, message) => {
     const connectionDuration = ws.connectTime ? Date.now() - ws.connectTime : 0;
     const durationSeconds = (connectionDuration / 1000).toFixed(1);
-    
+
     console.log(`WebSocket disconnect code: ${code} (${durationSeconds}s) - ${message ? message.toString() : 'no message'}`);
-    
+
     ipConnectionCount.set(ws.ip, ipConnectionCount.get(ws.ip) - 1);
     if(ipConnectionCount.get(ws.ip) < 1) {
       ipConnectionCount.delete(ws.ip);
@@ -1202,9 +1378,27 @@ try {
     // Convert Map to an array for efficient iteration
     const entries = Array.from(duelQueue.entries()).filter(r => r[1].duel);
 
+    // Helper to check if two players were last opponents (and should skip matching)
+    // Allow rematch if either player has been waiting > 15 seconds
+    const shouldSkipLastOpponent = (p1, p2, queueTime1, queueTime2) => {
+      const p1Account = players.get(p1)?.accountId;
+      const p2Account = players.get(p2)?.accountId;
+      if (!p1Account || !p2Account) return false;
+
+      const wereLastOpponents = lastDuelOpponent.get(p1Account) === p2Account || lastDuelOpponent.get(p2Account) === p1Account;
+      if (!wereLastOpponents) return false;
+
+      // Allow rematch if either player has been waiting > 60 seconds
+      const waitTime1 = Date.now() - queueTime1;
+      const waitTime2 = Date.now() - queueTime2;
+      if (waitTime1 > 60000 || waitTime2 > 60000) return false;
+
+      return true; // Skip this match - they were last opponents and haven't waited long enough
+    };
+
     // Loop through each player in the queue
     for (let i = 0; i < entries.length; i++) {
-      const [id1, { min, max, elo, guest }] = entries[i];
+      const [id1, { min, max, elo, guest, queueTime }] = entries[i];
 
       // Skip this player if already matched
       if (matchedPlayers.has(id1)) continue;
@@ -1225,10 +1419,14 @@ try {
       } else {
         // Find a suitable ELO-based pair for non-guest player1
         for (let j = i + 1; j < entries.length; j++) {
-          const [id2, { min: min2, max: max2, elo: elo2, guest: guest2 }] = entries[j];
+          const [id2, { min: min2, max: max2, elo: elo2, guest: guest2, queueTime: queueTime2 }] = entries[j];
 
           // Skip if already matched or if player2 is a guest
           if (matchedPlayers.has(id2) || guest2) continue;
+
+          // Skip if these players were just matched together (prevent same matchup twice in a row)
+          // Unless one of them has been waiting > 15 seconds
+          if (shouldSkipLastOpponent(id1, id2, queueTime, queueTime2)) continue;
 
           // Check if each player falls within the other's acceptable ELO range
           if (elo >= min2 && elo <= max2 && elo2 >= min && elo2 <= max) {
@@ -1250,7 +1448,9 @@ try {
   setInterval(() => {
 
 
-    const minRoundsRemaining = 4;
+    // Dynamically adjust join threshold based on online player count
+    // When fewer players online, allow joining later rounds to speed up matchmaking
+    const minRoundsRemaining = players.size >= 3000 ? 4 : 3;
     for (const game of games.values()) {
 
       const playerCnt = Object.keys(game.players).length;
@@ -1271,6 +1471,27 @@ try {
         }
 
       } else if (game.state === 'guess' && Date.now() > game.nextEvtTime) {
+        // 1-second buffer for late-arriving guesses due to network latency.
+        // Players who click guess at the last second may have their packet
+        // arrive after the timer expires on the server.
+        if (!game.roundEndedAt) {
+          game.roundEndedAt = Date.now();
+        }
+
+        // Skip buffer if all players already submitted final guesses
+        let allFinal = true;
+        for (const p of Object.values(game.players)) {
+          if (!p.final) {
+            allFinal = false;
+            break;
+          }
+        }
+
+        if (!allFinal && Date.now() - game.roundEndedAt < 500) {
+          continue; // Still in grace period, accept late guesses
+        }
+
+        game.roundEndedAt = null;
         game.givePoints();
         game.saveRoundToHistory(); // Save the round data after points are calculated
         if(game.curRound <= game.rounds) {
@@ -1374,6 +1595,15 @@ try {
         const p1 = players.get(id1);
         const p2 = players.get(id2);
 
+        // Check if either player has left the queue (race condition prevention)
+        // This can happen if they clicked leave queue right as matching occurred
+        if (!p1 || !p2 || !p1?.inQueue || !p2?.inQueue) {
+          // Clean up stale queue entries - remove if player is missing OR has left the queue
+          if (!p1 || !p1.inQueue) playersInQueue.delete(id1);
+          if (!p2 || !p2.inQueue) playersInQueue.delete(id2);
+          continue; // Skip this pair, don't start a game
+        }
+
         const gameId = uuidv4();
         const game = new Game(gameId, true, undefined, undefined, allLocations, true);
         games.set(gameId, game);
@@ -1389,6 +1619,13 @@ try {
             p1: p1.accountId,
             p2: p2.accountId
           }
+
+          // Track last opponent to prevent same matchup twice in a row
+          // only for users below 5000 elo
+          if(p1.elo < leagues.voyager.min && p2.elo < leagues.voyager.min) {
+            lastDuelOpponent.set(p1.accountId, p2.accountId);
+            lastDuelOpponent.set(p2.accountId, p1.accountId);
+          }
         }
 
         // check if both have elo
@@ -1400,10 +1637,23 @@ try {
           const eloDraw = calculateOutcomes(p1.elo, p2.elo, 0.5);
           const eloP2Win = calculateOutcomes(p1.elo, p2.elo, 0);
 
+          const deltaP1Win = {newRating1: eloP1Win.newRating1 - p1.elo, newRating2: eloP1Win.newRating2 - p2.elo};
+          const deltaP2Win = {newRating1: eloP2Win.newRating1 - p1.elo, newRating2: eloP2Win.newRating2 - p2.elo};
+          const deltaDraw = {newRating1: eloDraw.newRating1 - p1.elo, newRating2: eloDraw.newRating2 - p2.elo};
+
           game.eloChanges = {
-            [p1.id]: eloP1Win,
-            [p2.id]: eloP2Win,
-            draw: eloDraw
+            [p1.id]: deltaP1Win,
+            [p2.id]: deltaP2Win,
+            draw: deltaDraw
+          }
+
+          game.oldElos = {
+            p1: p1.elo,
+            p2: p2.elo
+          }
+
+          if (process.env.DEBUG_ELO_CHANGES === 'true') {
+            console.log('game.eloChanges', game.eloChanges, game.oldElos);
           }
 
           if(p1.elo > 2000 && p2.elo > 2000) {

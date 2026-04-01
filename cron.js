@@ -2,20 +2,27 @@ import mongoose from 'mongoose';
 import { configDotenv } from 'dotenv';
 import User from './models/User.js';
 import UserStats from './models/UserStats.js';
+import DailyLeaderboard from './models/DailyLeaderboard.js';
 import UserStatsService from './components/utils/userStatsService.js';
 var app = express();
 import cors from 'cors';
 app.use(cors());
-import lookup from "coordinate_to_country"
 
 import express from 'express';
 import countries from './public/countries.json' with { type: "json" };
-import findLatLongRandom from './components/findLatLongServer.js';
-import cityGen from './serverUtils/cityGen.js';
 import fs from 'fs';
 import path from 'path';
 
 import mainWorld from './public/world-main.json' with { type: "json" };
+import arbitraryWorld from './data/world-arbitrary.json' with { type: "json" };
+import pinpointableWorld from './data/world-pinpointable.json' with { type: "json" };
+import diverseWorld from './data/diverse-locations.json' with { type: "json" };
+
+console.log("Locations in mainWorld", mainWorld.length);
+console.log("Locations in arbitraryWorld", arbitraryWorld.length);
+console.log("Locations in pinpointableWorld", pinpointableWorld.length);
+console.log("Locations in diverseWorld", diverseWorld.length); // this is a map that contains locations for just underrepresented countries in other maps
+
 configDotenv();
 
 console.log('[INFO] Starting cron.js...');
@@ -58,17 +65,24 @@ const updateAllUserStats = async () => {
     const fetchStart = Date.now();
 
     const [usersByXp, usersByElo] = await Promise.all([
-      User.find({ banned: { $ne: true } })
+      User.find({ banned: false })
         .select('_id totalXp elo')
         .sort({ totalXp: -1 })
         .lean(),
-      User.find({ banned: { $ne: true } })
+      User.find({ banned: false })
         .select('_id elo')
         .sort({ elo: -1 })
         .lean()
     ]);
 
     const fetchTime = Date.now() - fetchStart;
+    
+    // Handle case where no users are found
+    if (usersByXp.length === 0) {
+      console.log(`[FETCH] ⚠️ No users found in database (fetched in ${fetchTime}ms) - skipping UserStats update`);
+      return;
+    }
+    
     console.log(`[FETCH] ✅ Fetched ${usersByXp.length} users in ${fetchTime}ms (${(fetchTime/usersByXp.length).toFixed(2)}ms/user)`);
 
     // STEP 2: Create rank lookup maps (O(n) instead of O(n²))
@@ -150,13 +164,19 @@ const updateAllUserStats = async () => {
     const totalTimeMs = Date.now() - startTime;
     const totalTimeSec = (totalTimeMs / 1000).toFixed(1);
     const totalTimeMin = (totalTimeMs / 1000 / 60).toFixed(1);
-    const avgRate = (totalUpdated / totalTimeMs * 1000).toFixed(0);
-    const msPerUser = (totalTimeMs / totalUpdated).toFixed(2);
 
     console.log('━'.repeat(60));
     console.log(`[COMPLETE] 🚀 ULTRA-FAST update completed!`);
     console.log(`[STATS] ${totalUpdated} users updated in ${totalTimeMs}ms (${totalTimeSec}s, ${totalTimeMin}m)`);
-    console.log(`[PERFORMANCE] ${avgRate} users/sec | ${msPerUser}ms/user`);
+    
+    // Only show performance stats if users were actually updated (avoid division by zero)
+    if (totalUpdated > 0) {
+      const avgRate = (totalUpdated / totalTimeMs * 1000).toFixed(0);
+      const msPerUser = (totalTimeMs / totalUpdated).toFixed(2);
+      console.log(`[PERFORMANCE] ${avgRate} users/sec | ${msPerUser}ms/user`);
+    } else {
+      console.log(`[PERFORMANCE] No users were updated - check for bulk insert errors above`);
+    }
     console.log('━'.repeat(60));
 
   } catch (error) {
@@ -180,90 +200,317 @@ const startWeeklyUserStatsTimer = () => {
 // Start the weekly timer
 startWeeklyUserStatsTimer();
 
-let countryLocations = {};
-const locationCnt = 2000;
-const batchSize = 10;
+// ============================================================================
+// DAILY LEADERBOARD PRE-COMPUTATION
+// Computes and caches top 50k users every 15 minutes instead of on-demand
+// ============================================================================
 
-const overrideCountries = [];
-// get all file names of files in ./public/mapOverrides
-const mapOverridesDir = path.join(process.cwd(), 'public', 'mapOverrides');
-const mapOverrideFiles = fs.readdirSync(mapOverridesDir).filter(file => file.endsWith('.json'));
+const LEADERBOARD_UPDATE_INTERVAL = 15 * 60 * 1000; // 15 minutes
+const LEADERBOARD_TTL_DAYS = 30; // Keep leaderboards for 30 days
 
-for (const file of mapOverrideFiles) {
-  overrideCountries.push(file.split('.')[0]);
-}
-
-console.log(`Found override for countries: ${overrideCountries.join(', ')}`);
-
-for (const country of countries) {
-  if(overrideCountries.includes(country)) {
-    // Skip countries with manual overrides
-    console.log(`Skipping ${country} due to manual override`);
-    continue;
+const computeDailyLeaderboards = async () => {
+  if (!dbEnabled) {
+    console.log('[SKIP] Daily leaderboard computation skipped - database not connected');
+    return;
   }
-  countryLocations[country] = [];
-}
 
-const generateBalancedLocations = async () => {
-  while (true) {
-    const batchPromises = [];
+  console.log('[LEADERBOARD] Starting daily leaderboard computation...');
+  const startTime = Date.now();
 
-    // Loop through each country and start generating one batch for each
-    for (const country of countries) {
-      if(!countryLocations[country]) {
-        continue;
-      }
+  try {
+    const now = new Date();
+    const dayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
 
-      for (let i = 0; i < batchSize; i++) {
-      const startTime = Date.now(); // Start time for each country
-      const locationPromise = new Promise((resolve, reject) => {
-        findLatLongRandom({ location: country }, cityGen, lookup)
-          .then((latLong) => {
-            const endTime = Date.now(); // End time after fetching location
-            const duration = endTime - startTime; // Duration calculation
+    // Get start of day (midnight UTC) for consistent date keys
+    const todayMidnight = new Date(now);
+    todayMidnight.setUTCHours(0, 0, 0, 0);
 
-            resolve({ country: latLong.country, latLong });
+    // Compute both XP and ELO leaderboards in parallel
+    const [xpLeaderboard, eloLeaderboard] = await Promise.all([
+      computeLeaderboardForMode('xp', dayAgo),
+      computeLeaderboardForMode('elo', dayAgo)
+    ]);
 
-          })
-          .catch(reject);
-      });
+    // Save both leaderboards to database
+    const expiresAt = new Date(now.getTime() + (LEADERBOARD_TTL_DAYS * 24 * 60 * 60 * 1000));
 
-      batchPromises.push(locationPromise);
-    }
-    }
+    await Promise.all([
+      DailyLeaderboard.findOneAndUpdate(
+        { date: todayMidnight, mode: 'xp' },
+        {
+          date: todayMidnight,
+          mode: 'xp',
+          leaderboard: xpLeaderboard.leaderboard,
+          totalActiveUsers: xpLeaderboard.totalActiveUsers,
+          computedAt: now,
+          expiresAt: expiresAt
+        },
+        { upsert: true, new: true }
+      ),
+      DailyLeaderboard.findOneAndUpdate(
+        { date: todayMidnight, mode: 'elo' },
+        {
+          date: todayMidnight,
+          mode: 'elo',
+          leaderboard: eloLeaderboard.leaderboard,
+          totalActiveUsers: eloLeaderboard.totalActiveUsers,
+          computedAt: now,
+          expiresAt: expiresAt
+        },
+        { upsert: true, new: true }
+      )
+    ]);
 
-    try {
-      // Await the results of generating locations for all countries in parallel
-      const batchResults = await Promise.all(batchPromises);
-
-      for (const { country, latLong } of batchResults) {
-        // Update country-specific locations, ensuring a max of locationCnt
-        try {
-          if(countryLocations[country]) {
-        countryLocations[country].unshift(latLong);
-        if (countryLocations[country].length > locationCnt) {
-          countryLocations[country].pop();
-        }
-      }
-      } catch (error) {
-        console.error('Error updating country locations', error, country, latLong);
-      }
-      }
-
-
-
-    } catch (error) {
-      console.error('Error generating locations', error);
-    }
-
-    // Delay before starting the next round of generation
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const duration = Date.now() - startTime;
+    console.log(`[LEADERBOARD] ✅ Daily leaderboards computed in ${duration}ms`);
+    console.log(`[LEADERBOARD] XP: ${xpLeaderboard.leaderboard.length} users, ${xpLeaderboard.totalActiveUsers} total active`);
+    console.log(`[LEADERBOARD] ELO: ${eloLeaderboard.leaderboard.length} users, ${eloLeaderboard.totalActiveUsers} total active`);
+  } catch (error) {
+    console.error('[LEADERBOARD] Error computing daily leaderboards:', error);
   }
 };
 
-// Start generating balanced locations for all countries
-generateBalancedLocations();
+// Helper function to compute leaderboard for a specific mode (xp or elo)
+const computeLeaderboardForMode = async (mode, dayAgo) => {
+  const field = mode === 'xp' ? 'totalXp' : 'elo';
 
+  // Optimized aggregation pipeline with query timeout
+  const pipeline = [
+    {
+      $match: {
+        timestamp: { $gte: dayAgo }
+      }
+    },
+    { $sort: { userId: 1, timestamp: -1 } },
+    {
+      $group: {
+        _id: '$userId',
+        latestTotalXp: { $first: '$totalXp' },
+        latestElo: { $first: '$elo' },
+        oldestTotalXp: { $last: '$totalXp' },
+        oldestElo: { $last: '$elo' }
+      }
+    },
+    {
+      $project: {
+        userId: '$_id',
+        xpDelta: { $subtract: ['$latestTotalXp', '$oldestTotalXp'] },
+        eloDelta: { $subtract: ['$latestElo', '$oldestElo'] },
+        currentXp: '$latestTotalXp',
+        currentElo: '$latestElo'
+      }
+    },
+    {
+      $match: {
+        [mode === 'xp' ? 'xpDelta' : 'eloDelta']: { $gt: 0 }
+      }
+    },
+    {
+      $sort: {
+        [mode === 'xp' ? 'xpDelta' : 'eloDelta']: -1
+      }
+    },
+    { $limit: 50000 }
+  ];
+
+  // Execute aggregation with maxTimeMS to prevent hanging
+  const userDeltas = await UserStats.aggregate(pipeline).option({ maxTimeMS: 30000 }); // 30 second timeout
+
+  const totalActiveUsers = userDeltas.length;
+
+  // Get user details for top 50k
+  const userIds = userDeltas.map(u => u.userId);
+  const users = await User.find({
+    _id: { $in: userIds }
+  }).select('_id username countryCode supporter').lean().maxTimeMS(30000);
+
+  // Create user lookup map
+  const userMap = new Map();
+  users.forEach(user => {
+    userMap.set(user._id.toString(), user);
+  });
+
+  // Build final leaderboard with user details
+  const leaderboard = userDeltas.map((delta, index) => {
+    const user = userMap.get(delta.userId.toString());
+    return {
+      userId: delta.userId.toString(),
+      username: user?.username || 'Unknown',
+      delta: mode === 'xp' ? delta.xpDelta : delta.eloDelta,
+      currentValue: mode === 'xp' ? delta.currentXp : delta.currentElo,
+      rank: index + 1,
+      countryCode: user?.countryCode || null,
+      supporter: user?.supporter || false
+    };
+  });
+
+  return { leaderboard, totalActiveUsers };
+};
+
+// Start the daily leaderboard computation timer
+const startDailyLeaderboardTimer = () => {
+  console.log(`[LEADERBOARD] Daily leaderboard computation timer started - updates every ${LEADERBOARD_UPDATE_INTERVAL / 1000 / 60} minutes`);
+
+  // Run immediately on startup
+  computeDailyLeaderboards();
+
+  // Then run every 15 minutes
+  setInterval(computeDailyLeaderboards, LEADERBOARD_UPDATE_INTERVAL);
+};
+
+// Start the timer
+startDailyLeaderboardTimer();
+
+// ============================================================================
+// COUNTRY LOCATIONS SYSTEM - Uses pre-processed JSON files with embedded country codes
+// No runtime geo lookups needed - just shuffling and rotation for freshness
+// ============================================================================
+
+const SERVE_SIZE = 2000; // How many locations to serve per request
+const SHUFFLE_INTERVAL = 30 * 1000; // Reshuffle every 30 seconds for freshness
+
+// Get override countries (countries with manual map overrides)
+const overrideCountries = [];
+const mapOverridesDir = path.join(process.cwd(), 'public', 'mapOverrides');
+const mapOverrideFiles = fs.readdirSync(mapOverridesDir).filter(file => file.endsWith('.json'));
+for (const file of mapOverrideFiles) {
+  overrideCountries.push(file.split('.')[0]);
+}
+console.log(`[INIT] Found override for countries: ${overrideCountries.join(', ')}`);
+
+// Master pools - ALL locations grouped by country (never modified after init)
+const countryPools = {};
+// Served locations - rotating window into the pools
+let countryLocations = {};
+// Current offset per country for rotation
+const countryOffsets = {};
+
+// Fisher-Yates shuffle (in-place, fast)
+const shuffle = (arr) => {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+};
+
+// Initialize country pools from both JSON files
+const initializeCountryPools = () => {
+  console.log('[INIT] Building country location pools from JSON files...');
+  const startTime = Date.now();
+
+  // Combine all locations
+  const allLocations = [...mainWorld, ...arbitraryWorld, ...pinpointableWorld, ...diverseWorld];
+
+  // Group by country
+  for (const loc of allLocations) {
+    const { lat, lng, country } = loc;
+    if (!country) continue;
+    if (overrideCountries.includes(country)) continue; // Skip overridden countries
+
+    if (!countryPools[country]) {
+      countryPools[country] = [];
+    }
+    countryPools[country].push({ lat, long: lng, country });
+  }
+
+  // Shuffle each pool and initialize offsets
+  const countryCounts = {};
+  for (const country of Object.keys(countryPools)) {
+    shuffle(countryPools[country]);
+    countryOffsets[country] = 0;
+    countryCounts[country] = countryPools[country].length;
+  }
+
+  // Initialize served locations (first window)
+  refreshCountryLocations();
+
+  const duration = Date.now() - startTime;
+  const totalLocs = Object.values(countryPools).reduce((sum, arr) => sum + arr.length, 0);
+  const countryCount = Object.keys(countryPools).length;
+
+  // Filter to only include countries in countries.json
+  const validCountries = new Set(countries);
+  const filteredCountryCounts = Object.fromEntries(
+    Object.entries(countryCounts).filter(([country]) => validCountries.has(country))
+  );
+
+  // Log stats
+  const sorted = Object.entries(filteredCountryCounts).sort((a, b) => b[1] - a[1]);
+  const top10 = sorted.slice(0, 10).map(([c, n]) => `${c}:${n}`).join(', ');
+  const bottom5 = sorted.slice(-5).map(([c, n]) => `${c}:${n}`).join(', ');
+
+  console.log('━'.repeat(60));
+  console.log(`[INIT] ✅ Built pools: ${totalLocs.toLocaleString()} locations across ${countryCount} countries in ${duration}ms`);
+  console.log(`[INIT] Most locations: ${top10}`);
+  console.log(`[INIT] Least locations: ${bottom5}`);
+  console.log('━'.repeat(60));
+  console.log('[INIT] Total available locations per country (from countries.json):');
+  sorted.forEach(([country, count]) => {
+    console.log(`[INIT]   ${country}: ${count.toLocaleString()} locations`);
+  });
+  console.log('━'.repeat(60));
+};
+
+// Refresh served locations by rotating through pools
+const refreshCountryLocations = () => {
+  for (const country of Object.keys(countryPools)) {
+    const pool = countryPools[country];
+    if (pool.length === 0) continue;
+
+    // Get current offset
+    let offset = countryOffsets[country];
+
+    // Build served array by rotating through pool
+    const served = [];
+    const count = Math.min(SERVE_SIZE, pool.length);
+
+    for (let i = 0; i < count; i++) {
+      served.push(pool[(offset + i) % pool.length]);
+    }
+
+    // Shuffle the served locations for randomness
+    shuffle(served);
+
+    // Advance offset for next refresh (with some randomness)
+    countryOffsets[country] = (offset + Math.floor(count / 4) + Math.floor(Math.random() * 50)) % pool.length;
+
+    countryLocations[country] = served;
+  }
+};
+
+// Initialize pools on startup
+initializeCountryPools();
+
+// Background shuffler - keeps locations fresh by rotating and reshuffling
+const startCountryLocationShuffler = () => {
+  console.log(`[SHUFFLER] Started - refreshing every ${SHUFFLE_INTERVAL / 1000}s`);
+
+  setInterval(() => {
+    const startTime = Date.now();
+
+    // Occasionally reshuffle entire pools for variety (every 10 intervals)
+    if (Math.random() < 0.1) {
+      for (const pool of Object.values(countryPools)) {
+        shuffle(pool);
+      }
+      console.log('[SHUFFLER] Full pool reshuffle');
+    }
+
+    // Refresh served locations
+    refreshCountryLocations();
+
+    const duration = Date.now() - startTime;
+    console.log(`[SHUFFLER] Refreshed country locations in ${duration}ms`);
+  }, SHUFFLE_INTERVAL);
+};
+
+startCountryLocationShuffler();
+
+
+// ============================================================================
+// ALL COUNTRIES (World Map) CACHE - Random sampling from mainWorld
+// ============================================================================
 
 let allCountriesCache = [];
 let lastAllCountriesCacheUpdate = 0;
@@ -280,20 +527,19 @@ const updateAllCountriesCache = async () => {
   console.log('[CACHE] Starting allCountries cache update...');
 
   try {
-    // new world
-    // pick 2k locations randomly from mainWorld, calculate country based on lat/long
-    // prevent duplicates
+    // Pick 2k locations randomly from mainWorld, prevent duplicates
     const totalLocs = mainWorld.length;
     const neededLocs = 2000;
     const indexes = new Set();
+
     while (indexes.size < neededLocs) {
       indexes.add(Math.floor(Math.random() * totalLocs));
     }
+
     const locations = [];
     for (const index of indexes) {
       try {
-        const { lat, lng } = mainWorld[index];
-        const country = lookup(lat, lng, true)[0];
+        const { lat, lng, country } = mainWorld[index];
         locations.push({ lat, long: lng, country });
       } catch (error) {
         locations.push({ lat, long: lng });
@@ -302,7 +548,6 @@ const updateAllCountriesCache = async () => {
     }
 
     console.log(`[CACHE] Generated ${locations.length} locations from mainWorld which has ${totalLocs} total locations.`);
-
     allCountriesCache = locations;
     lastAllCountriesCacheUpdate = Date.now();
   } catch (error) {
@@ -347,13 +592,13 @@ app.get('/countryLocations/:country', (req, res) => {
      locations: countryLocations[country] });
 });
 
-// Endpoint for /clueCountries.json
+// Endpoint for /clueCountries.json (stub - clue locations not implemented in cron.js)
+const clueLocations = []; // TODO: Implement clue locations if needed
 app.get('/clueCountries.json', (req, res) => {
   if (clueLocations.length === 0) {
-    // send json {ready: false}
     return res.json({ ready: false });
   } else {
-    return res.json({ ready: true, locations: clueLocations.sort(() => Math.random() - 0.5) });
+    return res.json({ ready: true, locations: shuffle([...clueLocations]) });
   }
 });
 

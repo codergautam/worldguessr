@@ -1,0 +1,53 @@
+server {
+    listen      80 default_server;
+    listen      [::]:80 default_server;
+
+    server_name "";
+    return      444; #CONNECTION CLOSED WITHOUT RESPONSE
+}
+# API server configuration
+server {
+    client_max_body_size 50M;
+    listen 80;
+    listen [::]:80;
+    access_log  /var/log/nginx/api.log;
+    server_name api.worldguessr.com;
+    if ( $host != "api.worldguessr.com" ){
+        return 444; #CONNECTION CLOSED WITHOUT RESPONSE
+    }
+  #  include /etc/nginx/cloudflare-allow.conf; # Allows only Cloudflare IPs
+   # deny all; # Deny all non-Cloudflare requests
+
+    location / {
+        proxy_pass http://localhost:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+
+# Server configuration
+server {
+    listen 80;
+    listen [::]:80;
+    server_name server.worldguessr.com;
+    proxy_http_version 1.1;
+
+    proxy_read_timeout 86400s;
+    proxy_send_timeout 86400s;
+
+    if ( $host != "server.worldguessr.com" ){
+        return 444; #CONNECTION CLOSED WITHOUT RESPONSE
+    }
+    #include /etc/nginx/cloudflare-allow.conf; # Allows only Cloudflare IPs
+    #deny all; # Deny all non-Cloudflare requests
+
+    location / {
+        proxy_pass http://localhost:3002;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

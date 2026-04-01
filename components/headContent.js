@@ -1,11 +1,11 @@
 import Head from "next/head";
-import Script from "next/script";
 import { useEffect } from "react";
+import { asset } from '@/lib/basePath';
 
-export default function HeadContent({text,inCoolMathGames}) {
+export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false }) {
   useEffect(() => {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
-  !process.env.NEXT_PUBLIC_COOLMATH) {
+  !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
 
 
   // start adinplay script
@@ -16,30 +16,34 @@ export default function HeadContent({text,inCoolMathGames}) {
     // end adinplay script
 
 // start nitroPay script
-
 window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
 
-      const script = document.createElement('script');
-      //<script data-cfasync="false"></script>
-      script.src = "https://s.nitropay.com/ads-2071.js";
-      script.async = true;
-      document.head.appendChild(script);
+      const loadNitroAds = () => {
+        if (document.querySelector('script[src*="nitropay.com"]')) return;
+        const script = document.createElement('script');
+        script.src = "https://s.nitropay.com/ads-2071.js";
+        script.async = true;
+        document.head.appendChild(script);
+      };
+
+      // Wait for page load event (ensures fonts/LCP complete), then load ads
+      const scheduleAdLoad = () => {
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(loadNitroAds, { timeout: 3000 });
+        } else {
+          setTimeout(loadNitroAds, 1000);
+        }
+      };
+
+      if (document.readyState === 'complete') {
+        scheduleAdLoad();
+      } else {
+        window.addEventListener('load', scheduleAdLoad, { once: true });
+      }
 
 // end nitroPay script
-
-      //  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972" crossorigin="anonymous">
-      const script2 = document.createElement('script');
-      script2.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3340825671684972";
-      script2.async = true;
-      // add attribute data-adbreak-test=on
-      // script2.setAttribute("data-adbreak-test", "on");
-      script2.crossorigin = "anonymous";
-      document.body.appendChild(script2);
-
       return () => {
-        document.head.removeChild(script);
-        // document.body.removeChild(scriptAp);
-        document.body.removeChild(script2);
+        // Cleanup handled by browser on unmount
       };
     } else if(window.location.search.includes("crazygames")) {
       console.log("CrazyGames detected");
@@ -78,9 +82,30 @@ ads.js"></script>*/
       script2.async = false;
       document.body.appendChild(script2);
 
+      // Only load NitroPay if cmgopt flag is true
+      let nitroScript = null;
+      let unmounted = false;
+      fetch('https://www.worldguessr.com/cmgopt.txt')
+        .then(res => res.text())
+        .then(text => {
+          if (unmounted) return;
+          if (text.trim() === 'true') {
+            window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
+            nitroScript = document.createElement('script');
+            nitroScript.src = "https://s.nitropay.com/ads-2071.js";
+            nitroScript.async = true;
+            document.head.appendChild(nitroScript);
+          }
+        })
+        .catch(() => {});
+
       return () => {
+        unmounted = true;
         document.body.removeChild(script);
         document.body.removeChild(script2);
+        if (nitroScript && nitroScript.parentNode) {
+          document.head.removeChild(nitroScript);
+        }
       }
 
     }else if(process.env.NEXT_PUBLIC_POKI === "true") {
@@ -96,6 +121,45 @@ ads.js"></script>*/
         document.body.removeChild(script);
       }
 
+    } else if(process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
+      window["GD_OPTIONS"] = {
+        "gameId": "fef00656129743768437b7589b7c48b1",
+        "onEvent": function(event) {
+          switch (event.name) {
+            case "SDK_READY":
+              console.log("[GD] SDK Ready");
+              break;
+            case "SDK_GAME_START":
+            case "SDK_ERROR":
+            case "AD_ERROR":
+            case "AD_SDK_CANCELED":
+              // advertisement done or failed, resume game
+              if(window.onGDResumeGame) window.onGDResumeGame();
+              break;
+            case "SDK_GAME_PAUSE":
+              // pause game logic / mute audio
+              if(window.onGDPauseGame) window.onGDPauseGame();
+              break;
+            case "SDK_REWARDED_WATCH_COMPLETE":
+              if(window.onGDRewardedComplete) window.onGDRewardedComplete();
+              break;
+            case "SDK_REWARDED_WATCH_SKIPPED":
+              console.log("[GD] Rewarded ad skipped");
+              if(window.onGDRewardedSkipped) window.onGDRewardedSkipped();
+              break;
+          }
+        },
+      };
+      (function(d, s, id) {
+        var js, fjs = d.getElementsByTagName(s)[0];
+        if (d.getElementById(id)) return;
+        js = d.createElement(s);
+        js.id = id;
+        js.src = 'https://html5.api.gamedistribution.com/main.min.js';
+        fjs.parentNode.insertBefore(js, fjs);
+      }(document, 'script', 'gamedistribution-jssdk'));
+
+      return () => {};
     }
   }, []);
 
@@ -115,15 +179,15 @@ ads.js"></script>*/
     />
 
 <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no"/>
-    <link rel="icon" type="image/x-icon" href="/icon.ico" />
+    <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
 <meta name="yandex-verification" content="2eb7e8ef6fb55e24" />
 
-{/* <link rel="preconnect" href="https://fonts.googleapis.com"/>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/> */}
-<link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@100..900&display=swap" rel="stylesheet"/>
 
+{/* Preload CrazyGames SDK when on CrazyGames platform */}
+{inCrazyGames && (
+  <link rel="preload" href="https://sdk.crazygames.com/crazygames-sdk-v3.js" as="script" />
+)}
 
 {/* <script disable-devtool-auto src='https://cdn.jsdelivr.net/npm/disable-devtool'></script> */}
 
@@ -132,7 +196,7 @@ ads.js"></script>*/
 {/*  */}
 
 
-    <meta property="og:image" content="/icon_144x144.png" />
+    <meta property="og:image" content={asset("/icon_144x144.png")} />
     <meta property="og:url" content="https://worldguessr.com" />
     <meta property="og:type" content="website" />
 </Head>

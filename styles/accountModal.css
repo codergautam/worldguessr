@@ -15,7 +15,7 @@
 }
 
 .account-modal-background {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
@@ -26,10 +26,11 @@
         rgba(0, 30, 15, 0.8) 50%,
         rgba(0, 0, 0, 0.9) 100%
     ),
-    url("/street2.jpg");
+    var(--bg-street2);
     background-size: cover;
     background-position: center;
-    background-attachment: fixed;
+    /* Changed from background-attachment: fixed to position: fixed */
+    /* background-attachment: fixed causes repaint on every scroll frame */
     z-index: -1;
 }
 
@@ -60,6 +61,9 @@
     color: white;
     margin: 0;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .account-modal-close {
@@ -69,6 +73,7 @@
     border-radius: 50%;
     width: 50px;
     height: 50px;
+    min-width: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -76,10 +81,11 @@
     font-size: 20px;
     font-weight: bold;
     transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
     box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
     position: relative;
     z-index: 1000;
+    flex-shrink: 0;
+    margin-left: 10px;
 }
 
 .account-modal-close:hover {
@@ -138,7 +144,7 @@
     align-items: center;
     gap: 8px;
     padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 25px;
     color: white;
@@ -147,7 +153,6 @@
     white-space: nowrap;
     font-size: 14px;
     font-weight: 500;
-    backdrop-filter: blur(10px);
     min-width: fit-content;
     flex-shrink: 0;
 }
@@ -175,10 +180,10 @@
 
 .account-modal-body {
     flex: 1;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(0, 0, 0, 0.4);
     border-radius: 20px;
     padding: 30px;
-    backdrop-filter: blur(20px);
+    /* Removed backdrop-filter from scrollable area - causes flickering during scroll */
     border: 1px solid rgba(255, 255, 255, 0.1);
     overflow-y: auto;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -237,6 +242,7 @@
     .account-modal-close {
         width: 45px;
         height: 45px;
+        min-width: 45px;
         font-size: 18px;
     }
 
@@ -283,6 +289,7 @@
     .account-modal-close {
         width: 40px;
         height: 40px;
+        min-width: 40px;
         font-size: 16px;
     }
 
@@ -340,7 +347,9 @@
             rgba(0, 20, 10, 0.9) 50%,
             rgba(0, 0, 0, 0.95) 100%
         ),
-        url("/street2.jpg");
+        var(--bg-street2);
+        background-size: cover;
+        background-position: center;
     }
 }
 

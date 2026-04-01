@@ -15,6 +15,7 @@ import { setElo } from "../../api/eloRank.js";
 import GameModel from "../../models/Game.js";
 import User from "../../models/User.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
+import shuffle from "../../utils/shuffle.js";
 
 export default class Game {
   constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
@@ -46,9 +47,11 @@ export default class Game {
     this.readyToEnd = false;
     this.roundHistory = []; // Store guess history for each round
     this.roundStartTimes = {}; // Track when each round started for each player
+    this.roundEndedAt = null; // Track when guess phase timer expired (for late guess buffer)
     this.disconnectedPlayer = null; // Track disconnected player for ranked duels
     this.rankedDuelPersistentData = {}; // Store persistent player data for ranked duels only
     this.saveInProgress = false; // Track if MongoDB save is in progress
+    this.cleanupInProgress = false; // Prevent re-entrant cleanup during shutdown
 
     if(this.public) {
       this.showRoadName = false;
@@ -89,6 +92,7 @@ export default class Game {
       eloChanges: this.eloChanges,
       pIds: this.pIds,
       accountIds: this.accountIds,
+      oldElos: this.oldElos,
       gameCount: this.gameCount,
       location: this.location,
       saveInProgress: this.saveInProgress,
@@ -109,6 +113,7 @@ export default class Game {
     const playerObj = {
       username: player.username,
       accountId: player.accountId,
+      countryCode: player.countryCode,
       id: player.id,
       score: this.duel ? 5000 : 0,
       host: host && !this.public,
@@ -132,6 +137,7 @@ export default class Game {
       this.rankedDuelPersistentData[player.id] = {
         accountId: player.accountId,
         username: player.username,
+        countryCode: player.countryCode,
         tag: tag,
         initialScore: playerObj.score
       };
@@ -324,6 +330,7 @@ export default class Game {
 
           roundData.players[playerId] = {
             username: player.username,
+            countryCode: player.countryCode,
             lat: player.guess[0],
             long: player.guess[1],
             points: points,
@@ -334,6 +341,7 @@ export default class Game {
           // Player didn't make a guess - still record them with null values
           roundData.players[playerId] = {
             username: player.username,
+            countryCode: player.countryCode,
             lat: null,
             long: null,
             points: 0,
@@ -354,6 +362,7 @@ export default class Game {
       player.final = false;
       player.roundTimeTaken = null; // Reset time for new round
     }
+    this.roundEndedAt = null; // Reset late guess buffer
     // Track when this round's guessing phase starts for time calculation
     this.roundStartTimes[this.curRound] = Date.now();
   }
@@ -406,8 +415,13 @@ export default class Game {
     const isPlayerHost = this.players[player.id].host;
     const tag = this.players[player.id].tag;
 
-    // Track disconnection for ranked duels
-    if(this.public && this.duel) {
+    // For ranked duels: if someone leaves during "getready" (countdown before first round),
+    // cancel the game without ELO penalties - no actual gameplay has happened yet.
+    // curRound is set to 1 at start() and incremented after each round, so curRound <= 1
+    // ensures we only treat it as pregame during the initial countdown, not between rounds.
+    const isPreGameLeave = this.public && this.duel && this.state === 'getready' && this.curRound <= 1;
+    // Track disconnection for ranked duels (only if actual gameplay has started)
+    if(this.public && this.duel && !isPreGameLeave) {
       this.disconnectedPlayer = tag;
     }
 
@@ -429,14 +443,52 @@ export default class Game {
       games.delete(this.id);
     }
 
-    if(this.duel && Object.keys(this.players).length < 2) {
-      this.end(tag);
+    if(this.duel && Object.keys(this.players).length < 2 && !this.cleanupInProgress) {
+      if (isPreGameLeave) {
+        // Cancel game without ELO penalties - notify remaining player
+        // Set flag to prevent re-entrant cleanup when shutdown() calls removePlayer()
+        this.cleanupInProgress = true;
+        this.sendAllPlayers({
+          type: 'gameCancelled',
+          reason: 'opponent_left_before_start'
+        });
+        this.shutdown();
+        games.delete(this.id);
+      } else {
+        // Normal forfeit - player left during actual gameplay
+        this.end(tag);
+      }
     }
   }
 
-  start() {
-    if ((this.state != 'waiting') || (Object.keys(this.players).length < 2) || (this.rounds != this.locations.length)) {
-      console.log('Cannot start game', this.state, Object.keys(this.players).length, this.rounds, this.locations.length, Object.keys(this.players).length < 2, this.rounds !== this.locations.length, this.state !== 'waiting');
+  start(hostPlayer = null) {
+    // Check each condition and provide specific error messages
+    if (this.state !== 'waiting') {
+      console.log('Cannot start game: not in waiting state', this.state);
+      return;
+    }
+
+    if (Object.keys(this.players).length < 2) {
+      console.log('Cannot start game: not enough players', Object.keys(this.players).length);
+      if (hostPlayer) {
+        hostPlayer.send({
+          type: 'toast',
+          key: 'needMorePlayers',
+          toastType: 'error'
+        });
+      }
+      return;
+    }
+
+    if (this.rounds !== this.locations.length) {
+      console.log('Cannot start game: locations not loaded', this.rounds, this.locations.length);
+      if (hostPlayer) {
+        hostPlayer.send({
+          type: 'toast',
+          key: 'mapLocationsLoading',
+          toastType: 'error'
+        });
+      }
       return;
     }
     this.state = 'getready';
@@ -455,8 +507,14 @@ export default class Game {
 
     this.sendStateUpdate(true);
   }
-  setGuess(playerId, latLong, final) {
+  setGuess(playerId, latLong, final, round) {
     if(this.state !== 'guess') {
+      return;
+    }
+
+    // Reject if client-specified round doesn't match current round.
+    // Old clients that don't send round (undefined) are still accepted.
+    if (round !== undefined && round !== null && round !== this.curRound) {
       return;
     }
 
@@ -469,8 +527,19 @@ export default class Game {
       return;
     }
 
-    player.final = final;
-    player.guess = latLong;
+    if (final) {
+      player.final = true;
+      // When marking as final, prefer the coordinates already set by the most
+      // recent interim placement (final:false) — those come directly from the
+      // Leaflet click event and are always accurate.  The final:true message's
+      // coordinates can be stale due to React closure timing, so only use them
+      // as a fallback when no interim guess exists.
+      if (!player.guess) {
+        player.guess = latLong;
+      }
+    } else {
+      player.guess = latLong;
+    }
 
     // Track time taken for this round when player makes final guess
     if(final && this.roundStartTimes[this.curRound]) {
@@ -483,7 +552,7 @@ export default class Game {
         type: 'place',
         id: playerId,
         final: true,
-        latLong
+        latLong: player.guess
       });
 
       this.checkRemaining();
@@ -508,7 +577,7 @@ export default class Game {
           }
 
 
-          if (allFinal && (this.nextEvtTime - Date.now()) > 5000) {
+          if (allFinal && (this.nextEvtTime - Date.now()) > 1000) {
             this.nextEvtTime = Date.now() + 1000;
             this.sendStateUpdate();
           }
@@ -564,7 +633,7 @@ export default class Game {
           key: 'notEnoughLocationsInMap'
         });
       }
-      locs = locs.sort(() => Math.random() - 0.5).slice(0, this.rounds).map((loc) => ({
+      locs = shuffle(locs).slice(0, this.rounds).map((loc) => ({
         // lng -> long
         ...loc,
         long: loc.lng,
@@ -647,7 +716,7 @@ export default class Game {
       p.send(json);
     }
   }
-  end(leftUser) {
+  async end(leftUser) {
     console.log(`Ending game ${this.id} - duel: ${this.duel}, public: ${this.public}, players: ${Object.keys(this.players).length}`);
     // For duels, only save the final round if it was actually completed (all players made guesses)
     // For regular games, save if the round was started but not yet saved
@@ -677,7 +746,7 @@ export default class Game {
     this.nextEvtTime = this.endTime + 7200000; // 2 hours (2 * 60 * 60 * 1000)
 
     // Save all non-ranked duel games to MongoDB for history tracking
-    if(!this.duel && Object.keys(this.players).length >= 2) {
+    if(!this.duel && Object.keys(this.players).length) {
       this.saveInProgress = true; // Mark save as in progress
       this.saveUnrankedMultiplayerToMongoDB().then(() => {
         this.saveInProgress = false; // Mark save as complete
@@ -726,21 +795,26 @@ export default class Game {
       }
 
 
-      let p1NewElo = null;
-      let p2NewElo = null;
 
-      let p1OldElo = p1obj?.elo || null;
-      let p2OldElo = p2obj?.elo || null;
+      const p1EloResult = await User.findById(this.accountIds.p1).select('elo').lean();
+      const p2EloResult = await User.findById(this.accountIds.p2).select('elo').lean();
 
+      // Use DB value if available, otherwise fall back to stored oldElos from game creation
+      // This prevents null ELO bugs while still handling external ELO updates
+      let p1OldElo = p1EloResult?.elo ?? this.oldElos?.p1 ?? null;
+      let p2OldElo = p2EloResult?.elo ?? this.oldElos?.p2 ?? null;
+
+      let p1NewElo = p1OldElo;
+      let p2NewElo = p2OldElo;
       // elo changes
-      if(this.eloChanges) {
+      if(this.eloChanges && p1OldElo && p2OldElo) {
         if(draw) {
 
           const changes = this.eloChanges.draw;
           // { newRating1, newRating2 }
 
-          p1NewElo = changes.newRating1;
-          p2NewElo = changes.newRating2;
+          p1NewElo += changes.newRating1;
+          p2NewElo += changes.newRating2;
 
           if(p1obj) {
 
@@ -750,27 +824,27 @@ export default class Game {
           }
 
           if(p2obj) {
-          p2obj.setElo(changes.newRating2, { draw: true, oldElo: p2OldElo });
+          p2obj.setElo(p2NewElo, { draw: true, oldElo: p2OldElo });
         } else {
-          setElo(this.accountIds.p2, changes.newRating2, { draw: true, oldElo: p2OldElo });
+          setElo(this.accountIds.p2, p2NewElo, { draw: true, oldElo: p2OldElo });
         }
         } else if(winner) {
 
           const changes = this.eloChanges[winner.id];
           // { newRating1, newRating2 }
-          p1NewElo = changes.newRating1;
-          p2NewElo = changes.newRating2;
+          p1NewElo += changes.newRating1;
+          p2NewElo += changes.newRating2;
 
           if(p1obj) {
-          p1obj.setElo(changes.newRating1, { winner: winner.tag === 'p1', oldElo: p1OldElo });
+          p1obj.setElo(p1NewElo, { winner: winner.tag === 'p1', oldElo: p1OldElo });
           } else {
-            setElo(this.accountIds.p1, changes.newRating1, { winner: winner.tag === 'p1', oldElo: p1OldElo });
+            setElo(this.accountIds.p1, p1NewElo, { winner: winner.tag === 'p1', oldElo: p1OldElo });
           }
 
           if(p2obj) {
-          p2obj.setElo(changes.newRating2, { winner: winner.tag === 'p2', oldElo: p2OldElo });
+          p2obj.setElo(p2NewElo, { winner: winner.tag === 'p2', oldElo: p2OldElo });
           } else {
-            setElo(this.accountIds.p2, changes.newRating2, { winner: winner.tag === 'p2', oldElo: p2OldElo });
+            setElo(this.accountIds.p2, p2NewElo, { winner: winner.tag === 'p2', oldElo: p2OldElo });
           }
 
         }
@@ -805,18 +879,21 @@ export default class Game {
     }
 
     // Save duel game to MongoDB for history tracking
-    if(this.duel && this.accountIds?.p1 && this.accountIds?.p2) {
-      this.saveInProgress = true; // Mark save as in progress
+    if(this.duel && this.accountIds?.p1 && this.accountIds?.p2 && p1OldElo && p2OldElo) {
+      this.saveInProgress = true;
+      const p1Xp = this.calculatePlayerXp(this.pIds?.p1);
+      const p2Xp = this.calculatePlayerXp(this.pIds?.p2);
 
-      const saveDuelPromise = this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo);
-      const saveUserStatsPromise = this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo);
+      console.log(`Player 1 XP: ${p1Xp}, Player 2 XP: ${p2Xp}`);
 
-      Promise.all([saveDuelPromise, saveUserStatsPromise]).then(() => {
-        this.saveInProgress = false; // Mark save as complete
-      }).catch(error => {
-        console.error('Error saving duel game to MongoDB:', error);
-        this.saveInProgress = false; // Mark save as complete even on error
-      });
+      // Run sequentially: save first (updates User.totalXp), then record stats (reads updated value)
+      this.saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo, p1Xp, p2Xp)
+        .then(() => this.createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo))
+        .then(() => { this.saveInProgress = false; })
+        .catch(error => {
+          console.error('Error saving duel game to MongoDB:', error);
+          this.saveInProgress = false;
+        });
     }
 
     }
@@ -863,7 +940,7 @@ export default class Game {
     return null;
   }
 
-  async saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo) {
+  async saveDuelToMongoDB(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo, p1Xp = 0, p2Xp = 0) {
     try {
       // Get player data (current or persistent)
       const player1Data = this.getPlayerData(p1, 'p1');
@@ -902,6 +979,7 @@ export default class Game {
             {
               playerId: player1Data.id,
               username: user1.username || 'Player',
+              countryCode: user1.countryCode || null,
               accountId: this.accountIds.p1,
               guessLat: roundData.players[player1Data.id]?.lat || null,
               guessLong: roundData.players[player1Data.id]?.long || null,
@@ -915,6 +993,7 @@ export default class Game {
             {
               playerId: player2Data.id,
               username: user2.username || 'Player',
+              countryCode: user2.countryCode || null,
               accountId: this.accountIds.p2,
               guessLat: roundData.players[player2Data.id]?.lat || null,
               guessLong: roundData.players[player2Data.id]?.long || null,
@@ -957,9 +1036,10 @@ export default class Game {
           {
             playerId: player1Data.id,
             username: user1.username || 'Player',
+            countryCode: user1.countryCode || null,
             accountId: this.accountIds.p1,
             totalPoints: player1Data.score,
-            totalXp: 0, // Duels don't give XP
+            totalXp: p1Xp,
             averageTimePerRound: this.calculateAverageTime(player1Data.id),
             finalRank: winner?.tag === 'p1' ? 1 : (draw ? 1 : 2),
             elo: {
@@ -971,9 +1051,10 @@ export default class Game {
           {
             playerId: player2Data.id,
             username: user2.username || 'Player',
+            countryCode: user2.countryCode || null,
             accountId: this.accountIds.p2,
             totalPoints: player2Data.score,
-            totalXp: 0,
+            totalXp: p2Xp,
             averageTimePerRound: this.calculateAverageTime(player2Data.id),
             finalRank: winner?.tag === 'p2' ? 1 : (draw ? 1 : 2),
             elo: {
@@ -1002,18 +1083,18 @@ export default class Game {
       // Save to MongoDB
       await gameDoc.save();
 
-      // Update totalGamesPlayed for both users
+      // Update totalGamesPlayed and totalXp for both users
       await User.updateOne(
         { _id: this.accountIds.p1 },
-        { $inc: { totalGamesPlayed: 1 } }
+        { $inc: { totalGamesPlayed: 1, totalXp: p1Xp } }
       );
 
       await User.updateOne(
         { _id: this.accountIds.p2 },
-        { $inc: { totalGamesPlayed: 1 } }
+        { $inc: { totalGamesPlayed: 1, totalXp: p2Xp } }
       );
 
-      console.log(`Saved duel game ${gameDoc.gameId} between ${user1.username} and ${user2.username}`);
+      console.log(`Saved duel game ${gameDoc.gameId} between ${user1.username} and ${user2.username} (XP: ${p1Xp}, ${p2Xp})`);
 
     } catch (error) {
       console.error('Error saving duel game to MongoDB:', error);
@@ -1056,6 +1137,7 @@ export default class Game {
           playerGuesses: allPlayers.map(player => ({
             playerId: player.id,
             username: player.username || 'Player',
+            countryCode: player.countryCode || null,
             accountId: player.accountId || null, // null for guest users
             guessLat: roundData.players[player.id]?.lat || null,
             guessLong: roundData.players[player.id]?.long || null,
@@ -1071,21 +1153,24 @@ export default class Game {
       });
 
       // Create player summaries sorted by total points (highest first) - include ALL players
+      // Calculate XP for public games only (not parties), and only for registered users (not guests)
+      const awardXp = this.public;
+
       const playerSummaries = allPlayers
-        .map(player => ({
-          playerId: player.id,
-          username: player.username || 'Player',
-          accountId: player.accountId || null, // null for guest users
-          totalPoints: player.score || 0,
-          totalXp: 0, // Unranked games don't give XP
-          averageTimePerRound: this.calculateAverageTime(player.id),
-          finalRank: 0, // Will be calculated below
-          elo: {
-            before: null,
-            after: null,
-            change: null
-          }
-        }))
+        .map(player => {
+          const playerXp = (awardXp && player.accountId) ? this.calculatePlayerXp(player.id) : 0;
+          return {
+            playerId: player.id,
+            username: player.username || 'Player',
+            countryCode: player.countryCode || null,
+            accountId: player.accountId || null,
+            totalPoints: player.score || 0,
+            totalXp: playerXp,
+            averageTimePerRound: this.calculateAverageTime(player.id),
+            finalRank: 0,
+            elo: { before: null, after: null, change: null }
+          };
+        })
         .sort((a, b) => b.totalPoints - a.totalPoints)
         .map((player, index) => ({
           ...player,
@@ -1134,41 +1219,27 @@ export default class Game {
       // Save to MongoDB
       await gameDoc.save();
 
-      // Update totalGamesPlayed for users with accounts only
-      const updatePromises = validUsers.map(user =>
-        User.updateOne(
-          { _id: user._id },
-          { $inc: { totalGamesPlayed: 1 } }
-        )
-      );
-      await Promise.all(updatePromises);
+      // Update totalGamesPlayed and totalXp for users with accounts
+      await Promise.all(validUsers.map(user => {
+        const playerSummary = playerSummaries.find(p => p.accountId?.toString() === user._id.toString());
+        return User.updateOne({ _id: user._id }, { $inc: { totalGamesPlayed: 1, totalXp: playerSummary?.totalXp || 0 } });
+      }));
 
-      // Create UserStats records ONLY for players with valid accounts
-      const userStatsPromises = validPlayersWithAccounts.map(async (player) => {
-        try {
-          // Find the player summary data for this account
-          const playerSummary = playerSummaries.find(p => p.accountId === player.accountId);
-          if (!playerSummary) return;
+      // Create UserStats records (runs after User updates, so reads correct XP)
+      await Promise.all(validPlayersWithAccounts.map(async (player) => {
+        const playerSummary = playerSummaries.find(p => p.accountId === player.accountId);
+        if (!playerSummary) return;
+        await UserStatsService.recordGameStats(player.accountId, `${this.public ? 'unranked' : 'party'}_${this.id}${!this.public ? `_${this.gameCount}` : ''}`, {
+          gameType: this.public ? 'unranked_multiplayer' : 'private_multiplayer',
+          result: playerSummary.finalRank === 1 ? 'win' : 'loss',
+          finalScore: playerSummary.totalPoints || 0,
+          duration: this.endTime - this.startTime,
+          playerCount: playerSummaries.length
+        });
+      }));
 
-          await UserStatsService.recordGameStats(
-            player.accountId,
-            `${this.public ? 'unranked' : 'party'}_${this.id}${!this.public ? `_${this.gameCount}` : ''}`,
-            {
-              gameType: this.public ? 'unranked_multiplayer' : 'private_multiplayer',
-              result: playerSummary.finalRank === 1 ? 'win' : 'loss', // First place wins, others lose
-              finalScore: playerSummary.totalPoints || 0,
-              duration: this.endTime - this.startTime,
-              playerCount: playerSummaries.length
-            }
-          );
-        } catch (error) {
-          console.error(`Error creating UserStats for player ${player.accountId}:`, error);
-        }
-      });
-
-      await Promise.all(userStatsPromises);
-
-      console.log(`✅ Saved ${this.public ? 'public' : 'party'} multiplayer game ${gameDoc.gameId} with ${allPlayers.length} total players (${validPlayersWithAccounts.length} registered, ${allPlayers.length - validPlayersWithAccounts.length} guests)`);
+      const totalXpAwarded = awardXp ? playerSummaries.reduce((sum, p) => sum + (p.totalXp || 0), 0) : 0;
+      console.log(`✅ Saved ${this.public ? 'public' : 'party'} multiplayer game ${gameDoc.gameId} with ${allPlayers.length} total players (${validPlayersWithAccounts.length} registered, ${allPlayers.length - validPlayersWithAccounts.length} guests)${awardXp ? ` - Total XP: ${totalXpAwarded}` : ''}`);
 
     } catch (error) {
       console.error('Error saving unranked multiplayer game to MongoDB:', error);
@@ -1176,44 +1247,31 @@ export default class Game {
   }
 
   async createDuelUserStats(p1, p2, winner, draw, p1OldElo, p2OldElo, p1NewElo, p2NewElo) {
-    // Get player data (current or persistent)
     const player1Data = this.getPlayerData(p1, 'p1');
     const player2Data = this.getPlayerData(p2, 'p2');
     try {
-      // Create userstats document for player 1
       if (this.accountIds.p1) {
-        await UserStatsService.recordGameStats(
-          this.accountIds.p1,
-          `duel_${this.id}`,
-          {
-            gameType: 'ranked_duel',
-            result: winner?.tag === 'p1' ? 'win' : (draw ? 'draw' : 'loss'),
-            opponent: this.accountIds.p2,
-            eloChange: p1NewElo ? (p1NewElo - p1OldElo) : 0,
-            finalScore: player1Data?.score || 0,
-            duration: this.endTime - this.startTime
-          }
-        );
-        console.log(`Created userstats for player 1: ${this.accountIds.p1}`);
+        await UserStatsService.recordGameStats(this.accountIds.p1, `duel_${this.id}`, {
+          gameType: 'ranked_duel',
+          result: winner?.tag === 'p1' ? 'win' : (draw ? 'draw' : 'loss'),
+          opponent: this.accountIds.p2,
+          eloChange: p1NewElo ? (p1NewElo - p1OldElo) : 0,
+          finalScore: player1Data?.score || 0,
+          duration: this.endTime - this.startTime,
+          newElo: p1NewElo
+        });
       }
-
-      // Create userstats document for player 2
       if (this.accountIds.p2) {
-        await UserStatsService.recordGameStats(
-          this.accountIds.p2,
-          `duel_${this.id}`,
-          {
-            gameType: 'ranked_duel',
-            result: winner?.tag === 'p2' ? 'win' : (draw ? 'draw' : 'loss'),
-            opponent: this.accountIds.p1,
-            eloChange: p2NewElo ? (p2NewElo - p2OldElo) : 0,
-            finalScore: player2Data?.score || 0,
-            duration: this.endTime - this.startTime
-          }
-        );
-        console.log(`Created userstats for player 2: ${this.accountIds.p2}`);
+        await UserStatsService.recordGameStats(this.accountIds.p2, `duel_${this.id}`, {
+          gameType: 'ranked_duel',
+          result: winner?.tag === 'p2' ? 'win' : (draw ? 'draw' : 'loss'),
+          opponent: this.accountIds.p1,
+          eloChange: p2NewElo ? (p2NewElo - p2OldElo) : 0,
+          finalScore: player2Data?.score || 0,
+          duration: this.endTime - this.startTime,
+          newElo: p2NewElo
+        });
       }
-
     } catch (error) {
       console.error('Error creating duel user stats:', error);
     }
@@ -1233,6 +1291,28 @@ export default class Game {
     }
 
     return roundsWithTime > 0 ? Math.round(totalTime / roundsWithTime) : 30;
+  }
+
+  /**
+   * Calculate XP earned by a player based on their points in each round
+   * XP = points / 50, capped at 100 per round
+   */
+  calculatePlayerXp(playerId) {
+    if (!this.roundHistory.length || !playerId) return 0;
+
+    const MAX_XP_PER_ROUND = 100;
+    let totalXp = 0;
+
+    for (const round of this.roundHistory) {
+      const playerData = round.players[playerId];
+      if (playerData?.points) {
+        // XP = points / 50, capped at 100 per round
+        const roundXp = Math.min(Math.floor(playerData.points / 50), MAX_XP_PER_ROUND);
+        totalXp += roundXp;
+      }
+    }
+
+    return totalXp;
   }
 
 }

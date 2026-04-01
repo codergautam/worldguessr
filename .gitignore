@@ -20,6 +20,7 @@
 # misc
 .DS_Store
 *.pem
+tmpclaude*
 logs
 
 #visual studio
@@ -43,3 +44,11 @@ next-env.d.ts
 public/wiki
 
 /scripts/*.json
+/.claude
+vali-data/*
+mapgens/*.txt
+mapgens/*-locations.json
+
+# Partytown (generated from node_modules)
+public/~partytown/
+mobile/

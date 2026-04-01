@@ -1,39 +1,46 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import { toast } from "react-toastify";
 import config from "@/clientConfig";
 
-const debounce = (func, delay) => {
-    let timeoutId;
-    return (...args) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => func.apply(null, args), delay);
-    };
-};
+export const useMapSearch = (session, setSearchResults, setSearchLoading) => {
+    const timeoutRef = useRef(null);
 
-export const useMapSearch = (session, setSearchResults) => {
     const handleSearch = useCallback(
-        debounce((term) => {
-            if (term.length > 3 && !process.env.NEXT_PUBLIC_COOLMATH) {
-                const apiUrl = window.cConfig?.apiUrl || config().apiUrl;
-                fetch(apiUrl + "/api/map/searchMap", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({ query: term, secret: session?.token?.secret }),
-                })
-                    .then((res) => res.json())
-                    .then((data) => {
-                        setSearchResults(data);
+        (term) => {
+            // Clear any pending debounced search
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+
+            if (term.length > 0 && !process.env.NEXT_PUBLIC_COOLMATH) {
+                // Show loading immediately when user types enough characters
+                if (setSearchLoading) setSearchLoading(true);
+
+                timeoutRef.current = setTimeout(() => {
+                    const apiUrl = window.cConfig?.apiUrl || config().apiUrl;
+                    fetch(apiUrl + "/api/map/searchMap", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ query: term, secret: session?.token?.secret }),
                     })
-                    .catch(() => {
-                        toast.error("Failed to search maps");
-                    });
+                        .then((res) => res.json())
+                        .then((data) => {
+                            setSearchResults(data);
+                            if (setSearchLoading) setSearchLoading(false);
+                        })
+                        .catch(() => {
+                            toast.error("Failed to search maps");
+                            if (setSearchLoading) setSearchLoading(false);
+                        });
+                }, 300);
             } else {
                 setSearchResults([]);
+                if (setSearchLoading) setSearchLoading(false);
             }
-        }, 300),
-        [session?.token?.secret, setSearchResults]
+        },
+        [session?.token?.secret, setSearchResults, setSearchLoading]
     );
 
     return { handleSearch };

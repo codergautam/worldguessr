@@ -78,7 +78,7 @@ export default function Ad({
     };
   }, [type, isClient, unit]);
 
-  if (type === -1) return null;
+  if (type === -1 || !types[type]) return null;
   if (!isClient) return null;
 
   return (

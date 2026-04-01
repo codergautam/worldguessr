@@ -1,13 +1,24 @@
 import mongoose from 'mongoose';
-import User from '../models/User.js';
+import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
+import { rateLimit } from '../utils/rateLimit.js';
 
 // given a username return the elo and the rank of the user
 export default async function handler(req, res) {
   const { username, secret } = req.query;
+  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || 'unknown';
+  console.log(`[API] eloRank: ${username || '(by secret)'} | IP: ${ip}`);
+  
   // Only allow GET requests
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  // Rate limiting: 30 requests per minute per IP
+  const limiter = rateLimit({ max: 30, windowMs: 60000 });
+  if (!limiter(req, res)) {
+    console.log(`[API] eloRank: RATE LIMITED | IP: ${ip}`);
+    return; // Rate limit exceeded, response already sent
   }
 
   // Connect to MongoDB
@@ -20,20 +31,30 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Find user by the provided username or secret
+
     let user;
-    // const user = await User.findOne({ username });
-    if(username) {
-      user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
-    } else if(secret) {
-      user = await User.findOne({ secret });
+    let foundBySecret = false;
+
+    if(secret && typeof secret === 'string') {
+      // Prevent NoSQL injection - secret must be a string
+      user = await User.findOne({ secret }).cache(120);
+      if (user) foundBySecret = true;
+    } else if(username && typeof username === 'string') {
+      // Prevent NoSQL injection - username must be a string
+      user = await User.findOne({ username: username }).collation(USERNAME_COLLATION).cache(120);
     }
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const rank = (await User.countDocuments({ elo: { $gt: user.elo },
+    // If not found by their own secret, hide banned or pending-name-change users
+    if (!foundBySecret && (user.banned || user.pendingNameChange)) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const rank = (await User.countDocuments({
+      elo: { $gt: user.elo },
       banned: false
     }).cache(2000)) + 1;
 

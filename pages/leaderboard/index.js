@@ -4,6 +4,8 @@ import { useSession } from '@/components/auth/auth';
 import { useTranslation } from '@/components/useTranslations'
 import config from '@/clientConfig';
 import styles from '@/styles/Leaderboard.module.css';
+import { navigate } from '@/lib/basePath';
+import CountryFlag from '@/components/utils/countryFlag';
 
 const Leaderboard = ({ }) => {
   const { t: text } = useTranslation("common");
@@ -15,6 +17,18 @@ const Leaderboard = ({ }) => {
   const { data: session, status } = useSession();
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Format score with +/- prefix for daily leaderboards
+  const formatScore = (value, isDailyLeaderboard) => {
+    if (!isDailyLeaderboard) {
+      return value?.toFixed(0);
+    }
+    const numValue = Number(value);
+    if (numValue > 0) {
+      return `+${numValue.toFixed(0)}`;
+    }
+    return numValue.toFixed(0); // Negative numbers already have - sign
+  };
 
   useEffect(() => {
     const inCrazyGames = window.location.search.includes("crazygames");
@@ -52,13 +66,7 @@ const Leaderboard = ({ }) => {
         <title>{text("leaderboard")}</title>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="true" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-        <script src="https://unpkg.com/@phosphor/icons"></script>
+                <script src="https://unpkg.com/@phosphor/icons"></script>
         <style>
           {`
           body {
@@ -105,7 +113,7 @@ const Leaderboard = ({ }) => {
 
             <button
                 className={styles.exitButton}
-                onClick={() => window.location.replace('/' + (inCrazyGames ? '?crazygames=true' : ''))}
+                onClick={() => window.location.replace(navigate('/') + (inCrazyGames ? '?crazygames=true' : ''))}
               >
                 {text("backToGame")}
               </button>
@@ -132,9 +140,12 @@ const Leaderboard = ({ }) => {
               <div className={styles.myRankCard}>
                 <div className={styles.rankBadge}>#{leaderboardData.myRank}</div>
                 <div className={styles.playerInfo}>
-                  <span className={styles.playerName}>{session.token.username}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px'}}>
+                    <span className={styles.playerName}>{session.token.username}</span>
+                    {leaderboardData.myCountryCode && <CountryFlag countryCode={leaderboardData.myCountryCode} style={{ fontSize: '0.9em' }} />}
+                  </div>
                   <span className={styles.playerScore}>
-                    {useElo ? leaderboardData?.myElo?.toFixed(0) : leaderboardData?.myXp?.toFixed(0)}
+                    {formatScore(useElo ? leaderboardData?.myElo : leaderboardData?.myXp, pastDay)}
                     <span className={styles.scoreType}>{useElo ? 'Elo' : 'XP'}</span>
                   </span>
                 </div>
@@ -156,12 +167,22 @@ const Leaderboard = ({ }) => {
                   </div>
 
                   <div className={styles.playerDetails}>
-                    <span className={styles.username}>{user.username}</span>
+                    <a
+                      href={`${navigate('/user')}?u=${encodeURIComponent(user.username)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={styles.username}
+                      style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', gap: '6px' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {user.username}
+                      {user.countryCode && <CountryFlag countryCode={user.countryCode} style={{ fontSize: '0.9em' }} />}
+                    </a>
                   </div>
 
                   <div className={styles.scoreContainer}>
                     <span className={styles.score}>
-                      {useElo ? user?.elo?.toFixed(0) : user?.totalXp?.toFixed(0)}
+                      {formatScore(useElo ? user?.elo : user?.totalXp, pastDay)}
                     </span>
                     <span className={styles.scoreLabel}>{useElo ? 'Elo' : 'XP'}</span>
                   </div>

@@ -6,12 +6,14 @@ import MapTile from "./mapTile";
 import { backupMapHome } from "../utils/backupMapHome.js";
 import config from "@/clientConfig";
 import { useMapSearch } from "../hooks/useMapSearch";
+import { asset } from '@/lib/basePath';
 
 export default function MapView({
     gameOptions,
     mapModalClosing,
     setGameOptions,
     showOptions,
+    showTimerOption,
     close,
     session,
     text,
@@ -31,9 +33,10 @@ export default function MapView({
     });
     const [heartingMap, setHeartingMap] = useState("");
     const [isLoading, setIsLoading] = useState(true);
+    const [searchLoading, setSearchLoading] = useState(false);
     const [expandedSections, setExpandedSections] = useState({});
 
-    const { handleSearch } = useMapSearch(session, setSearchResults);
+    const { handleSearch } = useMapSearch(session, setSearchResults, setSearchLoading);
 
     useEffect(() => {
         handleSearch(searchTerm);
@@ -59,17 +62,19 @@ export default function MapView({
             setIsLoading(false);
         }, 5000);
 
-        fetch(window.cConfig.apiUrl + "/api/map/mapHome", {
+        const isAnon = !session?.token?.secret;
+        const mapHomeUrl = window.cConfig.apiUrl + "/api/map/mapHome" + (isAnon ? "?anon=true" : "");
+        fetch(mapHomeUrl, isAnon ? {
+            method: "GET",
+        } : {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(
-                session?.token?.secret ? {
-                    secret: session?.token?.secret,
-                    inCG: window.inCrazyGames
-                } : {}
-            ),
+            body: JSON.stringify({
+                secret: session?.token?.secret,
+                inCG: window.inCrazyGames
+            }),
         })
         .then((res) => res.json())
         .then((data) => {
@@ -223,17 +228,15 @@ export default function MapView({
         });
     }
 
-    const hasResults = Object.keys(mapHome)
+    const hasResults = searchResults.length > 0 || Object.keys(mapHome)
         .filter((k) => k !== "message")
         .some((section) => {
-            const mapsArray = section === "recent" && searchResults.length > 0
-                ? searchResults
-                : mapHome[section].filter(
-                    (map) =>
-                        map.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
-                        map.description_short?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
-                        map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
-                );
+            const mapsArray = Array.isArray(mapHome[section]) ? mapHome[section].filter(
+                (map) =>
+                    map.name?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
+                    map.description_short?.toLowerCase().includes(searchTerm?.toLowerCase()) ||
+                    map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
+            ) : [];
             return mapsArray.length > 0;
         });
 
@@ -369,7 +372,7 @@ export default function MapView({
             {/* Game Options */}
             {showOptions && (
                 <div className="map-options">
-                    <div className="map-option">
+                    {/* <div className="map-option">
                         <input
                             type="checkbox"
                             id="nm"
@@ -395,7 +398,46 @@ export default function MapView({
                             onChange={(e) => setGameOptions({ ...gameOptions, showRoadName: e.target.checked })}
                         />
                         <label htmlFor="showRoadName">{text('showRoadName')}</label>
-                    </div>
+
+                    </div> */}
+
+{/* <label>{text('degradedMaps')}</label>
+ */}
+
+    {/*  re enable only NMPZ (basically setGameOptions both nm and npz to e.target.checked) */}
+    <div>
+        <label htmlFor="nmpz">{text('nmpz')}&nbsp;</label>
+        <input id="nmpz"
+        name="nmpz"
+        type="checkbox" checked={gameOptions.nm && gameOptions.npz} onChange={(e) => {
+            setGameOptions({ ...gameOptions, nm: e.target.checked, npz: e.target.checked })
+        }} />
+    </div>
+
+    {showTimerOption && (
+    <div className="map-option-timer">
+        <label htmlFor="enableTimer">{text('enableTimer')}&nbsp;</label>
+        <input id="enableTimer"
+        name="enableTimer"
+        type="checkbox" checked={gameOptions.timePerRound > 0} onChange={(e) => {
+            setGameOptions({ ...gameOptions, timePerRound: e.target.checked ? 30 : 0 })
+        }} />
+        {gameOptions.timePerRound > 0 && (
+            <div className="timer-slider">
+                <input
+                    type="range"
+                    min="10"
+                    max="300"
+                    step="10"
+                    value={gameOptions.timePerRound}
+                    onChange={(e) => setGameOptions({ ...gameOptions, timePerRound: parseInt(e.target.value) })}
+                />
+                <span className="timer-slider-value">{gameOptions.timePerRound}s</span>
+            </div>
+        )}
+    </div>
+    )}
+
                 </div>
             )}
 
@@ -416,7 +458,7 @@ export default function MapView({
                       (text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase()))) && (
                         <div className="all-countries-tile">
                             <MapTile
-                            bgImage={"url(\"/world.jpg\")"}
+                            bgImage={`url("${asset('/world.jpg')}")`}
                             forcedWidth="300px"
                                 map={{ name: text("allCountries"), slug: "all" }}
                                 onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}
@@ -427,13 +469,20 @@ export default function MapView({
 
                     {/* Map Sections */}
                     {hasResults ? (
-                        Object.keys(mapHome)
-                            .filter((k) => k !== "message")
-                            .filter((k) => !process.env.NEXT_PUBLIC_COOLMATH || k !== "recent")
+                        // Ensure we have sections to iterate, and include "recent" if we have search results
+                        (() => {
+                            const sections = Object.keys(mapHome).filter((k) => k !== "message");
+                            // Add "recent" if not present but we have search results
+                            if (searchResults.length > 0 && !sections.includes("recent")) {
+                                sections.push("recent");
+                            }
+                            return sections;
+                        })()
+                            .filter((k) => (!process.env.NEXT_PUBLIC_COOLMATH) || k !== "recent")
                             .map((section, si) => {
                                 const mapsArray = section === "recent" && searchResults.length > 0
                                     ? searchResults
-                                    : mapHome[section].filter((map) =>
+                                    : (Array.isArray(mapHome[section]) ? mapHome[section] : []).filter((map) =>
                                         map.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                         map.description_short?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                         map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
@@ -516,6 +565,11 @@ export default function MapView({
                                     </div>
                                 );
                             })
+                    ) : searchLoading ? (
+                        <div className="maps-loading">
+                            <div className="maps-loading-spinner"></div>
+                            <div className="maps-loading-text">{text("loading")}...</div>
+                        </div>
                     ) : (
                         <div className="no-results">
                             <FaMapMarkedAlt className="no-results-icon" />

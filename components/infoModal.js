@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
+import { asset } from '@/lib/basePath';
 
 export default function InfoModal({ shown, onClose }) {
     const { t: text } = useTranslation("common");
@@ -70,7 +71,7 @@ export default function InfoModal({ shown, onClose }) {
                         </p>
 
                         <img
-                            src="/tutorial1.png"
+                            src={asset("/tutorial1.png")}
                             alt="Tutorial 1"
                             style={{
                                 maxWidth: '100%',
@@ -137,7 +138,7 @@ export default function InfoModal({ shown, onClose }) {
                         </p>
 
                         <img
-                            src="/tutorial2.png"
+                            src={asset("/tutorial2.png")}
                             alt="Tutorial 2"
                             style={{
                                 maxWidth: '100%',

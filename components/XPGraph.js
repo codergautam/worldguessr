@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from '@/components/useTranslations';
+import config from '@/clientConfig';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -27,33 +28,61 @@ ChartJS.register(
     TimeScale
 );
 
-export default function XPGraph({ session, mode = 'xp' }) {
+// Cache for user progression data to avoid refetching on tab switches
+const progressionCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+export default function XPGraph({ session, mode = 'xp', isPublic = false, username = null }) {
     const { t: text } = useTranslation("common");
     const [userStats, setUserStats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [viewMode, setViewMode] = useState(mode === 'xp' ? 'xp' : 'elo'); // 'xp'/'rank' or 'elo'/'eloRank'
-    const [dateFilter, setDateFilter] = useState('7days'); // '7days', '30days', 'alltime', 'custom'
+    const [dateFilter, setDateFilter] = useState('alltime'); // '7days', '30days', 'alltime', 'custom'
     const [customStartDate, setCustomStartDate] = useState('');
     const [customEndDate, setCustomEndDate] = useState('');
     const [chartData, setChartData] = useState(null);
 
     const fetchUserProgression = async () => {
-        if (!session?.token?.accountId || !window.cConfig?.apiUrl) return;
+        // For public profiles, use username; for private, use session accountId
+        const hasRequiredData = isPublic ? (username && (window.cConfig?.apiUrl || config()?.apiUrl)) : (session?.token?.accountId && (window.cConfig?.apiUrl || config()?.apiUrl));
+        if (!hasRequiredData) return;
+
+        // Create cache key
+        const cacheKey = isPublic ? `public_${username}` : `private_${session.token.accountId}`;
+        
+        // Check cache first
+        const cached = progressionCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            setUserStats(cached.data.progression);
+            calculateGraphData(cached.data.progression);
+            setLoading(false);
+            return;
+        }
 
         setLoading(true);
         try {
-            const response = await fetch(window.cConfig.apiUrl + '/api/userProgression', {
+            const requestBody = isPublic
+                ? { username: username }
+                : { userId: session.token.accountId };
+
+            const apiUrl = window.cConfig?.apiUrl || config()?.apiUrl;
+            const response = await fetch(apiUrl + '/api/userProgression', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    userId: session.token.accountId
-                }),
+                body: JSON.stringify(requestBody),
             });
 
             if (response.ok) {
                 const data = await response.json();
+                
+                // Cache the response
+                progressionCache.set(cacheKey, {
+                    data: data,
+                    timestamp: Date.now()
+                });
+                
                 setUserStats(data.progression);
                 calculateGraphData(data.progression);
             } else {
@@ -74,7 +103,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
         // Filter stats based on date filter
         const now = new Date();
 
-        const filteredStats = stats.filter((stat) => {
+        let filteredStats = stats.filter((stat) => {
             if (dateFilter === 'alltime') return true;
 
             const statDate = new Date(stat.timestamp);
@@ -94,6 +123,11 @@ export default function XPGraph({ session, mode = 'xp' }) {
             if (dateFilter === '30days') return daysDiff <= 30;
             return true;
         });
+
+        // If no entries in selected timeframe, use the most recent entry
+        if (filteredStats.length === 0 && stats.length > 0) {
+            filteredStats = [stats[stats.length - 1]];
+        }
 
 
         filteredStats.forEach((stat, index) => {
@@ -308,7 +342,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
     useEffect(() => {
         fetchUserProgression();
-    }, [session?.token?.accountId]);
+    }, [session?.token?.accountId, username, isPublic]);
 
     const chartOptions = {
         responsive: true,
@@ -456,7 +490,8 @@ export default function XPGraph({ session, mode = 'xp' }) {
             <div style={graphStyle}>
                 <div style={{ textAlign: 'center', color: '#fff' }}>
                     <h3>{text('noStatsAvailable')}</h3>
-                    <p>{text('playGamesToSeeProgression')}</p>
+                    { !isPublic && 
+                    <p>{text('playGamesToSeeProgression')}</p> }
                 </div>
             </div>
         );
@@ -582,7 +617,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
 
             <div className="chart-stats">
                 <span className="data-points">{text('dataPoints', { count: chartData?.datasets[0]?.data?.length || 0 })}</span>
-                <span className="current-value">
+                {/* <span className="current-value">
                     {mode === 'xp' ?
                         (viewMode === 'xp'
                             ? `${text('currentXP')}: ${getCurrentValue().toLocaleString()}`
@@ -593,7 +628,7 @@ export default function XPGraph({ session, mode = 'xp' }) {
                             : `${text('currentRank')}: #${getCurrentValue()}`
                         )
                     }
-                </span>
+                </span> */}
             </div>
 
             <style jsx>{`
