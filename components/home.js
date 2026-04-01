@@ -735,7 +735,7 @@ export default function Home({ }) {
         const onboardingLocations = [
             { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR", "IN"] },
             { lat: 40.7578892, long: -73.9856608, country: "US", otherOptions: ["GB", "JP", "AU"] },
-            { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES", "DE"] },
+            { lat: 48.8583601, long: 2.2915727, country: "FR", otherOptions: ["IT", "ES", "DE"] },
         ]
 
         setOnboarding({
@@ -2277,7 +2277,7 @@ export default function Home({ }) {
                 // Pick 3 random wrong countries from countries list
                 const distractors = [];
                 const available = countries.filter(c => c !== loc.country);
-                while (distractors.length < 3) {
+                while (distractors.length < 5) {
                     const pick = available[Math.floor(Math.random() * available.length)];
                     if (!distractors.includes(pick)) distractors.push(pick);
                 }
@@ -2414,7 +2414,7 @@ export default function Home({ }) {
         } else {
             const distractors = [];
             const available = countries.filter(c => c !== correctCountry);
-            while (distractors.length < 3) {
+            while (distractors.length < 5) {
                 const pick = available[Math.floor(Math.random() * available.length)];
                 if (!distractors.includes(pick)) distractors.push(pick);
             }

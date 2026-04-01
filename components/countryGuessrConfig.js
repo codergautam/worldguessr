@@ -13,53 +13,56 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
     { id: "Africa", label: "Africa", emoji: "🌍" },
     { id: "Asia", label: "Asia", emoji: "🌏" },
     { id: "Europe", label: "Europe", emoji: "🌍" },
-    { id: "North America", label: "North America", emoji: "🌎" },
-    { id: "South America", label: "South America", emoji: "🌎" },
+    { id: "North America", label: "N. America", emoji: "🌎" },
+    { id: "South America", label: "S. America", emoji: "🌎" },
     { id: "Oceania", label: "Oceania", emoji: "🌏" },
   ];
 
   const showWarning = subMode === "continent" && region !== "all";
 
   return (
-    <div className="countryGuessr-config">
-      <div className="countryGuessr-config__inner" style={{
-        background: `linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 30, 15, 0.6) 100%), url("${asset('/street2.webp')}")`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}>
-        <h1 className="countryGuessr-config__title">{text("countryGuesser")}</h1>
+    <div className="countryGuessr-config" style={{
+      backgroundImage: `url("${asset('/street2.webp')}")`,
+    }}>
+      <div className="countryGuessr-config__sidebar">
+        <h1 className="home__title g2_nav_title">{text("countryGuesser")}</h1>
 
-        <p className="countryGuessr-config__subtitle">{text("pickChallenge")}</p>
+        <div className="g2_nav_hr" />
 
-        <div className="countryGuessr-config__modes">
+        <div className="g2_nav_group">
           <button
-            className={`countryGuessr-config__mode-btn ${subMode === "country" ? "active" : ""}`}
+            className={`g2_nav_text ${subMode === "country" ? "countryGuessr-config--selected" : ""}`}
             onClick={() => setSubMode("country")}
           >
-            <strong>🏳️ {text("countryGuesser")}</strong>
-            <span>{text("countryGuessrDesc")}</span>
+            {text("countryGuesser")}
           </button>
           <button
-            className={`countryGuessr-config__mode-btn ${subMode === "continent" ? "active" : ""}`}
+            className={`g2_nav_text ${subMode === "continent" ? "countryGuessr-config--selected" : ""}`}
             onClick={() => setSubMode("continent")}
           >
-            <strong>🌎 {text("continentGuesser")}</strong>
-            <span>{text("continentGuessrDesc")}</span>
+            {text("continentGuesser")}
           </button>
         </div>
 
-        <div className="countryGuessr-config__divider" />
+        <div className="g2_nav_hr" />
 
-        <p className="countryGuessr-config__subtitle">{text("regionFilter")}</p>
+        <button className="g2_nav_text countryGuessr-config__back" onClick={onBack}>
+          ← {text("back")}
+        </button>
+      </div>
+
+      <div className="countryGuessr-config__content">
+        <h2 className="countryGuessr-config__heading">{text("regionFilter")}</h2>
 
         <div className="countryGuessr-config__regions">
           {REGIONS.map((r) => (
             <button
               key={r.id}
-              className={`countryGuessr-config__region-chip ${region === r.id ? "active" : ""}`}
+              className={`countryGuessr-config__region-btn ${region === r.id ? "active" : ""}`}
               onClick={() => setRegion(r.id)}
             >
-              {r.emoji} {r.label}
+              <span className="countryGuessr-config__region-emoji">{r.emoji}</span>
+              <span>{r.label}</span>
             </button>
           ))}
         </div>
@@ -70,15 +73,14 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
           </p>
         )}
 
-        <button className="g2_green_button countryGuessr-config__play-btn" onClick={() => {
-          sendEvent("casual_mode_configured", { challenge: subMode, region });
-          onStart({ subMode, region });
-        }}>
+        <button
+          className="gameBtn g2_green_button countryGuessr-config__play-btn"
+          onClick={() => {
+            sendEvent("casual_mode_configured", { challenge: subMode, region });
+            onStart({ subMode, region });
+          }}
+        >
           {text("play")}
-        </button>
-
-        <button className="countryGuessr-config__back-btn" onClick={onBack}>
-          ← {text("back")}
         </button>
       </div>
     </div>
