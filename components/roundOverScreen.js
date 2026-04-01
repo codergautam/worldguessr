@@ -12,6 +12,8 @@ import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
 import UsernameWithFlag from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
+import generateShareText from './utils/generateShareText';
+import sendEvent from './utils/sendEvent';
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -101,6 +103,25 @@ const GameSummary = ({
   const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
   const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
+  const [shareText, setShareText] = useState("Share Results");
+
+  function handleShareResults() {
+    const text = generateShareText({
+      rounds: finalHistory || history || [],
+      totalPoints: points,
+      maxPoints: maxPoints,
+      mode: "classic",
+    });
+    if (typeof navigator !== 'undefined' && navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
+      navigator.share({ text }).catch(() => {});
+    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        setShareText("Copied!");
+        setTimeout(() => setShareText("Share Results"), 2000);
+      }).catch(() => {});
+    }
+    sendEvent("results_shared", { score: points });
+  }
 
   // Initialize Leaflet icons from shared cache (icons created once globally)
   useEffect(() => {
@@ -1571,6 +1592,11 @@ const GameSummary = ({
             <button className="action-btn secondary" onClick={button2Press}>
                 {button2Text || 'Close'}
             </button>
+            )}
+            {!duel && !hidden && (
+              <button className="action-btn secondary" onClick={handleShareResults}>
+                {shareText}
+              </button>
             )}
           </div>
         </div>

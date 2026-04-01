@@ -27,6 +27,10 @@ import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
+import WelcomeOverlay from "@/components/welcomeOverlay";
+import CountryGuessrConfig from "@/components/countryGuessrConfig";
+import PostTutorialScreen from "@/components/postTutorialScreen";
+import { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
@@ -110,6 +114,7 @@ export default function Home({ }) {
     }, [])
     const [hintShown, setHintShown] = useState(false)
     const [countryStreak, setCountryStreak] = useState(0)
+    const [cgStreak, setCgStreak] = useState(0)
     const [settingsModal, setSettingsModal] = useState(false)
     const [mapModal, setMapModal] = useState(false)
     const [friendsModal, setFriendsModal] = useState(false)
@@ -539,6 +544,9 @@ export default function Home({ }) {
     const [otherOptions, setOtherOptions] = useState([]); // for country guesser
     const [showCountryButtons, setShowCountryButtons] = useState(true);
     const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
+    const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
+    const [onboardingMode, setOnboardingMode] = useState("classic");
+    const [countryGuessrMode, setCountryGuessrMode] = useState({ subMode: "country", region: "all" });
 
     const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
     const [showDiscordModal, setShowDiscordModal] = useState(false);
@@ -692,19 +700,21 @@ export default function Home({ }) {
     }, [])
 
     useEffect(() => {
-        if (screen === "singleplayer") {
-            // start the single player game
+        if (screen === "singleplayer" || screen === "countryGuesser") {
             setSinglePlayerRound({
                 round: 1,
                 totalRounds: 5,
                 locations: [],
             })
+            if (screen === "countryGuesser") {
+                setShowCountryButtons(true);
+            }
         }
     }, [screen])
 
     const [allLocsArray, setAllLocsArray] = useState([]);
 
-    function startOnboarding() {
+    function startOnboarding(mode = "classic") {
 
         if (inCrazyGames) {
             // make sure its not an invite link
@@ -722,38 +732,21 @@ export default function Home({ }) {
 
         setScreen("onboarding")
 
-        let onboardingLocations = [
-            { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
-            { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
-            { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
-            { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
-            // pyramid of giza 29.9773337,31.1321796
-            { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
-            // eiffel tower 48.8592946,2.2927855
-            { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
-            // statue of liberty 40.6909253,-74.0552998
-            { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
-            // brandenburg gate 52.5161999,13.3756414
-            { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
-
+        // 3 universally recognizable locations for the tutorial
+        const onboardingLocations = [
+            { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR", "IN"] },
+            { lat: 40.7578892, long: -73.9856608, country: "US", otherOptions: ["GB", "JP", "AU"] },
+            { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES", "DE"] },
         ]
-
-        // pick 5 random locations no repeats
-        const locations = [];
-        while (locations.length < 5) {
-            const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
-            if (!locations.find((l) => l.country === loc.country)) {
-                locations.push(loc)
-            }
-        }
 
         setOnboarding({
             round: 1,
-            locations: locations,
+            locations: onboardingLocations,
             startTime: Date.now(),
+            mode: mode,
         })
-        sendEvent("tutorial_begin")
-        setShowCountryButtons(false)
+        sendEvent("tutorial_begin", { mode })
+        setShowCountryButtons(mode !== "classic")
     }
     function openMap(mapSlug) {
         const country = countries.find((c) => c === mapSlug.toUpperCase());
@@ -795,7 +788,7 @@ export default function Home({ }) {
 
     useEffect(() => {
         if (onboarding?.round > 1) {
-            loadLocation()
+            loadLocation({ keepAnswer: !!window._cgKeepAnswer })
         }
     }, [onboarding?.round])
 
@@ -963,6 +956,12 @@ export default function Home({ }) {
             if (onboardingCompleted === null) return;
             if (!loading) {
 
+                // Start onboarding immediately so street view preloads, then show modal on top
+                if (!inCrazyGames) {
+                    startOnboarding("classic");
+                    setWelcomeOverlayShown(true);
+                    return;
+                }
 
                 // const isPPC = window.location.search.includes("cpc=true");
                 if (inIframe() && window.adBreak && !inCrazyGames) {
@@ -1446,7 +1445,7 @@ export default function Home({ }) {
     useEffect(() => {
         if (inCrazyGames || window.poki) {
             // Determine if actual gameplay is happening
-            const isInGameplay = (screen === "singleplayer" && singlePlayerRound && !singlePlayerRound.done) ||
+            const isInGameplay = ((screen === "singleplayer" || screen === "countryGuesser") && singlePlayerRound && !singlePlayerRound.done) ||
                 (screen === "onboarding" && onboarding && !onboarding.completed) ||
                 (multiplayerState?.inGame && multiplayerState?.gameData?.state === "guess");
 
@@ -2051,10 +2050,14 @@ export default function Home({ }) {
                 if (!isNaN(parsedStreak)) {
                     setCountryStreak(parsedStreak)
                 } else {
-                    console.log("streak is not a number", streak)
                     setCountryStreak(0)
                     gameStorage.setItem("countryStreak", 0)
                 }
+            }
+            const cgs = gameStorage.getItem("cgStreak");
+            if (cgs) {
+                const parsed = parseInt(cgs);
+                if (!isNaN(parsed)) setCgStreak(parsed);
             }
 
             // preload/cache pin images (kept alive in window.__pinImageCache)
@@ -2249,23 +2252,37 @@ export default function Home({ }) {
         setHintShown(false)
     }
 
-    function loadLocation() {
+    function loadLocation({ keepAnswer } = {}) {
         if (loading) return;
         console.log("[PERF] ========== Starting new round ==========");
         window.roundStartTime = performance.now();
         setLoading(true)
-        setShowAnswer(false)
+        if (!keepAnswer) setShowAnswer(false)
         setPinPoint(null)
-        setLatLong(null)
+        if (!keepAnswer) setLatLong(null)
         setHintShown(false)
 
         if (screen === "onboarding") {
-            setLatLong(onboarding.locations[onboarding.round - 1]);
-            let options = JSON.parse(JSON.stringify(onboarding.locations[onboarding.round - 1].otherOptions));
-            options.push(onboarding.locations[onboarding.round - 1].country)
-            // shuffle
-            options = shuffle(options)
-            setOtherOptions(options)
+            const loc = onboarding.locations[onboarding.round - 1];
+            setLatLong(loc);
+            const mode = onboarding.mode || "classic";
+            if (mode === "continent") {
+                const { ALL_CONTINENTS } = require("@/components/utils/continentFromCode");
+                setOtherOptions([...ALL_CONTINENTS]);
+            } else if (mode === "country") {
+                // Pick 3 random wrong countries from countries list
+                const distractors = [];
+                const available = countries.filter(c => c !== loc.country);
+                while (distractors.length < 3) {
+                    const pick = available[Math.floor(Math.random() * available.length)];
+                    if (!distractors.includes(pick)) distractors.push(pick);
+                }
+                setOtherOptions(shuffle([...distractors, loc.country]));
+            } else {
+                let options = JSON.parse(JSON.stringify(loc.otherOptions));
+                options.push(loc.country);
+                setOtherOptions(shuffle(options));
+            }
         } else {
             async function defaultMethod() {
                 console.log("[PERF] loadLocation: Calling findLatLongRandom (dynamic import)");
@@ -2350,7 +2367,10 @@ export default function Home({ }) {
                         defaultMethod()
                     }
                 }).catch(() => {
+                    if (!window._sentMapLoadErrorToast) {
                     toast(text("errorLoadingMap"), { type: 'error' })
+                    window._sentMapLoadErrorToast = true;
+                    }
                     defaultMethod()
                 });
             }
@@ -2380,6 +2400,24 @@ export default function Home({ }) {
         }
 
     }
+
+    // Generate country/continent options when location changes in country guesser mode
+    useEffect(() => {
+        if (screen !== "countryGuesser" || !latLong || !latLong.lat) return;
+        const correctCountry = latLong.country || "??";
+        if (countryGuessrMode.subMode === "continent") {
+            setOtherOptions([...ALL_CONTINENTS]);
+        } else {
+            const distractors = [];
+            const available = countries.filter(c => c !== correctCountry);
+            while (distractors.length < 3) {
+                const pick = available[Math.floor(Math.random() * available.length)];
+                if (!distractors.includes(pick)) distractors.push(pick);
+            }
+            setOtherOptions(shuffle([...distractors, correctCountry]));
+        }
+        setShowCountryButtons(true);
+    }, [latLong, screen]);
 
     function onNavbarLogoPress() {
         if (screen === "onboarding") return;
@@ -2492,6 +2530,29 @@ export default function Home({ }) {
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
+
+            {welcomeOverlayShown && screen === "onboarding" && (
+                <WelcomeOverlay
+                    onModeSelected={(mode) => {
+                        setOnboardingMode(mode);
+                        try { gameStorage.setItem("onboarding_seen", "true"); } catch(e) {}
+                        // Update the running onboarding with the chosen mode
+                        setOnboarding((prev) => prev ? { ...prev, mode } : prev);
+                        setShowCountryButtons(mode !== "classic");
+                        setWelcomeOverlayShown(false);
+                    }}
+                    onSkip={() => {
+                        try {
+                            gameStorage.setItem("onboarding_seen", "true");
+                            gameStorage.setItem("onboarding", "done");
+                        } catch(e) {}
+                        setWelcomeOverlayShown(false);
+                        setOnboarding(null);
+                        setOnboardingCompleted(true);
+                        setScreen("home");
+                    }}
+                />
+            )}
 
             {coolmathSplash && (
                 // black background
@@ -2804,7 +2865,17 @@ export default function Home({ }) {
                                                             setNavSlideOut(false); // Reset for next use
                                                         }, 300);
                                                     }}>
-                                                    {text("singleplayer")}
+                                                    {text("classic") || text("singleplayer")}
+                                                </button>
+                                                <button className="g2_nav_text" onClick={() => {
+                                                        if (loading) return;
+                                                        setNavSlideOut(true);
+                                                        setTimeout(() => {
+                                                            setScreen("countryGuessrConfig");
+                                                            setNavSlideOut(false);
+                                                        }, 300);
+                                                    }}>
+                                                    {text("countryGuesser") || "Country Guesser"}
                                                 </button>
                                                 {/* <span className="bigSpan">{text("playOnline")}</span> */}
 
@@ -3001,6 +3072,16 @@ export default function Home({ }) {
 
 
 
+                {screen === "countryGuessrConfig" && (
+                    <CountryGuessrConfig
+                        onStart={(config) => {
+                            setCountryGuessrMode(config);
+                            setScreen("countryGuesser");
+                        }}
+                        onBack={() => setScreen("home")}
+                    />
+                )}
+
                 {screen === "singleplayer" && <div className="home__singleplayer">
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
@@ -3009,42 +3090,77 @@ export default function Home({ }) {
                         singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
+                {screen === "countryGuesser" && <div className="home__singleplayer">
+                    <GameUI
+                        inCoolMathGames={inCoolMathGames}
+                        inGameDistribution={inGameDistribution}
+                        miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
+                        singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                </div>}
+
                 {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && <div className="home__onboarding">
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                        welcomeOverlayShown={welcomeOverlayShown}
+                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding?.mode && onboarding.mode !== "classic"} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
                     <div className="home__onboarding__completed">
-                        <OnboardingText words={[
-                            text("onboarding1")
-                        ]} pageDone={() => {
-                            try {
-                                gameStorage.setItem("onboarding", 'done')
-                            } catch (e) { }
-                            setOnboarding((prev) => {
-                                return {
-                                    ...prev,
-                                    finalOnboardingShown: true
-                                }
-                            })
-                        }} shown={!onboarding?.finalOnboardingShown} />
-                        <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} history={onboarding.locations || []} options={options} button1Press={() => {
-                            if (onboarding) {
+                        <PostTutorialScreen
+                            mode={onboarding.mode || "classic"}
+                            session={session}
+                            showExploreMaps={!inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION}
+                            onKeepPlaying={() => {
                                 sendEvent("tutorial_end");
-                                try {
-                                    gameStorage.setItem("onboarding", 'done')
-                                } catch (e) { }
-                            }
-
-                            setOnboarding(null)
-                            if (!window.location.search.includes("app=true") && !inCrazyGames && !inCoolMathGames && !inGameDistribution) {
-                                setShowSuggestLoginModal(true)
-                            }
-                            setScreen("home")
+                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setOnboarding(null);
+                                setOnboardingCompleted(true);
+                                const m = onboarding.mode || "classic";
+                                if (m === "classic") {
+                                    setScreen("singleplayer");
+                                } else {
+                                    setCountryGuessrMode({ subMode: m, region: "all" });
+                                    setScreen("countryGuesser");
+                                }
+                            }}
+                            onTryOtherMode={(newMode) => {
+                                sendEvent("tutorial_end");
+                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setOnboarding(null);
+                                setOnboardingCompleted(true);
+                                if (newMode === "classic") {
+                                    setScreen("singleplayer");
+                                } else {
+                                    setCountryGuessrMode({ subMode: newMode, region: "all" });
+                                    setScreen("countryGuesser");
+                                }
+                            }}
+                            onExploreMaps={() => {
+                                sendEvent("tutorial_end");
+                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setOnboarding(null);
+                                setOnboardingCompleted(true);
+                                setScreen("home");
+                                setMapModal(true);
+                            }}
+                            onSignIn={() => {
+                                sendEvent("tutorial_end");
+                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setOnboarding(null);
+                                setOnboardingCompleted(true);
+                                setScreen("home");
+                                if (login) login();
+                            }}
+                        />
+                        <RoundOverScreen points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={onboarding.mode === "classic" ? 15000 : 3000} history={onboarding.locations || []} options={options} button1Text={text("home")} button1Press={() => {
+                            sendEvent("tutorial_end");
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            setScreen("home");
                         }} />
                     </div>
                 </div>

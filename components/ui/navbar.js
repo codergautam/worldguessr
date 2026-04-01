@@ -44,7 +44,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 <WsIcon
                     connected={multiplayerState?.connected}
                     connecting={multiplayerState?.connecting}
-                    shown={true}
+                    shown={screen !== 'onboarding'}
                     onClick={!multiplayerState?.connected ? onConnectionError : undefined}
                 />
 

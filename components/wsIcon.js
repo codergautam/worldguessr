@@ -141,7 +141,7 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
         onClick={onClick}
         style={{
           position: 'fixed',
-          top: '100px',
+          top: '125px',
           right: isSliding ? '-85px' : (isSlideIn ? '-85px' : '15px'),
           zIndex: 10000,
           width: '50px',

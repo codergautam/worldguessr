@@ -116,13 +116,22 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
   }, [gameOptions?.extent ? JSON.stringify(gameOptions.extent) : null, map, answerShown]);
 
   useEffect(() => {
+    if (!answerShown || !dest) return;
     if (pinPoint) {
       setTimeout(() => {
         try {
-        const bounds = L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5);
-        map.flyToBounds(bounds, { duration: 0.5 });
+          const bounds = L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5);
+          map.flyToBounds(bounds, { duration: 0.5 });
         } catch(e) {}
       }, 300);
+    } else {
+      // Country/continent guesser: start zoomed out, then fly in smoothly
+      try { map.setView([20, 0], 2, { animate: false }); } catch(e) {}
+      setTimeout(() => {
+        try {
+          map.flyTo([dest.lat, dest.long], 5, { duration: 1.8 });
+        } catch(e) {}
+      }, 200);
     }
   }, [answerShown]);
 
