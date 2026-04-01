@@ -1,7 +1,6 @@
 /* Duel-specific styles for RoundOverScreen*/
 
 :root {
-
   /* Duel Specific Colors */
   --color-overlay-duel: rgba(0, 0, 0, 0.9);
   --color-round-bg: rgba(255, 255, 255, 0.1);
@@ -9,10 +8,17 @@
   --color-danger: #ff6b6b;   /* Health Damage */
   --color-success: #4CAF50;  /* Final Score */
   --color-gold: #ffd700;     /* Rank */
-  
+  --color-light-text: #ccc;
+  --color-dark-text: #fff;
+
   /* Duel Specific Spacing */
   --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;       /* NEW */
+  --spacing-md: 1rem;         /* NEW */
   --spacing-round-padding: 1rem;
+
+  /* Border Radius */
+  --radius-sm: 8px;           /* NEW */
 
   /* Font Sizes */
   --font-size-title: 2.5rem;
