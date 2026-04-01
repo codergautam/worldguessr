@@ -29,7 +29,6 @@ import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
 import WelcomeOverlay from "@/components/welcomeOverlay";
 import CountryGuessrConfig from "@/components/countryGuessrConfig";
-import PostTutorialScreen from "@/components/postTutorialScreen";
 import { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
@@ -3116,60 +3115,6 @@ export default function Home({ }) {
 
                 {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
                     <div className="home__onboarding__completed">
-                        <PostTutorialScreen
-                            mode={onboarding.mode || "classic"}
-                            session={session}
-                            showExploreMaps={!inCoolMathGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION}
-                            onKeepPlaying={() => {
-                                sendEvent("tutorial_end");
-                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
-                                setLatLong(null);
-                                setShowAnswer(false);
-                                setOnboarding(null);
-                                setOnboardingCompleted(true);
-                                const m = onboarding.mode || "classic";
-                                if (m === "classic") {
-                                    setScreen("singleplayer");
-                                } else {
-                                    setCountryGuessrMode({ subMode: m, region: "all" });
-                                    setScreen("countryGuesser");
-                                }
-                            }}
-                            onTryOtherMode={(newMode) => {
-                                sendEvent("tutorial_end");
-                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
-                                setLatLong(null);
-                                setShowAnswer(false);
-                                setOnboarding(null);
-                                setOnboardingCompleted(true);
-                                if (newMode === "classic") {
-                                    setScreen("singleplayer");
-                                } else {
-                                    setCountryGuessrMode({ subMode: newMode, region: "all" });
-                                    setScreen("countryGuesser");
-                                }
-                            }}
-                            onExploreMaps={() => {
-                                sendEvent("tutorial_end");
-                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
-                                setLatLong(null);
-                                setShowAnswer(false);
-                                setOnboarding(null);
-                                setOnboardingCompleted(true);
-                                setScreen("home");
-                                setMapModal(true);
-                            }}
-                            onSignIn={() => {
-                                sendEvent("tutorial_end");
-                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
-                                setLatLong(null);
-                                setShowAnswer(false);
-                                setOnboarding(null);
-                                setOnboardingCompleted(true);
-                                setScreen("home");
-                                if (login) login();
-                            }}
-                        />
                         <RoundOverScreen points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={onboarding.mode === "classic" ? 15000 : 3000} history={onboarding.locations || []} options={options} button1Text={text("home")} button1Press={() => {
                             sendEvent("tutorial_end");
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
