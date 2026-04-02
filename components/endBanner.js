@@ -48,11 +48,13 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         return () => clearTimeout(timer);
     }, [guessed, points, panoShown]);
 
-    // Auto-advance for onboarding
+    // Auto-advance for onboarding (shorter on last round to keep flow snappy)
+    const isOnboardingLastRound = onboarding && onboarding.round === (onboarding.locations?.length || 3);
     useEffect(() => {
         if (guessed && onboarding && !onboarding.completed) {
-            setAutoAdvanceCountdown(10);
-            let count = 10;
+            const duration = isOnboardingLastRound ? 4 : 10;
+            setAutoAdvanceCountdown(duration);
+            let count = duration;
             const interval = setInterval(() => {
                 count--;
                 setAutoAdvanceCountdown(count);
@@ -149,12 +151,12 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
             {!multiplayerState && (
                 <div className="endButtonContainer">
                     {onboarding && !onboarding.completed ? (
-                        <button className="playAgain" onClick={() => {
+                        <button className={`playAgain${isLastRound ? ' lastRoundPulse' : ''}`} onClick={() => {
                             if (autoAdvanceTimer.current) clearInterval(autoAdvanceTimer.current);
                             setHiding(true);
                             fullReset();
                         }}>
-                            {isLastRound ? text("viewResults") : `${text("nextRound")}${autoAdvanceCountdown != null ? ` (${autoAdvanceCountdown})` : ''}`}
+                            {`${isLastRound ? text("viewResults") : text("nextRound")}${autoAdvanceCountdown != null ? ` (${autoAdvanceCountdown})` : ''}`}
                         </button>
                     ) : (
                         <button className="playAgain" onClick={() => { setHiding(true); fullReset(); }}>

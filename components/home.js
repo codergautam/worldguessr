@@ -3115,15 +3115,30 @@ export default function Home({ }) {
 
                 {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
                     <div className="home__onboarding__completed">
-                        <RoundOverScreen points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={onboarding.mode === "classic" ? 15000 : 3000} history={onboarding.locations || []} options={options} button1Text={text("home")} button1Press={() => {
-                            sendEvent("tutorial_end");
-                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
-                            setLatLong(null);
-                            setShowAnswer(false);
-                            setOnboarding(null);
-                            setOnboardingCompleted(true);
-                            setScreen("home");
-                        }} />
+                        <RoundOverScreen points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={onboarding.mode === "classic" ? 15000 : 3000} history={onboarding.locations || []} options={options}
+                            button1Text={text("playNow")}
+                            button1Press={() => {
+                                sendEvent("tutorial_end");
+                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setShowAnswer(false);
+                                setOnboarding(null);
+                                setOnboardingCompleted(true);
+                                setMiniMapShown(false);
+                                setLatLong(null);
+                                loadLocation();
+                                setScreen("singleplayer");
+                            }}
+                            button2Text={text("home")}
+                            button2Press={() => {
+                                sendEvent("tutorial_end");
+                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setLatLong(null);
+                                setShowAnswer(false);
+                                setOnboarding(null);
+                                setOnboardingCompleted(true);
+                                setScreen("home");
+                            }}
+                        />
                     </div>
                 </div>
                 }

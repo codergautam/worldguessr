@@ -2358,6 +2358,18 @@ h1, h2, h3, span, label {
     }
 }
 
+/* Pulsing glow on last onboarding round to draw attention to View Results */
+.lastRoundPulse {
+    animation: lastRoundPulse 1.5s ease-in-out infinite !important;
+    font-size: 1.1em !important;
+    padding: 12px 28px !important;
+}
+
+@keyframes lastRoundPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(36, 87, 52, 0.7); }
+    50% { box-shadow: 0 0 16px 6px rgba(36, 87, 52, 0.4); }
+}
+
 .mainBannerTxt {
     font-size: 1.2em;
     font-weight: 500;
@@ -4175,8 +4187,8 @@ img[alt="Google"] {
     }
 
     .endButtonContainer button {
-        padding: 2px 4px !important;
-        font-size: 0.5em !important;
+        padding: 4px 10px !important;
+        font-size: 0.65em !important;
     }
 
     /* Home page navigation separators constraint */
