@@ -3113,37 +3113,38 @@ export default function Home({ }) {
                         inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding?.mode && onboarding.mode !== "classic"} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
-                {screen === "onboarding" && onboarding &&
-                    <RoundOverScreen
-                        hidden={!onboarding.completed}
-                        points={onboarding.points || 0}
-                        time={msToTime(onboarding.timeTaken || 0)}
-                        maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
-                        history={onboarding.locations || []}
-                        options={options}
-                        button1Text={text("playNow")}
-                        button1Press={() => {
-                            sendEvent("tutorial_end");
-                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
-                            setShowAnswer(false);
-                            setOnboarding(null);
-                            setOnboardingCompleted(true);
-                            setMiniMapShown(false);
-                            setLatLong(null);
-                            loadLocation();
-                            setScreen("singleplayer");
-                        }}
-                        button2Text={text("home")}
-                        button2Press={() => {
-                            sendEvent("tutorial_end");
-                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
-                            setLatLong(null);
-                            setShowAnswer(false);
-                            setOnboarding(null);
-                            setOnboardingCompleted(true);
-                            setScreen("home");
-                        }}
-                    />
+                {screen === "onboarding" && onboarding?.completed &&
+                    <div className="onboarding-results-reveal">
+                        <RoundOverScreen
+                            points={onboarding.points}
+                            time={msToTime(onboarding.timeTaken)}
+                            maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
+                            history={onboarding.locations || []}
+                            options={options}
+                            button1Text={text("playNow")}
+                            button1Press={() => {
+                                sendEvent("tutorial_end");
+                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setShowAnswer(false);
+                                setOnboarding(null);
+                                setOnboardingCompleted(true);
+                                setMiniMapShown(false);
+                                setLatLong(null);
+                                loadLocation();
+                                setScreen("singleplayer");
+                            }}
+                            button2Text={text("home")}
+                            button2Press={() => {
+                                sendEvent("tutorial_end");
+                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                                setLatLong(null);
+                                setShowAnswer(false);
+                                setOnboarding(null);
+                                setOnboardingCompleted(true);
+                                setScreen("home");
+                            }}
+                        />
+                    </div>
                 }
 
                 <RoundOverScreen

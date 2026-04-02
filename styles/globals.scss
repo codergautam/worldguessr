@@ -3346,6 +3346,16 @@ img[alt="Google"] {
     scale: 1;
 }
 
+/* Smooth fade-in when onboarding results screen mounts */
+.onboarding-results-reveal .round-over-screen {
+    animation: onboardingResultsFade 0.5s ease forwards;
+}
+
+@keyframes onboardingResultsFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
 .round-over-screen.duel {
 }
 
