@@ -2274,10 +2274,10 @@ export default function Home({ }) {
                 const { ALL_CONTINENTS } = require("@/components/utils/continentFromCode");
                 setOtherOptions([...ALL_CONTINENTS]);
             } else if (mode === "country") {
-                // Pick 3 random wrong countries from countries list
+                // Pick 3 random wrong countries for onboarding (4 total - simpler for new players)
                 const distractors = [];
                 const available = countries.filter(c => c !== loc.country);
-                while (distractors.length < 5) {
+                while (distractors.length < 3) {
                     const pick = available[Math.floor(Math.random() * available.length)];
                     if (!distractors.includes(pick)) distractors.push(pick);
                 }
