@@ -1,7 +1,7 @@
 import HeadContent from "@/components/headContent";
 import { FaDiscord, FaBook } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
-import { signOut, useSession } from "@/components/auth/auth";
+import { signIn, signOut, useSession } from "@/components/auth/auth";
 import retryManager from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -29,6 +29,7 @@ import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
 import WelcomeOverlay from "@/components/welcomeOverlay";
 import CountryGuessrConfig from "@/components/countryGuessrConfig";
+import OnboardingComplete from "@/components/onboardingComplete";
 import { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
@@ -3114,37 +3115,60 @@ export default function Home({ }) {
                 </div>}
 
                 {screen === "onboarding" && onboarding?.completed &&
-                    <div className="onboarding-results-reveal">
-                        <RoundOverScreen
-                            points={onboarding.points}
-                            time={msToTime(onboarding.timeTaken)}
-                            maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
-                            history={onboarding.locations || []}
-                            options={options}
-                            button1Text={text("playNow")}
-                            button1Press={() => {
-                                sendEvent("tutorial_end");
-                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
-                                setShowAnswer(false);
-                                setOnboarding(null);
-                                setOnboardingCompleted(true);
-                                setMiniMapShown(false);
-                                setLatLong(null);
-                                loadLocation();
-                                setScreen("singleplayer");
-                            }}
-                            button2Text={text("home")}
-                            button2Press={() => {
-                                sendEvent("tutorial_end");
-                                try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
-                                setLatLong(null);
-                                setShowAnswer(false);
-                                setOnboarding(null);
-                                setOnboardingCompleted(true);
-                                setScreen("home");
-                            }}
-                        />
-                    </div>
+                    <OnboardingComplete
+                        mode={onboarding.mode}
+                        points={onboarding.points}
+                        maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
+                        session={session}
+                        onClassic={() => {
+                            sendEvent("tutorial_end");
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            setMiniMapShown(false);
+                            setLatLong(null);
+                            loadLocation();
+                            setScreen("singleplayer");
+                        }}
+                        onDuel={() => {
+                            sendEvent("tutorial_end");
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            handleMultiplayerAction("unrankedDuel");
+                        }}
+                        onCommunityMaps={() => {
+                            sendEvent("tutorial_end");
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            setScreen("home");
+                            setTimeout(() => setMapModal(true), 350);
+                        }}
+                        onCountryGuesser={() => {
+                            sendEvent("tutorial_end");
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            setScreen("countryGuessrConfig");
+                        }}
+                        onSignIn={() => {
+                            signIn();
+                        }}
+                        onHome={() => {
+                            sendEvent("tutorial_end");
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setLatLong(null);
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            setScreen("home");
+                        }}
+                    />
                 }
 
                 <RoundOverScreen

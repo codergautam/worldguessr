@@ -5906,6 +5906,153 @@ div:hover .elo-badge {
     }
 }
 
+/* ===== Onboarding Complete (Conversion Screen) ===== */
+.ob-complete {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1001;
+    background-color: black;
+    background-size: cover;
+    background-position: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: onboardingResultsFade 0.5s ease forwards;
+}
+
+.ob-complete__inner {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    gap: 20px;
+    background: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 30, 15, 0.7) 100%);
+    overflow-y: auto;
+}
+
+.ob-complete__header {
+    text-align: center;
+}
+
+.ob-complete__title {
+    font-family: "Lexend", sans-serif;
+    font-size: min(clamp(1.6em, 3.5vw, 2.8em), clamp(1.4em, 5vh, 2.4em));
+    font-weight: 700;
+    color: white;
+    margin-bottom: 6px;
+    -webkit-text-stroke: 1px rgba(0, 0, 0, 0.3);
+}
+
+.ob-complete__score {
+    font-family: "Lexend", sans-serif;
+    font-size: min(clamp(1em, 2vw, 1.6em), clamp(0.9em, 2.5vh, 1.3em));
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 300;
+}
+
+.ob-complete__prompt {
+    font-family: "Lexend", sans-serif;
+    font-size: min(clamp(0.9em, 1.5vw, 1.2em), clamp(0.8em, 2vh, 1.1em));
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 300;
+}
+
+.ob-complete__grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    width: 100%;
+    max-width: 520px;
+}
+
+.ob-complete__card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 20px 16px;
+    border-radius: 15px;
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradLight);
+    backdrop-filter: blur(10px);
+    filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.25));
+    color: white;
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    text-align: center;
+    transition: all 0.3s;
+}
+
+.ob-complete__card:hover {
+    background-color: var(--primaryTransparent);
+    transform: scale(1.05);
+    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+.ob-complete__card:active {
+    transform: scale(0.97);
+    transition: transform 0.1s;
+}
+
+.ob-complete__card-emoji {
+    font-size: 1.8rem;
+}
+
+.ob-complete__card-title {
+    font-size: min(clamp(0.95em, 1.5vw, 1.2em), clamp(0.85em, 2vh, 1.1em));
+    font-weight: 600;
+}
+
+.ob-complete__card-desc {
+    font-size: min(clamp(0.7em, 1vw, 0.85em), clamp(0.65em, 1.5vh, 0.8em));
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 300;
+    line-height: 1.3;
+}
+
+.ob-complete__home {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    font-size: 0.9rem;
+    transition: color 0.3s;
+    margin-top: 5px;
+}
+
+.ob-complete__home:hover {
+    color: white;
+}
+
+@media (max-aspect-ratio: 1/1.5) or (max-height: 500px) {
+    .ob-complete__grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        max-width: 100%;
+    }
+
+    .ob-complete__card {
+        padding: 14px 10px;
+        gap: 4px;
+    }
+
+    .ob-complete__card-emoji {
+        font-size: 1.4rem;
+    }
+
+    .ob-complete__inner {
+        gap: 14px;
+        justify-content: center;
+    }
+}
+
 /* ===== Country Guesser Config ===== */
 .countryGuessr-config {
     position: fixed;
