@@ -3292,6 +3292,27 @@ img[alt="Google"] {
         min-width: 0;
         padding: 6px 6px;
     }
+
+    /* Compact country buttons for normal (non-onboarding) mode on mobile */
+    .compactMode .countryGuessrBtn {
+        padding: 5px 6px;
+        gap: 3px;
+        flex: 1 1 30%;
+    }
+
+    .compactMode .countryGuessrBtn__flag {
+        width: 28px;
+        height: 18px;
+    }
+
+    .compactMode .countryGuessrBtn__name {
+        font-size: 0.62rem;
+    }
+
+    .compactMode.countryGuessrOptions {
+        padding: 8px;
+        gap: 5px;
+    }
 }
 .leaflet-container {
     height: 100% !important;

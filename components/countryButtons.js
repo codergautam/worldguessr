@@ -43,7 +43,7 @@ function continentDiv({continent, onPress, index, interactive}) {
   )
 }
 
-export default function CountryBtns({ countries, onCountryPress, shown, mode }) {
+export default function CountryBtns({ countries, onCountryPress, shown, mode, compact }) {
   const { t: text } = useTranslation("common");
   const isContinent = mode === "continent" || (countries?.length === 6 && countries?.includes?.("Africa"));
   const [interactive, setInteractive] = useState(false);
@@ -56,7 +56,7 @@ export default function CountryBtns({ countries, onCountryPress, shown, mode }) 
   }, [countries]);
 
   return (
-    <div className={`countryGuessrOptions ${shown ? "shown" : ""} ${isContinent ? "continentMode" : ""}`}>
+    <div className={`countryGuessrOptions ${shown ? "shown" : ""} ${isContinent ? "continentMode" : ""} ${compact ? "compactMode" : ""}`}>
       <p className="countryGuessrPrompt">{isContinent ? text("whichContinent") : text("whichCountry")}</p>
       <div className="countryGuessrBtnRow">
         {countries.map((item, i) => {
