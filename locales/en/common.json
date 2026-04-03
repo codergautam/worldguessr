@@ -98,6 +98,8 @@
   "earnedXP": "You earned {{xp}} XP",
   "onCountryStreak": "You're on a {{streak}} country streak",
   "lostCountryStreak": "You lost your {{streak}} country streak",
+  "onContinentStreak": "You're on a {{streak}} continent streak",
+  "lostContinentStreak": "You lost your {{streak}} continent streak",
   "loginWithGoogle1": "Link with Google",
   "loginWithGoogle2": "to earn XP and track your progress",
   "openInMaps": "Open in Street View",
