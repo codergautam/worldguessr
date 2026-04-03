@@ -647,15 +647,25 @@ export default function Home({ }) {
                 }
             };
 
-            // Show interstitial pre-roll immediately
-            try {
-                console.log("GD preroll", gdsdk)
-                if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
-                    gdsdk.showAd('interstitial');
+            // Show interstitial pre-roll on first user interaction (GD SDK requires a user gesture)
+            console.log("GD: setting up preroll on first interaction");
+            const handleFirstInteraction = () => {
+                try {
+                    console.log("GD: first interaction detected, showing preroll interstitial");
+                    if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
+                        console.log("GD: gdsdk available, calling showAd('interstitial')");
+                        gdsdk.showAd('interstitial');
+                    } else {
+                        console.log("GD: gdsdk not available, skipping preroll");
+                    }
+                } catch (e) {
+                    console.log("GD preroll error:", e);
                 }
-            } catch (e) {
-                console.log("GD preroll error:", e);
-            }
+                document.removeEventListener('click', handleFirstInteraction);
+                document.removeEventListener('touchstart', handleFirstInteraction);
+            };
+            document.addEventListener('click', handleFirstInteraction, { once: true });
+            document.addEventListener('touchstart', handleFirstInteraction, { once: true });
 
             // Handle Google OAuth redirect callback (redirect flow for iframe compatibility)
             const params = new URLSearchParams(window.location.search);
