@@ -1,5 +1,4 @@
 import { useTranslation } from '@/components/useTranslations';
-import { asset } from '@/lib/basePath';
 
 function ActionCard({ emoji, title, desc, onClick }) {
   return (
@@ -28,10 +27,8 @@ export default function OnboardingComplete({
   const loggedIn = !!session?.token?.secret;
 
   return (
-    <div className="ob-complete" style={{
-      backgroundImage: `url("${asset('/street2.webp')}")`,
-    }}>
-      <div className="ob-complete__inner">
+    <div className="ob-complete">
+      <div className="ob-complete__modal">
         <div className="ob-complete__header">
           <h1 className="ob-complete__title">{text("tutorialComplete") || "Tutorial Complete!"}</h1>
           <p className="ob-complete__score">

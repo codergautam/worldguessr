@@ -5906,34 +5906,36 @@ div:hover .elo-badge {
     }
 }
 
-/* ===== Onboarding Complete (Conversion Screen) ===== */
+/* ===== Onboarding Complete (Conversion Modal) ===== */
 .ob-complete {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
     height: 100vh;
-    z-index: 1001;
-    background-color: black;
-    background-size: cover;
-    background-position: center;
+    z-index: 1002;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
     animation: onboardingResultsFade 0.5s ease forwards;
 }
 
-.ob-complete__inner {
-    width: 100%;
-    height: 100%;
+.ob-complete__modal {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 30px 20px;
-    gap: 20px;
-    background: linear-gradient(0deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 30, 15, 0.7) 100%);
-    overflow-y: auto;
+    padding: 30px 28px;
+    gap: 18px;
+    max-width: 500px;
+    width: 90%;
+    border-radius: 20px;
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradFull);
+    backdrop-filter: blur(16px);
+    filter: drop-shadow(0px 8px 24px rgba(0, 0, 0, 0.5));
+    animation: fadeInUp 0.4s ease forwards;
 }
 
 .ob-complete__header {
@@ -5942,46 +5944,42 @@ div:hover .elo-badge {
 
 .ob-complete__title {
     font-family: "Lexend", sans-serif;
-    font-size: min(clamp(1.6em, 3.5vw, 2.8em), clamp(1.4em, 5vh, 2.4em));
+    font-size: 1.5rem;
     font-weight: 700;
     color: white;
-    margin-bottom: 6px;
-    -webkit-text-stroke: 1px rgba(0, 0, 0, 0.3);
+    margin-bottom: 4px;
 }
 
 .ob-complete__score {
     font-family: "Lexend", sans-serif;
-    font-size: min(clamp(1em, 2vw, 1.6em), clamp(0.9em, 2.5vh, 1.3em));
-    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.65);
     font-weight: 300;
 }
 
 .ob-complete__prompt {
     font-family: "Lexend", sans-serif;
-    font-size: min(clamp(0.9em, 1.5vw, 1.2em), clamp(0.8em, 2vh, 1.1em));
-    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.45);
     font-weight: 300;
 }
 
 .ob-complete__grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
+    gap: 10px;
     width: 100%;
-    max-width: 520px;
 }
 
 .ob-complete__card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
-    padding: 20px 16px;
-    border-radius: 15px;
+    gap: 5px;
+    padding: 16px 12px;
+    border-radius: 14px;
     border: 1.4px solid var(--primaryDark);
-    background: var(--gradLight);
-    backdrop-filter: blur(10px);
-    filter: drop-shadow(0px 4px 6px rgba(0, 0, 0, 0.25));
+    background: rgba(255, 255, 255, 0.06);
     color: white;
     cursor: pointer;
     font-family: "Lexend", sans-serif;
@@ -5991,8 +5989,8 @@ div:hover .elo-badge {
 
 .ob-complete__card:hover {
     background-color: var(--primaryTransparent);
-    transform: scale(1.05);
-    box-shadow: 0px 6px 12px rgba(0, 0, 0, 0.4);
+    transform: scale(1.04);
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.35);
 }
 
 .ob-complete__card:active {
@@ -6001,17 +5999,17 @@ div:hover .elo-badge {
 }
 
 .ob-complete__card-emoji {
-    font-size: 1.8rem;
+    font-size: 1.5rem;
 }
 
 .ob-complete__card-title {
-    font-size: min(clamp(0.95em, 1.5vw, 1.2em), clamp(0.85em, 2vh, 1.1em));
+    font-size: 0.9rem;
     font-weight: 600;
 }
 
 .ob-complete__card-desc {
-    font-size: min(clamp(0.7em, 1vw, 0.85em), clamp(0.65em, 1.5vh, 0.8em));
-    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.72rem;
+    color: rgba(255, 255, 255, 0.5);
     font-weight: 300;
     line-height: 1.3;
 }
@@ -6019,37 +6017,36 @@ div:hover .elo-badge {
 .ob-complete__home {
     background: none;
     border: none;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(255, 255, 255, 0.4);
     cursor: pointer;
     font-family: "Lexend", sans-serif;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     transition: color 0.3s;
-    margin-top: 5px;
 }
 
 .ob-complete__home:hover {
     color: white;
 }
 
-@media (max-aspect-ratio: 1/1.5) or (max-height: 500px) {
-    .ob-complete__grid {
-        grid-template-columns: repeat(2, 1fr);
+@media (max-height: 500px) {
+    .ob-complete__modal {
+        padding: 18px 16px;
         gap: 10px;
-        max-width: 100%;
+        max-height: 95vh;
+        overflow-y: auto;
     }
 
     .ob-complete__card {
-        padding: 14px 10px;
-        gap: 4px;
+        padding: 10px 8px;
+        gap: 3px;
     }
 
     .ob-complete__card-emoji {
-        font-size: 1.4rem;
+        font-size: 1.2rem;
     }
 
-    .ob-complete__inner {
-        gap: 14px;
-        justify-content: center;
+    .ob-complete__title {
+        font-size: 1.2rem;
     }
 }
 

@@ -191,6 +191,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     try { return parseInt(gameStorage.getItem("countryGuessrStreak")) || 0; } catch(e) { return 0; }
   });
   const [lostCountryGuessrStreak, setLostCgStreak] = useState(0);
+  const [continentGuessrStreak, setContStreak] = useState(() => {
+    try { return parseInt(gameStorage.getItem("continentGuessrStreak")) || 0; } catch(e) { return 0; }
+  });
+  const [lostContinentGuessrStreak, setLostContStreak] = useState(0);
   const [mapFadingOut, setMapFadingOut] = useState(false);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
   const [timeToNextRound, setTimeToNextRound] = useState(0); //only for onboarding
@@ -369,6 +373,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   useEffect(() => {
     try { gameStorage.setItem("countryGuessrStreak", countryGuessrStreak); } catch(e) {}
   }, [countryGuessrStreak])
+
+  useEffect(() => {
+    try { gameStorage.setItem("continentGuessrStreak", continentGuessrStreak); } catch(e) {}
+  }, [continentGuessrStreak])
 
   useEffect(() => {
     // No typewriter text — modal handles intro, country buttons show immediately
@@ -715,12 +723,22 @@ session={session}/>
           const isContinentMode = onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"));
           const isCorrect = isContinentMode ? continentFromCode(latLong.country) === selected : selected === latLong.country;
           setCountryGuesserCorrect(isCorrect);
-          setLostCgStreak(0);
-          if (isCorrect) {
-            setCgStreak(prev => prev + 1);
+          if (isContinentMode) {
+            setLostContStreak(0);
+            if (isCorrect) {
+              setContStreak(prev => prev + 1);
+            } else {
+              setLostContStreak(continentGuessrStreak);
+              setContStreak(0);
+            }
           } else {
-            setLostCgStreak(countryGuessrStreak);
-            setCgStreak(0);
+            setLostCgStreak(0);
+            if (isCorrect) {
+              setCgStreak(prev => prev + 1);
+            } else {
+              setLostCgStreak(countryGuessrStreak);
+              setCgStreak(0);
+            }
           }
           guess(isCorrect);
          }}/>
@@ -844,7 +862,7 @@ session={session}/>
   )}
 <EndBanner
 countryStreaksEnabled={gameOptions?.location === "all"}
-singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryGuesser ? countryGuessrStreak : countryStreak} lostCountryStreak={countryGuesser ? lostCountryGuessrStreak : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
+singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
   const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
   if (isCountryGuessrMode) {
     setMapFadingOut(true);

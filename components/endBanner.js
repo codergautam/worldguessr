@@ -18,7 +18,7 @@ const ONBOARDING_FACTS = [
     "onboardingFact3",
 ];
 
-export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
+export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, isContinentMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
     const { t: text } = useTranslation("common");
     const confettiTriggered = useRef(false);
     const autoAdvanceTimer = useRef(null);
@@ -131,9 +131,9 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                 {showStreaks && (
                     <p className="motivation">
                         {countryStreak > 0 && (
-                            <span className="streakBadge">🔥 {text("onCountryStreak", { streak: countryStreak })}</span>
+                            <span className="streakBadge">🔥 {isContinentMode ? text("onContinentStreak", { streak: countryStreak }) : text("onCountryStreak", { streak: countryStreak })}</span>
                         )}
-                        {lostCountryStreak > 0 && text("lostCountryStreak", { streak: lostCountryStreak })}
+                        {lostCountryStreak > 0 && (isContinentMode ? text("lostContinentStreak", { streak: lostCountryStreak }) : text("lostCountryStreak", { streak: lostCountryStreak }))}
                     </p>
                 )}
 

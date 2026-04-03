@@ -3115,6 +3115,16 @@ export default function Home({ }) {
                 </div>}
 
                 {screen === "onboarding" && onboarding?.completed &&
+                    <RoundOverScreen
+                        points={onboarding.points}
+                        time={msToTime(onboarding.timeTaken)}
+                        maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
+                        history={onboarding.locations || []}
+                        options={options}
+                    />
+                }
+
+                {screen === "onboarding" && onboarding?.completed &&
                     <OnboardingComplete
                         mode={onboarding.mode}
                         points={onboarding.points}
@@ -3128,8 +3138,8 @@ export default function Home({ }) {
                             setOnboardingCompleted(true);
                             setMiniMapShown(false);
                             setLatLong(null);
-                            loadLocation();
                             setScreen("singleplayer");
+                            setTimeout(() => loadLocation(), 50);
                         }}
                         onDuel={() => {
                             sendEvent("tutorial_end");
