@@ -6,11 +6,12 @@ import ContinentIcon from './ContinentIcon';
 
 export default function CountryGuessrConfig({ onStart, onBack }) {
   const { t: text } = useTranslation("common");
-  const [subMode, setSubMode] = useState("country");
-  const [region, setRegion] = useState("all");
+  const [selected, setSelected] = useState("all");
 
-  const REGIONS = [
+  // "all" = country guesser world, "continent" = continent guesser, rest = country guesser with region filter
+  const TILES = [
     { id: "all", label: text("world"), emoji: "🌐" },
+    { id: "continent", label: text("continentGuesser"), emoji: "🗺️" },
     { id: "Africa", label: "Africa" },
     { id: "Asia", label: "Asia" },
     { id: "Europe", label: "Europe" },
@@ -19,7 +20,15 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
     { id: "Oceania", label: "Oceania" },
   ];
 
-  const showWarning = subMode === "continent" && region !== "all";
+  function handlePlay() {
+    if (selected === "continent") {
+      sendEvent("casual_mode_configured", { challenge: "continent", region: "all" });
+      onStart({ subMode: "continent", region: "all" });
+    } else {
+      sendEvent("casual_mode_configured", { challenge: "country", region: selected });
+      onStart({ subMode: "country", region: selected });
+    }
+  }
 
   return (
     <div className="countryGuessr-config" style={{
@@ -30,59 +39,33 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
 
         <div className="g2_nav_hr" />
 
-        <div className="g2_nav_group">
-          <button
-            className={`g2_nav_text ${subMode === "country" ? "countryGuessr-config--selected" : ""}`}
-            onClick={() => setSubMode("country")}
-          >
-            {text("countryGuesser")}
-          </button>
-          <button
-            className={`g2_nav_text ${subMode === "continent" ? "countryGuessr-config--selected" : ""}`}
-            onClick={() => setSubMode("continent")}
-          >
-            {text("continentGuesser")}
-          </button>
-        </div>
-
-        <div className="g2_nav_hr" />
-
         <button className="g2_nav_text countryGuessr-config__back" onClick={onBack}>
           ← {text("back")}
         </button>
       </div>
 
       <div className="countryGuessr-config__content">
-        <h2 className="countryGuessr-config__heading">{text("regionFilter")}</h2>
+        <h2 className="countryGuessr-config__heading">{text("pickChallenge")}</h2>
 
         <div className="countryGuessr-config__regions">
-          {REGIONS.map((r) => (
+          {TILES.map((t) => (
             <button
-              key={r.id}
-              className={`countryGuessr-config__region-btn ${region === r.id ? "active" : ""}`}
-              onClick={() => setRegion(r.id)}
+              key={t.id}
+              className={`countryGuessr-config__region-btn ${selected === t.id ? "active" : ""}`}
+              onClick={() => setSelected(t.id)}
             >
-              {r.emoji
-                ? <span className="countryGuessr-config__region-emoji">{r.emoji}</span>
-                : <ContinentIcon continent={r.id} size={24} className="countryGuessr-config__region-emoji" />
+              {t.emoji
+                ? <span className="countryGuessr-config__region-emoji">{t.emoji}</span>
+                : <ContinentIcon continent={t.id} size={24} className="countryGuessr-config__region-emoji" />
               }
-              <span>{r.label}</span>
+              <span>{t.label}</span>
             </button>
           ))}
         </div>
 
-        {showWarning && (
-          <p className="countryGuessr-config__warning">
-            {text("continentWorldWarning")}
-          </p>
-        )}
-
         <button
           className="gameBtn g2_green_button countryGuessr-config__play-btn"
-          onClick={() => {
-            sendEvent("casual_mode_configured", { challenge: subMode, region });
-            onStart({ subMode, region });
-          }}
+          onClick={handlePlay}
         >
           {text("play")}
         </button>

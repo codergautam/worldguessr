@@ -2882,7 +2882,7 @@ export default function Home({ }) {
                                                             setNavSlideOut(false); // Reset for next use
                                                         }, 300);
                                                     }}>
-                                                    {text("classic") || text("singleplayer")}
+                                                    {text("singleplayer")}
                                                 </button>
                                                 <button className="g2_nav_text" onClick={() => {
                                                         if (loading) return;
