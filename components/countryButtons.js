@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import nameFromCode from "./utils/nameFromCode";
 import { useTranslation } from '@/components/useTranslations';
 import ContinentIcon from './ContinentIcon';
+import { continentKey } from './utils/continentLocale';
 
 function countryDiv({country, onPress, index, interactive}) {
   return (
@@ -21,7 +22,7 @@ function countryDiv({country, onPress, index, interactive}) {
   )
 }
 
-function continentDiv({continent, onPress, index, interactive}) {
+function continentDiv({continent, onPress, index, interactive, text}) {
   return (
     <button
       key={continent}
@@ -30,7 +31,7 @@ function continentDiv({continent, onPress, index, interactive}) {
       onClick={() => interactive && onPress(continent)}
     >
       <ContinentIcon continent={continent} size={28} className="countryGuessrBtn__emoji" />
-      <span className="countryGuessrBtn__name">{continent}</span>
+      <span className="countryGuessrBtn__name">{text(continentKey(continent))}</span>
     </button>
   )
 }
@@ -53,7 +54,7 @@ export default function CountryBtns({ countries, onCountryPress, shown, mode, co
       <div className="countryGuessrBtnRow">
         {countries.map((item, i) => {
           if (isContinent) {
-            return continentDiv({ continent: item, onPress: onCountryPress, index: i, interactive })
+            return continentDiv({ continent: item, onPress: onCountryPress, index: i, interactive, text })
           }
           return countryDiv({ country: item, onPress: onCountryPress, index: i, interactive })
         })}

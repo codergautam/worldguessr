@@ -3,6 +3,8 @@ import calcPoints from "./calcPoints";
 import { useTranslation } from '@/components/useTranslations'
 import triggerConfetti from "./utils/triggerConfetti";
 import nameFromCode from "./utils/nameFromCode";
+import continentFromCode from "./utils/continentFromCode";
+import { continentKey } from "./utils/continentLocale";
 
 const CORRECT_ENCOURAGEMENTS = [
     "correctEncouragement1",
@@ -116,7 +118,9 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                     <span className='mainBannerTxt'>{
                         countryGuesserCorrect
                             ? text("correctCountryNice")
-                            : text("incorrectCountryWas", { country: nameFromCode(latLong?.country) })
+                            : isContinentMode
+                                ? text("incorrectContinentWas", { continent: text(continentKey(continentFromCode(latLong?.country))) })
+                                : text("incorrectCountryWas", { country: nameFromCode(latLong?.country) })
                     }</span>
                 ) : null}
 
