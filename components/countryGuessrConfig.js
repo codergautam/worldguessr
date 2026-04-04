@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { asset } from '@/lib/basePath';
 import { useTranslation } from '@/components/useTranslations';
 import sendEvent from './utils/sendEvent';
+import ContinentIcon from './ContinentIcon';
 
 export default function CountryGuessrConfig({ onStart, onBack }) {
   const { t: text } = useTranslation("common");
@@ -10,12 +11,12 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
 
   const REGIONS = [
     { id: "all", label: text("world"), emoji: "🌐" },
-    { id: "Africa", label: "Africa", emoji: "🌍" },
-    { id: "Asia", label: "Asia", emoji: "🌏" },
-    { id: "Europe", label: "Europe", emoji: "🌍" },
-    { id: "North America", label: "N. America", emoji: "🌎" },
-    { id: "South America", label: "S. America", emoji: "🌎" },
-    { id: "Oceania", label: "Oceania", emoji: "🌏" },
+    { id: "Africa", label: "Africa" },
+    { id: "Asia", label: "Asia" },
+    { id: "Europe", label: "Europe" },
+    { id: "North America", label: "N. America" },
+    { id: "South America", label: "S. America" },
+    { id: "Oceania", label: "Oceania" },
   ];
 
   const showWarning = subMode === "continent" && region !== "all";
@@ -61,7 +62,10 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
               className={`countryGuessr-config__region-btn ${region === r.id ? "active" : ""}`}
               onClick={() => setRegion(r.id)}
             >
-              <span className="countryGuessr-config__region-emoji">{r.emoji}</span>
+              {r.emoji
+                ? <span className="countryGuessr-config__region-emoji">{r.emoji}</span>
+                : <ContinentIcon continent={r.id} size={24} className="countryGuessr-config__region-emoji" />
+              }
               <span>{r.label}</span>
             </button>
           ))}

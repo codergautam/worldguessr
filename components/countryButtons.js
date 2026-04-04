@@ -1,15 +1,7 @@
 import { useState, useEffect } from "react";
 import nameFromCode from "./utils/nameFromCode";
 import { useTranslation } from '@/components/useTranslations';
-
-const CONTINENT_EMOJIS = {
-  "Africa": "🌍",
-  "Asia": "🌏",
-  "Europe": "🌍",
-  "North America": "🌎",
-  "South America": "🌎",
-  "Oceania": "🌏",
-};
+import ContinentIcon from './ContinentIcon';
 
 function countryDiv({country, onPress, index, interactive}) {
   return (
@@ -37,7 +29,7 @@ function continentDiv({continent, onPress, index, interactive}) {
       style={{ animationDelay: `${index * 0.06}s` }}
       onClick={() => interactive && onPress(continent)}
     >
-      <span className="countryGuessrBtn__emoji">{CONTINENT_EMOJIS[continent] || "🌐"}</span>
+      <ContinentIcon continent={continent} size={28} className="countryGuessrBtn__emoji" />
       <span className="countryGuessrBtn__name">{continent}</span>
     </button>
   )
