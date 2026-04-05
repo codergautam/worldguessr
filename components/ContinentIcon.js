@@ -28,9 +28,6 @@ export default function ContinentIcon({ continent, size = 30, className = "" }) 
         flexShrink: 0,
         objectFit: "contain",
         filter: "brightness(0) invert(1)",
-        border: "1px solid rgba(255,255,255,0.5)",
-        borderRadius: 4,
-        padding: 2,
       }}
     />
   );
