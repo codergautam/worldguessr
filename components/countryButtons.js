@@ -30,7 +30,7 @@ function continentDiv({continent, onPress, index, interactive, text}) {
       style={{ animationDelay: `${index * 0.06}s` }}
       onClick={() => interactive && onPress(continent)}
     >
-      <ContinentIcon continent={continent} size={28} className="countryGuessrBtn__emoji" />
+      <ContinentIcon continent={continent} size={34} className="countryGuessrBtn__emoji" />
       <span className="countryGuessrBtn__name">{text(continentKey(continent))}</span>
     </button>
   )

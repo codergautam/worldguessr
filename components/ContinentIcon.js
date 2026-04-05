@@ -11,7 +11,7 @@ const CONTINENT_IMAGES = {
   "Oceania": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/AustraliaContour.svg/200px-AustraliaContour.svg.png",
 };
 
-export default function ContinentIcon({ continent, size = 24, className = "" }) {
+export default function ContinentIcon({ continent, size = 30, className = "" }) {
   const src = CONTINENT_IMAGES[continent];
   if (!src) return null;
 
@@ -27,7 +27,10 @@ export default function ContinentIcon({ continent, size = 24, className = "" }) 
         verticalAlign: "middle",
         flexShrink: 0,
         objectFit: "contain",
-        filter: "brightness(0) saturate(100%) invert(72%) sepia(98%) saturate(1000%) hue-rotate(58deg) brightness(105%) contrast(105%)",
+        filter: "brightness(0) invert(1)",
+        border: "1px solid rgba(255,255,255,0.5)",
+        borderRadius: 4,
+        padding: 2,
       }}
     />
   );
