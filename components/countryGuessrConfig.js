@@ -56,7 +56,7 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
             >
               {t.emoji
                 ? <span className="countryGuessr-config__region-emoji">{t.emoji}</span>
-                : <ContinentIcon continent={t.id} size={30} className="countryGuessr-config__region-emoji" />
+                : <ContinentIcon continent={t.id} size={65} className="countryGuessr-config__region-emoji" />
               }
               <span>{t.label}</span>
             </button>
