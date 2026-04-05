@@ -27,7 +27,7 @@ export default function ContinentIcon({ continent, size = 24, className = "" }) 
         verticalAlign: "middle",
         flexShrink: 0,
         objectFit: "contain",
-        filter: "brightness(0) saturate(100%) invert(42%) sepia(93%) saturate(1352%) hue-rotate(207deg) brightness(99%) contrast(94%)",
+        filter: "brightness(0) saturate(100%) invert(72%) sepia(98%) saturate(1000%) hue-rotate(58deg) brightness(105%) contrast(105%)",
       }}
     />
   );
