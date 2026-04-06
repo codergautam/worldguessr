@@ -2794,6 +2794,16 @@ input[placeholder="Please login to chat"] {
     }
 }
 
+.multiplayerLeaderboard.leaderboardFadingOut {
+    animation: fadeOutLb 500ms ease forwards;
+    pointer-events: none;
+}
+
+@keyframes fadeOutLb {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
 .multiplayerLeaderboard {
     background-color: #062413;
     border-radius: 10px;

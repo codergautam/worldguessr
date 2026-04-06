@@ -18,7 +18,6 @@ import calculateOutcomes from '../components/utils/eloSystem.js';
 import { tmpdir } from 'os';
 
 import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
-import continentMapping from '../public/continentMapping.json' with { type: "json" };
 config();
 
 console.log("[INFO] Starting ws.js")
@@ -49,29 +48,11 @@ main();
 }
 
 function pick5RandomArb() {
-  const MIN_CONTINENTS = 3;
-  const MAX_ATTEMPTS = 50;
-  let bestPick = [];
-  let bestContinentCount = 0;
-
-  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-    const rand = new Set();
-    while (rand.size < 5) {
-      rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
-    }
-    const candidate = [...rand];
-    const continents = new Set(candidate.map(r => continentMapping[r.country]).filter(Boolean));
-    if (continents.size >= MIN_CONTINENTS) {
-      bestPick = candidate;
-      break;
-    }
-    if (continents.size > bestContinentCount) {
-      bestContinentCount = continents.size;
-      bestPick = candidate;
-    }
+  const rand = new Set();
+  while(rand.size < 5) {
+    rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
   }
-
-  return bestPick.map((r) => ({ lat: r.lat, long: r.lng, country: r.country || 'unknown' }));
+  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: r.country || 'unknown' }));
 }
 
 

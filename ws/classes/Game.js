@@ -658,37 +658,48 @@ export default class Game {
 
       if(this.location === "all") {
 
-    // Pick locations ensuring at least 3 distinct continents
-    const MIN_CONTINENTS = 3;
-    const MAX_ATTEMPTS = 50;
-    let bestPick = [];
-    let bestContinentCount = 0;
-
-    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-      const candidate = [];
-      for (let i = 0; i < this.rounds; i++) {
-        candidate.push(allLocations[Math.floor(Math.random() * allLocations.length)]);
-      }
-      const continents = new Set(candidate.map(l => continentMapping[l.country]).filter(Boolean));
-      if (continents.size >= MIN_CONTINENTS) {
-        bestPick = candidate;
-        break;
-      }
-      if (continents.size > bestContinentCount) {
-        bestContinentCount = continents.size;
-        bestPick = candidate;
-      }
-    }
-
     this.maxDist = 20000;
     this.extent = null;
 
-    for (const loc of bestPick) {
-      this.locations.push(loc);
-      this.sendAllPlayers({
-        type: 'generating',
-        generated: this.locations.length,
-      })
+    if (!this.duel) {
+      // Public games: ensure at least 3 distinct continents
+      const MIN_CONTINENTS = 3;
+      const MAX_ATTEMPTS = 50;
+      let bestPick = [];
+      let bestContinentCount = 0;
+
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const candidate = [];
+        for (let i = 0; i < this.rounds; i++) {
+          candidate.push(allLocations[Math.floor(Math.random() * allLocations.length)]);
+        }
+        const continents = new Set(candidate.map(l => continentMapping[l.country]).filter(Boolean));
+        if (continents.size >= MIN_CONTINENTS) {
+          bestPick = candidate;
+          break;
+        }
+        if (continents.size > bestContinentCount) {
+          bestContinentCount = continents.size;
+          bestPick = candidate;
+        }
+      }
+
+      for (const loc of bestPick) {
+        this.locations.push(loc);
+        this.sendAllPlayers({
+          type: 'generating',
+          generated: this.locations.length,
+        })
+      }
+    } else {
+      // Duels: pure random
+      for (let i = 0; i < this.rounds; i++) {
+        this.locations.push(allLocations[Math.floor(Math.random() * allLocations.length)]);
+        this.sendAllPlayers({
+          type: 'generating',
+          generated: this.locations.length,
+        })
+      }
     }
   } else {
 

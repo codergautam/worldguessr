@@ -197,6 +197,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [lostContinentGuessrStreak, setLostContStreak] = useState(0);
   const [mapFadingOut, setMapFadingOut] = useState(false);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const [timeToNextRound, setTimeToNextRound] = useState(0); //only for onboarding
   const [singlePlayerTimeLeft, setSinglePlayerTimeLeft] = useState(0);
   const [mapPinned, setMapPinned] = useState(false);
@@ -208,6 +210,32 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [showClueBanner, setShowClueBanner] = useState(false);
   const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
   const [cmgAdsEnabled, setCmgAdsEnabled] = useState(false);
+
+  // Leaderboard: show after 5s delay in getready, fade out when state leaves getready
+  const inGetready = !!(
+    multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel &&
+    multiplayerState?.gameData?.state === 'getready' &&
+    multiplayerState?.gameData?.curRound !== 1 &&
+    multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds
+  );
+
+  // Once shown, stay shown until getready ends (don't depend on timer for hiding)
+  useEffect(() => {
+    if (inGetready && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && !showLeaderboard) {
+      // Delayed appearance: only show in last 5s of getready
+      setShowLeaderboard(true);
+      setLeaderboardVisible(true);
+    }
+  }, [inGetready, timeToNextMultiplayerEvt]);
+
+  useEffect(() => {
+    if (!inGetready && showLeaderboard) {
+      // State left getready — start fade-out, unmount after transition
+      setLeaderboardVisible(false);
+      const timer = setTimeout(() => setShowLeaderboard(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [inGetready]);
 
   useEffect(() => {
     if (!inCoolMathGames) return;
@@ -799,15 +827,8 @@ session={session}/>
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (() => {
-          // Double-check with fresh calculation to prevent flicker on slow devices
-          // when state changes but timeToNextMultiplayerEvt hasn't been updated yet
-          const freshTime = multiplayerState?.gameData?.nextEvtTime
-            ? Math.max(0, Math.floor(((multiplayerState.gameData.nextEvtTime - Date.now()) - timeOffset) / 100) / 10)
-            : 0;
-          return freshTime > 0 && freshTime < 5;
-        })() && (
-          <PlayerList multiplayerState={multiplayerState} playAgain={() => {
+        {showLeaderboard && (
+          <PlayerList multiplayerState={multiplayerState} fadingOut={!leaderboardVisible} playAgain={() => {
             backBtnPressed(true, "unranked")
           }} backBtn={() => {
             backBtnPressed()

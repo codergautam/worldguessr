@@ -3,7 +3,7 @@ import { FaCopy } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 import UsernameWithFlag from './utils/usernameWithFlag';
 
-export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick }) {
+export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick, fadingOut }) {
   const { t: text } = useTranslation("common");
 
   const players = (multiplayerState?.gameData?.finalPlayers ?? multiplayerState?.gameData?.players).sort((a, b) => b.score - a.score);
@@ -16,7 +16,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
   const N = waitingForStart ? 200 : 5; // Number of top players to show
 
   return (
-    <div className="multiplayerLeaderboard g2_container">
+    <div className={`multiplayerLeaderboard g2_container ${fadingOut ? 'leaderboardFadingOut' : ''}`}>
       <span className="bigSpan">
         {gameOver?text("gameOver"):waitingForStart?host?text("yourPrivateGame"):text("privateGame"):text("leaderboard")}
         {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})}
