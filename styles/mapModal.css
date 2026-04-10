@@ -247,7 +247,7 @@
   color: white;
 }
 
-/* All Countries Option */
+/* All Countries Option (legacy) */
 .all-countries-tile {
   display: flex;
   justify-content: center;
@@ -255,6 +255,38 @@
   opacity: 0;
   transform: translateY(30px);
   animation: slideInUp var(--map-animation-duration) ease-out 0.3s forwards;
+}
+
+/* Singleplayer Mode Tiles (World, Country Guesser, Continent Guesser) */
+.singleplayer-mode-tiles {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 32px;
+  opacity: 0;
+  transform: translateY(30px);
+  animation: slideInUp var(--map-animation-duration) ease-out 0.3s forwards;
+  flex-wrap: wrap;
+}
+
+.singleplayer-mode-tiles .map-tile {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 800px) {
+  .singleplayer-mode-tiles {
+    gap: 10px;
+  }
+  .singleplayer-mode-tiles .map-tile {
+    width: 180px;
+  }
+}
+
+@media (max-width: 500px) {
+  .singleplayer-mode-tiles .map-tile {
+    width: 150px;
+  }
 }
 
 /* Map Sections */

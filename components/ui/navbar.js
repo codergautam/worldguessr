@@ -7,7 +7,7 @@ import { asset } from '@/lib/basePath';
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, mapModalOpen, onConnectionError, loginQueued, setLoginQueued }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode }) {
     const { t: text } = useTranslation("common");
 
     const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer') || (screen === 'countryGuesser'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
@@ -56,14 +56,19 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 )}
                 <div className="navbar__right">
 
-                    {screen === 'singleplayer' && !accountModalOpen && (
+                    {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && (
                         <button className="gameBtn navBtn g2_green_button g2_lexend" disabled={loading} onClick={() => setGameOptionsModalShown(true)}>
-                            {((gameOptions.location === "all") || !gameOptions.location) ? text("allCountries") : gameOptions?.countryMap ? nameFromCode(gameOptions.location) : gameOptions?.communityMapName}
-                            {gameOptions.nm && gameOptions.npz ?
-                                ', NMPZ' :
-                                gameOptions.nm ? ', NM' :
-                                    gameOptions.npz ? ', NPZ' :
-                                        ''}
+                            {screen === 'countryGuesser'
+                                ? (countryGuessrMode?.subMode === "continent" ? text("continentGuesser") : text("countryGuesser"))
+                                : <>
+                                    {((gameOptions.location === "all") || !gameOptions.location) ? text("allCountries") : gameOptions?.countryMap ? nameFromCode(gameOptions.location) : gameOptions?.communityMapName}
+                                    {gameOptions.nm && gameOptions.npz ?
+                                        ', NMPZ' :
+                                        gameOptions.nm ? ', NM' :
+                                            gameOptions.npz ? ', NPZ' :
+                                                ''}
+                                </>
+                            }
 
                             &nbsp;
 
@@ -89,7 +94,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         />
                     )}
 
-                    {session?.token?.secret && !accountModalOpen && !gameOptionsModalShown && !mapModalOpen && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && (
+                    {session?.token?.secret && !accountModalOpen && !gameOptionsModalShown && !mapModalOpen && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && (
                         <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
                             <FaUserFriends size={40} className={`friendBtnIcon ${screen === "home" ? "friendBtnIconFixed" : ""}`} />
                         </button>

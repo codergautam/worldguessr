@@ -452,18 +452,36 @@ export default function MapView({
             {/* Content */}
             {!isLoading && (
                 <>
-                    {/* All Countries Option */}
-                    {showAllCountriesOption &&
-                     ((searchTerm.length === 0) ||
-                      (text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase()))) && (
-                        <div className="all-countries-tile">
-                            <MapTile
-                            bgImage={`url("${asset('/world.jpg')}")`}
-                            forcedWidth="300px"
-                                map={{ name: text("allCountries"), slug: "all" }}
-                                onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}
-                                searchTerm={searchTerm}
-                            />
+                    {/* Singleplayer Mode Tiles */}
+                    {showAllCountriesOption && (searchTerm.length === 0 ||
+                      [text("allCountries"), text("countryGuesser"), text("continentGuesser")].some(
+                        label => label?.toLowerCase().includes(searchTerm?.toLowerCase())
+                      )) && (
+                        <div className="singleplayer-mode-tiles">
+                            {((searchTerm.length === 0) || text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
+                                <MapTile
+                                    bgImage={`url("${asset('/world.jpg')}")`}
+                                    map={{ name: text("allCountries"), slug: "all" }}
+                                    onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}
+                                    searchTerm={searchTerm}
+                                />
+                            )}
+                            {((searchTerm.length === 0) || text("countryGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
+                                <MapTile
+                                    bgImage={`url("${asset('/world.jpg')}")`}
+                                    map={{ name: text("countryGuesser"), slug: "__countryGuesser" }}
+                                    onClick={() => onMapClick({ name: text("countryGuesser"), slug: "__countryGuesser" })}
+                                    searchTerm={searchTerm}
+                                />
+                            )}
+                            {((searchTerm.length === 0) || text("continentGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
+                                <MapTile
+                                    bgImage={`url("${asset('/world.jpg')}")`}
+                                    map={{ name: text("continentGuesser"), slug: "__continentGuesser" }}
+                                    onClick={() => onMapClick({ name: text("continentGuesser"), slug: "__continentGuesser" })}
+                                    searchTerm={searchTerm}
+                                />
+                            )}
                         </div>
                     )}
 

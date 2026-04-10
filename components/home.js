@@ -28,7 +28,6 @@ import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
 import WelcomeOverlay from "@/components/welcomeOverlay";
-import CountryGuessrConfig from "@/components/countryGuessrConfig";
 import OnboardingComplete from "@/components/onboardingComplete";
 import { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
 import { asset, navigate, stripBase } from '@/lib/basePath';
@@ -1952,7 +1951,7 @@ export default function Home({ }) {
             // Always disable chat when WebSocket disconnects to prevent chat button showing in menu
             setMultiplayerChatEnabled(false)
             setMultiplayerChatOpen(false)
-            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "countryGuessrConfig") {
+            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser") {
                 setMultiplayerError(true)
                 setLoading(false)
 
@@ -1978,7 +1977,7 @@ export default function Home({ }) {
             setMultiplayerChatEnabled(false)
             setMultiplayerChatOpen(false)
 
-            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "countryGuessrConfig") {
+            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser") {
                 setMultiplayerError(true)
 
                 toast.info(text("connectionLostRecov"))
@@ -2732,6 +2731,7 @@ export default function Home({ }) {
                     selectCountryModalShown={selectCountryModalShown}
                     mapModalOpen={mapModal}
                     onConnectionError={() => setConnectionErrorModalShown(true)}
+                    countryGuessrMode={countryGuessrMode}
                 />
 
                 {/* Pending Name Change Banner */}
@@ -2815,7 +2815,7 @@ export default function Home({ }) {
                             screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 )}
-                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || screen === 'countryGuessrConfig' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
+                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>
 
@@ -2883,16 +2883,6 @@ export default function Home({ }) {
                                                         }, 300);
                                                     }}>
                                                     {text("singleplayer")}
-                                                </button>
-                                                <button className="g2_nav_text" onClick={() => {
-                                                        if (loading) return;
-                                                        setNavSlideOut(true);
-                                                        setTimeout(() => {
-                                                            setScreen("countryGuessrConfig");
-                                                            setNavSlideOut(false);
-                                                        }, 300);
-                                                    }}>
-                                                    {text("countryGuesser") || "Country Guesser"}
                                                 </button>
                                                 {/* <span className="bigSpan">{text("playOnline")}</span> */}
 
@@ -3061,12 +3051,34 @@ export default function Home({ }) {
                 }}
                     mapModalClosing={mapModalClosing}
                     text={text}
-                    customChooseMapCallback={(gameOptionsModalShown && screen === "singleplayer") ? (map) => {
-                        console.log("map", map)
-                        openMap(map.countryMap || map.slug);
-                        setGameOptionsModalShown(false)
+                    customChooseMapCallback={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser")) ? (map) => {
+                        if (map.slug === "__countryGuesser") {
+                            setCountryGuessrMode({ subMode: "country", region: "all" });
+                            if (screen !== "countryGuesser") {
+                                setScreen("countryGuesser");
+                            } else {
+                                setSinglePlayerRound({ round: 1, totalRounds: 5, locations: [] });
+                                setShowCountryButtons(true);
+                                loadLocation();
+                            }
+                            setGameOptionsModalShown(false);
+                        } else if (map.slug === "__continentGuesser") {
+                            setCountryGuessrMode({ subMode: "continent", region: "all" });
+                            if (screen !== "countryGuesser") {
+                                setScreen("countryGuesser");
+                            } else {
+                                setSinglePlayerRound({ round: 1, totalRounds: 5, locations: [] });
+                                setShowCountryButtons(true);
+                                loadLocation();
+                            }
+                            setGameOptionsModalShown(false);
+                        } else {
+                            if (screen === "countryGuesser") setScreen("singleplayer");
+                            openMap(map.countryMap || map.slug);
+                            setGameOptionsModalShown(false);
+                        }
                     } : null}
-                    showAllCountriesOption={(gameOptionsModalShown && screen === "singleplayer")}
+                    showAllCountriesOption={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser"))}
                     showOptions={screen === "singleplayer"}
                     showTimerOption={screen === "singleplayer"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
@@ -3089,15 +3101,6 @@ export default function Home({ }) {
 
 
 
-                {screen === "countryGuessrConfig" && (
-                    <CountryGuessrConfig
-                        onStart={(config) => {
-                            setCountryGuessrMode(config);
-                            setScreen("countryGuesser");
-                        }}
-                        onBack={() => setScreen("home")}
-                    />
-                )}
 
                 {screen === "singleplayer" && <div className="home__singleplayer">
                     <GameUI
@@ -3174,7 +3177,8 @@ export default function Home({ }) {
                             setShowAnswer(false);
                             setOnboarding(null);
                             setOnboardingCompleted(true);
-                            setScreen("countryGuessrConfig");
+                            setCountryGuessrMode({ subMode: "country", region: "all" });
+                            setScreen("countryGuesser");
                         }}
                         onSignIn={() => {
                             signIn();

@@ -2336,8 +2336,9 @@ h1, h2, h3, span, label {
 
 .endButtonContainer {
     display: flex;
-    justify-content: space-around; /* Adjusts spacing between buttons */
-    align-items: center; /* Vertically centers buttons in the container */
+    justify-content: space-around;
+    align-items: center;
+    margin-top: 8px;
 
     button {
         font-family: lexend;
@@ -2403,6 +2404,13 @@ h1, h2, h3, span, label {
     font-style: italic;
     opacity: 0.85;
     font-size: 0.85em !important;
+}
+
+.quip {
+    font-style: italic;
+    opacity: 0.9;
+    font-size: 0.85em !important;
+    margin-top: 2px !important;
 }
 
 .bannerPoints {
@@ -3131,12 +3139,14 @@ img[alt="Google"] {
     display: flex;
     gap: 8px;
     justify-content: center;
+    align-items: stretch;
 }
 
 .countryGuessrBtn {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     padding: 10px 14px;
     min-width: 100px;
@@ -3174,11 +3184,11 @@ img[alt="Google"] {
 
 .countryGuessrBtn__emoji {
     font-size: 1.6rem;
+}
 
-    img {
-        width: 34px;
-        height: 34px;
-    }
+img.countryGuessrBtn__emoji {
+    width: 34px;
+    height: 34px;
 }
 
 .countryGuessrBtn__name {
@@ -3221,11 +3231,11 @@ img[alt="Google"] {
 
     .countryGuessrBtn__emoji {
         font-size: 2.2rem;
+    }
 
-        img {
-            width: 42px;
-            height: 42px;
-        }
+    img.countryGuessrBtn__emoji {
+        width: 42px;
+        height: 42px;
     }
 
     .countryGuessrBtn__name {
@@ -3282,56 +3292,84 @@ img[alt="Google"] {
 
 @media screen and (max-width: 600px), screen and (pointer:coarse) {
     .countryGuessrOptions {
-        bottom: 10px;
-        width: calc(100% - 16px);
+        bottom: 8px;
+        width: calc(100% - 12px);
         padding: 10px;
+        gap: 6px;
+        border-radius: 14px;
+    }
+
+    .countryGuessrPrompt {
+        font-size: 0.95rem;
     }
 
     .countryGuessrBtnRow {
         width: 100%;
         flex-wrap: wrap;
+        gap: 6px;
     }
 
     .countryGuessrBtn {
-        flex: 1 1 40%;
+        flex: 1 1 44%;
         min-width: 0;
-        padding: 8px 8px;
+        padding: 12px 10px;
+        gap: 6px;
+        border-radius: 10px;
     }
 
     .countryGuessrBtn__flag {
-        width: 36px;
-        height: 24px;
+        width: 56px;
+        height: 38px;
+        border-radius: 4px;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 48px;
+        height: 48px;
     }
 
     .countryGuessrBtn__name {
-        font-size: 0.72rem;
+        font-size: 0.9rem;
     }
 
     .countryGuessrBtn--continent {
         flex: 1 1 30%;
         min-width: 0;
-        padding: 6px 6px;
+        padding: 12px 8px;
     }
 
-    /* Compact country buttons for normal (non-onboarding) mode on mobile */
+    /* Compact mode (singleplayer, non-onboarding) on mobile */
+    .compactMode.countryGuessrOptions {
+        padding: 8px;
+        gap: 5px;
+    }
+
+    .compactMode .countryGuessrBtnRow {
+        gap: 5px;
+    }
+
     .compactMode .countryGuessrBtn {
-        padding: 5px 6px;
-        gap: 3px;
+        padding: 10px 8px;
+        gap: 5px;
         flex: 1 1 30%;
     }
 
     .compactMode .countryGuessrBtn__flag {
-        width: 28px;
-        height: 18px;
+        width: 48px;
+        height: 32px;
+    }
+
+    .compactMode img.countryGuessrBtn__emoji {
+        width: 42px;
+        height: 42px;
     }
 
     .compactMode .countryGuessrBtn__name {
-        font-size: 0.62rem;
+        font-size: 0.82rem;
     }
 
-    .compactMode.countryGuessrOptions {
-        padding: 8px;
-        gap: 5px;
+    .compactMode .countryGuessrBtn--continent {
+        padding: 10px 6px;
     }
 }
 .leaflet-container {
@@ -6340,7 +6378,7 @@ div:hover .elo-badge {
     }
 
     .countryGuessrOptions.continentMode {
-        width: 90%;
+        width: calc(100% - 12px);
     }
 
     .post-tutorial__btn {

@@ -5,6 +5,7 @@ import triggerConfetti from "./utils/triggerConfetti";
 import nameFromCode from "./utils/nameFromCode";
 import continentFromCode from "./utils/continentFromCode";
 import { continentKey } from "./utils/continentLocale";
+import guessQuips from "./utils/guessQuips.json";
 
 const CORRECT_ENCOURAGEMENTS = [
     "correctEncouragement1",
@@ -20,7 +21,7 @@ const ONBOARDING_FACTS = [
     "onboardingFact3",
 ];
 
-export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, isContinentMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
+export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
     const { t: text } = useTranslation("common");
     const confettiTriggered = useRef(false);
     const autoAdvanceTimer = useRef(null);
@@ -50,7 +51,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         return () => clearTimeout(timer);
     }, [guessed, points, panoShown]);
 
-    // Auto-advance for onboarding (shorter on last round to keep flow snappy)
+    // Auto-advance for onboarding (consider shorter on last round to keep flow snappy)
     const isOnboardingLastRound = onboarding && onboarding.round === (onboarding.locations?.length || 3);
     useEffect(() => {
         if (guessed && onboarding && !onboarding.completed) {
@@ -85,6 +86,22 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     }
     if (!guessed) encouragementRef.current = null;
     const encouragement = encouragementRef.current ? text(encouragementRef.current) : null;
+
+    // Funny quip for singleplayer (not onboarding), tiered by how wrong the guess was
+    const quipRef = useRef(null);
+    const lastQuipRef = useRef(null);
+    if (guessed && countryGuesser && !onboarding && singlePlayerRound && guessTier && !quipRef.current) {
+        const pool = guessQuips[guessTier];
+        if (pool && pool.length > 0) {
+            let pick;
+            do {
+                pick = pool[Math.floor(Math.random() * pool.length)];
+            } while (pick === lastQuipRef.current && pool.length > 1);
+            quipRef.current = pick;
+            lastQuipRef.current = pick;
+        }
+    }
+    if (!guessed) quipRef.current = null;
 
     const locationFact = onboarding && guessed && onboarding.round
         ? text(ONBOARDING_FACTS[onboarding.round - 1] || "")
@@ -141,10 +158,10 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                     </p>
                 )}
 
-                {/* Encouragement tip (country guesser only) */}
-                {/* {countryGuesser && encouragement && (
-                    <p className="motivation encouragement">{encouragement}</p>
-                )} */}
+                {/* Funny quip (singleplayer country/continent guesser only) */}
+                {quipRef.current && (
+                    <p className="motivation quip">{quipRef.current}</p>
+                )}
 
                 {/* Location fact (onboarding only) */}
                 {locationFact && (
