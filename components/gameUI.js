@@ -131,6 +131,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       } else if(setSinglePlayerRound) {
         // reset to default
         setHintsUsedThisGame(0);
+        if(!mapPinned) setMiniMapExpanded(false);
         setSinglePlayerRound({
           round: 1,
           totalRounds: countryGuesser ? 10 : 5,
