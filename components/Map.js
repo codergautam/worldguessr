@@ -154,7 +154,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
   }, [map]);
 }
 
-const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, round, focused, gameOptions, countryGuessPin }) => {
+const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, round, focused, gameOptions, countryGuessPin, hidePins }) => {
   const mapRef = React.useRef(null);
   const plopSound = React.useRef();
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
@@ -219,10 +219,10 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         }
       } pinPoint={pinPoint} setPinPoint={setPinPoint} answerShown={answerShown} dest={location} gameOptions={gameOptions} ws={ws} multiplayerState={multiplayerState} countryGuessPin={countryGuessPin} />
       {/* place a pin */}
-      {location && answerShown && (
+      {location && answerShown && !hidePins && (
         <Marker position={{ lat: location.lat, lng: location.long }} icon={icons.dest} />
       )}
-      {pinPoint && (
+      {pinPoint && !hidePins && (
         <>
           <Marker position={pinPoint} icon={customPins[session?.token?.username] === "polandball" ? icons.polandball : icons.src} >
           <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent  position={{ lat: pinPoint.lat, lng: pinPoint.lng }}>
@@ -238,7 +238,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         </>
       )}
 
-      {countryGuessPin && answerShown && location && (
+      {countryGuessPin && answerShown && !hidePins && location && (
         <>
           <Marker position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }} icon={customPins[session?.token?.username] === "polandball" ? icons.polandball : icons.src} >
             <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }}>

@@ -12,15 +12,6 @@ import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
 import continentFromCode from "./utils/continentFromCode";
 import countryCoordinates from "../public/countryCoordinates.json";
-
-const continentCenters = {
-  "Africa": { lat: 2, lng: 22 },
-  "Asia": { lat: 34, lng: 100 },
-  "Europe": { lat: 50, lng: 15 },
-  "North America": { lat: 40, lng: -100 },
-  "South America": { lat: -15, lng: -60 },
-  "Oceania": { lat: -22, lng: 140 },
-};
 import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import { toast } from "react-toastify";
@@ -711,7 +702,7 @@ session={session}/>
           </button>
         </div>
 )}
-        <MapWidget shown={latLong && !loading} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect ? (continentCenters[guessedCountryCode] || countryCoordinates[guessedCountryCode]) : null} />
+        <MapWidget shown={latLong && !loading} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} hidePins={mapFadingOut} />
 
 
         <div className={`miniMap__btns ${showAnswer ? 'answerShownBtns' : ''}`}>
