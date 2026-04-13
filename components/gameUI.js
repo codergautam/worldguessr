@@ -674,10 +674,9 @@ session={session}/>
 
 
       <div id="miniMapArea" onMouseEnter={() => {
-        setMiniMapExpanded(true)
+        if(!loading) setMiniMapExpanded(true)
       }} onMouseLeave={() => {
-        if(mapPinned) return;
-        // todo: if mouse down, don't collapse
+        if(mapPinned || showAnswer) return;
         setMiniMapExpanded(false)
       }} className={`miniMap ${miniMapExpanded && !showAnswer ? 'mapExpanded' : ''} ${!welcomeOverlayShown && (miniMapShown||showAnswer||mapFadingOut)&&(!singlePlayerRound?.done && !onboarding?.completed && ((!showPanoOnResult && showAnswer) || (!showAnswer) || mapFadingOut)) && !(onboarding && !showAnswer && !mapFadingOut && onboarding.mode !== 'classic') ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${(showAnswer && countryGuesser && !showPanoOnResult) || mapFadingOut ? 'countryGuessrMapReveal' : ''} ${mapFadingOut ? 'countryGuessrMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
 

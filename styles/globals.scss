@@ -105,6 +105,15 @@ html {
     }
 }
 
+.animatedLine {
+    opacity: 0;
+    animation: fadeLineIn 0.5s ease 0.1s forwards;
+}
+
+@keyframes fadeLineIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
 
 .home__content {
     //position: fixed;
@@ -1673,6 +1682,7 @@ h1, h2, h3, span, label {
     z-index: 1000;
     transform: translateY(105%);
     opacity: 0;
+    pointer-events: none;
     transition: opacity 0.4s ease;
 }
 
@@ -1704,6 +1714,7 @@ h1, h2, h3, span, label {
 #miniMapArea.shown {
     opacity: 50%;
     transform: translateY(0%);
+    pointer-events: auto;
 }
 
 
@@ -2153,10 +2164,11 @@ h1, h2, h3, span, label {
     height: 100vh;
     opacity: 100%;
     right: 0;
-    top: 0px;
+    bottom: 0;
+    border-radius: 0;
     margin-right: 0;
     margin-top: 0;
-    transition: all 1000ms ease;
+    transition: all 300ms ease;
 }
 
 #miniMapArea.countryGuessrMapReveal {
@@ -2262,7 +2274,7 @@ h1, h2, h3, span, label {
     justify-content: center;
     align-items: center;
     left: 50%;
-    padding: 14px 20px;
+    padding: 14px 20px 20px;
     margin-bottom: 10px;
     z-index: 1001;
     pointer-events: all;

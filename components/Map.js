@@ -63,7 +63,7 @@ const TileLayer = dynamic(
   }
 );
 
-function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, multiplayerState, playSound, countryGuessPin }) {
+function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, multiplayerState, playSound, countryGuessPin, setAnimationDone }) {
   const multiplayerStateRef = React.useRef(multiplayerState);
   const wsRef = React.useRef(ws);
 
@@ -117,7 +117,13 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
 
   useEffect(() => {
     if (!answerShown || !dest) return;
+    setAnimationDone(false);
+    // Keep map centered during the CSS fullscreen expansion (200ms)
+    const expandInterval = setInterval(() => { try { map.invalidateSize(); } catch(e) {} }, 10);
+    setTimeout(() => clearInterval(expandInterval), 250);
+    let totalMs;
     if (pinPoint) {
+      totalMs = 300 + 500; // 300ms delay + 0.5s fly
       setTimeout(() => {
         try {
           const bounds = L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5);
@@ -125,7 +131,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         } catch(e) {}
       }, 300);
     } else if (countryGuessPin) {
-      // Country/continent guesser with wrong guess: show both pins
+      totalMs = 200 + 1200; // 200ms delay + 1.2s fly
       try { map.setView([20, 0], 2, { animate: false }); } catch(e) {}
       setTimeout(() => {
         try {
@@ -136,7 +142,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         } catch(e) {}
       }, 200);
     } else {
-      // Country/continent guesser correct: start zoomed out, then fly in smoothly
+      totalMs = 200 + 1800; // 200ms delay + 1.8s fly
       try { map.setView([20, 0], 2, { animate: false }); } catch(e) {}
       setTimeout(() => {
         try {
@@ -144,6 +150,8 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
         } catch(e) {}
       }, 200);
     }
+    const t = setTimeout(() => setAnimationDone(true), totalMs + 100);
+    return () => clearTimeout(t);
   }, [answerShown]);
 
   useEffect(() => {
@@ -162,6 +170,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
   const mapRef = React.useRef(null);
   const plopSound = React.useRef();
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
+  const [animationDone, setAnimationDone] = useState(true);
 
   const { t: text } = useTranslation("common");
 
@@ -221,7 +230,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         () => {
           plopSound.current.play();
         }
-      } pinPoint={pinPoint} setPinPoint={setPinPoint} answerShown={answerShown} dest={location} gameOptions={gameOptions} ws={ws} multiplayerState={multiplayerState} countryGuessPin={countryGuessPin} />
+      } pinPoint={pinPoint} setPinPoint={setPinPoint} answerShown={answerShown} dest={location} gameOptions={gameOptions} ws={ws} multiplayerState={multiplayerState} countryGuessPin={countryGuessPin} setAnimationDone={setAnimationDone} />
       {/* place a pin */}
       {location && answerShown && !hidePins && (
         <Marker position={{ lat: location.lat, lng: location.long }} icon={icons.dest} />
@@ -236,8 +245,8 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
           </Marker>
 
 
-          {answerShown && location && (
-            < Polyline positions={[pinPoint, { lat: location.lat, lng: location.long }]} />
+          {answerShown && location && (window.matchMedia("(min-width: 600px) and (pointer: fine)").matches || animationDone) && (
+            < Polyline className={animationDone && !window.matchMedia("(min-width: 600px) and (pointer: fine)").matches ? "animatedLine" : ""} positions={[pinPoint, { lat: location.lat, lng: location.long }]} />
           )}
         </>
       )}
@@ -249,7 +258,9 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
               {text("yourGuess")}
             </Tooltip>
           </Marker>
-          <Polyline positions={[{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: location.lat, lng: location.long }]} dashArray="8 8" />
+          {(window.matchMedia("(min-width: 600px) and (pointer: fine)").matches || animationDone) && (
+            <Polyline className={animationDone && !window.matchMedia("(min-width: 600px) and (pointer: fine)").matches ? "animatedLine" : ""} positions={[{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: location.lat, lng: location.long }]} dashArray="8 8" />
+          )}
         </>
       )}
 
@@ -273,7 +284,9 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
               </span>
             </Tooltip>
             </Marker>
-            <Polyline key={(index*2)+1} positions={[{ lat: latLong[0], lng: latLong[1] }, { lat: location.lat, lng: location.long }]} color="green" />
+            {(window.matchMedia("(min-width: 600px) and (pointer: fine)").matches || animationDone) && (
+              <Polyline className={animationDone && !window.matchMedia("(min-width: 600px) and (pointer: fine)").matches ? "animatedLine" : ""} key={(index*2)+1} positions={[{ lat: latLong[0], lng: latLong[1] }, { lat: location.lat, lng: location.long }]} color="green" />
+            )}
 
 
           </>
