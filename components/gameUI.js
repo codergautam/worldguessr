@@ -11,6 +11,16 @@ import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown } from "react-icons/fa6"
 import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
 import continentFromCode from "./utils/continentFromCode";
+import countryCoordinates from "../public/countryCoordinates.json";
+
+const continentCenters = {
+  "Africa": { lat: 2, lng: 22 },
+  "Asia": { lat: 34, lng: 100 },
+  "Europe": { lat: 50, lng: 15 },
+  "North America": { lat: 40, lng: -100 },
+  "South America": { lat: -15, lng: -60 },
+  "Oceania": { lat: -22, lng: 140 },
+};
 import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import { toast } from "react-toastify";
@@ -132,7 +142,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         setHintsUsedThisGame(0);
         setSinglePlayerRound({
           round: 1,
-          totalRounds: 5,
+          totalRounds: countryGuesser ? 10 : 5,
           locations: []
         })
       }
@@ -196,6 +206,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   });
   const [lostContinentGuessrStreak, setLostContStreak] = useState(0);
   const [guessTier, setGuessTier] = useState(null); // "correct" | "wrongSameContinent" | "wrongDiffContinent"
+  const [guessedCountryCode, setGuessedCountryCode] = useState(null);
   const [mapFadingOut, setMapFadingOut] = useState(false);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -253,6 +264,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     if(showAnswer) {
       setShowPanoOnResult(false)
     } else {
+      setGuessedCountryCode(null);
     }
   }, [showAnswer])
 
@@ -464,7 +476,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       setHintsUsedThisGame(0);
       setSinglePlayerRound({
         round: 1,
-        totalRounds: 5,
+        totalRounds: countryGuesser ? 10 : 5,
         locations: []
       })
     }
@@ -699,7 +711,7 @@ session={session}/>
           </button>
         </div>
 )}
-        <MapWidget shown={latLong && !loading} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} />
+        <MapWidget shown={latLong && !loading} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect ? (continentCenters[guessedCountryCode] || countryCoordinates[guessedCountryCode]) : null} />
 
 
         <div className={`miniMap__btns ${showAnswer ? 'answerShownBtns' : ''}`}>
@@ -752,6 +764,7 @@ session={session}/>
           const isContinentMode = onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"));
           const isCorrect = isContinentMode ? continentFromCode(latLong.country) === selected : selected === latLong.country;
           setCountryGuesserCorrect(isCorrect);
+          setGuessedCountryCode(selected);
           // Determine quip tier
           if (isCorrect) {
             setGuessTier("correct");

@@ -63,7 +63,7 @@ const TileLayer = dynamic(
   }
 );
 
-function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, multiplayerState, playSound }) {
+function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, multiplayerState, playSound, countryGuessPin }) {
   const multiplayerStateRef = React.useRef(multiplayerState);
   const wsRef = React.useRef(ws);
 
@@ -124,8 +124,19 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
           map.flyToBounds(bounds, { duration: 0.5 });
         } catch(e) {}
       }, 300);
+    } else if (countryGuessPin) {
+      // Country/continent guesser with wrong guess: show both pins
+      try { map.setView([20, 0], 2, { animate: false }); } catch(e) {}
+      setTimeout(() => {
+        try {
+          const bounds = L.latLngBounds(
+            [{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: dest.lat, lng: dest.long }]
+          ).pad(0.5);
+          map.flyToBounds(bounds, { duration: 1.2 });
+        } catch(e) {}
+      }, 200);
     } else {
-      // Country/continent guesser: start zoomed out, then fly in smoothly
+      // Country/continent guesser correct: start zoomed out, then fly in smoothly
       try { map.setView([20, 0], 2, { animate: false }); } catch(e) {}
       setTimeout(() => {
         try {
@@ -143,7 +154,7 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
   }, [map]);
 }
 
-const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, round, focused, gameOptions }) => {
+const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, round, focused, gameOptions, countryGuessPin }) => {
   const mapRef = React.useRef(null);
   const plopSound = React.useRef();
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
@@ -206,7 +217,7 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         () => {
           plopSound.current.play();
         }
-      } pinPoint={pinPoint} setPinPoint={setPinPoint} answerShown={answerShown} dest={location} gameOptions={gameOptions} ws={ws} multiplayerState={multiplayerState} />
+      } pinPoint={pinPoint} setPinPoint={setPinPoint} answerShown={answerShown} dest={location} gameOptions={gameOptions} ws={ws} multiplayerState={multiplayerState} countryGuessPin={countryGuessPin} />
       {/* place a pin */}
       {location && answerShown && (
         <Marker position={{ lat: location.lat, lng: location.long }} icon={icons.dest} />
@@ -224,6 +235,17 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
           {answerShown && location && (
             < Polyline positions={[pinPoint, { lat: location.lat, lng: location.long }]} />
           )}
+        </>
+      )}
+
+      {countryGuessPin && answerShown && location && (
+        <>
+          <Marker position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }} icon={customPins[session?.token?.username] === "polandball" ? icons.polandball : icons.src} >
+            <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }}>
+              {text("yourGuess")}
+            </Tooltip>
+          </Marker>
+          <Polyline positions={[{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: location.lat, lng: location.long }]} dashArray="8 8" />
         </>
       )}
 

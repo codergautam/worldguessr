@@ -20,6 +20,7 @@ export default function MapView({
     onMapClick,
     chosenMap,
     showAllCountriesOption,
+    hideCountryGuessrModes,
     makeMap,
     setMakeMap,
     initMakeMap,
@@ -454,8 +455,8 @@ export default function MapView({
                 <>
                     {/* Singleplayer Mode Tiles */}
                     {showAllCountriesOption && (searchTerm.length === 0 ||
-                      [text("allCountries"), text("countryGuesser"), text("continentGuesser")].some(
-                        label => label?.toLowerCase().includes(searchTerm?.toLowerCase())
+                      [text("allCountries"), !hideCountryGuessrModes && text("countryGuesser"), !hideCountryGuessrModes && text("continentGuesser")].some(
+                        label => label && label?.toLowerCase().includes(searchTerm?.toLowerCase())
                       )) && (
                         <div className="singleplayer-mode-tiles">
                             {((searchTerm.length === 0) || text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
@@ -466,7 +467,7 @@ export default function MapView({
                                     searchTerm={searchTerm}
                                 />
                             )}
-                            {((searchTerm.length === 0) || text("countryGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
+                            {!hideCountryGuessrModes && ((searchTerm.length === 0) || text("countryGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
                                 <MapTile
                                     bgImage={`url("${asset('/world.jpg')}")`}
                                     map={{ name: text("countryGuesser"), slug: "__countryGuesser" }}
@@ -474,7 +475,7 @@ export default function MapView({
                                     searchTerm={searchTerm}
                                 />
                             )}
-                            {((searchTerm.length === 0) || text("continentGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
+                            {!hideCountryGuessrModes && ((searchTerm.length === 0) || text("continentGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
                                 <MapTile
                                     bgImage={`url("${asset('/world.jpg')}")`}
                                     map={{ name: text("continentGuesser"), slug: "__continentGuesser" }}

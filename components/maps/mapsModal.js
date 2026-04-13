@@ -16,7 +16,7 @@ const initMakeMap = {
     edit: false,
     mapId: "",
 };
-export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions, showTimerOption }) {
+export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions, showTimerOption, hideCountryGuessrModes }) {
     const [makeMap, setMakeMap] = useState(initMakeMap);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
@@ -98,6 +98,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
                         showOptions={showOptions}
                         showTimerOption={showTimerOption}
                         showAllCountriesOption={showAllCountriesOption}
+                        hideCountryGuessrModes={hideCountryGuessrModes}
                         chosenMap={chosenMap}
                         close={onClose}
                         session={session}

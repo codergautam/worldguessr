@@ -19,7 +19,8 @@
       "Bash(npx next build:*)",
       "Bash(npx acorn:*)",
       "WebSearch",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "WebFetch(domain:restcountries.com)"
     ],
     "deny": [
       "Bash(git push:*)"

@@ -61,12 +61,13 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
 
     if (selectCountryModalShown) {
         return (
-            <MapsModal 
-                showAllCountriesOption={true} 
-                shown={selectCountryModalShown} 
-                onClose={() => setSelectCountryModalShown(false)} 
-                session={session} 
-                text={text} 
+            <MapsModal
+                showAllCountriesOption={true}
+                hideCountryGuessrModes={true}
+                shown={selectCountryModalShown}
+                onClose={() => setSelectCountryModalShown(false)}
+                session={session}
+                text={text}
                 customChooseMapCallback={(map) => {
                     setMultiplayerState(prev => ({
                         ...prev, 

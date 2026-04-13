@@ -478,6 +478,7 @@ export default function Home({ }) {
                 // get map slug map=slug from url
                 const params = new URLSearchParams(window.location.search);
                 const mapSlug = params.get("map");
+                hasEnteredSingleplayer.current = true;
                 setScreen("singleplayer")
 
                 openMap(mapSlug)
@@ -546,6 +547,8 @@ export default function Home({ }) {
     const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
     const [onboardingMode, setOnboardingMode] = useState("classic");
     const [countryGuessrMode, setCountryGuessrMode] = useState({ subMode: "country", region: "all" });
+    const hasEnteredSingleplayer = useRef(false);
+    const lastSingleplayerScreen = useRef(null);
 
     const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
     const [showDiscordModal, setShowDiscordModal] = useState(false);
@@ -710,9 +713,10 @@ export default function Home({ }) {
 
     useEffect(() => {
         if (screen === "singleplayer" || screen === "countryGuesser") {
+            lastSingleplayerScreen.current = screen;
             setSinglePlayerRound({
                 round: 1,
-                totalRounds: 5,
+                totalRounds: screen === "countryGuesser" ? 10 : 5,
                 locations: [],
             })
             if (screen === "countryGuesser") {
@@ -921,7 +925,7 @@ export default function Home({ }) {
         // check if learn mode
         if (window.location.search.includes("learn=true")) {
             window.learnMode = true;
-
+            hasEnteredSingleplayer.current = true;
             // immediately open single player
             setScreen("singleplayer")
         }
@@ -930,6 +934,7 @@ export default function Home({ }) {
             // get map slug map=slug from url
             const params = new URLSearchParams(window.location.search);
             const mapSlug = params.get("map");
+            hasEnteredSingleplayer.current = true;
             setScreen("singleplayer")
 
             openMap(mapSlug)
@@ -2251,7 +2256,7 @@ export default function Home({ }) {
                 clearLocation();
             };
             // Show midgame ad when leaving an active singleplayer game
-            if (screen === "singleplayer") {
+            if (screen === "singleplayer" || screen === "countryGuesser") {
                 crazyMidgame(afterBack);
             } else {
                 afterBack();
@@ -2878,7 +2883,24 @@ export default function Home({ }) {
                                                         setNavSlideOut(true);
                                                         setMiniMapShown(false);
                                                         setTimeout(() => {
-                                                            crazyMidgame(() => setScreen("singleplayer"));
+                                                            crazyMidgame(() => {
+                                                                // First entry this session: check localStorage preference
+                                                                if (!hasEnteredSingleplayer.current) {
+                                                                    hasEnteredSingleplayer.current = true;
+                                                                    const pref = gameStorage.getItem("singleplayerDefaultMode");
+                                                                    if (pref === "countryGuesser") {
+                                                                        setCountryGuessrMode({ subMode: "country", region: "all" });
+                                                                        setScreen("countryGuesser");
+                                                                        return;
+                                                                    } else if (pref === "continentGuesser") {
+                                                                        setCountryGuessrMode({ subMode: "continent", region: "all" });
+                                                                        setScreen("countryGuesser");
+                                                                        return;
+                                                                    }
+                                                                }
+                                                                // Subsequent entries: restore last screen used this session
+                                                                setScreen(lastSingleplayerScreen.current || "singleplayer");
+                                                            });
                                                             setNavSlideOut(false); // Reset for next use
                                                         }, 300);
                                                     }}>
@@ -3054,26 +3076,29 @@ export default function Home({ }) {
                     customChooseMapCallback={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser")) ? (map) => {
                         if (map.slug === "__countryGuesser") {
                             setCountryGuessrMode({ subMode: "country", region: "all" });
+                            try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
                             if (screen !== "countryGuesser") {
                                 setScreen("countryGuesser");
                             } else {
-                                setSinglePlayerRound({ round: 1, totalRounds: 5, locations: [] });
+                                setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
                                 setShowCountryButtons(true);
                                 loadLocation();
                             }
                             setGameOptionsModalShown(false);
                         } else if (map.slug === "__continentGuesser") {
                             setCountryGuessrMode({ subMode: "continent", region: "all" });
+                            try { gameStorage.setItem("singleplayerDefaultMode", "continentGuesser"); } catch(e) {}
                             if (screen !== "countryGuesser") {
                                 setScreen("countryGuesser");
                             } else {
-                                setSinglePlayerRound({ round: 1, totalRounds: 5, locations: [] });
+                                setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
                                 setShowCountryButtons(true);
                                 loadLocation();
                             }
                             setGameOptionsModalShown(false);
                         } else {
                             if (screen === "countryGuesser") setScreen("singleplayer");
+                            try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch(e) {}
                             openMap(map.countryMap || map.slug);
                             setGameOptionsModalShown(false);
                         }
@@ -3174,6 +3199,7 @@ export default function Home({ }) {
                         onCountryGuesser={() => {
                             sendEvent("tutorial_end");
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
                             setShowAnswer(false);
                             setOnboarding(null);
                             setOnboardingCompleted(true);
