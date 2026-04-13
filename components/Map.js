@@ -147,10 +147,14 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
   }, [answerShown]);
 
   useEffect(() => {
-    const i = setInterval(() => {
+    if (!map) return;
+    const container = map.getContainer();
+    if (!container) return;
+    const ro = new ResizeObserver(() => {
       map.invalidateSize();
-    }, 5);
-    return () => clearInterval(i);
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
   }, [map]);
 }
 
