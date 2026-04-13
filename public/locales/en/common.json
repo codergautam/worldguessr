@@ -72,6 +72,8 @@
   "leaderboard": "Leaderboard",
   "roundsCount": "{{rounds}} rounds",
   "gameCode": "Game Code",
+  "invalidPartyCode": "Invalid or expired party code",
+  "partyFull": "This party is full",
   "host": "Host",
   "playAgain": "Play Again",
   "goHome": "Go Home",

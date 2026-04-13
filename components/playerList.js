@@ -1,9 +1,20 @@
 import { useTranslation } from '@/components/useTranslations'
-import { FaCopy } from 'react-icons/fa6';
+import { FaCopy, FaLink } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 import UsernameWithFlag from './utils/usernameWithFlag';
 
-export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick, fadingOut }) {
+function getPartyLink(code, inCrazyGames) {
+  if (inCrazyGames) {
+    try {
+      const link = window.CrazyGames.SDK.game.showInviteButton({ code });
+      if (link) return link;
+    } catch(e) {}
+  }
+  const domain = process.env.NEXT_PUBLIC_DOMAIN || window.location.origin;
+  return `${domain}?party=${code}`;
+}
+
+export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick, fadingOut, inCrazyGames }) {
   const { t: text } = useTranslation("common");
 
   const players = (multiplayerState?.gameData?.finalPlayers ?? multiplayerState?.gameData?.players).sort((a, b) => b.score - a.score);
@@ -60,7 +71,8 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
             fontSize: "clamp(16px, 4vw, 20px)"
           }}>{text("gameCode")}: {multiplayerState.gameData?.code}</span>
         <button onClick={() => {
-          navigator.clipboard.writeText(multiplayerState.gameData?.code);
+          const link = getPartyLink(multiplayerState.gameData?.code, inCrazyGames);
+          navigator.clipboard.writeText(link);
           toast.success(text("copiedToClipboard"));
         }} style={{
             marginLeft: "12px",
@@ -76,7 +88,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
             justifyContent: "center",
             transition: "all 0.15s ease"
           }}>
-          <FaCopy />
+          <FaLink />
         </button>
         </div>
         { host && (

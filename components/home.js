@@ -1426,7 +1426,8 @@ export default function Home({ }) {
                             if (secret !== "not_logged_in") {
                                 window.verified = true;
                             }
-                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode"), platform: getPlatform() }))
+                            const hasPartyLink = new URLSearchParams(window.location.search).has("party");
+                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode"), skipRejoin: hasPartyLink || undefined, platform: getPlatform() }))
                         } else if (window.verifyPayload) {
                             console.log("sending verify from verifyPayload")
                             ws.send(window.verifyPayload)
@@ -1538,6 +1539,33 @@ export default function Home({ }) {
 
         }
     }, [multiplayerState?.verified, inCrazyGames])
+
+    // Handle ?party= URL param to auto-join a party
+    useEffect(() => {
+        if (!multiplayerState?.verified || inCrazyGames) return;
+        const params = new URLSearchParams(window.location.search);
+        const partyCode = params.get("party");
+        if (!partyCode) return;
+
+        // Clean up the URL
+        params.delete("party");
+        const newSearch = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (newSearch ? '?' + newSearch : ''));
+
+        const code = parseInt(partyCode);
+        if (isNaN(code)) return;
+
+        // Skip if already in this exact party
+        if (multiplayerState?.inGame && multiplayerState?.gameData?.code === code) return;
+
+        // Clear onboarding state if active
+        setOnboardingCompleted(true);
+        setOnboarding(null);
+        setLoading(false);
+
+        // Server already skipped rejoin due to skipRejoin flag, so player is free to join
+        handleMultiplayerAction("joinPrivateGame", code);
+    }, [multiplayerState?.verified])
 
     useEffect(() => {
         if (multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
@@ -1738,6 +1766,19 @@ export default function Home({ }) {
                         }
                     }
 
+                    // Rejoin — restore latLong and pinPoint from game state
+                    if (!prev.gameData && data.state === "getready" && data.locations && data.curRound > 1) {
+                        setLatLong(data.locations[data.curRound - 2])
+                    }
+                    if (!prev.gameData && data.players) {
+                        const me = data.players.find(p => p.id === data.myId);
+                        if (me?.guess) {
+                            import('leaflet').then(L => {
+                                setPinPoint(L.latLng(me.guess[0], me.guess[1]));
+                            });
+                        }
+                    }
+
                     return {
                         ...prev,
                         gameQueued: false,
@@ -1856,17 +1897,29 @@ export default function Home({ }) {
                     ...prev,
                     extent: null
                 }))
-            } else if (data.type === "gameJoinError" && multiplayerState.enteringGameCode) {
-                setMultiplayerState((prev) => {
-                    return {
+            } else if (data.type === "gameJoinError") {
+                if (multiplayerState.enteringGameCode) {
+                    setMultiplayerState((prev) => ({
                         ...prev,
                         joinOptions: {
                             ...prev.joinOptions,
                             error: data.error,
                             progress: false
                         }
-                    }
-                })
+                    }))
+                } else {
+                    // Joined via link — show toast and go home
+                    const errorKey = data.error === 'Game is full' ? 'partyFull' : 'invalidPartyCode';
+                    toast(text(errorKey) || data.error, { type: 'error' });
+                    setScreen("home");
+                    setMultiplayerState((prev) => ({
+                        ...initialMultiplayerState,
+                        connected: prev.connected,
+                        verified: prev.verified,
+                        playerCount: prev.playerCount,
+                        guestName: prev.guestName
+                    }));
+                }
             } else if (data.type === 'generating') {
                 // location generation before round
                 setMultiplayerState((prev) => {
@@ -3253,6 +3306,7 @@ export default function Home({ }) {
                         setMultiplayerState={setMultiplayerState}
                         selectCountryModalShown={selectCountryModalShown}
                         setSelectCountryModalShown={setSelectCountryModalShown}
+                        inCrazyGames={inCrazyGames}
                     />
                 </div>}
 

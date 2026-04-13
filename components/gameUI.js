@@ -208,6 +208,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [timeToNextRound, setTimeToNextRound] = useState(0); //only for onboarding
   const [singlePlayerTimeLeft, setSinglePlayerTimeLeft] = useState(0);
   const [mapPinned, setMapPinned] = useState(false);
+  const prevMultiplayerRoundStateRef = useRef({ state: null, round: null });
   // dist between guess & target
   const [km, setKm] = useState(null);
   const [explanationModalShown, setExplanationModalShown] = useState(false);
@@ -456,6 +457,30 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   }, [loading, latLong, width])
 
+  useEffect(() => {
+    if (!multiplayerState?.inGame) {
+      prevMultiplayerRoundStateRef.current = { state: null, round: null };
+      return;
+    }
+
+    const prevState = prevMultiplayerRoundStateRef.current.state;
+    const prevRound = prevMultiplayerRoundStateRef.current.round;
+    const curState = multiplayerState?.gameData?.state;
+    const curRound = multiplayerState?.gameData?.curRound;
+
+    const startedNewGuessRound = curState === "guess" && (
+      (prevState === "getready" && prevRound === curRound) ||
+      (prevState === "guess" && prevRound !== curRound)
+    );
+
+    if (startedNewGuessRound && !mapPinned) {
+      setMiniMapExpanded(false);
+      setMiniMapFullscreen(false);
+    }
+
+    prevMultiplayerRoundStateRef.current = { state: curState, round: curRound };
+  }, [multiplayerState?.inGame, multiplayerState?.gameData?.state, multiplayerState?.gameData?.curRound, mapPinned]);
+
   const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
 
   function showHint() {
@@ -549,6 +574,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
   const onboardingTimerShown = !((showAnswer||!onboarding));
+  const shouldShowMiniMap = !welcomeOverlayShown &&
+    (miniMapShown || showAnswer || mapFadingOut) &&
+    (!singlePlayerRound?.done && !onboarding?.completed &&
+      ((!showPanoOnResult && showAnswer) || (!showAnswer && !loading) || mapFadingOut)) &&
+    !(onboarding && !showAnswer && !mapFadingOut && onboarding.mode !== 'classic');
+  const forceHideMiniMap = !!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswer);
   return (
     <div className="gameUI">
 
@@ -681,7 +712,7 @@ session={session}/>
       }} onMouseLeave={() => {
         if(mapPinned || showAnswer) return;
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded && !showAnswer ? 'mapExpanded' : ''} ${!welcomeOverlayShown && (miniMapShown||showAnswer||mapFadingOut)&&(!singlePlayerRound?.done && !onboarding?.completed && ((!showPanoOnResult && showAnswer) || (!showAnswer) || mapFadingOut)) && !(onboarding && !showAnswer && !mapFadingOut && onboarding.mode !== 'classic') ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${(showAnswer && countryGuesser && !showPanoOnResult) || mapFadingOut ? 'countryGuessrMapReveal' : ''} ${mapFadingOut ? 'countryGuessrMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded && !showAnswer ? 'mapExpanded' : ''} ${shouldShowMiniMap ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${(showAnswer && countryGuesser && !showPanoOnResult) || mapFadingOut ? 'countryGuessrMapReveal' : ''} ${mapFadingOut ? 'countryGuessrMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''} ${forceHideMiniMap ? 'forceHidden' : ''}`}>
 
 {!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
@@ -845,7 +876,7 @@ session={session}/>
 
 
         {showLeaderboard && (
-          <PlayerList multiplayerState={multiplayerState} fadingOut={!leaderboardVisible} playAgain={() => {
+          <PlayerList multiplayerState={multiplayerState} fadingOut={!leaderboardVisible} inCrazyGames={inCrazyGames} playAgain={() => {
             backBtnPressed(true, "unranked")
           }} backBtn={() => {
             backBtnPressed()

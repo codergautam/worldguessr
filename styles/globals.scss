@@ -1717,6 +1717,14 @@ h1, h2, h3, span, label {
     pointer-events: auto;
 }
 
+#miniMapArea.forceHidden {
+    opacity: 0 !important;
+    transform: translateY(105%) !important;
+    pointer-events: none !important;
+    transition: none !important;
+    animation: none !important;
+}
+
 
 #miniMapContent {
     cursor: crosshair;
