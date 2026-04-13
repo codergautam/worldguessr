@@ -76,7 +76,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         </button>
                     )}
 
-                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && (
+                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && (
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
                             inGameDistribution={inGameDistribution}
@@ -96,12 +96,27 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 </div>
             </div>
             {screen === "onboarding" && (
-                <button
-                    className="gameBtn navBtn g2_blue_button onboardingJoinPartyBtn"
-                    onClick={joinCodePress}
-                >
-                    <span className="onboardingJoinPartyBtn__content">{text("joinGame")}</span>
-                </button>
+                <div className="onboardingTopRightBtns">
+                    <button
+                        className="gameBtn navBtn g2_blue_button onboardingJoinPartyBtn"
+                        onClick={joinCodePress}
+                    >
+                        <span className="onboardingJoinPartyBtn__content">{text("joinGame")}</span>
+                    </button>
+                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && (
+                        <div className="onboardingLoginBtn">
+                            <AccountBtn
+                                inCrazyGames={inCrazyGames}
+                                inGameDistribution={inGameDistribution}
+                                session={session}
+                                navbarMode={true}
+                                openAccountModal={openAccountModal}
+                                loginQueued={loginQueued}
+                                setLoginQueued={setLoginQueued}
+                            />
+                        </div>
+                    )}
+                </div>
             )}
         </>
     )

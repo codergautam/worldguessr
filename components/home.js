@@ -3230,7 +3230,6 @@ export default function Home({ }) {
                             setMiniMapShown(false);
                             setLatLong(null);
                             setScreen("singleplayer");
-                            setTimeout(() => loadLocation(), 50);
                         }}
                         onDuel={() => {
                             sendEvent("tutorial_end");

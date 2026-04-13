@@ -876,12 +876,27 @@ html {
     padding-right: 10px;
 }
 
-.onboardingJoinPartyBtn {
+.onboardingTopRightBtns {
     position: fixed;
     top: 5px;
-    right: 130px;
+    right: 10px;
     z-index: 10001;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+}
+
+.onboardingTopRightBtns > * {
     pointer-events: all;
+}
+
+/* Keep toasts above onboarding top-right controls */
+.Toastify__toast-container {
+    z-index: 10020 !important;
+}
+
+.onboardingJoinPartyBtn {
     height: 42px;
     min-width: 138px;
     display: flex;
@@ -900,15 +915,31 @@ html {
     white-space: nowrap;
 }
 
+.onboardingLoginBtn {
+    display: flex;
+    align-items: center;
+}
+
+.onboardingLoginBtn .navBtn:not(.backBtn) {
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradGreenBtn);
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.onboardingLoginBtn .navBtn:not(.backBtn):hover {
+    background-color: var(--primary);
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
+}
+
 
 @media screen and (max-width: 600px) {
     .navBtn {
         font-size: 1.2em;
-    }
-
-    .onboardingJoinPartyBtn {
-        top: 5px;
-        right: 130px;
     }
 }
 
