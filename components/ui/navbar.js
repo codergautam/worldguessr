@@ -76,12 +76,6 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         </button>
                     )}
 
-                    {screen === "onboarding" && (
-                        <button className="gameBtn navBtn"
-                            style={{ backgroundColor: 'blue' }}
-                            onClick={joinCodePress}>{text("joinGame")}</button>
-                    )}
-
                     {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && (
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
@@ -101,6 +95,14 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     )}
                 </div>
             </div>
+            {screen === "onboarding" && (
+                <button
+                    className="gameBtn navBtn g2_blue_button onboardingJoinPartyBtn"
+                    onClick={joinCodePress}
+                >
+                    <span className="onboardingJoinPartyBtn__content">{text("joinGame")}</span>
+                </button>
+            )}
         </>
     )
 }

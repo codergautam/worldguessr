@@ -876,9 +876,39 @@ html {
     padding-right: 10px;
 }
 
+.onboardingJoinPartyBtn {
+    position: fixed;
+    top: 5px;
+    right: 130px;
+    z-index: 10001;
+    pointer-events: all;
+    height: 42px;
+    min-width: 138px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.onboardingJoinPartyBtn__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px;
+    margin-right: 10px;
+    white-space: nowrap;
+}
+
+
 @media screen and (max-width: 600px) {
     .navBtn {
         font-size: 1.2em;
+    }
+
+    .onboardingJoinPartyBtn {
+        top: 5px;
+        right: 130px;
     }
 }
 
