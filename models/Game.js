@@ -75,6 +75,8 @@ const gameSchema = new mongoose.Schema({
     maxDist: { type: Number, default: 20000 }, // km
     timePerRound: { type: Number, default: null }, // milliseconds (null for singleplayer, set for multiplayer)
     official: { type: Boolean, default: true }, // affects XP
+    countryGuesser: { type: Boolean, default: false }, // country/continent guesser mode (1000 pts per round)
+    countryGuessrSubMode: { type: String, default: null }, // 'country' or 'continent'
 
     // Additional settings
     showRoadName: { type: Boolean, default: false },

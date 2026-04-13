@@ -88,7 +88,11 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
     return date.toLocaleDateString();
   };
 
-  const getLocationDisplay = (location) => {
+  const getLocationDisplay = (location, settings) => {
+    if (settings?.countryGuesser) {
+      if (settings.countryGuessrSubMode === 'continent') return text('continentGuesser') || 'Continent Guesser';
+      return text('countryGuesser') || 'Country Guesser';
+    }
     if (location === 'all') return text('worldwide');
     // Handle country codes (2-letter uppercase codes)
     if (location && location.length === 2 && location === location.toUpperCase()) {
@@ -259,7 +263,7 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
                 <div className={styles.detailItem}>
                   <span className={styles.detailLabel}>{text('map')}</span>
                   <span className={styles.detailValue}>
-                    {getLocationDisplay(game.settings.location)}
+                    {getLocationDisplay(game.settings.location, game.settings)}
                   </span>
                 </div>
 

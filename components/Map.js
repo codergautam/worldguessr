@@ -164,6 +164,15 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
     ro.observe(container);
     return () => ro.disconnect();
   }, [map]);
+
+  // Stop in-progress animations on unmount to prevent Leaflet accessing destroyed panes
+  useEffect(() => {
+    return () => {
+      if (map) {
+        try { map.stop(); } catch(e) {}
+      }
+    };
+  }, [map]);
 }
 
 const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, round, focused, gameOptions, countryGuessPin, hidePins }) => {

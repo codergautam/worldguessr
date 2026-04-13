@@ -28,7 +28,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode }) {
   const { t: text } = useTranslation("common");
   function loadLocationFuncRaw(keepAnswer) {
     if(onboarding) {
@@ -90,6 +90,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
                   secret: session.token.secret,
                   official: gameOptions.official, // Pass official status to API
                   location: gameOptions.communityMapName || gameOptions.location, // Use community map name or location
+                  countryGuesser: !!countryGuesser,
+                  countryGuessrSubMode: countryGuessrMode?.subMode || 'country',
                   rounds: prev.locations.map(location => ({
                     lat: location.guessLat,
                     long: location.guessLong,
@@ -500,7 +502,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
     if(singlePlayerRound) {
       const roundPoints = countryGuesser ? (isCorrect ? 1000 : 0) : calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
-      const roundXp = countryGuesser ? 0 : (gameOptions?.official ? Math.round(roundPoints / 50) : 0);
+      const roundXp = countryGuesser ? (gameOptions?.official && isCorrect ? 20 : 0) : (gameOptions?.official ? Math.round(roundPoints / 50) : 0);
 
       setSinglePlayerRound((prev) => {
         return {
