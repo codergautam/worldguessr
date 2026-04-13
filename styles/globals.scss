@@ -2453,28 +2453,71 @@ h1, h2, h3, span, label {
 
 
     .motivation {
-        font-size: 0.6em;
+        font-size: 0.75em;
+    }
+
+    .quip {
+        font-size: 0.75em !important;
+    }
+
+    .encouragement {
+        font-size: 0.75em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.85em !important;
+    }
+
+    .locationFact {
+        font-size: 0.7em !important;
+        max-width: 300px;
+    }
+
+    .endButtonContainer button {
+        padding: 8px 16px !important;
+        font-size: 0.9em !important;
     }
 
     .mainBannerTxt {
-        font-size: 0.8em;
+        font-size: 0.9em;
     }
 
     .smallmainBannerTxt {
-        font-size: 0.6em;
+        font-size: 0.7em;
     }
 
     @media screen and (max-height: 840px) {
         .mainBannerTxt {
-            font-size: 0.7em;
+            font-size: 0.8em;
         }
 
         .smallmainBannerTxt {
-            font-size: 0.6em;
+            font-size: 0.65em;
         }
 
         .motivation {
-            font-size: 0.5em;
+            font-size: 0.6em;
+        }
+
+        .quip {
+            font-size: 0.6em !important;
+        }
+
+        .encouragement {
+            font-size: 0.6em !important;
+        }
+
+        .bannerPoints {
+            font-size: 0.7em !important;
+        }
+
+        .locationFact {
+            font-size: 0.55em !important;
+        }
+
+        .endButtonContainer button {
+            padding: 6px 12px !important;
+            font-size: 0.75em !important;
         }
     }
 }
@@ -4286,6 +4329,22 @@ img.countryGuessrBtn__emoji {
         font-size: 0.5em !important;
     }
 
+    .quip {
+        font-size: 0.45em !important;
+    }
+
+    .encouragement {
+        font-size: 0.45em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.55em !important;
+    }
+
+    .locationFact {
+        font-size: 0.45em !important;
+    }
+
     .endButtonContainer button {
         padding: 4px 10px !important;
         font-size: 0.65em !important;
@@ -4413,6 +4472,22 @@ img.countryGuessrBtn__emoji {
 
     .motivation {
         font-size: 0.7em;
+    }
+
+    .quip {
+        font-size: 0.7em !important;
+    }
+
+    .encouragement {
+        font-size: 0.7em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.8em !important;
+    }
+
+    .locationFact {
+        font-size: 0.65em !important;
     }
 
     .endButtonContainer button {

@@ -2356,7 +2356,7 @@ export default function Home({ }) {
                         } else {
                             let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
-                            while (loc.lat === latLong.lat && loc.long === latLong.long) {
+                            while (latLong && loc.lat === latLong.lat && loc.long === latLong.long) {
                                 loc = data.locations[Math.floor(Math.random() * data.locations.length)];
                             }
 
