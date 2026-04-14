@@ -8,6 +8,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import { useEffect } from "react";
 import { asset } from '@/lib/basePath';
+import installErrorTracking from '@/lib/errorTracking';
 
 import '@smastrom/react-rating/style.css'
 
@@ -19,41 +20,7 @@ function App({ Component, pageProps }) {
     document.body.classList.add('app-ready');
   }, []);
 
-  useEffect(() => {
-    const ignoredErrors = [
-      'ResizeObserver loop',
-      'net::ERR_',
-      'CORS',
-      'Script error',
-      'Load failed',
-    ];
-    const shouldIgnore = (msg) => !msg || ignoredErrors.some((e) => msg.includes(e));
-
-    const handleError = (event) => {
-      if (shouldIgnore(event.message)) return;
-      window.gtag?.('event', 'exception', {
-        description: event.message,
-        fatal: false,
-      });
-    };
-
-    const handleRejection = (event) => {
-      const msg = event.reason?.message || '';
-      if (shouldIgnore(msg)) return;
-      window.gtag?.('event', 'exception', {
-        description: msg || 'Unhandled promise rejection',
-        fatal: false,
-      });
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleRejection);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleRejection);
-    };
-  }, []);
+  useEffect(() => installErrorTracking(), []);
 
   return (
     <>
