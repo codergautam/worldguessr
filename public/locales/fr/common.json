@@ -31,7 +31,7 @@
   "privateGame": "Partie privée",
   "leaderboard": "Classement",
   "roundsCount": "{{rounds}} manches",
-  "gameCode": "Code de la partie",
+  "gameCode": "Code de la partie ?",
   "host": "Hôte",
   "playAgain": "Rejouer",
   "goHome": "Rentrer chez eux",
