@@ -6,34 +6,36 @@ import ru from '../public/locales/ru/common.json';
 import { useRouter } from 'next/router';
 import { stripBase } from '@/lib/basePath';
 
+const langs = ["en", "es", "fr", "de", "ru"];
+const langMap = { en, es, fr, de, ru };
+
+export function getLangFromPath(path) {
+  if(path.includes("/ru")) return "ru";
+  if(path.includes("/es")) return "es";
+  if(path.includes("/fr")) return "fr";
+  if(path.includes("/de")) return "de";
+  return null;
+}
+
 export function useTranslation() {
   const router = useRouter();
   return {t: (key, vars) => {
 
+    // URL path takes priority, then localStorage, then "en"
+    let language = getLangFromPath(stripBase(router.asPath));
+    if(!language) {
+      try {
+        const stored = typeof window !== "undefined" && window.localStorage.getItem("lang");
+        if(stored && langs.includes(stored)) language = stored;
+      } catch(e) {}
+    }
+    if(!language) language = "en";
 
-
-    let language = "en";
-
-    // if /ru or /es or /fr or /de, ignore query params in url
-      let path = stripBase(router.asPath);
-      if(path.includes("/ru")) {
-        language = "ru";
-      } else if(path.includes("/es")) {
-        language = "es";
-      } else if(path.includes("/fr")) {
-        language = "fr";
-      } else if(path.includes("/de")) {
-        language = "de";
-      }
-
-    let langObj = language === "en" ? en : language === "es" ? es : language === "fr" ? fr : language === "de" ? de : language === "ru" ? ru : en;
-    let string = langObj[key];
+    let string = langMap[language]?.[key];
     if(!string) {
       string = en[key] || key;
     }
 
-    // {{variable}}
-    // vars => {variable: "value"}
     if(vars) {
       for(let v in vars) {
         string = string.replace(`{{${v}}}`, vars[v]);
@@ -41,7 +43,6 @@ export function useTranslation() {
     }
 
     return string;
-
 
   }}
 }

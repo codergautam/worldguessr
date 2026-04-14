@@ -30,6 +30,7 @@ import OnboardingText from "@/components/onboardingText";
 import WelcomeOverlay from "@/components/welcomeOverlay";
 import OnboardingComplete from "@/components/onboardingComplete";
 import { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
+import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
@@ -90,6 +91,8 @@ const initialMultiplayerState = {
 export default function Home({ }) {
 
     const { width, height } = useWindowDimensions();
+    const router = useRouter();
+    const langInitRef = useRef(true);
     const statsRef = useRef();
 
     const [session, setSession] = useState(false);
@@ -1029,22 +1032,22 @@ export default function Home({ }) {
         try {
             window.localStorage.setItem("lang", options?.language)
             window.language = options?.language;
-            console.log("set lang", options?.language)
 
-            // GameDistribution runs in an iframe — language routes are inaccessible, skip redirect
             if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") return;
 
-            const currentQueryParams = new URLSearchParams(window.location.search);
-            const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
-
-            const location = `/${options?.language !== "en" ? options?.language : ""}`
-            if (!stripBase(window.location.pathname).includes(location)) {
-                console.log("changing lang", location)
-                window.location.href = navigate(location) + qPsuffix;
-            }
-            if (options?.language === "en" && ["es", "fr", "de", "ru"].includes(stripBase(window.location.pathname).split("/")[1])) {
-                console.log("changing lang", location)
-                window.location.href = navigate("/") + qPsuffix;
+            const target = `/${options.language}`;
+            if (stripBase(window.location.pathname) !== target) {
+                const currentQueryParams = new URLSearchParams(window.location.search);
+                const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
+                if (langInitRef.current) {
+                    // Initial load — update URL without history entry or page reload
+                    langInitRef.current = false;
+                    router.replace(target + qPsuffix);
+                } else {
+                    router.push(target + qPsuffix);
+                }
+            } else {
+                langInitRef.current = false;
             }
         } catch (e) { }
     }, [options?.language]);
@@ -1054,11 +1057,26 @@ export default function Home({ }) {
         // try to fetch options from localstorage
         try {
             const options = gameStorage.getItem("options");
-            console.log("options", options)
 
+            // Detect language: URL path wins, then localStorage.lang, then "en"
+            let detectedLang = "en";
+            try {
+                const knownLangs = ["en", "es", "fr", "de", "ru"];
+                const urlSegment = stripBase(window.location.pathname).split("/").filter(Boolean)[0];
+                if (knownLangs.includes(urlSegment)) {
+                    detectedLang = urlSegment;
+                } else {
+                    const storedLang = window.localStorage.getItem("lang");
+                    if (storedLang && knownLangs.includes(storedLang)) {
+                        detectedLang = storedLang;
+                    }
+                }
+            } catch(e) {}
 
             if (options) {
-                setOptions(JSON.parse(options))
+                const parsed = JSON.parse(options);
+                parsed.language = detectedLang;
+                setOptions(parsed)
             } else {
                 let system = "metric";
 
@@ -1093,7 +1111,8 @@ export default function Home({ }) {
                 setOptions({
                     units: system,
                     ramUsage: false,
-                    mapType: "m" //m for normal
+                    mapType: "m", //m for normal
+                    language: detectedLang
                 })
             }
         } catch (e) { }
