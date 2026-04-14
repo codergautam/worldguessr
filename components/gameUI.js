@@ -368,6 +368,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           setCountryStreak(0);
           setSinglePlayerRound((prev) => {
             if (!prev) return prev;
+            if (!latLong || latLong.lat == null || latLong.long == null) return prev;
             return {
               ...prev,
               locations: [...prev.locations, {
@@ -501,6 +502,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   }, [gameOptions?.location])
   function guess(correctOverride) {
+    // Guard against being called before a location has been loaded. Every branch
+    // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
+    if (!latLong || latLong.lat == null || latLong.long == null) return;
     const isCorrect = correctOverride !== undefined ? correctOverride : countryGuesserCorrect;
     setShowAnswer(true)
     if(showCountryButtons || setShowCountryButtons)setShowCountryButtons(false);

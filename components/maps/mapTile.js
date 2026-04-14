@@ -17,7 +17,8 @@ export default function MapTile({
     secret,
     refreshHome,
     bgImage,
-    forcedWidth
+    forcedWidth,
+    textColor
 }) {
     const backgroundImage = bgImage ? bgImage : (country ? `url("https://flagcdn.com/h240/${country?.toLowerCase()}.png")` : "");
     const [mapResubmittable, setMapResubmittable] = useState(map.resubmittable);
@@ -135,7 +136,7 @@ export default function MapTile({
                         {/* Top section with title and actions */}
                         <div className="map-tile__top-section">
                             <div className="map-tile__name" title={map.name}>
-                                <h3>{highlightMatch(map.name, searchTerm)}</h3>
+                                <h3 style={textColor ? { color: textColor } : {}}>{highlightMatch(map.name, searchTerm)}</h3>
 
                                 {/* Status indicators */}
                                 {!country && (map.in_review || map.reject_reason) && map.yours && !map.accepted && (

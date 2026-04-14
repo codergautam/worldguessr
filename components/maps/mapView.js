@@ -472,15 +472,16 @@ export default function MapView({
                             )}
                             {!hideCountryGuessrModes && ((searchTerm.length === 0) || text("countryGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
                                 <MapTile
-                                    bgImage={`url("${asset('/world.jpg')}")`}
+                                    bgImage={`url("${asset('/flags.jpg')}")`}
                                     map={{ name: text("countryGuesser"), slug: "__countryGuesser" }}
                                     onClick={() => onMapClick({ name: text("countryGuesser"), slug: "__countryGuesser" })}
                                     searchTerm={searchTerm}
+                                    textColor="black"
                                 />
                             )}
                             {!hideCountryGuessrModes && ((searchTerm.length === 0) || text("continentGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
                                 <MapTile
-                                    bgImage={`url("${asset('/world.jpg')}")`}
+                                    bgImage={`url("${asset('/continents.jpg')}")`}
                                     map={{ name: text("continentGuesser"), slug: "__continentGuesser" }}
                                     onClick={() => onMapClick({ name: text("continentGuesser"), slug: "__continentGuesser" })}
                                     searchTerm={searchTerm}

@@ -2476,9 +2476,24 @@ export default function Home({ }) {
             if (allLocsArray.length === 0) {
                 fetchMethod()
             } else if (allLocsArray.length > 0) {
-                const locIndex = allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long);
+                const locIndex = (latLong && latLong.lat != null && latLong.long != null)
+                    ? allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long)
+                    : -1;
                 if ((locIndex === -1) || allLocsArray.length === 1) {
-                    fetchMethod()
+                    // No prior location (or only one left) — pick directly from the preloaded array
+                    // to avoid an unnecessary refetch.
+                    if (!latLong || latLong.lat == null || latLong.long == null) {
+                        setAllLocsArray((prev) => {
+                            if (!prev || prev.length === 0) return prev;
+                            const loc = gameOptions.location === "all"
+                                ? prev[0]
+                                : prev[Math.floor(Math.random() * prev.length)];
+                            setLatLong(loc);
+                            return prev.filter((l) => l.lat !== loc.lat || l.long !== loc.long);
+                        });
+                    } else {
+                        fetchMethod()
+                    }
                 } else {
                     // prevent repeats: remove the prev location from the array (for both all and community maps)
                     setAllLocsArray((prev) => {
