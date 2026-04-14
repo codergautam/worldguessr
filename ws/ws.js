@@ -1532,7 +1532,7 @@ try {
       if (game.rounds - game.curRound < minRoundsRemaining) {
         continue;
       }
-      if (game.state === 'guess' && (game.nextEvtTime - Date.now()) < game.timePerRound / 2) {
+      if (game.state === 'guess' && (game.nextEvtTime - Date.now()) < game.timePerRound / 3) {
         continue;
       }
       if (playerCnt >= game.maxPlayers) {
