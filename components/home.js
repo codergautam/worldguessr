@@ -622,9 +622,9 @@ export default function Home({ }) {
             // Fade out and remove the static HTML splash from _document.js
             const splash = document.getElementById('cmg-splash');
             if (splash) {
-                // Ensure splash was visible for at least 1s total
+                // Ensure splash was visible for at least 1.1s total
                 const elapsed = Date.now() - (window.__cmgSplashStart || 0);
-                const remaining = Math.max(0, 1000 - elapsed);
+                const remaining = Math.max(0, 1100 - elapsed);
 
                 const fadeOutTimer = setTimeout(() => {
                     splash.style.transition = 'opacity 0.4s ease';
