@@ -843,7 +843,7 @@ session={session}/>
       )}
 
       <span className={`timer timer--two-line ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 && !showAnswer && !pinPoint && onboarding ? 'critical' : ''}`}>
-        <span className="timer__round-label">{onboarding ? `Tutorial ${onboarding.round}/${onboarding.locations?.length || 3}` : text("round", {r:onboarding?.round, mr: 5})}</span>
+        <span className="timer__round-label">{onboarding ? text("tutorialRound", {round: onboarding.round, total: onboarding.locations?.length || 3}) : text("round", {r:onboarding?.round, mr: 5})}</span>
         <span className="timer__main-row">
           {timeToNextRound
             ? <><span className="timer__countdown">{timeToNextRound.toFixed(1)}s</span> &middot; </>

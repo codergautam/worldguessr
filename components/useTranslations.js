@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import en from '../public/locales/en/common.json';
 import es from '../public/locales/es/common.json';
 import fr from '../public/locales/fr/common.json';
@@ -19,30 +20,38 @@ export function getLangFromPath(path) {
 
 export function useTranslation() {
   const router = useRouter();
-  return {t: (key, vars) => {
 
-    // URL path takes priority, then localStorage, then "en"
-    let language = getLangFromPath(stripBase(router.asPath));
-    if(!language) {
+  const pathLang = getLangFromPath(stripBase(router.asPath));
+
+  const [storedLang, setStoredLang] = useState(null);
+
+  useEffect(() => {
+    if(!pathLang) {
       try {
-        const stored = typeof window !== "undefined" && window.localStorage.getItem("lang");
-        if(stored && langs.includes(stored)) language = stored;
+        const stored = window.localStorage.getItem("lang");
+        if(stored && langs.includes(stored)) setStoredLang(stored);
       } catch(e) {}
     }
-    if(!language) language = "en";
+  }, [pathLang]);
 
-    let string = langMap[language]?.[key];
-    if(!string) {
-      string = en[key] || key;
-    }
+  // URL path takes priority, then localStorage, then "en"
+  const language = pathLang || storedLang || "en";
 
-    if(vars) {
-      for(let v in vars) {
-        string = string.replace(`{{${v}}}`, vars[v]);
+  return {
+    lang: language,
+    t: (key, vars) => {
+      let string = langMap[language]?.[key];
+      if(!string) {
+        string = en[key] || key;
       }
+
+      if(vars) {
+        for(let v in vars) {
+          string = string.replace(`{{${v}}}`, vars[v]);
+        }
+      }
+
+      return string;
     }
-
-    return string;
-
-  }}
+  };
 }

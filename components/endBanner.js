@@ -5,7 +5,11 @@ import triggerConfetti from "./utils/triggerConfetti";
 import nameFromCode from "./utils/nameFromCode";
 import continentFromCode from "./utils/continentFromCode";
 import { continentKey } from "./utils/continentLocale";
-import guessQuips from "./utils/guessQuips.json";
+const QUIP_KEYS = {
+  correct: Array.from({length: 24}, (_, i) => `quipCorrect${i+1}`),
+  wrongSameContinent: Array.from({length: 20}, (_, i) => `quipWrongSame${i+1}`),
+  wrongDiffContinent: Array.from({length: 24}, (_, i) => `quipWrongDiff${i+1}`),
+};
 
 const CORRECT_ENCOURAGEMENTS = [
     "correctEncouragement1",
@@ -22,7 +26,7 @@ const ONBOARDING_FACTS = [
 ];
 
 export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
-    const { t: text } = useTranslation("common");
+    const { t: text, lang } = useTranslation("common");
     const confettiTriggered = useRef(false);
     const autoAdvanceTimer = useRef(null);
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState(null);
@@ -91,7 +95,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const quipRef = useRef(null);
     const lastQuipRef = useRef(null);
     if (guessed && countryGuesser && !onboarding && singlePlayerRound && guessTier && !quipRef.current) {
-        const pool = guessQuips[guessTier];
+        const pool = QUIP_KEYS[guessTier];
         if (pool && pool.length > 0) {
             let pick;
             do {
@@ -137,7 +141,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                             ? text("correctCountryNice")
                             : isContinentMode
                                 ? text("incorrectContinentWas", { continent: text(continentKey(continentFromCode(latLong?.country))) })
-                                : text("incorrectCountryWas", { country: nameFromCode(latLong?.country) })
+                                : text("incorrectCountryWas", { country: nameFromCode(latLong?.country, lang) })
                     }</span>
                 ) : null}
 
@@ -160,7 +164,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
 
                 {/* Funny quip (singleplayer country/continent guesser only) */}
                 {quipRef.current && (
-                    <p className="motivation quip">{quipRef.current}</p>
+                    <p className="motivation quip">{text(quipRef.current)}</p>
                 )}
 
                 {/* Location fact (onboarding only) */}

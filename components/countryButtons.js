@@ -4,7 +4,7 @@ import { useTranslation } from '@/components/useTranslations';
 import ContinentIcon from './ContinentIcon';
 import { continentKey } from './utils/continentLocale';
 
-function countryDiv({country, onPress, index, interactive}) {
+function countryDiv({country, onPress, index, interactive, lang}) {
   return (
     <button
       key={country}
@@ -15,9 +15,9 @@ function countryDiv({country, onPress, index, interactive}) {
       <img
         className="countryGuessrBtn__flag"
         src={`https://flagcdn.com/w80/${country?.toLowerCase()}.png`}
-        alt={nameFromCode(country)}
+        alt={nameFromCode(country, lang)}
       />
-      <span className="countryGuessrBtn__name">{nameFromCode(country)}</span>
+      <span className="countryGuessrBtn__name">{nameFromCode(country, lang)}</span>
     </button>
   )
 }
@@ -37,7 +37,7 @@ function continentDiv({continent, onPress, index, interactive, text}) {
 }
 
 export default function CountryBtns({ countries, onCountryPress, shown, mode, compact }) {
-  const { t: text } = useTranslation("common");
+  const { t: text, lang } = useTranslation("common");
   const isContinent = mode === "continent" || (countries?.length === 6 && countries?.includes?.("Africa"));
   const [interactive, setInteractive] = useState(false);
 
@@ -56,7 +56,7 @@ export default function CountryBtns({ countries, onCountryPress, shown, mode, co
           if (isContinent) {
             return continentDiv({ continent: item, onPress: onCountryPress, index: i, interactive, text })
           }
-          return countryDiv({ country: item, onPress: onCountryPress, index: i, interactive })
+          return countryDiv({ country: item, onPress: onCountryPress, index: i, interactive, lang })
         })}
       </div>
     </div>

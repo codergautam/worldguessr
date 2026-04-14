@@ -15,6 +15,8 @@ function App({ Component, pageProps }) {
   useEffect(() => {
     // Set CSS custom properties for background images that need basePath
     document.documentElement.style.setProperty('--bg-street2', `url("${asset('/street2.webp')}")`);
+    // Fade out the static body::before background now that React has taken over
+    document.body.classList.add('app-ready');
   }, []);
 
   useEffect(() => {

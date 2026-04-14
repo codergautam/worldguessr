@@ -33,10 +33,57 @@ export default function Document() {
               margin: 0;
               padding: 0;
             }
+            body::before {
+              content: '';
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100vw;
+              height: 100vh;
+              background: url("${process.env.NEXT_PUBLIC_BASE_PATH || ''}/street2.webp") center/cover no-repeat;
+              opacity: 0.5;
+              z-index: 0;
+              pointer-events: none;
+              transition: opacity 0.5s ease;
+            }
+            body.app-ready::before {
+              opacity: 0;
+            }
           `
         }} />
       </Head>
       <body className="mainBody" style={{ backgroundColor: '#000000' }}>
+        {process.env.NEXT_PUBLIC_COOLMATH === "true" && (
+          <>
+            <div id="cmg-splash" style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              backgroundColor: 'rgb(36,36,36)',
+              zIndex: 999999,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}>
+              <img
+                src={`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/coolmath-splash.png`}
+                alt="Coolmath Splash"
+                draggable="false"
+                style={{
+                  maxWidth: '80vw',
+                  maxHeight: '80vh',
+                  objectFit: 'contain',
+                  userSelect: 'none',
+                }}
+              />
+            </div>
+            <script dangerouslySetInnerHTML={{ __html: `
+              window.__cmgSplashStart = Date.now();
+            `}} />
+          </>
+        )}
         <Main />
         <NextScript />
       </body>

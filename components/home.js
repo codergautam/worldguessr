@@ -563,7 +563,6 @@ export default function Home({ }) {
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
-    const [coolmathSplash, setCoolmathSplash] = useState(null);
     const [navSlideOut, setNavSlideOut] = useState(false);
 
     function gPlatform() {
@@ -620,20 +619,25 @@ export default function Home({ }) {
             setInCoolMathGames(true);
             window.lastCoolmathAd = Date.now();
 
-            setCoolmathSplash({ bg: 1, img: 0 });
-            requestAnimationFrame(() => {
-                setCoolmathSplash({ bg: 1, img: 1 });
-            });
-            const fadeOutTimer = setTimeout(() => {
-                setCoolmathSplash({ bg: 0, img: 0 });
-            }, 1000);
-            const removeTimer = setTimeout(() => {
-                setCoolmathSplash(null);
-            }, 1400);
+            // Fade out and remove the static HTML splash from _document.js
+            const splash = document.getElementById('cmg-splash');
+            if (splash) {
+                // Ensure splash was visible for at least 1s total
+                const elapsed = Date.now() - (window.__cmgSplashStart || 0);
+                const remaining = Math.max(0, 1000 - elapsed);
 
-            return () => {
-                clearTimeout(fadeOutTimer);
-                clearTimeout(removeTimer);
+                const fadeOutTimer = setTimeout(() => {
+                    splash.style.transition = 'opacity 0.4s ease';
+                    splash.style.opacity = '0';
+                }, remaining);
+                const removeTimer = setTimeout(() => {
+                    splash.remove();
+                }, remaining + 500);
+
+                return () => {
+                    clearTimeout(fadeOutTimer);
+                    clearTimeout(removeTimer);
+                }
             }
         }
     }, [])
@@ -1036,7 +1040,10 @@ export default function Home({ }) {
             if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") return;
 
             const target = `/${options.language}`;
-            if (stripBase(window.location.pathname) !== target) {
+            const currentPath = stripBase(window.location.pathname);
+            // Don't redirect to /en from root — English is the default
+            const isDefaultOnRoot = options.language === "en" && (currentPath === "/" || currentPath === "");
+            if (!isDefaultOnRoot && currentPath !== target) {
                 const currentQueryParams = new URLSearchParams(window.location.search);
                 const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
                 if (langInitRef.current) {
@@ -2647,31 +2654,7 @@ export default function Home({ }) {
                 />
             )}
 
-            {coolmathSplash && (
-                // black background
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    backgroundColor: 'rgb(36,36,36)',
-                    zIndex: 100090,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    color: 'white',
-                    fontSize: '2em',
-                    opacity: coolmathSplash.bg,
-                    transition: 'opacity 1s ease'
-                }}>
-                    <div style={{ position: 'relative', width: '80vw', height: '80vh' }}>
-                        {/* image /coolmath-splash.png */}
-                        <NextImage.default src={asset('/coolmath-splash.png')} draggable={false} fill alt="Coolmath Splash" style={{ objectFit: "contain", userSelect: 'none', opacity: coolmathSplash.img, transition: 'opacity 1s ease' }} />
-                    </div>
-                </div>
-
-            )}
+            {/* Coolmath splash is now rendered statically in _document.js and removed via useEffect */}
 
 
 

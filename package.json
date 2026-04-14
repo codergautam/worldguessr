@@ -37,6 +37,7 @@
     "formidable": "^3.5.1",
     "geojson-geometries-lookup": "^0.5.0",
     "google-auth-library": "^9.14.2",
+    "i18n-iso-countries": "^7.14.0",
     "jsonwebtoken": "^9.0.2",
     "moment": "^2.30.1",
     "moment-timezone": "^0.5.45",

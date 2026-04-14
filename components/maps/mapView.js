@@ -7,6 +7,8 @@ import { backupMapHome } from "../utils/backupMapHome.js";
 import config from "@/clientConfig";
 import { useMapSearch } from "../hooks/useMapSearch";
 import { asset } from '@/lib/basePath';
+import nameFromCode from "../utils/nameFromCode";
+import { useTranslation } from '@/components/useTranslations';
 
 export default function MapView({
     gameOptions,
@@ -29,6 +31,7 @@ export default function MapView({
     searchResults,
     setSearchResults
 }) {
+    const { lang } = useTranslation();
     const [mapHome, setMapHome] = useState({
         message: text("loading") + "...",
     });
@@ -327,7 +330,7 @@ export default function MapView({
                             <FaArrowLeft /> {text("back")}
                         </button>
                         <h1 className="map-title">
-                            {makeMap?.edit ? "Edit Map" : "Make Map"}
+                            {makeMap?.edit ? text("editMap") : text("makeMap")}
                         </h1>
                     </div>
                 </div>
@@ -351,7 +354,7 @@ export default function MapView({
                         onClick={() => setMakeMap({ ...makeMap, open: true })}
                         className="map-create-btn"
                     >
-                        <FaPlus /> Make Map
+                        <FaPlus /> {text("makeMap")}
                     </button>
                 )}
             </div>
@@ -501,11 +504,13 @@ export default function MapView({
                             .map((section, si) => {
                                 const mapsArray = section === "recent" && searchResults.length > 0
                                     ? searchResults
-                                    : (Array.isArray(mapHome[section]) ? mapHome[section] : []).filter((map) =>
-                                        map.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                        map.description_short?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                        map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
-                                    );
+                                    : (Array.isArray(mapHome[section]) ? mapHome[section] : []).filter((map) => {
+                                        const localizedName = (section === "countryMaps" && map.countryMap) ? nameFromCode(map.countryMap, lang) : map.name;
+                                        return localizedName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                            map.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                            map.description_short?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                            map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase());
+                                    });
 
                                 if (mapsArray.length === 0) return null;
 
@@ -528,10 +533,13 @@ export default function MapView({
                                         </h2>
                                         <div className="map-section-container">
                                             <div className={`map-grid ${section === "countryMaps" ? "country-maps" : ""} ${section === "popular" ? "popular-maps" : ""} ${section === "spotlight" ? "spotlight-maps" : ""} ${!isExpanded && section !== "recent" ? "collapsed" : "expanded"}`}>
-                                                {displayedMaps.map((map, i) => (
-                                                    <MapTile
+                                                {displayedMaps.map((map, i) => {
+                                                    const displayMap = (section === "countryMaps" && map.countryMap)
+                                                        ? { ...map, name: nameFromCode(map.countryMap, lang) }
+                                                        : map;
+                                                    return (<MapTile
                                                         key={map.id || i}
-                                                        map={map}
+                                                        map={displayMap}
                                                         canHeart={session?.token?.secret && heartingMap !== map.id}
                                                         onClick={() => onMapClick(map)}
                                                         country={map.countryMap}
@@ -559,7 +567,8 @@ export default function MapView({
                                                         }}
                                                         onHeart={() => heartMap(map)}
                                                     />
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
 
                                             {shouldShowExpandButton && (
@@ -570,12 +579,12 @@ export default function MapView({
                                                     {isExpanded ? (
                                                         <>
                                                             <FaChevronUp />
-                                                            Show Less
+                                                            {text("showLess")}
                                                         </>
                                                     ) : (
                                                         <>
                                                             <FaChevronDown />
-                                                            Show All
+                                                            {text("showAll")}
                                                         </>
                                                     )}
                                                 </button>

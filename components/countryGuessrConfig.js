@@ -3,6 +3,7 @@ import { asset } from '@/lib/basePath';
 import { useTranslation } from '@/components/useTranslations';
 import sendEvent from './utils/sendEvent';
 import ContinentIcon from './ContinentIcon';
+import { continentKey } from './utils/continentLocale';
 
 export default function CountryGuessrConfig({ onStart, onBack }) {
   const { t: text } = useTranslation("common");
@@ -12,12 +13,12 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
   const TILES = [
     { id: "all", label: text("world"), emoji: "🌐" },
     { id: "continent", label: text("continentGuesser"), emoji: "🗺️" },
-    { id: "Africa", label: "Africa" },
-    { id: "Asia", label: "Asia" },
-    { id: "Europe", label: "Europe" },
-    { id: "North America", label: "N. America" },
-    { id: "South America", label: "S. America" },
-    { id: "Oceania", label: "Oceania" },
+    { id: "Africa", label: text(continentKey("Africa")) },
+    { id: "Asia", label: text(continentKey("Asia")) },
+    { id: "Europe", label: text(continentKey("Europe")) },
+    { id: "North America", label: text(continentKey("North America")) },
+    { id: "South America", label: text(continentKey("South America")) },
+    { id: "Oceania", label: text(continentKey("Oceania")) },
   ];
 
   function handlePlay() {
