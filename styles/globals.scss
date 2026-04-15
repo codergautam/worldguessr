@@ -2608,6 +2608,16 @@ h1, h2, h3, span, label {
         border-radius: 8px;
     }
 
+    /* Default rule pushes this button 10px past the banner's right edge via a
+       translate — fine on desktop, but gets clipped on phone landscape where the
+       banner is tight. Keep it inside the padding box here. */
+    .topGameInfoButton {
+        transform: none !important;
+        align-self: flex-end;
+        padding: 2px 8px !important;
+        white-space: nowrap;
+    }
+
     .bannerContent {
         font-size: clamp(0.85rem, 3vh, 1.05rem) !important;
         gap: 2px !important;
