@@ -482,6 +482,34 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     prevMultiplayerRoundStateRef.current = { state: curState, round: curRound };
   }, [multiplayerState?.inGame, multiplayerState?.gameData?.state, multiplayerState?.gameData?.curRound, mapPinned]);
 
+  // Explicitly reset minimap expansion on every new round (singleplayer or onboarding).
+  // Without this, singleplayer relies on a mouseleave event firing as the minimap
+  // transforms off-screen during the latLong=null async-fetch window — which browsers
+  // fire inconsistently once pointer-events flips to none, so miniMapExpanded can
+  // leak into the next round. Onboarding works "by accident" because its latLong
+  // goes old→new in one batch with no null window, keeping the mouseleave reliable.
+  const prevSinglePlayerRoundRef = useRef(null);
+  useEffect(() => {
+    const curRound = singlePlayerRound?.round;
+    const prev = prevSinglePlayerRoundRef.current;
+    if (curRound != null && prev != null && curRound !== prev && !mapPinned) {
+      setMiniMapExpanded(false);
+      setMiniMapFullscreen(false);
+    }
+    prevSinglePlayerRoundRef.current = curRound;
+  }, [singlePlayerRound?.round, mapPinned]);
+
+  const prevOnboardingRoundRef = useRef(null);
+  useEffect(() => {
+    const curRound = onboarding?.round;
+    const prev = prevOnboardingRoundRef.current;
+    if (curRound != null && prev != null && curRound !== prev && !mapPinned) {
+      setMiniMapExpanded(false);
+      setMiniMapFullscreen(false);
+    }
+    prevOnboardingRoundRef.current = curRound;
+  }, [onboarding?.round, mapPinned]);
+
   const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
 
   function showHint() {
