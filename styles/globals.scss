@@ -771,11 +771,13 @@ html {
     width: auto;
     z-index: 101;
     font-size: 1.5em;
-    border-radius: 8px;
+    border-radius: 50px;
     pointer-events: all;
-    background-color: var(--primaryTransparent);
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradGreenBtn);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     padding: 1px 10px;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
 }
 
 .accountBtn.loggedIn {
@@ -849,7 +851,8 @@ html {
 }
 
 .accountBtn:hover {
-    background-color: var(--primary);
+    background: var(--primary);
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 // Green styling for account button during onboarding
@@ -6120,7 +6123,7 @@ div:hover .elo-badge {
     }
 }
 
-/* ===== Onboarding Complete (Conversion Modal) ===== */
+/* ===== Onboarding Complete (Celebration + Keep Playing) ===== */
 .ob-complete {
     position: fixed;
     top: 0;
@@ -6134,100 +6137,172 @@ div:hover .elo-badge {
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
     animation: onboardingResultsFade 0.5s ease forwards;
+    padding: 16px;
+    box-sizing: border-box;
 }
 
 .ob-complete__modal {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 30px 28px;
-    gap: 18px;
-    max-width: 500px;
-    width: 90%;
+    padding: 24px 20px;
+    gap: 14px;
+    max-width: 420px;
+    width: 100%;
+    max-height: 95vh;
+    overflow-y: auto;
     border-radius: 20px;
     border: 1.4px solid var(--primaryDark);
     background: var(--gradFull);
     backdrop-filter: blur(16px);
     filter: drop-shadow(0px 8px 24px rgba(0, 0, 0, 0.5));
     animation: fadeInUp 0.4s ease forwards;
+    box-sizing: border-box;
 }
 
-.ob-complete__header {
+/* Celebration hero */
+.ob-complete__celebration {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 2px;
     text-align: center;
+}
+
+.ob-complete__trophy {
+    font-size: 38px;
+    color: #ffd700;
+    filter: drop-shadow(0 4px 10px rgba(255, 215, 0, 0.45));
+    animation: obCompleteTrophyFloat 3s ease-in-out infinite;
+    margin-bottom: 2px;
 }
 
 .ob-complete__title {
     font-family: "Lexend", sans-serif;
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: 700;
     color: white;
-    margin-bottom: 4px;
+    margin: 0;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
-.ob-complete__score {
+.ob-complete__score-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.ob-complete__score-value {
     font-family: "Lexend", sans-serif;
-    font-size: 1rem;
-    color: rgba(255, 255, 255, 0.65);
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    font-variant-numeric: tabular-nums;
+}
+
+.ob-complete__score-max {
+    font-family: "Lexend", sans-serif;
+    font-size: 1.1rem;
     font-weight: 300;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.ob-complete__score-label {
+    font-family: "Lexend", sans-serif;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
 }
 
 .ob-complete__prompt {
     font-family: "Lexend", sans-serif;
-    font-size: 0.85rem;
-    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.55);
     font-weight: 300;
+    margin: 0;
+    text-align: center;
 }
 
+/* Mode cards */
 .ob-complete__grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     width: 100%;
 }
 
 .ob-complete__card {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 5px;
-    padding: 16px 12px;
-    border-radius: 14px;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 12px;
     border: 1.4px solid var(--primaryDark);
-    background: rgba(255, 255, 255, 0.06);
+    border-left-width: 3px;
+    background: rgba(255, 255, 255, 0.05);
     color: white;
     cursor: pointer;
     font-family: "Lexend", sans-serif;
-    text-align: center;
-    transition: all 0.3s;
+    text-align: left;
+    transition: background 0.25s, transform 0.25s, box-shadow 0.25s;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .ob-complete__card:hover {
     background-color: var(--primaryTransparent);
-    transform: scale(1.04);
-    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.35);
+    transform: translateX(2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .ob-complete__card:active {
-    transform: scale(0.97);
+    transform: scale(0.98);
     transition: transform 0.1s;
 }
 
-.ob-complete__card-emoji {
-    font-size: 1.5rem;
+.ob-complete__card--continue  { border-left-color: #4a90e2; }
+.ob-complete__card--classic   { border-left-color: #d14b6e; }
+.ob-complete__card--duel      { border-left-color: #f07a3e; }
+.ob-complete__card--community { border-left-color: #3eb07c; }
+.ob-complete__card--country   { border-left-color: #4a90e2; }
+
+.ob-complete__card-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    align-items: center;
+}
+
+.ob-complete__card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
 }
 
 .ob-complete__card-title {
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     font-weight: 600;
+    color: white;
 }
 
 .ob-complete__card-desc {
-    font-size: 0.72rem;
-    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.55);
     font-weight: 300;
-    line-height: 1.3;
+    line-height: 1.35;
 }
 
+/* Home link */
 .ob-complete__home {
     background: none;
     border: none;
@@ -6242,25 +6317,48 @@ div:hover .elo-badge {
     color: white;
 }
 
-@media (max-height: 500px) {
+@keyframes obCompleteTrophyFloat {
+    0%, 100% { transform: translateY(0px); }
+    50%      { transform: translateY(-5px); }
+}
+
+/* Tablet / wide: 2-col grid with last odd card spanning both */
+@media (min-width: 520px) {
     .ob-complete__modal {
-        padding: 18px 16px;
+        padding: 28px 26px;
+        max-width: 460px;
+        gap: 16px;
+    }
+    .ob-complete__grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
         gap: 10px;
-        max-height: 95vh;
-        overflow-y: auto;
     }
-
-    .ob-complete__card {
-        padding: 10px 8px;
-        gap: 3px;
+    .ob-complete__grid > .ob-complete__card:nth-child(3):last-child {
+        grid-column: span 2;
     }
-
-    .ob-complete__card-emoji {
-        font-size: 1.2rem;
+    .ob-complete__score-value {
+        font-size: 2.8rem;
     }
+}
 
-    .ob-complete__title {
-        font-size: 1.2rem;
+/* Short viewports (landscape phones): compact */
+@media (max-height: 600px) {
+    .ob-complete__trophy { font-size: 28px; }
+    .ob-complete__title { font-size: 1.3rem; }
+    .ob-complete__score-value { font-size: 1.9rem; }
+    .ob-complete__modal { gap: 10px; padding: 18px 16px; }
+    .ob-complete__card { padding: 10px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ob-complete,
+    .ob-complete__modal,
+    .ob-complete__trophy,
+    .ob-complete__card,
+    .ob-complete__signin {
+        animation: none !important;
+        transition: none !important;
     }
 }
 

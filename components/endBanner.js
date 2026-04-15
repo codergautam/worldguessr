@@ -59,7 +59,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const isOnboardingLastRound = onboarding && onboarding.round === (onboarding.locations?.length || 3);
     useEffect(() => {
         if (guessed && onboarding && !onboarding.completed) {
-            const duration = isOnboardingLastRound ? 5 : 5;
+            const duration = isOnboardingLastRound ? 7 : 7;
             setAutoAdvanceCountdown(duration);
             let count = duration;
             const interval = setInterval(() => {

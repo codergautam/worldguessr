@@ -1,7 +1,7 @@
 import HeadContent from "@/components/headContent";
 import { FaDiscord, FaBook } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
-import { signIn, signOut, useSession } from "@/components/auth/auth";
+import { signOut, useSession } from "@/components/auth/auth";
 import retryManager from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState, useRef, useCallback } from "react";
@@ -3237,7 +3237,6 @@ export default function Home({ }) {
                         mode={onboarding.mode}
                         points={onboarding.points}
                         maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
-                        session={session}
                         onClassic={() => {
                             sendEvent("tutorial_end");
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
@@ -3274,9 +3273,6 @@ export default function Home({ }) {
                             setOnboardingCompleted(true);
                             setCountryGuessrMode({ subMode: "country", region: "all" });
                             setScreen("countryGuesser");
-                        }}
-                        onSignIn={() => {
-                            signIn();
                         }}
                         onHome={() => {
                             sendEvent("tutorial_end");
