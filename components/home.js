@@ -18,7 +18,6 @@ import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
 import { useTranslation } from '@/components/useTranslations'
-import useCountryApiHealth from '@/components/hooks/useCountryApiHealth';
 import useWindowDimensions from "@/components/useWindowDimensions";
 import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
@@ -549,10 +548,6 @@ export default function Home({ }) {
     const [showCountryButtons, setShowCountryButtons] = useState(true);
     const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
     const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
-    // Country/continent guesser depend on /api/country. When that endpoint is down,
-    // this hook flips true so we can fall back to World map instead of leaving the
-    // user stuck in a broken mode. See components/hooks/useCountryApiHealth.js.
-    const countryApiUnreachable = useCountryApiHealth();
     const [onboardingMode, setOnboardingMode] = useState("classic");
     const [countryGuessrMode, setCountryGuessrMode] = useState({ subMode: "country", region: "all" });
     const hasEnteredSingleplayer = useRef(false);
@@ -617,17 +612,6 @@ export default function Home({ }) {
             setShowSuggestLoginModal(false);
         }
     }, [session?.token?.secret, showSuggestLoginModal]);
-
-    // If /api/country dies while the user is already in country/continent guesser,
-    // bail them out to World singleplayer — otherwise they're stuck in a mode that
-    // can't evaluate guesses.
-    useEffect(() => {
-        if (!countryApiUnreachable) return;
-        if (screen !== "countryGuesser") return;
-        try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch (e) {}
-        setScreen("singleplayer");
-        toast(text("countryGuesserUnavailable") || "Country guesser unavailable right now — switched to World map.", { type: 'warning' });
-    }, [countryApiUnreachable, screen]);
 
     // Show SuggestAccountModal on the home screen for logged-out users.
     //   1st time  — any home visit (never seen before). Just Sign-in / Continue as Guest.
@@ -2463,10 +2447,9 @@ export default function Home({ }) {
                 console.log("[PERF] loadLocation: Calling findLatLongRandom (dynamic import)");
                 const startTime = performance.now();
                 // Country/continent guesser can't tolerate Unknown-country spots.
-                // Flag it so findLatLongRandom rejects those and fails fast if the
-                // country API is down, letting us fall back to World map instead
-                // of retrying forever.
-                const requireKnownCountry = screen === "countryGuesser" || !!onboarding && onboarding?.mode !== "classic";
+                // With findCountry's local fallback, this rejection should rarely
+                // fire (only for ocean / missing-polygon edge cases).
+                const requireKnownCountry = screen === "countryGuesser" || (!!onboarding && onboarding?.mode !== "classic");
                 try {
                     const mod = await import("@/components/findLatLong");
                     const findLatLongRandom = mod.default;
@@ -2474,23 +2457,6 @@ export default function Home({ }) {
                     const latLong = await findLatLongRandom({ ...gameOptions, requireKnownCountry });
                     setLatLong(latLong);
                 } catch (err) {
-                    // The API-down error triggers our existing hook/useEffect-driven
-                    // mode switch to World — no need to toast the generic error.
-                    if (err && err.name === 'CountryApiDownError') {
-                        console.warn("[loadLocation] country API down; falling back to World map");
-                        // Release the loading lock FIRST — openMap("all") below causes
-                        // gameOptions.location to change, which fires the gameUI effect
-                        // that calls loadLocation() again. That call's early-return
-                        // guard would block it if `loading` stayed true.
-                        setLoading(false);
-                        if (screen === "countryGuesser" || (onboarding && onboarding?.mode !== "classic")) {
-                            try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch (e) {}
-                            setScreen("singleplayer");
-                            openMap("all");
-                            toast(text("countryGuesserUnavailable") || "Country guesser unavailable — switched to World map.", { type: 'warning' });
-                        }
-                        return;
-                    }
                     console.error("[ERROR] Failed to load location:", err);
                     setLoading(false);
                     toast(text("errorLoadingMap"), { type: 'error' });
@@ -3059,13 +3025,11 @@ export default function Home({ }) {
                                                                 if (!hasEnteredSingleplayer.current) {
                                                                     hasEnteredSingleplayer.current = true;
                                                                     const pref = gameStorage.getItem("singleplayerDefaultMode");
-                                                                    // Skip country/continent guesser auto-entry if the /api/country
-                                                                    // endpoint is known to be down — fall through to World map.
-                                                                    if (pref === "countryGuesser" && !countryApiUnreachable) {
+                                                                    if (pref === "countryGuesser") {
                                                                         setCountryGuessrMode({ subMode: "country", region: "all" });
                                                                         setScreen("countryGuesser");
                                                                         return;
-                                                                    } else if (pref === "continentGuesser" && !countryApiUnreachable) {
+                                                                    } else if (pref === "continentGuesser") {
                                                                         setCountryGuessrMode({ subMode: "continent", region: "all" });
                                                                         setScreen("countryGuesser");
                                                                         return;
@@ -3247,16 +3211,6 @@ export default function Home({ }) {
                     mapModalClosing={mapModalClosing}
                     text={text}
                     customChooseMapCallback={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser")) ? (map) => {
-                        // If /api/country is down, country & continent guesser can't function.
-                        // Treat a pick of either as a fallback to World map + toast.
-                        if ((map.slug === "__countryGuesser" || map.slug === "__continentGuesser") && countryApiUnreachable) {
-                            if (screen === "countryGuesser") setScreen("singleplayer");
-                            try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch(e) {}
-                            openMap("all");
-                            setGameOptionsModalShown(false);
-                            toast(text("countryGuesserUnavailable") || "Country guesser unavailable right now — using World map.", { type: 'warning' });
-                            return;
-                        }
                         if (map.slug === "__countryGuesser") {
                             setCountryGuessrMode({ subMode: "country", region: "all" });
                             try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}

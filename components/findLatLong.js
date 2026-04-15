@@ -8,11 +8,6 @@ const loader = new Loader({
   libraries: ["places"]
 });
 
-const MAX_ATTEMPTS = 8;
-export class CountryApiDownError extends Error {
-  constructor(msg = 'country API unreachable') { super(msg); this.name = 'CountryApiDownError'; }
-}
-
 function generateLatLong(location, { requireKnownCountry } = {}) {
   return new Promise((resolve) => {
     const startTime = performance.now();
@@ -64,8 +59,8 @@ function generateLatLong(location, { requireKnownCountry } = {}) {
             resolve({ lat: latO, long: longO, country });
           }).catch((e) => {
             console.log("Failed to get country", e);
-            // In country-guesser mode we must know the country; reject and retry.
-            // In classic mode, tolerate Unknown — it just means streak logic can't count this round.
+            // Both server and local lookups failed. In country-guesser mode this
+            // spot is unusable; reject and retry. In classic we tolerate Unknown.
             if (requireKnownCountry) return resolve(null);
             resolve({ lat: latO, long: longO, country: "Unknown" });
           });
@@ -79,35 +74,17 @@ function generateLatLong(location, { requireKnownCountry } = {}) {
 }
 
 /**
- * Pick a random street-view location.
- *
- * @param {Object} gameOptions - usual game options; `.location` selects the map.
- *   Pass `gameOptions.requireKnownCountry = true` when the caller (e.g. country
- *   guesser) can't use a location whose country lookup failed. In that mode,
- *   Unknown-country spots are rejected and retried, and the call throws a
- *   `CountryApiDownError` if the /api/country endpoint is already flagged as
- *   down or if we exhaust retries — giving the UI a signal to fall back to
- *   World map instead of spinning forever.
+ * Pick a random street-view location. Pass `gameOptions.requireKnownCountry`
+ * for country/continent guesser — spots with no country come back null and we
+ * retry. Pano-finding is inherently guess-and-check (random point → is there a
+ * street view within 1km?), so no retry cap; it just takes as long as it takes.
  */
 export default async function findLatLongRandom(gameOptions) {
   const totalStartTime = performance.now();
   const requireKnownCountry = !!gameOptions?.requireKnownCountry;
   console.log("[PERF] findLatLongRandom started (requireKnownCountry:", requireKnownCountry, ")");
   let attempts = 0;
-
-  // Only country/continent guesser needs an attempt cap + early bail, because those
-  // modes are the ones that can't proceed without a country and need a fast fallback
-  // to World map. Classic retries as long as it takes — matches prior behavior and
-  // survives a flaky country API (classic tolerates Unknown).
   while (true) {
-    if (requireKnownCountry) {
-      if (typeof window !== 'undefined' && window.__countryApiUnreachable) {
-        throw new CountryApiDownError('country API flagged unreachable before attempt');
-      }
-      if (attempts >= MAX_ATTEMPTS) {
-        throw new CountryApiDownError(`exhausted ${MAX_ATTEMPTS} attempts without a known country`);
-      }
-    }
     attempts++;
     const data = await generateLatLong(gameOptions.location, { requireKnownCountry });
     if (data) {
