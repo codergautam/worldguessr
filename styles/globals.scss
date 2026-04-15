@@ -1932,6 +1932,26 @@ h1, h2, h3, span, label {
         gap: 10px;
     }
 
+    /* WsIcon (top:125px, right:15px, 50px wide, 50px tall) collides with the
+       expanded-map button row only when the row's top edge (0.3H - 56px) falls
+       above 175px and its bottom edge (0.3H - 8px) falls below 125px — i.e.
+       portrait viewport heights ~444–770px. Reserve the right column only then
+       and only when the icon is actually mounted. */
+    @media (orientation: portrait) and (min-height: 444px) and (max-height: 770px) {
+        body.ws-icon-shown .mobile_minimap__btns.miniMapShown {
+            padding-right: 75px;
+        }
+    }
+
+    /* Landscape on short viewports: the round-details tile sits in the top-right
+       area and blocks the minimize button even beyond the WsIcon column. Shift
+       the row further left so the minimize clears both. */
+    @media (orientation: landscape) and (max-height: 515px) {
+        .mobile_minimap__btns.miniMapShown {
+            padding-right: 160px;
+        }
+    }
+
     /* Mobile guess button when map is expanded */
     .mobile_minimap__btns.miniMapShown .guessBtn {
         flex: 1;

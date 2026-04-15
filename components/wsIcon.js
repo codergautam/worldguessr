@@ -101,7 +101,15 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
     };
   }, []);
 
-  if (!shown || !showIcon) return null;
+  const iconVisible = shown && showIcon;
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (iconVisible) document.body.classList.add('ws-icon-shown');
+    else document.body.classList.remove('ws-icon-shown');
+    return () => { document.body.classList.remove('ws-icon-shown'); };
+  }, [iconVisible]);
+
+  if (!iconVisible) return null;
 
   const getColor = () => {
     if (connected) return '#22c55e';
