@@ -4,16 +4,20 @@ import { signIn } from "@/components/auth/auth";
 import gameStorage from "./utils/localStorage";
 import { FaGoogle, FaTrophy, FaChartLine, FaGamepad } from 'react-icons/fa';
 
-export default function SuggestAccountModal({ shown, setOpen }) {
+export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) {
   const { t: text } = useTranslation("common");
 
   const handleClose = () => {
-    gameStorage.setItem("onboarding", 'done');
     setOpen(false);
   };
 
   const handleGoogleLogin = () => {
     signIn('google');
+  };
+
+  const handleNeverAgain = () => {
+    try { gameStorage.setItem("suggestLoginNeverShow", "1"); } catch(e) {}
+    setOpen(false);
   };
 
   return (
@@ -134,6 +138,30 @@ export default function SuggestAccountModal({ shown, setOpen }) {
           {text("playAsGuest")}
         </button>
       </div>
+
+      {showNeverAgain && (
+        <button
+          onClick={handleNeverAgain}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'rgba(255, 255, 255, 0.45)',
+            fontSize: '0.75rem',
+            fontFamily: 'Lexend, sans-serif',
+            cursor: 'pointer',
+            marginTop: '14px',
+            padding: '4px 8px',
+            textDecoration: 'underline',
+            textDecorationColor: 'rgba(255, 255, 255, 0.3)',
+            textUnderlineOffset: '2px',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={(e) => { e.target.style.color = 'rgba(255, 255, 255, 0.8)'; }}
+          onMouseLeave={(e) => { e.target.style.color = 'rgba(255, 255, 255, 0.45)'; }}
+        >
+          {text("neverShowAgain")}
+        </button>
+      )}
 
       <style jsx>{`
         @keyframes float {

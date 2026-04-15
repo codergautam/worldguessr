@@ -2524,74 +2524,132 @@ h1, h2, h3, span, label {
 
 @media screen and (max-width: 600px) {
 
+    .bannerContent {
+        font-size: clamp(1rem, 4.5vw, 1.25rem);
+    }
 
     .motivation {
-        font-size: 0.75em;
+        font-size: 0.95em;
     }
 
     .quip {
-        font-size: 0.75em !important;
-    }
-
-    .encouragement {
-        font-size: 0.75em !important;
-    }
-
-    .bannerPoints {
-        font-size: 0.85em !important;
-    }
-
-    .locationFact {
-        font-size: 0.7em !important;
-        max-width: 300px;
-    }
-
-    .endButtonContainer button {
-        padding: 8px 16px !important;
         font-size: 0.9em !important;
     }
 
+    .encouragement {
+        font-size: 0.9em !important;
+    }
+
+    .bannerPoints {
+        font-size: 1.05em !important;
+    }
+
+    .locationFact {
+        font-size: 0.9em !important;
+        max-width: 320px;
+    }
+
+    .endButtonContainer button {
+        padding: 10px 20px !important;
+        font-size: 1em !important;
+    }
+
     .mainBannerTxt {
-        font-size: 0.9em;
+        font-size: 1.15em;
     }
 
     .smallmainBannerTxt {
-        font-size: 0.7em;
+        font-size: 0.9em;
     }
 
     @media screen and (max-height: 840px) {
         .mainBannerTxt {
-            font-size: 0.8em;
+            font-size: 1.05em;
         }
 
         .smallmainBannerTxt {
-            font-size: 0.65em;
+            font-size: 0.85em;
         }
 
         .motivation {
-            font-size: 0.6em;
+            font-size: 0.9em;
         }
 
         .quip {
-            font-size: 0.6em !important;
+            font-size: 0.85em !important;
         }
 
         .encouragement {
-            font-size: 0.6em !important;
+            font-size: 0.85em !important;
         }
 
         .bannerPoints {
-            font-size: 0.7em !important;
+            font-size: 0.95em !important;
         }
 
         .locationFact {
-            font-size: 0.55em !important;
+            font-size: 0.8em !important;
         }
 
         .endButtonContainer button {
-            padding: 6px 12px !important;
-            font-size: 0.75em !important;
+            padding: 9px 16px !important;
+            font-size: 0.95em !important;
         }
+    }
+}
+
+/* Landscape phones: banner was eating too much vertical space. Tighten padding,
+   gaps, and nudge font sizes down. Targets short-height viewports only so portrait
+   phones (height > 500px) keep the comfortable sizes above. */
+@media (orientation: landscape) and (max-height: 500px) {
+    #endBanner {
+        padding: 5px 14px 7px !important;
+        margin-bottom: 3px !important;
+        border-radius: 8px;
+    }
+
+    .bannerContent {
+        font-size: clamp(0.85rem, 3vh, 1.05rem) !important;
+        gap: 2px !important;
+    }
+
+    .mainBannerTxt {
+        font-size: 1em !important;
+    }
+
+    .smallmainBannerTxt {
+        font-size: 0.85em !important;
+    }
+
+    .motivation {
+        font-size: 0.82em !important;
+    }
+
+    .quip {
+        font-size: 0.78em !important;
+    }
+
+    .encouragement {
+        font-size: 0.78em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.9em !important;
+    }
+
+    .locationFact {
+        font-size: 0.72em !important;
+        max-width: 420px;
+    }
+
+    .endButtonContainer {
+        margin-top: 2px !important;
+    }
+
+    .endButtonContainer button {
+        padding: 5px 14px !important;
+        font-size: 0.82em !important;
+        margin: 1px !important;
     }
 }
 
@@ -3421,48 +3479,48 @@ img.countryGuessrBtn__emoji {
     .countryGuessrOptions {
         bottom: 8px;
         width: calc(100% - 12px);
-        padding: 10px;
-        gap: 6px;
-        border-radius: 14px;
+        padding: 8px;
+        gap: 5px;
+        border-radius: 12px;
     }
 
     .countryGuessrPrompt {
-        font-size: 0.95rem;
+        font-size: 0.82rem;
     }
 
     .countryGuessrBtnRow {
         width: 100%;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: 5px;
     }
 
     .countryGuessrBtn {
         flex: 1 1 44%;
         min-width: 0;
-        padding: 12px 10px;
-        gap: 6px;
-        border-radius: 10px;
+        padding: 8px 6px;
+        gap: 4px;
+        border-radius: 9px;
     }
 
     .countryGuessrBtn__flag {
-        width: 56px;
-        height: 38px;
-        border-radius: 4px;
+        width: 44px;
+        height: 30px;
+        border-radius: 3px;
     }
 
     img.countryGuessrBtn__emoji {
-        width: 48px;
-        height: 48px;
+        width: 38px;
+        height: 38px;
     }
 
     .countryGuessrBtn__name {
-        font-size: 0.9rem;
+        font-size: 0.78rem;
     }
 
     .countryGuessrBtn--continent {
         flex: 1 1 30%;
         min-width: 0;
-        padding: 12px 8px;
+        padding: 10px 6px;
     }
 
     /* Compact mode (singleplayer, non-onboarding) on mobile */
@@ -3499,6 +3557,61 @@ img.countryGuessrBtn__emoji {
         padding: 10px 6px;
     }
 }
+
+/* Short viewports (landscape phones): collapse 4 country buttons to a single row
+   so the banner + buttons don't eat the full screen. 3/4 buttons fit at ~22-24%;
+   6 continent buttons still wrap nicely at 1 1 14%. */
+@media (max-height: 500px) and (pointer: coarse),
+       (max-height: 500px) and (max-width: 900px) {
+    .countryGuessrOptions {
+        bottom: 4px;
+        padding: 6px 8px;
+        gap: 3px;
+        border-radius: 10px;
+    }
+
+    .countryGuessrPrompt {
+        font-size: 0.72rem;
+    }
+
+    .countryGuessrBtnRow {
+        flex-wrap: nowrap;
+        gap: 4px;
+    }
+
+    .countryGuessrBtn {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 5px 4px;
+        gap: 2px;
+        border-radius: 8px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 34px;
+        height: 23px;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 28px;
+        height: 28px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.7rem;
+        line-height: 1.1;
+    }
+
+    .countryGuessrOptions.continentMode .countryGuessrBtnRow {
+        flex-wrap: wrap;
+    }
+
+    .countryGuessrBtn--continent {
+        flex: 1 1 14%;
+        padding: 5px 3px;
+    }
+}
+
 .leaflet-container {
     height: 100% !important;
     width: 100% !important;

@@ -49,7 +49,7 @@ export default async function handler(req, res) {
     if (!moderator || !moderator.staff) {
       return res.status(403).json({ message: 'Unauthorized - staff access required' });
     }
-    if (moderator.username !== 'codergautam') {
+    if (moderator.username !== 'codergautam') { // TODO: Remove this after testing
       return res.status(403).json({ message: 'Unauthorized - admin access required' });
     }
     // Find target user

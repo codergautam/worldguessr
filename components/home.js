@@ -18,6 +18,7 @@ import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
 import { useTranslation } from '@/components/useTranslations'
+import useCountryApiHealth from '@/components/hooks/useCountryApiHealth';
 import useWindowDimensions from "@/components/useWindowDimensions";
 import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
@@ -548,6 +549,10 @@ export default function Home({ }) {
     const [showCountryButtons, setShowCountryButtons] = useState(true);
     const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
     const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
+    // Country/continent guesser depend on /api/country. When that endpoint is down,
+    // this hook flips true so we can fall back to World map instead of leaving the
+    // user stuck in a broken mode. See components/hooks/useCountryApiHealth.js.
+    const countryApiUnreachable = useCountryApiHealth();
     const [onboardingMode, setOnboardingMode] = useState("classic");
     const [countryGuessrMode, setCountryGuessrMode] = useState({ subMode: "country", region: "all" });
     const hasEnteredSingleplayer = useRef(false);
@@ -612,6 +617,78 @@ export default function Home({ }) {
             setShowSuggestLoginModal(false);
         }
     }, [session?.token?.secret, showSuggestLoginModal]);
+
+    // If /api/country dies while the user is already in country/continent guesser,
+    // bail them out to World singleplayer — otherwise they're stuck in a mode that
+    // can't evaluate guesses.
+    useEffect(() => {
+        if (!countryApiUnreachable) return;
+        if (screen !== "countryGuesser") return;
+        try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch (e) {}
+        setScreen("singleplayer");
+        toast(text("countryGuesserUnavailable") || "Country guesser unavailable right now — switched to World map.", { type: 'warning' });
+    }, [countryApiUnreachable, screen]);
+
+    // Show SuggestAccountModal on the home screen for logged-out users.
+    //   1st time  — any home visit (never seen before). Just Sign-in / Continue as Guest.
+    //   Nth time  — 7 days after the last show, if they still haven't signed in. Every
+    //               repeat show renders a "Don't show this again" link below the guest
+    //               button; clicking it sets `suggestLoginNeverShow` and permanently opts
+    //               out. Otherwise the modal keeps reappearing on the 7-day cadence.
+    // Delayed ~2.5s so it doesn't feel like a page-load ambush and so the session has
+    // time to resolve. Embedded platforms (CrazyGames / CoolMath / GameDistribution)
+    // skip entirely.
+    const [suggestLoginShowNeverAgain, setSuggestLoginShowNeverAgain] = useState(false);
+    useEffect(() => {
+        if (screen !== "home") return;
+        if (session?.token?.secret) return;
+        if (inCrazyGames || inCoolMathGames || inGameDistribution) return;
+        if (typeof window === 'undefined') return;
+        // Skip re-running while the modal is currently open — otherwise opening it
+        // would immediately trigger another evaluation and double-increment the count.
+        if (showSuggestLoginModal) return;
+
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        let willShowNeverAgain = false;
+        try {
+            // Hard opt-out: user clicked "Don't show this again"
+            if (window.localStorage.getItem("suggestLoginNeverShow")) return;
+
+            // Migrate legacy one-time flag: treat as just-shown-now so the 7-day rule applies
+            const legacy = window.localStorage.getItem("suggestLoginShown");
+            if (legacy && !window.localStorage.getItem("suggestLoginLastShown")) {
+                window.localStorage.setItem("suggestLoginLastShown", String(Date.now()));
+                window.localStorage.removeItem("suggestLoginShown");
+            }
+
+            const lastShownRaw = window.localStorage.getItem("suggestLoginLastShown");
+            const lastShown = lastShownRaw ? parseInt(lastShownRaw, 10) : null;
+
+            if (lastShown) {
+                // Seen before — only show again once the cooldown window has elapsed.
+                // The only permanent opt-out is the `suggestLoginNeverShow` flag that the
+                // user sets explicitly by clicking "Don't show this again".
+                if (Date.now() - lastShown < SEVEN_DAYS_MS) return;
+                // Any repeat show (2nd onward) gets the "Don't show again" opt-out link
+                willShowNeverAgain = true;
+            }
+        } catch (e) { return; }
+
+        const timer = setTimeout(() => {
+            // Re-check at fire time in case things changed during the delay
+            if (session?.token?.secret) return;
+            try {
+                if (window.localStorage.getItem("suggestLoginNeverShow")) return;
+                window.localStorage.setItem("suggestLoginLastShown", String(Date.now()));
+                const prev = parseInt(window.localStorage.getItem("suggestLoginShownCount") || "0", 10);
+                window.localStorage.setItem("suggestLoginShownCount", String(prev + 1));
+            } catch (e) { return; }
+            setSuggestLoginShowNeverAgain(willShowNeverAgain);
+            setShowSuggestLoginModal(true);
+        }, 2500);
+
+        return () => clearTimeout(timer);
+    }, [screen, session?.token?.secret, inCrazyGames, inCoolMathGames, inGameDistribution, showSuggestLoginModal]);
 
     // check if ?coolmath=true
     useEffect(() => {
@@ -2385,13 +2462,37 @@ export default function Home({ }) {
             async function defaultMethod() {
                 console.log("[PERF] loadLocation: Calling findLatLongRandom (dynamic import)");
                 const startTime = performance.now();
+                // Country/continent guesser can't tolerate Unknown-country spots.
+                // Flag it so findLatLongRandom rejects those and fails fast if the
+                // country API is down, letting us fall back to World map instead
+                // of retrying forever.
+                const requireKnownCountry = screen === "countryGuesser" || !!onboarding && onboarding?.mode !== "classic";
                 try {
-                    const { default: findLatLongRandom } = await import("@/components/findLatLong");
+                    const mod = await import("@/components/findLatLong");
+                    const findLatLongRandom = mod.default;
                     console.log(`[PERF] findLatLong module loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
-                    const latLong = await findLatLongRandom(gameOptions);
+                    const latLong = await findLatLongRandom({ ...gameOptions, requireKnownCountry });
                     setLatLong(latLong);
                 } catch (err) {
+                    // The API-down error triggers our existing hook/useEffect-driven
+                    // mode switch to World — no need to toast the generic error.
+                    if (err && err.name === 'CountryApiDownError') {
+                        console.warn("[loadLocation] country API down; falling back to World map");
+                        // Release the loading lock FIRST — openMap("all") below causes
+                        // gameOptions.location to change, which fires the gameUI effect
+                        // that calls loadLocation() again. That call's early-return
+                        // guard would block it if `loading` stayed true.
+                        setLoading(false);
+                        if (screen === "countryGuesser" || (onboarding && onboarding?.mode !== "classic")) {
+                            try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch (e) {}
+                            setScreen("singleplayer");
+                            openMap("all");
+                            toast(text("countryGuesserUnavailable") || "Country guesser unavailable — switched to World map.", { type: 'warning' });
+                        }
+                        return;
+                    }
                     console.error("[ERROR] Failed to load location:", err);
+                    setLoading(false);
                     toast(text("errorLoadingMap"), { type: 'error' });
                 }
             }
@@ -2637,7 +2738,7 @@ export default function Home({ }) {
                 } sendInvite={sendInvite} options={options}
             />}
             {session?.token?.secret && !session.token.username && <SetUsernameModal shown={true} session={session} />}
-            {showSuggestLoginModal && <SuggestAccountModal shown={true} setOpen={setShowSuggestLoginModal} />}
+            {showSuggestLoginModal && <SuggestAccountModal shown={true} setOpen={setShowSuggestLoginModal} showNeverAgain={suggestLoginShowNeverAgain} />}
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
@@ -2958,11 +3059,13 @@ export default function Home({ }) {
                                                                 if (!hasEnteredSingleplayer.current) {
                                                                     hasEnteredSingleplayer.current = true;
                                                                     const pref = gameStorage.getItem("singleplayerDefaultMode");
-                                                                    if (pref === "countryGuesser") {
+                                                                    // Skip country/continent guesser auto-entry if the /api/country
+                                                                    // endpoint is known to be down — fall through to World map.
+                                                                    if (pref === "countryGuesser" && !countryApiUnreachable) {
                                                                         setCountryGuessrMode({ subMode: "country", region: "all" });
                                                                         setScreen("countryGuesser");
                                                                         return;
-                                                                    } else if (pref === "continentGuesser") {
+                                                                    } else if (pref === "continentGuesser" && !countryApiUnreachable) {
                                                                         setCountryGuessrMode({ subMode: "continent", region: "all" });
                                                                         setScreen("countryGuesser");
                                                                         return;
@@ -3144,6 +3247,16 @@ export default function Home({ }) {
                     mapModalClosing={mapModalClosing}
                     text={text}
                     customChooseMapCallback={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser")) ? (map) => {
+                        // If /api/country is down, country & continent guesser can't function.
+                        // Treat a pick of either as a fallback to World map + toast.
+                        if ((map.slug === "__countryGuesser" || map.slug === "__continentGuesser") && countryApiUnreachable) {
+                            if (screen === "countryGuesser") setScreen("singleplayer");
+                            try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch(e) {}
+                            openMap("all");
+                            setGameOptionsModalShown(false);
+                            toast(text("countryGuesserUnavailable") || "Country guesser unavailable right now — using World map.", { type: 'warning' });
+                            return;
+                        }
                         if (map.slug === "__countryGuesser") {
                             setCountryGuessrMode({ subMode: "country", region: "all" });
                             try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
@@ -3202,7 +3315,7 @@ export default function Home({ }) {
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "countryGuesser" && <div className="home__singleplayer">
@@ -3210,7 +3323,7 @@ export default function Home({ }) {
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && <div className="home__onboarding">
