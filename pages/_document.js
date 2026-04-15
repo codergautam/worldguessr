@@ -4,6 +4,7 @@ export default function Document() {
   return (
     <Html lang="en" style={{ backgroundColor: '#000000' }}>
       <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         {/* Font preconnects and stylesheets */}
         <link rel="preconnect" href="https://fonts.googleapis.com"/>
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>
@@ -38,8 +39,8 @@ export default function Document() {
               position: fixed;
               top: 0;
               left: 0;
-              width: 100vw;
-              height: 100vh;
+              width: 100%;
+              height: 100%;
               background: url("${process.env.NEXT_PUBLIC_BASE_PATH || ''}/street2.webp") center/cover no-repeat;
               opacity: 0.5;
               z-index: 0;
@@ -59,8 +60,8 @@ export default function Document() {
               position: 'fixed',
               top: 0,
               left: 0,
-              width: '100vw',
-              height: '100vh',
+              width: '100%',
+              height: '100%',
               backgroundColor: 'rgb(36,36,36)',
               zIndex: 999999,
               display: 'flex',
