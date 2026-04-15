@@ -4560,44 +4560,44 @@ img.countryGuessrBtn__emoji {
         bottom: 90px !important;
     }
 
-    /* End banner minimal */
+    /* End banner minimal — bumped up for iOS landscape readability */
     #endBanner {
-        min-height: 40px !important;
-        padding: 3px !important;
+        min-height: auto !important;
+        padding: 6px 12px !important;
     }
 
     .bannerContent {
-        font-size: 0.8em !important;
-        gap: 1px !important;
+        font-size: 0.9em !important;
+        gap: 2px !important;
     }
 
     .mainBannerTxt {
-        font-size: 0.6em !important;
+        font-size: 0.8em !important;
     }
 
     .motivation {
-        font-size: 0.5em !important;
+        font-size: 0.65em !important;
     }
 
     .quip {
-        font-size: 0.45em !important;
+        font-size: 0.6em !important;
     }
 
     .encouragement {
-        font-size: 0.45em !important;
+        font-size: 0.6em !important;
     }
 
     .bannerPoints {
-        font-size: 0.55em !important;
+        font-size: 0.7em !important;
     }
 
     .locationFact {
-        font-size: 0.45em !important;
+        font-size: 0.6em !important;
     }
 
     .endButtonContainer button {
-        padding: 4px 10px !important;
-        font-size: 0.65em !important;
+        padding: 5px 12px !important;
+        font-size: 0.75em !important;
     }
 
     /* Home page navigation separators constraint */
