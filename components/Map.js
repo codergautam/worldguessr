@@ -118,40 +118,54 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
   useEffect(() => {
     if (!answerShown || !dest) return;
     setAnimationDone(false);
+    const isMobileMinimapLayout =
+      typeof window !== "undefined" && window.matchMedia("(max-width: 600px)").matches;
+    // Keep a small master-like delay on mobile so reveal feels intentional, but still faster.
+    const revealDelayMs = isMobileMinimapLayout ? 120 : 200;
+    const pinRevealDelayMs = isMobileMinimapLayout ? 180 : 300;
     // Keep map centered during the CSS fullscreen expansion (200ms)
     const expandInterval = setInterval(() => { try { map.invalidateSize(); } catch(e) {} }, 10);
-    setTimeout(() => clearInterval(expandInterval), 250);
+    const stopExpandIntervalTimer = setTimeout(
+      () => clearInterval(expandInterval),
+      isMobileMinimapLayout ? 100 : 250
+    );
     let totalMs;
+    let flyTimer;
     if (pinPoint) {
-      totalMs = 300 + 500; // 300ms delay + 0.5s fly
-      setTimeout(() => {
+      totalMs = pinRevealDelayMs + 500; // delay + 0.5s fly
+      flyTimer = setTimeout(() => {
         try {
           const bounds = L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5);
           map.flyToBounds(bounds, { duration: 0.5 });
         } catch(e) {}
-      }, 300);
+      }, pinRevealDelayMs);
     } else if (countryGuessPin) {
-      totalMs = 200 + 1200; // 200ms delay + 1.2s fly
+      totalMs = revealDelayMs + 1200; // delay + 1.2s fly
       try { map.setView([20, 0], 2, { animate: false }); } catch(e) {}
-      setTimeout(() => {
+      flyTimer = setTimeout(() => {
         try {
           const bounds = L.latLngBounds(
             [{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: dest.lat, lng: dest.long }]
           ).pad(0.5);
           map.flyToBounds(bounds, { duration: 1.2 });
         } catch(e) {}
-      }, 200);
+      }, revealDelayMs);
     } else {
-      totalMs = 200 + 1800; // 200ms delay + 1.8s fly
+      totalMs = revealDelayMs + 1800; // delay + 1.8s fly
       try { map.setView([20, 0], 2, { animate: false }); } catch(e) {}
-      setTimeout(() => {
+      flyTimer = setTimeout(() => {
         try {
           map.flyTo([dest.lat, dest.long], 5, { duration: 1.8 });
         } catch(e) {}
-      }, 200);
+      }, revealDelayMs);
     }
     const t = setTimeout(() => setAnimationDone(true), totalMs + 100);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(stopExpandIntervalTimer);
+      clearInterval(expandInterval);
+      clearTimeout(flyTimer);
+      clearTimeout(t);
+    };
   }, [answerShown]);
 
   useEffect(() => {

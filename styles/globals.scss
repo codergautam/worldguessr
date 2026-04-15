@@ -2243,6 +2243,14 @@ h1, h2, h3, span, label {
     transition: all 300ms ease;
 }
 
+@media screen and (max-width: 600px) {
+    #miniMapArea.answerShown {
+        top: 0;
+        bottom: auto;
+        transition: none;
+    }
+}
+
 #miniMapArea.countryGuessrMapReveal {
     transform: none;
     animation: mapFadeReveal 0.5s ease forwards;
