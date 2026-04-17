@@ -67,7 +67,8 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
       'singleplayer': { label: text('singleplayer'), icon: '👤', color: '#4CAF50' },
       'ranked_duel': { label: text('rankedDuel'), icon: '⚔️', color: '#FF5722' },
       'unranked_multiplayer': { label: text('multiplayer'), icon: '👥', color: '#2196F3' },
-      'private_multiplayer': { label: text('privateGame'), icon: '🔒', color: '#9C27B0' }
+      'private_multiplayer': { label: text('privateGame'), icon: '🔒', color: '#9C27B0' },
+      'daily_challenge': { label: text('dailyChallenge'), icon: '🗓', color: '#ffd700' }
     };
     return types[gameType] || { label: gameType, icon: '🎮', color: '#757575' };
   };

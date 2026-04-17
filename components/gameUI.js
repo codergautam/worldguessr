@@ -28,7 +28,7 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete }) {
   const { t: text } = useTranslation("common");
   function loadLocationFuncRaw(keepAnswer) {
     if(onboarding) {
@@ -77,6 +77,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
             ...prev,
             done: true
           };
+
+          // Daily mode: skip the default storeGame submission and let the parent handle results.
+          if (dailyMode && onRoundsComplete) {
+            try { onRoundsComplete(prev.locations); } catch (e) { console.error('onRoundsComplete error', e); }
+            return completedGame;
+          }
 
           // Store game for all completed games (official maps give XP, community maps give 0 XP but are still saved)
           if(session?.token?.secret && prev.locations.length > 0) {
@@ -719,7 +725,7 @@ start={true || isStartingDuel} isOpponent={true} />
 */}
 
 
-{ singlePlayerRound?.done && (
+{ singlePlayerRound?.done && !dailyMode && (
 <RoundOverScreen points={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)
 
 } maxPoints={countryGuesser ? singlePlayerRound.totalRounds * 1000 : singlePlayerRound.totalRounds * 5000}

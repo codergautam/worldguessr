@@ -34,6 +34,9 @@ import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
+const DailyChallengeScreen = dynamic(() => import('@/components/daily/DailyChallengeScreen'), { ssr: false });
+import DailyMenuItem from '@/components/daily/DailyMenuItem';
+import DailyCommunityMapsButton from '@/components/daily/DailyCommunityMapsButton';
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
 import { toast, ToastContainer } from "react-toastify";
@@ -88,7 +91,7 @@ const initialMultiplayerState = {
     }
 }
 
-export default function Home({ }) {
+export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     const { width, height } = useWindowDimensions();
     const router = useRouter();
@@ -98,7 +101,7 @@ export default function Home({ }) {
     const [session, setSession] = useState(false);
     const { data: mainSession } = useSession();
     const [accountModalOpen, setAccountModalOpen] = useState(false);
-    const [screen, setScreen] = useState("home");
+    const [screen, setScreen] = useState(initialScreen === "daily" ? "daily" : "home");
     const [loading, setLoading] = useState(false);
     // game state
     const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
@@ -564,6 +567,61 @@ export default function Home({ }) {
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
     const [navSlideOut, setNavSlideOut] = useState(false);
+
+    // Daily challenge navigation (in-app pushState, no real Next route change)
+    const screenRef = useRef('home');
+    useEffect(() => { screenRef.current = screen; }, [screen]);
+    const isDailyPath = useCallback((p) => /^\/(?:(?:es|fr|de|ru|en)\/)?daily$/.test(p || ''), []);
+    const enterDailyMode = useCallback(() => {
+        if (typeof window !== 'undefined' && !isDailyPath(window.location.pathname)) {
+            const lang = (typeof window !== 'undefined' && window.language) || 'en';
+            const dailyPath = lang === 'en' ? '/daily' : `/${lang}/daily`;
+            window.history.pushState({ wgDaily: true }, '', dailyPath);
+        }
+        setNavSlideOut(true);
+        setTimeout(() => {
+            setNavSlideOut(false);
+            setScreen('daily');
+        }, 300);
+    }, [isDailyPath]);
+    const exitDailyMode = useCallback(() => {
+        if (typeof window !== 'undefined' && isDailyPath(window.location.pathname)) {
+            // Infer locale from current path: /daily → /, /es/daily → /es, etc.
+            const match = /^\/(es|fr|de|ru|en)\/daily$/.exec(window.location.pathname);
+            const target = match ? `/${match[1]}` : '/';
+            window.history.pushState({}, '', target);
+        }
+        setScreen('home');
+    }, [isDailyPath]);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (initialScreen === 'daily' || isDailyPath(window.location.pathname)) {
+            setScreen('daily');
+        }
+        const onPop = () => {
+            if (isDailyPath(window.location.pathname)) setScreen('daily');
+            else if (screenRef.current === 'daily') setScreen('home');
+        };
+        window.addEventListener('popstate', onPop);
+        return () => window.removeEventListener('popstate', onPop);
+    }, [initialScreen, isDailyPath]);
+
+    // Keep the URL in sync with the `screen` state for daily mode. Anything
+    // that transitions screen away from 'daily' (back button on the navbar,
+    // exit from results modal, popstate, etc.) must also clear `/daily` from
+    // the URL. Doing it here rather than inside each exit path means we
+    // can't forget to call it.
+    const prevScreenForUrlRef = useRef(screen);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const prev = prevScreenForUrlRef.current;
+        prevScreenForUrlRef.current = screen;
+        if (prev === 'daily' && screen !== 'daily' && isDailyPath(window.location.pathname)) {
+            const match = /^\/(es|fr|de|ru|en)\/daily$/.exec(window.location.pathname);
+            const target = match ? `/${match[1]}` : '/';
+            window.history.pushState({}, '', target);
+        }
+    }, [screen, isDailyPath]);
 
     function gPlatform() {
         try {
@@ -1100,8 +1158,24 @@ export default function Home({ }) {
 
             if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") return;
 
-            const target = `/${options.language}`;
             const currentPath = stripBase(window.location.pathname);
+
+            // Special-case /daily (and /[lang]/daily): stay on daily, just swap
+            // the locale segment. Without this, the redirect below would yank
+            // the user off the daily challenge and onto /{lang}.
+            const dailyRegex = /^\/(?:(es|fr|de|ru|en)\/)?daily$/;
+            if (dailyRegex.test(currentPath)) {
+                const desiredDaily = options.language === 'en' ? '/daily' : `/${options.language}/daily`;
+                if (currentPath !== desiredDaily) {
+                    langInitRef.current = false;
+                    router.replace(desiredDaily);
+                } else {
+                    langInitRef.current = false;
+                }
+                return;
+            }
+
+            const target = `/${options.language}`;
             // Don't redirect to /en from root — English is the default
             const isDefaultOnRoot = options.language === "en" && (currentPath === "/" || currentPath === "");
             if (!isDefaultOnRoot && currentPath !== target) {
@@ -2096,7 +2170,7 @@ export default function Home({ }) {
             // Always disable chat when WebSocket disconnects to prevent chat button showing in menu
             setMultiplayerChatEnabled(false)
             setMultiplayerChatOpen(false)
-            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser") {
+            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "daily") {
                 setMultiplayerError(true)
                 setLoading(false)
 
@@ -2122,7 +2196,7 @@ export default function Home({ }) {
             setMultiplayerChatEnabled(false)
             setMultiplayerChatOpen(false)
 
-            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser") {
+            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "daily") {
                 setMultiplayerError(true)
 
                 toast.info(text("connectionLostRecov"))
@@ -2693,7 +2767,15 @@ export default function Home({ }) {
 
     return (
         <>
-            <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} />
+            <HeadContent
+                text={text}
+                inCoolMathGames={inCoolMathGames}
+                inCrazyGames={inCrazyGames}
+                inGameDistribution={inGameDistribution}
+                titleOverride={initialScreen === 'daily' ? `${text('dailyChallenge')} — WorldGuessr` : undefined}
+                descOverride={initialScreen === 'daily' ? text('dailyLandingTagline') : undefined}
+                canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : undefined}
+            />
 
 
 
@@ -2980,6 +3062,30 @@ export default function Home({ }) {
                     )}
                 </div>
 
+                {/* Community Maps icon (moved out of left menu) */}
+                {screen === "home" && onboardingCompleted && !mapModal &&
+                    !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
+                    <DailyCommunityMapsButton onClick={() => setMapModal(true)} />
+                )}
+
+                {/* Daily challenge screen (landing → game → results) */}
+                {screen === "daily" && (
+                    <DailyChallengeScreen
+                        session={session}
+                        options={options}
+                        onExit={exitDailyMode}
+                        inCrazyGames={inCrazyGames}
+                        inCoolMathGames={inCoolMathGames}
+                        inGameDistribution={inGameDistribution}
+                        landingBootstrap={dailyBootstrap}
+                        latLong={latLong}
+                        setLatLong={setLatLong}
+                        setLatLongKey={setLatLongKey}
+                        loading={loading}
+                        setLoading={setLoading}
+                    />
+                )}
+
                 {screen == "home" &&
                     <div className={`home__content g2_modal ${screen !== "home" ? "hidden" : "cshown"} `}>
                         <div className={`g2_nav_ui ${navSlideOut ? 'g2_slide_out' : ''} ${onboardingCompleted !== true ? 'hide' : ''}`} >
@@ -3087,14 +3193,7 @@ export default function Home({ }) {
                                             <div className="g2_nav_hr"></div>
 
                                             <div className="g2_nav_group">
-                                                {!process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
-                                                    <button className="g2_nav_text" aria-label="Community Maps" onClick={() => {
-                                                        setNavSlideOut(true);
-                                                        setTimeout(() => {
-                                                            setNavSlideOut(false); // Reset for next use
-                                                            setMapModal(true);
-                                                        }, 300);
-                                                    }}>{text("communityMaps")}</button>}
+                                                <DailyMenuItem session={session} onClick={() => enterDailyMode()} />
 
                                                 {/* Twitch Streamer Link */}
                                                 {/* <a

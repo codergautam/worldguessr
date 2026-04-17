@@ -99,6 +99,30 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  dailyStreak: {
+    type: Number,
+    default: 0,
+  },
+  dailyStreakBest: {
+    type: Number,
+    default: 0,
+  },
+  lastDailyDate: {
+    type: String,
+    default: null,
+  },
+  dailyGraceUsedDates: {
+    type: [String],
+    default: [],
+  },
+  dailyHistory: {
+    type: [{
+      date: { type: String },
+      score: { type: Number },
+      rank: { type: Number, default: null },
+    }],
+    default: [],
+  },
   lastLogin: {
     type: Date,
     default: Date.now

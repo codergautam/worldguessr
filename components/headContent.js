@@ -2,7 +2,7 @@ import Head from "next/head";
 import { useEffect } from "react";
 import { asset } from '@/lib/basePath';
 
-export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false }) {
+export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false, titleOverride, descOverride, canonicalOverride }) {
   useEffect(() => {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
@@ -163,20 +163,25 @@ ads.js"></script>*/
     }
   }, []);
 
+  const resolvedTitle = titleOverride || (inCoolMathGames
+    ? "WorldGuessr - Play it now at CoolmathGames.com"
+    : text("tabTitle"));
+  const resolvedDesc = descOverride || text("shortDescMeta");
+  const resolvedOgTitle = titleOverride || text("fullTitle");
+  const resolvedOgDesc = descOverride || text("fullDescMeta");
+
   return (
           <Head>
-      <title>
-        { inCoolMathGames ? "WorldGuessr - Play it now at CoolmathGames.com" :
-        text("tabTitle") }
-        </title>
-    <meta property="og:title" content={text("fullTitle")}/>
+      <title>{resolvedTitle}</title>
+    <meta property="og:title" content={resolvedOgTitle}/>
 
     <meta name="description"
-    content={text("shortDescMeta")}
+    content={resolvedDesc}
     />
     <meta property="og:description"
-    content={text("fullDescMeta")}
+    content={resolvedOgDesc}
     />
+    {canonicalOverride && <link rel="canonical" href={canonicalOverride} />}
 
 <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no"/>
     <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />

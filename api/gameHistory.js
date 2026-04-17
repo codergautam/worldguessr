@@ -107,7 +107,7 @@ export default async function handler(req, res) {
         },
         
         // Multiplayer info (if applicable)
-        multiplayer: game.gameType !== 'singleplayer' ? {
+        multiplayer: (game.gameType !== 'singleplayer' && game.gameType !== 'daily_challenge') ? {
           isPublic: game.multiplayer?.isPublic || false,
           playerCount: game.players?.length || 1,
           gameCode: game.multiplayer?.gameCode

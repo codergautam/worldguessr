@@ -3,6 +3,7 @@ import "@/styles/multiPlayerModal.css";
 import "@/styles/accountModal.css";
 import "@/styles/mapModal.css";
 import '@/styles/duel.css';
+import '@/styles/daily.scss';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
