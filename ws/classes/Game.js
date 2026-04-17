@@ -713,7 +713,18 @@ export default class Game {
   sendAllPlayers(json) {
     for (const playerId of Object.keys(this.players)) {
       const p = players.get(playerId);
-      p.send(json);
+      if (!p) {
+        // Player was cleaned out of the global map (e.g. 30s disconnect purge
+        // in ws.js) but never removed from this.players. Drop the stale entry
+        // so we stop iterating it on every tick.
+        delete this.players[playerId];
+        continue;
+      }
+      try {
+        p.send(json);
+      } catch (e) {
+        console.error('sendAllPlayers: send failed for', playerId, e?.message);
+      }
     }
   }
   async end(leftUser) {
