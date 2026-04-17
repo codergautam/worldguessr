@@ -61,6 +61,27 @@ app.use((req, res, next) => {
   next();
 });
 
+// Loud, grep-friendly logger for serious issues that warrant investigation.
+// Search logs for "!!!" or any tag below to find every incident.
+function logCritical(tag, details) {
+  const ts = new Date().toISOString();
+  console.error('\n=========================================================');
+  console.error(`[${ts}] !!! ${tag} !!!`);
+  if (details && typeof details === 'object') {
+    for (const [k, v] of Object.entries(details)) {
+      if (v instanceof Error) {
+        console.error(`  ${k}: ${v.message}`);
+        if (v.stack) console.error(v.stack);
+      } else {
+        console.error(`  ${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`);
+      }
+    }
+  } else if (details !== undefined) {
+    console.error(details);
+  }
+  console.error('=========================================================\n');
+}
+
 // Setup  /api routes
 const apiFolder = path.join(__dirname, 'api');
 function loadFolder(folder, subdir = '') {
@@ -77,8 +98,17 @@ function loadFolder(folder, subdir = '') {
     const routePath = './api/' + subdir + file.split('.')[0]+'.js';
     const webPath = '/api/' + subdir + file.split('.')[0];
     import(routePath).then(module => {
-      app.all(webPath, ( req, res ) => {
-        module.default(req, res);
+      app.all(webPath, (req, res) => {
+        Promise.resolve(module.default(req, res)).catch((err) => {
+          logCritical('API HANDLER CRASH', {
+            path: webPath,
+            method: req.method,
+            error: err,
+          });
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Server error' });
+          }
+        });
       });
     });
   });
@@ -263,6 +293,19 @@ app.post('/mapPlay/:slug', async (req, res) => {
   const slug = req.params.slug;
   recentPlays[slug] = (recentPlays[slug] || 0) + 1;
   res.send('ok');
+});
+
+// Safety net: log unhandled promise rejections instead of crashing. The route
+// loader above wraps every /api/* handler, so this should rarely fire — when
+// it does, treat the log as a real bug and add try/catch at the source.
+process.on('unhandledRejection', (reason) => {
+  logCritical('UNHANDLED PROMISE REJECTION', { reason });
+});
+// Uncaught synchronous exceptions leave V8 in an undefined state per Node
+// docs — let PM2 restart us cleanly instead of soldiering on.
+process.on('uncaughtException', (err) => {
+  logCritical('UNCAUGHT EXCEPTION (PROCESS WILL EXIT)', { error: err });
+  process.exit(1);
 });
 
 // listen at port 3001 or process.env.API_PORT

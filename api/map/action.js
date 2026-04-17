@@ -80,6 +80,9 @@ async function validateMap(name, data, description_short, description_long, edit
   }
 
   const slug = generateSlug(name);
+  if(!slug) {
+    return 'Name must contain at least one Latin letter or number';
+  }
   if(slug === 'all' || countries.includes(slug.toUpperCase()) || Object.values(officialCountryMaps).find(map => map.slug === slug)) {
     // return res.status(400).json({ message: 'Please choose a different name' });
     return 'Please choose a different name';
