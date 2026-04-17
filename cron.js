@@ -272,12 +272,14 @@ const computeDailyLeaderboards = async () => {
 
 // Helper function to compute leaderboard for a specific mode (xp or elo)
 const computeLeaderboardForMode = async (mode, dayAgo) => {
-  const field = mode === 'xp' ? 'totalXp' : 'elo';
-
   // Only events that actually move XP/ELO contribute to the daily delta.
-  // weekly_update writes one row per user (millions) with no real change and
-  // was the dominant source of work — excluding it shrinks the pipeline's
-  // working set by orders of magnitude.
+  // weekly_update writes one row per user (millions) and was the dominant
+  // source of work; excluding it shrinks the working set massively.
+  //
+  // We use $top/$bottom (Mongo 5.2+) so $group can pick the latest/oldest doc
+  // per user without a global blocking $sort over the whole 24h slice. The
+  // pipeline becomes a streaming hash aggregation with one-doc accumulators.
+  const deltaField = mode === 'xp' ? 'xpDelta' : 'eloDelta';
   const pipeline = [
     {
       $match: {
@@ -285,35 +287,34 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
         triggerEvent: { $in: ['game_completed', 'elo_refund'] }
       }
     },
-    { $sort: { userId: 1, timestamp: -1 } },
     {
       $group: {
         _id: '$userId',
-        latestTotalXp: { $first: '$totalXp' },
-        latestElo: { $first: '$elo' },
-        oldestTotalXp: { $last: '$totalXp' },
-        oldestElo: { $last: '$elo' }
+        latest: {
+          $top: {
+            sortBy: { timestamp: -1 },
+            output: { totalXp: '$totalXp', elo: '$elo' }
+          }
+        },
+        oldest: {
+          $bottom: {
+            sortBy: { timestamp: -1 },
+            output: { totalXp: '$totalXp', elo: '$elo' }
+          }
+        }
       }
     },
     {
       $project: {
         userId: '$_id',
-        xpDelta: { $subtract: ['$latestTotalXp', '$oldestTotalXp'] },
-        eloDelta: { $subtract: ['$latestElo', '$oldestElo'] },
-        currentXp: '$latestTotalXp',
-        currentElo: '$latestElo'
+        xpDelta:    { $subtract: ['$latest.totalXp', '$oldest.totalXp'] },
+        eloDelta:   { $subtract: ['$latest.elo',     '$oldest.elo'] },
+        currentXp:  '$latest.totalXp',
+        currentElo: '$latest.elo'
       }
     },
-    {
-      $match: {
-        [mode === 'xp' ? 'xpDelta' : 'eloDelta']: { $gt: 0 }
-      }
-    },
-    {
-      $sort: {
-        [mode === 'xp' ? 'xpDelta' : 'eloDelta']: -1
-      }
-    },
+    { $match: { [deltaField]: { $gt: 0 } } },
+    { $sort:  { [deltaField]: -1 } },
     { $limit: 50000 }
   ];
 
