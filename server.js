@@ -11,10 +11,73 @@ https://github.com/codergautam/worldguessr
 */
 
 import fs from 'fs';
+import v8 from 'v8';
 import { config } from 'dotenv';
 const __dirname = import.meta.dirname;
 
 config();
+
+// ============================================================================
+// Auto heap dump on memory pressure
+// Writes a single .heapsnapshot to HEAP_DUMP_PATH, overwriting on each dump.
+// Auto-fires once per process when heapUsed crosses HEAP_DUMP_THRESHOLD_MB
+// (default 3072 = 3 GB). Manual trigger via `kill -USR2 <pid>` always works
+// and also resets the auto guard so the next threshold crossing re-dumps.
+// Stream-based to minimise scratch memory near the heap ceiling.
+// ============================================================================
+const HEAP_DUMP_THRESHOLD_MB = parseInt(process.env.HEAP_DUMP_THRESHOLD_MB || '3072', 10);
+const HEAP_DUMP_PATH = process.env.HEAP_DUMP_PATH || '/tmp/worldguessr-api.heapsnapshot';
+const HEAP_LOG_INTERVAL_MS = 10000;
+let autoDumpTaken = false;
+let dumpInProgress = false;
+
+function writeHeapDump(reason, { manual = false } = {}) {
+  if (dumpInProgress) {
+    console.log(`[HEAPDUMP] skip (${reason}) — dump already in progress`);
+    return;
+  }
+  if (!manual && autoDumpTaken) {
+    console.log(`[HEAPDUMP] skip auto (${reason}) — already dumped once; SIGUSR2 to force`);
+    return;
+  }
+  dumpInProgress = true;
+  if (!manual) autoDumpTaken = true;
+
+  console.log(`[HEAPDUMP] ${reason} → ${HEAP_DUMP_PATH}`);
+  const start = Date.now();
+  try {
+    const snapshot = v8.getHeapSnapshot();
+    const out = fs.createWriteStream(HEAP_DUMP_PATH); // truncates + overwrites
+    snapshot.pipe(out);
+    out.on('finish', () => {
+      dumpInProgress = false;
+      console.log(`[HEAPDUMP] wrote ${HEAP_DUMP_PATH} in ${Date.now() - start}ms`);
+    });
+    out.on('error', (err) => {
+      dumpInProgress = false;
+      console.error('[HEAPDUMP] write error', err);
+    });
+  } catch (err) {
+    dumpInProgress = false;
+    if (!manual) autoDumpTaken = false;
+    console.error('[HEAPDUMP] failed to start', err);
+  }
+}
+
+setInterval(() => {
+  const mem = process.memoryUsage();
+  const heapUsedMb = Math.round(mem.heapUsed / 1024 / 1024);
+  const rssMb = Math.round(mem.rss / 1024 / 1024);
+  console.log(`[MEM] heapUsed=${heapUsedMb}MB rss=${rssMb}MB (threshold=${HEAP_DUMP_THRESHOLD_MB}MB)`);
+  if (heapUsedMb > HEAP_DUMP_THRESHOLD_MB && !autoDumpTaken) {
+    writeHeapDump(`heapUsed ${heapUsedMb}MB crossed ${HEAP_DUMP_THRESHOLD_MB}MB`);
+  }
+}, HEAP_LOG_INTERVAL_MS);
+
+process.on('SIGUSR2', () => {
+  autoDumpTaken = false; // manual dump re-arms the auto trigger
+  writeHeapDump('SIGUSR2', { manual: true });
+});
 
 import mongoose from 'mongoose';
 import cachegoose from 'recachegoose';
