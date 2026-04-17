@@ -274,11 +274,15 @@ const computeDailyLeaderboards = async () => {
 const computeLeaderboardForMode = async (mode, dayAgo) => {
   const field = mode === 'xp' ? 'totalXp' : 'elo';
 
-  // Optimized aggregation pipeline with query timeout
+  // Only events that actually move XP/ELO contribute to the daily delta.
+  // weekly_update writes one row per user (millions) with no real change and
+  // was the dominant source of work — excluding it shrinks the pipeline's
+  // working set by orders of magnitude.
   const pipeline = [
     {
       $match: {
-        timestamp: { $gte: dayAgo }
+        timestamp: { $gte: dayAgo },
+        triggerEvent: { $in: ['game_completed', 'elo_refund'] }
       }
     },
     { $sort: { userId: 1, timestamp: -1 } },
@@ -314,7 +318,9 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
   ];
 
   // Execute aggregation with maxTimeMS to prevent hanging
-  const userDeltas = await UserStats.aggregate(pipeline).option({ maxTimeMS: 30000 }); // 30 second timeout
+  const userDeltas = await UserStats.aggregate(pipeline)
+    .allowDiskUse(true)
+    .option({ maxTimeMS: 60000 });
 
   const totalActiveUsers = userDeltas.length;
 
