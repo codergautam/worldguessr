@@ -8,8 +8,6 @@ import { getLeague } from '../components/utils/leagues.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
 
-const client = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, 'postmessage');
-
 /**
  * Check and handle temp ban expiration
  * Also handles migration of legacy banned users (banned: true but no banType)
@@ -229,9 +227,11 @@ export default async function handler(req, res) {
 
       const startTokenExchange = Date.now();
       // Use provided redirect_uri for redirect flow (GD), otherwise default client uses 'postmessage' (popup flow)
-      const tokenClient = redirect_uri
-        ? new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, redirect_uri)
-        : client;
+      const tokenClient = new OAuth2Client(
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri || 'postmessage'
+      );
       const { tokens } = await tokenClient.getToken(code);
       tokenClient.setCredentials(tokens);
       timings.tokenExchange = Date.now() - startTokenExchange;
