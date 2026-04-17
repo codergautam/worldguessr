@@ -1,14 +1,16 @@
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import NameChangeRequest from '../models/NameChangeRequest.js';
+import { Filter } from 'bad-words';
+
+const filter = new Filter();
 
 /**
  * Submit Name Change API
  *
- * For users who have been forced to change their name.
+ * For users who have been forced to change their name (mod-driven flow).
  * Submits a new username for moderator review.
  */
 
-// TODO: FUNCTIONALTIY MERGED TO setName.js, SHOULD BE DEPRECATED SOON AFTER UPDATING CLIENT.
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -40,6 +42,13 @@ export default async function handler(req, res) {
         message: "Username must contain only letters, numbers, and underscores",
       });
   }
+
+  // Profanity check — mirrors api/setName.js so a forced-rename can't slip
+  // through with a worse name than the one that was forced to be changed.
+  if (filter.isProfane(trimmedUsername)) {
+    return res.status(400).json({ message: 'Inappropriate content' });
+  }
+
   try {
     // Get the user
     const user = await User.findOne({ secret });

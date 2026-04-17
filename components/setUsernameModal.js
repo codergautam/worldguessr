@@ -114,7 +114,7 @@ export default function SetUsernameModal({ shown, onClose, session }) {
                             onChange={(e) => setUsername(e.target.value)}
                             onKeyPress={handleKeyPress}
                             disabled={isLoading}
-                            maxLength={20}
+                            maxLength={30}
                             style={{
                                 opacity: isLoading ? 0.7 : 1,
                                 cursor: isLoading ? 'not-allowed' : 'text'
