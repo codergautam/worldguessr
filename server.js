@@ -40,6 +40,7 @@ var app = express();
 // disable cors
 import cors from 'cors';
 import cityGen from './serverUtils/cityGen.js';
+import { registerCacheBusRoute } from './serverUtils/cacheBus.js';
 import User from './models/User.js';
 function currentDate() {
   return new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
@@ -153,6 +154,8 @@ setInterval(updateRecentPlays, 60000);
   app.get('/', (req, res) => {
     res.status(200).send('WorldGuessr API - by Gautam');
   });
+
+registerCacheBusRoute(app);
 
 loadFolder(apiFolder);
 

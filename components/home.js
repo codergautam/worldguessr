@@ -2,7 +2,7 @@ import HeadContent from "@/components/headContent";
 import { FaDiscord, FaBook } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
-import retryManager from "@/components/utils/retryFetch";
+import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
 import { useEffect, useState, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/navbar";
@@ -189,7 +189,8 @@ export default function Home({ }) {
             onSuccess: tokenResponse => {
                 console.log("[Auth] Starting Google OAuth with retry mechanism");
 
-                retryManager.fetchWithRetry(
+                fetchWithFallback(
+                    clientConfig().authUrl + "/api/googleAuth",
                     clientConfig().apiUrl + "/api/googleAuth",
                     {
                         body: JSON.stringify({ code: tokenResponse.code }),
@@ -198,7 +199,8 @@ export default function Home({ }) {
                             'Content-Type': 'application/json'
                         }
                     },
-                    'googleAuthLogin'
+                    'googleAuthLogin',
+                    {}
                 ).then((res) => res.json()).then((data) => {
                     console.log("[Auth] Google OAuth successful");
 
@@ -674,14 +676,16 @@ export default function Home({ }) {
                 // Clean the code from URL
                 window.history.replaceState({}, '', window.location.pathname);
                 setLoginQueued(true);
-                retryManager.fetchWithRetry(
+                fetchWithFallback(
+                    clientConfig().authUrl + "/api/googleAuth",
                     clientConfig().apiUrl + "/api/googleAuth",
                     {
                         body: JSON.stringify({ code, redirect_uri: window.location.origin + window.location.pathname }),
                         method: "POST",
                         headers: { 'Content-Type': 'application/json' }
                     },
-                    'googleAuthRedirect'
+                    'googleAuthRedirect',
+                    {}
                 ).then((res) => res.json()).then((data) => {
                     if (data.secret) {
                         setSession({ token: data });
