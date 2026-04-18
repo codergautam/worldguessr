@@ -1,9 +1,11 @@
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import DailyLeaderboard from '../models/DailyLeaderboard.js';
+import { registerStat } from '../serverUtils/statRegistry.js';
 
 // Cache for leaderboard data
 const CACHE_DURATION = 60000; // 1 minute cache
 const cache = new Map();
+registerStat('api/leaderboard.cache', () => cache.size);
 
 function getCacheKey(mode, pastDay) {
   return `${mode}_${pastDay ? 'daily' : 'alltime'}`;

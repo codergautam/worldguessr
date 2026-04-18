@@ -11,79 +11,56 @@ https://github.com/codergautam/worldguessr
 */
 
 import fs from 'fs';
-import v8 from 'v8';
 import { config } from 'dotenv';
 const __dirname = import.meta.dirname;
 
 config();
 
-// ============================================================================
-// Auto heap dump on memory pressure
-// Writes a single .heapsnapshot to HEAP_DUMP_PATH, overwriting on each dump.
-// Auto-fires once per process when heapUsed crosses HEAP_DUMP_THRESHOLD_MB
-// (default 3072 = 3 GB). Manual trigger via `kill -USR2 <pid>` always works
-// and also resets the auto guard so the next threshold crossing re-dumps.
-// Stream-based to minimise scratch memory near the heap ceiling.
-// ============================================================================
-const HEAP_DUMP_THRESHOLD_MB = parseInt(process.env.HEAP_DUMP_THRESHOLD_MB || '3072', 10);
-const HEAP_DUMP_PATH = process.env.HEAP_DUMP_PATH || '/tmp/worldguessr-api.heapsnapshot';
-const HEAP_LOG_INTERVAL_MS = 10000;
-let autoDumpTaken = false;
-let dumpInProgress = false;
-
-function writeHeapDump(reason, { manual = false } = {}) {
-  if (dumpInProgress) {
-    console.log(`[HEAPDUMP] skip (${reason}) — dump already in progress`);
-    return;
-  }
-  if (!manual && autoDumpTaken) {
-    console.log(`[HEAPDUMP] skip auto (${reason}) — already dumped once; SIGUSR2 to force`);
-    return;
-  }
-  dumpInProgress = true;
-  if (!manual) autoDumpTaken = true;
-
-  console.log(`[HEAPDUMP] ${reason} → ${HEAP_DUMP_PATH}`);
-  const start = Date.now();
-  try {
-    const snapshot = v8.getHeapSnapshot();
-    const out = fs.createWriteStream(HEAP_DUMP_PATH); // truncates + overwrites
-    snapshot.pipe(out);
-    out.on('finish', () => {
-      dumpInProgress = false;
-      console.log(`[HEAPDUMP] wrote ${HEAP_DUMP_PATH} in ${Date.now() - start}ms`);
-    });
-    out.on('error', (err) => {
-      dumpInProgress = false;
-      console.error('[HEAPDUMP] write error', err);
-    });
-  } catch (err) {
-    dumpInProgress = false;
-    if (!manual) autoDumpTaken = false;
-    console.error('[HEAPDUMP] failed to start', err);
-  }
-}
-
+// Simple memory log, printed every 10s. Shows the split between JS heap and
+// off-heap (ext/buf), plus a per-tick delta. If heap grows but ext/buf don't,
+// the leak is in JS. If ext/buf grow, the leak is in buffers/native.
+let __lastHeapMb = 0;
 setInterval(() => {
   const mem = process.memoryUsage();
-  const heapUsedMb = Math.round(mem.heapUsed / 1024 / 1024);
+  const heapMb = Math.round(mem.heapUsed / 1024 / 1024);
   const rssMb = Math.round(mem.rss / 1024 / 1024);
-  console.log(`[MEM] heapUsed=${heapUsedMb}MB rss=${rssMb}MB (threshold=${HEAP_DUMP_THRESHOLD_MB}MB)`);
-  if (heapUsedMb > HEAP_DUMP_THRESHOLD_MB && !autoDumpTaken) {
-    writeHeapDump(`heapUsed ${heapUsedMb}MB crossed ${HEAP_DUMP_THRESHOLD_MB}MB`);
-  }
-}, HEAP_LOG_INTERVAL_MS);
-
-process.on('SIGUSR2', () => {
-  autoDumpTaken = false; // manual dump re-arms the auto trigger
-  writeHeapDump('SIGUSR2', { manual: true });
-});
+  const extMb = Math.round((mem.external || 0) / 1024 / 1024);
+  const bufMb = Math.round((mem.arrayBuffers || 0) / 1024 / 1024);
+  const delta = __lastHeapMb ? heapMb - __lastHeapMb : 0;
+  __lastHeapMb = heapMb;
+  const sign = delta >= 0 ? '+' : '';
+  console.log(`[MEM] heap=${heapMb}MB (${sign}${delta}) rss=${rssMb}MB ext=${extMb}MB buf=${bufMb}MB`);
+}, 10000);
 
 import mongoose from 'mongoose';
 import cachegoose from 'recachegoose';
+import { registerStat as __registerCacheStat } from './serverUtils/statRegistry.js';
 
 cachegoose(mongoose, {
   engine: "memory"
+});
+
+// recachegoose exposes the Cache instance on `init._cache`; reach through it
+// to the lru-cache backing the memory engine and report its item count.
+__registerCacheStat('recachegoose.itemCount', () => {
+  try {
+    if (!cachegoose?._cache) return 'no _cache (cachegoose not initialised)';
+    if (!cachegoose._cache._cache) return 'no _cache._cache (Cacheman missing)';
+    const engine = cachegoose._cache._cache._engine;
+    if (!engine) return 'no _engine (memory store missing)';
+    const lru = engine.client;
+    if (!lru) return 'no engine.client (lru missing)';
+    if (typeof lru.itemCount === 'number') return lru.itemCount;
+    if (typeof lru.size === 'number') return lru.size;
+    if (typeof lru.length === 'number') return lru.length;
+    if (typeof lru.keys === 'function') {
+      const k = lru.keys();
+      return Array.isArray(k) ? k.length : `keys=${typeof k}`;
+    }
+    return `unknown lru shape: ${Object.keys(lru).join(',')}`;
+  } catch (e) {
+    return `error: ${e?.message || e}`;
+  }
 });
 
 import findLatLongRandom from './components/findLatLongServer.js';
@@ -104,6 +81,7 @@ var app = express();
 import cors from 'cors';
 import cityGen from './serverUtils/cityGen.js';
 import { registerCacheBusRoute } from './serverUtils/cacheBus.js';
+import { registerStat, getAllStats } from './serverUtils/statRegistry.js';
 import User from './models/User.js';
 function currentDate() {
   return new Date().toLocaleString("en-US", { timeZone: "America/Chicago" });
@@ -215,6 +193,7 @@ if(!process.env.GOOGLE_CLIENT_SECRET) {
 const port = process.env.API_PORT || 3001;
 
 let recentPlays = {}; // track the recent play gains of maps
+registerStat('server.recentPlays', () => Object.keys(recentPlays).length);
 
 async function updateRecentPlays() {
   if(!dbEnabled) return;
@@ -248,10 +227,28 @@ setInterval(updateRecentPlays, 60000);
     res.status(200).send('WorldGuessr API - by Gautam');
   });
 
+// Current sizes of every in-memory collection that registered itself, plus
+// process.memoryUsage(). Hit this periodically (e.g. curl every few minutes)
+// and diff the output — whichever row grows monotonically is the leak.
+app.get('/debug/stats', (req, res) => {
+  const mem = process.memoryUsage();
+  res.json({
+    memoryMb: {
+      heap: Math.round(mem.heapUsed / 1024 / 1024),
+      rss: Math.round(mem.rss / 1024 / 1024),
+      external: Math.round((mem.external || 0) / 1024 / 1024),
+      arrayBuffers: Math.round((mem.arrayBuffers || 0) / 1024 / 1024),
+    },
+    uptimeSec: Math.round(process.uptime()),
+    collections: getAllStats(),
+  });
+});
+
 registerCacheBusRoute(app);
 
 loadFolder(apiFolder);
 
+registerStat('server.allCountriesCache', () => allCountriesCache.length);
 let allCountriesCache = [{"lat":-19.879842659309492,"long":-43.670413454248006,"country":"BR"},{"lat":20.135314104756286,"long":-100.29356734837116,"country":"MX"},{"lat":33.78837496994207,"long":132.71083343539289,"country":"JP"},{"lat":40.06074748102191,"long":22.56026917707304,"country":"GR"},{"lat":51.15896475413572,"long":3.731268442956184,"country":"BE"},{"lat":-23.37329331485114,"long":-50.84053688318288,"country":"BR"},{"lat":6.716808364269906,"long":80.06299445255699,"country":"LK"},{"lat":-34.8959205019246,"long":138.63880284961732,"country":"AU"},{"lat":46.598084644501576,"long":2.6143392020731357,"country":"FR"},{"lat":43.61140651962714,"long":-72.97280304214556,"country":"US"},{"lat":40.24245072247337,"long":-77.17703276440484,"country":"US"},{"lat":48.724681302129596,"long":-1.1660591321220115,"country":"FR"},{"lat":16.747503749746688,"long":77.49598950987385,"country":"IN"},{"lat":62.354316574600325,"long":50.07729768499946,"country":"RU"},{"lat":57.75493145744408,"long":-3.911952457355695,"country":"GB"},{"lat":6.890809255286151,"long":80.5954600388597,"country":"LK"},{"lat":24.03912002891681,"long":-104.55724154156484,"country":"MX"},{"lat":7.538250279715096,"long":122.87253571338866,"country":"PH"},{"lat":38.33333838551845,"long":-85.65255971854496,"country":"US"},{"lat":19.490956234930476,"long":-99.12425237704893,"country":"MX"},{"lat":40.14866867132865,"long":-89.36513464791723,"country":"US"},{"lat":40.28630434134524,"long":-86.7353819418805,"country":"US"},{"lat":43.401995330505315,"long":-0.38877387612238756,"country":"FR"},{"lat":-28.230439186143318,"long":28.307282728397407,"country":"ZA"},{"lat":45.84009033077856,"long":-119.7000968144879,"country":"US"},{"lat":-42.809590374390055,"long":147.2981528652234,"country":"AU"},{"lat":40.88869028672737,"long":-72.68983284806949,"country":"US"},{"lat":39.29097934896099,"long":-75.63478178163903,"country":"US"},{"lat":5.312265515952477,"long":100.44163552817636,"country":"MY"},{"lat":42.602099730386264,"long":-88.70782443523038,"country":"US"}];
 
 function updateTotalCache() {
@@ -282,6 +279,7 @@ app.get('/allCountries.json', (req, res) => {
 
 
 let countryLocations = {};
+registerStat('server.countryLocations', () => Object.keys(countryLocations).length);
 
 let rawOverrides = {};
 
