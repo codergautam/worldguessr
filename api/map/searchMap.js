@@ -34,26 +34,25 @@ export default async function searchMaps(req, res) {
     return res.status(400).json({ message: 'Search query must be at least 3 characters long' });
   }
 
-  // sanitize query
+  // sanitize query: keep alphanumerics + whitespace only. Strips regex
+  // metachars so the value is safe to interpolate into a RegExp.
   query = query.replace(/[^a-zA-Z0-9\s]/g, '');
+  // Escape defensively in case the allowlist above ever expands.
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(escaped, 'i');
 
   try {
-    // Find maps that match the search query in either name, short description, or author name
-    // let maps = await Map.find({
-    //   accepted: true,
-    //   $or: [
-    //     { name: { $regex: query, $options: 'i' } },
-    //     { description_short: { $regex: query, $options: 'i' } },
-    //     { created_by_name: { $regex: query, $options: 'i' } }
-    //   ]
-    // }).sort({ hearts: -1 }).limit(50).cache(10000);
-
-    // locationsCnt is stored on the Map doc (set at write time, backfilled
-    // for legacy maps by scripts/backfillLocationsCnt.js). Just exclude the
-    // huge `data` array; locationsCnt comes along automatically.
+    // Substring match across name / description / creator name. $text was
+    // whole-word with stemming, so "penn" never matched "Pennsylvania".
+    // Regex $or does true substring matching; the re-rank below still puts
+    // exact and prefix hits first.
     let maps = await Map.find({
       accepted: true,
-      $text: { $search: query },
+      $or: [
+        { name: re },
+        { description_short: re },
+        { map_creator_name: re },
+      ],
     })
       .select('-data')
       .lean()

@@ -211,21 +211,23 @@ export default function MapTile({
                             )}
                         </div>
 
-                        {/* Bottom section with author info - always at bottom */}
+                        {/* Bottom section with author info - always at bottom.
+                            Location count is rendered first and flex-shrink: 0 so it
+                            can't be truncated; username is shrinkable + ellipsis. */}
                         <div className="map-tile__bottom-section">
                             {!country && map.created_by_name && (
                                 <div className="map-tile__author">
-                                    <FaUser size={12} />
-                                    {!process.env.NEXT_PUBLIC_COOLMATH && (
-                                        <>
-                                            {highlightMatch(map.created_by_name, searchTerm)}
-                                            &nbsp;•&nbsp;
-                                        </>
-                                    )}
                                     {map.accepted && (
-                                        <span>
+                                        <span className="map-tile__locations">
                                             <FaMapMarkerAlt size={12} />
                                             &nbsp;{formatNumber(map.locations, 2)}
+                                        </span>
+                                    )}
+                                    {!process.env.NEXT_PUBLIC_COOLMATH && (
+                                        <span className="map-tile__username">
+                                            {map.accepted && <>&nbsp;•&nbsp;</>}
+                                            <FaUser size={12} />
+                                            &nbsp;{highlightMatch(map.created_by_name, searchTerm)}
                                         </span>
                                     )}
                                 </div>
