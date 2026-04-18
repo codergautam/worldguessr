@@ -439,7 +439,7 @@ export default function MapPage({ }) {
               {mapData.data && (
                 <div className={styles.stat}>
                   <span className={styles.statIcon}>📍</span>
-                  <span className={styles.statValue}>{mapData.locationcnt.toLocaleString()}</span>
+                  <span className={styles.statValue}>{mapData?.locationsCnt?.toLocaleString()}</span>
                   <span className={styles.statLabel}>Locations</span>
                 </div>
               )}

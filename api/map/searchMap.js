@@ -48,10 +48,18 @@ export default async function searchMaps(req, res) {
     //   ]
     // }).sort({ hearts: -1 }).limit(50).cache(10000);
 
+    // locationsCnt is stored on the Map doc (set at write time, backfilled
+    // for legacy maps by scripts/backfillLocationsCnt.js). Just exclude the
+    // huge `data` array; locationsCnt comes along automatically.
     let maps = await Map.find({
       accepted: true,
-      $text: { $search: query }
-    }).sort({ hearts: -1 }).limit(50).cache(10000);
+      $text: { $search: query },
+    })
+      .select('-data')
+      .lean()
+      .sort({ hearts: -1 })
+      .limit(50)
+      .cache(10000);
 
     // Re-rank results to prioritize exact and substring matches
     const queryLower = query.toLowerCase();
@@ -81,25 +89,29 @@ export default async function searchMaps(req, res) {
       return b.hearts - a.hearts;
     });
 
-    // Convert maps to sendable format
-    let sendableMaps = await Promise.all(maps.map(async (map) => {
-
-      let owner;
-      if(!map.map_creator_name) {
-      owner = await User.findById(map.created_by);
-      // if owner is not found, set to null
-      if(!owner) {
-        owner = null;
-      }
-      // save map creator name
-      map.map_creator_name = owner.username;
-      await map.save();
-      } else{
-        owner = { username: map.map_creator_name };
-      }
-
-      return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false, user?.staff, map.created_by === user?._id.toString());
-    }));
+    // Convert maps to sendable format. Docs are .lean() plain objects now, so
+    // map.save() doesn't exist — skip the legacy backfill (map_creator_name is
+    // a required field, so this only mattered for very old orphan docs).
+    // Normalise created_at back to a Date: recachegoose caches via
+    // JSON.stringify → JSON.parse, which turns Dates into ISO strings. With
+    // .lean() there's no schema to re-hydrate them, so sendableMap's
+    // .getTime() call would throw on cache hits.
+    const sendableMaps = maps.map((raw) => {
+      const map = {
+        ...raw,
+        created_at: raw.created_at instanceof Date
+          ? raw.created_at
+          : new Date(raw.created_at),
+      };
+      const owner = { username: map.map_creator_name || 'Unknown' };
+      return sendableMap(
+        map,
+        owner,
+        hearted_maps ? hearted_maps.has(map._id.toString()) : false,
+        user?.staff,
+        map.created_by === user?._id.toString()
+      );
+    });
 
     res.status(200).json(sendableMaps);
   } catch (error) {

@@ -111,8 +111,7 @@ export default async function handler(req, res) {
       accepted: 1,
       reject_reason: 1,
       resubmittable: 1,
-      // count # of data to get locations
-      locationsCnt:  { $size: "$data" }
+      locationsCnt: 1,
     }).lean();
     myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps?hearted_maps.has(map._id.toString()):false, user.staff, true));
     myMaps.sort((a,b) => a.created_at - b.created_at);
@@ -173,8 +172,8 @@ export default async function handler(req, res) {
       if(method === "recent") {
         maps = await Map.find({ accepted: true }).sort({ lastUpdated: -1 }).limit(100);
       } else if(method === "popular") {
-        maps = await Map.find({ accepted: true })        .select({
-          locationsCnt: { $size: "$data" },
+        maps = await Map.find({ accepted: true }).select({
+          locationsCnt: 1,
           created_at: 1,
           lastUpdated: 1,
           slug: 1,
