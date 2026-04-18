@@ -2,6 +2,7 @@ import {Modal} from "react-responsive-modal";
 import { useState, useEffect } from "react";
 import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "./utils/sendEvent";
+import { fetchWithFallback } from "./utils/retryFetch";
 
 export default function SetUsernameModal({ shown, onClose, session }) {
     const [username, setUsername] = useState("");
@@ -19,13 +20,18 @@ export default function SetUsernameModal({ shown, onClose, session }) {
         window.settingName = true;
 
         try {
-            const response = await fetch(window.cConfig.apiUrl+'/api/setName', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
+            const response = await fetchWithFallback(
+                (window.cConfig.authUrl || window.cConfig.apiUrl) + '/api/setName',
+                window.cConfig.apiUrl + '/api/setName',
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username, token: secret })
                 },
-                body: JSON.stringify({ username, token: secret })
-            });
+                'setName'
+            );
 
             if (response.ok) {
                 sendEvent("sign_up");
@@ -108,7 +114,7 @@ export default function SetUsernameModal({ shown, onClose, session }) {
                             onChange={(e) => setUsername(e.target.value)}
                             onKeyPress={handleKeyPress}
                             disabled={isLoading}
-                            maxLength={20}
+                            maxLength={30}
                             style={{
                                 opacity: isLoading ? 0.7 : 1,
                                 cursor: isLoading ? 'not-allowed' : 'text'

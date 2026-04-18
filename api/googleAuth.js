@@ -3,12 +3,10 @@ import User from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
 import { OAuth2Client } from "google-auth-library";
 import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
-import cachegoose from 'recachegoose';
+import { syncedClearCache } from '../serverUtils/cacheBus.js';
 import { getLeague } from '../components/utils/leagues.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-const client = new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, 'postmessage');
 
 /**
  * Check and handle temp ban expiration
@@ -134,12 +132,7 @@ export default async function handler(req, res) {
           await User.findByIdAndUpdate(checkedUser._id, { countryCode });
           checkedUser.countryCode = countryCode;
 
-          // Clear auth cache to ensure fresh data on next request
-          cachegoose.clearCache(`userAuth_${secret}`, (error) => {
-            if (error) {
-              console.error('Error clearing auth cache after country code update:', error);
-            }
-          });
+          syncedClearCache(`userAuth_${secret}`);
         }
         timings.countryMigration = Date.now() - startCountryMigration;
       }
@@ -188,12 +181,7 @@ export default async function handler(req, res) {
               await User.findByIdAndUpdate(checkedUser2._id, { countryCode });
               checkedUser2.countryCode = countryCode;
 
-              // Clear auth cache to ensure fresh data on next request
-              cachegoose.clearCache(`userAuth_${secret}`, (error) => {
-                if (error) {
-                  console.error('Error clearing auth cache after country code update:', error);
-                }
-              });
+              syncedClearCache(`userAuth_${secret}`);
             }
           }
 
@@ -239,9 +227,11 @@ export default async function handler(req, res) {
 
       const startTokenExchange = Date.now();
       // Use provided redirect_uri for redirect flow (GD), otherwise default client uses 'postmessage' (popup flow)
-      const tokenClient = redirect_uri
-        ? new OAuth2Client(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, redirect_uri)
-        : client;
+      const tokenClient = new OAuth2Client(
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri || 'postmessage'
+      );
       const { tokens } = await tokenClient.getToken(code);
       tokenClient.setCredentials(tokens);
       timings.tokenExchange = Date.now() - startTokenExchange;

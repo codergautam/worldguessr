@@ -1,6 +1,6 @@
 import { inIframe } from "../utils/inIframe";
 import { toast } from "react-toastify";
-import retryManager from "../utils/retryFetch";
+import { fetchWithFallback } from "../utils/retryFetch";
 import { useState, useEffect } from "react";
 
 // secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter
@@ -95,7 +95,7 @@ export function useSession() {
     }
   }
 
-  if(session === false && !window.fetchingSession && window.cConfig?.apiUrl) {
+  if(session === false && !window.fetchingSession && (window.cConfig?.authUrl || window.cConfig?.apiUrl)) {
     let secret = null;
     try {
 
@@ -111,7 +111,8 @@ export function useSession() {
     const authStartTime = performance.now();
     console.log(`[Auth] Starting authentication with retry mechanism (5s timeout, unlimited retries)`);
 
-    retryManager.fetchWithRetry(
+    fetchWithFallback(
+      (window.cConfig?.authUrl || window.cConfig?.apiUrl) + "/api/googleAuth",
       window.cConfig?.apiUrl + "/api/googleAuth",
       {
         method: "POST",

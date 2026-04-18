@@ -5,7 +5,7 @@ import NameChangeRequest from '../../models/NameChangeRequest.js';
 import Game from '../../models/Game.js';
 import UserStats from '../../models/UserStats.js';
 import { leagues } from '../../components/utils/leagues.js';
-import cachegoose from 'recachegoose';
+import { syncedClearCache } from '../../serverUtils/cacheBus.js';
 
 /**
  * Refund ELO to opponents who lost ELO playing against a banned user
@@ -568,14 +568,7 @@ export default async function handler(req, res) {
           }
         }
 
-        // Clear cached session data so user sees ban immediately on refresh
-        cachegoose.clearCache(`userAuth_${targetUser.secret}`, (error) => {
-          if (error) {
-            console.error('Error clearing cache after ban:', error);
-          } else {
-            console.log('Cache cleared for banned user:', targetUserId);
-          }
-        });
+        syncedClearCache(`userAuth_${targetUser.secret}`);
 
         // Refund ELO to opponents who lost ELO playing against this user (unless skipped)
         if (!skipEloRefund) {
@@ -673,14 +666,7 @@ export default async function handler(req, res) {
           }
         }
 
-        // Clear cached session data so user sees ban immediately on refresh
-        cachegoose.clearCache(`userAuth_${targetUser.secret}`, (error) => {
-          if (error) {
-            console.error('Error clearing cache after temporary ban:', error);
-          } else {
-            console.log('Cache cleared for temporarily banned user:', targetUserId);
-          }
-        });
+        syncedClearCache(`userAuth_${targetUser.secret}`);
 
         // Find ALL pending reports against this user (not just the ones passed in)
         const pendingReportIdsTempBan = await Report.find({
@@ -790,14 +776,7 @@ export default async function handler(req, res) {
           }
         }
 
-        // Clear cached session data so user sees pending name change immediately on refresh
-        cachegoose.clearCache(`userAuth_${targetUser.secret}`, (error) => {
-          if (error) {
-            console.error('Error clearing cache after force name change:', error);
-          } else {
-            console.log('Cache cleared for user with forced name change:', targetUserId);
-          }
-        });
+        syncedClearCache(`userAuth_${targetUser.secret}`);
 
         // Find ALL pending inappropriate_username reports against this user
         // (only resolve username reports, not cheating reports)
@@ -927,14 +906,7 @@ export default async function handler(req, res) {
           status: 'pending'
         });
 
-        // Clear cached session data so user sees change immediately
-        cachegoose.clearCache(`userAuth_${targetUser.secret}`, (error) => {
-          if (error) {
-            console.error('Error clearing cache after undo force name change:', error);
-          } else {
-            console.log('Cache cleared for user after undo force name change:', targetUserId);
-          }
-        });
+        syncedClearCache(`userAuth_${targetUser.secret}`);
 
         // Create moderation log
         moderationLog = await ModerationLog.create({

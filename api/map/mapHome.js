@@ -3,6 +3,7 @@ import Map from "../../models/Map.js";
 import User from "../../models/User.js";
 import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
 import shuffle from "../../utils/shuffle.js";
+import { registerStat } from '../../serverUtils/statRegistry.js';
 
 let mapCache = {
   popular: {
@@ -21,6 +22,9 @@ let mapCache = {
     persist: 48000000
   }
 }
+registerStat('api/map/mapHome.mapCache.popular.data', () => mapCache.popular.data.length);
+registerStat('api/map/mapHome.mapCache.recent.data', () => mapCache.recent.data.length);
+registerStat('api/map/mapHome.mapCache.spotlight.data', () => mapCache.spotlight.data.length);
 
 export default async function handler(req, res) {
   const timings = {};

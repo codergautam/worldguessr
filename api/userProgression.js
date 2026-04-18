@@ -8,8 +8,11 @@ import { rateLimit } from '../utils/rateLimit.js';
 // user id is public, username is public, so why are we pretending like user id is private?
 // temporarily fix this by setting isPublicRequest to true, every request is public.
 
-// Username validation regex: alphanumeric and underscores only, 3-20 characters
-const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,20}$/;
+// Username validation regex: must match api/setName.js exactly so any name the
+// server allowed at signup is also lookupable here. Validation is kept (not
+// removed) because this endpoint accepts arbitrary input and feeds it into
+// User.findOne({ username }) — a non-string body would enable NoSQL injection.
+const USERNAME_REGEX = /^[a-zA-Z0-9_]{3,30}$/;
 
 // MongoDB ObjectId validation regex
 const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
@@ -66,7 +69,7 @@ export default async function handler(req, res) {
   // Public: 5 requests per minute per IP
   // Authenticated: 20 requests per minute per IP
   const limiter = rateLimit({ 
-    max: 10, 
+    max: 30, 
     windowMs: 60000,
     message: 'Too many requests. Please try again later.'
   });
@@ -99,7 +102,7 @@ export default async function handler(req, res) {
       }
       if (!USERNAME_REGEX.test(username)) {
         return res.status(400).json({
-          message: 'Invalid username format. Username must be 3-20 characters and contain only letters, numbers, and underscores.'
+          message: 'Invalid username format. Username must be 3-30 characters and contain only letters, numbers, and underscores.'
         });
       }
     }
