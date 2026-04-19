@@ -1859,6 +1859,8 @@ export default function Home({ }) {
                     nextGameType: prev.nextGameType,
                     playerCount: prev.playerCount,
                     guestName: prev.guestName,
+                    createOptions: prev.createOptions,
+                    joinOptions: prev.joinOptions,
                 }));
                 setGameOptions((prev) => ({
                     ...prev,
@@ -2230,6 +2232,10 @@ export default function Home({ }) {
                 // games intentionally ignore that message, so this branch
                 // must clear gameData itself or the RoundOverScreen (gated on
                 // inGame && state==='end' in GameUI) would keep overlaying home.
+                //
+                // Preserve createOptions / joinOptions so a user who customised
+                // their private-game settings doesn't lose them when backing
+                // out of a played game.
                 setMultiplayerState((prev) => ({
                     ...initialMultiplayerState,
                     connected: true,
@@ -2237,9 +2243,18 @@ export default function Home({ }) {
                     nextGameType,
                     playerCount: prev.playerCount,
                     guestName: prev.guestName,
+                    createOptions: prev.createOptions,
+                    joinOptions: prev.joinOptions,
                 }))
                 setScreen("home")
                 setMultiplayerChatEnabled(false)
+                // gameShutdown used to clear this; now that we own the
+                // teardown, do it here so a stale community-map extent
+                // doesn't leak into the next singleplayer / multiplayer game.
+                setGameOptions((prev) => ({
+                    ...prev,
+                    extent: null,
+                }))
 
                 if (["getready", "guess"].includes(prevState)) {
                     crazyMidgame()
