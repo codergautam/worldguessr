@@ -1818,19 +1818,48 @@ export default function Home({ }) {
                 }))
 
             } else if (data.type === "gameShutdown") {
-                setScreen("home")
                 setMultiplayerChatEnabled(false)
 
-                setMultiplayerState((prev) => {
-                    return {
-                        ...initialMultiplayerState,
-                        connected: true,
-                        nextGameQueued: prev.nextGameQueued,
-                        nextGameType: prev.nextGameType,
-                        playerCount: prev.playerCount,
-                        guestName: prev.guestName
-                    }
-                });
+                // gameShutdown only needs to force-reset the client when the
+                // user is still in a game client-side (e.g. party host left
+                // mid-round — the server is telling them the game is gone).
+                // Two cases where we must NOT run the reset:
+                //
+                //  1. Public game in 'end' state — the user is viewing the
+                //     results screen; back / play-again own the teardown.
+                //
+                //  2. !inGame already — backBtnPressed has already done the
+                //     teardown locally. The server's gameShutdown is the
+                //     echo of our own leaveGame. Running the reset here
+                //     would clobber state that the re-queue effect has
+                //     meanwhile set up (e.g. Play Again → handleMultiplayerAction
+                //     sets gameQueued="publicDuel" + screen="multiplayer",
+                //     and we'd wipe both and bounce the user to home).
+                //
+                // Check from the outer closure, not from inside a setState
+                // updater — updaters run later in the commit phase, so a
+                // flag set there is still false when we branch on it and
+                // we'd flash setScreen("home") before the render settles,
+                // which made the navbar glitch.
+                if (
+                    !multiplayerState?.inGame ||
+                    (
+                        multiplayerState?.gameData?.public &&
+                        multiplayerState?.gameData?.state === 'end'
+                    )
+                ) {
+                    return;
+                }
+
+                setScreen("home")
+                setMultiplayerState((prev) => ({
+                    ...initialMultiplayerState,
+                    connected: true,
+                    nextGameQueued: prev.nextGameQueued,
+                    nextGameType: prev.nextGameType,
+                    playerCount: prev.playerCount,
+                    guestName: prev.guestName,
+                }));
                 setGameOptions((prev) => ({
                     ...prev,
                     extent: null
@@ -2184,6 +2213,8 @@ export default function Home({ }) {
 
         if (multiplayerState?.inGame) {
             if (!multiplayerState?.gameData?.host || multiplayerState?.gameData?.state === "waiting") {
+                const prevState = multiplayerState?.gameData?.state;
+
                 ws.send(JSON.stringify({
                     type: 'leaveGame'
                 }))
@@ -2194,18 +2225,23 @@ export default function Home({ }) {
                     } catch (e) { }
                 }
 
-
-                setMultiplayerState((prev) => {
-                    return {
-                        ...prev,
-                        nextGameQueued: queueNextGame === true,
-                        nextGameType
-                    }
-                })
+                // Own the full teardown here instead of waiting for the
+                // server's gameShutdown to reset inGame — public end-state
+                // games intentionally ignore that message, so this branch
+                // must clear gameData itself or the RoundOverScreen (gated on
+                // inGame && state==='end' in GameUI) would keep overlaying home.
+                setMultiplayerState((prev) => ({
+                    ...initialMultiplayerState,
+                    connected: true,
+                    nextGameQueued: queueNextGame === true,
+                    nextGameType,
+                    playerCount: prev.playerCount,
+                    guestName: prev.guestName,
+                }))
                 setScreen("home")
                 setMultiplayerChatEnabled(false)
 
-                if (["getready", "guess"].includes(multiplayerState?.gameData?.state)) {
+                if (["getready", "guess"].includes(prevState)) {
                     crazyMidgame()
                 }
             } else {
