@@ -664,6 +664,28 @@ const GameSummary = ({
     return [];
   }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.public]);
 
+  // Compute the map's initial bounds from round locations + guesses up front
+  // so MapContainer mounts already fitted to them. Passing `bounds` to a v4
+  // MapContainer runs fitBounds at map creation, so the very first tile fetch
+  // hits the correct area — no split-second [0,0] / zoom 2 world-map flash
+  // before the fitMapToBounds effect snaps it later.
+  const initialBounds = useMemo(() => {
+    if (typeof window === 'undefined' || !window.L || !gameHistory?.length) {
+      return null;
+    }
+    const b = window.L.latLngBounds();
+    gameHistory.forEach((round) => {
+      if (round.lat != null && round.long != null) b.extend([round.lat, round.long]);
+      if (round.guessLat != null && round.guessLong != null) b.extend([round.guessLat, round.guessLong]);
+      if (round.players) {
+        Object.values(round.players).forEach((p) => {
+          if (p.lat != null && p.long != null) b.extend([p.lat, p.long]);
+        });
+      }
+    });
+    return b.isValid() ? b : null;
+  }, [gameHistory, leafletReady]);
+
   // Don't render until Leaflet is ready
   if (!leafletReady || !destIconRef.current || !srcIconRef.current || !src2IconRef.current) {
     return (
@@ -839,8 +861,9 @@ const GameSummary = ({
         <div className="game-summary-container">
           <div className="game-summary-map">
             <MapContainer
-              center={[0, 0]}
-              zoom={2}
+              {...(initialBounds
+                ? { bounds: initialBounds, boundsOptions: { padding: [20, 20] } }
+                : { center: [0, 0], zoom: 2 })}
               minZoom={1}
               maxZoom={18}
               worldCopyJump={false}
@@ -1261,8 +1284,9 @@ const GameSummary = ({
     <div className={`game-summary-container `}>
       <div className="game-summary-map">
         <MapContainer
-          center={[0, 0]}
-          zoom={2}
+          {...(initialBounds
+            ? { bounds: initialBounds, boundsOptions: { padding: [20, 20] } }
+            : { center: [0, 0], zoom: 2 })}
           minZoom={1}
           maxZoom={18}
           worldCopyJump={false}
