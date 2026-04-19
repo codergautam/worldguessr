@@ -61,6 +61,10 @@ export default function SetUsernameModal({ shown, onClose, session }) {
         <Modal
             id="setUsernameModal"
             styles={{
+
+                root: {
+                    zIndex: 20000,
+                },
                 modal: {
                     background: 'transparent',
                     padding: 0,
@@ -76,7 +80,10 @@ export default function SetUsernameModal({ shown, onClose, session }) {
                 overlay: {
                     background: 'rgba(0, 0, 0, 0.8)',
                     backdropFilter: 'blur(10px)',
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    // Must sit above the Daily results backdrop (z-index 10000
+                    // in styles/daily.scss) so the first-time username prompt
+                    // isn't trapped behind an open results modal.
                 }
             }}
             open={shown}

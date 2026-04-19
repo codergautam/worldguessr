@@ -4,35 +4,31 @@ import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
 import { formatCountdown, msUntilLocalMidnight, challengeNumber as computeChallengeNumber } from '@/utils/dailyDate';
 import ScoreDistributionChart from './ScoreDistributionChart';
-import DailyLeaderboardPanel from './DailyLeaderboardPanel';
 import DailyHistorySparkline from './DailyHistorySparkline';
-import DailyShareModal from './DailyShareModal';
 
 const MAX_PER_ROUND = 5000;
 const TOTAL_MAX = 3 * MAX_PER_ROUND;
 
-// Pick a quip ONCE when score arrives, and keep it stable across re-renders.
-// `text` from useTranslation re-identifies on every render, so useMemo with
-// it in deps would roll a new random each render — we separate the random
-// index (cached in a ref, tied only to the score bracket) from the lookup.
-function useMotivationalQuip(score) {
-  const { t: text } = useTranslation();
-  const quipRef = useRef({ bracket: null, idx: null });
+// Pick a quip deterministically from date + bracket so it stays the same
+// whether the player sees the modal right after submit or reopens it later.
+// A Math.random() with useRef would have been stable across re-renders but
+// remount (close + reopen modal) would roll a new quip, which is jarring.
+function hashStringToInt(s) {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
 
+function useMotivationalQuip(score, date) {
+  const { t: text } = useTranslation();
   if (score == null) return null;
 
   let bracket = 'Mid';
   if (score >= 12000) bracket = 'Good';
   else if (score < 6000) bracket = 'Bad';
 
-  if (quipRef.current.bracket !== bracket) {
-    quipRef.current = {
-      bracket,
-      idx: Math.floor(Math.random() * 10) + 1,
-    };
-  }
-
-  return text(`dailyQuip${bracket}${quipRef.current.idx}`);
+  const idx = (hashStringToInt(`${date || ''}-${bracket}`) % 10) + 1;
+  return text(`dailyQuip${bracket}${idx}`);
 }
 
 // Palette + thresholds mirror components/roundOverScreen.js:213-242 so the
@@ -182,6 +178,124 @@ function useAnimatedNumber(target, durationMs = 1200) {
   return [display, animating];
 }
 
+// Compact personal-records card — shows the three stats that are most
+// motivating without leaning on anyone else's scores. Replaces the "Top 10"
+// card on the results screen (that's already on the landing page, showing
+// it twice adds noise). Works for guests the same as logged-in users
+// because GuestProfile.daily.{history,streakBest,personalBest} carries the
+// same shape as User.dailyHistory.
+function PersonalRecordsCard({ history, streakBest, personalBest, todayScore, text }) {
+  const daysPlayed = history.length;
+  const todayBroke = Number.isFinite(todayScore) && todayScore > 0 && todayScore >= personalBest;
+
+  if (daysPlayed === 0) {
+    return (
+      <div className="daily-stat-card daily-records-card">
+        <div className="daily-stat-title">{text('personalRecords')}</div>
+        <div className="daily-records-empty">{text('dailyStartOfJourney')}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="daily-stat-card daily-records-card">
+      <div className="daily-stat-title">{text('personalRecords')}</div>
+      <div className="daily-records-grid">
+        <div className="daily-record-row">
+          <span className="daily-record-icon" aria-hidden="true">🏆</span>
+          <span className="daily-record-label">{text('bestScore')}</span>
+          <span className="daily-record-value">
+            {Math.round(Math.max(personalBest, todayScore || 0)).toLocaleString()}
+            {todayBroke && <span className="daily-record-new-badge">{text('newBest')}</span>}
+          </span>
+        </div>
+        <div className="daily-record-row">
+          <span className="daily-record-icon" aria-hidden="true">🔥</span>
+          <span className="daily-record-label">{text('bestStreakLabel')}</span>
+          <span className="daily-record-value">{text('streakDays', { count: streakBest || 0 })}</span>
+        </div>
+        <div className="daily-record-row">
+          <span className="daily-record-icon" aria-hidden="true">📅</span>
+          <span className="daily-record-label">{text('daysPlayed')}</span>
+          <span className="daily-record-value">{daysPlayed.toLocaleString()}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Full-viewport celebratory flame burst — fires once when a submission lands
+// and the streak is alive (started or extended). Self-unmounts after the
+// animation so it doesn't re-trigger on re-renders. Pointer-events: none so
+// it never blocks the results UI beneath it.
+function StreakFlameBurst({ streak, onDone }) {
+  const { t: text } = useTranslation();
+  const [phase, setPhase] = useState('initial'); // initial -> entering -> holding -> leaving
+  
+  const onDoneRef = useRef(onDone);
+  useEffect(() => {
+    onDoneRef.current = onDone;
+  }, [onDone]);
+
+  useEffect(() => {
+    let t0;
+    t0 = requestAnimationFrame(() => {
+      t0 = requestAnimationFrame(() => setPhase('entering'));
+    });
+    const t1 = setTimeout(() => setPhase('holding'), 800);
+    const t2 = setTimeout(() => setPhase('leaving'), 3500);
+    const t3 = setTimeout(() => onDoneRef.current?.(), 4200);
+    return () => { cancelAnimationFrame(t0); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, []);
+
+  // Professional particles: glowing embers instead of emojis
+  const particles = useMemo(() => {
+    const out = [];
+    for (let i = 0; i < 24; i++) {
+      const angle = (i / 24) * Math.PI * 2 + (Math.random() * 0.2);
+      const dist = 60 + Math.random() * 120;
+      out.push({
+        id: i,
+        dx: Math.cos(angle) * dist,
+        dy: Math.sin(angle) * dist - (Math.random() * 60), // drift up
+        delay: Math.random() * 0.3,
+        scale: 0.3 + Math.random() * 0.7,
+        duration: 1.2 + Math.random() * 0.8,
+      });
+    }
+    return out;
+  }, []);
+
+  return (
+    <div className={`daily-flame-burst daily-flame-burst--${phase}`} aria-hidden="true">
+      <div className="daily-flame-backdrop" />
+      <div className="daily-flame-glow" />
+      <div className="daily-flame-core">
+        <div className="daily-flame-text">
+          <span className="daily-flame-icon">🔥</span>
+          <span className="daily-flame-number">{streak}</span>
+        </div>
+        <span className="daily-flame-label">
+          {streak === 1 ? text('streakStarted') : text('streakExtended')}
+        </span>
+      </div>
+      {particles.map(p => (
+        <span
+          key={p.id}
+          className="daily-flame-ember"
+          style={{
+            '--dx': `${p.dx}px`,
+            '--dy': `${p.dy}px`,
+            '--delay': `${p.delay}s`,
+            '--scale': p.scale,
+            '--duration': `${p.duration}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function Stars({ score }) {
   const pct = Math.max(0, Math.min(100, (score / TOTAL_MAX) * 100));
   const tiers = starsFromPercent(pct);
@@ -221,10 +335,21 @@ export default function DailyResultsScreen({
 }) {
   const { t: text } = useTranslation();
   const [displayScore, scoreAnimating] = useAnimatedNumber(totalScore);
-  const [displayPercentile] = useAnimatedNumber(
-    typeof submitResponse?.percentile === 'number' ? submitResponse.percentile : null
-  );
-  const [showShare, setShowShare] = useState(false);
+
+  const rank = submitResponse?.rank ?? results?.user?.ownRank ?? null;
+  const totalPlays = submitResponse?.totalPlays ?? results?.distribution?.totalPlays ?? 0;
+  // On revisit the /results endpoint doesn't return percentile, only rank —
+  // derive it with the same formula submit.js uses so the displayed number
+  // is identical whether we arrived here from a fresh submit or a reopen.
+  // "Beat X% of OTHER players" → denominator is totalPlays-1, so rank #1
+  // shows 100%, not (N-1)/N.
+  const percentile = typeof submitResponse?.percentile === 'number'
+    ? submitResponse.percentile
+    : (typeof rank === 'number' && totalPlays > 1
+      ? Math.round(Math.max(0, Math.min(100, ((totalPlays - rank) / (totalPlays - 1)) * 100)))
+      : null);
+  const [displayPercentile] = useAnimatedNumber(percentile);
+  const [shareCopied, setShareCopied] = useState(false);
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());
 
   useEffect(() => {
@@ -247,6 +372,24 @@ export default function DailyResultsScreen({
     }
   }, [submitResponse, rounds]);
 
+  // Celebratory flame burst on streak start/extend. Guards:
+  //  - only when we have a fresh submitResponse (not on re-open of old results)
+  //  - not for disqualified runs
+  //  - only if the streak is alive (>=1)
+  //  - played at most once per mount via `flameShownRef`
+  const [showFlame, setShowFlame] = useState(false);
+  const flameShownRef = useRef(false);
+  useEffect(() => {
+    if (flameShownRef.current) return;
+    if (disqualified) return;
+    if (!submitResponse || !(submitResponse.streak > 0)) return;
+    flameShownRef.current = true;
+    // Small delay so it lands after the score count-up starts, then
+    // overlaps dramatically with the star reveal.
+    const t = setTimeout(() => setShowFlame(true), 500);
+    return () => clearTimeout(t);
+  }, [submitResponse, disqualified]);
+
   const chNum = useMemo(() => computeChallengeNumber(date), [date]);
   const dateLabel = useMemo(() => {
     try {
@@ -255,19 +398,57 @@ export default function DailyResultsScreen({
     } catch { return date; }
   }, [date]);
 
-  const rank = submitResponse?.rank ?? results?.user?.ownRank ?? null;
-  const totalPlays = submitResponse?.totalPlays ?? results?.distribution?.totalPlays ?? 0;
-  const percentile = submitResponse?.percentile ?? null;
   const streak = submitResponse?.streak ?? results?.user?.streak ?? 0;
   const streakBest = submitResponse?.streakBest ?? results?.user?.streakBest ?? 0;
   const newPB = submitResponse?.newPersonalBest;
   const graceUsed = submitResponse?.graceUsed;
-  const quip = useMotivationalQuip(totalScore);
+  const quip = useMotivationalQuip(totalScore, date);
 
   const distribution = results?.distribution;
 
+  const handleShare = async () => {
+    // toLocaleDateString embeds invisible bidi marks (\u200E, etc.) around
+    // the date on some locales/platforms. They're fine in rendered HTML but
+    // show up as `|` characters when pasted into plain-text share targets,
+    // so strip them before using dateLabel in the share string.
+    const cleanDate = (dateLabel || '').replace(/[\u200E\u200F\u202A-\u202E]/g, '');
+    const title = text('dailyShareTitleDate', { date: cleanDate });
+    const maxScore = (rounds?.length || 3) * MAX_PER_ROUND;
+    // Percentile ("Beat n%") is friendlier to share than raw rank — no
+    // leaderboard spoiler, and a big "Beat 92%" reads better than "#4".
+    // Fall back to the plain score line when percentile isn't computable
+    // (totalPlays<=1 or no rank yet).
+    const scoreLine = typeof percentile === 'number'
+      ? text('dailyShareScoreLinePct', { score: Math.round(totalScore), max: maxScore, pct: percentile })
+      : text('dailyShareAnonLine', { score: Math.round(totalScore), max: maxScore });
+    const emojis = (rounds || []).map(r => {
+      if (r.score >= 3000) return '🟢';
+      if (r.score >= 1500) return '🟡';
+      return '🔴';
+    }).join('');
+    const url = typeof window !== 'undefined' ? `${window.location.origin}/daily` : 'worldguessr.com/daily';
+    const shareText = `${title}\n${scoreLine}\n${emojis}\n${url}`;
+    // Prefer the native share sheet where supported (mobile + some desktop).
+    // Fall back to clipboard with a brief "Copied!" label. navigator.share
+    // rejecting on user-cancel still falls through to clipboard — harmless.
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ text: shareText });
+        return;
+      }
+    } catch { /* fall through to clipboard */ }
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch { /* clipboard blocked — nothing to do */ }
+  };
+
   return (
     <div className="daily-results-backdrop" role="dialog" aria-modal="true">
+      {showFlame && (
+        <StreakFlameBurst streak={streak} onDone={() => setShowFlame(false)} />
+      )}
       <div className="daily-results-card">
         <button className="daily-results-close" onClick={onClose} aria-label={text('backToHome')}>
           ×
@@ -305,11 +486,7 @@ export default function DailyResultsScreen({
             {streak > 0 && (
               <span>🔥 {text('streakDay', { count: streak })}</span>
             )}
-            {streakBest > 0 && (
-              <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.9em' }}>
-                · {text('bestStreak', { count: streakBest })}
-              </span>
-            )}
+
             {graceUsed && (
               <span style={{ color: '#ffd27a', fontSize: '0.9em' }}>· {text('streakGraceUsed')}</span>
             )}
@@ -345,7 +522,7 @@ export default function DailyResultsScreen({
               <span>{text('averageScoreToday', { avg: distribution?.avgScore || 0 })}</span>
               <span>{text('sampleSize', { count: (distribution?.totalPlays || 0).toLocaleString() })}</span>
             </div>
-            {typeof percentile === 'number' && typeof rank === 'number' && (distribution?.totalPlays || 0) > 1 && (
+            {typeof percentile === 'number' && typeof rank === 'number' && (distribution?.totalPlays || 0) > 1 && percentile >= 20 && (
               <div className="daily-distribution-standing">
                 <span className="daily-distribution-pct">
                   {text('beatPctPlayers', { pct: Math.round(displayPercentile) })}
@@ -357,21 +534,21 @@ export default function DailyResultsScreen({
             )}
           </div>
 
-          {/* Leaderboard */}
-          <div className="daily-stat-card">
-            <div className="daily-stat-title">{text('top10Today')}</div>
-            <DailyLeaderboardPanel
-              top10={results?.top10 || []}
-              userRank={rank}
-              userScore={totalScore}
-              username={username}
-              isLoggedIn={isLoggedIn}
-              onSignIn={onSignIn}
-            />
-          </div>
+          {/* Personal records — replaces the redundant "Top 10" card since
+              the landing page already surfaces today's leaderboard. Pulls
+              only from this player's own history, so it works for guests
+              and logged-in users alike. */}
+          <PersonalRecordsCard
+            history={results?.user?.history || []}
+            streakBest={results?.user?.streakBest || 0}
+            personalBest={results?.user?.personalBest || 0}
+            todayScore={totalScore}
+            text={text}
+          />
 
-          {/* History sparkline */}
-          {isLoggedIn && (results?.user?.history?.length || 0) > 0 && (
+          {/* History sparkline — only meaningful with at least a few data
+              points, otherwise it's a single dot and looks broken. */}
+          {(results?.user?.history?.length || 0) >= 3 && (
             <div className="daily-stat-card" style={{ gridColumn: '1 / -1' }}>
               <div className="daily-stat-title">{text('past7Days')}</div>
               <DailyHistorySparkline history={results.user.history} />
@@ -379,10 +556,17 @@ export default function DailyResultsScreen({
           )}
         </div>
 
+        {!isLoggedIn && (results?.user?.streak || 0) > 0 && onSignIn && (
+          <div className="daily-guest-signin-cta">
+            <span>{text('dailyGuestSignInToSave', { streak: results.user.streak })}</span>
+            <button className="g2_green_button" onClick={onSignIn}>{text('signIn')}</button>
+          </div>
+        )}
+
         <div className="daily-actions">
-          <button className="g2_green_button" onClick={() => setShowShare(true)}>
+          <button className="g2_green_button" onClick={handleShare}>
             <FaShareAlt style={{ verticalAlign: '-2px', marginRight: 6 }} />
-            {text('share')}
+            {shareCopied ? text('shareCopied') : text('share')}
           </button>
           <button className="g2_green_button3" onClick={onClose}>
             <FaArrowLeft style={{ verticalAlign: '-2px', marginRight: 6 }} />
@@ -402,15 +586,6 @@ export default function DailyResultsScreen({
         )}
       </div>
 
-      {showShare && (
-        <DailyShareModal
-          rounds={rounds}
-          totalScore={totalScore}
-          challengeNumber={chNum}
-          rank={rank}
-          onClose={() => setShowShare(false)}
-        />
-      )}
     </div>
   );
 }

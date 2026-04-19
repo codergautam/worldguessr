@@ -2,6 +2,8 @@ import ratelimiter from '../../components/utils/ratelimitMiddleware.js';
 import User from '../../models/User.js';
 import DailyChallengeScore from '../../models/DailyChallengeScore.js';
 import DailyChallengeStats, { bucketIndexForScore } from '../../models/DailyChallengeStats.js';
+import GuestProfile from '../../models/GuestProfile.js';
+import GuestScore from '../../models/GuestScore.js';
 import { isValidDailyDate } from '../../serverUtils/dailyChallenge.js';
 
 // Distribution + top-10 (the expensive part) are identical for every caller
@@ -48,6 +50,41 @@ async function fetchPublic(date) {
   return payload;
 }
 
+async function rankForScore(date, score) {
+  const statsDoc = await DailyChallengeStats.findOne({ date }).select('buckets totalPlays').lean();
+  const totalPlays = statsDoc?.totalPlays || 0;
+  if (totalPlays <= 0) return null;
+  const bucket = bucketIndexForScore(score);
+  const above = (statsDoc.buckets || []).slice(bucket + 1).reduce((a, b) => a + b, 0);
+  return Math.min(totalPlays, above + 1);
+}
+
+async function fetchGuestBlock(date, guestId) {
+  const profile = await GuestProfile.findOne({ guestId }).lean();
+  if (!profile) return null;
+
+  const own = await GuestScore.findOne({ guestId, date })
+    .select('score rounds totalTime')
+    .lean();
+
+  const rank = own ? await rankForScore(date, own.score) : null;
+  const history = Array.isArray(profile?.daily?.history) ? profile.daily.history.slice(0, 30) : [];
+
+  return {
+    username: null,
+    streak: profile?.daily?.streak || 0,
+    streakBest: profile?.daily?.streakBest || 0,
+    playedToday: !!own,
+    ownScore: own?.score ?? null,
+    ownRank: rank,
+    ownRounds: own?.rounds || null,
+    ownTotalTime: own?.totalTime || null,
+    history,
+    personalBest: history.reduce((m, h) => Math.max(m, h.score || 0), 0),
+    guest: true,
+  };
+}
+
 async function fetchUserBlock(date, secret) {
   const user = await User.findOne({ secret })
     .select('_id username dailyStreak dailyStreakBest dailyHistory lastDailyDate')
@@ -55,22 +92,36 @@ async function fetchUserBlock(date, secret) {
   if (!user) return null;
 
   const own = await DailyChallengeScore.findOne({ date, userId: user._id })
-    .select('score rounds totalTime')
+    .select('score rounds totalTime username')
     .lean();
+
+  // Self-heal stale usernames on any DailyChallengeScore for this user. A
+  // score can end up with username="Player" when it was written before the
+  // user picked a username — via claimGuestProgress backfilling a same-day
+  // guest score on sign-in, or a logged-in submit on a fresh Google account.
+  // Unconditional whenever the user has a username — updateMany on no
+  // matches is cheap and catches ALL stale dates (not just today's).
+  if (user.username) {
+    try {
+      const staleNames = [null, '', 'Player'];
+      if (own && own.username && own.username !== user.username) staleNames.push(own.username);
+      const result = await DailyChallengeScore.updateMany(
+        { userId: user._id, username: { $in: staleNames } },
+        { $set: { username: user.username } },
+      );
+      if (result.modifiedCount > 0) {
+        // Clear all cached leaderboards — the repair can touch past dates too.
+        for (const key of [...publicCache.keys()]) publicCache.delete(key);
+      }
+    } catch (err) {
+      console.warn('[dailyChallenge/results] username heal failed:', err?.message);
+    }
+  }
 
   // Rank derived from DailyChallengeStats.buckets (includes anon) so it
   // stays consistent with the percentile rendered in the results UI —
   // see computeRankAndPercentile in submit.js for the same derivation.
-  let rank = null;
-  if (own) {
-    const statsDoc = await DailyChallengeStats.findOne({ date }).select('buckets totalPlays').lean();
-    const totalPlays = statsDoc?.totalPlays || 0;
-    if (totalPlays > 0) {
-      const bucket = bucketIndexForScore(own.score);
-      const above = (statsDoc.buckets || []).slice(bucket + 1).reduce((a, b) => a + b, 0);
-      rank = Math.min(totalPlays, above + 1);
-    }
-  }
+  const rank = own ? await rankForScore(date, own.score) : null;
 
   const history = (user.dailyHistory || []).slice(0, 30);
   return {
@@ -92,16 +143,28 @@ async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { date, secret } = req.query;
+  const { date, secret, guestId } = req.query;
   if (!date || !isValidDailyDate(date)) {
     return res.status(400).json({ error: 'Invalid date' });
   }
 
   try {
-    const [publicData, userBlock] = await Promise.all([
-      fetchPublic(date),
-      secret && typeof secret === 'string' ? fetchUserBlock(date, secret) : Promise.resolve(null),
-    ]);
+    // Secret wins over guestId: a logged-in session is always the
+    // authoritative identity. guestId is only consulted for unauthenticated
+    // callers.
+    //
+    // We resolve the owner block FIRST (not in parallel with fetchPublic)
+    // because the logged-in path's self-heal for stale usernames may
+    // invalidate the public cache; running sequentially ensures this
+    // response already reflects the repaired leaderboard.
+    let userBlock = null;
+    if (secret && typeof secret === 'string') {
+      userBlock = await fetchUserBlock(date, secret);
+    } else if (guestId && typeof guestId === 'string') {
+      userBlock = await fetchGuestBlock(date, guestId);
+    }
+
+    const publicData = await fetchPublic(date);
 
     return res.status(200).json({
       date,

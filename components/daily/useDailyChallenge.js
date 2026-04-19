@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import config from '@/clientConfig';
 import { getClientLocalDate } from '@/utils/dailyDate';
 import { readDailyStatus, writeDailyStatus } from '@/utils/dailyStatusCache';
+import { ensureGuestId, getGuestId } from '@/utils/guestId';
+import { claimGuestProgressIfAny } from '@/utils/claimGuestProgress';
 
 export function useDailyChallenge({ session, autoFetchResults = false, dateOverride } = {}) {
   const apiUrlRef = useRef(null);
@@ -28,6 +30,15 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
 
   const secret = session?.token?.secret;
 
+  // Lazily ensure a guestId exists for unauthenticated callers. Logged-in
+  // users don't get one provisioned (they have their own identity); reading
+  // an existing one is fine though — we still pass it along so the post-
+  // signin claim effect (below) can merge any pre-signin guest progress.
+  const [guestId] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    return (session?.token?.secret ? getGuestId() : ensureGuestId()) || null;
+  });
+
   const fetchLocations = useCallback(async () => {
     try {
       const res = await fetch(`${apiUrl}/api/dailyChallenge/locations?date=${date}`);
@@ -44,6 +55,7 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
     try {
       const q = new URLSearchParams({ date });
       if (secret) q.set('secret', secret);
+      else if (guestId) q.set('guestId', guestId);
       const res = await fetch(`${apiUrl}/api/dailyChallenge/results?${q.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -56,7 +68,7 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
     } finally {
       setLoadingResults(false);
     }
-  }, [apiUrl, date, secret]);
+  }, [apiUrl, date, secret, guestId]);
 
   const submit = useCallback(async ({ rounds, totalScore, totalTime, sessionToken, disqualified }) => {
     const body = {
@@ -68,6 +80,7 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
       disqualified: !!disqualified,
     };
     if (secret) body.secret = secret;
+    else if (guestId) body.guestId = guestId;
     const res = await fetch(`${apiUrl}/api/dailyChallenge/submit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -79,15 +92,40 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
       throw err;
     }
     return res.json();
-  }, [apiUrl, date, secret]);
+  }, [apiUrl, date, secret, guestId]);
 
   useEffect(() => {
     if (autoFetchResults) fetchResults();
   }, [autoFetchResults, fetchResults]);
 
+  // Post-signin claim — delegates to the shared helper so this cooperates
+  // with the eager call auth.js fires on successful signin. The helper
+  // dedupes concurrent fetches and caches the result so we still get a toast
+  // here when the user signed in elsewhere (e.g. home page) and only then
+  // navigates to Daily.
+  const claimedOnceRef = useRef(false);
+  const [claimResult, setClaimResult] = useState(null);
+  useEffect(() => {
+    if (!secret) return;
+    if (claimedOnceRef.current) return;
+    claimedOnceRef.current = true;
+    (async () => {
+      const result = await claimGuestProgressIfAny(secret, apiUrl);
+      if (!result) return;
+      setClaimResult(result);
+      if (result.ok) {
+        // Refresh so newly-merged history/streak shows up immediately.
+        fetchResults();
+      }
+    })();
+  }, [secret, apiUrl, fetchResults]);
+
+  const dismissClaimResult = useCallback(() => setClaimResult(null), []);
+
   return {
     date,
     apiUrl,
+    guestId,
     locationData,
     locationError,
     fetchLocations,
@@ -96,6 +134,8 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
     loadingResults,
     fetchResults,
     submit,
+    claimResult,
+    dismissClaimResult,
   };
 }
 

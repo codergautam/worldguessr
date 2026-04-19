@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { toast } from 'react-toastify';
 import { useTranslation } from '@/components/useTranslations';
 import { signIn } from '@/components/auth/auth';
 import { getClientLocalDate } from '@/utils/dailyDate';
@@ -75,7 +76,22 @@ export default function DailyChallengeScreen({
 }) {
   const { t: text } = useTranslation();
   const today = getClientLocalDate();
-  const { locationData, fetchLocations, results, fetchResults, submit, loadingResults } = useDailyChallenge({ session });
+  const { locationData, fetchLocations, results, fetchResults, submit, loadingResults, claimResult, dismissClaimResult } = useDailyChallenge({ session });
+
+  // Surface the post-signin claim outcome as a toast. Fires once per merge.
+  useEffect(() => {
+    if (!claimResult) return;
+    if (claimResult.ok) {
+      const key = claimResult.mergedDays === 1 ? 'dailyGuestClaimedSingle' : 'dailyGuestClaimed';
+      toast.success(text(key, { mergedDays: claimResult.mergedDays, streak: claimResult.streak }), {
+        autoClose: 6000, closeOnClick: true, theme: 'dark',
+      });
+    } else if (claimResult.code === 'ALREADY_CLAIMED') {
+      toast.info(text('dailyGuestAlreadyClaimed'), { autoClose: 5000, theme: 'dark' });
+    }
+    // NO_PROFILE / NETWORK / ERROR are silent — not useful to the user.
+    dismissClaimResult();
+  }, [claimResult, text, dismissClaimResult]);
 
   const [phase, setPhase] = useState('landing');
 
@@ -110,9 +126,11 @@ export default function DailyChallengeScreen({
 
   // Prefetch locations as soon as the user opens the confirm dialog so that
   // by the time they click Start, the data is usually already in hand and we
-  // can skip the "Loading today's challenge…" flicker entirely.
+  // can skip the "Loading today's challenge…" flicker entirely. Also fetched
+  // on `results` so that revisiting the results screen (after already playing)
+  // still has the locations needed to build the per-round Street View links.
   useEffect(() => {
-    if ((phase === 'confirming' || phase === 'loading') && !locationData) {
+    if ((phase === 'confirming' || phase === 'loading' || phase === 'results') && !locationData) {
       fetchLocations();
     }
   }, [phase, locationData, fetchLocations]);

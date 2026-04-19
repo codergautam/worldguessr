@@ -39,12 +39,14 @@ export default function DailyLanding({ today, todayTop10 = [], userData = null, 
         </button>
 
         <div className="daily-landing-user-stats">
-          {isLoggedIn && userData?.streak > 0 && (
+          {userData?.streak > 0 && (
             <DailyStreakBadge streak={userData.streak} size="lg" variant={playedToday ? 'done' : 'pulsing'} />
           )}
           {!isLoggedIn && (
             <span style={{ color: 'rgba(255,255,255,0.8)' }}>
-              {text('dailyLandingLoggedOutPrompt')}
+              {userData?.streak > 0
+                ? text('dailyLandingLockInStreak', { streak: userData.streak })
+                : text('dailyLandingLoggedOutPrompt')}
               {onSignIn && (
                 <>
                   {' '}
@@ -96,7 +98,7 @@ export default function DailyLanding({ today, todayTop10 = [], userData = null, 
         )}
       </section>
 
-      {isLoggedIn && (
+      {(userData?.history?.length || 0) > 0 && (
         <section className="daily-landing-section">
           <div className="daily-landing-section-title">{text('dailyHistoryTitle')}</div>
           <DailyStreakCalendar history={userData?.history || []} today={today} />
