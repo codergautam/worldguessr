@@ -49,16 +49,11 @@ button {
 
 
 
-html, body {
-    background-color: #000000 !important;
+
+body,
+html {
     touch-action: pan-x pan-y !important;
-    overscroll-behavior: none;
-    overflow: hidden;
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    -webkit-text-size-adjust: 100%;
+    background-color: #000000 !important;
 }
 
 /* Leaflet map optimizations for sharp rendering */
