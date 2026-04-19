@@ -180,8 +180,8 @@ async function handler(req, res) {
   if (!verifySessionToken(sessionToken, date)) {
     return res.status(401).json({ error: 'Invalid or expired session' });
   }
-  if (!Array.isArray(rounds) || rounds.length !== 5) {
-    return res.status(400).json({ error: 'rounds must be an array of 5' });
+  if (!Array.isArray(rounds) || rounds.length !== 3) {
+    return res.status(400).json({ error: 'rounds must be an array of 3' });
   }
 
   // Canonical per-round actual locations — server is the source of truth.
@@ -302,7 +302,7 @@ async function handler(req, res) {
             }],
             startedAt,
             endedAt,
-            roundTimeLimit: 30000,
+            roundTimeLimit: 60000,
           };
         });
         createdGameId = `daily_${date}_${createUUID()}`;
@@ -313,7 +313,7 @@ async function handler(req, res) {
             location: 'daily',
             rounds: normalizedRounds.length,
             maxDist: 20000,
-            timePerRound: 30000,
+            timePerRound: 60000,
             official: true,
             countryGuesser: false,
             countryGuessrSubMode: null,

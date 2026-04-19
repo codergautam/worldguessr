@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const BUCKET_COUNT = 51;
-const ROUNDS_PER_DAY = 5;
+const ROUNDS_PER_DAY = 3;
 
 const dailyChallengeStatsSchema = new mongoose.Schema({
   date: { type: String, required: true, unique: true },
@@ -25,7 +25,7 @@ dailyChallengeStatsSchema.index({ date: 1 });
 
 export const DAILY_BUCKET_COUNT = BUCKET_COUNT;
 export const DAILY_ROUNDS_PER_DAY = ROUNDS_PER_DAY;
-export const DAILY_MAX_SCORE = 25000; // full 5-round daily, 5000 pts/round
+export const DAILY_MAX_SCORE = 15000; // full 3-round daily, 5000 pts/round
 
 export function bucketIndexForScore(score) {
   const clamped = Math.max(0, Math.min(DAILY_MAX_SCORE, score || 0));

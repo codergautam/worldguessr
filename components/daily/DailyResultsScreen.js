@@ -9,7 +9,7 @@ import DailyHistorySparkline from './DailyHistorySparkline';
 import DailyShareModal from './DailyShareModal';
 
 const MAX_PER_ROUND = 5000;
-const TOTAL_MAX = 5 * MAX_PER_ROUND;
+const TOTAL_MAX = 3 * MAX_PER_ROUND;
 
 // Palette + thresholds mirror components/roundOverScreen.js so Daily stays
 // visually consistent with the rest of the game. (The bronze/silver hex
@@ -38,20 +38,12 @@ function starsFromPercent(percent) {
   return ['platinum', 'platinum', 'platinum'];
 }
 
-// Highest tier reached at a given percent — used for per-bar accent color so
-// a bar's color matches the star tier it would award.
-function tierForPercent(percent) {
-  if (percent >= 79) return 'platinum';
-  if (percent >= 60) return 'gold';
-  if (percent >= 45) return 'silver';
-  return 'bronze';
-}
-
-function tierAccentColor(tier) {
-  if (tier === 'platinum') return '#e6f4ff';
-  if (tier === 'gold') return '#ffd700';
-  if (tier === 'silver') return STAR_COLORS.silver;
-  return STAR_COLORS.bronze;
+// Bar accent color matches the guess-line color used in roundOverScreen.js
+// (green/amber/red by absolute points).
+function barColorForScore(score) {
+  if (score >= 3000) return '#4CAF50';
+  if (score >= 1500) return '#FFC107';
+  return '#F44336';
 }
 
 function RoundBarGraph({ rounds, roundAverages = [] }) {
@@ -62,16 +54,15 @@ function RoundBarGraph({ rounds, roundAverages = [] }) {
         const pct = Math.max(0, Math.min(1, (r.score || 0) / MAX_PER_ROUND));
         const pctLabel = Math.round(pct * 100);
         const perfect = r.score >= 4850;
-        const tier = tierForPercent(pctLabel);
         const avg = Number.isFinite(roundAverages[i]) ? roundAverages[i] : null;
         const avgPct = avg != null
           ? Math.max(0, Math.min(100, (avg / MAX_PER_ROUND) * 100))
           : null;
         return (
           <div
-            className={`daily-round-bar tier-${tier}`}
+            className="daily-round-bar"
             key={i}
-            style={{ '--bar-color': tierAccentColor(tier) }}
+            style={{ '--bar-color': barColorForScore(r.score || 0) }}
           >
             <div className="daily-round-bar-track" aria-hidden="true">
               <div

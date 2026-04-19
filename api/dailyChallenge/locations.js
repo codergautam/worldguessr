@@ -20,7 +20,7 @@ async function handler(req, res) {
       date,
       challengeNumber,
       sessionToken,
-      timePerRound: 30,
+      timePerRound: 60,
       totalRounds: locations.length,
       locations: locations.map(l => ({
         lat: l.lat,

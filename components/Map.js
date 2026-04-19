@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { CircleMarker, Marker, Polyline, Tooltip, useMapEvents } from "react-leaflet";
+import { Circle, Marker, Polyline, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
 import { getPinIcons } from '@/lib/markerIcons';
@@ -8,7 +8,10 @@ import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
-const hintMul = 7500000 / 20000; //7500000 for all countries (20,000 km)
+const EARTH_RADIUS_M = 6371000;
+// Matches the old CircleMarker visual size (75px at world mode) converted to meters.
+// Old behavior implicitly scaled by cos(latitude) due WebMercator pixels.
+const OLD_BASE_HINT_RADIUS_M_AT_EQUATOR = 5870363.8;
 
 // Simple seeded random for stable hint offset per round
 function seededRandom(seed) {
@@ -16,34 +19,45 @@ function seededRandom(seed) {
   return x - Math.floor(x);
 }
 
-// HintCircle component that scales with zoom
+function destinationPoint(lat, lng, distanceMeters, bearingRadians) {
+  const lat1 = (lat * Math.PI) / 180;
+  const lon1 = (lng * Math.PI) / 180;
+  const angularDistance = distanceMeters / EARTH_RADIUS_M;
+
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angularDistance) +
+      Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearingRadians)
+  );
+
+  const lon2 =
+    lon1 +
+    Math.atan2(
+      Math.sin(bearingRadians) * Math.sin(angularDistance) * Math.cos(lat1),
+      Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2)
+    );
+
+  const normalizedLon = ((((lon2 * 180) / Math.PI + 540) % 360) - 180);
+  return { lat: (lat2 * 180) / Math.PI, lng: normalizedLon };
+}
+
 function HintCircle({ location, gameOptions, round }) {
-  const [zoom, setZoom] = useState(2);
-
-  const map = useMapEvents({
-    zoom: () => setZoom(map.getZoom()),
-  });
-
-  // Scale hint circle with maxDist (75px base at 20000km world map)
+  // Keep hint radius geospatial so it remains anchored during pan/zoom,
+  // while matching old visual size (including latitude scaling).
   const maxDist = gameOptions?.maxDist ?? 20000;
-  const ogRadius = 75 * (maxDist / 20000);
-  const pixelRadius = ogRadius * Math.pow(2, zoom - 1);
-  // Offset the center by 0 to pixelRadius in a random direction (sqrt for uniform area distribution)
-  const seed = (round ?? 1) + Math.abs(location.lat * ogRadius + location.long * ogRadius);
-  const offsetAngle = seededRandom(seed * 3) * 2 * Math.PI;
-  const offsetAmount = Math.sqrt(seededRandom(seed * 7)) * pixelRadius;
-  const offsetX = offsetAmount * Math.cos(offsetAngle);
-  const offsetY = offsetAmount * Math.sin(offsetAngle);
-
-  // Convert pixel offset back to lat/lng
-  const pointC = map.latLngToContainerPoint(L.latLng(location.lat, location.long));
-  const offsetPoint = L.point(pointC.x + offsetX, pointC.y + offsetY);
-  const offsetCenter = map.containerPointToLatLng(offsetPoint);
+  const maxDistScale = maxDist / 20000;
+  const latScale = Math.abs(Math.cos((location.lat * Math.PI) / 180));
+  const radiusMeters = OLD_BASE_HINT_RADIUS_M_AT_EQUATOR * maxDistScale * latScale;
+  const offsetCenter = useMemo(() => {
+    const seed = (round ?? 1) + Math.abs(location.lat * 1000 + location.long * 1000);
+    const offsetAngle = seededRandom(seed * 3) * 2 * Math.PI;
+    const offsetAmount = Math.sqrt(seededRandom(seed * 7)) * radiusMeters;
+    return destinationPoint(location.lat, location.long, offsetAmount, offsetAngle);
+  }, [location.lat, location.long, radiusMeters, round]);
 
   return (
-    <CircleMarker
+    <Circle
       center={offsetCenter}
-      radius={pixelRadius}
+      radius={radiusMeters}
       className="hintCircle"
     />
   );

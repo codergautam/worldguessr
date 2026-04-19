@@ -525,6 +525,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     setHintsUsedThisGame((prev) => prev + 1);
   }
   useEffect(() => {
+    if (dailyMode) return;
     loadLocation()
     if(singlePlayerRound) {
       setHintsUsedThisGame(0);

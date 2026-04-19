@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-const ROUNDS_PER_DAY = 5;
+const ROUNDS_PER_DAY = 3;
 const POOL_PATH = path.join(__dirname, '..', 'data', 'world-pinpointable.json');
 const SECRET = process.env.DAILY_SECRET || 'worldguessr-daily-default-secret';
 const CACHE_SIZE = 14;

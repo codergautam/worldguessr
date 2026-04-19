@@ -5,9 +5,9 @@ const WIDTH = 600;
 const HEIGHT = 180;
 const PADDING_X = 24;
 const PADDING_Y = 16;
-const MAX_SCORE = 25000;
+const MAX_SCORE = 15000;
 const CHUNK_WIDTH = 1000; // Display-side bucket size (server stores 500-pt buckets)
-const CHUNK_COUNT = Math.ceil(MAX_SCORE / CHUNK_WIDTH); // 25
+const CHUNK_COUNT = Math.ceil(MAX_SCORE / CHUNK_WIDTH); // 15
 const BAR_GAP = 2;
 
 export default function ScoreDistributionChart({ buckets = [], totalPlays = 0, userScore }) {

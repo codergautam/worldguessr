@@ -429,10 +429,10 @@
 
 /* Round breakdown — bar graph */
 .daily-round-bars {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+  display: flex;
+  justify-content: center;
   align-items: end;
+  gap: 10px;
   padding: 8px 4px 4px;
 }
 .daily-round-bar {
@@ -440,6 +440,7 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  flex: 0 1 72px;
 }
 .daily-round-bar-track {
   width: 100%;

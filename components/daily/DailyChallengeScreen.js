@@ -102,7 +102,7 @@ export default function DailyChallengeScreen({
     communityMapName: '',
     extent: null,
     showRoadName: true,
-    timePerRound: 30,
+    timePerRound: 60,
   });
 
   // Load user's current results (streak/etc) for landing + menu badges
@@ -288,7 +288,6 @@ export default function DailyChallengeScreen({
   if (phase === 'game') {
     return (
       <div className="daily-game-shell">
-        <DailyRoundBadge round={currentRound} total={locationData?.locations?.length || 5} />
 
         {showDisqualifiedModal && (
           <DisqualifiedModal onClose={() => setShowDisqualifiedModal(false)} />
