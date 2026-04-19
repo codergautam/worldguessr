@@ -3,7 +3,7 @@ import MapView from "./mapView";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { Modal } from "react-responsive-modal";
-import { asset, navigate } from '@/lib/basePath';
+import { asset, localePath } from '@/lib/basePath';
 // import { useMapSearch } from "../hooks/useMapSearch"; // REMOVED TO FIX DUPLICATE SEARCH CALLS - MapView handles search
 
 const initMakeMap = {
@@ -28,7 +28,10 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
         if (customChooseMapCallback) {
             customChooseMapCallback(map);
         } else {
-            window.location.href = `${navigate('/map')}?s=${map.slug}${window.location.search.includes("crazygames") ? "&crazygames=true" : ""}`;
+            // localePath keeps the /fr, /es, etc. prefix if the user is on a
+            // locale route, so we go straight to /fr/map instead of /map (which
+            // would then redirect back to /fr/map and bounce the user twice).
+            window.location.href = `${localePath('/map')}?s=${map.slug}${window.location.search.includes("crazygames") ? "&crazygames=true" : ""}`;
         }
     };
 

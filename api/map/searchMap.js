@@ -34,24 +34,31 @@ export default async function searchMaps(req, res) {
     return res.status(400).json({ message: 'Search query must be at least 3 characters long' });
   }
 
-  // sanitize query
+  // sanitize query: keep alphanumerics + whitespace only. Strips regex
+  // metachars so the value is safe to interpolate into a RegExp.
   query = query.replace(/[^a-zA-Z0-9\s]/g, '');
+  // Escape defensively in case the allowlist above ever expands.
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(escaped, 'i');
 
   try {
-    // Find maps that match the search query in either name, short description, or author name
-    // let maps = await Map.find({
-    //   accepted: true,
-    //   $or: [
-    //     { name: { $regex: query, $options: 'i' } },
-    //     { description_short: { $regex: query, $options: 'i' } },
-    //     { created_by_name: { $regex: query, $options: 'i' } }
-    //   ]
-    // }).sort({ hearts: -1 }).limit(50).cache(10000);
-
+    // Substring match across name / description / creator name. $text was
+    // whole-word with stemming, so "penn" never matched "Pennsylvania".
+    // Regex $or does true substring matching; the re-rank below still puts
+    // exact and prefix hits first.
     let maps = await Map.find({
       accepted: true,
-      $text: { $search: query }
-    }).sort({ hearts: -1 }).limit(50).cache(10000);
+      $or: [
+        { name: re },
+        { description_short: re },
+        { map_creator_name: re },
+      ],
+    })
+      .select('-data')
+      .lean()
+      .sort({ hearts: -1 })
+      .limit(50)
+      .cache(10000);
 
     // Re-rank results to prioritize exact and substring matches
     const queryLower = query.toLowerCase();
@@ -81,25 +88,29 @@ export default async function searchMaps(req, res) {
       return b.hearts - a.hearts;
     });
 
-    // Convert maps to sendable format
-    let sendableMaps = await Promise.all(maps.map(async (map) => {
-
-      let owner;
-      if(!map.map_creator_name) {
-      owner = await User.findById(map.created_by);
-      // if owner is not found, set to null
-      if(!owner) {
-        owner = null;
-      }
-      // save map creator name
-      map.map_creator_name = owner.username;
-      await map.save();
-      } else{
-        owner = { username: map.map_creator_name };
-      }
-
-      return sendableMap(map, owner, hearted_maps?hearted_maps.has(map._id.toString()):false, user?.staff, map.created_by === user?._id.toString());
-    }));
+    // Convert maps to sendable format. Docs are .lean() plain objects now, so
+    // map.save() doesn't exist — skip the legacy backfill (map_creator_name is
+    // a required field, so this only mattered for very old orphan docs).
+    // Normalise created_at back to a Date: recachegoose caches via
+    // JSON.stringify → JSON.parse, which turns Dates into ISO strings. With
+    // .lean() there's no schema to re-hydrate them, so sendableMap's
+    // .getTime() call would throw on cache hits.
+    const sendableMaps = maps.map((raw) => {
+      const map = {
+        ...raw,
+        created_at: raw.created_at instanceof Date
+          ? raw.created_at
+          : new Date(raw.created_at),
+      };
+      const owner = { username: map.map_creator_name || 'Unknown' };
+      return sendableMap(
+        map,
+        owner,
+        hearted_maps ? hearted_maps.has(map._id.toString()) : false,
+        user?.staff,
+        map.created_by === user?._id.toString()
+      );
+    });
 
     res.status(200).json(sendableMaps);
   } catch (error) {

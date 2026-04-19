@@ -619,6 +619,22 @@
   line-height: 1.2;
   flex-grow: 1;
   min-width: 0;
+  white-space: nowrap;
+}
+
+/* Location count — always visible, never shrinks. */
+.map-tile__author .map-tile__locations {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Username — shrinks and ellipses before the location count is touched. */
+.map-tile__author .map-tile__username {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

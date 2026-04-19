@@ -1497,7 +1497,7 @@ try {
         if(game.curRound <= game.rounds) {
           game.curRound++;
           game.state = 'getready';
-          game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 5000: 0);
+          game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds && !game.duel ? 5000: 0);
           game.sendStateUpdate();
 
 
@@ -1519,7 +1519,6 @@ try {
           game.resetGame(allLocations);
         }
       }
-
 
       // find games that can be joined
       // unranked (meaning non duel) public games

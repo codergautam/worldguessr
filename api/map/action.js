@@ -175,6 +175,7 @@ export default async function handler(req, res) {
       name,
       created_by: user._id,
       data: validation.locationsData,
+      locationsCnt: validation.locationsData.length,
       description_short,
       description_long,
       maxDist: validation.maxDist,
@@ -211,6 +212,7 @@ export default async function handler(req, res) {
     // map.slug = validation.slug;
     map.name = name;
     map.data = validation.locationsData;
+    map.locationsCnt = validation.locationsData.length;
     map.description_short = description_short;
     map.description_long = description_long;
     // map.in_review= user.instant_accept_maps ? false : true;

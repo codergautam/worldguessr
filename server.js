@@ -228,9 +228,13 @@ setInterval(updateRecentPlays, 60000);
   });
 
 // Current sizes of every in-memory collection that registered itself, plus
-// process.memoryUsage(). Hit this periodically (e.g. curl every few minutes)
-// and diff the output — whichever row grows monotonically is the leak.
+// process.memoryUsage(). Gated behind ENABLE_DEBUG_STATS=true — set the env
+// var and restart to turn it back on. Default is 404 so the surface is
+// closed in production.
 app.get('/debug/stats', (req, res) => {
+  if (process.env.ENABLE_DEBUG_STATS !== 'true') {
+    return res.status(404).json({ message: 'Not found' });
+  }
   const mem = process.memoryUsage();
   res.json({
     memoryMb: {
