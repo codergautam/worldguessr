@@ -550,6 +550,7 @@
   "trendRoughWeek": "↓ rough week",
   "dailyHistoryTitle": "Your history",
   "dailyLeaderboard": "Today's leaderboard",
+  "tooFewPlaysForChart": "Not enough players to draw a graph - check back later!",
   "top10Today": "Top 10 today",
   "signInToCompete": "Sign in to join the leaderboard",
   "signIn": "Sign in",

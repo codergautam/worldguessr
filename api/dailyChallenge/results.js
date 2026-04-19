@@ -1,7 +1,7 @@
 import ratelimiter from '../../components/utils/ratelimitMiddleware.js';
 import User from '../../models/User.js';
 import DailyChallengeScore from '../../models/DailyChallengeScore.js';
-import DailyChallengeStats from '../../models/DailyChallengeStats.js';
+import DailyChallengeStats, { bucketIndexForScore } from '../../models/DailyChallengeStats.js';
 import { isValidDailyDate } from '../../serverUtils/dailyChallenge.js';
 
 // Distribution + top-10 (the expensive part) are identical for every caller
@@ -58,10 +58,18 @@ async function fetchUserBlock(date, secret) {
     .select('score rounds totalTime')
     .lean();
 
+  // Rank derived from DailyChallengeStats.buckets (includes anon) so it
+  // stays consistent with the percentile rendered in the results UI —
+  // see computeRankAndPercentile in submit.js for the same derivation.
   let rank = null;
   if (own) {
-    const higher = await DailyChallengeScore.countDocuments({ date, score: { $gt: own.score } });
-    rank = higher + 1;
+    const statsDoc = await DailyChallengeStats.findOne({ date }).select('buckets totalPlays').lean();
+    const totalPlays = statsDoc?.totalPlays || 0;
+    if (totalPlays > 0) {
+      const bucket = bucketIndexForScore(own.score);
+      const above = (statsDoc.buckets || []).slice(bucket + 1).reduce((a, b) => a + b, 0);
+      rank = Math.min(totalPlays, above + 1);
+    }
   }
 
   const history = (user.dailyHistory || []).slice(0, 30);

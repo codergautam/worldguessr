@@ -207,7 +207,7 @@
 .daily-header-stars {
   display: flex;
   gap: 0.4em;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
   margin: 8px 0;
 }
@@ -348,6 +348,49 @@
   font-size: 0.95rem;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 10px;
+}
+.daily-distribution-standing {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+.daily-distribution-pct {
+  color: #ffd700;
+  font-weight: 700;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+.daily-distribution-rank {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.daily-distribution-user-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: #ffd700;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+  max-width: calc(100% - 8px);
+}
+.daily-distribution-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
 }
 .daily-distribution-meta {
   display: flex;

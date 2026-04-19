@@ -108,9 +108,13 @@ export default function DailyChallengeScreen({
   // Load user's current results (streak/etc) for landing + menu badges
   useEffect(() => { fetchResults(); }, [fetchResults]);
 
-  // Fetch locations when entering loading phase
+  // Prefetch locations as soon as the user opens the confirm dialog so that
+  // by the time they click Start, the data is usually already in hand and we
+  // can skip the "Loading today's challenge…" flicker entirely.
   useEffect(() => {
-    if (phase === 'loading' && !locationData) fetchLocations();
+    if ((phase === 'confirming' || phase === 'loading') && !locationData) {
+      fetchLocations();
+    }
   }, [phase, locationData, fetchLocations]);
 
   // Transition to game once locations are in
@@ -186,7 +190,23 @@ export default function DailyChallengeScreen({
     setPhase('confirming');
   }, [results]);
 
-  const handleConfirmStart = useCallback(() => setPhase('loading'), []);
+  const handleConfirmStart = useCallback(() => {
+    // If the prefetch already landed, skip the 'loading' screen and jump
+    // straight into the game to avoid a brief flicker.
+    if (locationData?.locations?.length) {
+      setSinglePlayerRound({
+        round: 1,
+        totalRounds: locationData.locations.length,
+        locations: [],
+      });
+      setShowAnswer(false);
+      setPinPoint(null);
+      setHintShown(false);
+      setPhase('game');
+    } else {
+      setPhase('loading');
+    }
+  }, [locationData]);
 
   const handleRoundsComplete = useCallback(async (completedLocations) => {
     // Distance is derived on the server from the canonical daily locations;

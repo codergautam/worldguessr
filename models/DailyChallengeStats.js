@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const BUCKET_COUNT = 51;
+const BUCKET_COUNT = 31;
 const ROUNDS_PER_DAY = 3;
 
 const dailyChallengeStatsSchema = new mongoose.Schema({

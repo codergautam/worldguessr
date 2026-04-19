@@ -2,8 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from '@/components/useTranslations';
 
 function emojiForScore(score) {
-  if (score >= 900) return '🟢';
-  if (score >= 500) return '🟡';
+  if (score >= 3000) return '🟢';
+  if (score >= 1500) return '🟡';
   return '🔴';
 }
 
@@ -14,7 +14,7 @@ export default function DailyShareModal({ rounds, totalScore, challengeNumber, r
   const shareText = useMemo(() => {
     const title = text('dailyShareTitle', { num: challengeNumber });
     const score = Math.round(totalScore);
-    const max = (rounds?.length || 5) * 1000;
+    const max = (rounds?.length || 3) * 5000;
     const scoreLine = typeof rank === 'number'
       ? text('dailyShareScoreLine', { score, max, rank })
       : text('dailyShareAnonLine', { score, max });

@@ -154,16 +154,21 @@ async function incrementAnonStats(date, score, rounds) {
 }
 
 async function computeRankAndPercentile(date, score) {
-  const [rankDoc, stats] = await Promise.all([
-    DailyChallengeScore.countDocuments({ date, score: { $gt: score } }),
-    DailyChallengeStats.findOne({ date }).lean(),
-  ]);
-  const rank = rankDoc + 1;
+  // Rank + percentile are both derived from the same source (stats.buckets +
+  // totalPlays) so they can't disagree — a prior version took rank from
+  // DailyChallengeScore (logged-in only) but percentile from the buckets
+  // (logged-in + anon), which produced incoherent readouts like
+  // "rank 1 of 11 · beat 64%".
+  //
+  // Rank is a best-case lower bound: ties within the user's own bucket all
+  // collapse to the same rank, since per-score ordering isn't in the stats.
+  const stats = await DailyChallengeStats.findOne({ date }).lean();
   const totalPlays = stats?.totalPlays || 0;
-  const beaten = totalPlays > 0
-    ? Math.max(0, totalPlays - (stats.buckets || []).slice(bucketIndexForScore(score) + 1).reduce((a, b) => a + b, 0) - 1)
-    : 0;
-  const percentile = totalPlays > 0 ? Math.round((beaten / totalPlays) * 100) : null;
+  if (totalPlays === 0) return { rank: null, totalPlays: 0, percentile: null };
+  const bucket = bucketIndexForScore(score);
+  const above = (stats.buckets || []).slice(bucket + 1).reduce((a, b) => a + b, 0);
+  const rank = Math.min(totalPlays, above + 1);
+  const percentile = Math.round(Math.max(0, Math.min(100, ((totalPlays - rank) / totalPlays) * 100)));
   return { rank, totalPlays, percentile };
 }
 
@@ -407,14 +412,12 @@ async function handler(req, res) {
       await incrementAnonStats(date, finalScore, normalizedRounds);
       invalidateDailyPublicCache(date);
     }
-    const stats = await DailyChallengeStats.findOne({ date }).lean();
-    const bucket = bucketIndexForScore(finalScore);
-    const beaten = stats ? (stats.buckets || []).slice(0, bucket).reduce((a, b) => a + b, 0) : 0;
-    const percentile = stats?.totalPlays ? Math.round((beaten / stats.totalPlays) * 100) : null;
+    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore);
 
     return res.status(200).json({
       score: finalScore,
-      totalPlays: stats?.totalPlays || 0,
+      rank,
+      totalPlays,
       percentile,
       anonymous: true,
     });

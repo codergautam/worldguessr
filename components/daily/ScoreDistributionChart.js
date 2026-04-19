@@ -6,56 +6,78 @@ const HEIGHT = 180;
 const PADDING_X = 24;
 const PADDING_Y = 16;
 const MAX_SCORE = 15000;
-const CHUNK_WIDTH = 1000; // Display-side bucket size (server stores 500-pt buckets)
-const CHUNK_COUNT = Math.ceil(MAX_SCORE / CHUNK_WIDTH); // 15
+
+// Display buckets: 15 bars of 1000 pts each covering [0, 15000].
+// The server always writes via bucketIndexForScore with a FIXED 31-bucket /
+// 500-pt layout (see models/DailyChallengeStats.js). Legacy docs may have
+// longer stored arrays — we still must use width=500 regardless of the
+// array's actual length, or index 28 (14000) would get misread as a lower
+// score range.
+const DISPLAY_BUCKET_WIDTH = 1000;
+const DISPLAY_BUCKET_COUNT = Math.ceil(MAX_SCORE / DISPLAY_BUCKET_WIDTH); // 15
+const SERVER_BUCKET_COUNT = 31;
+const SERVER_BUCKET_WIDTH = MAX_SCORE / (SERVER_BUCKET_COUNT - 1); // 500
 const BAR_GAP = 2;
+
+function aggregate(buckets) {
+  const chunks = new Array(DISPLAY_BUCKET_COUNT).fill(0);
+  if (!buckets?.length) return chunks;
+  const n = Math.min(SERVER_BUCKET_COUNT, buckets.length);
+  for (let i = 0; i < n; i++) {
+    // Server bucket i represents scores in [i*500, (i+1)*500),
+    // and the final bucket also catches the exact MAX_SCORE.
+    const startScore = i * SERVER_BUCKET_WIDTH;
+    const chunkIdx = Math.min(
+      DISPLAY_BUCKET_COUNT - 1,
+      Math.floor(startScore / DISPLAY_BUCKET_WIDTH)
+    );
+    chunks[chunkIdx] += buckets[i] || 0;
+  }
+  return chunks;
+}
 
 export default function ScoreDistributionChart({ buckets = [], totalPlays = 0, userScore }) {
   const { t: text } = useTranslation();
   const [hovered, setHovered] = useState(null);
 
-  const { bars, userX, userBucketIdx } = useMemo(() => {
-    if (!buckets.length) return { bars: [], userX: null, userBucketIdx: -1 };
-
-    // Server stores 500-pt buckets; aggregate into wider CHUNK_WIDTH chunks
-    // for display so there aren't 50 tiny rectangles. Server bucket i covers
-    // [i*serverW, (i+1)*serverW), which falls in chunk floor(i / ratio).
-    const serverW = MAX_SCORE / (buckets.length - 1);
-    const chunks = new Array(CHUNK_COUNT).fill(0);
-    buckets.forEach((val, i) => {
-      const startScore = i * serverW;
-      const chunkIdx = Math.min(CHUNK_COUNT - 1, Math.floor(startScore / CHUNK_WIDTH));
-      chunks[chunkIdx] += val || 0;
-    });
-
+  const { bars, userX, userBucketIdx, innerW, slotW } = useMemo(() => {
+    const chunks = aggregate(buckets);
     const maxY = Math.max(1, ...chunks);
     const innerW = WIDTH - PADDING_X * 2;
     const innerH = HEIGHT - PADDING_Y * 2;
-    const slotW = innerW / CHUNK_COUNT;
+    const slotW = innerW / DISPLAY_BUCKET_COUNT;
     const barW = Math.max(1, slotW - BAR_GAP);
 
     const bars = chunks.map((val, i) => {
-      const h = (val / maxY) * innerH;
+      const v = val || 0;
+      const h = (v / maxY) * innerH;
       const x = PADDING_X + i * slotW + BAR_GAP / 2;
       const y = HEIGHT - PADDING_Y - h;
-      return { x, y, w: barW, h, val, i, cx: x + barW / 2 };
+      return { x, y, w: barW, h, val: v, i, cx: x + barW / 2 };
     });
 
     let userX = null;
     let userBucketIdx = -1;
-    if (typeof userScore === 'number') {
+    if (typeof userScore === 'number' && !Number.isNaN(userScore)) {
       const clamped = Math.max(0, Math.min(MAX_SCORE, userScore));
+      // Map score → x using the same linear scale as the bars so the
+      // marker always falls inside the bar that highlights.
       userX = PADDING_X + (clamped / MAX_SCORE) * innerW;
-      userBucketIdx = Math.min(CHUNK_COUNT - 1, Math.floor(clamped / CHUNK_WIDTH));
+      userBucketIdx = Math.min(
+        DISPLAY_BUCKET_COUNT - 1,
+        Math.floor(clamped / DISPLAY_BUCKET_WIDTH)
+      );
     }
 
-    return { bars, userX, userBucketIdx };
+    return { bars, userX, userBucketIdx, innerW, slotW };
   }, [buckets, userScore]);
 
   const hoveredBar = hovered != null ? bars[hovered] : null;
-  const rangeFrom = hovered != null ? hovered * CHUNK_WIDTH : 0;
+  const rangeFrom = hovered != null ? hovered * DISPLAY_BUCKET_WIDTH : 0;
   const rangeTo = hovered != null
-    ? Math.min(MAX_SCORE, (hovered + 1) * CHUNK_WIDTH - 1)
+    ? (hovered === DISPLAY_BUCKET_COUNT - 1
+        ? MAX_SCORE
+        : (hovered + 1) * DISPLAY_BUCKET_WIDTH - 1)
     : 0;
 
   return (
@@ -111,17 +133,24 @@ export default function ScoreDistributionChart({ buckets = [], totalPlays = 0, u
               points={`${userX - 6},${PADDING_Y - 2} ${userX + 6},${PADDING_Y - 2} ${userX},${PADDING_Y + 8}`}
               fill="#ffd700"
             />
-            <text x={userX} y={PADDING_Y - 6} fill="#ffd700" fontSize="12" fontWeight="700" textAnchor="middle">
-              {text('yourScore')}: {Math.round(userScore)}
-            </text>
           </g>
         )}
 
-        <text x={PADDING_X} y={HEIGHT - 2} fill="rgba(255,255,255,0.55)" fontSize="10">0</text>
-        <text x={WIDTH - PADDING_X} y={HEIGHT - 2} fill="rgba(255,255,255,0.55)" fontSize="10" textAnchor="end">
-          {MAX_SCORE.toLocaleString()}
-        </text>
       </svg>
+
+      {userX !== null && (
+        <div
+          className="daily-distribution-user-label"
+          style={{ left: `${(userX / WIDTH) * 100}%` }}
+        >
+          {text('yourScore')}: {Math.round(userScore).toLocaleString()}
+        </div>
+      )}
+
+      <div className="daily-distribution-axis">
+        <span>0</span>
+        <span>{MAX_SCORE.toLocaleString()}</span>
+      </div>
 
       {hoveredBar && (
         <div

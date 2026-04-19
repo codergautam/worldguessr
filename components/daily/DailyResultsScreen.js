@@ -177,6 +177,9 @@ export default function DailyResultsScreen({
 }) {
   const { t: text } = useTranslation();
   const [displayScore, scoreAnimating] = useAnimatedNumber(totalScore);
+  const [displayPercentile] = useAnimatedNumber(
+    typeof submitResponse?.percentile === 'number' ? submitResponse.percentile : null
+  );
   const [showShare, setShowShare] = useState(false);
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());
 
@@ -246,15 +249,6 @@ export default function DailyResultsScreen({
 
         <Stars score={totalScore} />
 
-        {typeof rank === 'number' && (
-          <div className="daily-header-rank">
-            <span className="rank-num">{text('rankOfTotal', { rank, total: totalPlays.toLocaleString() })}</span>
-            {typeof percentile === 'number' && (
-              <> · <span className="pct">{text('beatPctPlayers', { pct: percentile })}</span></>
-            )}
-          </div>
-        )}
-
         <div className="daily-header-streak-row">
           {streak > 0 && (
             <span>🔥 {text('streakDay', { count: streak })}</span>
@@ -276,15 +270,35 @@ export default function DailyResultsScreen({
         {/* Distribution */}
         <div className="daily-section">
           <div className="daily-section-title">{text('dailyScoreDistribution')}</div>
-          <ScoreDistributionChart
-            buckets={distribution?.buckets || []}
-            totalPlays={distribution?.totalPlays || 0}
-            userScore={totalScore}
-          />
+          {(distribution?.totalPlays || 0) >= 10 ? (
+            <ScoreDistributionChart
+              buckets={distribution?.buckets || []}
+              totalPlays={distribution?.totalPlays || 0}
+              userScore={totalScore}
+            />
+          ) : (
+            <div className="daily-distribution-empty">{text('tooFewPlaysForChart')}</div>
+          )}
           <div className="daily-distribution-meta">
             <span>{text('averageScoreToday', { avg: distribution?.avgScore || 0 })}</span>
             <span>{text('sampleSize', { count: (distribution?.totalPlays || 0).toLocaleString() })}</span>
           </div>
+          {typeof percentile === 'number' && typeof rank === 'number' && (distribution?.totalPlays || 0) > 1 && (
+            <div className="daily-distribution-standing">
+              <span className="daily-distribution-pct">
+                {text('beatPctPlayers', { pct: Math.round(displayPercentile) })}
+              </span>
+              <span className="daily-distribution-rank">
+                {text('rankOfTotal', { rank, total: (distribution?.totalPlays || totalPlays).toLocaleString() })}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Round breakdown — bar graph */}
+        <div className="daily-section">
+          <div className="daily-section-title">{text('roundBreakdown')}</div>
+          <RoundBarGraph rounds={rounds} roundAverages={distribution?.roundAverages || []} />
         </div>
 
         {/* Leaderboard */}
@@ -307,12 +321,6 @@ export default function DailyResultsScreen({
             <DailyHistorySparkline history={results.user.history} />
           </div>
         )}
-
-        {/* Round breakdown — bar graph */}
-        <div className="daily-section">
-          <div className="daily-section-title">{text('roundBreakdown')}</div>
-          <RoundBarGraph rounds={rounds} roundAverages={distribution?.roundAverages || []} />
-        </div>
 
         <div className="daily-actions">
           <button className="g2_green_button" onClick={() => setShowShare(true)}>
