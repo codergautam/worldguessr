@@ -63,9 +63,16 @@ export default function DailyHistorySparkline({ history = [] }) {
   return (
     <div>
       <svg className="daily-sparkline" viewBox={`0 0 ${WIDTH} ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={text('past7Days')}>
-        <path d={path} stroke="#ffd700" strokeWidth="2.5" fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        <defs>
+          <linearGradient id="sparkline-grad" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#ffd700" stopOpacity="0.4" />
+            <stop offset="100%" stopColor="#ffd700" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={`${path} L${WIDTH - PAD} ${HEIGHT} L${PAD} ${HEIGHT} Z`} fill="url(#sparkline-grad)" stroke="none" />
+        <path d={path} stroke="#ffd700" strokeWidth="3" fill="none" strokeLinejoin="round" strokeLinecap="round" />
         {points.map((pt, i) => (
-          <circle key={i} cx={pt.x} cy={pt.y} r="4" fill="#ffd700" stroke="#1a0a00" strokeWidth="1" />
+          <circle key={i} cx={pt.x} cy={pt.y} r="5" fill="#1a0a00" stroke="#ffd700" strokeWidth="2" />
         ))}
       </svg>
       <div className="daily-sparkline-trend">

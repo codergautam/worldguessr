@@ -11,10 +11,32 @@ import DailyShareModal from './DailyShareModal';
 const MAX_PER_ROUND = 5000;
 const TOTAL_MAX = 3 * MAX_PER_ROUND;
 
-// Palette + thresholds mirror components/roundOverScreen.js so Daily stays
-// visually consistent with the rest of the game. (The bronze/silver hex
-// naming there is inverted — we keep the same hex values so the rendered
-// colors match exactly.)
+// Pick a quip ONCE when score arrives, and keep it stable across re-renders.
+// `text` from useTranslation re-identifies on every render, so useMemo with
+// it in deps would roll a new random each render — we separate the random
+// index (cached in a ref, tied only to the score bracket) from the lookup.
+function useMotivationalQuip(score) {
+  const { t: text } = useTranslation();
+  const quipRef = useRef({ bracket: null, idx: null });
+
+  if (score == null) return null;
+
+  let bracket = 'Mid';
+  if (score >= 12000) bracket = 'Good';
+  else if (score < 6000) bracket = 'Bad';
+
+  if (quipRef.current.bracket !== bracket) {
+    quipRef.current = {
+      bracket,
+      idx: Math.floor(Math.random() * 10) + 1,
+    };
+  }
+
+  return text(`dailyQuip${bracket}${quipRef.current.idx}`);
+}
+
+// Palette + thresholds mirror components/roundOverScreen.js:213-242 so the
+// Daily stars match the rest of the game exactly (same tiers, same cutoffs).
 const STAR_COLORS = {
   bronze: '#b6b2b2',
   silver: '#CD7F32',
@@ -22,19 +44,12 @@ const STAR_COLORS = {
   platinum: 'platinum', // sentinel — rendered as the platinum_star.png image
 };
 
-// Returns a 3-entry array of tier names for the given percent (0..100),
-// matching the escalating tiers used in roundOverScreen.js:213-252.
 function starsFromPercent(percent) {
   if (percent <= 20) return ['bronze'];
-  if (percent <= 30) return ['bronze', 'bronze'];
-  if (percent <= 45) return ['bronze', 'bronze', 'bronze'];
-  if (percent <= 50) return ['silver', 'silver', 'bronze'];
-  if (percent <= 60) return ['silver', 'silver', 'silver'];
-  if (percent <= 62) return ['gold', 'silver', 'silver'];
-  if (percent <= 65) return ['gold', 'gold', 'silver'];
-  if (percent <= 79) return ['gold', 'gold', 'gold'];
-  if (percent <= 82) return ['platinum', 'gold', 'gold'];
-  if (percent <= 85) return ['platinum', 'platinum', 'gold'];
+  if (percent <= 40) return ['bronze', 'bronze'];
+  if (percent <= 50) return ['bronze', 'bronze', 'bronze'];
+  if (percent <= 65) return ['silver', 'silver', 'silver'];
+  if (percent <= 85) return ['gold', 'gold', 'gold'];
   return ['platinum', 'platinum', 'platinum'];
 }
 
@@ -46,49 +61,77 @@ function barColorForScore(score) {
   return '#F44336';
 }
 
-function RoundBarGraph({ rounds, roundAverages = [] }) {
+function RoundBadges({ rounds, roundAverages = [], locations = [], allowMapLinks = true }) {
   const { t: text } = useTranslation();
   return (
-    <div className="daily-round-bars" role="img" aria-label={text('roundBreakdown')}>
+    <div className="daily-round-badges" aria-label={text('roundBreakdown')}>
       {rounds.map((r, i) => {
-        const pct = Math.max(0, Math.min(1, (r.score || 0) / MAX_PER_ROUND));
-        const pctLabel = Math.round(pct * 100);
         const perfect = r.score >= 4850;
         const avg = Number.isFinite(roundAverages[i]) ? roundAverages[i] : null;
-        const avgPct = avg != null
-          ? Math.max(0, Math.min(100, (avg / MAX_PER_ROUND) * 100))
+        const loc = locations[i];
+        const mapUrl = allowMapLinks && loc && Number.isFinite(loc.lat) && Number.isFinite(loc.long)
+          ? `https://www.google.com/maps?q=${loc.lat},${loc.long}`
           : null;
+
+        // Only show a "% above avg" brag badge when the player is at or
+        // above the global average — below-average shaming doesn't belong
+        // in a celebratory results screen.
+        let diffLabel = null;
+        let diffClass = "";
+        if (avg != null && r.score != null && avg > 0) {
+          const diffPct = Math.round(((r.score - avg) / avg) * 100);
+          if (diffPct > 0) {
+            diffLabel = text('aboveAvg', { pct: diffPct });
+            diffClass = "above-avg";
+          } else if (diffPct === 0) {
+            diffLabel = text('exactAvg');
+            diffClass = "exact-avg";
+          }
+        } else if (avg === 0 && r.score > 0) {
+          diffLabel = text('aboveAvg', { pct: 100 });
+          diffClass = "above-avg";
+        }
+
+        const style = { '--badge-color': barColorForScore(r.score || 0), animationDelay: `${i * 0.1}s` };
+
+        const content = (
+          <>
+            <div className="daily-round-badge-num">{text('roundNumber', { round: `#${i + 1}` })}</div>
+            <div className="daily-round-badge-score">
+              {Math.round(r.score).toLocaleString()}
+            </div>
+            {diffLabel && (
+              <div className={`daily-round-badge-diff ${diffClass}`}>
+                {diffLabel}
+              </div>
+            )}
+            {perfect && <div className="daily-round-badge-star" title={text('perfectRound')}>★</div>}
+          </>
+        );
+
+        if (mapUrl) {
+          return (
+            <a
+              key={i}
+              className="daily-round-badge-item daily-round-badge-item--clickable"
+              style={style}
+              href={mapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {content}
+              <div className="daily-round-badge-map-hint">{text('openInMaps')}</div>
+            </a>
+          );
+        }
+
         return (
           <div
-            className="daily-round-bar"
+            className="daily-round-badge-item"
             key={i}
-            style={{ '--bar-color': barColorForScore(r.score || 0) }}
+            style={style}
           >
-            <div className="daily-round-bar-track" aria-hidden="true">
-              <div
-                className="daily-round-bar-fill"
-                style={{ height: `${pctLabel}%`, animationDelay: `${i * 0.1}s` }}
-              />
-              {avgPct != null && (
-                <div
-                  className="daily-round-bar-avg"
-                  style={{ bottom: `${avgPct}%` }}
-                  title={`${text('globalAvgAbbrev')} ${Math.round(avg).toLocaleString()} ${text('pointsAbbrev')}`}
-                >
-                  <span className="daily-round-bar-avg-label">
-                    {text('globalAvgAbbrev')} {Math.round(avg).toLocaleString()}
-                  </span>
-                </div>
-              )}
-            </div>
-            <div className="daily-round-bar-label">{i + 1}</div>
-            <div className="daily-round-bar-sub">
-              <span className="daily-round-bar-score-value">
-                {Math.round(r.score).toLocaleString()}
-              </span>{' '}
-              <span className="daily-round-bar-score-unit">{text('pointsAbbrev')}</span>
-              {perfect && <span className="daily-round-bar-perfect" title={text('perfectRound')}> ★</span>}
-            </div>
+            {content}
           </div>
         );
       })}
@@ -174,6 +217,7 @@ export default function DailyResultsScreen({
   onClose,
   onSignIn,
   fetchResults,
+  inCoolMathGames = false,
 }) {
   const { t: text } = useTranslation();
   const [displayScore, scoreAnimating] = useAnimatedNumber(totalScore);
@@ -218,6 +262,7 @@ export default function DailyResultsScreen({
   const streakBest = submitResponse?.streakBest ?? results?.user?.streakBest ?? 0;
   const newPB = submitResponse?.newPersonalBest;
   const graceUsed = submitResponse?.graceUsed;
+  const quip = useMotivationalQuip(totalScore);
 
   const distribution = results?.distribution;
 
@@ -228,99 +273,111 @@ export default function DailyResultsScreen({
           ×
         </button>
 
-        <div className="daily-header-label">
-          {text('challengeNumber', { num: chNum })} · {dateLabel}
-        </div>
-
-        {disqualified && (
-          <div className="daily-disqualified-ribbon">
-            {text('dailyDisqualifiedRibbon')}
+        <div className="daily-hero-section">
+          <div className="daily-header-label">
+            {text('challengeNumber', { num: chNum })} · {dateLabel}
           </div>
-        )}
 
-        {!disqualified && newPB && (
-          <div className="daily-personal-best-ribbon">{text('newPersonalBest')}</div>
-        )}
-
-        <div className={`daily-header-score ${scoreAnimating ? 'animating' : ''}`}>
-          {Math.round(displayScore).toLocaleString()}
-          <span className="max"> / {TOTAL_MAX.toLocaleString()}</span>
-        </div>
-
-        <Stars score={totalScore} />
-
-        <div className="daily-header-streak-row">
-          {streak > 0 && (
-            <span>🔥 {text('streakDay', { count: streak })}</span>
+          {disqualified && (
+            <div className="daily-disqualified-ribbon">
+              {text('dailyDisqualifiedRibbon')}
+            </div>
           )}
-          {streakBest > 0 && (
-            <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.9em' }}>
-              · {text('bestStreak', { count: streakBest })}
-            </span>
+
+          {!disqualified && newPB && (
+            <div className="daily-personal-best-ribbon">{text('newPersonalBest')}</div>
           )}
-          {graceUsed && (
-            <span style={{ color: '#ffd27a', fontSize: '0.9em' }}>· {text('streakGraceUsed')}</span>
+
+          <div className={`daily-header-score ${scoreAnimating ? 'animating' : ''}`}>
+            {Math.round(displayScore).toLocaleString()}
+            <span className="max"> / {TOTAL_MAX.toLocaleString()}</span>
+          </div>
+
+          <Stars score={totalScore} />
+
+          {quip && (
+            <div className="daily-motivational-quip">
+              "{quip}"
+            </div>
           )}
+
+          <div className="daily-header-streak-row">
+            {streak > 0 && (
+              <span>🔥 {text('streakDay', { count: streak })}</span>
+            )}
+            {streakBest > 0 && (
+              <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.9em' }}>
+                · {text('bestStreak', { count: streakBest })}
+              </span>
+            )}
+            {graceUsed && (
+              <span style={{ color: '#ffd27a', fontSize: '0.9em' }}>· {text('streakGraceUsed')}</span>
+            )}
+          </div>
         </div>
 
         {submitResponse?.alreadySubmitted && (
           <div className="daily-already-played-inline">{text('alreadyPlayedToday')}</div>
         )}
 
-        {/* Distribution */}
-        <div className="daily-section">
-          <div className="daily-section-title">{text('dailyScoreDistribution')}</div>
-          {(distribution?.totalPlays || 0) >= 10 ? (
-            <ScoreDistributionChart
-              buckets={distribution?.buckets || []}
-              totalPlays={distribution?.totalPlays || 0}
-              userScore={totalScore}
-            />
-          ) : (
-            <div className="daily-distribution-empty">{text('tooFewPlaysForChart')}</div>
-          )}
-          <div className="daily-distribution-meta">
-            <span>{text('averageScoreToday', { avg: distribution?.avgScore || 0 })}</span>
-            <span>{text('sampleSize', { count: (distribution?.totalPlays || 0).toLocaleString() })}</span>
+        {/* Round breakdown — badges */}
+        <RoundBadges
+          rounds={rounds}
+          roundAverages={distribution?.roundAverages || []}
+          locations={locations}
+          allowMapLinks={!inCoolMathGames}
+        />
+
+        <div className="daily-stats-grid">
+          {/* Distribution */}
+          <div className="daily-stat-card">
+            <div className="daily-stat-title">{text('dailyScoreDistribution')}</div>
+            {(distribution?.totalPlays || 0) >= 10 ? (
+              <ScoreDistributionChart
+                buckets={distribution?.buckets || []}
+                totalPlays={distribution?.totalPlays || 0}
+                userScore={totalScore}
+              />
+            ) : (
+              <div className="daily-distribution-empty">{text('tooFewPlaysForChart')}</div>
+            )}
+            <div className="daily-distribution-meta">
+              <span>{text('averageScoreToday', { avg: distribution?.avgScore || 0 })}</span>
+              <span>{text('sampleSize', { count: (distribution?.totalPlays || 0).toLocaleString() })}</span>
+            </div>
+            {typeof percentile === 'number' && typeof rank === 'number' && (distribution?.totalPlays || 0) > 1 && (
+              <div className="daily-distribution-standing">
+                <span className="daily-distribution-pct">
+                  {text('beatPctPlayers', { pct: Math.round(displayPercentile) })}
+                </span>
+                <span className="daily-distribution-rank">
+                  {text('rankOfTotal', { rank, total: (distribution?.totalPlays || totalPlays).toLocaleString() })}
+                </span>
+              </div>
+            )}
           </div>
-          {typeof percentile === 'number' && typeof rank === 'number' && (distribution?.totalPlays || 0) > 1 && (
-            <div className="daily-distribution-standing">
-              <span className="daily-distribution-pct">
-                {text('beatPctPlayers', { pct: Math.round(displayPercentile) })}
-              </span>
-              <span className="daily-distribution-rank">
-                {text('rankOfTotal', { rank, total: (distribution?.totalPlays || totalPlays).toLocaleString() })}
-              </span>
+
+          {/* Leaderboard */}
+          <div className="daily-stat-card">
+            <div className="daily-stat-title">{text('top10Today')}</div>
+            <DailyLeaderboardPanel
+              top10={results?.top10 || []}
+              userRank={rank}
+              userScore={totalScore}
+              username={username}
+              isLoggedIn={isLoggedIn}
+              onSignIn={onSignIn}
+            />
+          </div>
+
+          {/* History sparkline */}
+          {isLoggedIn && (results?.user?.history?.length || 0) > 0 && (
+            <div className="daily-stat-card" style={{ gridColumn: '1 / -1' }}>
+              <div className="daily-stat-title">{text('past7Days')}</div>
+              <DailyHistorySparkline history={results.user.history} />
             </div>
           )}
         </div>
-
-        {/* Round breakdown — bar graph */}
-        <div className="daily-section">
-          <div className="daily-section-title">{text('roundBreakdown')}</div>
-          <RoundBarGraph rounds={rounds} roundAverages={distribution?.roundAverages || []} />
-        </div>
-
-        {/* Leaderboard */}
-        <div className="daily-section">
-          <div className="daily-section-title">{text('top10Today')}</div>
-          <DailyLeaderboardPanel
-            top10={results?.top10 || []}
-            userRank={rank}
-            userScore={totalScore}
-            username={username}
-            isLoggedIn={isLoggedIn}
-            onSignIn={onSignIn}
-          />
-        </div>
-
-        {/* History sparkline */}
-        {isLoggedIn && (results?.user?.history?.length || 0) > 0 && (
-          <div className="daily-section">
-            <div className="daily-section-title">{text('past7Days')}</div>
-            <DailyHistorySparkline history={results.user.history} />
-          </div>
-        )}
 
         <div className="daily-actions">
           <button className="g2_green_button" onClick={() => setShowShare(true)}>

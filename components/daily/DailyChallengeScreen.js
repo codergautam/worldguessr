@@ -365,6 +365,7 @@ export default function DailyChallengeScreen({
         onClose={onExit}
         onSignIn={() => signIn()}
         fetchResults={fetchResults}
+        inCoolMathGames={inCoolMathGames}
       />
     );
   }

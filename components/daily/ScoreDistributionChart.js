@@ -110,9 +110,10 @@ export default function ScoreDistributionChart({ buckets = [], totalPlays = 0, u
               y={b.y}
               width={b.w}
               height={b.h}
+              rx={Math.min(4, b.w / 2)}
               fill={isUser ? 'url(#ddc-bar-user)' : 'url(#ddc-bar)'}
               opacity={hovered == null || isHover ? 1 : 0.55}
-              style={{ transition: 'opacity 120ms ease', cursor: 'default' }}
+              style={{ transition: 'opacity 120ms ease, height 0.3s ease, y 0.3s ease', cursor: 'default' }}
               onMouseEnter={() => setHovered(b.i)}
             />
           );

@@ -5,7 +5,7 @@ function medal(rank) {
   if (rank === 1) return '🥇';
   if (rank === 2) return '🥈';
   if (rank === 3) return '🥉';
-  return '#' + rank;
+  return <span style={{ opacity: 0.7, fontSize: '0.85em' }}>#{rank}</span>;
 }
 
 export default function DailyLeaderboardPanel({ top10 = [], userRank, userScore, username, isLoggedIn, onSignIn }) {
@@ -21,8 +21,10 @@ export default function DailyLeaderboardPanel({ top10 = [], userRank, userScore,
         const isMe = isLoggedIn && entry.username === username;
         return (
           <div key={entry.rank} className={`daily-leaderboard-row ${isMe ? 'self' : ''}`}>
-            <span className="rank">{medal(entry.rank)}</span>
-            <span className="name">{entry.username}</span>
+            <div className="rank-name-group">
+              <span className="rank">{medal(entry.rank)}</span>
+              <span className="name">{entry.username}</span>
+            </div>
             <span className="score">{entry.score.toLocaleString()}</span>
           </div>
         );
@@ -30,10 +32,16 @@ export default function DailyLeaderboardPanel({ top10 = [], userRank, userScore,
 
       {!userInTop10 && typeof userRank === 'number' && isLoggedIn && (
         <>
-          <div className="daily-leaderboard-separator" />
+          <div className="daily-leaderboard-separator">
+            <span>•••</span>
+          </div>
           <div className="daily-leaderboard-row self">
-            <span className="rank">#{userRank}</span>
-            <span className="name">{username || text('yourScore')}</span>
+            <div className="rank-name-group">
+              <span className="rank">
+                <span style={{ opacity: 0.7, fontSize: '0.85em' }}>#{userRank}</span>
+              </span>
+              <span className="name">{username || text('yourScore')}</span>
+            </div>
             <span className="score">{Number(userScore || 0).toLocaleString()}</span>
           </div>
         </>
@@ -41,20 +49,19 @@ export default function DailyLeaderboardPanel({ top10 = [], userRank, userScore,
 
       {!isLoggedIn && (
         <>
-          <div className="daily-leaderboard-separator" />
+          <div className="daily-leaderboard-separator">
+            <span>•••</span>
+          </div>
           <div className="daily-leaderboard-signin">
-            {text('signInToCompete')}
+            <span style={{ marginRight: 8 }}>{text('signInToCompete')}</span>
             {onSignIn && (
-              <>
-                {' '}
-                <button
-                  className="g2_green_button3"
-                  style={{ padding: '4px 12px', borderRadius: 8, marginLeft: 6 }}
-                  onClick={onSignIn}
-                >
-                  {text('signIn')}
-                </button>
-              </>
+              <button
+                className="g2_green_button3"
+                style={{ padding: '6px 14px', borderRadius: 10, fontSize: '0.9rem' }}
+                onClick={onSignIn}
+              >
+                {text('signIn')}
+              </button>
             )}
           </div>
         </>
