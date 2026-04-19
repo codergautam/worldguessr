@@ -378,11 +378,9 @@ export default function DailyChallengeScreen({
         results={results}
         loadingResults={loadingResults}
         isLoggedIn={!!session?.token?.secret}
-        username={session?.token?.username || session?.user?.username}
         disqualified={disqualified || submitResponse?.disqualified}
         onClose={onExit}
         onSignIn={() => signIn()}
-        fetchResults={fetchResults}
         inCoolMathGames={inCoolMathGames}
       />
     );

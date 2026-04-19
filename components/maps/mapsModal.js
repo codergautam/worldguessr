@@ -41,7 +41,7 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 
     return (
         <Modal
-            classNames={{ modal: "g2_modal" }}
+            classNames={{ modal: "g2_modal map-modal-full" }}
             styles={{
                 modal: styles.modalShell,
                 overlay: styles.overlayDisable // Disable library's overlay scroll behavior
@@ -53,48 +53,8 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
             blockScroll={false} // Critical: prevent library from blocking body scroll
             closeOnOverlayClick={true}
         >
-            <div className={`g2_nav_ui map-modal-sidebar ${mapModalClosing ? "g2_slide_out" : ""} desktop`}>
-                <div className="g2_nav_hr desktop"></div>
-                {/* {!makeMap.open && (
-                    <>
-                        <div className="mapSearch">
-                            <input
-                                type="text"
-                                placeholder={text("searchForMaps")}
-                                className="g2_input"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <div className="g2_nav_hr"></div>
-                    </>
-                )} */}
-
-
-                {!makeMap.open && (
-                <div className="g2_nav_group map_categories">
-                    <button className="g2_nav_text singleplayer comm_map_category_header"
-                        onClick={() => document.getElementById("countryMaps_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
-                    >{text("countryMaps")}</button>
-                    <button className="g2_nav_text singleplayer comm_map_category_header"
-                        onClick={() => document.getElementById("spotlight_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
-                    >{text("spotlight")}</button>
-                    <button className="g2_nav_text singleplayer comm_map_category_header"
-                        onClick={() => document.getElementById("popular_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
-                    >{text("popular")}</button>
-                    <button className="g2_nav_text singleplayer comm_map_category_header"
-                        onClick={() => document.getElementById("recent_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
-                    >{text("recent")}</button>
-                </div>
-                )}
-                <div className="g2_nav_hr"></div>
-                {!makeMap.open && (
-
-                <button className="g2_nav_text singleplayer red" onClick={onClose}>{text("back")}</button>
-                )}
-            </div>
             {/* Single scroll container: only this element scrolls on iOS */}
-            <div className="g2_content map-modal-content" style={styles.scrollWrap}>
+            <div className="g2_content map-modal-content full-width" style={styles.scrollWrap}>
                 <div style={styles.modalContent}>
                     <MapView
                     mapModalClosing={mapModalClosing}

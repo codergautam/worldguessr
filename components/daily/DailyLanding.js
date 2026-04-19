@@ -3,8 +3,9 @@ import { FaCalendarDay, FaClock, FaTrophy, FaPlay, FaCheck } from 'react-icons/f
 import { useTranslation } from '@/components/useTranslations';
 import { formatCountdown, msUntilLocalMidnight, challengeNumber } from '@/utils/dailyDate';
 import DailyStreakBadge from './DailyStreakBadge';
-import DailyStreakCalendar from './DailyStreakCalendar';
 import DailyLeaderboardPanel from './DailyLeaderboardPanel';
+import PersonalRecordsCard from './PersonalRecordsCard';
+import DailyHistoryBars14 from './DailyHistoryBars14';
 
 export default function DailyLanding({ today, todayTop10 = [], userData = null, onStartChallenge, onSignIn, isLoggedIn }) {
   const { t: text } = useTranslation();
@@ -98,12 +99,17 @@ export default function DailyLanding({ today, todayTop10 = [], userData = null, 
         )}
       </section>
 
-      {(userData?.history?.length || 0) > 0 && (
-        <section className="daily-landing-section">
-          <div className="daily-landing-section-title">{text('dailyHistoryTitle')}</div>
-          <DailyStreakCalendar history={userData?.history || []} today={today} />
-        </section>
-      )}
+      <section className="daily-landing-section">
+        <div className="daily-landing-section-title">{text('dailyHistoryTitle')}</div>
+        <PersonalRecordsCard
+          history={userData?.history || []}
+          streakBest={userData?.streakBest || 0}
+          personalBest={userData?.personalBest || 0}
+        />
+        {(userData?.history?.length || 0) > 0 && (
+          <DailyHistoryBars14 history={userData?.history || []} today={today} />
+        )}
+      </section>
     </div>
   );
 }

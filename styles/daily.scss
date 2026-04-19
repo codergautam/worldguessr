@@ -970,34 +970,6 @@
   .daily-round-bar-avg-label { display: none; }
 }
 
-/* Guest "sign in to save your streak" nudge */
-.daily-guest-signin-cta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-top: 16px;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.12), rgba(255, 122, 26, 0.12));
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  border-radius: 12px;
-  color: white;
-  flex-wrap: wrap;
-}
-.daily-guest-signin-cta > span {
-  flex: 1;
-  min-width: 220px;
-  font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.92);
-}
-.daily-guest-signin-cta > button {
-  padding: 8px 18px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  border-radius: 10px;
-  cursor: pointer;
-  white-space: nowrap;
-}
 
 /* Action buttons */
 .daily-actions {
@@ -1149,25 +1121,134 @@
 .daily-landing-step svg { font-size: 1.5rem; color: #ffd700; }
 .daily-landing-step-text { color: rgba(255, 255, 255, 0.85); font-size: 0.95rem; }
 
-/* Streak calendar */
-.daily-streak-calendar {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 4px;
-}
-.streak-calendar-cell {
-  aspect-ratio: 1 / 1;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.08);
+/* 14-day history bar chart — replaces the old binary streak calendar. Each
+   bar height ∝ score, tier-colored, with today pulsing. Stubs mark missed
+   days so gaps are visible without being loud. */
+.daily-history-bars14 {
   position: relative;
+  margin-top: 14px;
+  padding: 14px 10px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
 }
-.streak-calendar-cell.played {
-  background: linear-gradient(135deg, #ffd27a, #ff7a1a);
-  box-shadow: 0 0 4px rgba(255, 140, 40, 0.4);
+.daily-history-bars14-plot {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 120px;
 }
-.streak-calendar-cell.today {
-  outline: 2px solid #ffd700;
-  outline-offset: 1px;
+.daily-history-bar {
+  flex: 1 1 0;
+  min-width: 12px;
+  position: relative;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.daily-history-bar:focus { outline: none; }
+.daily-history-bar:focus-visible .daily-history-bar-fill {
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.6);
+}
+.daily-history-bar-fill {
+  width: 100%;
+  height: var(--bar-h, 6%);
+  border-radius: 4px 4px 2px 2px;
+  transition: filter 0.15s ease;
+  background: #555;
+}
+.daily-history-bar:hover .daily-history-bar-fill { filter: brightness(1.2); }
+.daily-history-bar.stub .daily-history-bar-fill {
+  background: rgba(255, 255, 255, 0.12);
+}
+.daily-history-bar.tier-low .daily-history-bar-fill {
+  background: linear-gradient(180deg, #ff6b6b 0%, #c73030 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.daily-history-bar.tier-mid .daily-history-bar-fill {
+  background: linear-gradient(180deg, #ffd54f 0%, #c68a00 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.daily-history-bar.tier-high .daily-history-bar-fill {
+  background: linear-gradient(180deg, #6ed890 0%, #2f8a4b 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+.daily-history-bar.tier-gold .daily-history-bar-fill {
+  background: linear-gradient(180deg, #ffe68a 0%, #ffb300 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3),
+              0 0 10px rgba(255, 200, 80, 0.4);
+}
+.daily-history-bar.tier-platinum .daily-history-bar-fill {
+  background: linear-gradient(180deg, #f5faff 0%, #b9f2ff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6),
+              0 0 16px rgba(185, 242, 255, 0.7);
+}
+.daily-history-bar.today .daily-history-bar-fill {
+  animation: dailyHistoryTodayPulse 2s ease-in-out infinite;
+}
+.daily-history-bar.today-unplayed .daily-history-bar-fill {
+  background: transparent;
+  border: 2px dashed rgba(255, 215, 0, 0.55);
+  height: 100%;
+  border-radius: 4px;
+  animation: none;
+}
+@keyframes dailyHistoryTodayPulse {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 0 rgba(255, 215, 0, 0)); }
+  50%      { filter: brightness(1.25) drop-shadow(0 0 8px rgba(255, 215, 0, 0.75)); }
+}
+
+.daily-history-bars14-tooltip {
+  position: absolute;
+  left: calc(10px + (100% - 20px) * ((var(--bar-idx) + 0.5) / var(--bar-count)));
+  transform: translateX(-50%);
+  bottom: calc(100% + 4px);
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: white;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  animation: daily-tooltip-in 120ms ease-out;
+}
+.daily-history-bars14-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.92);
+}
+.daily-history-bars14-tooltip-date {
+  font-weight: 700;
+  color: #ffd700;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  margin-bottom: 2px;
+}
+.daily-history-bars14-tooltip-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.daily-history-bars14-tooltip-stats.muted { color: rgba(255, 255, 255, 0.7); font-style: italic; }
+.daily-history-bars14-tooltip-score { font-weight: 700; color: white; }
+.daily-history-bars14-tooltip-rank { color: rgba(255, 255, 255, 0.7); font-size: 0.8rem; }
+
+@media (max-width: 500px) {
+  .daily-history-bars14-plot { height: 96px; gap: 3px; }
+  .daily-history-bar { min-width: 10px; }
 }
 
 /* Share modal */

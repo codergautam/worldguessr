@@ -178,52 +178,6 @@ function useAnimatedNumber(target, durationMs = 1200) {
   return [display, animating];
 }
 
-// Compact personal-records card — shows the three stats that are most
-// motivating without leaning on anyone else's scores. Replaces the "Top 10"
-// card on the results screen (that's already on the landing page, showing
-// it twice adds noise). Works for guests the same as logged-in users
-// because GuestProfile.daily.{history,streakBest,personalBest} carries the
-// same shape as User.dailyHistory.
-function PersonalRecordsCard({ history, streakBest, personalBest, todayScore, text }) {
-  const daysPlayed = history.length;
-  const todayBroke = Number.isFinite(todayScore) && todayScore > 0 && todayScore >= personalBest;
-
-  if (daysPlayed === 0) {
-    return (
-      <div className="daily-stat-card daily-records-card">
-        <div className="daily-stat-title">{text('personalRecords')}</div>
-        <div className="daily-records-empty">{text('dailyStartOfJourney')}</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="daily-stat-card daily-records-card">
-      <div className="daily-stat-title">{text('personalRecords')}</div>
-      <div className="daily-records-grid">
-        <div className="daily-record-row">
-          <span className="daily-record-icon" aria-hidden="true">🏆</span>
-          <span className="daily-record-label">{text('bestScore')}</span>
-          <span className="daily-record-value">
-            {Math.round(Math.max(personalBest, todayScore || 0)).toLocaleString()}
-            {todayBroke && <span className="daily-record-new-badge">{text('newBest')}</span>}
-          </span>
-        </div>
-        <div className="daily-record-row">
-          <span className="daily-record-icon" aria-hidden="true">🔥</span>
-          <span className="daily-record-label">{text('bestStreakLabel')}</span>
-          <span className="daily-record-value">{text('streakDays', { count: streakBest || 0 })}</span>
-        </div>
-        <div className="daily-record-row">
-          <span className="daily-record-icon" aria-hidden="true">📅</span>
-          <span className="daily-record-label">{text('daysPlayed')}</span>
-          <span className="daily-record-value">{daysPlayed.toLocaleString()}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Full-viewport celebratory flame burst — fires once when a submission lands
 // and the streak is alive (started or extended). Self-unmounts after the
 // animation so it doesn't re-trigger on re-renders. Pointer-events: none so
@@ -326,11 +280,9 @@ export default function DailyResultsScreen({
   results,
   loadingResults,
   isLoggedIn,
-  username,
   disqualified = false,
   onClose,
   onSignIn,
-  fetchResults,
   inCoolMathGames = false,
 }) {
   const { t: text } = useTranslation();
@@ -399,7 +351,6 @@ export default function DailyResultsScreen({
   }, [date]);
 
   const streak = submitResponse?.streak ?? results?.user?.streak ?? 0;
-  const streakBest = submitResponse?.streakBest ?? results?.user?.streakBest ?? 0;
   const newPB = submitResponse?.newPersonalBest;
   const graceUsed = submitResponse?.graceUsed;
   const quip = useMotivationalQuip(totalScore, date);
@@ -507,7 +458,7 @@ export default function DailyResultsScreen({
 
         <div className="daily-stats-grid">
           {/* Distribution */}
-          <div className="daily-stat-card">
+          <div className="daily-stat-card" style={{ gridColumn: '1 / -1' }}>
             <div className="daily-stat-title">{text('dailyScoreDistribution')}</div>
             {(distribution?.totalPlays || 0) >= 10 ? (
               <ScoreDistributionChart
@@ -534,18 +485,6 @@ export default function DailyResultsScreen({
             )}
           </div>
 
-          {/* Personal records — replaces the redundant "Top 10" card since
-              the landing page already surfaces today's leaderboard. Pulls
-              only from this player's own history, so it works for guests
-              and logged-in users alike. */}
-          <PersonalRecordsCard
-            history={results?.user?.history || []}
-            streakBest={results?.user?.streakBest || 0}
-            personalBest={results?.user?.personalBest || 0}
-            todayScore={totalScore}
-            text={text}
-          />
-
           {/* History sparkline — only meaningful with at least a few data
               points, otherwise it's a single dot and looks broken. */}
           {(results?.user?.history?.length || 0) >= 3 && (
@@ -555,13 +494,6 @@ export default function DailyResultsScreen({
             </div>
           )}
         </div>
-
-        {!isLoggedIn && (results?.user?.streak || 0) > 0 && onSignIn && (
-          <div className="daily-guest-signin-cta">
-            <span>{text('dailyGuestSignInToSave', { streak: results.user.streak })}</span>
-            <button className="g2_green_button" onClick={onSignIn}>{text('signIn')}</button>
-          </div>
-        )}
 
         <div className="daily-actions">
           <button className="g2_green_button" onClick={handleShare}>
