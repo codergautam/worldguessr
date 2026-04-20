@@ -569,6 +569,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
     const [navSlideOut, setNavSlideOut] = useState(false);
+    const [awaitingCreatePartyScreen, setAwaitingCreatePartyScreen] = useState(false);
 
     // Daily challenge navigation (in-app pushState, no real Next route change)
     const screenRef = useRef('home');
@@ -607,6 +608,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         window.addEventListener('popstate', onPop);
         return () => window.removeEventListener('popstate', onPop);
     }, [initialScreen, isDailyPath]);
+
+    useEffect(() => {
+        if (!awaitingCreatePartyScreen) return;
+
+        if (screen !== "home" || connectionErrorModalShown || multiplayerError) {
+            setAwaitingCreatePartyScreen(false);
+            setNavSlideOut(false);
+            return;
+        }
+
+        // If backend/game creation stalls, restore home nav so the user isn't stuck on a hidden menu.
+        const restoreHomeNavTimeout = setTimeout(() => {
+            setAwaitingCreatePartyScreen(false);
+            setNavSlideOut(false);
+        }, 12000);
+
+        return () => clearTimeout(restoreHomeNavTimeout);
+    }, [awaitingCreatePartyScreen, screen, connectionErrorModalShown, multiplayerError]);
 
     // Keep the URL in sync with the `screen` state for daily mode. Anything
     // that transitions screen away from 'daily' (back button on the navbar,
@@ -3092,7 +3111,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 )}
-                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
+                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || screen === 'daily' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>
 
@@ -3225,8 +3244,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                     }
 
                                                     setNavSlideOut(true);
+                                                    setAwaitingCreatePartyScreen(true);
                                                     setTimeout(() => {
-                                                        setNavSlideOut(false); // Reset for next use
                                                         handleMultiplayerAction("createPrivateGame")
                                                     }, 300);
                                                 }}>{text("createGame")}</button>

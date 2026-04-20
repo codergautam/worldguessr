@@ -69,9 +69,9 @@ function RoundBadges({ rounds, roundAverages = [], locations = [], allowMapLinks
           ? `https://www.google.com/maps?q=${loc.lat},${loc.long}`
           : null;
 
-        // Only show a "% above avg" brag badge when the player is at or
-        // above the global average — below-average shaming doesn't belong
-        // in a celebratory results screen.
+        // Only show a "% above avg" brag badge when the player is strictly
+        // above the global average — matching or below-average results don't
+        // belong in a celebratory results screen.
         let diffLabel = null;
         let diffClass = "";
         if (avg != null && r.score != null && avg > 0) {
@@ -79,9 +79,6 @@ function RoundBadges({ rounds, roundAverages = [], locations = [], allowMapLinks
           if (diffPct > 0) {
             diffLabel = text('aboveAvg', { pct: diffPct });
             diffClass = "above-avg";
-          } else if (diffPct === 0) {
-            diffLabel = text('exactAvg');
-            diffClass = "exact-avg";
           }
         } else if (avg === 0 && r.score > 0) {
           diffLabel = text('aboveAvg', { pct: 100 });
