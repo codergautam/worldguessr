@@ -103,6 +103,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [accountModalOpen, setAccountModalOpen] = useState(false);
     const [screen, setScreen] = useState(initialScreen === "daily" ? "daily" : "home");
     const [loading, setLoading] = useState(false);
+    const [mapSwitchMaskShown, setMapSwitchMaskShown] = useState(false);
+    const [mapSwitchSawLoading, setMapSwitchSawLoading] = useState(false);
     // game state
     const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
     const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
@@ -137,6 +139,32 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [miniMapShown, setMiniMapShown] = useState(false)
     const [accountModalPage, setAccountModalPage] = useState("profile");
     const [mapModalClosing, setMapModalClosing] = useState(false);
+    const MAP_MODAL_CLOSE_ANIMATION_MS = 400;
+
+    useEffect(() => {
+        if (!mapSwitchMaskShown) return;
+
+        if (loading) {
+            if (!mapSwitchSawLoading) setMapSwitchSawLoading(true);
+            return;
+        }
+
+        if (mapSwitchSawLoading) {
+            setMapSwitchMaskShown(false);
+            setMapSwitchSawLoading(false);
+        }
+    }, [mapSwitchMaskShown, mapSwitchSawLoading, loading]);
+
+    useEffect(() => {
+        if (!mapSwitchMaskShown) return;
+
+        const mapSwitchMaskTimeout = setTimeout(() => {
+            setMapSwitchMaskShown(false);
+            setMapSwitchSawLoading(false);
+        }, 8000);
+
+        return () => clearTimeout(mapSwitchMaskTimeout);
+    }, [mapSwitchMaskShown]);
 
     useEffect(() => {
         let hideInt = setInterval(() => {
@@ -965,6 +993,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (screen === "singleplayer" && gameOptions.location && gameOptions.location !== "all" && !gameOptions.extent) {
             // Re-open the map to restore extent
             openMap(gameOptions.location);
+        }
+    }, [screen])
+
+    // Country/continent guesser always plays on the world map — if the user had
+    // a country-specific map loaded in singleplayer (e.g. "CA"), clear it so we
+    // don't keep serving the same country over and over.
+    useEffect(() => {
+        if (screen === "countryGuesser" && gameOptions.location !== "all") {
+            openMap("all");
+            setAllLocsArray([]);
         }
     }, [screen])
     useEffect(() => {
@@ -2952,13 +2990,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         console.log("loaded")
                         setTimeout(() => {
                             setLoading(false)
+                            setMapSwitchMaskShown(false);
+                            setMapSwitchSawLoading(false);
                         }, 300)
 
                     }}
                 />
 
                 {/* Loading overlay - covers iframe with background image to prevent white flicker */}
-                <div className={`loading-overlay ${loading ? 'loading-overlay--visible' : ''}`}>
+                <div className={`loading-overlay ${(loading || mapSwitchMaskShown) ? 'loading-overlay--visible' : ''}`}>
                     <NextImage.default src={asset('/street2.webp')}
                         draggable={false}
                         width={1920}
@@ -3377,39 +3417,80 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     setMapModalClosing(true);
                     setTimeout(() => {
                         setMapModal(false); setGameOptionsModalShown(false); setMapModalClosing(false)
-                    }, 300);
+                    }, MAP_MODAL_CLOSE_ANIMATION_MS);
                 }}
                     mapModalClosing={mapModalClosing}
                     text={text}
                     customChooseMapCallback={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser")) ? (map) => {
-                        if (map.slug === "__countryGuesser") {
-                            setCountryGuessrMode({ subMode: "country", region: "all" });
-                            try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
-                            if (screen !== "countryGuesser") {
-                                setScreen("countryGuesser");
-                            } else {
-                                setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
-                                setShowCountryButtons(true);
-                                loadLocation();
-                            }
-                            setGameOptionsModalShown(false);
-                        } else if (map.slug === "__continentGuesser") {
-                            setCountryGuessrMode({ subMode: "continent", region: "all" });
-                            try { gameStorage.setItem("singleplayerDefaultMode", "continentGuesser"); } catch(e) {}
-                            if (screen !== "countryGuesser") {
-                                setScreen("countryGuesser");
-                            } else {
-                                setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
-                                setShowCountryButtons(true);
-                                loadLocation();
-                            }
-                            setGameOptionsModalShown(false);
-                        } else {
-                            if (screen === "countryGuesser") setScreen("singleplayer");
-                            try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch(e) {}
-                            openMap(map.countryMap || map.slug);
-                            setGameOptionsModalShown(false);
+                        if (mapModalClosing) return;
+                        const selectedMapSlug = map.countryMap || map.slug;
+                        const selectingCountryGuesser = map.slug === "__countryGuesser";
+                        const selectingContinentGuesser = map.slug === "__continentGuesser";
+                        const selectingRegularMap = !selectingCountryGuesser && !selectingContinentGuesser;
+                        const isSameSelection =
+                            (selectingCountryGuesser && screen === "countryGuesser" && countryGuessrMode?.subMode === "country") ||
+                            (selectingContinentGuesser && screen === "countryGuesser" && countryGuessrMode?.subMode === "continent") ||
+                            (selectingRegularMap && screen === "singleplayer" && selectedMapSlug === gameOptions.location);
+
+                        const closeMapChooser = () => {
+                            setTimeout(() => {
+                                setMapModal(false);
+                                setGameOptionsModalShown(false);
+                                setMapModalClosing(false);
+                            }, MAP_MODAL_CLOSE_ANIMATION_MS);
+                        };
+
+                        // No-op if user clicks the currently active map/mode.
+                        if (isSameSelection) {
+                            setMapSwitchMaskShown(false);
+                            setMapSwitchSawLoading(false);
+                            setMapModalClosing(true);
+                            closeMapChooser();
+                            return;
                         }
+
+                        setMapModalClosing(true);
+                        setMapSwitchMaskShown(true);
+                        setMapSwitchSawLoading(false);
+
+                        const applyMapSelection = () => {
+                            if (map.slug === "__countryGuesser") {
+                                setCountryGuessrMode({ subMode: "country", region: "all" });
+                                try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
+                                if (screen !== "countryGuesser") {
+                                    setScreen("countryGuesser");
+                                } else {
+                                    setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
+                                    setShowCountryButtons(true);
+                                    loadLocation();
+                                }
+                            } else if (map.slug === "__continentGuesser") {
+                                setCountryGuessrMode({ subMode: "continent", region: "all" });
+                                try { gameStorage.setItem("singleplayerDefaultMode", "continentGuesser"); } catch(e) {}
+                                if (screen !== "countryGuesser") {
+                                    setScreen("countryGuesser");
+                                } else {
+                                    setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
+                                    setShowCountryButtons(true);
+                                    loadLocation();
+                                }
+                            } else {
+                                if (screen === "countryGuesser") setScreen("singleplayer");
+                                try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch(e) {}
+                                openMap(selectedMapSlug);
+                            }
+                        };
+
+                        // Let the close class render first so fade-out starts immediately.
+                        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+                            window.requestAnimationFrame(() => {
+                                window.requestAnimationFrame(applyMapSelection);
+                            });
+                        } else {
+                            setTimeout(applyMapSelection, 0);
+                        }
+
+                        closeMapChooser();
                     } : null}
                     showAllCountriesOption={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser"))}
                     showOptions={screen === "singleplayer"}

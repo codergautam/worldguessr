@@ -23,7 +23,6 @@
 }
 
 
-
 html * {
     margin: 0;
     font-family: "Lexend", sans-serif;
@@ -151,7 +150,6 @@ html {
 .cshown {
     //left: 50%;
     opacity: 1;
-    animation: fadeIn 0.5s ease-in-out forwards;
     pointer-events: all;
     display: flex !important;
 }
@@ -2469,34 +2467,62 @@ h1, h2, h3, span, label {
 
 .endButtonContainer {
     display: flex;
-    justify-content: space-around;
+    justify-content: center;
     align-items: center;
-    margin-top: 8px;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+    width: 100%;
 
     button {
         font-family: lexend;
-        font-size: 1em;
-        padding: 10px 20px;
-        margin: 5px;
+        font-size: 1.1em;
+        font-weight: 500;
+        padding: 12px 24px;
         background-color: var(--primaryTransparent);
-        border: 2px solid var(--primary);
+        border: 2px solid rgba(255, 255, 255, 0.2);
         color: white;
-        border: none;
-        border-radius: 5px;
+        border-radius: 8px;
         cursor: pointer;
-        transition: background-color 0.3s;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        
+        &:hover {
+            background-color: var(--primary);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        &:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
     }
 
-    button:hover {
-        background-color: #666;
+    button.playAgain {
+        font-size: 1.3em;
+        font-weight: 600;
+        padding: 16px 40px;
+        background: linear-gradient(135deg, var(--primary) 0%, #2e7042 100%);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+
+        &:hover {
+            background: linear-gradient(135deg, #2e7042 0%, #388a51 100%);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
     }
 }
 
 /* Pulsing glow on last onboarding round to draw attention to View Results */
 .lastRoundPulse {
     animation: lastRoundPulse 1.5s ease-in-out infinite !important;
-    font-size: 1.1em !important;
-    padding: 12px 28px !important;
+    font-size: 1.35em !important;
+    padding: 16px 42px !important;
 }
 
 @keyframes lastRoundPulse {
@@ -2602,6 +2628,10 @@ h1, h2, h3, span, label {
         padding: 10px 20px !important;
         font-size: 1em !important;
     }
+    .endButtonContainer button.playAgain {
+        padding: 14px 28px !important;
+        font-size: 1.15em !important;
+    }
 
     .mainBannerTxt {
         font-size: 1.15em;
@@ -2643,6 +2673,10 @@ h1, h2, h3, span, label {
         .endButtonContainer button {
             padding: 9px 16px !important;
             font-size: 0.95em !important;
+        }
+        .endButtonContainer button.playAgain {
+            padding: 12px 24px !important;
+            font-size: 1.1em !important;
         }
     }
 }
@@ -2706,9 +2740,13 @@ h1, h2, h3, span, label {
     }
 
     .endButtonContainer button {
-        padding: 5px 14px !important;
-        font-size: 0.82em !important;
-        margin: 1px !important;
+        padding: 6px 16px !important;
+        font-size: 0.85em !important;
+        margin: 2px !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px !important;
+        font-size: 1em !important;
     }
 }
 
@@ -4593,8 +4631,12 @@ img.countryGuessrBtn__emoji {
     }
 
     .endButtonContainer button {
-        padding: 5px 12px !important;
-        font-size: 0.75em !important;
+        padding: 6px 14px !important;
+        font-size: 0.85em !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px !important;
+        font-size: 1em !important;
     }
 
     /* Home page navigation separators constraint */
@@ -4738,8 +4780,12 @@ img.countryGuessrBtn__emoji {
     }
 
     .endButtonContainer button {
-        padding: 6px 12px;
-        font-size: 0.8em;
+        padding: 6px 14px;
+        font-size: 0.85em;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px;
+        font-size: 1em;
     }
 
     /* Round over content optimizations */

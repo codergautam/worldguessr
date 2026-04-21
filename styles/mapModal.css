@@ -8,7 +8,59 @@
   --map-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   --map-border-radius: 8px;
   --map-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --map-animation-duration: 0.4s;
+  --map-animation-duration: 0.25s;
+}
+
+/* Fullscreen map modal — open/close on the actual react-responsive-modal dialog node */
+@keyframes mapModalShellIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mapModalShellOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes mapModalOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mapModalOverlayOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Match library animation name + duration; easing complements the keyframes above */
+.g2_modal.map-modal-full.react-responsive-modal-modal {
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.map-modal-full-container.react-responsive-modal-container {
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  text-align: left !important;
 }
 
 /* Loading States */
@@ -43,17 +95,14 @@
 
 /* Map View Container */
 .mapView {
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: min(1400px, calc(100% - 32px));
+  margin: 16px auto;
   padding: 0 20px 100px;
-  animation: fadeIn var(--map-animation-duration) ease-out;
-  animation-fill-mode: forwards;
   backdrop-filter: blur(50px);
+  -webkit-backdrop-filter: blur(50px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--map-border-radius);
   -webkit-overflow-scrolling: touch;
-}
-
-.mapView.slideout_right {
-  animation: fadeOut var(--map-animation-duration) ease-in forwards;
 }
 
 @keyframes fadeIn {
@@ -84,11 +133,14 @@
   top: 0;
   z-index: 100;
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   padding: 20px 0 10px;
-  margin: -20px -20px 20px;
+  margin: 0 -20px 20px;
   padding-left: 20px;
   padding-right: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-top-left-radius: var(--map-border-radius);
+  border-top-right-radius: var(--map-border-radius);
 }
 
 /* Header Section */
@@ -297,7 +349,8 @@
   display: flex;
   justify-content: center;
   gap: 16px;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
+  margin-top: 32px;
   flex-wrap: wrap;
 }
 
@@ -345,6 +398,42 @@
   height: 24px;
   background: linear-gradient(135deg, var(--map-primary), var(--map-primary-light));
   border-radius: 2px;
+}
+
+/* Spotlight section — purple accent */
+.map-section--spotlight .map-section-title {
+  color: #d6b3ff;
+}
+.map-section--spotlight .map-section-title::before {
+  background: linear-gradient(135deg, #7e3ff2, #b57bff);
+}
+.map-section--spotlight .map-tile {
+  border-color: rgba(157, 96, 255, 0.35);
+  background: linear-gradient(135deg, rgba(126, 63, 242, 0.22) 0%, rgba(75, 0, 130, 0.28) 100%);
+}
+.map-section--spotlight .map-tile::before {
+  background: linear-gradient(135deg, rgba(126, 63, 242, 0.18) 0%, rgba(75, 0, 130, 0.1) 100%);
+}
+.map-section--spotlight .map-tile:hover {
+  border-color: #b57bff;
+}
+
+/* Popular section — subtle golden accent */
+.map-section--popular .map-section-title {
+  color: #ffe7a8;
+}
+.map-section--popular .map-section-title::before {
+  background: linear-gradient(135deg, #d4a000, #ffd76a);
+}
+.map-section--popular .map-tile {
+  border-color: rgba(255, 200, 90, 0.28);
+  background: linear-gradient(135deg, rgba(212, 160, 0, 0.14) 0%, rgba(120, 85, 0, 0.18) 100%);
+}
+.map-section--popular .map-tile::before {
+  background: linear-gradient(135deg, rgba(255, 200, 90, 0.12) 0%, rgba(140, 95, 0, 0.06) 100%);
+}
+.map-section--popular .map-tile:hover {
+  border-color: #ffd76a;
 }
 
 /* Map Grid */
@@ -409,13 +498,11 @@
 }
 
 .map-section-container {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: var(--map-border-radius);
-  padding: 20px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  border: none;
   position: relative;
-  overflow: hidden;
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-overflow-scrolling: touch;
 }
@@ -423,6 +510,8 @@
 /* Map Tiles - Split Layout */
 .map-tile {
   background: var(--map-card-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: var(--map-border-radius);
   cursor: pointer;
   transition: var(--map-transition);
@@ -573,10 +662,10 @@
   align-items: center;
   gap: 3px;
   padding: 3px 6px;
-  background: rgba(220, 53, 69, 0.2);
-  border: 1px solid rgba(220, 53, 69, 0.4);
+  background: rgba(110, 20, 30, 0.65);
+  border: 1px solid rgba(220, 53, 69, 0.55);
   border-radius: 8px;
-  color: #dc3545;
+  color: #ff6b7a;
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
@@ -586,12 +675,11 @@
 }
 
 .map-tile__heart:hover:not(.disabled) {
-  background: rgba(220, 53, 69, 0.3);
+  background: rgba(130, 25, 35, 0.8);
   transform: scale(1.05);
 }
 
 .map-tile__heart.disabled {
-  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -1249,12 +1337,10 @@
 @supports (-webkit-touch-callout: none) {
   .mapView {
     -webkit-overflow-scrolling: touch;
-    overflow-scrolling: touch;
   }
 
   .map-section-container {
     -webkit-overflow-scrolling: touch;
-    overflow-scrolling: touch;
     transform: translateZ(0);
   }
 

@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import MapView from "./mapView";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { Modal } from "react-responsive-modal";
 import { asset, localePath } from '@/lib/basePath';
 // import { useMapSearch } from "../hooks/useMapSearch"; // REMOVED TO FIX DUPLICATE SEARCH CALLS - MapView handles search
+
+const MAP_MODAL_ANIM_MS = 400;
 
 const initMakeMap = {
     open: false,
@@ -16,10 +18,25 @@ const initMakeMap = {
     edit: false,
     mapId: "",
 };
-export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions, showTimerOption, hideCountryGuessrModes }) {
+export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, onExitComplete, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions, showTimerOption, hideCountryGuessrModes }) {
     const [makeMap, setMakeMap] = useState(initMakeMap);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
+    const exitOnceRef = useRef(false);
+
+    useEffect(() => {
+        if (!mapModalClosing) {
+            exitOnceRef.current = false;
+            return;
+        }
+        if (!onExitComplete) return;
+        const id = window.setTimeout(() => {
+            if (exitOnceRef.current) return;
+            exitOnceRef.current = true;
+            onExitComplete();
+        }, MAP_MODAL_ANIM_MS);
+        return () => window.clearTimeout(id);
+    }, [mapModalClosing, onExitComplete]);
 
     // REMOVED: const { handleSearch } = useMapSearch(session, setSearchResults);
     // REMOVED: useEffect for handleSearch - MapView now handles all search logic to avoid duplicate API calls
@@ -41,15 +58,23 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 
     return (
         <Modal
-            classNames={{ modal: "g2_modal map-modal-full" }}
+            classNames={{
+                modal: "g2_modal map-modal-full",
+                modalContainer: "map-modal-full-container",
+                modalAnimationIn: "mapModalShellIn",
+                modalAnimationOut: "mapModalShellOut",
+                overlayAnimationIn: "mapModalOverlayIn",
+                overlayAnimationOut: "mapModalOverlayOut",
+            }}
             styles={{
                 modal: styles.modalShell,
+                modalContainer: styles.modalContainer,
                 overlay: styles.overlayDisable // Disable library's overlay scroll behavior
             }}
-            open={shown}
+            open={shown && !mapModalClosing}
             onClose={onClose}
             showCloseIcon={false}
-            animationDuration={0}
+            animationDuration={MAP_MODAL_ANIM_MS}
             blockScroll={false} // Critical: prevent library from blocking body scroll
             closeOnOverlayClick={true}
         >
@@ -57,7 +82,6 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
             <div className="g2_content map-modal-content full-width" style={styles.scrollWrap}>
                 <div style={styles.modalContent}>
                     <MapView
-                    mapModalClosing={mapModalClosing}
                         showOptions={showOptions}
                         showTimerOption={showTimerOption}
                         showAllCountriesOption={showAllCountriesOption}
@@ -81,6 +105,15 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 }
 
 const styles = {
+    modalContainer: {
+        overflow: "hidden",
+        overflowY: "hidden",
+        textAlign: "left",
+    },
+    overlayDisable: {
+        overflow: "hidden",
+        background: "rgba(0, 0, 0, 0.45)",
+    },
     // Full-viewport modal wrapper - fixed container, no scrolling
     modalShell: {
         background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("${asset('/street2.webp')}")`,
@@ -108,7 +141,7 @@ const styles = {
         WebkitOverflowScrolling: "touch",
         touchAction: "pan-y pinch-zoom", // Allow vertical pan and pinch
         overscrollBehavior: "contain",
-        scrollbarGutter: "stable", // Prevent layout shift from scrollbar
+        scrollbarGutter: "stable both-edges", // Prevent layout shift from scrollbar
         padding: "20px",
         position: "relative",
         zIndex: 1130,

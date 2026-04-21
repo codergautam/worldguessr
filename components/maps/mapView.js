@@ -12,7 +12,6 @@ import { useTranslation } from '@/components/useTranslations';
 
 export default function MapView({
     gameOptions,
-    mapModalClosing,
     setGameOptions,
     showOptions,
     showTimerOption,
@@ -270,40 +269,47 @@ export default function MapView({
     };
 
     const getRowsForSection = (section) => {
-        if (section === "popular") return 2;
+        if (section === "popular") return 4;
         if (section === "spotlight") return 1; // Spotlight should show 1 row by default
         return 2;
     };
 
     const getMapsPerRow = (section = "default") => {
         const container = document.querySelector('.mapView');
+        const isCountry = section === 'countryMaps';
         if (!container) {
-            if (window.innerWidth >= 1400) return 6;
-            if (window.innerWidth >= 1200) return 5;
-            if (window.innerWidth >= 1000) return 4;
-            if (window.innerWidth >= 768) return 3;
-            return 2;
+            if (window.innerWidth >= 1400) return isCountry ? 9 : 6;
+            if (window.innerWidth >= 1200) return isCountry ? 8 : 5;
+            if (window.innerWidth >= 1000) return isCountry ? 6 : 4;
+            if (window.innerWidth >= 800) return isCountry ? 5 : 3;
+            return isCountry ? 3 : 2;
         }
 
+        // Must match .mapView's horizontal padding in mapModal.css
         let padding = 40;
-        if (window.innerWidth <= 768) padding = 32;
         if (window.innerWidth <= 480) padding = 24;
-        
+
         const containerWidth = container.clientWidth - padding;
 
-        let gridGap = 16;
-        if (window.innerWidth <= 480) gridGap = 8;
-        else if (window.innerWidth <= 768) gridGap = 12;
-
-        let minTileWidth = section === 'countryMaps' ? 125 : 160;
-        if (window.innerWidth <= 768) minTileWidth = section === 'countryMaps' ? 110 : 160;
-        if (window.innerWidth <= 480) minTileWidth = section === 'countryMaps' ? 95 : 140;
+        // Must match the CSS `gap` on .map-grid / .map-grid.country-maps per breakpoint.
+        let gridGap;
+        let minTileWidth;
+        if (window.innerWidth <= 480) {
+            gridGap = 8;
+            minTileWidth = isCountry ? 95 : 140;
+        } else if (window.innerWidth <= 800) {
+            gridGap = isCountry ? 10 : 12;
+            minTileWidth = isCountry ? 110 : 160;
+        } else {
+            gridGap = isCountry ? 12 : 16;
+            minTileWidth = isCountry ? 125 : 160;
+        }
 
         const tilesPerRow = Math.floor((containerWidth + gridGap) / (minTileWidth + gridGap));
         return Math.max(1, tilesPerRow);
     };    if (makeMap.open) {
         return (
-            <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
+            <div className="mapView">
                 <div className="map-header">
                     <div className="map-header-left">
                         <button
@@ -323,7 +329,7 @@ export default function MapView({
     }
 
     return (
-        <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
+        <div className="mapView">
             {/* Sticky Header Container */}
             <div className="map-sticky-header">
                 {/* Header */}
@@ -494,7 +500,7 @@ export default function MapView({
                                 const displayedMaps = isExpanded ? mapsArray : mapsArray.slice(0, defaultMaxMaps);
 
                                 return (
-                                    <div key={si} className="map-section">
+                                    <div key={si} className={`map-section${section === "spotlight" ? " map-section--spotlight" : ""}${section === "popular" ? " map-section--popular" : ""}`}>
                                         <h2
                                             id={section + "_map_view_section"}
                                             className="map-section-title"

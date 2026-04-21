@@ -5,6 +5,7 @@ import triggerConfetti from "./utils/triggerConfetti";
 import nameFromCode from "./utils/nameFromCode";
 import continentFromCode from "./utils/continentFromCode";
 import { continentKey } from "./utils/continentLocale";
+import findCountryLocal from "./findCountryLocal";
 const QUIP_KEYS = {
   correct: Array.from({length: 24}, (_, i) => `quipCorrect${i+1}`),
   wrongSameContinent: Array.from({length: 20}, (_, i) => `quipWrongSame${i+1}`),
@@ -25,7 +26,7 @@ const ONBOARDING_FACTS = [
     "onboardingFact3",
 ];
 
-export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
+export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, isWorldMap, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
     const { t: text, lang } = useTranslation("common");
     const confettiTriggered = useRef(false);
     const autoAdvanceTimer = useRef(null);
@@ -120,6 +121,20 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         ? (singlePlayerRound?.lastPoint ?? (countryGuesserCorrect ? 1000 : 0))
         : (singlePlayerRound?.lastPoint ?? points);
 
+    // On the world map, promote the country reveal when the guess landed in the
+    // wrong country — that's the interesting signal, distance/points are secondary.
+    let wrongCountryName = null;
+    if (isClassicRound && isWorldMap && pinPoint && latLong?.country) {
+        const guessCountry = findCountryLocal({ lat: pinPoint.lat, lon: pinPoint.lng });
+        if (guessCountry && guessCountry !== "Unknown" && guessCountry !== latLong.country) {
+            wrongCountryName = nameFromCode(latLong.country, lang);
+        }
+    }
+
+    const distanceText = (pinPoint && km >= 0)
+        ? text(`guessDistance${options.units === "imperial" ? "Mi" : "Km"}`, { d: options.units === "imperial" ? (km * 0.621371).toFixed(1) : km })
+        : null;
+
     return (
         <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !hiding ? '' : 'none' }}>
 
@@ -129,10 +144,17 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
 
             <div className="bannerContent">
                 {/* Main result line */}
-                {isClassicRound && pinPoint && (km >= 0) ? (
-                    <span className='mainBannerTxt'>
-                        {text(`guessDistance${options.units === "imperial" ? "Mi" : "Km"}`, { d: options.units === "imperial" ? (km * 0.621371).toFixed(1) : km })}
-                    </span>
+                {isClassicRound && wrongCountryName ? (
+                    <>
+                        <span className='mainBannerTxt'>
+                            {text("incorrectCountryWas", { country: wrongCountryName })}
+                        </span>
+                        {distanceText && (
+                            <span className='smallmainBannerTxt'>{distanceText}</span>
+                        )}
+                    </>
+                ) : isClassicRound && pinPoint && (km >= 0) ? (
+                    <span className='mainBannerTxt'>{distanceText}</span>
                 ) : isClassicRound && !pinPoint ? (
                     <span className='mainBannerTxt'>{text("didntGuess")}</span>
                 ) : countryGuesser ? (
