@@ -1792,18 +1792,24 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     useEffect(() => {
         if (multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
             // save the final players
-            setMultiplayerState((prev) => ({
-                ...prev,
-                gameData: {
-                    ...prev.gameData,
-                    finalPlayers: prev.gameData.players
-                }
-            }))
+            setMultiplayerState((prev) => {
+                if (!prev.gameData) return prev;
+                return {
+                    ...prev,
+                    gameData: {
+                        ...prev.gameData,
+                        finalPlayers: prev.gameData.players
+                    }
+                };
+            })
         }
 
         if (multiplayerState?.gameData?.state === "waiting") {
             // remove gameData.finalPlayers
-            setMultiplayerState((prev) => ({ ...prev, gameData: { ...prev.gameData, finalPlayers: undefined } }));
+            setMultiplayerState((prev) => {
+                if (!prev.gameData) return prev;
+                return { ...prev, gameData: { ...prev.gameData, finalPlayers: undefined } };
+            });
         }
     }, [multiplayerState?.gameData?.state])
 
@@ -2020,13 +2026,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 console.log("duel end", data)
                 // { draw: boolean, newElo: number, oldElo: number, winner: boolean, timeElapsed: number }
 
-                setMultiplayerState((prev) => ({
-                    ...prev,
-                    gameData: {
-                        ...prev.gameData,
-                        duelEnd: data
-                    }
-                }));
+                setMultiplayerState((prev) => {
+                    if (!prev.gameData) return prev;
+                    return {
+                        ...prev,
+                        gameData: {
+                            ...prev.gameData,
+                            duelEnd: data
+                        }
+                    };
+                });
             } else if (data.type === "publicDuelRange") {
                 setMultiplayerState((prev) => ({
                     ...prev,
@@ -2035,39 +2044,48 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             } else if (data.type === "maxDist") {
                 const maxDist = data.maxDist;
                 console.log("got new max dist", maxDist)
-                setMultiplayerState((prev) => ({
-                    ...prev,
-                    gameData: {
-                        ...prev.gameData,
-                        maxDist
-                    }
-                }))
+                setMultiplayerState((prev) => {
+                    if (!prev.gameData) return prev;
+                    return {
+                        ...prev,
+                        gameData: {
+                            ...prev.gameData,
+                            maxDist
+                        }
+                    };
+                })
 
             } else if (data.type === "player") {
                 if (data.action === "remove") {
-                    setMultiplayerState((prev) => ({
-                        ...prev,
-                        gameData: {
-                            ...prev.gameData,
-                            players: prev.gameData.players.filter((p) => p.id !== data.id)
-                        }
-                    }))
+                    setMultiplayerState((prev) => {
+                        if (!prev.gameData?.players) return prev;
+                        return {
+                            ...prev,
+                            gameData: {
+                                ...prev.gameData,
+                                players: prev.gameData.players.filter((p) => p.id !== data.id)
+                            }
+                        };
+                    })
                 } else if (data.action === "add") {
-                    setMultiplayerState((prev) => ({
-                        ...prev,
-                        gameData: {
-                            ...prev.gameData,
-                            players: [...prev.gameData.players, data.player]
-                        }
-                    }))
+                    setMultiplayerState((prev) => {
+                        if (!prev.gameData?.players) return prev;
+                        return {
+                            ...prev,
+                            gameData: {
+                                ...prev.gameData,
+                                players: [...prev.gameData.players, data.player]
+                            }
+                        };
+                    })
                 }
             } else if (data.type === "place") {
                 const id = data.id;
-                if (id === multiplayerState.gameData.myId) {
+                if (id === multiplayerState?.gameData?.myId) {
                     setMultiplayerChatEnabled(true)
                 }
 
-                const player = multiplayerState.gameData.players.find((p) => p.id === id);
+                const player = multiplayerState?.gameData?.players?.find((p) => p.id === id);
                 if (player) {
                     player.final = data.final;
                     player.latLong = data.latLong;
@@ -2176,6 +2194,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             } else if (data.type === 'generating') {
                 // location generation before round
                 setMultiplayerState((prev) => {
+                    if (!prev.gameData) return prev;
                     return {
                         ...prev,
                         gameData: {
