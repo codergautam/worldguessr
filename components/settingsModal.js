@@ -103,7 +103,7 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 <div style={{height: "40vh"} }></div>
 
             </div>
-            {!inCrazyGames && (
+            {!inCrazyGames && !inGameDistribution && (
                 <div className="g2_slide_in" style={{ position: 'absolute', bottom: '25px', left: '25px', display: 'flex', gap: '8px', zIndex: 10 }}>
                     <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">
                         <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github" style={{ width: '50px', height: '50px', padding: '0', color: 'white' }}><FaGithub size={24} /></button>
