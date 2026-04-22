@@ -29,7 +29,7 @@ import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
 import WelcomeOverlay from "@/components/welcomeOverlay";
 import OnboardingComplete from "@/components/onboardingComplete";
-import { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
+import continentFromCode, { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
 import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
@@ -2655,11 +2655,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 // With findCountry's local fallback, this rejection should rarely
                 // fire (only for ocean / missing-polygon edge cases).
                 const requireKnownCountry = screen === "countryGuesser" || (!!onboarding && onboarding?.mode !== "classic");
+                const requireKnownContinent = (screen === "countryGuesser" && countryGuessrMode.subMode === "continent") ||
+                    (!!onboarding && onboarding?.mode === "continent");
                 try {
                     const mod = await import("@/components/findLatLong");
                     const findLatLongRandom = mod.default;
                     console.log(`[PERF] findLatLong module loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
-                    const latLong = await findLatLongRandom({ ...gameOptions, requireKnownCountry });
+                    const latLong = await findLatLongRandom({ ...gameOptions, requireKnownCountry, requireKnownContinent });
                     setLatLong(latLong);
                 } catch (err) {
                     console.error("[ERROR] Failed to load location:", err);
@@ -2786,23 +2788,59 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     }
 
-    // Generate country/continent options when location changes in country guesser mode
+    // Generate country/continent options when location or submode changes in country guesser mode.
+    // Continent options are fixed (the 6 continent names), so we pre-populate them as soon as
+    // subMode flips — otherwise switching country<->continent before the next location arrives
+    // leaves the row rendered with stale options, which can look empty on mobile.
+    //
+    // We also refuse to render a round whose correct answer isn't resolvable: a spot with
+    // no country (or, in continent mode, a country that doesn't map to a continent) would
+    // otherwise show "??" as the right answer. Instead, skip silently to the next location.
     useEffect(() => {
-        if (screen !== "countryGuesser" || !latLong || !latLong.lat) return;
-        const correctCountry = latLong.country || "??";
-        if (countryGuessrMode.subMode === "continent") {
+        if (screen !== "countryGuesser") return;
+
+        const isContinentMode = countryGuessrMode.subMode === "continent";
+
+        if (isContinentMode) {
             setOtherOptions([...ALL_CONTINENTS]);
-        } else {
+        }
+
+        if (!latLong || !latLong.lat) return;
+
+        const correctCountry = latLong.country;
+        const invalid = !correctCountry || correctCountry === "Unknown" ||
+            (isContinentMode && continentFromCode(correctCountry) === "Unknown");
+
+        if (invalid) {
+            // Don't let a "??" round reach the player. Hide the option row and
+            // rotate to the next preloaded location (cheap — no refetch). If the
+            // preloaded array is empty or exhausted, fall through to loadLocation,
+            // which will fetch fresh data once the in-flight load settles.
+            setShowCountryButtons(false);
+            setAllLocsArray((prev) => {
+                if (!prev || prev.length === 0) return prev;
+                const remaining = prev.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long);
+                if (remaining.length === 0) return prev;
+                const next = gameOptions.location === "all"
+                    ? remaining[0]
+                    : remaining[Math.floor(Math.random() * remaining.length)];
+                setLatLong(next);
+                return remaining;
+            });
+            return;
+        }
+
+        if (!isContinentMode) {
             const distractors = [];
-            const available = countries.filter(c => c !== correctCountry);
-            while (distractors.length < 5) {
+            const available = countries.filter((c) => c !== correctCountry);
+            while (distractors.length < 5 && available.length > distractors.length) {
                 const pick = available[Math.floor(Math.random() * available.length)];
                 if (!distractors.includes(pick)) distractors.push(pick);
             }
             setOtherOptions(shuffle([...distractors, correctCountry]));
         }
         setShowCountryButtons(true);
-    }, [latLong, screen]);
+    }, [latLong, screen, countryGuessrMode.subMode]);
 
     function onNavbarLogoPress() {
         if (screen === "onboarding") return;
@@ -3198,7 +3236,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 {/* Community Maps icon (moved out of left menu) */}
                 {screen === "home" && onboardingCompleted && !mapModal &&
                     !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
-                    <DailyCommunityMapsButton onClick={() => setMapModal(true)} />
+                    <DailyCommunityMapsButton onClick={() => setMapModal(true)} loggedIn={!!session?.token?.secret} />
                 )}
 
                 {/* Daily challenge screen (landing → game → results) */}
@@ -3548,7 +3586,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && <div className="home__onboarding">

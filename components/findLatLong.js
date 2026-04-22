@@ -1,6 +1,7 @@
 
 import { Loader } from '@googlemaps/js-api-loader';
 import findCountry from './findCountry';
+import continentFromCode from '@/components/utils/continentFromCode';
 import { getRandomPointInCountry } from '@/components/randomLoc';
 const loader = new Loader({
   apiKey: "",
@@ -8,7 +9,7 @@ const loader = new Loader({
   libraries: ["places"]
 });
 
-function generateLatLong(location, { requireKnownCountry } = {}) {
+function generateLatLong(location, { requireKnownCountry, requireKnownContinent } = {}) {
   return new Promise((resolve) => {
     const startTime = performance.now();
     console.log("[PERF] Starting generateLatLong");
@@ -55,6 +56,13 @@ function generateLatLong(location, { requireKnownCountry } = {}) {
               return resolve(null);
             }
 
+            // Continent mode: the country must additionally map to a known
+            // continent, otherwise we'd have no right answer for the player.
+            if (requireKnownContinent && continentFromCode(country) === 'Unknown') {
+              console.log("Country has no continent mapping, rejecting spot");
+              return resolve(null);
+            }
+
             console.log(`[PERF] Total generateLatLong time (success): ${(performance.now() - startTime).toFixed(2)}ms`);
             resolve({ lat: latO, long: longO, country });
           }).catch((e) => {
@@ -82,11 +90,12 @@ function generateLatLong(location, { requireKnownCountry } = {}) {
 export default async function findLatLongRandom(gameOptions) {
   const totalStartTime = performance.now();
   const requireKnownCountry = !!gameOptions?.requireKnownCountry;
-  console.log("[PERF] findLatLongRandom started (requireKnownCountry:", requireKnownCountry, ")");
+  const requireKnownContinent = !!gameOptions?.requireKnownContinent;
+  console.log("[PERF] findLatLongRandom started (requireKnownCountry:", requireKnownCountry, "requireKnownContinent:", requireKnownContinent, ")");
   let attempts = 0;
   while (true) {
     attempts++;
-    const data = await generateLatLong(gameOptions.location, { requireKnownCountry });
+    const data = await generateLatLong(gameOptions.location, { requireKnownCountry, requireKnownContinent });
     if (data) {
       console.log(`[PERF] findLatLongRandom completed in ${(performance.now() - totalStartTime).toFixed(2)}ms (${attempts} attempts)`);
       return data;

@@ -821,7 +821,7 @@ session={session}/>
       )}
 
       { countryGuesser && otherOptions && (
-        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer} mode={onboarding?.mode || "country"} compact={!onboarding}
+        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer} mode={onboarding?.mode || countryGuessrMode?.subMode || "country"} compact={!onboarding}
 
          onCountryPress={(selected) => {
           const isContinentMode = onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"));

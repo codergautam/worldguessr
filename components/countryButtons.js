@@ -48,11 +48,15 @@ export default function CountryBtns({ countries, onCountryPress, shown, mode, co
     return () => clearTimeout(timer);
   }, [countries]);
 
+  // Only mount the buttons once the container is shown. Otherwise they mount while
+  // the parent is display:none (during map-switch loading), which stalls the
+  // `cardSlideIn` animation — when the container later becomes display:flex the
+  // animation doesn't re-trigger and the buttons stay stuck at opacity 0.
   return (
     <div className={`countryGuessrOptions ${shown ? "shown" : ""} ${isContinent ? "continentMode" : ""} ${compact ? "compactMode" : ""}`}>
       <p className="countryGuessrPrompt">{isContinent ? text("whichContinent") : text("whichCountry")}</p>
       <div className="countryGuessrBtnRow">
-        {countries.map((item, i) => {
+        {shown && countries.map((item, i) => {
           if (isContinent) {
             return continentDiv({ continent: item, onPress: onCountryPress, index: i, interactive, text })
           }

@@ -1,14 +1,15 @@
 /**
- * Continent silhouette icons from Wikimedia Commons (CC-BY-SA).
- * Replaces the indistinguishable globe emojis (🌍🌎🌏).
+ * Continent silhouette icons (originally from Wikimedia Commons, CC-BY-SA).
+ * Served locally out of /public/continents so we don't depend on Wikipedia's
+ * upload.wikimedia.org hotlink (which rate-limits and blocks generic UAs).
  */
 const CONTINENT_IMAGES = {
-  "Africa": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/AfricaContour.svg/200px-AfricaContour.svg.png",
-  "Asia": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/AsiaContour.svg/200px-AsiaContour.svg.png",
-  "Europe": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/EuropeContour.svg/200px-EuropeContour.svg.png",
-  "North America": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/NorthAmericaContour.svg/200px-NorthAmericaContour.svg.png",
-  "South America": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d8/SouthAmericaContours.svg/200px-SouthAmericaContours.svg.png",
-  "Oceania": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/AustraliaContour.svg/200px-AustraliaContour.svg.png",
+  "Africa": "/continents/africa.png",
+  "Asia": "/continents/asia.png",
+  "Europe": "/continents/europe.png",
+  "North America": "/continents/north-america.png",
+  "South America": "/continents/south-america.png",
+  "Oceania": "/continents/oceania.png",
 };
 
 export default function ContinentIcon({ continent, size = 30, className = "" }) {

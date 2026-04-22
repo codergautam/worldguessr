@@ -14,6 +14,38 @@ function getPartyLink(code, inCrazyGames) {
   return `${domain}?party=${code}`;
 }
 
+async function copyToClipboard(text) {
+  // Prefer the modern Clipboard API when available.
+  if (typeof navigator !== "undefined" && navigator?.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  // Fallback for browsers/environments where clipboard API is unavailable.
+  if (typeof document !== "undefined") {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    let copied = false;
+    try {
+      copied = document.execCommand("copy");
+    } catch (e) {
+      copied = false;
+    }
+
+    document.body.removeChild(textarea);
+    return copied;
+  }
+
+  return false;
+}
+
 export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick, fadingOut, inCrazyGames }) {
   const { t: text } = useTranslation("common");
 
@@ -70,10 +102,18 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
             fontWeight: "700",
             fontSize: "clamp(16px, 4vw, 20px)"
           }}>{text("gameCode")}: {multiplayerState.gameData?.code}</span>
-        <button onClick={() => {
+        <button onClick={async () => {
           const link = getPartyLink(multiplayerState.gameData?.code, inCrazyGames);
-          navigator.clipboard.writeText(link);
-          toast.success(text("copiedToClipboard"));
+          try {
+            const copied = await copyToClipboard(link);
+            if (copied) {
+              toast.success(text("copiedToClipboard"));
+            } else {
+              toast.error(text("shareFailed"));
+            }
+          } catch (e) {
+            toast.error(text("shareFailed"));
+          }
         }} style={{
             marginLeft: "12px",
             padding: "8px 12px",
