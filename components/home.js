@@ -3236,7 +3236,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 {/* Community Maps icon (moved out of left menu) */}
                 {screen === "home" && onboardingCompleted && !mapModal &&
                     !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
-                    <DailyCommunityMapsButton onClick={() => setMapModal(true)} loggedIn={!!session?.token?.secret} />
+                    <DailyCommunityMapsButton onClick={() => setMapModal(true)} />
                 )}
 
                 {/* Daily challenge screen (landing → game → results) */}
