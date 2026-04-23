@@ -2517,6 +2517,10 @@ export default function Home({ }) {
             if (document.getElementById("coo1rdinates")) return true;
             if (document.getElementById("map-canvas")) return true;
             if (document.querySelector(".sgp-fab")) return true;
+            if (document.getElementById("gmf-panel")) return true;
+            if (document.getElementById("wg-helper-ui")) return true;
+            if (document.getElementById("cgx-settings-panel")) return true;
+            if (document.getElementById("cmTitle")) return true;
             try {
             if(window.localStorage.getItem("bannedv2")) return true;
             } catch(e) {
@@ -2525,10 +2529,13 @@ export default function Home({ }) {
         }
         function banGame() {
             if (window.banned) return;
-            sendEvent("cheat_detected")
+            sendEvent("cheat_detected", {
+                username: session?.token?.username || "Guest",
+                secret: session?.token?.secret || "None"
+            });
             // redirect to banned page
-            window.location.href = navigate("/banned");
             window.localStorage.setItem("bannedv2", "true")
+            window.location.href = navigate("/banned");
         }
         if (checkForCheats()) {
             banGame();
