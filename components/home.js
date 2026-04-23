@@ -2516,23 +2516,11 @@ export default function Home({ }) {
         function checkForCheats() {
             if (document.getElementById("coo1rdinates")) return true;
             if (document.getElementById("map-canvas")) return true;
-            function hasCheatStyles() {
-                const cheatStyleSignatures = [
-                    '.google-maps-iframe {',
-                ];
-
-                return Array.from(document.getElementsByTagName('style')).some(style => {
-                    const content = style.textContent;
-                    return cheatStyleSignatures.every(signature =>
-                        content.includes(signature)
-                    );
-                });
+            if (document.querySelector(".sgp-fab")) return true;
+            try {
+            if(window.localStorage.getItem("bannedv2")) return true;
+            } catch(e) {
             }
-            if (hasCheatStyles()) return true;
-            // try {
-            // if(window.localStorage.getItem("banned")) return true;
-            // } catch(e) {
-            // }
             return false;
         }
         function banGame() {
@@ -2540,7 +2528,7 @@ export default function Home({ }) {
             sendEvent("cheat_detected")
             // redirect to banned page
             window.location.href = navigate("/banned");
-            window.localStorage.setItem("banned", "true")
+            window.localStorage.setItem("bannedv2", "true")
         }
         if (checkForCheats()) {
             banGame();
