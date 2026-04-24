@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import dynamic from "next/dynamic";
 import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
@@ -428,6 +428,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   }, [onboarding?.round])
 
+  const toggleMiniMapFullscreen = useCallback(() => {
+    setMiniMapFullscreen((prev) => {
+      if (!prev) {
+        setMiniMapExpanded(true)
+      }
+      return !prev
+    })
+  }, [])
+
 
   useEffect(() => {
     function keydown(e) {
@@ -439,6 +448,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       if(explanationModalShown) return;
       // Don't handle space during onboarding completion - let home button handle it
       if(onboarding?.completed) return;
+      if((e.key === 'm' || e.key === 'M') && !e.repeat && !showAnswer) {
+        toggleMiniMapFullscreen()
+        return;
+      }
       if(singlePlayerRound?.done && e.key === ' ') {
         loadLocationFunc()
         return;
@@ -454,7 +467,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     return () => {
       document.removeEventListener('keydown', keydown);
     }
-  }, [pinPoint, showAnswer, onboarding, explanationModalShown, singlePlayerRound])
+  }, [pinPoint, showAnswer, onboarding, explanationModalShown, singlePlayerRound, toggleMiniMapFullscreen])
 
   useEffect(() => {
     if (!loading && latLong && width > 600 && !isTouchScreen) {
@@ -524,6 +537,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     setHintShown(true);
     setHintsUsedThisGame((prev) => prev + 1);
   }
+
   useEffect(() => {
     if (dailyMode) return;
     loadLocation()
@@ -755,12 +769,7 @@ session={session}/>
 
 {!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
-          <button className="cornerBtn" onClick={() => {
-            setMiniMapFullscreen(!miniMapFullscreen)
-            if(!miniMapFullscreen) {
-              setMiniMapExpanded(true)
-            }
-          }}>{miniMapFullscreen  ? (
+          <button className="cornerBtn" onClick={toggleMiniMapFullscreen}>{miniMapFullscreen  ? (
             <FaMinimize />
           ) : (
             <FaExpand />
