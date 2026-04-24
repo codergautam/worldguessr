@@ -22,12 +22,13 @@ import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
+import { AiHintButton, AiHintOverlay, AiHintModal } from "./aiHint";
 
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, aiHints, setAiHints, selectedAiHint, setSelectedAiHint }) {
   const { t: text } = useTranslation("common");
   function loadLocationFuncRaw() {
     if(onboarding) {
@@ -700,6 +701,17 @@ session={session}/>
           { !multiplayerState?.inGame && (
           <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
           )}
+          
+          { !multiplayerState?.inGame && !showAnswer && latLong && (
+            <AiHintButton
+              lat={latLong.lat}
+              lng={latLong.long}
+              disabled={loading || showAnswer}
+              hintsShown={aiHints && aiHints.length > 0}
+              onHintsLoaded={(hints) => setAiHints(hints)}
+              onClearHints={() => setAiHints([])}
+            />
+          )}
         </div>
       </div>
 
@@ -714,6 +726,17 @@ session={session}/>
 
           { !multiplayerState?.inGame && (
           <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
+          )}
+          
+          { !multiplayerState?.inGame && !showAnswer && latLong && (
+            <AiHintButton
+              lat={latLong.lat}
+              lng={latLong.long}
+              disabled={loading || showAnswer}
+              hintsShown={aiHints && aiHints.length > 0}
+              onHintsLoaded={(hints) => setAiHints(hints)}
+              onClearHints={() => setAiHints([])}
+            />
           )}
           </>
         )}
@@ -898,6 +921,19 @@ singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={co
       (timeToNextRound <= 5 && timeToNextRound > 0 && onboardingTimerShown && !showAnswer && !pinPoint && onboarding)) && (
       <div className="screen-critical-warning" />
     )}
+    
+    {aiHints && aiHints.length > 0 && (
+      <AiHintOverlay
+        hints={aiHints}
+        onClose={() => setAiHints([])}
+        onHintClick={(hint) => setSelectedAiHint(hint)}
+      />
+    )}
+    
+    <AiHintModal
+      hint={selectedAiHint}
+      onClose={() => setSelectedAiHint(null)}
+    />
   </div>
 
     </div>
