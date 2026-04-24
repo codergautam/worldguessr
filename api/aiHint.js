@@ -1,10 +1,8 @@
 import { OpenAI } from 'openai';
-import axios from 'axios';
 
 const DOUBAO_API_KEY = process.env.DOUBAO_API_KEY || 'ark-d978f943-e1cf-4c2c-82fa-5ff910f9fbec-2faa0';
 const DOUBAO_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 const DOUBAO_MODEL = 'doubao-seed-2-0-pro-260215';
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI';
 
 const GEO_PROMPT = `你是一个专业的地理游戏助手，擅长根据经纬度坐标分析地理位置并提供有用的猜测提示。
 
@@ -22,6 +20,8 @@ const GEO_PROMPT = `你是一个专业的地理游戏助手，擅长根据经纬
 - 文化特征：当地的文化和生活习惯
 - 常见语言：该地区可能使用的语言
 - 典型景观：该地区常见的自然或人文景观
+- 半球位置：北半球/南半球判断
+- 经度范围：可能位于哪个大陆
 
 每个提示需要包含：
 - id: 1-3的数字
@@ -29,8 +29,8 @@ const GEO_PROMPT = `你是一个专业的地理游戏助手，擅长根据经纬
 - title: 简短的标题
 - hint: 详细的提示信息（不能直接说出国家或城市名称）
 - confidence: 0-1的置信度值
-- x: 30-70之间的数字（用于在图片上显示光圈的水平位置百分比）
-- y: 30-70之间的数字（用于在图片上显示光圈的垂直位置百分比）
+- x: 20-80之间的数字（用于在图片上显示光圈的水平位置百分比）
+- y: 20-80之间的数字（用于在图片上显示光圈的垂直位置百分比）
 
 输出格式要求（必须是严格的JSON格式）：
 {
@@ -71,11 +71,11 @@ const GEO_PROMPT = `你是一个专业的地理游戏助手，擅长根据经纬
 3. 每个提示应该关注不同的信息类别
 4. confidence值应该反映你对该提示的信心程度（0-1）
 5. 必须返回严格合法的JSON格式，不能有任何额外的文字说明
-6. x和y值应该在30-70之间，这样光圈会显示在屏幕中心区域附近
+6. x和y值应该在20-80之间，这样光圈会显示在屏幕可见区域内
 
 请记住：你知道正确答案，但不能直接说出来。请提供有价值的地理线索来帮助猜测。`;
 
-const SYSTEM_PROMPT = `你是一个专业的地理游戏助手，擅长分析街景图片并提供有用的猜测提示。
+const IMAGE_ANALYSIS_PROMPT = `你是一个专业的地理游戏助手，擅长分析街景图片并提供有用的猜测提示。
 
 你知道正确答案，但不能直接说出答案。
 
@@ -141,21 +141,6 @@ const SYSTEM_PROMPT = `你是一个专业的地理游戏助手，擅长分析街
 5. confidence值应该反映你对该提示的信心程度（0-1）
 6. 必须返回严格合法的JSON格式，不能有任何额外的文字说明`;
 
-async function fetchImageAsBase64(url) {
-  try {
-    const response = await axios.get(url, {
-      responseType: 'arraybuffer',
-      timeout: 10000,
-    });
-    const base64 = Buffer.from(response.data, 'binary').toString('base64');
-    const contentType = response.headers['content-type'] || 'image/jpeg';
-    return `data:${contentType};base64,${base64}`;
-  } catch (error) {
-    console.error('Failed to fetch image:', error.message);
-    return null;
-  }
-}
-
 async function getGeoHints(lat, lng) {
   const client = new OpenAI({
     apiKey: DOUBAO_API_KEY,
@@ -194,6 +179,55 @@ async function getGeoHints(lat, lng) {
   return [];
 }
 
+async function getImageAnalysisHints(imageBase64) {
+  const client = new OpenAI({
+    apiKey: DOUBAO_API_KEY,
+    baseURL: DOUBAO_BASE_URL,
+  });
+
+  try {
+    const response = await client.responses.create({
+      model: DOUBAO_MODEL,
+      input: [
+        {
+          role: 'system',
+          content: [
+            {
+              type: 'input_text',
+              text: IMAGE_ANALYSIS_PROMPT,
+            },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'input_image',
+              image_url: imageBase64,
+            },
+            {
+              type: 'input_text',
+              text: '分析这张街景图片，找出3个最有信息量的关键点。对于每个关键点，提供精确的坐标位置和有价值的猜测提示。请以JSON格式返回结果。',
+            },
+          ],
+        },
+      ],
+    });
+
+    const responseText = response.output[0]?.content[0]?.text || '';
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return parsed.hints || [];
+    }
+  } catch (error) {
+    console.error('Image analysis failed:', error.message);
+  }
+
+  return [];
+}
+
 function getDefaultHints(lat, lng) {
   const hemisphere = lat > 0 ? '北半球' : '南半球';
   const climateZone = Math.abs(lat) < 23.5 ? '热带' : Math.abs(lat) < 45 ? '温带' : '寒带';
@@ -202,7 +236,7 @@ function getDefaultHints(lat, lng) {
     {
       id: 1,
       type: '半球分析',
-      x: 35,
+      x: 25,
       y: 50,
       title: '地理位置分析',
       hint: `该地点位于${hemisphere}。太阳在天空中的轨迹会呈现出${hemisphere === '北半球' ? '从东方升起，向南方倾斜，西方落下' : '从东方升起，向北方倾斜，西方落下'}的特征。这可以帮助你判断大致的纬度范围。`,
@@ -220,7 +254,7 @@ function getDefaultHints(lat, lng) {
     {
       id: 3,
       type: '经度分析',
-      x: 65,
+      x: 75,
       y: 50,
       title: '时区与地区',
       hint: `经度约为${lng > 0 ? '东经' : '西经'}${Math.abs(lng).toFixed(1)}度。这个经度范围可能位于${lng >= 30 && lng <= 140 ? '欧亚大陆' : lng > -169 && lng < -30 ? '美洲大陆' : '非洲或大洋洲地区'}。请结合其他线索进行判断。`,
@@ -229,112 +263,80 @@ function getDefaultHints(lat, lng) {
   ];
 }
 
+function parseHints(responseText) {
+  try {
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return parsed.hints || [];
+    }
+  } catch (error) {
+    console.error('Failed to parse hints:', error);
+  }
+  return [];
+}
+
+function normalizeHints(hints, defaultLat, defaultLng) {
+  if (!hints || hints.length === 0) {
+    return getDefaultHints(defaultLat, defaultLng);
+  }
+
+  return hints.slice(0, 3).map((hint, index) => ({
+    id: hint.id || (index + 1),
+    type: hint.type || '地理分析',
+    title: hint.title || '地理位置线索',
+    hint: hint.hint || '',
+    confidence: hint.confidence || 0.7,
+    x: hint.x && hint.x >= 0 && hint.x <= 100 ? hint.x : 25 + (index * 25),
+    y: hint.y && hint.y >= 0 && hint.y <= 100 ? hint.y : 50,
+  }));
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const { lat, lng } = req.body;
+    const { lat, lng, imageBase64 } = req.body;
 
     if (!lat || !lng) {
       return res.status(400).json({ error: 'Missing lat or lng parameters' });
     }
 
-    const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=800x600&location=${lat},${lng}&key=${GOOGLE_MAPS_API_KEY}&fov=90`;
-
-    const client = new OpenAI({
-      apiKey: DOUBAO_API_KEY,
-      baseURL: DOUBAO_BASE_URL,
-    });
-
     let hints = [];
-    let imageUrl = null;
+    let usedImageAnalysis = false;
     let usedGeoAnalysis = false;
 
-    try {
-      console.log(`[AI Hint] Attempting image analysis for lat: ${lat}, lng: ${lng}`);
+    if (imageBase64) {
+      console.log(`[AI Hint] Using provided image for analysis, lat: ${lat}, lng: ${lng}`);
+      usedImageAnalysis = true;
       
-      const imageBase64 = await fetchImageAsBase64(streetViewUrl);
+      hints = await getImageAnalysisHints(imageBase64);
       
-      let imageContent;
-      if (imageBase64) {
-        imageContent = {
-          type: 'input_image' as const,
-          image_url: imageBase64,
-        };
-      } else {
-        imageContent = {
-          type: 'input_image' as const,
-          image_url: streetViewUrl,
-        };
+      if (!hints || hints.length === 0) {
+        console.log('[AI Hint] Image analysis returned no hints, falling back to geo analysis');
+        usedImageAnalysis = false;
+        usedGeoAnalysis = true;
+        hints = await getGeoHints(lat, lng);
       }
-
-      const response = await client.responses.create({
-        model: DOUBAO_MODEL,
-        input: [
-          {
-            role: 'system',
-            content: [
-              {
-                type: 'input_text' as const,
-                text: SYSTEM_PROMPT,
-              },
-            ],
-          },
-          {
-            role: 'user',
-            content: [
-              imageContent,
-              {
-                type: 'input_text' as const,
-                text: '分析这张街景图片，找出3个最有信息量的关键点。对于每个关键点，提供精确的坐标位置和有价值的猜测提示。请以JSON格式返回结果。',
-              },
-            ],
-          },
-        ],
-      });
-
-      const responseText = response.output[0]?.content[0]?.text || '';
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        hints = parsed.hints || [];
-        imageUrl = streetViewUrl;
-      }
-    } catch (imageError) {
-      console.log(`[AI Hint] Image analysis failed, falling back to geo analysis: ${imageError.message}`);
+    } else {
+      console.log(`[AI Hint] No image provided, using geo analysis, lat: ${lat}, lng: ${lng}`);
       usedGeoAnalysis = true;
+      hints = await getGeoHints(lat, lng);
     }
 
     if (!hints || hints.length === 0) {
-      console.log(`[AI Hint] Using geographic analysis for lat: ${lat}, lng: ${lng}`);
+      console.log('[AI Hint] Using default hints');
       usedGeoAnalysis = true;
-      
-      hints = await getGeoHints(lat, lng);
-      
-      if (!hints || hints.length === 0) {
-        hints = getDefaultHints(lat, lng);
-      }
+      hints = getDefaultHints(lat, lng);
     }
 
-    hints = hints.slice(0, 3);
-    
-    hints = hints.map((hint, index) => ({
-      ...hint,
-      id: hint.id || (index + 1),
-      type: hint.type || '地理分析',
-      title: hint.title || '地理位置线索',
-      hint: hint.hint || '',
-      confidence: hint.confidence || 0.7,
-      x: hint.x && hint.x >= 0 && hint.x <= 100 ? hint.x : 25 + (index * 25),
-      y: hint.y && hint.y >= 0 && hint.y <= 100 ? hint.y : 50,
-    }));
+    hints = normalizeHints(hints, lat, lng);
 
     res.status(200).json({
       success: true,
-      imageUrl: imageUrl,
+      usedImageAnalysis,
       usedGeoAnalysis,
       hints,
     });
@@ -345,7 +347,7 @@ export default async function handler(req, res) {
     
     res.status(200).json({
       success: true,
-      imageUrl: null,
+      usedImageAnalysis: false,
       usedGeoAnalysis: true,
       hints,
       fallback: true,

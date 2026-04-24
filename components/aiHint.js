@@ -43,13 +43,13 @@ const AiHintModal = ({ hint, onClose }) => {
     if (typeLower.includes('标志性') || typeLower.includes('地标')) return '🗼';
     if (typeLower.includes('太阳') || typeLower.includes('方位') || typeLower.includes('半球')) return '☀️';
     if (typeLower.includes('车辆') || typeLower.includes('汽车')) return '🚗';
-    if (typeLower.includes('行人') || typeLower.includes('穿着')) return '�';
+    if (typeLower.includes('行人') || typeLower.includes('穿着')) return '👔';
     if (typeLower.includes('广告') || typeLower.includes('招牌') || typeLower.includes('文字')) return '📺';
     if (typeLower.includes('气候') || typeLower.includes('温度')) return '🌡️';
     if (typeLower.includes('经度') || typeLower.includes('纬度') || typeLower.includes('地理') || typeLower.includes('位置')) return '🌍';
     if (typeLower.includes('时区') || typeLower.includes('地区')) return '🌐';
     if (typeLower.includes('文化')) return '🎭';
-    if (typeLower.includes('语言')) return '�️';
+    if (typeLower.includes('语言')) return '🗣️';
     return '💡';
   };
 
@@ -119,7 +119,14 @@ const AiHintButton = ({ lat, lng, disabled, onHintsLoaded, hintsShown, onClearHi
     setLoading(true);
 
     try {
-      const response = await fetch(window.cConfig?.apiUrl + '/api/aiHint', {
+      const apiUrl = window.cConfig?.apiUrl;
+      if (!apiUrl) {
+        throw new Error('API URL not configured');
+      }
+
+      console.log('[AI Hint] Requesting hints for lat:', lat, 'lng:', lng);
+
+      const response = await fetch(apiUrl + '/api/aiHint', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -127,12 +134,32 @@ const AiHintButton = ({ lat, lng, disabled, onHintsLoaded, hintsShown, onClearHi
         body: JSON.stringify({ lat, lng }),
       });
 
-      const data = await response.json();
+      console.log('[AI Hint] Response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[AI Hint] Error response:', errorText);
+        throw new Error(`API Error: ${response.status}`);
+      }
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('[AI Hint] JSON parse error:', parseError);
+        const text = await response.text();
+        console.error('[AI Hint] Raw response:', text);
+        throw new Error('Failed to parse response');
+      }
+
+      console.log('[AI Hint] Response data:', data);
 
       if (data.success && data.hints && data.hints.length > 0) {
         onHintsLoaded?.(data.hints);
         
-        if (data.usedGeoAnalysis || data.fallback) {
+        if (data.usedImageAnalysis) {
+          toast.success('AI提示已生成（图片分析模式），点击光圈查看详情');
+        } else if (data.usedGeoAnalysis || data.fallback) {
           toast.info('AI提示已生成（地理分析模式），点击光圈查看详情');
         } else {
           toast.success('AI提示已生成！点击光圈查看详情');
@@ -142,7 +169,7 @@ const AiHintButton = ({ lat, lng, disabled, onHintsLoaded, hintsShown, onClearHi
       }
     } catch (error) {
       console.error('AI Hint Error:', error);
-      toast.error('获取AI提示失败，请检查网络连接');
+      toast.error('获取AI提示失败：' + (error.message || '未知错误'));
     } finally {
       setLoading(false);
     }
