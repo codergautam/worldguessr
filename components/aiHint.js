@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { FaRobot, FaTimes, FaInfoCircle, FaSpinner } from 'react-icons/fa';
+import { FaRobot, FaTimes, FaInfoCircle, FaSpinner, FaGlobe, FaSun, FaThermometerHalf, FaCompass } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const AiHintOverlay = ({ hints, onClose, onHintClick }) => {
@@ -35,32 +35,22 @@ const AiHintModal = ({ hint, onClose }) => {
   if (!hint) return null;
 
   const getTypeIcon = (type) => {
-    switch (type.toLowerCase()) {
-      case '建筑风格':
-      case '建筑分析':
-        return '🏛️';
-      case '植被情况':
-      case '植被分析':
-        return '🌳';
-      case '地形地貌':
-        return '⛰️';
-      case '标志牌文字':
-      case '道路标识':
-      case '道路分析':
-        return '🚦';
-      case '标志性建筑':
-        return '🗼';
-      case '太阳方位':
-        return '☀️';
-      case '车辆类型':
-        return '🚗';
-      case '行人穿着':
-        return '👔';
-      case '广告牌内容':
-        return '📺';
-      default:
-        return '💡';
-    }
+    const typeLower = type.toLowerCase();
+    if (typeLower.includes('建筑') || typeLower.includes('风格')) return '🏛️';
+    if (typeLower.includes('植被') || typeLower.includes('树木')) return '🌳';
+    if (typeLower.includes('地形') || typeLower.includes('地貌')) return '⛰️';
+    if (typeLower.includes('标识') || typeLower.includes('交通') || typeLower.includes('道路')) return '🚦';
+    if (typeLower.includes('标志性') || typeLower.includes('地标')) return '🗼';
+    if (typeLower.includes('太阳') || typeLower.includes('方位') || typeLower.includes('半球')) return '☀️';
+    if (typeLower.includes('车辆') || typeLower.includes('汽车')) return '🚗';
+    if (typeLower.includes('行人') || typeLower.includes('穿着')) return '�';
+    if (typeLower.includes('广告') || typeLower.includes('招牌') || typeLower.includes('文字')) return '📺';
+    if (typeLower.includes('气候') || typeLower.includes('温度')) return '🌡️';
+    if (typeLower.includes('经度') || typeLower.includes('纬度') || typeLower.includes('地理') || typeLower.includes('位置')) return '🌍';
+    if (typeLower.includes('时区') || typeLower.includes('地区')) return '🌐';
+    if (typeLower.includes('文化')) return '🎭';
+    if (typeLower.includes('语言')) return '�️';
+    return '💡';
   };
 
   const getConfidenceColor = (confidence) => {
@@ -141,7 +131,12 @@ const AiHintButton = ({ lat, lng, disabled, onHintsLoaded, hintsShown, onClearHi
 
       if (data.success && data.hints && data.hints.length > 0) {
         onHintsLoaded?.(data.hints);
-        toast.success('AI提示已生成！点击光圈查看详情');
+        
+        if (data.usedGeoAnalysis || data.fallback) {
+          toast.info('AI提示已生成（地理分析模式），点击光圈查看详情');
+        } else {
+          toast.success('AI提示已生成！点击光圈查看详情');
+        }
       } else {
         toast.error('无法生成AI提示，请稍后重试');
       }
