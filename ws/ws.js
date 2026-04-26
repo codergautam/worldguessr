@@ -1278,6 +1278,16 @@ app.ws('/wg', {
     if (players.has(ws.id)) {
       const player = players.get(ws.id);
 
+      // A reconnect can move this player id to a new websocket before the old
+      // socket's close event fires. Ignore the stale close so it does not mark
+      // the newly reconnected player as disconnected or remove them from games.
+      if (player.ws !== ws) {
+        if (playersInQueue.has(ws.id)) {
+          playersInQueue.delete(ws.id);
+        }
+        return;
+      }
+
       // handle case where user just made an account and name is not set
       if(!player.username) {
         // disconnect the player
