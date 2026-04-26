@@ -24,6 +24,18 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
     const [searchResults, setSearchResults] = useState([]);
     const exitOnceRef = useRef(false);
 
+    // Freeze options-related props during the close animation. Without this,
+    // selecting a country/continent guessr map flips `screen` mid-animation,
+    // which collapses the .map-options row and shifts the modal layout while
+    // it's still fading out.
+    const frozenOptionsRef = useRef({ showOptions, showTimerOption, showAllCountriesOption });
+    if (!mapModalClosing) {
+        frozenOptionsRef.current = { showOptions, showTimerOption, showAllCountriesOption };
+    }
+    const effectiveShowOptions = mapModalClosing ? frozenOptionsRef.current.showOptions : showOptions;
+    const effectiveShowTimerOption = mapModalClosing ? frozenOptionsRef.current.showTimerOption : showTimerOption;
+    const effectiveShowAllCountriesOption = mapModalClosing ? frozenOptionsRef.current.showAllCountriesOption : showAllCountriesOption;
+
     useEffect(() => {
         if (!mapModalClosing) {
             exitOnceRef.current = false;
@@ -82,9 +94,9 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
             <div className="g2_content map-modal-content full-width" style={styles.scrollWrap}>
                 <div style={styles.modalContent}>
                     <MapView
-                        showOptions={showOptions}
-                        showTimerOption={showTimerOption}
-                        showAllCountriesOption={showAllCountriesOption}
+                        showOptions={effectiveShowOptions}
+                        showTimerOption={effectiveShowTimerOption}
+                        showAllCountriesOption={effectiveShowAllCountriesOption}
                         hideCountryGuessrModes={hideCountryGuessrModes}
                         chosenMap={chosenMap}
                         close={onClose}

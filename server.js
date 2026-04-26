@@ -341,7 +341,7 @@ fetch('http://localhost:3003/countryLocations/'+req.params.country)
 
 app.get('/mapLocations/:slug', async (req, res) => {
   const slug = req.params.slug;
-  const map = await MapModel.findOne({ slug }).cache(10000)
+  const map = await MapModel.findOne({ slug }).cache('mapLocations_'+slug, 10000)
   if (!map) {
     return res.status(404).json({ message: 'Map not found' });
   }

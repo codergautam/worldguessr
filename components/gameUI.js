@@ -820,8 +820,8 @@ session={session}/>
       </>
       )}
 
-      { countryGuesser && otherOptions && (
-        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer} mode={onboarding?.mode || countryGuessrMode?.subMode || "country"} compact={!onboarding}
+      { countryGuesser && otherOptions?.length > 0 && (
+        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer && !!latLong?.country} mode={onboarding?.mode || countryGuessrMode?.subMode || "country"} compact={!onboarding}
 
          onCountryPress={(selected) => {
           const isContinentMode = onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"));

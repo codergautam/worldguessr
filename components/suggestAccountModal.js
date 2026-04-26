@@ -39,10 +39,49 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) 
       open={shown}
       center
       onClose={handleClose}
-      showCloseIcon={true}
+      showCloseIcon={false}
       animationDuration={200}
     >
-      <div style={{ 
+      <button
+        onClick={handleClose}
+        aria-label="Close"
+        style={{
+          position: 'absolute',
+          top: '12px',
+          right: '12px',
+          width: '32px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(255, 255, 255, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          color: 'rgba(255, 255, 255, 0.85)',
+          borderRadius: '50%',
+          cursor: 'pointer',
+          fontSize: '16px',
+          lineHeight: 1,
+          padding: 0,
+          fontFamily: 'inherit',
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+          e.currentTarget.style.color = '#fff';
+          e.currentTarget.style.transform = 'scale(1.05)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)';
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+      >
+        ✕
+      </button>
+
+      <div style={{
         marginBottom: '24px',
         animation: 'float 3s ease-in-out infinite'
       }}>

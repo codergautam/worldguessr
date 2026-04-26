@@ -15,6 +15,7 @@ import { Filter} from 'bad-words';
 const filter = new Filter();
 import countries from '../../public/countries.json' with { type: "json" };
 import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
+import { syncedClearCache } from '../../serverUtils/cacheBus.js';
 
 // Function to convert latitude and longitude to Cartesian coordinates
 function latLngToCartesian(lat, lng) {
@@ -193,13 +194,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Missing mapId' });
     }
 
-    const map = await Map.findById(mapId);
-    if(!map) {
-      return res.status(404).json({ message: 'Map not found' });
-    }
-    if(!map.resubmittable) {
-      return res.status(400).json({ message: 'This map cannot be edited' });
-    }
+    const map = await Map.findById(mapId);10000
     if(!user.staff && map.created_by.toString() !== user._id.toString()) {
       return res.status(403).json({ message: 'You do not have permission to edit this map' });
     }
@@ -224,6 +219,9 @@ export default async function handler(req, res) {
 
     await map.save();
 
+    // clear cache
+    syncedClearCache('mapLocations_'+map.slug);
+      
     return res.status(200).json({ message: 'Map edited', map });
   } else if(action === 'get') {
     if(!mapId) {
