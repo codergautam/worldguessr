@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import StreetView from "../components/streetview/streetView";
 import Head from "next/head";
+import { decodeCoord } from "../components/streetview/coordsObfuscation";
 
 const SvEmbed = () => {
   const [props, setProps] = useState({
@@ -24,8 +25,9 @@ const SvEmbed = () => {
         nm: searchParams.get("nm") === "true",
         npz: searchParams.get("npz") === "true",
         showRoadLabels: searchParams.get("showRoadLabels") !== "false",
-        lat: parseFloat(searchParams.get("lat")),
-        long: parseFloat(searchParams.get("long")),
+        // Decode obfuscated coordinates; fall back to plain lat/long for backwards compatibility
+        lat: decodeCoord(searchParams.get("_elat")) ?? parseFloat(searchParams.get("lat")),
+        long: decodeCoord(searchParams.get("_elon")) ?? parseFloat(searchParams.get("long")),
         panoId: searchParams.get("pano") || searchParams.get("panoId"),
         heading: searchParams.get("heading") ? parseFloat(searchParams.get("heading")) : null,
         pitch: searchParams.get("pitch") ? parseFloat(searchParams.get("pitch")) : null,
@@ -39,8 +41,18 @@ const SvEmbed = () => {
   useEffect(() => {
     const handleMessage = (event) => {
       if (event.data && typeof event.data === "object" && event.data.type === "updateProps") {
+        const incoming = { ...event.data.props };
+        // Decode obfuscated coordinates sent via postMessage
+        if (incoming._elat !== undefined) {
+          incoming.lat = decodeCoord(incoming._elat);
+          delete incoming._elat;
+        }
+        if (incoming._elon !== undefined) {
+          incoming.long = decodeCoord(incoming._elon);
+          delete incoming._elon;
+        }
         // Use functional update to avoid stale closure
-        setProps(prev => ({ ...prev, ...event.data.props }));
+        setProps(prev => ({ ...prev, ...incoming }));
         // Increment refreshKey to force StreetView update even with same coords
         setRefreshKey(k => k + 1);
       }
