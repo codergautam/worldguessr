@@ -1,10 +1,12 @@
 import { Html, Head, Main, NextScript } from "next/document";
 
 export default function Document() {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
   return (
     <Html lang="en" style={{ backgroundColor: '#000000' }}>
       <Head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+        <link rel="preload" href={`${basePath}/street2.webp`} as="image" type="image/webp" fetchpriority="high" />
         {/* Font preconnects and stylesheets */}
         <link rel="preconnect" href="https://fonts.googleapis.com"/>
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous"/>
@@ -41,7 +43,7 @@ export default function Document() {
               left: 0;
               width: 100%;
               height: 100%;
-              background: url("${process.env.NEXT_PUBLIC_BASE_PATH || ''}/street2.webp") center/cover no-repeat;
+              background: url("${basePath}/street2.webp") center/cover no-repeat;
               opacity: 0.5;
               z-index: 0;
               pointer-events: none;

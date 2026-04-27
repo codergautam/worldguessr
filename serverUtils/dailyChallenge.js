@@ -6,7 +6,9 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const ROUNDS_PER_DAY = 3;
-const POOL_PATH = path.join(__dirname, '..', 'data', 'world-pinpointable.json');
+// Curated daily-challenge pool. Country sits at extra.tags[0] (ISO-2). We
+// derive a flat shape on first load so getDailyLocations stays branch-free.
+const POOL_PATH = path.join(__dirname, '..', 'data', 'daily-challenge.json');
 const SECRET = process.env.DAILY_SECRET || 'worldguessr-daily-default-secret';
 const CACHE_SIZE = 14;
 
@@ -14,7 +16,13 @@ let poolCache = null;
 function loadPool() {
   if (poolCache) return poolCache;
   const raw = fs.readFileSync(POOL_PATH, 'utf8');
-  poolCache = JSON.parse(raw);
+  const parsed = JSON.parse(raw);
+  poolCache = parsed.map(loc => ({
+    lat: loc.lat,
+    lng: loc.lng,
+    heading: loc.heading ?? 0,
+    country: loc?.extra?.tags?.[0] || null,
+  }));
   return poolCache;
 }
 
@@ -50,18 +58,29 @@ export function getDailyLocations(dateStr) {
   const pool = loadPool();
   const rng = mulberry32(seedFromDate(dateStr));
 
+  // Three rounds, three different countries — no day should serve two
+  // locations from the same country. Skip-and-retry preserves seed
+  // determinism (the same date always produces the same picks). The
+  // attempts cap is a defensive guard so we can never spin if a future
+  // pool somehow lacks 3 distinct countries.
   const picked = [];
   const usedIndexes = new Set();
-  while (picked.length < ROUNDS_PER_DAY) {
+  const usedCountries = new Set();
+  const maxAttempts = pool.length * 2;
+  let attempts = 0;
+  while (picked.length < ROUNDS_PER_DAY && attempts < maxAttempts) {
+    attempts++;
     const idx = Math.floor(rng() * pool.length);
     if (usedIndexes.has(idx)) continue;
-    usedIndexes.add(idx);
     const loc = pool[idx];
+    if (loc.country && usedCountries.has(loc.country)) continue;
+    usedIndexes.add(idx);
+    if (loc.country) usedCountries.add(loc.country);
     picked.push({
       lat: loc.lat,
       long: loc.lng,
-      heading: loc.heading ?? 0,
-      country: loc.country || null,
+      heading: loc.heading,
+      country: loc.country,
     });
   }
 

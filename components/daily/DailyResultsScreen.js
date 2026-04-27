@@ -426,7 +426,7 @@ export default function DailyResultsScreen({
 
           {quip && (
             <div className="daily-motivational-quip">
-              "{quip}"
+              &ldquo;{quip}&rdquo;
             </div>
           )}
 

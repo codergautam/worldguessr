@@ -21,9 +21,27 @@ function App({ Component, pageProps }) {
 
   useEffect(() => {
     // Set CSS custom properties for background images that need basePath
-    document.documentElement.style.setProperty('--bg-street2', `url("${asset('/street2.webp')}")`);
-    // Fade out the static body::before background now that React has taken over
-    document.body.classList.add('app-ready');
+    const streetBackground = asset('/street2.webp');
+    document.documentElement.style.setProperty('--bg-street2', `url("${streetBackground}")`);
+
+    let cancelled = false;
+    const markAppReady = () => {
+      if (!cancelled) document.body.classList.add('app-ready');
+    };
+
+    const backgroundImage = new window.Image();
+    backgroundImage.decoding = 'async';
+    backgroundImage.onload = markAppReady;
+    backgroundImage.onerror = markAppReady;
+    backgroundImage.src = streetBackground;
+
+    if (backgroundImage.complete) markAppReady();
+
+    return () => {
+      cancelled = true;
+      backgroundImage.onload = null;
+      backgroundImage.onerror = null;
+    };
   }, []);
 
   useEffect(() => installErrorTracking(), []);

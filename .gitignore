@@ -53,3 +53,4 @@ mapgens/*/*.txt
 # Partytown (generated from node_modules)
 public/~partytown/
 mobile/
+.codex

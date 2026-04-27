@@ -7,7 +7,7 @@ import DailyLeaderboardPanel from './DailyLeaderboardPanel';
 import PersonalRecordsCard from './PersonalRecordsCard';
 import DailyHistoryBars14 from './DailyHistoryBars14';
 
-export default function DailyLanding({ today, todayTop10 = [], userData = null, onStartChallenge, onSignIn, isLoggedIn }) {
+export default function DailyLanding({ today, todayTop10 = [], userData = null, onStartChallenge, onSignIn, isLoggedIn, animateEntrance = false }) {
   const { t: text } = useTranslation();
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());
 
@@ -20,21 +20,22 @@ export default function DailyLanding({ today, todayTop10 = [], userData = null, 
   const chNum = challengeNumber(today);
 
   return (
-    <div className="daily-landing">
+    <div className={`daily-landing ${animateEntrance ? 'daily-landing--opening' : ''}`}>
       <section className="daily-landing-hero">
         <h1 className="daily-landing-title">{text('dailyLandingTitle')}</h1>
-        <p className="daily-landing-tagline">{text('dailyLandingTagline')}</p>
 
         <button
           className={`g2_green_button daily-landing-cta ${playedToday ? 'played' : ''}`}
           onClick={onStartChallenge}
-          aria-label={text('openTodaysChallenge')}
+          aria-label={playedToday ? text('alreadyPlayedViewResults') : text('openTodaysChallenge')}
         >
-          <FaPlay style={{ verticalAlign: '-2px', marginRight: 8 }} />
-          {text('openTodaysChallenge')}
+          {!playedToday && <FaPlay style={{ verticalAlign: '-2px', marginRight: 8 }} />}
+          {playedToday
+            ? text('nextChallengeIn', { time: formatCountdown(countdown) })
+            : text('openTodaysChallenge')}
           <span className="daily-landing-cta-subtitle">
             {playedToday
-              ? (<><FaCheck aria-hidden="true" style={{ verticalAlign: '-2px', marginRight: 6 }} />{text('alreadyPlayedViewResults')}</>)
+              ? text('alreadyPlayedViewResults')
               : text('nextChallengeIn', { time: formatCountdown(countdown) })}
           </span>
         </button>

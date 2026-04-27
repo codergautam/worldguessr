@@ -135,7 +135,7 @@
 .daily-results-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(6px);
   z-index: 10000;
   display: flex;
@@ -144,7 +144,6 @@
   padding: 20px;
   overflow-y: auto;
   overflow-x: hidden;
-  animation: fadeIn 0.25s ease-out;
 }
 .daily-results-card {
   width: 100%;
@@ -858,7 +857,7 @@
 .daily-round-bars {
   display: flex;
   justify-content: center;
-  align-items: end;
+  align-items: flex-end;
   gap: 10px;
   padding: 8px 4px 4px;
 }
@@ -997,14 +996,27 @@
 }
 
 /* Landing — uses fixed positioning so the flex-row `.home` parent can't squeeze it.
-   Background comes from home.js's street2.webp (fixed, always rendered); we just
-   add a dark vignette overlay for text contrast — no green gradient. */
+   Background comes from home.js's street2.webp (fixed, always rendered). */
+.daily-page-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 119;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.45);
+}
+.daily-page-backdrop--opening {
+  animation: dailyBackdropIn 0.5s ease-out both;
+}
+@keyframes dailyBackdropIn {
+  from { background: rgba(0, 0, 0, 0); }
+  to { background: rgba(0, 0, 0, 0.45); }
+}
 .daily-landing {
   position: fixed;
   inset: 0;
   z-index: 120;
   color: white;
-  background: rgba(0, 0, 0, 0.45);
+  background: transparent;
   padding: clamp(20px, 4vw, 40px);
   display: flex;
   flex-direction: column;
@@ -1014,6 +1026,29 @@
   overflow-x: hidden;
   box-sizing: border-box;
 }
+.daily-landing--opening .daily-landing-hero,
+.daily-landing--opening .daily-landing-section {
+  animation: dailyLandingContentIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.daily-landing--opening .daily-landing-section:nth-of-type(2) {
+  animation-delay: 80ms;
+}
+.daily-landing--opening .daily-landing-section:nth-of-type(3) {
+  animation-delay: 150ms;
+}
+.daily-landing--opening .daily-landing-section:nth-of-type(4) {
+  animation-delay: 220ms;
+}
+@keyframes dailyLandingContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .daily-loading {
   position: fixed;
   inset: 0;
@@ -1021,8 +1056,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
+  background: transparent;
   color: rgba(255, 255, 255, 0.8);
   font-size: 1.1rem;
 }
@@ -1038,7 +1072,7 @@
   font-family: "Jockey One", sans-serif;
   font-size: clamp(2.4rem, 7vw, 4.6rem);
   line-height: 1.05;
-  margin-bottom: 12px;
+  margin-bottom: 24px;
   text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.6);
 }
 .daily-landing-tagline {
@@ -1297,7 +1331,6 @@
   padding: 20px;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
-  animation: fadeIn 0.2s ease-out;
 }
 .daily-confirm-card {
   width: 100%;
@@ -1310,6 +1343,17 @@
   color: white;
   text-align: center;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  animation: dailyConfirmCardIn 0.22s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes dailyConfirmCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 .daily-confirm-card h3 {
   font-family: "Jockey One", sans-serif;
@@ -1318,6 +1362,146 @@
 }
 .daily-confirm-card p { color: rgba(255, 255, 255, 0.85); margin-bottom: 18px; }
 .daily-confirm-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* Start-confirm modal — bigger card, prominent CTA, low-emphasis cancel */
+.daily-confirm-card--start {
+  max-width: 480px;
+  padding: 30px 28px 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+}
+.daily-confirm-card--start h3 {
+  font-size: 1.85rem;
+  margin: 0 0 6px;
+  letter-spacing: 0.01em;
+}
+.daily-confirm-icon {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(76, 175, 80, 0.5), rgba(76, 175, 80, 0.12) 70%);
+  border: 1px solid rgba(76, 175, 80, 0.55);
+  color: #ffe27a;
+  font-size: 1.55rem;
+  box-shadow:
+    0 0 24px rgba(76, 175, 80, 0.3),
+    0 1px 0 rgba(255, 255, 255, 0.18) inset;
+  animation: dailyConfirmIconIn 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.2) both 0.05s;
+}
+@keyframes dailyConfirmIconIn {
+  from { opacity: 0; transform: scale(0.6) rotate(-8deg); }
+  to   { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+.daily-confirm-card--start .daily-confirm-tagline {
+  margin: 0 0 16px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1.02rem;
+  line-height: 1.45;
+}
+.daily-confirm-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  background: rgba(255, 193, 7, 0.10);
+  border: 1px solid rgba(255, 193, 7, 0.28);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 0 0 22px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: rgba(255, 230, 170, 0.95);
+
+  svg {
+    color: #ffc107;
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-size: 0.95rem;
+  }
+}
+.daily-confirm-actions--stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  justify-content: stretch;
+}
+.daily-confirm-primary {
+  width: 100%;
+  padding: 15px 24px;
+  font-size: 1.08rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border-radius: 12px;
+  cursor: pointer;
+  color: white;
+  border: 1px solid rgba(76, 175, 80, 0.7);
+  background: linear-gradient(180deg, #5cba60 0%, #347a37 100%);
+  box-shadow:
+    0 8px 22px rgba(76, 175, 80, 0.38),
+    0 1px 0 rgba(255, 255, 255, 0.2) inset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+
+  svg {
+    transition: transform 0.18s ease;
+    font-size: 0.95rem;
+  }
+}
+.daily-confirm-primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow:
+    0 12px 28px rgba(76, 175, 80, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.22) inset;
+
+  svg { transform: translateX(4px); }
+}
+.daily-confirm-primary:active {
+  transform: translateY(0);
+  filter: brightness(0.95);
+}
+.daily-confirm-primary:focus-visible {
+  outline: 2px solid #ffd86b;
+  outline-offset: 2px;
+}
+.daily-confirm-cancel {
+  background: transparent;
+  border: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.92rem;
+  padding: 10px;
+  margin-top: 2px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.18s ease, background-color 0.18s ease;
+}
+.daily-confirm-cancel:hover {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.05);
+}
+.daily-confirm-cancel:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.4);
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .daily-confirm-card--start { padding: 24px 20px 18px; }
+  .daily-confirm-card--start h3 { font-size: 1.55rem; }
+  .daily-confirm-icon { width: 52px; height: 52px; font-size: 1.35rem; }
+  .daily-confirm-primary { padding: 13px 20px; font-size: 1rem; }
+}
 
 /* Already-played overlay */
 .daily-already-played-inline {
@@ -1333,11 +1517,16 @@
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
+  .daily-page-backdrop--opening,
+  .daily-landing--opening .daily-landing-hero,
+  .daily-landing--opening .daily-landing-section,
   .daily-streak-pill,
   .daily-streak-pill.pulsing,
   .daily-streak-pill.at-risk,
   .daily-personal-best-ribbon,
   .daily-header-stars svg,
+  .daily-confirm-card,
+  .daily-confirm-icon,
   .daily-results-card {
     animation: none !important;
   }

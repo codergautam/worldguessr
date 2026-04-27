@@ -59,6 +59,40 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
 
     const isValidRoundTime = isTimerDisabled || (!isNaN(parseInt(localTime)) && parseInt(localTime) >= 10 && parseInt(localTime) <= 300);
 
+    // Build the final options object using clamped input values, push to server,
+    // then close. Used by both Save and outside-click/ESC so the two paths stay
+    // in sync — closing without explicit Save was confusing users into thinking
+    // their changes were lost.
+    const commitAndClose = () => {
+        const roundsNum = parseInt(localRounds);
+        const clampedRounds = Math.max(1, Math.min(20, isNaN(roundsNum) ? 5 : roundsNum));
+
+        let clampedTime;
+        if (isTimerDisabled) {
+            clampedTime = 60 * 60 * 24;
+        } else {
+            const t = parseInt(localTime);
+            clampedTime = Math.max(10, Math.min(300, isNaN(t) ? 30 : t));
+        }
+
+        const finalOptions = {
+            ...multiplayerState.createOptions,
+            rounds: clampedRounds,
+            timePerRound: clampedTime,
+            nm: gameOptions.nm,
+            npz: gameOptions.npz,
+            showRoadName: gameOptions.showRoadName,
+        };
+
+        setMultiplayerState(prev => ({
+            ...prev,
+            createOptions: finalOptions,
+        }));
+
+        handleAction("setPrivateGameOptions", finalOptions);
+        onClose();
+    };
+
     if (selectCountryModalShown) {
         return (
             <MapsModal
@@ -91,9 +125,9 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
     }
     
     return (
-        <Modal 
-            onClose={onClose} 
-            open={shown} 
+        <Modal
+            onClose={commitAndClose}
+            open={shown}
             center
             showCloseIcon={false}
             classNames={{ modal: 'party-modal-container' }}
@@ -267,25 +301,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                     <button
                         className="party-modal__save-btn"
                         disabled={!isValidRoundTime}
-                        onClick={() => {
-                            // Construct the complete options object with all current values
-                            const finalOptions = {
-                                ...multiplayerState.createOptions,
-                                nm: gameOptions.nm,
-                                npz: gameOptions.npz,
-                                showRoadName: gameOptions.showRoadName
-                            };
-
-                            // Update local state
-                            setMultiplayerState(prev => ({
-                                ...prev,
-                                createOptions: finalOptions
-                            }));
-
-                            // Send to server with the complete options
-                            handleAction("setPrivateGameOptions", finalOptions);
-                            onClose();
-                        }}
+                        onClick={commitAndClose}
                     >
                         <FaCheck style={{ marginRight: '8px' }} />
                         {text("save")}

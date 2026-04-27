@@ -2,12 +2,13 @@
 // We seed React state from this on mount and overwrite it when the real
 // /api/dailyChallenge/results response lands.
 const KEY_PREFIX = 'wg_daily_status_';
-const TTL_MS = 24 * 60 * 60 * 1000;
+const TOP10_KEY_PREFIX = 'wg_daily_top10_';
+const TTL_MS = 60 * 1000;
 
-export function readDailyStatus(date) {
-  if (typeof window === 'undefined' || !date) return null;
+function readJson(key) {
+  if (typeof window === 'undefined') return null;
   try {
-    const raw = window.localStorage.getItem(KEY_PREFIX + date);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return null;
@@ -18,12 +19,36 @@ export function readDailyStatus(date) {
   }
 }
 
-export function writeDailyStatus(date, user) {
-  if (typeof window === 'undefined' || !date || !user) return;
+function writeJson(key, payload) {
+  if (typeof window === 'undefined') return;
   try {
-    const payload = { ...user, cachedAt: Date.now() };
-    window.localStorage.setItem(KEY_PREFIX + date, JSON.stringify(payload));
+    window.localStorage.setItem(key, JSON.stringify({ ...payload, cachedAt: Date.now() }));
   } catch {
     // quota exceeded / private mode — silently skip
   }
+}
+
+export function readDailyStatus(date) {
+  if (!date) return null;
+  return readJson(KEY_PREFIX + date);
+}
+
+export function writeDailyStatus(date, user) {
+  if (!date || !user) return;
+  writeJson(KEY_PREFIX + date, user);
+}
+
+// Top-10 is per-date and shared across all viewers, so it's safe to cache and
+// reuse across sessions. Caching it (alongside the user block) is what stops
+// the landing leaderboard from flashing the "no winners yet" empty state on
+// every navigation in.
+export function readDailyTop10(date) {
+  if (!date) return [];
+  const parsed = readJson(TOP10_KEY_PREFIX + date);
+  return Array.isArray(parsed?.entries) ? parsed.entries : [];
+}
+
+export function writeDailyTop10(date, top10) {
+  if (!date || !Array.isArray(top10)) return;
+  writeJson(TOP10_KEY_PREFIX + date, { entries: top10 });
 }

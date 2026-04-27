@@ -5,6 +5,7 @@ import DailyChallengeStats, { bucketIndexForScore } from '../../models/DailyChal
 import GuestProfile from '../../models/GuestProfile.js';
 import GuestScore from '../../models/GuestScore.js';
 import { isValidDailyDate } from '../../serverUtils/dailyChallenge.js';
+import { effectiveStreak } from '../../serverUtils/dailyStreak.js';
 
 // Distribution + top-10 (the expensive part) are identical for every caller
 // on the same date — cache for a few seconds. User-specific block is fetched
@@ -18,7 +19,9 @@ async function fetchPublic(date) {
 
   const [statsDoc, top10] = await Promise.all([
     DailyChallengeStats.findOne({ date }).lean(),
-    DailyChallengeScore.find({ date })
+    // Filter DQ markers — they're zero-score rows we keep only to lock the
+    // date for the user, never to surface on the leaderboard.
+    DailyChallengeScore.find({ date, disqualified: { $ne: true } })
       .sort({ score: -1, submittedAt: 1 })
       .limit(10)
       .select('username score')
@@ -64,21 +67,36 @@ async function fetchGuestBlock(date, guestId) {
   if (!profile) return null;
 
   const own = await GuestScore.findOne({ guestId, date })
-    .select('score rounds totalTime')
+    .select('score rounds totalTime disqualified')
     .lean();
 
-  const rank = own ? await rankForScore(date, own.score) : null;
+  const isDq = !!own?.disqualified;
+  // Rank is meaningless for DQ markers — they're not in the distribution.
+  const rank = own && !isDq ? await rankForScore(date, own.score) : null;
   const history = Array.isArray(profile?.daily?.history) ? profile.daily.history.slice(0, 30) : [];
+
+  // Stale-streak guard: zero out a stored streak that's already lapsed so the
+  // UI doesn't show "5-day streak" for someone whose last play was 4+ days ago.
+  // Guests get no grace.
+  const liveStreak = effectiveStreak({
+    streak: profile?.daily?.streak || 0,
+    lastDate: profile?.daily?.lastDate || null,
+    graceDates: [],
+    today: date,
+  }, { allowGrace: false });
 
   return {
     username: null,
-    streak: profile?.daily?.streak || 0,
+    streak: liveStreak,
     streakBest: profile?.daily?.streakBest || 0,
-    playedToday: !!own,
-    ownScore: own?.score ?? null,
+    // playedToday reflects only valid scored runs; a DQ locks the day but
+    // doesn't count as "played" for the menu badge / "view results" CTA.
+    playedToday: !!own && !isDq,
+    disqualifiedToday: isDq,
+    ownScore: isDq ? null : (own?.score ?? null),
     ownRank: rank,
-    ownRounds: own?.rounds || null,
-    ownTotalTime: own?.totalTime || null,
+    ownRounds: isDq ? null : (own?.rounds || null),
+    ownTotalTime: isDq ? null : (own?.totalTime || null),
     history,
     personalBest: history.reduce((m, h) => Math.max(m, h.score || 0), 0),
     guest: true,
@@ -87,13 +105,15 @@ async function fetchGuestBlock(date, guestId) {
 
 async function fetchUserBlock(date, secret) {
   const user = await User.findOne({ secret })
-    .select('_id username dailyStreak dailyStreakBest dailyHistory lastDailyDate')
+    .select('_id username dailyStreak dailyStreakBest dailyHistory lastDailyDate dailyGraceUsedDates')
     .lean();
   if (!user) return null;
 
   const own = await DailyChallengeScore.findOne({ date, userId: user._id })
-    .select('score rounds totalTime username')
+    .select('score rounds totalTime username disqualified')
     .lean();
+
+  const isDq = !!own?.disqualified;
 
   // Self-heal stale usernames on any DailyChallengeScore for this user. A
   // score can end up with username="Player" when it was written before the
@@ -101,12 +121,14 @@ async function fetchUserBlock(date, secret) {
   // guest score on sign-in, or a logged-in submit on a fresh Google account.
   // Unconditional whenever the user has a username — updateMany on no
   // matches is cheap and catches ALL stale dates (not just today's).
+  // Skip DQ-marker rows: they're never on the leaderboard, so a non-canonical
+  // username is harmless and we don't want to touch them.
   if (user.username) {
     try {
       const staleNames = [null, '', 'Player'];
-      if (own && own.username && own.username !== user.username) staleNames.push(own.username);
+      if (own && !isDq && own.username && own.username !== user.username) staleNames.push(own.username);
       const result = await DailyChallengeScore.updateMany(
-        { userId: user._id, username: { $in: staleNames } },
+        { userId: user._id, username: { $in: staleNames }, disqualified: { $ne: true } },
         { $set: { username: user.username } },
       );
       if (result.modifiedCount > 0) {
@@ -121,18 +143,32 @@ async function fetchUserBlock(date, secret) {
   // Rank derived from DailyChallengeStats.buckets (includes anon) so it
   // stays consistent with the percentile rendered in the results UI —
   // see computeRankAndPercentile in submit.js for the same derivation.
-  const rank = own ? await rankForScore(date, own.score) : null;
+  // DQ markers carry score=0 but aren't in the distribution, so no rank.
+  const rank = own && !isDq ? await rankForScore(date, own.score) : null;
 
   const history = (user.dailyHistory || []).slice(0, 30);
+
+  // Stale-streak guard: dailyStreak is only recomputed on submit, so a user
+  // who missed the grace window still has an N-day count sitting in the DB.
+  // Compute the live value here so every read surface (landing, menu badge,
+  // results modal) shows 0 the moment the streak is actually lost.
+  const liveStreak = effectiveStreak({
+    streak: user.dailyStreak || 0,
+    lastDate: user.lastDailyDate,
+    graceDates: user.dailyGraceUsedDates,
+    today: date,
+  });
+
   return {
     username: user.username,
-    streak: user.dailyStreak || 0,
+    streak: liveStreak,
     streakBest: user.dailyStreakBest || 0,
-    playedToday: !!own,
-    ownScore: own?.score ?? null,
+    playedToday: !!own && !isDq,
+    disqualifiedToday: isDq,
+    ownScore: isDq ? null : (own?.score ?? null),
     ownRank: rank,
-    ownRounds: own?.rounds || null,
-    ownTotalTime: own?.totalTime || null,
+    ownRounds: isDq ? null : (own?.rounds || null),
+    ownTotalTime: isDq ? null : (own?.totalTime || null),
     history,
     personalBest: history.reduce((m, h) => Math.max(m, h.score || 0), 0),
   };

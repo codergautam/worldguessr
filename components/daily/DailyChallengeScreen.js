@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
+import { FaCalendarDay, FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
 import { useTranslation } from '@/components/useTranslations';
 import { signIn } from '@/components/auth/auth';
 import { getClientLocalDate } from '@/utils/dailyDate';
@@ -32,25 +33,42 @@ function ConfirmStartModal({ onConfirm, onCancel }) {
   const { t: text } = useTranslation();
   return (
     <div className="daily-confirm-modal" role="dialog" aria-modal="true" onClick={onCancel}>
-      <div className="daily-confirm-card" onClick={e => e.stopPropagation()}>
+      <div className="daily-confirm-card daily-confirm-card--start" onClick={e => e.stopPropagation()}>
+        <div className="daily-confirm-icon" aria-hidden="true">
+          <FaCalendarDay />
+        </div>
         <h3>{text('dailyChallenge')}</h3>
-        <p>{text('confirmStartDaily')}</p>
-        <div className="daily-confirm-actions">
-          <button className="g2_green_button" onClick={onConfirm}>{text('startDailyChallenge')}</button>
-          <button className="g2_green_button3" onClick={onCancel}>{text('cancel')}</button>
+        <p className="daily-confirm-tagline">{text('confirmStartDaily')}</p>
+        <div className="daily-confirm-warning" role="note">
+          <FaExclamationTriangle aria-hidden="true" />
+          <span>{text('confirmStartDailyWarning')}</span>
+        </div>
+        <div className="daily-confirm-actions daily-confirm-actions--stacked">
+          <button type="button" className="daily-confirm-primary" onClick={onConfirm} autoFocus>
+            <span>{text('startDailyChallenge')}</span>
+            <FaArrowRight aria-hidden="true" />
+          </button>
+          <button type="button" className="daily-confirm-cancel" onClick={onCancel}>
+            {text('cancel')}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function DisqualifiedModal({ onClose }) {
+function DisqualifiedModal({ onClose, alreadyDone = false }) {
   const { t: text } = useTranslation();
+  // Two contexts share this modal:
+  //  - mid-game: tab-switch just disqualified the run; "keep playing" wording
+  //  - re-entry: user comes back later and tries to start; "try tomorrow"
+  const titleKey = alreadyDone ? 'dailyAlreadyDisqualifiedTitle' : 'dailyDisqualifiedTitle';
+  const descKey = alreadyDone ? 'dailyAlreadyDisqualifiedDesc' : 'dailyDisqualifiedDesc';
   return (
     <div className="daily-confirm-modal" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="daily-confirm-card" onClick={e => e.stopPropagation()}>
-        <h3>{text('dailyDisqualifiedTitle')}</h3>
-        <p>{text('dailyDisqualifiedDesc')}</p>
+        <h3>{text(titleKey)}</h3>
+        <p>{text(descKey)}</p>
         <div className="daily-confirm-actions">
           <button className="g2_green_button" onClick={onClose}>{text('gotIt')}</button>
         </div>
@@ -201,6 +219,12 @@ export default function DailyChallengeScreen({
   const loadLocation = useCallback(() => {}, []);
 
   const handleStart = useCallback(() => {
+    // DQ from an earlier attempt today locks the date — surface the same
+    // modal we show mid-game rather than letting them queue a new run.
+    if (results?.user?.disqualifiedToday) {
+      setShowDisqualifiedModal(true);
+      return;
+    }
     if (results?.user?.playedToday) {
       setPhase('results');
       return;
@@ -281,10 +305,60 @@ export default function DailyChallengeScreen({
     return effectiveRounds.reduce((s, r) => s + (r.score || 0), 0);
   }, [submitResponse, effectiveRounds, results]);
 
+  const [landingEntranceActive, setLandingEntranceActive] = useState(true);
+
   // --- render ---
 
-  if (phase === 'landing') {
-    return (
+  // Session race: home.js seeds `session` as `false` and only fills it from
+  // useSession() (NextAuth) on the next tick. Rendering DailyLanding before
+  // that lands flashes the logged-out variant (sign-in prompts, "lock in
+  // streak" CTA) at a user who actually IS logged in — then snaps back when
+  // the token shows up. Detect "session expected" via the wg_secret stored
+  // on login, then block the landing until it resolves (with a hard timeout
+  // so a stale wg_secret can't lock the page forever).
+  const sessionResolved = !!session?.token?.secret;
+  const [sessionGracePassed, setSessionGracePassed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try { return !window.localStorage.getItem('wg_secret'); } catch { return true; }
+  });
+  useEffect(() => {
+    if (sessionResolved || sessionGracePassed) return;
+    const t = setTimeout(() => setSessionGracePassed(true), 1500);
+    return () => clearTimeout(t);
+  }, [sessionResolved, sessionGracePassed]);
+  const sessionReady = sessionResolved || sessionGracePassed;
+
+  // Cold-mount guard: with no cache and the first fetch still in flight, the
+  // landing would otherwise paint with empty top10, no streak, and a "Next
+  // challenge in…" CTA that may flip to "View results" half a second later.
+  // Show a brief loading screen instead so the landing only ever appears with
+  // its real values. landingBootstrap (if provided) gives us userData up
+  // front, in which case we can render immediately.
+  const landingHasData = !!results || !!landingBootstrap?.userData;
+  const landingShouldWait = !sessionReady || (!landingHasData && loadingResults);
+  useEffect(() => {
+    if (phase !== 'landing' || landingShouldWait || !landingEntranceActive) return;
+    const t = setTimeout(() => setLandingEntranceActive(false), 750);
+    return () => clearTimeout(t);
+  }, [phase, landingShouldWait, landingEntranceActive]);
+  const renderDailyShell = content => (
+    <>
+      <div
+        className={`daily-page-backdrop ${landingEntranceActive ? 'daily-page-backdrop--opening' : ''}`}
+        aria-hidden="true"
+      />
+      {content}
+    </>
+  );
+  if (phase === 'landing' && landingShouldWait) {
+    return renderDailyShell(
+      <div className="daily-loading">
+      </div>
+    );
+  }
+
+  if (phase === 'landing' || phase === 'confirming') {
+    const landing = (
       <DailyLanding
         today={today}
         todayTop10={results?.top10 || []}
@@ -292,21 +366,27 @@ export default function DailyChallengeScreen({
         isLoggedIn={!!session?.token?.secret}
         onStartChallenge={handleStart}
         onSignIn={() => signIn()}
+        animateEntrance={phase === 'landing' && landingEntranceActive}
       />
     );
-  }
 
-  if (phase === 'confirming') {
-    return (
+    if (phase === 'landing') {
+      return renderDailyShell(
+        <>
+          {landing}
+          {showDisqualifiedModal && (
+            <DisqualifiedModal
+              alreadyDone
+              onClose={() => setShowDisqualifiedModal(false)}
+            />
+          )}
+        </>
+      );
+    }
+
+    return renderDailyShell(
       <>
-        <DailyLanding
-          today={today}
-          todayTop10={results?.top10 || []}
-          userData={results?.user || landingBootstrap?.userData}
-          isLoggedIn={!!session?.token?.secret}
-          onStartChallenge={handleStart}
-          onSignIn={() => signIn()}
-        />
+        {landing}
         <ConfirmStartModal
           onConfirm={handleConfirmStart}
           onCancel={() => setPhase('landing')}
@@ -316,9 +396,8 @@ export default function DailyChallengeScreen({
   }
 
   if (phase === 'loading' || (phase === 'game' && !locationData)) {
-    return (
+    return renderDailyShell(
       <div className="daily-loading">
-        <p>{text('loadingDailyChallenge')}</p>
       </div>
     );
   }

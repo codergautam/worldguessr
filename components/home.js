@@ -139,6 +139,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [miniMapShown, setMiniMapShown] = useState(false)
     const [accountModalPage, setAccountModalPage] = useState("profile");
     const [mapModalClosing, setMapModalClosing] = useState(false);
+    const loadLocationRequestRef = useRef(0);
+    const [pendingCountryGuessrLoad, setPendingCountryGuessrLoad] = useState(0);
+    const countryGuessrLoadRecoveryRef = useRef(0);
     const MAP_MODAL_CLOSE_ANIMATION_MS = 400;
 
     useEffect(() => {
@@ -976,6 +979,70 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         })
     }
 
+    function cancelInFlightLocationLoad() {
+        loadLocationRequestRef.current += 1;
+    }
+
+    function setWorldMapOptions() {
+        setGameOptions((prev) => ({
+            ...prev,
+            location: "all",
+            official: true,
+            countryMap: false,
+            communityMapName: "",
+            maxDist: 20000,
+            extent: null
+        }));
+    }
+
+    function enterCountryGuessrMode(subMode) {
+        cancelInFlightLocationLoad();
+        setLoading(false);
+        setAllLocsArray([]);
+        setLatLong(null);
+        setShowAnswer(false);
+        setPinPoint(null);
+        setHintShown(false);
+        setCountryGuessrMode({ subMode, region: "all" });
+        setShowCountryButtons(true);
+        setWorldMapOptions();
+        setPendingCountryGuessrLoad((prev) => prev + 1);
+
+        if (screen !== "countryGuesser") {
+            setScreen("countryGuesser");
+        } else {
+            setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
+        }
+    }
+
+    useEffect(() => {
+        if (!pendingCountryGuessrLoad) return;
+        if (screen !== "countryGuesser") return;
+        if (gameOptions.location !== "all") return;
+
+        setPendingCountryGuessrLoad(0);
+        loadLocation({ force: true, ignoreCache: true });
+    }, [pendingCountryGuessrLoad, screen, gameOptions.location, countryGuessrMode.subMode])
+
+    useEffect(() => {
+        if (screen !== "countryGuesser" || !loading || showAnswer) return;
+
+        const recoveryId = countryGuessrLoadRecoveryRef.current + 1;
+        countryGuessrLoadRecoveryRef.current = recoveryId;
+
+        const recoveryTimeout = setTimeout(() => {
+            if (countryGuessrLoadRecoveryRef.current !== recoveryId) return;
+            cancelInFlightLocationLoad();
+            setLoading(false);
+            setAllLocsArray([]);
+            setLatLong(null);
+            setWorldMapOptions();
+            setPendingCountryGuessrLoad((prev) => prev + 1);
+        }, 12000);
+
+        return () => clearTimeout(recoveryTimeout);
+    }, [screen, loading, showAnswer, countryGuessrMode.subMode, gameOptions.location])
+
     useEffect(() => {
         if (onboarding?.round > 1) {
             loadLocation({ keepAnswer: !!window._countryGuessrKeepAnswer })
@@ -1011,6 +1078,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // check url
             const cg = window.location.search.includes("crazygames");
             const specifiedMapSlug = window.location.search.includes("map=");
+            // Direct /daily entry skips the classic-mode tutorial — first-time
+            // users came here for the daily challenge, not for an onboarding
+            // street-view round. We don't write "done" to localStorage so
+            // they'll still see the tutorial later if they navigate to home.
+            const onDailyEntry = initialScreen === 'daily'
+              || (typeof window !== 'undefined' && isDailyPath(window.location.pathname));
             console.log("onboarding", onboarding, specifiedMapSlug)
             // make it false just for testing
             // gameStorage.setItem("onboarding", null)
@@ -1020,6 +1093,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             }
             else if (specifiedMapSlug && !cg) setOnboardingCompleted(true)
+            else if (onDailyEntry) setOnboardingCompleted(true)
             else setOnboardingCompleted(false)
         } catch (e) {
             console.error(e, "onboard");
@@ -2616,8 +2690,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         setHintShown(false)
     }
 
-    function loadLocation({ keepAnswer } = {}) {
-        if (loading) return;
+    function loadLocation({ keepAnswer, force, ignoreCache } = {}) {
+        if (loading && !force) return;
+        const loadLocationRequestId = ++loadLocationRequestRef.current;
+        const isCurrentLocationLoad = () => loadLocationRequestId === loadLocationRequestRef.current;
         console.log("[PERF] ========== Starting new round ==========");
         window.roundStartTime = performance.now();
         setLoading(true)
@@ -2662,8 +2738,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     const findLatLongRandom = mod.default;
                     console.log(`[PERF] findLatLong module loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
                     const latLong = await findLatLongRandom({ ...gameOptions, requireKnownCountry, requireKnownContinent });
+                    if (!isCurrentLocationLoad()) return;
                     setLatLong(latLong);
                 } catch (err) {
+                    if (!isCurrentLocationLoad()) return;
                     console.error("[ERROR] Failed to load location:", err);
                     setLoading(false);
                     toast(text("errorLoadingMap"), { type: 'error' });
@@ -2684,6 +2762,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 fetch(url).then((res) => {
                     return res.json();
                 }).then((data) => {
+                    if (!isCurrentLocationLoad()) return;
                     console.log(`[PERF] loadLocation: Fetched locations in ${(performance.now() - fetchStartTime).toFixed(2)}ms`);
                     if (data.ready) {
                         // this uses long for lng
@@ -2739,6 +2818,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         defaultMethod()
                     }
                 }).catch(() => {
+                    if (!isCurrentLocationLoad()) return;
                     if (!window._sentMapLoadErrorToast) {
                     toast(text("errorLoadingMap"), { type: 'error' })
                     window._sentMapLoadErrorToast = true;
@@ -2747,7 +2827,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 });
             }
 
-            if (allLocsArray.length === 0) {
+            if (ignoreCache || allLocsArray.length === 0) {
                 fetchMethod()
             } else if (allLocsArray.length > 0) {
                 const locIndex = (latLong && latLong.lat != null && latLong.long != null)
@@ -2758,6 +2838,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     // to avoid an unnecessary refetch.
                     if (!latLong || latLong.lat == null || latLong.long == null) {
                         setAllLocsArray((prev) => {
+                            if (!isCurrentLocationLoad()) return prev;
                             if (!prev || prev.length === 0) return prev;
                             const loc = gameOptions.location === "all"
                                 ? prev[0]
@@ -2771,6 +2852,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 } else {
                     // prevent repeats: remove the prev location from the array (for both all and community maps)
                     setAllLocsArray((prev) => {
+                        if (!isCurrentLocationLoad()) return prev;
                         const newArr = prev.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long);
 
                         // Pick next location
@@ -3004,6 +3086,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     draggable={false}
                     width={1920}
                     height={1080}
+                    priority
                     alt="Game Background" style={{
                         objectFit: "cover", userSelect: 'none',
                         position: "fixed",
@@ -3014,7 +3097,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         backgroundSize: "cover",
                         backgroundPosition: "center",
                     }}
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    sizes="100vw"
                 />
             </div>
 
@@ -3296,12 +3379,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                                     hasEnteredSingleplayer.current = true;
                                                                     const pref = gameStorage.getItem("singleplayerDefaultMode");
                                                                     if (pref === "countryGuesser") {
-                                                                        setCountryGuessrMode({ subMode: "country", region: "all" });
-                                                                        setScreen("countryGuesser");
+                                                                        enterCountryGuessrMode("country");
                                                                         return;
                                                                     } else if (pref === "continentGuesser") {
-                                                                        setCountryGuessrMode({ subMode: "continent", region: "all" });
-                                                                        setScreen("countryGuesser");
+                                                                        enterCountryGuessrMode("continent");
                                                                         return;
                                                                     }
                                                                 }
@@ -3468,7 +3549,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     if (mapModalClosing) return;
                     setMapModalClosing(true);
                     setTimeout(() => {
-                        setMapModal(false); setGameOptionsModalShown(false); setMapModalClosing(false)
+                        setMapModal(false);
+                        setGameOptionsModalShown(false);
+                        setMapModalClosing(false);
                     }, MAP_MODAL_CLOSE_ANIMATION_MS);
                 }}
                     mapModalClosing={mapModalClosing}
@@ -3507,26 +3590,17 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                         const applyMapSelection = () => {
                             if (map.slug === "__countryGuesser") {
-                                setCountryGuessrMode({ subMode: "country", region: "all" });
                                 try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
-                                if (screen !== "countryGuesser") {
-                                    setScreen("countryGuesser");
-                                } else {
-                                    setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
-                                    setShowCountryButtons(true);
-                                    loadLocation();
-                                }
+                                enterCountryGuessrMode("country");
                             } else if (map.slug === "__continentGuesser") {
-                                setCountryGuessrMode({ subMode: "continent", region: "all" });
                                 try { gameStorage.setItem("singleplayerDefaultMode", "continentGuesser"); } catch(e) {}
-                                if (screen !== "countryGuesser") {
-                                    setScreen("countryGuesser");
-                                } else {
-                                    setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
-                                    setShowCountryButtons(true);
-                                    loadLocation();
-                                }
+                                enterCountryGuessrMode("continent");
                             } else {
+                                cancelInFlightLocationLoad();
+                                setLoading(false);
+                                setLatLong(null);
+                                setShowAnswer(false);
+                                setShowCountryButtons(false);
                                 if (screen === "countryGuesser") setScreen("singleplayer");
                                 try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch(e) {}
                                 openMap(selectedMapSlug);
@@ -3642,8 +3716,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             setShowAnswer(false);
                             setOnboarding(null);
                             setOnboardingCompleted(true);
-                            setCountryGuessrMode({ subMode: "country", region: "all" });
-                            setScreen("countryGuesser");
+                            enterCountryGuessrMode("country");
                         }}
                         onHome={() => {
                             sendEvent("tutorial_end");

@@ -194,7 +194,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ message: 'Missing mapId' });
     }
 
-    const map = await Map.findById(mapId);10000
+    const map = await Map.findById(mapId);
+    if(!map) {
+      return res.status(404).json({ message: 'Map not found' });
+    }
     if(!user.staff && map.created_by.toString() !== user._id.toString()) {
       return res.status(403).json({ message: 'You do not have permission to edit this map' });
     }

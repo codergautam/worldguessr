@@ -112,6 +112,14 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
 
   const existing = await DailyChallengeScore.findOne({ date, userId: user._id }).lean();
   if (existing) {
+    if (existing.disqualified) {
+      return res.status(200).json({
+        alreadySubmitted: true,
+        disqualified: true,
+        streak: user.dailyStreak || 0,
+        streakBest: user.dailyStreakBest || 0,
+      });
+    }
     const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score);
     return res.status(200).json({
       alreadySubmitted: true,
@@ -189,8 +197,17 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
   // this at the DB level, but the explicit check gives a clean 409.
   const existing = await GuestScore.findOne({ guestId, date }).lean();
   if (existing) {
-    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score);
     const profile = await GuestProfile.findOne({ guestId }).lean();
+    if (existing.disqualified) {
+      return res.status(200).json({
+        alreadySubmitted: true,
+        disqualified: true,
+        streak: profile?.daily?.streak || 0,
+        streakBest: profile?.daily?.streakBest || 0,
+        guest: true,
+      });
+    }
+    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, existing.score);
     return res.status(200).json({
       alreadySubmitted: true,
       score: existing.score,
@@ -303,15 +320,64 @@ async function handler(req, res) {
   const finalXp = Math.min(MAX_TOTAL_XP, normalizedRounds.reduce((sum, r) => sum + r.xp, 0));
 
   try {
-    // Disqualified runs (player tab-switched mid-game) are NOT recorded
-    // anywhere — no leaderboard, streak, XP, game history, AND not the
-    // distribution curve. Nothing about a DQ'd run should shape the public
-    // stats that honest players compare themselves against.
+    // Disqualified runs (player tab-switched mid-game) are NOT counted in
+    // the leaderboard, streak, XP, game history, or distribution curve —
+    // nothing about a DQ'd run should shape the public stats honest players
+    // compare themselves against. We DO persist a marker against the
+    // identity (logged-in user or guest) so a DQ locks the date and a second
+    // attempt is blocked. Anon-anon callers have no persistent identity, so
+    // there's nothing to lock.
     if (disqualified) {
       const stats = await DailyChallengeStats.findOne({ date }).lean();
       const bucket = bucketIndexForScore(finalScore);
       const beaten = stats ? (stats.buckets || []).slice(0, bucket).reduce((a, b) => a + b, 0) : 0;
       const percentile = stats?.totalPlays ? Math.round((beaten / stats.totalPlays) * 100) : null;
+
+      if (secret && typeof secret === 'string') {
+        const user = await User.findOne({ secret }).select('_id username').lean();
+        if (user) {
+          try {
+            await DailyChallengeScore.create({
+              date,
+              userId: user._id,
+              username: user.username || 'Player',
+              score: 0,
+              totalTime: Number.isFinite(totalTime) ? totalTime : 0,
+              rounds: [],
+              disqualified: true,
+            });
+          } catch (err) {
+            // 11000 = already submitted today; the lock is already in place.
+            if (err?.code !== 11000) throw err;
+          }
+        }
+      } else if (guestId && typeof guestId === 'string' && guestId.length > 0) {
+        try {
+          await GuestScore.create({
+            guestId,
+            date,
+            score: 0,
+            totalTime: Number.isFinite(totalTime) ? totalTime : 0,
+            rounds: [],
+            disqualified: true,
+          });
+        } catch (err) {
+          if (err?.code !== 11000) throw err;
+        }
+        // Touch the GuestProfile so a refresh from this guestId still finds a
+        // profile, which is what fetchGuestBlock keys on. Don't bump streak/
+        // history — DQ doesn't earn either.
+        const now = new Date();
+        await GuestProfile.updateOne(
+          { guestId },
+          {
+            $set: { updatedAt: now, expiresAt: new Date(now.getTime() + GUEST_PROFILE_TTL_MS) },
+            $setOnInsert: { guestId, createdAt: now, claimedBy: null, claimedAt: null },
+          },
+          { upsert: true }
+        );
+      }
+
       return res.status(200).json({
         score: finalScore,
         totalPlays: stats?.totalPlays || 0,

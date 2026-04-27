@@ -10,6 +10,28 @@ export function pruneGraceDates(dates, today) {
   });
 }
 
+// Read-only check: would the stored streak still extend if the user played
+// `today`? Mirrors the diff-based decision tree in applyStreak so a stale
+// `dailyStreak` value can be zeroed before it's surfaced in any UI.
+//
+// Alive when:
+//   diff 0 (played today) | diff 1 (yesterday) | diff 2 with grace available
+// Dead otherwise. Pass { allowGrace: false } for guests.
+export function isStreakAlive({ lastDate, graceDates, today }, opts = {}) {
+  const allowGrace = opts.allowGrace !== false;
+  if (!lastDate || !today) return false;
+  const diff = daysBetween(lastDate, today);
+  if (diff === null || diff < 0) return false;
+  if (diff <= 1) return true;
+  if (allowGrace && diff === 2 && pruneGraceDates(graceDates, today).length < 1) return true;
+  return false;
+}
+
+export function effectiveStreak({ streak, lastDate, graceDates, today }, opts = {}) {
+  if (!streak || streak <= 0) return 0;
+  return isStreakAlive({ lastDate, graceDates, today }, opts) ? streak : 0;
+}
+
 // Incremental streak update — called on every submit. Matches the original
 // logic that used to live inline in api/dailyChallenge/submit.js.
 //

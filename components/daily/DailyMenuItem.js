@@ -17,7 +17,6 @@ export default function DailyMenuItem({ session, onClick }) {
     return {
       streak: cached?.streak || 0,
       playedToday: !!cached?.playedToday,
-      todaysScore: cached?.ownScore ?? null,
       msToMidnight: typeof window !== 'undefined' ? msUntilLocalMidnight() : 24 * 60 * 60 * 1000,
     };
   });
@@ -54,7 +53,6 @@ export default function DailyMenuItem({ session, onClick }) {
         setState({
           streak: data.user?.streak || 0,
           playedToday: !!data.user?.playedToday,
-          todaysScore: data.user?.ownScore ?? null,
           msToMidnight: msUntilLocalMidnight(),
         });
         if (data.user) writeDailyStatus(today, data.user);
@@ -86,14 +84,9 @@ export default function DailyMenuItem({ session, onClick }) {
       onClick={onClick}
     >
       {text('dailyChallenge')}
-      {state.playedToday && typeof state.todaysScore === 'number' ? (
-        <span className="daily-streak-pill done" style={{ marginLeft: '0.5em', fontSize: '0.6em' }}>
-          <span aria-hidden="true">✓</span>
-          <span>{text('dailyDoneCheckmark', { score: state.todaysScore })}</span>
-        </span>
-      ) : state.streak > 0 ? (
+      {state.streak > 0 && (
         <DailyStreakBadge streak={state.streak} variant={variant} />
-      ) : null}
+      )}
     </button>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import config from '@/clientConfig';
 import { getClientLocalDate } from '@/utils/dailyDate';
-import { readDailyStatus, writeDailyStatus } from '@/utils/dailyStatusCache';
+import { readDailyStatus, writeDailyStatus, readDailyTop10, writeDailyTop10 } from '@/utils/dailyStatusCache';
 import { ensureGuestId, getGuestId } from '@/utils/guestId';
 import { claimGuestProgressIfAny } from '@/utils/claimGuestProgress';
 
@@ -18,15 +18,26 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
   const [locationData, setLocationData] = useState(null);
   const [locationError, setLocationError] = useState(null);
   // Seed results with whatever we cached last time for this date so the UI
-  // renders instantly — we still refresh from the API on mount.
+  // renders instantly — we still refresh from the API on mount. Top-10 is
+  // cached separately so the landing leaderboard doesn't flash the
+  // "no winners yet" empty state while the API is in flight.
   const [results, setResults] = useState(() => {
     if (typeof window === 'undefined') return null;
     const effectiveDate = dateOverride || getClientLocalDate();
-    const cached = readDailyStatus(effectiveDate);
-    return cached ? { user: cached, fromCache: true } : null;
+    const cachedUser = readDailyStatus(effectiveDate);
+    const cachedTop10 = readDailyTop10(effectiveDate);
+    if (!cachedUser && cachedTop10.length === 0) return null;
+    return { user: cachedUser || null, top10: cachedTop10, fromCache: true };
   });
   const [resultsError, setResultsError] = useState(null);
-  const [loadingResults, setLoadingResults] = useState(false);
+  // Default loading=true on a cold mount (no cached data) so the consumer can
+  // render a loading screen instead of a flickering empty landing on the
+  // single frame between mount and the first fetchResults() call.
+  const [loadingResults, setLoadingResults] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    const effectiveDate = dateOverride || getClientLocalDate();
+    return !readDailyStatus(effectiveDate) && readDailyTop10(effectiveDate).length === 0;
+  });
 
   const secret = session?.token?.secret;
 
@@ -61,6 +72,7 @@ export function useDailyChallenge({ session, autoFetchResults = false, dateOverr
       const data = await res.json();
       setResults(data);
       if (data?.user) writeDailyStatus(date, data.user);
+      if (Array.isArray(data?.top10)) writeDailyTop10(date, data.top10);
       return data;
     } catch (err) {
       setResultsError(err);

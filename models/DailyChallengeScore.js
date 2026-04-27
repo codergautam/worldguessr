@@ -16,6 +16,9 @@ const dailyChallengeScoreSchema = new mongoose.Schema({
   score: { type: Number, required: true },
   totalTime: { type: Number, default: 0 },
   rounds: { type: [roundSchema], default: [] },
+  // Tab-switched mid-game: record exists to lock the date (one play per day),
+  // but the run is excluded from the leaderboard and not counted in stats.
+  disqualified: { type: Boolean, default: false },
   submittedAt: { type: Date, default: Date.now },
 });
 

@@ -17,6 +17,9 @@ const guestScoreSchema = new mongoose.Schema({
   score: { type: Number, required: true },
   totalTime: { type: Number, default: 0 },
   rounds: { type: [guestRoundSchema], default: [] },
+  // Mirrors DailyChallengeScore — locks the (guestId, date) slot for DQ runs
+  // without putting them on the leaderboard or in distribution stats.
+  disqualified: { type: Boolean, default: false },
   submittedAt: { type: Date, default: Date.now },
 });
 
