@@ -13,7 +13,8 @@ export default function DailyCommunityMapsButton({ onClick, hidden }) {
       title={text('communityMaps')}
       onClick={onClick}
     >
-      <FaMapMarkedAlt />
+      <FaMapMarkedAlt aria-hidden="true" />
+      <span className="daily-community-maps-btn__label">{text('maps')}</span>
     </button>
   );
 }

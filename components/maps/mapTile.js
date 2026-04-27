@@ -30,7 +30,7 @@ export default function MapTile({
 
     const highlightMatch = (text, searchTerm) => {
         if (!searchTerm || !text || typeof searchTerm !== 'string') return text;
-        if (searchTerm.length < 3) return text;
+        if (searchTerm.length < 2) return text;
 
         const regex = new RegExp(`(${escapeRegExp(searchTerm)})`, 'gi');
 

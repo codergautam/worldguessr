@@ -245,27 +245,26 @@ export default function MapView({
 
     const toggleSection = (sectionKey) => {
         setExpandedSections(prev => {
+            const wasExpanded = !!prev[sectionKey];
 
-        // scroll to section top if being collapsed and not in view
-        setTimeout(() => {
-            const sectionElement = document.getElementById(sectionKey + "_map_view_section");
-            if (sectionElement) {
-                const sectionTop = sectionElement.getBoundingClientRect().top;
-                const sectionHeight = 100;
-                const windowHeight = window.innerHeight;
-                // If the section is being collapsed and is not in view, scroll to it
-                console.log(sectionTop, sectionHeight, windowHeight);
-                if (prev[sectionKey] && (sectionTop < 0 || sectionTop + sectionHeight > windowHeight)) {
-                    sectionElement.scrollIntoView({ behavior: "smooth", block: "start" });
-                }
+            // Only scroll UP to the section header when going from expanded -> collapsed
+            // and the header is above the viewport. Never scroll down (e.g. on "Show all").
+            if (wasExpanded) {
+                setTimeout(() => {
+                    const sectionElement = document.getElementById(sectionKey + "_map_view_section");
+                    if (!sectionElement) return;
+                    const sectionTop = sectionElement.getBoundingClientRect().top;
+                    if (sectionTop < 0) {
+                        sectionElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                }, 100);
             }
-        }, 100);
 
-        // toggle the section
-            return{
-            ...prev,
-            [sectionKey]: !prev[sectionKey]
-        }});
+            return {
+                ...prev,
+                [sectionKey]: !wasExpanded
+            };
+        });
     };
 
     const getRowsForSection = (section) => {

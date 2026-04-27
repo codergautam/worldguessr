@@ -49,40 +49,77 @@
 .daily-community-maps-btn {
   position: fixed;
   top: 110px;
-  right: 12px;
+  right: 10px;
   z-index: 999;
-  width: 44px;
-  height: 44px;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
+  gap: 8px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 10px;
   border: 1.4px solid var(--primaryDark);
-  background: var(--gradLight);
-  background-color: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(10px);
+  background: var(--gradGreenBtn);
+  background-color: var(--primaryTransparent);
   color: white;
   cursor: pointer;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-size: 1.1em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease, filter 0.2s ease;
+  white-space: nowrap;
+  animation: dailyMapsBtnBounce 0.55s ease;
 }
 .daily-community-maps-btn:hover {
-  background-color: var(--primaryTransparent);
-  transform: scale(1.08);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  background-color: var(--primary);
+  filter: brightness(1.12);
+  transform: scale(1.06);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.daily-community-maps-btn:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
 }
 .daily-community-maps-btn svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.daily-community-maps-btn__label {
+  font-family: inherit;
+  line-height: 1;
+}
+
+@media (max-width: 1280px) {
+  .daily-community-maps-btn {
+    top: 100px;
+    height: 36px;
+    font-size: 1em;
+    padding: 0 14px;
+  }
 }
 
 @media (max-width: 600px) {
   .daily-community-maps-btn {
-    top: 14px;
-    right: 70px;
-    width: 38px;
-    height: 38px;
+    top: 90px;
+    right: 10px;
+    height: 32px;
+    font-size: 0.95em;
+    padding: 0 12px;
+    gap: 6px;
   }
+  .daily-community-maps-btn svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+@keyframes dailyMapsBtnBounce {
+  0% { transform: scale(0.85); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 /* In-game HUD — sits below the top navbar (which is 50px tall at z-index 1120)

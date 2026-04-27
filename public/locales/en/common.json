@@ -600,7 +600,7 @@
   "streakMilestone30": "🔥 30 day streak — you're unstoppable!",
   "streakMilestone100": "💎 100 days! Legendary.",
   "startDailyChallenge": "I'm ready, let's go",
-  "confirmStartDaily": "5 rounds. One attempt. Make it count.",
+  "confirmStartDaily": "3 rounds. One attempt. Make it count.",
   "confirmStartDailyWarning": "Don't switch tabs or minimize the window. Leaving disqualifies your run.",
   "cancel": "Cancel",
   "dailyDoneCheckmark": "Done · {{score}}",

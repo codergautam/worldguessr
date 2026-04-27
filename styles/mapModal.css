@@ -93,15 +93,23 @@
   opacity: 0.8;
 }
 
-/* Map View Container */
+/* Map View Container
+   NOTE: previously used backdrop-filter: blur(50px) which was the primary cause
+   of GPU jank and white-flicker artifacts on low-end devices (Chromebooks).
+   A 50px blur over a tall scrollable region forces the compositor to re-sample
+   a huge underlying area on every paint, scroll, focus or layout change. We
+   replicate the frosted-depth feel here with a layered gradient + inset
+   highlight that costs essentially nothing on the GPU. */
 .mapView {
   max-width: min(1400px, calc(100% - 32px));
   margin: 16px auto;
   padding: 0 20px 100px;
-  backdrop-filter: blur(50px);
-  -webkit-backdrop-filter: blur(50px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background:
+    linear-gradient(180deg, rgba(8, 18, 12, 0.78) 0%, rgba(5, 12, 8, 0.82) 100%),
+    linear-gradient(135deg, rgba(36, 87, 52, 0.12) 0%, rgba(0, 0, 0, 0) 60%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--map-border-radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   -webkit-overflow-scrolling: touch;
 }
 
@@ -127,18 +135,21 @@
   }
 }
 
-/* Sticky Header */
+/* Sticky Header
+   Was backdrop-filter: blur(20px) — re-blurred on every scroll which is the
+   worst possible time for the user to perceive jank. Solid gradient + soft
+   bottom shadow gives the same "floating header" depth without the GPU cost. */
 .map-sticky-header {
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: linear-gradient(180deg, rgba(15, 30, 20, 0.96) 0%, rgba(15, 30, 20, 0.92) 100%);
   padding: 20px 0 10px;
   margin: 0 -20px 20px;
   padding-left: 20px;
   padding-right: 20px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
   border-top-left-radius: var(--map-border-radius);
   border-top-right-radius: var(--map-border-radius);
 }
@@ -216,16 +227,20 @@
   margin: 0 auto;
 }
 
-.map-search-input {
+/* The compound `.map-search-section .map-search-input` selector outranks the
+   unscoped `input[type="text"]` rule in styles/multiPlayerModal.css (specificity
+   0,1,1) which otherwise wins and forces padding:10px / margin:10px onto this
+   input — that's what was causing the search icon to overlap the placeholder. */
+.map-search-section .map-search-input {
   width: 100%;
   padding: 12px 24px 12px 56px;
+  margin: 0;
   font-size: 1.1rem;
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 50px;
   background: rgba(255, 255, 255, 0.95);
   color: #333;
-  backdrop-filter: blur(10px);
-  transition: var(--map-transition);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
 }
 
@@ -252,9 +267,8 @@
   gap: 24px;
   margin-bottom: 16px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   border-radius: var(--map-border-radius);
-  backdrop-filter: blur(10px);
 }
 
 .map-option {
@@ -465,8 +479,7 @@
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
   position: relative;
   overflow: hidden;
 }
@@ -503,38 +516,43 @@
   padding: 0;
   border: none;
   position: relative;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-overflow-scrolling: touch;
 }
 
-/* Map Tiles - Split Layout */
+/* Map Tiles - Split Layout
+   Was backdrop-filter: blur(20px) PER TILE plus a transform-scale fadeIn —
+   meaning expanding a section that mounts ~100 new tiles created ~100 fresh
+   GPU compositing layers each demanding a backdrop re-sample, while the
+   scale animation simultaneously triggered paint work. That's the cause of
+   the expansion lag.
+   Replacement: a subtle 2-stop gradient (green tint top-left → black) with
+   an inset top highlight to fake the "lit-from-above glass card" depth, and
+   an opacity-only fadeIn on a translateY (transform-only, GPU-cheap). */
 .map-tile {
-  background: var(--map-card-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: linear-gradient(135deg, rgba(36, 87, 52, 0.20) 0%, rgba(0, 0, 0, 0.58) 100%);
   border-radius: var(--map-border-radius);
   cursor: pointer;
-  transition: var(--map-transition);
-  box-shadow: var(--map-card-shadow);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:
+    var(--map-card-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
   color: white;
-  animation: fadeIn var(--map-animation-duration) ease-out;
 }
 
-.map-tile::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(36, 87, 52, 0.1) 0%, rgba(36, 87, 52, 0.05) 100%);
-  pointer-events: none;
-  z-index: 0;
+@media (prefers-reduced-motion: no-preference) {
+  .map-tile {
+    animation: tileFadeIn var(--map-animation-duration) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+
+@keyframes tileFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .map-tile-image,
@@ -905,7 +923,7 @@
     gap: 10px;
   }
 
-  .map-search-input {
+  .map-search-section .map-search-input {
     padding: 14px 20px 14px 48px;
     font-size: 1rem;
   }
@@ -965,7 +983,10 @@
   }
 }
 
-/* Make Map Form - Complete Redesign */
+/* Make Map Form - Complete Redesign
+   Removed backdrop-filter: blur(20px) — the form's bg is already 92% opaque
+   so the blur was perceptually invisible but still allocated a compositing
+   layer. The visual is unchanged. */
 .make-map-form {
   max-width: 800px;
   margin: 0 auto 24px;
@@ -973,8 +994,9 @@
   background: rgba(15, 15, 15, 0.92);
   color: white;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(20px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.15);
   animation: fadeIn var(--map-animation-duration) ease-out;
 }
@@ -1351,7 +1373,7 @@
   }
 
   /* Prevent iOS zoom on input focus */
-  .map-search-input {
+  .map-search-section .map-search-input {
     font-size: 16px;
   }
 
