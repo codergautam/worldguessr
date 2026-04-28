@@ -31,7 +31,7 @@ export function formatCountdown(ms) {
 }
 
 export function challengeNumber(dateStr) {
-  const epoch = Date.parse('2026-04-16T00:00:00Z');
+  const epoch = Date.parse('2026-04-27T00:00:00Z');
   const target = Date.parse(`${dateStr}T00:00:00Z`);
   if (Number.isNaN(target)) return 1;
   return Math.max(1, Math.floor((target - epoch) / (24 * 60 * 60 * 1000)) + 1);

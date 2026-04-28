@@ -206,6 +206,7 @@ export default class Player {
 
         let valid;
         if(json.secret) {
+          console.log('validating secret', json.secret);
         valid =  await validateSecret(json.secret, User);
         }
         if (valid) {
@@ -366,6 +367,7 @@ export default class Player {
           this.allowFriendReq = valid.allowFriendReq;
 
         } else {
+          console.log('failed to login', json.secret);
           this.send({
             type: 'error',
             message: 'Failed to login',

@@ -3653,6 +3653,21 @@ img.countryGuessrBtn__emoji {
     }
 }
 
+/* Continent mode (6 buttons in a 70%-wide container) overflows a single row
+   on narrow viewports. Wrap into a 3+3 layout. Country mode (4 buttons, no
+   fixed container width) doesn't have this issue. Placed before the mobile
+   and landscape-phone blocks so those override with their own flex-basis. */
+@media (max-width: 900px) {
+    .countryGuessrOptions.continentMode .countryGuessrBtnRow {
+        flex-wrap: wrap;
+    }
+
+    .countryGuessrOptions.continentMode .countryGuessrBtn--continent {
+        flex: 1 1 30%;
+        min-width: 0;
+    }
+}
+
 
 @keyframes cardSlideIn {
     to {
