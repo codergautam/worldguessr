@@ -645,5 +645,19 @@
   "dailyQuipGood10": "You turned the world into your personal playground. Respect.",
   "aboveAvg": "+{{pct}}% above avg",
   "belowAvg": "{{pct}}% below avg",
-  "exactAvg": "Average"
+  "exactAvg": "Average",
+  "account": "Account",
+  "copyProfileLink": "Copy profile link",
+  "dailyLandingTagline": "The WorldGuessr Daily Challenge is a free geography puzzle that refreshes every 24 hours. Each day brings 3 random Google Street View locations from around the world - you have 60 seconds per round to drop a pin where you think you are. One attempt per day, no second chances. Build a streak, climb the global leaderboard, and see how your guesses stack up against players everywhere.",
+  "ELO": "ELO",
+  "error": "Error",
+  "info": "Information",
+  "player": "Player",
+  "player1": "Player 1",
+  "required": "Required",
+  "result": "Result",
+  "success": "Success",
+  "supporter": "Supporter",
+  "unknown": "Unknown",
+  "warning": "Warning"
 }

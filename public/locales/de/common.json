@@ -645,5 +645,19 @@
   "dailyQuipGood10": "Du hast die Welt zu deinem persönlichen Spielplatz gemacht. Respekt.",
   "aboveAvg": "+{{pct}} % über dem Durchschnitt",
   "belowAvg": "{{pct}} % unter dem Durchschnitt",
-  "exactAvg": "Durchschnitt"
+  "exactAvg": "Durchschnitt",
+  "account": "Konto",
+  "copyProfileLink": "Profil-Link kopieren",
+  "dailyLandingTagline": "Die WorldGuessr Tageschallenge ist ein kostenloses Geografie-Rätsel, das alle 24 Stunden frisch erscheint. Jeden Tag warten 3 zufällige Google-Street-View-Orte aus aller Welt — du hast 60 Sekunden pro Runde, um deinen Pin dort zu setzen, wo du dich vermutest. Ein Versuch pro Tag, keine zweite Chance. Baue deine Serie aus, klettere in der weltweiten Rangliste und vergleiche dich mit Spielern aus aller Welt.",
+  "ELO": "ELO",
+  "error": "Fehler",
+  "info": "Information",
+  "player": "Spieler",
+  "player1": "Spieler 1",
+  "required": "Erforderlich",
+  "result": "Ergebnis",
+  "success": "Erfolg",
+  "supporter": "Unterstützer",
+  "unknown": "Unbekannt",
+  "warning": "Warnung"
 }

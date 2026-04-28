@@ -860,6 +860,16 @@
   font-weight: 500;
   font-size: 1.05rem;
 }
+.daily-leaderboard-name-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.daily-leaderboard-name-link:hover {
+  color: #4CAF50;
+  text-decoration: underline;
+}
 .daily-leaderboard-row .score {
   font-family: "Jockey One", sans-serif;
   font-weight: 400;

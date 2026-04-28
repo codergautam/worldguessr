@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { useTranslation } from '@/components/useTranslations';
 
 function medal(rank) {
@@ -6,6 +7,21 @@ function medal(rank) {
   if (rank === 2) return '🥈';
   if (rank === 3) return '🥉';
   return <span style={{ opacity: 0.7, fontSize: '0.85em' }}>#{rank}</span>;
+}
+
+function ProfileNameLink({ username, className }) {
+  if (!username) return null;
+  return (
+    <Link
+      href={`/user?u=${encodeURIComponent(username)}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={className}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {username}
+    </Link>
+  );
 }
 
 export default function DailyLeaderboardPanel({ top10 = [], userRank, userScore, username, isLoggedIn, onSignIn }) {
@@ -23,7 +39,7 @@ export default function DailyLeaderboardPanel({ top10 = [], userRank, userScore,
           <div key={entry.rank} className={`daily-leaderboard-row ${isMe ? 'self' : ''}`}>
             <div className="rank-name-group">
               <span className="rank">{medal(entry.rank)}</span>
-              <span className="name">{entry.username}</span>
+              <ProfileNameLink username={entry.username} className="name daily-leaderboard-name-link" />
             </div>
             <span className="score">{entry.score.toLocaleString()}</span>
           </div>
@@ -40,7 +56,9 @@ export default function DailyLeaderboardPanel({ top10 = [], userRank, userScore,
               <span className="rank">
                 <span style={{ opacity: 0.7, fontSize: '0.85em' }}>#{userRank}</span>
               </span>
-              <span className="name">{username || text('yourScore')}</span>
+              {username
+                ? <ProfileNameLink username={username} className="name daily-leaderboard-name-link" />
+                : <span className="name">{text('yourScore')}</span>}
             </div>
             <span className="score">{Number(userScore || 0).toLocaleString()}</span>
           </div>
