@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { toast } from "react-toastify";
 import { FaHeart, FaTrash, FaUser, FaMapMarkerAlt } from "react-icons/fa";
 import formatNumber from "../utils/fmtNumber";
 import { FaPencil } from "react-icons/fa6";
 
-export default function MapTile({
+function MapTile({
     onPencilClick,
     showEditControls,
     map,
@@ -20,8 +20,13 @@ export default function MapTile({
     forcedWidth,
     textColor
 }) {
-    const backgroundImage = bgImage ? bgImage : (country ? `url("https://flagcdn.com/h240/${country?.toLowerCase()}.png")` : "");
+    // Accept either a raw URL or the legacy `url("...")` form, and derive a
+    // plain src for a real <img> so the browser can lazy-load + decode async.
+    const imageUrl = bgImage
+        ? bgImage.replace(/^url\(\s*["']?/, '').replace(/["']?\s*\)$/, '')
+        : (country ? `https://flagcdn.com/h240/${country?.toLowerCase()}.png` : "");
     const [mapResubmittable, setMapResubmittable] = useState(map.resubmittable);
+    const [imgLoaded, setImgLoaded] = useState(false);
 
     // Define escapeRegExp outside of highlightMatch so it exists before being called
     const escapeRegExp = (string) => {
@@ -121,13 +126,24 @@ export default function MapTile({
 
     return (
         <div
-            className={`map-tile ${country ? 'country' : ''} ${!backgroundImage ? 'no-image' : ''}`}
+            className={`map-tile ${country ? 'country' : ''} ${!imageUrl ? 'no-image' : ''}`}
             onClick={onClick}
             style={forcedWidth ? { width: forcedWidth } : {}}
         >
-            {/* Top half: Image (only if present) */}
-            {backgroundImage && (
-                <div className="map-tile-image" style={{ backgroundImage, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+            {/* Top half: Image (only if present) — real <img> so the browser
+                lazy-loads/decodes off the main thread instead of us painting
+                a CSS background for every offscreen tile. */}
+            {imageUrl && (
+                <div className="map-tile-image">
+                    <img
+                        src={imageUrl}
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                        draggable={false}
+                        onLoad={() => setImgLoaded(true)}
+                        className={imgLoaded ? "loaded" : ""}
+                    />
                 </div>
             )}
 
@@ -264,3 +280,5 @@ export default function MapTile({
         </div>
     );
 }
+
+export default memo(MapTile);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "react-toastify";
 import { FaSearch, FaPlus, FaArrowLeft, FaMapMarkedAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import MakeMapForm from "./makeMap";
@@ -38,6 +38,10 @@ export default function MapView({
     const [isLoading, setIsLoading] = useState(true);
     const [searchLoading, setSearchLoading] = useState(false);
     const [expandedSections, setExpandedSections] = useState({});
+    // Cache the container's content-box width so getMapsPerRow doesn't have
+    // to query the DOM (and re-layout) on every render.
+    const containerRef = useRef(null);
+    const [containerWidth, setContainerWidth] = useState(0);
 
     const { handleSearch } = useMapSearch(session, setSearchResults, setSearchLoading);
 
@@ -93,23 +97,33 @@ export default function MapView({
 
     useEffect(() => {
         refreshHome();
+    }, [session?.token?.secret]);
 
-        // Add debounced resize listener to recalculate grid when window size changes
-        let resizeTimeout;
-        const handleResize = () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                // Force re-render by updating state
-                setExpandedSections(prev => ({ ...prev }));
-            }, 150); // 150ms debounce
-        };
-
-        window.addEventListener('resize', handleResize);
+    // Track the .mapView content width via ResizeObserver. This replaces a
+    // window 'resize' listener + per-render document.querySelector — both
+    // were causing layout thrash on low-end devices when scrolling.
+    useEffect(() => {
+        const node = containerRef.current;
+        if (!node) return;
+        // Seed from current size so the first paint computes correctly.
+        setContainerWidth(node.clientWidth);
+        if (typeof ResizeObserver === 'undefined') return;
+        let raf = 0;
+        const ro = new ResizeObserver((entries) => {
+            // Coalesce rapid notifications into a single state update.
+            cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(() => {
+                const entry = entries[entries.length - 1];
+                const w = entry?.contentRect?.width ?? node.clientWidth;
+                setContainerWidth((prev) => (Math.abs(prev - w) > 1 ? w : prev));
+            });
+        });
+        ro.observe(node);
         return () => {
-            window.removeEventListener('resize', handleResize);
-            clearTimeout(resizeTimeout);
+            cancelAnimationFrame(raf);
+            ro.disconnect();
         };
-    }, [session?.token?.secret]);    function createMap(map) {
+    }, []);    function createMap(map) {
         if (!session?.token?.secret) {
             toast.error("Not logged in");
             return;
@@ -273,30 +287,26 @@ export default function MapView({
         return 2;
     };
 
-    const getMapsPerRow = (section = "default") => {
-        const container = document.querySelector('.mapView');
+    const getMapsPerRow = useCallback((section = "default") => {
         const isCountry = section === 'countryMaps';
-        if (!container) {
-            if (window.innerWidth >= 1400) return isCountry ? 9 : 6;
-            if (window.innerWidth >= 1200) return isCountry ? 8 : 5;
-            if (window.innerWidth >= 1000) return isCountry ? 6 : 4;
-            if (window.innerWidth >= 800) return isCountry ? 5 : 3;
+        const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+
+        if (!containerWidth) {
+            if (winW >= 1400) return isCountry ? 9 : 6;
+            if (winW >= 1200) return isCountry ? 8 : 5;
+            if (winW >= 1000) return isCountry ? 6 : 4;
+            if (winW >= 800) return isCountry ? 5 : 3;
             return isCountry ? 3 : 2;
         }
 
-        // Must match .mapView's horizontal padding in mapModal.css
-        let padding = 40;
-        if (window.innerWidth <= 480) padding = 24;
-
-        const containerWidth = container.clientWidth - padding;
-
-        // Must match the CSS `gap` on .map-grid / .map-grid.country-maps per breakpoint.
+        // ResizeObserver gives the content-box width already, so no padding
+        // subtraction is needed here. Gap/min-width below must match the CSS.
         let gridGap;
         let minTileWidth;
-        if (window.innerWidth <= 480) {
+        if (winW <= 480) {
             gridGap = 8;
             minTileWidth = isCountry ? 95 : 140;
-        } else if (window.innerWidth <= 800) {
+        } else if (winW <= 800) {
             gridGap = isCountry ? 10 : 12;
             minTileWidth = isCountry ? 110 : 160;
         } else {
@@ -306,9 +316,9 @@ export default function MapView({
 
         const tilesPerRow = Math.floor((containerWidth + gridGap) / (minTileWidth + gridGap));
         return Math.max(1, tilesPerRow);
-    };    if (makeMap.open) {
+    }, [containerWidth]);    if (makeMap.open) {
         return (
-            <div className="mapView">
+            <div className="mapView" ref={containerRef}>
                 <div className="map-header">
                     <div className="map-header-left">
                         <button
@@ -328,7 +338,7 @@ export default function MapView({
     }
 
     return (
-        <div className="mapView">
+        <div className="mapView" ref={containerRef}>
             {/* Sticky Header Container */}
             <div className="map-sticky-header">
                 {/* Header */}

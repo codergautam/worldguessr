@@ -388,9 +388,18 @@
   }
 }
 
-/* Map Sections */
+/* Map Sections
+   content-visibility: auto lets the browser skip layout/paint for any
+   section that isn't near the viewport. contain-intrinsic-size reserves
+   space so the scrollbar doesn't jump. This is the single biggest reason
+   the page feels "soft" on Chromebooks — only visible sections cost work. */
 .map-section {
   margin-bottom: 40px;
+  content-visibility: auto;
+  /* `auto` makes the browser remember each section's real size after first
+     paint, so scrollIntoView from the category pills lands accurately even
+     after a section has been recycled out of the viewport. */
+  contain-intrinsic-size: auto 360px;
 }
 
 .map-section-title {
@@ -538,7 +547,7 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   color: white;
@@ -562,21 +571,37 @@
 }
 
 .map-tile:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-  border-color: var(--map-primary);
-  background: rgba(0, 0, 0, 0.9);
+  transform: translateY(-2px);
+  border-color: var(--map-primary-light);
+  background: rgba(20, 36, 25, 0.92);
 }
 
 .map-tile-image {
   width: 100%;
   aspect-ratio: 21 / 9;
-  background-color: rgba(255, 255, 255, 0.05);
+  background-color: rgba(255, 255, 255, 0.04);
   position: relative;
+  overflow: hidden;
 }
 
 .map-tile.country .map-tile-image {
   aspect-ratio: 16 / 9;
+}
+
+/* Real <img> inside the tile — browser handles loading="lazy" + async
+   decode so offscreen tiles cost nothing. The opacity transition is the
+   "beautiful" entrance: an image gracefully fades in once decoded. */
+.map-tile-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.map-tile-image img.loaded {
+  opacity: 1;
 }
 
 .map-tile-content {
@@ -1363,13 +1388,6 @@
 
   .map-section-container {
     -webkit-overflow-scrolling: touch;
-    transform: translateZ(0);
-  }
-
-  /* Fix for iOS sticky positioning issues */
-  .map-tile {
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
   }
 
   /* Prevent iOS zoom on input focus */
@@ -1384,6 +1402,19 @@
   .make-map-form input[type="text"],
   .make-map-form textarea {
     font-size: 16px;
+  }
+}
+
+/* Respect reduced-motion: kill the image fade and the hover lift. */
+@media (prefers-reduced-motion: reduce) {
+  .map-tile-image img {
+    transition: none;
+    opacity: 1;
+  }
+  .map-tile,
+  .map-tile:hover {
+    transition: none;
+    transform: none;
   }
 }
 
