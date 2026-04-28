@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { FaStar, FaShareAlt, FaArrowLeft } from 'react-icons/fa';
+import { FaStar, FaShareAlt, FaArrowLeft, FaCheck } from 'react-icons/fa';
+import sendEvent from '../utils/sendEvent';
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
 import { formatCountdown, msUntilLocalMidnight, challengeNumber as computeChallengeNumber } from '@/utils/dailyDate';
 import ScoreDistributionChart from './ScoreDistributionChart';
-import DailyHistorySparkline from './DailyHistorySparkline';
 
 const MAX_PER_ROUND = 5000;
 const TOTAL_MAX = 3 * MAX_PER_ROUND;
@@ -360,6 +360,16 @@ export default function DailyResultsScreen({
     // show up as `|` characters when pasted into plain-text share targets,
     // so strip them before using dateLabel in the share string.
     const cleanDate = (dateLabel || '').replace(/[\u200E\u200F\u202A-\u202E]/g, '');
+    const hasNativeShare = typeof navigator !== 'undefined' && !!navigator.share;
+    // Fire the click event up front: measures share *intent*, not whether
+    // the OS share sheet was completed (which is unmeasurable from JS).
+    sendEvent('daily_share_click', {
+      challenge_num: chNum,
+      score: Math.round(totalScore),
+      percentile: typeof percentile === 'number' ? percentile : null,
+      streak,
+      method: hasNativeShare ? 'native' : 'clipboard',
+    });
     const title = text('dailyShareTitleDate', { date: cleanDate });
     const maxScore = (rounds?.length || 3) * MAX_PER_ROUND;
     // Percentile ("Beat n%") is friendlier to share than raw rank — no
@@ -482,22 +492,23 @@ export default function DailyResultsScreen({
             )}
           </div>
 
-          {/* History sparkline — only meaningful with at least a few data
-              points, otherwise it's a single dot and looks broken. */}
-          {(results?.user?.history?.length || 0) >= 3 && (
-            <div className="daily-stat-card" style={{ gridColumn: '1 / -1' }}>
-              <div className="daily-stat-title">{text('past7Days')}</div>
-              <DailyHistorySparkline history={results.user.history} />
-            </div>
-          )}
         </div>
 
         <div className="daily-actions">
-          <button className="g2_green_button" onClick={handleShare}>
-            <FaShareAlt style={{ verticalAlign: '-2px', marginRight: 6 }} />
-            {shareCopied ? text('shareCopied') : text('share')}
+          <button
+            className={`daily-share-btn${shareCopied ? ' is-copied' : ''}`}
+            onClick={handleShare}
+            aria-label={text('share')}
+          >
+            <span className="daily-share-btn__shine" aria-hidden="true" />
+            <span className="daily-share-btn__icon" aria-hidden="true">
+              {shareCopied ? <FaCheck /> : <FaShareAlt />}
+            </span>
+            <span className="daily-share-btn__label">
+              {shareCopied ? text('shareCopied') : text('share')}
+            </span>
           </button>
-          <button className="g2_green_button3" onClick={onClose}>
+          <button className="daily-back-btn" onClick={onClose}>
             <FaArrowLeft style={{ verticalAlign: '-2px', marginRight: 6 }} />
             {text('backToHome')}
           </button>

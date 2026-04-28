@@ -870,26 +870,6 @@
   gap: 8px;
 }
 
-/* Sparkline */
-.daily-sparkline {
-  display: block;
-  width: 100%;
-  height: 100px;
-  margin-top: 8px;
-  overflow: visible;
-}
-.daily-sparkline-trend {
-  margin-top: 12px;
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
-}
-.daily-sparkline-trend .improving { color: #8be0a0; }
-.daily-sparkline-trend .rough { color: #ff9a8c; }
-.daily-sparkline-trend .steady { color: rgba(255, 255, 255, 0.75); }
-
 /* Round breakdown — bar graph */
 .daily-round-bars {
   display: flex;
@@ -1024,6 +1004,170 @@
   border-radius: 12px;
   cursor: pointer;
   transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+/* Share button — primary CTA on the results screen.
+   Bigger, brighter, gradient + soft pulsing glow draws the eye without
+   being gaudy. A periodic shine sweep adds life. The back button is
+   intentionally quieter so the visual hierarchy points at "Share". */
+.daily-actions > .daily-share-btn {
+  flex: 1 1 0;
+  min-width: 160px;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 22px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #fff;
+  font-family: inherit;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    linear-gradient(135deg, #2ecc71 0%, #1f9d55 55%, #16864a 100%);
+  box-shadow:
+    0 6px 18px rgba(46, 204, 113, 0.35),
+    0 1px 0 rgba(255, 255, 255, 0.18) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.25s ease,
+    filter 0.2s ease;
+  animation: dailyShareIdlePulse 2.6s ease-in-out infinite;
+  will-change: transform, box-shadow;
+}
+
+.daily-share-btn__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.05em;
+  transition: transform 0.25s ease;
+}
+
+.daily-share-btn__label {
+  position: relative;
+  z-index: 1;
+}
+
+/* Diagonal shine sweep — kicked off every cycle by the keyframe schedule
+   so it doesn't compete with the idle pulse. Pure transform/opacity keeps
+   it cheap on the GPU. */
+.daily-share-btn__shine {
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 45%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0.18) 55%,
+    transparent 100%
+  );
+  transform: skewX(-18deg);
+  pointer-events: none;
+  animation: dailyShareShine 4.2s ease-in-out infinite;
+  animation-delay: 0.8s;
+  z-index: 0;
+}
+
+.daily-actions > .daily-share-btn:hover {
+  transform: translateY(-2px) scale(1.015);
+  filter: brightness(1.08);
+  box-shadow:
+    0 10px 26px rgba(46, 204, 113, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.25) inset,
+    0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  animation-play-state: paused;
+}
+
+.daily-actions > .daily-share-btn:hover .daily-share-btn__icon {
+  transform: rotate(-8deg) scale(1.1);
+}
+
+.daily-actions > .daily-share-btn:active {
+  transform: translateY(0) scale(0.99);
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.35);
+}
+
+.daily-actions > .daily-share-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(46, 204, 113, 0.55),
+    0 6px 18px rgba(46, 204, 113, 0.35);
+}
+
+/* Copied confirmation — swap to a calmer green and stop drawing attention,
+   the action is done. */
+.daily-actions > .daily-share-btn.is-copied {
+  background: linear-gradient(135deg, #1f9d55 0%, #15703a 100%);
+  animation: none;
+  box-shadow: 0 4px 12px rgba(31, 157, 85, 0.3);
+}
+.daily-actions > .daily-share-btn.is-copied .daily-share-btn__shine { display: none; }
+
+@keyframes dailyShareIdlePulse {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    box-shadow:
+      0 6px 18px rgba(46, 204, 113, 0.32),
+      0 1px 0 rgba(255, 255, 255, 0.18) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  }
+  50% {
+    transform: translateY(-1px) scale(1.012);
+    box-shadow:
+      0 8px 22px rgba(46, 204, 113, 0.55),
+      0 1px 0 rgba(255, 255, 255, 0.22) inset,
+      0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  }
+}
+
+@keyframes dailyShareShine {
+  0%, 65% { transform: translateX(0) skewX(-18deg); opacity: 0; }
+  70% { opacity: 1; }
+  100% { transform: translateX(380%) skewX(-18deg); opacity: 0; }
+}
+
+/* Back button — secondary, glassy, restrained. */
+.daily-actions > .daily-back-btn {
+  flex: 1 1 0;
+  min-width: 160px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 18px;
+  font-size: 0.98rem;
+  font-weight: 500;
+  font-family: inherit;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.daily-actions > .daily-back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-actions > .daily-share-btn { animation: none; }
+  .daily-share-btn__shine { display: none; }
+  .daily-actions > .daily-share-btn:hover {
+    transform: none;
+  }
 }
 .daily-next-countdown {
   margin-top: 10px;
