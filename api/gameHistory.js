@@ -94,18 +94,20 @@ export default async function handler(req, res) {
           rounds: game.settings?.rounds || 5,
           maxDist: game.settings?.maxDist || 20000,
           timePerRound: game.settings?.timePerRound,
-          official: game.settings?.official ?? true
+          official: game.settings?.official ?? true,
+          countryGuesser: game.settings?.countryGuesser || false,
+          countryGuessrSubMode: game.settings?.countryGuessrSubMode || null
         },
         
         // Game result
         result: {
-          maxPossiblePoints: game.result?.maxPossiblePoints || (game.settings?.rounds || 5) * 5000,
+          maxPossiblePoints: game.result?.maxPossiblePoints || (game.settings?.rounds || 5) * (game.settings?.countryGuesser ? 1000 : 5000),
           winner: game.result?.winner,
           isDraw: game.result?.isDraw || false
         },
         
         // Multiplayer info (if applicable)
-        multiplayer: game.gameType !== 'singleplayer' ? {
+        multiplayer: (game.gameType !== 'singleplayer' && game.gameType !== 'daily_challenge') ? {
           isPublic: game.multiplayer?.isPublic || false,
           playerCount: game.players?.length || 1,
           gameCode: game.multiplayer?.gameCode

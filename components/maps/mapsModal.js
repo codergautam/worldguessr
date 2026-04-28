@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import MapView from "./mapView";
 import { useRouter } from "next/router";
 import { toast } from "react-toastify";
 import { Modal } from "react-responsive-modal";
 import { asset, localePath } from '@/lib/basePath';
 // import { useMapSearch } from "../hooks/useMapSearch"; // REMOVED TO FIX DUPLICATE SEARCH CALLS - MapView handles search
+
+const MAP_MODAL_ANIM_MS = 400;
 
 const initMakeMap = {
     open: false,
@@ -16,10 +18,37 @@ const initMakeMap = {
     edit: false,
     mapId: "",
 };
-export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions, showTimerOption }) {
+export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions, shown, onClose, onExitComplete, session, text, customChooseMapCallback, chosenMap, showAllCountriesOption, showOptions, showTimerOption, hideCountryGuessrModes }) {
     const [makeMap, setMakeMap] = useState(initMakeMap);
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
+    const exitOnceRef = useRef(false);
+
+    // Freeze options-related props during the close animation. Without this,
+    // selecting a country/continent guessr map flips `screen` mid-animation,
+    // which collapses the .map-options row and shifts the modal layout while
+    // it's still fading out.
+    const frozenOptionsRef = useRef({ showOptions, showTimerOption, showAllCountriesOption });
+    if (!mapModalClosing) {
+        frozenOptionsRef.current = { showOptions, showTimerOption, showAllCountriesOption };
+    }
+    const effectiveShowOptions = mapModalClosing ? frozenOptionsRef.current.showOptions : showOptions;
+    const effectiveShowTimerOption = mapModalClosing ? frozenOptionsRef.current.showTimerOption : showTimerOption;
+    const effectiveShowAllCountriesOption = mapModalClosing ? frozenOptionsRef.current.showAllCountriesOption : showAllCountriesOption;
+
+    useEffect(() => {
+        if (!mapModalClosing) {
+            exitOnceRef.current = false;
+            return;
+        }
+        if (!onExitComplete) return;
+        const id = window.setTimeout(() => {
+            if (exitOnceRef.current) return;
+            exitOnceRef.current = true;
+            onExitComplete();
+        }, MAP_MODAL_ANIM_MS);
+        return () => window.clearTimeout(id);
+    }, [mapModalClosing, onExitComplete]);
 
     // REMOVED: const { handleSearch } = useMapSearch(session, setSearchResults);
     // REMOVED: useEffect for handleSearch - MapView now handles all search logic to avoid duplicate API calls
@@ -41,66 +70,34 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 
     return (
         <Modal
-            classNames={{ modal: "g2_modal" }}
+            classNames={{
+                modal: "g2_modal map-modal-full",
+                modalContainer: "map-modal-full-container",
+                modalAnimationIn: "mapModalShellIn",
+                modalAnimationOut: "mapModalShellOut",
+                overlayAnimationIn: "mapModalOverlayIn",
+                overlayAnimationOut: "mapModalOverlayOut",
+            }}
             styles={{
                 modal: styles.modalShell,
+                modalContainer: styles.modalContainer,
                 overlay: styles.overlayDisable // Disable library's overlay scroll behavior
             }}
-            open={shown}
+            open={shown && !mapModalClosing}
             onClose={onClose}
             showCloseIcon={false}
-            animationDuration={0}
+            animationDuration={MAP_MODAL_ANIM_MS}
             blockScroll={false} // Critical: prevent library from blocking body scroll
             closeOnOverlayClick={true}
         >
-            <div className={`g2_nav_ui map-modal-sidebar ${mapModalClosing ? "g2_slide_out" : ""} desktop`}>
-                <div className="g2_nav_hr desktop"></div>
-                {/* {!makeMap.open && (
-                    <>
-                        <div className="mapSearch">
-                            <input
-                                type="text"
-                                placeholder={text("searchForMaps")}
-                                className="g2_input"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                        <div className="g2_nav_hr"></div>
-                    </>
-                )} */}
-
-
-                {!makeMap.open && (
-                <div className="g2_nav_group map_categories">
-                    <button className="g2_nav_text singleplayer comm_map_category_header"
-                        onClick={() => document.getElementById("countryMaps_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
-                    >{text("countryMaps")}</button>
-                    <button className="g2_nav_text singleplayer comm_map_category_header"
-                        onClick={() => document.getElementById("spotlight_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
-                    >{text("spotlight")}</button>
-                    <button className="g2_nav_text singleplayer comm_map_category_header"
-                        onClick={() => document.getElementById("popular_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
-                    >{text("popular")}</button>
-                    <button className="g2_nav_text singleplayer comm_map_category_header"
-                        onClick={() => document.getElementById("recent_map_view_section")?.scrollIntoView({ behavior: 'smooth' })}
-                    >{text("recent")}</button>
-                </div>
-                )}
-                <div className="g2_nav_hr"></div>
-                {!makeMap.open && (
-
-                <button className="g2_nav_text singleplayer red" onClick={onClose}>{text("back")}</button>
-                )}
-            </div>
             {/* Single scroll container: only this element scrolls on iOS */}
-            <div className="g2_content map-modal-content" style={styles.scrollWrap}>
+            <div className="g2_content map-modal-content full-width" style={styles.scrollWrap}>
                 <div style={styles.modalContent}>
                     <MapView
-                    mapModalClosing={mapModalClosing}
-                        showOptions={showOptions}
-                        showTimerOption={showTimerOption}
-                        showAllCountriesOption={showAllCountriesOption}
+                        showOptions={effectiveShowOptions}
+                        showTimerOption={effectiveShowTimerOption}
+                        showAllCountriesOption={effectiveShowAllCountriesOption}
+                        hideCountryGuessrModes={hideCountryGuessrModes}
                         chosenMap={chosenMap}
                         close={onClose}
                         session={session}
@@ -120,6 +117,15 @@ export default function MapsModal({ gameOptions, mapModalClosing, setGameOptions
 }
 
 const styles = {
+    modalContainer: {
+        overflow: "hidden",
+        overflowY: "hidden",
+        textAlign: "left",
+    },
+    overlayDisable: {
+        overflow: "hidden",
+        background: "rgba(0, 0, 0, 0.45)",
+    },
     // Full-viewport modal wrapper - fixed container, no scrolling
     modalShell: {
         background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.6) 100%), url("${asset('/street2.webp')}")`,
@@ -147,7 +153,7 @@ const styles = {
         WebkitOverflowScrolling: "touch",
         touchAction: "pan-y pinch-zoom", // Allow vertical pan and pinch
         overscrollBehavior: "contain",
-        scrollbarGutter: "stable", // Prevent layout shift from scrollbar
+        scrollbarGutter: "stable both-edges", // Prevent layout shift from scrollbar
         padding: "20px",
         position: "relative",
         zIndex: 1130,

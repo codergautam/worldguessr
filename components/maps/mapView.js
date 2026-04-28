@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "react-toastify";
 import { FaSearch, FaPlus, FaArrowLeft, FaMapMarkedAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import MakeMapForm from "./makeMap";
@@ -7,10 +7,11 @@ import { backupMapHome } from "../utils/backupMapHome.js";
 import config from "@/clientConfig";
 import { useMapSearch } from "../hooks/useMapSearch";
 import { asset } from '@/lib/basePath';
+import nameFromCode from "../utils/nameFromCode";
+import { useTranslation } from '@/components/useTranslations';
 
 export default function MapView({
     gameOptions,
-    mapModalClosing,
     setGameOptions,
     showOptions,
     showTimerOption,
@@ -20,6 +21,7 @@ export default function MapView({
     onMapClick,
     chosenMap,
     showAllCountriesOption,
+    hideCountryGuessrModes,
     makeMap,
     setMakeMap,
     initMakeMap,
@@ -28,6 +30,7 @@ export default function MapView({
     searchResults,
     setSearchResults
 }) {
+    const { lang } = useTranslation();
     const [mapHome, setMapHome] = useState({
         message: text("loading") + "...",
     });
@@ -35,6 +38,10 @@ export default function MapView({
     const [isLoading, setIsLoading] = useState(true);
     const [searchLoading, setSearchLoading] = useState(false);
     const [expandedSections, setExpandedSections] = useState({});
+    // Cache the container's content-box width so getMapsPerRow doesn't have
+    // to query the DOM (and re-layout) on every render.
+    const containerRef = useRef(null);
+    const [containerWidth, setContainerWidth] = useState(0);
 
     const { handleSearch } = useMapSearch(session, setSearchResults, setSearchLoading);
 
@@ -90,23 +97,33 @@ export default function MapView({
 
     useEffect(() => {
         refreshHome();
+    }, [session?.token?.secret]);
 
-        // Add debounced resize listener to recalculate grid when window size changes
-        let resizeTimeout;
-        const handleResize = () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-                // Force re-render by updating state
-                setExpandedSections(prev => ({ ...prev }));
-            }, 150); // 150ms debounce
-        };
-
-        window.addEventListener('resize', handleResize);
+    // Track the .mapView content width via ResizeObserver. This replaces a
+    // window 'resize' listener + per-render document.querySelector — both
+    // were causing layout thrash on low-end devices when scrolling.
+    useEffect(() => {
+        const node = containerRef.current;
+        if (!node) return;
+        // Seed from current size so the first paint computes correctly.
+        setContainerWidth(node.clientWidth);
+        if (typeof ResizeObserver === 'undefined') return;
+        let raf = 0;
+        const ro = new ResizeObserver((entries) => {
+            // Coalesce rapid notifications into a single state update.
+            cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(() => {
+                const entry = entries[entries.length - 1];
+                const w = entry?.contentRect?.width ?? node.clientWidth;
+                setContainerWidth((prev) => (Math.abs(prev - w) > 1 ? w : prev));
+            });
+        });
+        ro.observe(node);
         return () => {
-            window.removeEventListener('resize', handleResize);
-            clearTimeout(resizeTimeout);
+            cancelAnimationFrame(raf);
+            ro.disconnect();
         };
-    }, [session?.token?.secret]);    function createMap(map) {
+    }, []);    function createMap(map) {
         if (!session?.token?.secret) {
             toast.error("Not logged in");
             return;
@@ -242,81 +259,66 @@ export default function MapView({
 
     const toggleSection = (sectionKey) => {
         setExpandedSections(prev => {
+            const wasExpanded = !!prev[sectionKey];
 
-        // scroll to section top if being collapsed and not in view
-        setTimeout(() => {
-            const sectionElement = document.getElementById(sectionKey + "_map_view_section");
-            if (sectionElement) {
-                const sectionTop = sectionElement.getBoundingClientRect().top;
-                const sectionHeight = 100;
-                const windowHeight = window.innerHeight;
-                // If the section is being collapsed and is not in view, scroll to it
-                console.log(sectionTop, sectionHeight, windowHeight);
-                if (prev[sectionKey] && (sectionTop < 0 || sectionTop + sectionHeight > windowHeight)) {
-                    sectionElement.scrollIntoView({ behavior: "smooth", block: "start" });
-                }
+            // Only scroll UP to the section header when going from expanded -> collapsed
+            // and the header is above the viewport. Never scroll down (e.g. on "Show all").
+            if (wasExpanded) {
+                setTimeout(() => {
+                    const sectionElement = document.getElementById(sectionKey + "_map_view_section");
+                    if (!sectionElement) return;
+                    const sectionTop = sectionElement.getBoundingClientRect().top;
+                    if (sectionTop < 0) {
+                        sectionElement.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }
+                }, 100);
             }
-        }, 100);
 
-        // toggle the section
-            return{
-            ...prev,
-            [sectionKey]: !prev[sectionKey]
-        }});
+            return {
+                ...prev,
+                [sectionKey]: !wasExpanded
+            };
+        });
     };
 
     const getRowsForSection = (section) => {
-        if (section === "popular") return 2;
+        if (section === "popular") return 4;
         if (section === "spotlight") return 1; // Spotlight should show 1 row by default
         return 2;
     };
 
-    const getMapsPerRow = (section = "default") => {
-        // Get the actual container width and calculate how many tiles can fit
-        const container = document.querySelector('.mapView');
-        if (!container) {
-            // Fallback to screen width based calculation
-            if (window.innerWidth >= 1400) return 6;
-            if (window.innerWidth >= 1200) return 5;
-            if (window.innerWidth >= 1000) return 4;
-            if (window.innerWidth >= 768) return 3;
-            return 2;
+    const getMapsPerRow = useCallback((section = "default") => {
+        const isCountry = section === 'countryMaps';
+        const winW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+
+        if (!containerWidth) {
+            if (winW >= 1400) return isCountry ? 9 : 6;
+            if (winW >= 1200) return isCountry ? 8 : 5;
+            if (winW >= 1000) return isCountry ? 6 : 4;
+            if (winW >= 800) return isCountry ? 5 : 3;
+            return isCountry ? 3 : 2;
         }
 
-        const containerWidth = container.clientWidth - 40; // Account for padding (20px each side)
-
-        // Get grid gap - starts at 16px but changes based on screen size
-        let gridGap = 16;
-        if (window.innerWidth <= 480) gridGap = 8;
-        else if (window.innerWidth <= 768) gridGap = 12;
-
-        // Get minimum widths that match the CSS exactly - updated for better desktop experience
+        // ResizeObserver gives the content-box width already, so no padding
+        // subtraction is needed here. Gap/min-width below must match the CSS.
+        let gridGap;
         let minTileWidth;
-        if (section === "countryMaps") {
-            // Country maps have smaller tiles
-            if (window.innerWidth <= 360) minTileWidth = 100;
-            else if (window.innerWidth <= 480) minTileWidth = 120;
-            else if (window.innerWidth <= 768) minTileWidth = 150;
-            else if (window.innerWidth <= 1000) minTileWidth = 170;
-            else if (window.innerWidth <= 1200) minTileWidth = 180;
-            else minTileWidth = 180;
+        if (winW <= 480) {
+            gridGap = 8;
+            minTileWidth = isCountry ? 95 : 140;
+        } else if (winW <= 800) {
+            gridGap = isCountry ? 10 : 12;
+            minTileWidth = isCountry ? 110 : 160;
         } else {
-            // Regular maps - increased minimum widths for better desktop experience
-            if (window.innerWidth <= 360) minTileWidth = 120;
-            else if (window.innerWidth <= 480) minTileWidth = 140;
-            else if (window.innerWidth <= 768) minTileWidth = 170;
-            else if (window.innerWidth <= 1000) minTileWidth = 190;
-            else if (window.innerWidth <= 1200) minTileWidth = 200;
-            else if (window.innerWidth <= 1400) minTileWidth = 220;
-            else minTileWidth = 200;
+            gridGap = isCountry ? 12 : 16;
+            minTileWidth = isCountry ? 125 : 160;
         }
 
-        // Calculate how many tiles can fit using the same formula as CSS auto-fit
         const tilesPerRow = Math.floor((containerWidth + gridGap) / (minTileWidth + gridGap));
-        return Math.max(1, tilesPerRow); // Ensure at least 1 tile per row
-    };    if (makeMap.open) {
+        return Math.max(1, tilesPerRow);
+    }, [containerWidth]);    if (makeMap.open) {
         return (
-            <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
+            <div className="mapView" ref={containerRef}>
                 <div className="map-header">
                     <div className="map-header-left">
                         <button
@@ -326,7 +328,7 @@ export default function MapView({
                             <FaArrowLeft /> {text("back")}
                         </button>
                         <h1 className="map-title">
-                            {makeMap?.edit ? "Edit Map" : "Make Map"}
+                            {makeMap?.edit ? text("editMap") : text("makeMap")}
                         </h1>
                     </div>
                 </div>
@@ -336,110 +338,92 @@ export default function MapView({
     }
 
     return (
-        <div className={`mapView ${mapModalClosing ? "slideout_right" : ""}`}>
-            {/* Header */}
-            <div className="map-header">
-                <div className="map-header-left">
-                    <button onClick={close} className="map-back-btn">
-                        <FaArrowLeft /> {text("close")}
-                    </button>
-                    <h1 className="map-title">{text("maps")}</h1>
+        <div className="mapView" ref={containerRef}>
+            {/* Sticky Header Container */}
+            <div className="map-sticky-header">
+                {/* Header */}
+                <div className="map-header">
+                    <div className="map-header-left">
+                        <button onClick={close} className="map-back-btn">
+                            <FaArrowLeft /> {text("close")}
+                        </button>
+                        <h1 className="map-title">{text("maps")}</h1>
+                    </div>
+                    {session?.token?.secret && (
+                        <button
+                            onClick={() => setMakeMap({ ...makeMap, open: true })}
+                            className="map-create-btn"
+                        >
+                            <FaPlus /> {text("makeMap")}
+                        </button>
+                    )}
                 </div>
-                {session?.token?.secret && (
-                    <button
-                        onClick={() => setMakeMap({ ...makeMap, open: true })}
-                        className="map-create-btn"
-                    >
-                        <FaPlus /> Make Map
-                    </button>
+
+                {/* Search */}
+                <div className="map-search-section">
+                    <div className="map-search-container">
+                        <FaSearch className="map-search-icon" />
+                        <input
+                            type="text"
+                            placeholder={text("searchForMaps")}
+                            className="map-search-input"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                {/* Game Options */}
+                {showOptions && (
+                    <div className="map-options">
+                        <div>
+                            <label htmlFor="nmpz">{text('nmpz')}&nbsp;</label>
+                            <input id="nmpz"
+                            name="nmpz"
+                            type="checkbox" checked={gameOptions.nm && gameOptions.npz} onChange={(e) => {
+                                setGameOptions({ ...gameOptions, nm: e.target.checked, npz: e.target.checked })
+                            }} />
+                        </div>
+
+                        {showTimerOption && (
+                        <div className="map-option-timer">
+                            <label htmlFor="enableTimer">{text('enableTimer')}&nbsp;</label>
+                            <input id="enableTimer"
+                            name="enableTimer"
+                            type="checkbox" checked={gameOptions.timePerRound > 0} onChange={(e) => {
+                                setGameOptions({ ...gameOptions, timePerRound: e.target.checked ? 30 : 0 })
+                            }} />
+                            {gameOptions.timePerRound > 0 && (
+                                <div className="timer-slider">
+                                    <input
+                                        type="range"
+                                        min="10"
+                                        max="300"
+                                        step="10"
+                                        value={gameOptions.timePerRound}
+                                        onChange={(e) => setGameOptions({ ...gameOptions, timePerRound: parseInt(e.target.value) })}
+                                    />
+                                    <span className="timer-slider-value">{gameOptions.timePerRound}s</span>
+                                </div>
+                            )}
+                        </div>
+                        )}
+                    </div>
                 )}
-            </div>
 
-            {/* Search */}
-            <div className="map-search-section">
-                <div className="map-search-container">
-                    <FaSearch className="map-search-icon" />
-                    <input
-                        type="text"
-                        placeholder={text("searchForMaps")}
-                        className="map-search-input"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                {/* Category Pills Navigation */}
+                <div className="map-category-pills">
+                    <button className="map-category-pill" onClick={() => document.getElementById("spotlight_map_view_section")?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                        {text("spotlight")}
+                    </button>
+                    <button className="map-category-pill" onClick={() => document.getElementById("popular_map_view_section")?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                        {text("popular")}
+                    </button>
+                    <button className="map-category-pill" onClick={() => document.getElementById("recent_map_view_section")?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+                        {text("recent")}
+                    </button>
                 </div>
             </div>
-
-            {/* Game Options */}
-            {showOptions && (
-                <div className="map-options">
-                    {/* <div className="map-option">
-                        <input
-                            type="checkbox"
-                            id="nm"
-                            checked={gameOptions.nm}
-                            onChange={(e) => setGameOptions({ ...gameOptions, nm: e.target.checked })}
-                        />
-                        <label htmlFor="nm">{text('nm')}</label>
-                    </div>
-                    <div className="map-option">
-                        <input
-                            type="checkbox"
-                            id="npz"
-                            checked={gameOptions.npz}
-                            onChange={(e) => setGameOptions({ ...gameOptions, npz: e.target.checked })}
-                        />
-                        <label htmlFor="npz">{text('npz')}</label>
-                    </div>
-                    <div className="map-option">
-                        <input
-                            type="checkbox"
-                            id="showRoadName"
-                            checked={gameOptions.showRoadName}
-                            onChange={(e) => setGameOptions({ ...gameOptions, showRoadName: e.target.checked })}
-                        />
-                        <label htmlFor="showRoadName">{text('showRoadName')}</label>
-
-                    </div> */}
-
-{/* <label>{text('degradedMaps')}</label>
- */}
-
-    {/*  re enable only NMPZ (basically setGameOptions both nm and npz to e.target.checked) */}
-    <div>
-        <label htmlFor="nmpz">{text('nmpz')}&nbsp;</label>
-        <input id="nmpz"
-        name="nmpz"
-        type="checkbox" checked={gameOptions.nm && gameOptions.npz} onChange={(e) => {
-            setGameOptions({ ...gameOptions, nm: e.target.checked, npz: e.target.checked })
-        }} />
-    </div>
-
-    {showTimerOption && (
-    <div className="map-option-timer">
-        <label htmlFor="enableTimer">{text('enableTimer')}&nbsp;</label>
-        <input id="enableTimer"
-        name="enableTimer"
-        type="checkbox" checked={gameOptions.timePerRound > 0} onChange={(e) => {
-            setGameOptions({ ...gameOptions, timePerRound: e.target.checked ? 30 : 0 })
-        }} />
-        {gameOptions.timePerRound > 0 && (
-            <div className="timer-slider">
-                <input
-                    type="range"
-                    min="10"
-                    max="300"
-                    step="10"
-                    value={gameOptions.timePerRound}
-                    onChange={(e) => setGameOptions({ ...gameOptions, timePerRound: parseInt(e.target.value) })}
-                />
-                <span className="timer-slider-value">{gameOptions.timePerRound}s</span>
-            </div>
-        )}
-    </div>
-    )}
-
-                </div>
-            )}
 
             {/* Loading State */}
             {isLoading && (
@@ -452,18 +436,36 @@ export default function MapView({
             {/* Content */}
             {!isLoading && (
                 <>
-                    {/* All Countries Option */}
-                    {showAllCountriesOption &&
-                     ((searchTerm.length === 0) ||
-                      (text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase()))) && (
-                        <div className="all-countries-tile">
-                            <MapTile
-                            bgImage={`url("${asset('/world.jpg')}")`}
-                            forcedWidth="300px"
-                                map={{ name: text("allCountries"), slug: "all" }}
-                                onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}
-                                searchTerm={searchTerm}
-                            />
+                    {/* Singleplayer Mode Tiles */}
+                    {showAllCountriesOption && (searchTerm.length === 0 ||
+                      [text("allCountries"), !hideCountryGuessrModes && text("countryGuesser"), !hideCountryGuessrModes && text("continentGuesser")].some(
+                        label => label && label?.toLowerCase().includes(searchTerm?.toLowerCase())
+                      )) && (
+                        <div className="singleplayer-mode-tiles">
+                            {((searchTerm.length === 0) || text("allCountries")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
+                                <MapTile
+                                    bgImage={`url("${asset('/world.jpg')}")`}
+                                    map={{ name: text("allCountries"), slug: "all" }}
+                                    onClick={() => onMapClick({ name: text("allCountries"), slug: "all" })}
+                                    searchTerm={searchTerm}
+                                />
+                            )}
+                            {!hideCountryGuessrModes && ((searchTerm.length === 0) || text("countryGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
+                                <MapTile
+                                    bgImage={`url("${asset('/flags.jpg')}")`}
+                                    map={{ name: text("countryGuesser"), slug: "__countryGuesser" }}
+                                    onClick={() => onMapClick({ name: text("countryGuesser"), slug: "__countryGuesser" })}
+                                    searchTerm={searchTerm}
+                                />
+                            )}
+                            {!hideCountryGuessrModes && ((searchTerm.length === 0) || text("continentGuesser")?.toLowerCase().includes(searchTerm?.toLowerCase())) && (
+                                <MapTile
+                                    bgImage={`url("${asset('/continents.jpg')}")`}
+                                    map={{ name: text("continentGuesser"), slug: "__continentGuesser" }}
+                                    onClick={() => onMapClick({ name: text("continentGuesser"), slug: "__continentGuesser" })}
+                                    searchTerm={searchTerm}
+                                />
+                            )}
                         </div>
                     )}
 
@@ -482,23 +484,32 @@ export default function MapView({
                             .map((section, si) => {
                                 const mapsArray = section === "recent" && searchResults.length > 0
                                     ? searchResults
-                                    : (Array.isArray(mapHome[section]) ? mapHome[section] : []).filter((map) =>
-                                        map.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                        map.description_short?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                        map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase())
-                                    );
+                                    : (Array.isArray(mapHome[section]) ? mapHome[section] : []).filter((map) => {
+                                        const localizedName = (section === "countryMaps" && map.countryMap) ? nameFromCode(map.countryMap, lang) : map.name;
+                                        return localizedName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                            map.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                            map.description_short?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                            map.created_by_name?.toLowerCase().includes(searchTerm?.toLowerCase());
+                                    });
 
                                 if (mapsArray.length === 0) return null;
 
                                 const isExpanded = expandedSections[section] || section === "recent";
                                 const rows = getRowsForSection(section);
                                 const mapsPerRow = getMapsPerRow(section);
-                                const defaultMaxMaps = rows * mapsPerRow;
+                                
+                                let defaultMaxMaps = rows * mapsPerRow;
+                                if (mapsArray.length > mapsPerRow && mapsArray.length < defaultMaxMaps) {
+                                    defaultMaxMaps = Math.floor(mapsArray.length / mapsPerRow) * mapsPerRow;
+                                } else if (mapsArray.length <= mapsPerRow) {
+                                    defaultMaxMaps = mapsArray.length;
+                                }
+
                                 const shouldShowExpandButton = mapsArray.length > defaultMaxMaps && section !== "recent";
                                 const displayedMaps = isExpanded ? mapsArray : mapsArray.slice(0, defaultMaxMaps);
 
                                 return (
-                                    <div key={si} className="map-section">
+                                    <div key={si} className={`map-section${section === "spotlight" ? " map-section--spotlight" : ""}${section === "popular" ? " map-section--popular" : ""}`}>
                                         <h2
                                             id={section + "_map_view_section"}
                                             className="map-section-title"
@@ -508,11 +519,14 @@ export default function MapView({
                                              ` (${mapsArray.length})`}
                                         </h2>
                                         <div className="map-section-container">
-                                            <div className={`map-grid ${section === "countryMaps" ? "country-maps" : ""} ${section === "popular" ? "popular-maps" : ""} ${section === "spotlight" ? "spotlight-maps" : ""} ${!isExpanded && section !== "recent" ? "collapsed" : "expanded"}`}>
-                                                {displayedMaps.map((map, i) => (
-                                                    <MapTile
+                                            <div className={`map-grid${section === 'countryMaps' ? ' country-maps' : ''}`}>
+                                                {displayedMaps.map((map, i) => {
+                                                    const displayMap = (section === "countryMaps" && map.countryMap)
+                                                        ? { ...map, name: nameFromCode(map.countryMap, lang) }
+                                                        : map;
+                                                    return (<MapTile
                                                         key={map.id || i}
-                                                        map={map}
+                                                        map={displayMap}
                                                         canHeart={session?.token?.secret && heartingMap !== map.id}
                                                         onClick={() => onMapClick(map)}
                                                         country={map.countryMap}
@@ -540,7 +554,8 @@ export default function MapView({
                                                         }}
                                                         onHeart={() => heartMap(map)}
                                                     />
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
 
                                             {shouldShowExpandButton && (
@@ -551,12 +566,12 @@ export default function MapView({
                                                     {isExpanded ? (
                                                         <>
                                                             <FaChevronUp />
-                                                            Show Less
+                                                            {text("showLess")}
                                                         </>
                                                     ) : (
                                                         <>
                                                             <FaChevronDown />
-                                                            Show All
+                                                            {text("showAll")}
                                                         </>
                                                     )}
                                                 </button>

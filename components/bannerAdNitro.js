@@ -52,19 +52,16 @@ export default function Ad({
         "enabled": true,
         "icon": true,
         "wording": "Report Ad",
-        "position": "top-right"
+        "position": "top-right",
+        "load": () => {
+          sendEvent(`ad_request_${types[type][0]}x${types[type][1]}_${unit}`);
+        },
       },
       // demo: isClient === "debug",
       // sizes: [[types[type][0], types[type][1]]], update: instead of only choosing the best size, include the sizes that are smaller than the best (both width and height)
       sizes: types
         .filter((t) => t[0] <= types[type][0] && t[1] <= types[type][1])
         .map((t) => [t[0], t[1]]),
-      report: {
-        load: () => {
-          sendEvent(`ad_request_${types[type][0]}x${types[type][1]}_${unit}`);
-        },
-        // Add other analytics hooks as needed
-      },
     };
 
     try {

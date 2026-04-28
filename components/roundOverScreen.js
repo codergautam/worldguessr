@@ -12,6 +12,8 @@ import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
 import UsernameWithFlag from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
+import generateShareText from './utils/generateShareText';
+import sendEvent from './utils/sendEvent';
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -101,6 +103,7 @@ const GameSummary = ({
   const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
   const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
+
 
   // Initialize Leaflet icons from shared cache (icons created once globally)
   useEffect(() => {
@@ -221,24 +224,14 @@ const GameSummary = ({
       // zero to 30% - bronze star
       if (percentage <= 20) {
         newStars = [bronze];
-      } else if (percentage <= 30) {
+      } else if (percentage <= 40) {
         newStars = [bronze, bronze];
-      } else if (percentage <= 45) {
+      }  else if (percentage <= 50) {
         newStars = [bronze, bronze, bronze];
-      } else if (percentage <= 50) {
-        newStars = [silver, silver, bronze];
-      } else if (percentage <= 60) {
-        newStars = [silver, silver, silver];
-      } else if(percentage <= 62) {
-        newStars = [gold, silver, silver];
       } else if (percentage <= 65) {
-        newStars = [gold, gold, silver];
-      } else if (percentage <= 79) {
-        newStars = [gold, gold, gold];
-      } else if (percentage <= 82) {
-        newStars = [platinum, gold, gold];
+        newStars = [silver, silver, silver];
       } else if (percentage <= 85) {
-        newStars = [platinum, platinum, gold];
+        newStars = [gold, gold, gold];
       } else if (percentage <= 100) {
         newStars = [platinum, platinum, platinum];
       }

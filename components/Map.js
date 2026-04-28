@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { CircleMarker, Marker, Polyline, Tooltip, useMapEvents } from "react-leaflet";
+import { Circle, Marker, Polyline, Tooltip, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
 import { getPinIcons } from '@/lib/markerIcons';
@@ -8,7 +8,10 @@ import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
-const hintMul = 7500000 / 20000; //7500000 for all countries (20,000 km)
+const EARTH_RADIUS_M = 6371000;
+// Matches the old CircleMarker visual size (75px at world mode) converted to meters.
+// Old behavior implicitly scaled by cos(latitude) due WebMercator pixels.
+const OLD_BASE_HINT_RADIUS_M_AT_EQUATOR = 5870363.8;
 
 // Simple seeded random for stable hint offset per round
 function seededRandom(seed) {
@@ -16,34 +19,45 @@ function seededRandom(seed) {
   return x - Math.floor(x);
 }
 
-// HintCircle component that scales with zoom
+function destinationPoint(lat, lng, distanceMeters, bearingRadians) {
+  const lat1 = (lat * Math.PI) / 180;
+  const lon1 = (lng * Math.PI) / 180;
+  const angularDistance = distanceMeters / EARTH_RADIUS_M;
+
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angularDistance) +
+      Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearingRadians)
+  );
+
+  const lon2 =
+    lon1 +
+    Math.atan2(
+      Math.sin(bearingRadians) * Math.sin(angularDistance) * Math.cos(lat1),
+      Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2)
+    );
+
+  const normalizedLon = ((((lon2 * 180) / Math.PI + 540) % 360) - 180);
+  return { lat: (lat2 * 180) / Math.PI, lng: normalizedLon };
+}
+
 function HintCircle({ location, gameOptions, round }) {
-  const [zoom, setZoom] = useState(2);
-
-  const map = useMapEvents({
-    zoom: () => setZoom(map.getZoom()),
-  });
-
-  // Scale hint circle with maxDist (75px base at 20000km world map)
+  // Keep hint radius geospatial so it remains anchored during pan/zoom,
+  // while matching old visual size (including latitude scaling).
   const maxDist = gameOptions?.maxDist ?? 20000;
-  const ogRadius = 75 * (maxDist / 20000);
-  const pixelRadius = ogRadius * Math.pow(2, zoom - 1);
-  // Offset the center by 0 to pixelRadius in a random direction (sqrt for uniform area distribution)
-  const seed = (round ?? 1) + Math.abs(location.lat * ogRadius + location.long * ogRadius);
-  const offsetAngle = seededRandom(seed * 3) * 2 * Math.PI;
-  const offsetAmount = Math.sqrt(seededRandom(seed * 7)) * pixelRadius;
-  const offsetX = offsetAmount * Math.cos(offsetAngle);
-  const offsetY = offsetAmount * Math.sin(offsetAngle);
-
-  // Convert pixel offset back to lat/lng
-  const pointC = map.latLngToContainerPoint(L.latLng(location.lat, location.long));
-  const offsetPoint = L.point(pointC.x + offsetX, pointC.y + offsetY);
-  const offsetCenter = map.containerPointToLatLng(offsetPoint);
+  const maxDistScale = maxDist / 20000;
+  const latScale = Math.abs(Math.cos((location.lat * Math.PI) / 180));
+  const radiusMeters = OLD_BASE_HINT_RADIUS_M_AT_EQUATOR * maxDistScale * latScale;
+  const offsetCenter = useMemo(() => {
+    const seed = (round ?? 1) + Math.abs(location.lat * 1000 + location.long * 1000);
+    const offsetAngle = seededRandom(seed * 3) * 2 * Math.PI;
+    const offsetAmount = Math.sqrt(seededRandom(seed * 7)) * radiusMeters;
+    return destinationPoint(location.lat, location.long, offsetAmount, offsetAngle);
+  }, [location.lat, location.long, radiusMeters, round]);
 
   return (
-    <CircleMarker
+    <Circle
       center={offsetCenter}
-      radius={pixelRadius}
+      radius={radiusMeters}
       className="hintCircle"
     />
   );
@@ -63,7 +77,7 @@ const TileLayer = dynamic(
   }
 );
 
-function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, multiplayerState, playSound }) {
+function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, multiplayerState, playSound, countryGuessPin, setAnimationDone }) {
   const multiplayerStateRef = React.useRef(multiplayerState);
   const wsRef = React.useRef(ws);
 
@@ -116,28 +130,84 @@ function MapPlugin({ pinPoint, setPinPoint, answerShown, dest, gameOptions, ws, 
   }, [gameOptions?.extent ? JSON.stringify(gameOptions.extent) : null, map, answerShown]);
 
   useEffect(() => {
+    if (!answerShown || !dest) return;
+    setAnimationDone(false);
+    const isMobileMinimapLayout =
+      typeof window !== "undefined" && window.matchMedia("(max-width: 600px)").matches;
+    // Keep a small master-like delay on mobile so reveal feels intentional, but still faster.
+    const revealDelayMs = isMobileMinimapLayout ? 120 : 200;
+    const pinRevealDelayMs = isMobileMinimapLayout ? 180 : 300;
+    // Keep map centered during the CSS fullscreen expansion (200ms)
+    const expandInterval = setInterval(() => { try { map.invalidateSize(); } catch(e) {} }, 10);
+    const stopExpandIntervalTimer = setTimeout(
+      () => clearInterval(expandInterval),
+      isMobileMinimapLayout ? 100 : 250
+    );
+    let totalMs;
+    let flyTimer;
     if (pinPoint) {
-      setTimeout(() => {
+      totalMs = pinRevealDelayMs + 500; // delay + 0.5s fly
+      flyTimer = setTimeout(() => {
         try {
-        const bounds = L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5);
-        map.flyToBounds(bounds, { duration: 0.5 });
+          const bounds = L.latLngBounds([pinPoint, { lat: dest.lat, lng: dest.long }]).pad(0.5);
+          map.flyToBounds(bounds, { duration: 0.5 });
         } catch(e) {}
-      }, 300);
+      }, pinRevealDelayMs);
+    } else if (countryGuessPin) {
+      totalMs = revealDelayMs + 1200; // delay + 1.2s fly
+      try { map.setView([20, 0], 2, { animate: false }); } catch(e) {}
+      flyTimer = setTimeout(() => {
+        try {
+          const bounds = L.latLngBounds(
+            [{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: dest.lat, lng: dest.long }]
+          ).pad(0.5);
+          map.flyToBounds(bounds, { duration: 1.2 });
+        } catch(e) {}
+      }, revealDelayMs);
+    } else {
+      totalMs = revealDelayMs + 1800; // delay + 1.8s fly
+      try { map.setView([20, 0], 2, { animate: false }); } catch(e) {}
+      flyTimer = setTimeout(() => {
+        try {
+          map.flyTo([dest.lat, dest.long], 5, { duration: 1.8 });
+        } catch(e) {}
+      }, revealDelayMs);
     }
+    const t = setTimeout(() => setAnimationDone(true), totalMs + 100);
+    return () => {
+      clearTimeout(stopExpandIntervalTimer);
+      clearInterval(expandInterval);
+      clearTimeout(flyTimer);
+      clearTimeout(t);
+    };
   }, [answerShown]);
 
   useEffect(() => {
-    const i = setInterval(() => {
+    if (!map) return;
+    const container = map.getContainer();
+    if (!container) return;
+    const ro = new ResizeObserver(() => {
       map.invalidateSize();
-    }, 5);
-    return () => clearInterval(i);
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [map]);
+
+  // Stop in-progress animations on unmount to prevent Leaflet accessing destroyed panes
+  useEffect(() => {
+    return () => {
+      if (map) {
+        try { map.stop(); } catch(e) {}
+      }
+    };
   }, [map]);
 }
 
-const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, round, focused, gameOptions }) => {
+const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answerShown, location, setKm, guessing, multiplayerSentGuess, multiplayerState, showHint, round, focused, gameOptions, countryGuessPin, hidePins }) => {
   const mapRef = React.useRef(null);
   const plopSound = React.useRef();
   const [isMobileOrTablet, setIsMobileOrTablet] = useState(false);
+  const [animationDone, setAnimationDone] = useState(true);
 
   const { t: text } = useTranslation("common");
 
@@ -197,12 +267,12 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
         () => {
           plopSound.current.play();
         }
-      } pinPoint={pinPoint} setPinPoint={setPinPoint} answerShown={answerShown} dest={location} gameOptions={gameOptions} ws={ws} multiplayerState={multiplayerState} />
+      } pinPoint={pinPoint} setPinPoint={setPinPoint} answerShown={answerShown} dest={location} gameOptions={gameOptions} ws={ws} multiplayerState={multiplayerState} countryGuessPin={countryGuessPin} setAnimationDone={setAnimationDone} />
       {/* place a pin */}
-      {location && answerShown && (
+      {location && answerShown && !hidePins && (
         <Marker position={{ lat: location.lat, lng: location.long }} icon={icons.dest} />
       )}
-      {pinPoint && (
+      {pinPoint && !hidePins && (
         <>
           <Marker position={pinPoint} icon={customPins[session?.token?.username] === "polandball" ? icons.polandball : icons.src} >
           <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent  position={{ lat: pinPoint.lat, lng: pinPoint.lng }}>
@@ -212,8 +282,21 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
           </Marker>
 
 
-          {answerShown && location && (
-            < Polyline positions={[pinPoint, { lat: location.lat, lng: location.long }]} />
+          {answerShown && location && (window.matchMedia("(min-width: 600px) and (pointer: fine)").matches || animationDone) && (
+            < Polyline className={animationDone && !window.matchMedia("(min-width: 600px) and (pointer: fine)").matches ? "animatedLine" : ""} positions={[pinPoint, { lat: location.lat, lng: location.long }]} />
+          )}
+        </>
+      )}
+
+      {countryGuessPin && answerShown && !hidePins && location && (
+        <>
+          <Marker position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }} icon={customPins[session?.token?.username] === "polandball" ? icons.polandball : icons.src} >
+            <Tooltip direction="top" offset={[0, -45]} opacity={1} permanent position={{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }}>
+              {text("yourGuess")}
+            </Tooltip>
+          </Marker>
+          {(window.matchMedia("(min-width: 600px) and (pointer: fine)").matches || animationDone) && (
+            <Polyline className={animationDone && !window.matchMedia("(min-width: 600px) and (pointer: fine)").matches ? "animatedLine" : ""} positions={[{ lat: countryGuessPin.lat, lng: countryGuessPin.lng }, { lat: location.lat, lng: location.long }]} dashArray="8 8" />
           )}
         </>
       )}
@@ -238,7 +321,9 @@ const MapComponent = ({ shown, options, ws, session, pinPoint, setPinPoint, answ
               </span>
             </Tooltip>
             </Marker>
-            <Polyline key={(index*2)+1} positions={[{ lat: latLong[0], lng: latLong[1] }, { lat: location.lat, lng: location.long }]} color="green" />
+            {(window.matchMedia("(min-width: 600px) and (pointer: fine)").matches || animationDone) && (
+              <Polyline className={animationDone && !window.matchMedia("(min-width: 600px) and (pointer: fine)").matches ? "animatedLine" : ""} key={(index*2)+1} positions={[{ lat: latLong[0], lng: latLong[1] }, { lat: location.lat, lng: location.long }]} color="green" />
+            )}
 
 
           </>

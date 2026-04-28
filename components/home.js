@@ -27,9 +27,16 @@ import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
+import WelcomeOverlay from "@/components/welcomeOverlay";
+import OnboardingComplete from "@/components/onboardingComplete";
+import continentFromCode, { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
+import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
+const DailyChallengeScreen = dynamic(() => import('@/components/daily/DailyChallengeScreen'), { ssr: false });
+import DailyMenuItem from '@/components/daily/DailyMenuItem';
+import DailyCommunityMapsButton from '@/components/daily/DailyCommunityMapsButton';
 import msToTime from "@/components/msToTime";
 import SuggestAccountModal from "@/components/suggestAccountModal";
 import { toast, ToastContainer } from "react-toastify";
@@ -84,16 +91,20 @@ const initialMultiplayerState = {
     }
 }
 
-export default function Home({ }) {
+export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     const { width, height } = useWindowDimensions();
+    const router = useRouter();
+    const langInitRef = useRef(true);
     const statsRef = useRef();
 
     const [session, setSession] = useState(false);
     const { data: mainSession } = useSession();
     const [accountModalOpen, setAccountModalOpen] = useState(false);
-    const [screen, setScreen] = useState("home");
+    const [screen, setScreen] = useState(initialScreen === "daily" ? "daily" : "home");
     const [loading, setLoading] = useState(false);
+    const [mapSwitchMaskShown, setMapSwitchMaskShown] = useState(false);
+    const [mapSwitchSawLoading, setMapSwitchSawLoading] = useState(false);
     // game state
     const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
     const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
@@ -110,6 +121,7 @@ export default function Home({ }) {
     }, [])
     const [hintShown, setHintShown] = useState(false)
     const [countryStreak, setCountryStreak] = useState(0)
+    const [countryGuessrStreak, setCgStreak] = useState(0)
     const [settingsModal, setSettingsModal] = useState(false)
     const [mapModal, setMapModal] = useState(false)
     const [friendsModal, setFriendsModal] = useState(false)
@@ -127,6 +139,35 @@ export default function Home({ }) {
     const [miniMapShown, setMiniMapShown] = useState(false)
     const [accountModalPage, setAccountModalPage] = useState("profile");
     const [mapModalClosing, setMapModalClosing] = useState(false);
+    const loadLocationRequestRef = useRef(0);
+    const [pendingCountryGuessrLoad, setPendingCountryGuessrLoad] = useState(0);
+    const countryGuessrLoadRecoveryRef = useRef(0);
+    const MAP_MODAL_CLOSE_ANIMATION_MS = 400;
+
+    useEffect(() => {
+        if (!mapSwitchMaskShown) return;
+
+        if (loading) {
+            if (!mapSwitchSawLoading) setMapSwitchSawLoading(true);
+            return;
+        }
+
+        if (mapSwitchSawLoading) {
+            setMapSwitchMaskShown(false);
+            setMapSwitchSawLoading(false);
+        }
+    }, [mapSwitchMaskShown, mapSwitchSawLoading, loading]);
+
+    useEffect(() => {
+        if (!mapSwitchMaskShown) return;
+
+        const mapSwitchMaskTimeout = setTimeout(() => {
+            setMapSwitchMaskShown(false);
+            setMapSwitchSawLoading(false);
+        }, 8000);
+
+        return () => clearTimeout(mapSwitchMaskTimeout);
+    }, [mapSwitchMaskShown]);
 
     useEffect(() => {
         let hideInt = setInterval(() => {
@@ -476,6 +517,7 @@ export default function Home({ }) {
                 // get map slug map=slug from url
                 const params = new URLSearchParams(window.location.search);
                 const mapSlug = params.get("map");
+                hasEnteredSingleplayer.current = true;
                 setScreen("singleplayer")
 
                 openMap(mapSlug)
@@ -537,10 +579,18 @@ export default function Home({ }) {
     }, []);
 
     const [onboarding, setOnboarding] = useState(null);
+    // Mirror DailyChallengeScreen's internal phase so the navbar can hide its
+    // back button only during the actual round, not on landing/results.
+    const [dailyPhase, setDailyPhase] = useState(null);
     const [onboardingCompleted, setOnboardingCompleted] = useState(null);
     const [otherOptions, setOtherOptions] = useState([]); // for country guesser
     const [showCountryButtons, setShowCountryButtons] = useState(true);
     const [countryGuesserCorrect, setCountryGuesserCorrect] = useState(false);
+    const [welcomeOverlayShown, setWelcomeOverlayShown] = useState(false);
+    const [onboardingMode, setOnboardingMode] = useState("classic");
+    const [countryGuessrMode, setCountryGuessrMode] = useState({ subMode: "country", region: "all" });
+    const hasEnteredSingleplayer = useRef(false);
+    const lastSingleplayerScreen = useRef(null);
 
     const [showSuggestLoginModal, setShowSuggestLoginModal] = useState(false);
     const [showDiscordModal, setShowDiscordModal] = useState(false);
@@ -552,8 +602,81 @@ export default function Home({ }) {
 
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
-    const [coolmathSplash, setCoolmathSplash] = useState(null);
     const [navSlideOut, setNavSlideOut] = useState(false);
+    const [awaitingCreatePartyScreen, setAwaitingCreatePartyScreen] = useState(false);
+
+    // Daily challenge navigation (in-app pushState, no real Next route change)
+    const screenRef = useRef('home');
+    useEffect(() => { screenRef.current = screen; }, [screen]);
+    const isDailyPath = useCallback((p) => /^\/(?:(?:es|fr|de|ru|en)\/)?daily$/.test(p || ''), []);
+    const enterDailyMode = useCallback(() => {
+        if (typeof window !== 'undefined' && !isDailyPath(window.location.pathname)) {
+            const lang = (typeof window !== 'undefined' && window.language) || 'en';
+            const dailyPath = lang === 'en' ? '/daily' : `/${lang}/daily`;
+            window.history.pushState({ wgDaily: true }, '', dailyPath);
+        }
+        setNavSlideOut(true);
+        setTimeout(() => {
+            setNavSlideOut(false);
+            setScreen('daily');
+        }, 300);
+    }, [isDailyPath]);
+    const exitDailyMode = useCallback(() => {
+        if (typeof window !== 'undefined' && isDailyPath(window.location.pathname)) {
+            // Infer locale from current path: /daily → /, /es/daily → /es, etc.
+            const match = /^\/(es|fr|de|ru|en)\/daily$/.exec(window.location.pathname);
+            const target = match ? `/${match[1]}` : '/';
+            window.history.pushState({}, '', target);
+        }
+        setScreen('home');
+    }, [isDailyPath]);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (initialScreen === 'daily' || isDailyPath(window.location.pathname)) {
+            setScreen('daily');
+        }
+        const onPop = () => {
+            if (isDailyPath(window.location.pathname)) setScreen('daily');
+            else if (screenRef.current === 'daily') setScreen('home');
+        };
+        window.addEventListener('popstate', onPop);
+        return () => window.removeEventListener('popstate', onPop);
+    }, [initialScreen, isDailyPath]);
+
+    useEffect(() => {
+        if (!awaitingCreatePartyScreen) return;
+
+        if (screen !== "home" || connectionErrorModalShown || multiplayerError) {
+            setAwaitingCreatePartyScreen(false);
+            setNavSlideOut(false);
+            return;
+        }
+
+        // If backend/game creation stalls, restore home nav so the user isn't stuck on a hidden menu.
+        const restoreHomeNavTimeout = setTimeout(() => {
+            setAwaitingCreatePartyScreen(false);
+            setNavSlideOut(false);
+        }, 12000);
+
+        return () => clearTimeout(restoreHomeNavTimeout);
+    }, [awaitingCreatePartyScreen, screen, connectionErrorModalShown, multiplayerError]);
+
+    // Keep the URL in sync with the `screen` state for daily mode. Anything
+    // that transitions screen away from 'daily' (back button on the navbar,
+    // exit from results modal, popstate, etc.) must also clear `/daily` from
+    // the URL. Doing it here rather than inside each exit path means we
+    // can't forget to call it.
+    const prevScreenForUrlRef = useRef(screen);
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const prev = prevScreenForUrlRef.current;
+        prevScreenForUrlRef.current = screen;
+        if (prev === 'daily' && screen !== 'daily' && isDailyPath(window.location.pathname)) {
+            const match = /^\/(es|fr|de|ru|en)\/daily$/.exec(window.location.pathname);
+            const target = match ? `/${match[1]}` : '/';
+            window.history.pushState({}, '', target);
+        }
+    }, [screen, isDailyPath]);
 
     function gPlatform() {
         try {
@@ -603,26 +726,92 @@ export default function Home({ }) {
         }
     }, [session?.token?.secret, showSuggestLoginModal]);
 
+    // Show SuggestAccountModal on the home screen for logged-out users.
+    //   1st time  — any home visit (never seen before). Just Sign-in / Continue as Guest.
+    //   Nth time  — 7 days after the last show, if they still haven't signed in. Every
+    //               repeat show renders a "Don't show this again" link below the guest
+    //               button; clicking it sets `suggestLoginNeverShow` and permanently opts
+    //               out. Otherwise the modal keeps reappearing on the 7-day cadence.
+    // Delayed ~2.5s so it doesn't feel like a page-load ambush and so the session has
+    // time to resolve. Embedded platforms (CrazyGames / CoolMath / GameDistribution)
+    // skip entirely.
+    const [suggestLoginShowNeverAgain, setSuggestLoginShowNeverAgain] = useState(false);
+    useEffect(() => {
+        if (screen !== "home") return;
+        if (session?.token?.secret) return;
+        if (inCrazyGames || inCoolMathGames || inGameDistribution) return;
+        if (typeof window === 'undefined') return;
+        // Skip re-running while the modal is currently open — otherwise opening it
+        // would immediately trigger another evaluation and double-increment the count.
+        if (showSuggestLoginModal) return;
+
+        const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+        let willShowNeverAgain = false;
+        try {
+            // Hard opt-out: user clicked "Don't show this again"
+            if (window.localStorage.getItem("suggestLoginNeverShow")) return;
+
+            // Migrate legacy one-time flag: treat as just-shown-now so the 7-day rule applies
+            const legacy = window.localStorage.getItem("suggestLoginShown");
+            if (legacy && !window.localStorage.getItem("suggestLoginLastShown")) {
+                window.localStorage.setItem("suggestLoginLastShown", String(Date.now()));
+                window.localStorage.removeItem("suggestLoginShown");
+            }
+
+            const lastShownRaw = window.localStorage.getItem("suggestLoginLastShown");
+            const lastShown = lastShownRaw ? parseInt(lastShownRaw, 10) : null;
+
+            if (lastShown) {
+                // Seen before — only show again once the cooldown window has elapsed.
+                // The only permanent opt-out is the `suggestLoginNeverShow` flag that the
+                // user sets explicitly by clicking "Don't show this again".
+                if (Date.now() - lastShown < SEVEN_DAYS_MS) return;
+                // Any repeat show (2nd onward) gets the "Don't show again" opt-out link
+                willShowNeverAgain = true;
+            }
+        } catch (e) { return; }
+
+        const timer = setTimeout(() => {
+            // Re-check at fire time in case things changed during the delay
+            if (session?.token?.secret) return;
+            try {
+                if (window.localStorage.getItem("suggestLoginNeverShow")) return;
+                window.localStorage.setItem("suggestLoginLastShown", String(Date.now()));
+                const prev = parseInt(window.localStorage.getItem("suggestLoginShownCount") || "0", 10);
+                window.localStorage.setItem("suggestLoginShownCount", String(prev + 1));
+            } catch (e) { return; }
+            setSuggestLoginShowNeverAgain(willShowNeverAgain);
+            setShowSuggestLoginModal(true);
+        }, 2500);
+
+        return () => clearTimeout(timer);
+    }, [screen, session?.token?.secret, inCrazyGames, inCoolMathGames, inGameDistribution, showSuggestLoginModal]);
+
     // check if ?coolmath=true
     useEffect(() => {
         if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
             setInCoolMathGames(true);
             window.lastCoolmathAd = Date.now();
 
-            setCoolmathSplash({ bg: 1, img: 0 });
-            requestAnimationFrame(() => {
-                setCoolmathSplash({ bg: 1, img: 1 });
-            });
-            const fadeOutTimer = setTimeout(() => {
-                setCoolmathSplash({ bg: 0, img: 0 });
-            }, 1000);
-            const removeTimer = setTimeout(() => {
-                setCoolmathSplash(null);
-            }, 1400);
+            // Fade out and remove the static HTML splash from _document.js
+            const splash = document.getElementById('cmg-splash');
+            if (splash) {
+                // Ensure splash was visible for at least 1.1s total
+                const elapsed = Date.now() - (window.__cmgSplashStart || 0);
+                const remaining = Math.max(0, 1100 - elapsed);
 
-            return () => {
-                clearTimeout(fadeOutTimer);
-                clearTimeout(removeTimer);
+                const fadeOutTimer = setTimeout(() => {
+                    splash.style.transition = 'opacity 0.4s ease';
+                    splash.style.opacity = '0';
+                }, remaining);
+                const removeTimer = setTimeout(() => {
+                    splash.remove();
+                }, remaining + 500);
+
+                return () => {
+                    clearTimeout(fadeOutTimer);
+                    clearTimeout(removeTimer);
+                }
             }
         }
     }, [])
@@ -706,19 +895,22 @@ export default function Home({ }) {
     }, [])
 
     useEffect(() => {
-        if (screen === "singleplayer") {
-            // start the single player game
+        if (screen === "singleplayer" || screen === "countryGuesser") {
+            lastSingleplayerScreen.current = screen;
             setSinglePlayerRound({
                 round: 1,
-                totalRounds: 5,
+                totalRounds: screen === "countryGuesser" ? 10 : 5,
                 locations: [],
             })
+            if (screen === "countryGuesser") {
+                setShowCountryButtons(true);
+            }
         }
     }, [screen])
 
     const [allLocsArray, setAllLocsArray] = useState([]);
 
-    function startOnboarding() {
+    function startOnboarding(mode = "classic") {
 
         if (inCrazyGames) {
             // make sure its not an invite link
@@ -736,38 +928,21 @@ export default function Home({ }) {
 
         setScreen("onboarding")
 
-        let onboardingLocations = [
-            { lat: 40.7598687, long: -73.9764681, country: "US", otherOptions: ["GB", "JP"] },
-            { lat: 27.1719752, long: 78.0422793, country: "IN", otherOptions: ["ZA", "FR"] },
-            { lat: 51.5080896, long: -0.087694, country: "GB", otherOptions: ["US", "DE"] },
-            { lat: 55.7495807, long: 37.616477, country: "RU", otherOptions: ["CN", "PL"] },
-            // pyramid of giza 29.9773337,31.1321796
-            { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR"] },
-            // eiffel tower 48.8592946,2.2927855
-            { lat: 48.8592946, long: 2.2927855, country: "FR", otherOptions: ["IT", "ES"] },
-            // statue of liberty 40.6909253,-74.0552998
-            { lat: 40.6909253, long: -74.0552998, country: "US", otherOptions: ["CA", "AU"] },
-            // brandenburg gate 52.5161999,13.3756414
-            { lat: 52.5161999, long: 13.3756414, country: "DE", otherOptions: ["RU", "JP"] },
-
+        // 3 universally recognizable locations for the tutorial
+        const onboardingLocations = [
+            { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR", "IN"] },
+            { lat: 40.7566514, long: -73.986534, country: "US", otherOptions: ["GB", "JP", "AU"] },
+            { lat: 48.8583601, long: 2.2915727, country: "FR", otherOptions: ["IT", "ES", "DE"] },
         ]
-
-        // pick 5 random locations no repeats
-        const locations = [];
-        while (locations.length < 5) {
-            const loc = onboardingLocations[Math.floor(Math.random() * onboardingLocations.length)]
-            if (!locations.find((l) => l.country === loc.country)) {
-                locations.push(loc)
-            }
-        }
 
         setOnboarding({
             round: 1,
-            locations: locations,
+            locations: onboardingLocations,
             startTime: Date.now(),
+            mode: mode,
         })
-        sendEvent("tutorial_begin")
-        setShowCountryButtons(false)
+        sendEvent("tutorial_begin", { mode })
+        setShowCountryButtons(mode !== "classic")
     }
     function openMap(mapSlug) {
         const country = countries.find((c) => c === mapSlug.toUpperCase());
@@ -807,9 +982,73 @@ export default function Home({ }) {
         })
     }
 
+    function cancelInFlightLocationLoad() {
+        loadLocationRequestRef.current += 1;
+    }
+
+    function setWorldMapOptions() {
+        setGameOptions((prev) => ({
+            ...prev,
+            location: "all",
+            official: true,
+            countryMap: false,
+            communityMapName: "",
+            maxDist: 20000,
+            extent: null
+        }));
+    }
+
+    function enterCountryGuessrMode(subMode) {
+        cancelInFlightLocationLoad();
+        setLoading(false);
+        setAllLocsArray([]);
+        setLatLong(null);
+        setShowAnswer(false);
+        setPinPoint(null);
+        setHintShown(false);
+        setCountryGuessrMode({ subMode, region: "all" });
+        setShowCountryButtons(true);
+        setWorldMapOptions();
+        setPendingCountryGuessrLoad((prev) => prev + 1);
+
+        if (screen !== "countryGuesser") {
+            setScreen("countryGuesser");
+        } else {
+            setSinglePlayerRound({ round: 1, totalRounds: 10, locations: [] });
+        }
+    }
+
+    useEffect(() => {
+        if (!pendingCountryGuessrLoad) return;
+        if (screen !== "countryGuesser") return;
+        if (gameOptions.location !== "all") return;
+
+        setPendingCountryGuessrLoad(0);
+        loadLocation({ force: true, ignoreCache: true });
+    }, [pendingCountryGuessrLoad, screen, gameOptions.location, countryGuessrMode.subMode])
+
+    useEffect(() => {
+        if (screen !== "countryGuesser" || !loading || showAnswer) return;
+
+        const recoveryId = countryGuessrLoadRecoveryRef.current + 1;
+        countryGuessrLoadRecoveryRef.current = recoveryId;
+
+        const recoveryTimeout = setTimeout(() => {
+            if (countryGuessrLoadRecoveryRef.current !== recoveryId) return;
+            cancelInFlightLocationLoad();
+            setLoading(false);
+            setAllLocsArray([]);
+            setLatLong(null);
+            setWorldMapOptions();
+            setPendingCountryGuessrLoad((prev) => prev + 1);
+        }, 12000);
+
+        return () => clearTimeout(recoveryTimeout);
+    }, [screen, loading, showAnswer, countryGuessrMode.subMode, gameOptions.location])
+
     useEffect(() => {
         if (onboarding?.round > 1) {
-            loadLocation()
+            loadLocation({ keepAnswer: !!window._countryGuessrKeepAnswer })
         }
     }, [onboarding?.round])
 
@@ -826,12 +1065,37 @@ export default function Home({ }) {
             openMap(gameOptions.location);
         }
     }, [screen])
+
+    // Country/continent guesser always plays on the world map — if the user had
+    // a country-specific map loaded in singleplayer (e.g. "CA"), clear it so we
+    // don't keep serving the same country over and over.
+    useEffect(() => {
+        if (screen === "countryGuesser" && gameOptions.location !== "all") {
+            openMap("all");
+            setAllLocsArray([]);
+        }
+    }, [screen])
     useEffect(() => {
         try {
             const onboarding = gameStorage.getItem("onboarding");
             // check url
             const cg = window.location.search.includes("crazygames");
             const specifiedMapSlug = window.location.search.includes("map=");
+            // Party-link entry (?party=...) must skip onboarding for this
+            // session: the auto-join effect runs after `multiplayerState.verified`
+            // flips, which is later than onboarding's startup, so the tutorial
+            // would briefly start, allocate a streetview round, then get torn
+            // down — producing the "connection lost" glitch. Like ?map= and
+            // /daily, we don't write "done" to storage so the tutorial still
+            // appears next time the user lands on home without a party link.
+            const hasPartyParam = typeof window !== 'undefined'
+              && new URLSearchParams(window.location.search).has('party');
+            // Direct /daily entry skips the classic-mode tutorial — first-time
+            // users came here for the daily challenge, not for an onboarding
+            // street-view round. We don't write "done" to localStorage so
+            // they'll still see the tutorial later if they navigate to home.
+            const onDailyEntry = initialScreen === 'daily'
+              || (typeof window !== 'undefined' && isDailyPath(window.location.pathname));
             console.log("onboarding", onboarding, specifiedMapSlug)
             // make it false just for testing
             // gameStorage.setItem("onboarding", null)
@@ -841,6 +1105,8 @@ export default function Home({ }) {
 
             }
             else if (specifiedMapSlug && !cg) setOnboardingCompleted(true)
+            else if (hasPartyParam) setOnboardingCompleted(true)
+            else if (onDailyEntry) setOnboardingCompleted(true)
             else setOnboardingCompleted(false)
         } catch (e) {
             console.error(e, "onboard");
@@ -933,7 +1199,7 @@ export default function Home({ }) {
         // check if learn mode
         if (window.location.search.includes("learn=true")) {
             window.learnMode = true;
-
+            hasEnteredSingleplayer.current = true;
             // immediately open single player
             setScreen("singleplayer")
         }
@@ -942,6 +1208,7 @@ export default function Home({ }) {
             // get map slug map=slug from url
             const params = new URLSearchParams(window.location.search);
             const mapSlug = params.get("map");
+            hasEnteredSingleplayer.current = true;
             setScreen("singleplayer")
 
             openMap(mapSlug)
@@ -977,6 +1244,12 @@ export default function Home({ }) {
             if (onboardingCompleted === null) return;
             if (!loading) {
 
+                // Start onboarding immediately so street view preloads, then show modal on top
+                if (!inCrazyGames) {
+                    startOnboarding("classic");
+                    setWelcomeOverlayShown(true);
+                    return;
+                }
 
                 // const isPPC = window.location.search.includes("cpc=true");
                 if (inIframe() && window.adBreak && !inCrazyGames) {
@@ -1030,22 +1303,41 @@ export default function Home({ }) {
         try {
             window.localStorage.setItem("lang", options?.language)
             window.language = options?.language;
-            console.log("set lang", options?.language)
 
-            // GameDistribution runs in an iframe — language routes are inaccessible, skip redirect
             if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") return;
 
-            const currentQueryParams = new URLSearchParams(window.location.search);
-            const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
+            const currentPath = stripBase(window.location.pathname);
 
-            const location = `/${options?.language !== "en" ? options?.language : ""}`
-            if (!stripBase(window.location.pathname).includes(location)) {
-                console.log("changing lang", location)
-                window.location.href = navigate(location) + qPsuffix;
+            // Special-case /daily (and /[lang]/daily): stay on daily, just swap
+            // the locale segment. Without this, the redirect below would yank
+            // the user off the daily challenge and onto /{lang}.
+            const dailyRegex = /^\/(?:(es|fr|de|ru|en)\/)?daily$/;
+            if (dailyRegex.test(currentPath)) {
+                const desiredDaily = options.language === 'en' ? '/daily' : `/${options.language}/daily`;
+                if (currentPath !== desiredDaily) {
+                    langInitRef.current = false;
+                    router.replace(desiredDaily);
+                } else {
+                    langInitRef.current = false;
+                }
+                return;
             }
-            if (options?.language === "en" && ["es", "fr", "de", "ru"].includes(stripBase(window.location.pathname).split("/")[1])) {
-                console.log("changing lang", location)
-                window.location.href = navigate("/") + qPsuffix;
+
+            const target = `/${options.language}`;
+            // Don't redirect to /en from root — English is the default
+            const isDefaultOnRoot = options.language === "en" && (currentPath === "/" || currentPath === "");
+            if (!isDefaultOnRoot && currentPath !== target) {
+                const currentQueryParams = new URLSearchParams(window.location.search);
+                const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
+                if (langInitRef.current) {
+                    // Initial load — update URL without history entry or page reload
+                    langInitRef.current = false;
+                    router.replace(target + qPsuffix);
+                } else {
+                    router.push(target + qPsuffix);
+                }
+            } else {
+                langInitRef.current = false;
             }
         } catch (e) { }
     }, [options?.language]);
@@ -1055,11 +1347,26 @@ export default function Home({ }) {
         // try to fetch options from localstorage
         try {
             const options = gameStorage.getItem("options");
-            console.log("options", options)
 
+            // Detect language: URL path wins, then localStorage.lang, then "en"
+            let detectedLang = "en";
+            try {
+                const knownLangs = ["en", "es", "fr", "de", "ru"];
+                const urlSegment = stripBase(window.location.pathname).split("/").filter(Boolean)[0];
+                if (knownLangs.includes(urlSegment)) {
+                    detectedLang = urlSegment;
+                } else {
+                    const storedLang = window.localStorage.getItem("lang");
+                    if (storedLang && knownLangs.includes(storedLang)) {
+                        detectedLang = storedLang;
+                    }
+                }
+            } catch(e) {}
 
             if (options) {
-                setOptions(JSON.parse(options))
+                const parsed = JSON.parse(options);
+                parsed.language = detectedLang;
+                setOptions(parsed)
             } else {
                 let system = "metric";
 
@@ -1094,7 +1401,8 @@ export default function Home({ }) {
                 setOptions({
                     units: system,
                     ramUsage: false,
-                    mapType: "m" //m for normal
+                    mapType: "m", //m for normal
+                    language: detectedLang
                 })
             }
         } catch (e) { }
@@ -1427,7 +1735,8 @@ export default function Home({ }) {
                             if (secret !== "not_logged_in") {
                                 window.verified = true;
                             }
-                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode"), platform: getPlatform() }))
+                            const hasPartyLink = new URLSearchParams(window.location.search).has("party");
+                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode"), skipRejoin: hasPartyLink || undefined, platform: getPlatform() }))
                         } else if (window.verifyPayload) {
                             console.log("sending verify from verifyPayload")
                             ws.send(window.verifyPayload)
@@ -1460,7 +1769,7 @@ export default function Home({ }) {
     useEffect(() => {
         if (inCrazyGames || window.poki) {
             // Determine if actual gameplay is happening
-            const isInGameplay = (screen === "singleplayer" && singlePlayerRound && !singlePlayerRound.done) ||
+            const isInGameplay = ((screen === "singleplayer" || screen === "countryGuesser") && singlePlayerRound && !singlePlayerRound.done) ||
                 (screen === "onboarding" && onboarding && !onboarding.completed) ||
                 (multiplayerState?.inGame && multiplayerState?.gameData?.state === "guess");
 
@@ -1539,6 +1848,33 @@ export default function Home({ }) {
 
         }
     }, [multiplayerState?.verified, inCrazyGames])
+
+    // Handle ?party= URL param to auto-join a party
+    useEffect(() => {
+        if (!multiplayerState?.verified || inCrazyGames) return;
+        const params = new URLSearchParams(window.location.search);
+        const partyCode = params.get("party");
+        if (!partyCode) return;
+
+        // Clean up the URL
+        params.delete("party");
+        const newSearch = params.toString();
+        window.history.replaceState({}, '', window.location.pathname + (newSearch ? '?' + newSearch : ''));
+
+        const code = parseInt(partyCode);
+        if (isNaN(code)) return;
+
+        // Skip if already in this exact party
+        if (multiplayerState?.inGame && multiplayerState?.gameData?.code === code) return;
+
+        // Clear onboarding state if active
+        setOnboardingCompleted(true);
+        setOnboarding(null);
+        setLoading(false);
+
+        // Server already skipped rejoin due to skipRejoin flag, so player is free to join
+        handleMultiplayerAction("joinPrivateGame", code);
+    }, [multiplayerState?.verified])
 
     useEffect(() => {
         if (multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
@@ -1745,6 +2081,19 @@ export default function Home({ }) {
                         }
                     }
 
+                    // Rejoin — restore latLong and pinPoint from game state
+                    if (!prev.gameData && data.state === "getready" && data.locations && data.curRound > 1) {
+                        setLatLong(data.locations[data.curRound - 2])
+                    }
+                    if (!prev.gameData && data.players) {
+                        const me = data.players.find(p => p.id === data.myId);
+                        if (me?.guess) {
+                            import('leaflet').then(L => {
+                                setPinPoint(L.latLng(me.guess[0], me.guess[1]));
+                            });
+                        }
+                    }
+
                     return {
                         ...prev,
                         gameQueued: false,
@@ -1906,17 +2255,29 @@ export default function Home({ }) {
                     ...prev,
                     extent: null
                 }))
-            } else if (data.type === "gameJoinError" && multiplayerState.enteringGameCode) {
-                setMultiplayerState((prev) => {
-                    return {
+            } else if (data.type === "gameJoinError") {
+                if (multiplayerState.enteringGameCode) {
+                    setMultiplayerState((prev) => ({
                         ...prev,
                         joinOptions: {
                             ...prev.joinOptions,
                             error: data.error,
                             progress: false
                         }
-                    }
-                })
+                    }))
+                } else {
+                    // Joined via link — show toast and go home
+                    const errorKey = data.error === 'Game is full' ? 'partyFull' : 'invalidPartyCode';
+                    toast(text(errorKey) || data.error, { type: 'error' });
+                    setScreen("home");
+                    setMultiplayerState((prev) => ({
+                        ...initialMultiplayerState,
+                        connected: prev.connected,
+                        verified: prev.verified,
+                        playerCount: prev.playerCount,
+                        guestName: prev.guestName
+                    }));
+                }
             } else if (data.type === 'generating') {
                 // location generation before round
                 setMultiplayerState((prev) => {
@@ -2007,7 +2368,7 @@ export default function Home({ }) {
             // Always disable chat when WebSocket disconnects to prevent chat button showing in menu
             setMultiplayerChatEnabled(false)
             setMultiplayerChatOpen(false)
-            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
+            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "daily") {
                 setMultiplayerError(true)
                 setLoading(false)
 
@@ -2033,7 +2394,7 @@ export default function Home({ }) {
             setMultiplayerChatEnabled(false)
             setMultiplayerChatOpen(false)
 
-            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding") {
+            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "daily") {
                 setMultiplayerError(true)
 
                 toast.info(text("connectionLostRecov"))
@@ -2115,10 +2476,14 @@ export default function Home({ }) {
                 if (!isNaN(parsedStreak)) {
                     setCountryStreak(parsedStreak)
                 } else {
-                    console.log("streak is not a number", streak)
                     setCountryStreak(0)
                     gameStorage.setItem("countryStreak", 0)
                 }
+            }
+            const cgs = gameStorage.getItem("countryGuessrStreak");
+            if (cgs) {
+                const parsed = parseInt(cgs);
+                if (!isNaN(parsed)) setCgStreak(parsed);
             }
 
             // preload/cache pin images (kept alive in window.__pinImageCache)
@@ -2199,6 +2564,9 @@ export default function Home({ }) {
 
     function backBtnPressed(queueNextGame = false, nextGameType) {
         setOnboardingCompleted(true)
+        setLatLong(null)
+        setShowAnswer(false)
+        setPinPoint(null)
 
         if (loading) setLoading(false);
         if (multiplayerError) setMultiplayerError(false)
@@ -2212,6 +2580,8 @@ export default function Home({ }) {
         }
 
         if (screen === "onboarding") {
+            setLatLong(null)
+            setShowAnswer(false)
             setScreen("home")
             setOnboarding(null)
             gameStorage.setItem("onboarding", 'done')
@@ -2318,8 +2688,9 @@ export default function Home({ }) {
                 clearLocation();
             };
             // Show midgame ad when leaving an active singleplayer game
-            if (screen === "singleplayer") {
-                crazyMidgame(afterBack);
+            if (screen === "singleplayer" || screen === "countryGuesser") {
+                // crazyMidgame(afterBack);
+                afterBack();
             } else {
                 afterBack();
             }
@@ -2333,34 +2704,60 @@ export default function Home({ }) {
         setHintShown(false)
     }
 
-    function loadLocation() {
-        if (loading) return;
+    function loadLocation({ keepAnswer, force, ignoreCache } = {}) {
+        if (loading && !force) return;
+        const loadLocationRequestId = ++loadLocationRequestRef.current;
+        const isCurrentLocationLoad = () => loadLocationRequestId === loadLocationRequestRef.current;
         console.log("[PERF] ========== Starting new round ==========");
         window.roundStartTime = performance.now();
         setLoading(true)
-        setShowAnswer(false)
+        if (!keepAnswer) setShowAnswer(false)
         setPinPoint(null)
-        setLatLong(null)
+        if (!keepAnswer) setLatLong(null)
         setHintShown(false)
 
         if (screen === "onboarding") {
-            setLatLong(onboarding.locations[onboarding.round - 1]);
-            let options = JSON.parse(JSON.stringify(onboarding.locations[onboarding.round - 1].otherOptions));
-            options.push(onboarding.locations[onboarding.round - 1].country)
-            // shuffle
-            options = shuffle(options)
-            setOtherOptions(options)
+            const loc = onboarding.locations[onboarding.round - 1];
+            setLatLong(loc);
+            const mode = onboarding.mode || "classic";
+            if (mode === "continent") {
+                const { ALL_CONTINENTS } = require("@/components/utils/continentFromCode");
+                setOtherOptions([...ALL_CONTINENTS]);
+            } else if (mode === "country") {
+                // Pick 3 random wrong countries for onboarding (4 total - simpler for new players)
+                const distractors = [];
+                const available = countries.filter(c => c !== loc.country);
+                while (distractors.length < 3) {
+                    const pick = available[Math.floor(Math.random() * available.length)];
+                    if (!distractors.includes(pick)) distractors.push(pick);
+                }
+                setOtherOptions(shuffle([...distractors, loc.country]));
+            } else {
+                let options = JSON.parse(JSON.stringify(loc.otherOptions));
+                options.push(loc.country);
+                setOtherOptions(shuffle(options));
+            }
         } else {
             async function defaultMethod() {
                 console.log("[PERF] loadLocation: Calling findLatLongRandom (dynamic import)");
                 const startTime = performance.now();
+                // Country/continent guesser can't tolerate Unknown-country spots.
+                // With findCountry's local fallback, this rejection should rarely
+                // fire (only for ocean / missing-polygon edge cases).
+                const requireKnownCountry = screen === "countryGuesser" || (!!onboarding && onboarding?.mode !== "classic");
+                const requireKnownContinent = (screen === "countryGuesser" && countryGuessrMode.subMode === "continent") ||
+                    (!!onboarding && onboarding?.mode === "continent");
                 try {
-                    const { default: findLatLongRandom } = await import("@/components/findLatLong");
+                    const mod = await import("@/components/findLatLong");
+                    const findLatLongRandom = mod.default;
                     console.log(`[PERF] findLatLong module loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
-                    const latLong = await findLatLongRandom(gameOptions);
+                    const latLong = await findLatLongRandom({ ...gameOptions, requireKnownCountry, requireKnownContinent });
+                    if (!isCurrentLocationLoad()) return;
                     setLatLong(latLong);
                 } catch (err) {
+                    if (!isCurrentLocationLoad()) return;
                     console.error("[ERROR] Failed to load location:", err);
+                    setLoading(false);
                     toast(text("errorLoadingMap"), { type: 'error' });
                 }
             }
@@ -2379,6 +2776,7 @@ export default function Home({ }) {
                 fetch(url).then((res) => {
                     return res.json();
                 }).then((data) => {
+                    if (!isCurrentLocationLoad()) return;
                     console.log(`[PERF] loadLocation: Fetched locations in ${(performance.now() - fetchStartTime).toFixed(2)}ms`);
                     if (data.ready) {
                         // this uses long for lng
@@ -2404,7 +2802,7 @@ export default function Home({ }) {
                         } else {
                             let loc = data.locations[Math.floor(Math.random() * data.locations.length)];
 
-                            while (loc.lat === latLong.lat && loc.long === latLong.long) {
+                            while (latLong && loc.lat === latLong.lat && loc.long === latLong.long) {
                                 loc = data.locations[Math.floor(Math.random() * data.locations.length)];
                             }
 
@@ -2434,20 +2832,41 @@ export default function Home({ }) {
                         defaultMethod()
                     }
                 }).catch(() => {
+                    if (!isCurrentLocationLoad()) return;
+                    if (!window._sentMapLoadErrorToast) {
                     toast(text("errorLoadingMap"), { type: 'error' })
+                    window._sentMapLoadErrorToast = true;
+                    }
                     defaultMethod()
                 });
             }
 
-            if (allLocsArray.length === 0) {
+            if (ignoreCache || allLocsArray.length === 0) {
                 fetchMethod()
             } else if (allLocsArray.length > 0) {
-                const locIndex = allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long);
+                const locIndex = (latLong && latLong.lat != null && latLong.long != null)
+                    ? allLocsArray.findIndex((l) => l.lat === latLong.lat && l.long === latLong.long)
+                    : -1;
                 if ((locIndex === -1) || allLocsArray.length === 1) {
-                    fetchMethod()
+                    // No prior location (or only one left) — pick directly from the preloaded array
+                    // to avoid an unnecessary refetch.
+                    if (!latLong || latLong.lat == null || latLong.long == null) {
+                        setAllLocsArray((prev) => {
+                            if (!isCurrentLocationLoad()) return prev;
+                            if (!prev || prev.length === 0) return prev;
+                            const loc = gameOptions.location === "all"
+                                ? prev[0]
+                                : prev[Math.floor(Math.random() * prev.length)];
+                            setLatLong(loc);
+                            return prev.filter((l) => l.lat !== loc.lat || l.long !== loc.long);
+                        });
+                    } else {
+                        fetchMethod()
+                    }
                 } else {
                     // prevent repeats: remove the prev location from the array (for both all and community maps)
                     setAllLocsArray((prev) => {
+                        if (!isCurrentLocationLoad()) return prev;
                         const newArr = prev.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long);
 
                         // Pick next location
@@ -2464,6 +2883,60 @@ export default function Home({ }) {
         }
 
     }
+
+    // Generate country/continent options when location or submode changes in country guesser mode.
+    // Continent options are fixed (the 6 continent names), so we pre-populate them as soon as
+    // subMode flips — otherwise switching country<->continent before the next location arrives
+    // leaves the row rendered with stale options, which can look empty on mobile.
+    //
+    // We also refuse to render a round whose correct answer isn't resolvable: a spot with
+    // no country (or, in continent mode, a country that doesn't map to a continent) would
+    // otherwise show "??" as the right answer. Instead, skip silently to the next location.
+    useEffect(() => {
+        if (screen !== "countryGuesser") return;
+
+        const isContinentMode = countryGuessrMode.subMode === "continent";
+
+        if (isContinentMode) {
+            setOtherOptions([...ALL_CONTINENTS]);
+        }
+
+        if (!latLong || !latLong.lat) return;
+
+        const correctCountry = latLong.country;
+        const invalid = !correctCountry || correctCountry === "Unknown" ||
+            (isContinentMode && continentFromCode(correctCountry) === "Unknown");
+
+        if (invalid) {
+            // Don't let a "??" round reach the player. Hide the option row and
+            // rotate to the next preloaded location (cheap — no refetch). If the
+            // preloaded array is empty or exhausted, fall through to loadLocation,
+            // which will fetch fresh data once the in-flight load settles.
+            setShowCountryButtons(false);
+            setAllLocsArray((prev) => {
+                if (!prev || prev.length === 0) return prev;
+                const remaining = prev.filter((l) => l.lat !== latLong.lat || l.long !== latLong.long);
+                if (remaining.length === 0) return prev;
+                const next = gameOptions.location === "all"
+                    ? remaining[0]
+                    : remaining[Math.floor(Math.random() * remaining.length)];
+                setLatLong(next);
+                return remaining;
+            });
+            return;
+        }
+
+        if (!isContinentMode) {
+            const distractors = [];
+            const available = countries.filter((c) => c !== correctCountry);
+            while (distractors.length < 5 && available.length > distractors.length) {
+                const pick = available[Math.floor(Math.random() * available.length)];
+                if (!distractors.includes(pick)) distractors.push(pick);
+            }
+            setOtherOptions(shuffle([...distractors, correctCountry]));
+        }
+        setShowCountryButtons(true);
+    }, [latLong, screen, countryGuessrMode.subMode]);
 
     function onNavbarLogoPress() {
         if (screen === "onboarding") return;
@@ -2554,7 +3027,15 @@ export default function Home({ }) {
 
     return (
         <>
-            <HeadContent text={text} inCoolMathGames={inCoolMathGames} inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} />
+            <HeadContent
+                text={text}
+                inCoolMathGames={inCoolMathGames}
+                inCrazyGames={inCrazyGames}
+                inGameDistribution={inGameDistribution}
+                titleOverride={initialScreen === 'daily' ? `${text('dailyChallenge')} — WorldGuessr` : undefined}
+                descOverride={initialScreen === 'daily' ? text('dailyLandingTagline') : undefined}
+                canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : undefined}
+            />
 
 
 
@@ -2565,75 +3046,40 @@ export default function Home({ }) {
                 } sendInvite={sendInvite} options={options}
             />}
             {session?.token?.secret && !session.token.username && <SetUsernameModal shown={true} session={session} />}
-            {showSuggestLoginModal && <SuggestAccountModal shown={true} setOpen={setShowSuggestLoginModal} />}
+            {showSuggestLoginModal && <SuggestAccountModal shown={true} setOpen={setShowSuggestLoginModal} showNeverAgain={suggestLoginShowNeverAgain} />}
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
             {ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
-            {coolmathSplash && (
-                // black background
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100vw',
-                    height: '100vh',
-                    backgroundColor: 'rgb(36,36,36)',
-                    zIndex: 100090,
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    color: 'white',
-                    fontSize: '2em',
-                    opacity: coolmathSplash.bg,
-                    transition: 'opacity 1s ease'
-                }}>
-                    <div style={{ position: 'relative', width: '80vw', height: '80vh' }}>
-                        {/* image /coolmath-splash.png */}
-                        <NextImage.default src={asset('/coolmath-splash.png')} draggable={false} fill alt="Coolmath Splash" style={{ objectFit: "contain", userSelect: 'none', opacity: coolmathSplash.img, transition: 'opacity 1s ease' }} />
-                    </div>
-                </div>
-
+            {welcomeOverlayShown && screen === "onboarding" && (
+                <WelcomeOverlay
+                    onModeSelected={(mode) => {
+                        setOnboardingMode(mode);
+                        try { gameStorage.setItem("onboarding_seen", "true"); } catch(e) {}
+                        // Update the running onboarding with the chosen mode
+                        setOnboarding((prev) => prev ? { ...prev, mode } : prev);
+                        setShowCountryButtons(mode !== "classic");
+                        setWelcomeOverlayShown(false);
+                    }}
+                    onSkip={() => {
+                        try {
+                            gameStorage.setItem("onboarding_seen", "true");
+                            gameStorage.setItem("onboarding", "done");
+                        } catch(e) {}
+                        setLatLong(null);
+                        setShowAnswer(false);
+                        setWelcomeOverlayShown(false);
+                        setOnboarding(null);
+                        setOnboardingCompleted(true);
+                        setScreen("home");
+                    }}
+                />
             )}
 
-
-
-            <div style={{
-                top: 0,
-                left: 0,
-                position: 'fixed',
-                width: '100vw',
-                height: '100vh',
-                height: '100dvh', // Modern browsers dynamic viewport
-                height: '-webkit-fill-available', // iOS Safari fix
-                transition: 'opacity 0.5s',
-                opacity: 0.5,
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                MozUserSelect: 'none',
-                msUserSelect: 'none',
-                pointerEvents: 'none',
-            }}>
-                <NextImage.default src={asset('/street2.webp')}
-                    draggable={false}
-                    width={1920}
-                    height={1080}
-                    alt="Game Background" style={{
-                        objectFit: "cover", userSelect: 'none',
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        width: "100vw",
-                        height: "100vh",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                    }}
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                />
-            </div>
-
+            {/* Coolmath splash is now rendered statically in _document.js and removed via useEffect */}
+            {/* Background street2 image is rendered via body::before in _document.js */}
 
             <main className={`home`} id="main">
 
@@ -2658,13 +3104,15 @@ export default function Home({ }) {
                         console.log("loaded")
                         setTimeout(() => {
                             setLoading(false)
+                            setMapSwitchMaskShown(false);
+                            setMapSwitchSawLoading(false);
                         }, 300)
 
                     }}
                 />
 
                 {/* Loading overlay - covers iframe with background image to prevent white flicker */}
-                <div className={`loading-overlay ${loading ? 'loading-overlay--visible' : ''}`}>
+                <div className={`loading-overlay ${(loading || mapSwitchMaskShown) ? 'loading-overlay--visible' : ''}`}>
                     <NextImage.default src={asset('/street2.webp')}
                         draggable={false}
                         width={1920}
@@ -2718,7 +3166,7 @@ export default function Home({ }) {
                     onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("list"); }}
                     loginQueued={loginQueued}
                     setLoginQueued={setLoginQueued}
-                    inGame={multiplayerState?.inGame || screen === "singleplayer"}
+                    inGame={multiplayerState?.inGame || screen === "singleplayer" || screen === "countryGuesser"}
                     openAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
                     session={session}
                     reloadBtnPressed={reloadBtnPressed}
@@ -2731,8 +3179,11 @@ export default function Home({ }) {
                     shown={!multiplayerState?.gameData?.duel}
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}
+                    partyModalShown={partyModalShown}
+                    dailyPhase={dailyPhase}
                     mapModalOpen={mapModal}
                     onConnectionError={() => setConnectionErrorModalShown(true)}
+                    countryGuessrMode={countryGuessrMode}
                 />
 
                 {/* Pending Name Change Banner */}
@@ -2816,7 +3267,7 @@ export default function Home({ }) {
                             screenH={height} types={[[300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
                     </div>
                 )}
-                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
+                <span id="g2_playerCount" className={`bigSpan onlineText desktop ${screen !== 'home' ? 'notHome' : ''} ${(screen === 'singleplayer' || screen === 'onboarding' || screen === 'countryGuesser' || screen === 'daily' || (multiplayerState?.inGame && !['waitingForPlayers', 'findingGame', 'findingOpponent'].includes(multiplayerState?.gameData?.state)) || !multiplayerState?.connected || !multiplayerState?.playerCount) ? 'hide' : ''}`}>
                     {maintenance ? text("maintenanceMode") : text("onlineCnt", { cnt: multiplayerState?.playerCount || 0 })}
                 </span>
 
@@ -2840,6 +3291,34 @@ export default function Home({ }) {
                         </button>
                     )}
                 </div>
+
+                {/* Community Maps icon (moved out of left menu) */}
+                {screen === "home" && onboardingCompleted && !mapModal &&
+                    !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
+                    <DailyCommunityMapsButton
+                        onClick={() => setMapModal(true)}
+                        loggedOut={!session?.token?.secret}
+                    />
+                )}
+
+                {/* Daily challenge screen (landing → game → results) */}
+                {screen === "daily" && (
+                    <DailyChallengeScreen
+                        session={session}
+                        options={options}
+                        onExit={exitDailyMode}
+                        inCrazyGames={inCrazyGames}
+                        inCoolMathGames={inCoolMathGames}
+                        inGameDistribution={inGameDistribution}
+                        landingBootstrap={dailyBootstrap}
+                        latLong={latLong}
+                        setLatLong={setLatLong}
+                        setLatLongKey={setLatLongKey}
+                        loading={loading}
+                        setLoading={setLoading}
+                        onPhaseChange={setDailyPhase}
+                    />
+                )}
 
                 {screen == "home" &&
                     <div className={`home__content g2_modal ${screen !== "home" ? "hidden" : "cshown"} `}>
@@ -2879,7 +3358,22 @@ export default function Home({ }) {
                                                         setNavSlideOut(true);
                                                         setMiniMapShown(false);
                                                         setTimeout(() => {
-                                                            crazyMidgame(() => setScreen("singleplayer"));
+                                                            crazyMidgame(() => {
+                                                                // First entry this session: check localStorage preference
+                                                                if (!hasEnteredSingleplayer.current) {
+                                                                    hasEnteredSingleplayer.current = true;
+                                                                    const pref = gameStorage.getItem("singleplayerDefaultMode");
+                                                                    if (pref === "countryGuesser") {
+                                                                        enterCountryGuessrMode("country");
+                                                                        return;
+                                                                    } else if (pref === "continentGuesser") {
+                                                                        enterCountryGuessrMode("continent");
+                                                                        return;
+                                                                    }
+                                                                }
+                                                                // Subsequent entries: restore last screen used this session
+                                                                setScreen(lastSingleplayerScreen.current || "singleplayer");
+                                                            });
                                                             setNavSlideOut(false); // Reset for next use
                                                         }, 300);
                                                     }}>
@@ -2908,8 +3402,8 @@ export default function Home({ }) {
                                                     }
 
                                                     setNavSlideOut(true);
+                                                    setAwaitingCreatePartyScreen(true);
                                                     setTimeout(() => {
-                                                        setNavSlideOut(false); // Reset for next use
                                                         handleMultiplayerAction("createPrivateGame")
                                                     }, 300);
                                                 }}>{text("createGame")}</button>
@@ -2931,14 +3425,7 @@ export default function Home({ }) {
                                             <div className="g2_nav_hr"></div>
 
                                             <div className="g2_nav_group">
-                                                {!process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
-                                                    <button className="g2_nav_text" aria-label="Community Maps" onClick={() => {
-                                                        setNavSlideOut(true);
-                                                        setTimeout(() => {
-                                                            setNavSlideOut(false); // Reset for next use
-                                                            setMapModal(true);
-                                                        }, 300);
-                                                    }}>{text("communityMaps")}</button>}
+                                                <DailyMenuItem session={session} onClick={() => enterDailyMode()} />
 
                                                 {/* Twitch Streamer Link */}
                                                 {/* <a
@@ -3047,17 +3534,76 @@ export default function Home({ }) {
                     if (mapModalClosing) return;
                     setMapModalClosing(true);
                     setTimeout(() => {
-                        setMapModal(false); setGameOptionsModalShown(false); setMapModalClosing(false)
-                    }, 300);
+                        setMapModal(false);
+                        setGameOptionsModalShown(false);
+                        setMapModalClosing(false);
+                    }, MAP_MODAL_CLOSE_ANIMATION_MS);
                 }}
                     mapModalClosing={mapModalClosing}
                     text={text}
-                    customChooseMapCallback={(gameOptionsModalShown && screen === "singleplayer") ? (map) => {
-                        console.log("map", map)
-                        openMap(map.countryMap || map.slug);
-                        setGameOptionsModalShown(false)
+                    customChooseMapCallback={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser")) ? (map) => {
+                        if (mapModalClosing) return;
+                        const selectedMapSlug = map.countryMap || map.slug;
+                        const selectingCountryGuesser = map.slug === "__countryGuesser";
+                        const selectingContinentGuesser = map.slug === "__continentGuesser";
+                        const selectingRegularMap = !selectingCountryGuesser && !selectingContinentGuesser;
+                        const isSameSelection =
+                            (selectingCountryGuesser && screen === "countryGuesser" && countryGuessrMode?.subMode === "country") ||
+                            (selectingContinentGuesser && screen === "countryGuesser" && countryGuessrMode?.subMode === "continent") ||
+                            (selectingRegularMap && screen === "singleplayer" && selectedMapSlug === gameOptions.location);
+
+                        const closeMapChooser = () => {
+                            setTimeout(() => {
+                                setMapModal(false);
+                                setGameOptionsModalShown(false);
+                                setMapModalClosing(false);
+                            }, MAP_MODAL_CLOSE_ANIMATION_MS);
+                        };
+
+                        // No-op if user clicks the currently active map/mode.
+                        if (isSameSelection) {
+                            setMapSwitchMaskShown(false);
+                            setMapSwitchSawLoading(false);
+                            setMapModalClosing(true);
+                            closeMapChooser();
+                            return;
+                        }
+
+                        setMapModalClosing(true);
+                        setMapSwitchMaskShown(true);
+                        setMapSwitchSawLoading(false);
+
+                        const applyMapSelection = () => {
+                            if (map.slug === "__countryGuesser") {
+                                try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
+                                enterCountryGuessrMode("country");
+                            } else if (map.slug === "__continentGuesser") {
+                                try { gameStorage.setItem("singleplayerDefaultMode", "continentGuesser"); } catch(e) {}
+                                enterCountryGuessrMode("continent");
+                            } else {
+                                cancelInFlightLocationLoad();
+                                setLoading(false);
+                                setLatLong(null);
+                                setShowAnswer(false);
+                                setShowCountryButtons(false);
+                                if (screen === "countryGuesser") setScreen("singleplayer");
+                                try { gameStorage.setItem("singleplayerDefaultMode", "world"); } catch(e) {}
+                                openMap(selectedMapSlug);
+                            }
+                        };
+
+                        // Let the close class render first so fade-out starts immediately.
+                        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+                            window.requestAnimationFrame(() => {
+                                window.requestAnimationFrame(applyMapSelection);
+                            });
+                        } else {
+                            setTimeout(applyMapSelection, 0);
+                        }
+
+                        closeMapChooser();
                     } : null}
-                    showAllCountriesOption={(gameOptionsModalShown && screen === "singleplayer")}
+                    showAllCountriesOption={(gameOptionsModalShown && (screen === "singleplayer" || screen === "countryGuesser"))}
                     showOptions={screen === "singleplayer"}
                     showTimerOption={screen === "singleplayer"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
@@ -3080,12 +3626,21 @@ export default function Home({ }) {
 
 
 
+
                 {screen === "singleplayer" && <div className="home__singleplayer">
                     <GameUI
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                </div>}
+
+                {screen === "countryGuesser" && <div className="home__singleplayer">
+                    <GameUI
+                        inCoolMathGames={inCoolMathGames}
+                        inGameDistribution={inGameDistribution}
+                        miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
+singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound} showDiscordModal={showDiscordModal} setShowDiscordModal={setShowDiscordModal} inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} countryGuesser={true} countryGuessrMode={countryGuessrMode} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} mapModal={mapModal} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
                 {screen === "onboarding" && (onboarding?.round || onboarding?.completed) && <div className="home__onboarding">
@@ -3093,40 +3648,71 @@ export default function Home({ }) {
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={false} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
+                        welcomeOverlayShown={welcomeOverlayShown}
+                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} countryGuesserCorrect={countryGuesserCorrect} setCountryGuesserCorrect={setCountryGuesserCorrect} showCountryButtons={showCountryButtons} setShowCountryButtons={setShowCountryButtons} otherOptions={otherOptions} onboarding={onboarding} countryGuesser={onboarding?.mode && onboarding.mode !== "classic"} setOnboarding={setOnboarding} backBtnPressed={backBtnPressed} options={options} countryStreak={countryStreak} setCountryStreak={setCountryStreak} hintShown={hintShown} setHintShown={setHintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} showAnswer={showAnswer} setShowAnswer={setShowAnswer} loading={loading} setLoading={setLoading} session={session} gameOptionsModalShown={gameOptionsModalShown} setGameOptionsModalShown={setGameOptionsModalShown} latLong={latLong} loadLocation={loadLocation} gameOptions={gameOptions} setGameOptions={setGameOptions} />
                 </div>}
 
-                {screen === "onboarding" && onboarding?.completed && <div className="home__onboarding">
-                    <div className="home__onboarding__completed">
-                        <OnboardingText words={[
-                            text("onboarding1")
-                        ]} pageDone={() => {
-                            try {
-                                gameStorage.setItem("onboarding", 'done')
-                            } catch (e) { }
-                            setOnboarding((prev) => {
-                                return {
-                                    ...prev,
-                                    finalOnboardingShown: true
-                                }
-                            })
-                        }} shown={!onboarding?.finalOnboardingShown} />
-                        <RoundOverScreen button1Text={text("home")} onboarding={onboarding} setOnboarding={setOnboarding} points={onboarding.points} time={msToTime(onboarding.timeTaken)} maxPoints={25000} history={onboarding.locations || []} options={options} button1Press={() => {
-                            if (onboarding) {
-                                sendEvent("tutorial_end");
-                                try {
-                                    gameStorage.setItem("onboarding", 'done')
-                                } catch (e) { }
-                            }
+                {screen === "onboarding" && onboarding?.completed &&
+                    <RoundOverScreen
+                        points={onboarding.points}
+                        time={msToTime(onboarding.timeTaken)}
+                        maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
+                        history={onboarding.locations || []}
+                        options={options}
+                    />
+                }
 
-                            setOnboarding(null)
-                            if (!window.location.search.includes("app=true") && !inCrazyGames && !inCoolMathGames && !inGameDistribution) {
-                                setShowSuggestLoginModal(true)
-                            }
-                            setScreen("home")
-                        }} />
-                    </div>
-                </div>
+                {screen === "onboarding" && onboarding?.completed &&
+                    <OnboardingComplete
+                        mode={onboarding.mode}
+                        points={onboarding.points}
+                        maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
+                        onClassic={() => {
+                            sendEvent("tutorial_end", { mode: "classic" });
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            setMiniMapShown(false);
+                            setLatLong(null);
+                            setScreen("singleplayer");
+                        }}
+                        onDuel={() => {
+                            sendEvent("tutorial_end", { mode: "duel" });
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            handleMultiplayerAction("unrankedDuel");
+                        }}
+                        onCommunityMaps={() => {
+                            sendEvent("tutorial_end", { mode: "community" });
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            setScreen("home");
+                            setTimeout(() => setMapModal(true), 350);
+                        }}
+                        onCountryGuesser={() => {
+                            sendEvent("tutorial_end", { mode: "country" });
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            enterCountryGuessrMode("country");
+                        }}
+                        onHome={() => {
+                            sendEvent("tutorial_end", { mode: "home" });
+                            try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
+                            setLatLong(null);
+                            setShowAnswer(false);
+                            setOnboarding(null);
+                            setOnboardingCompleted(true);
+                            setScreen("home");
+                        }}
+                    />
                 }
 
                 <RoundOverScreen
@@ -3161,6 +3747,7 @@ export default function Home({ }) {
                         setMultiplayerState={setMultiplayerState}
                         selectCountryModalShown={selectCountryModalShown}
                         setSelectCountryModalShown={setSelectCountryModalShown}
+                        inCrazyGames={inCrazyGames}
                     />
                 </div>}
 

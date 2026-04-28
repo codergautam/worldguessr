@@ -10,7 +10,8 @@ import PlayerList from "./playerList";
 import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
-import OnboardingText from "./onboardingText";
+import continentFromCode from "./utils/continentFromCode";
+import countryCoordinates from "../public/countryCoordinates.json";
 import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
 import { toast } from "react-toastify";
@@ -27,9 +28,9 @@ const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
-export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons }) {
+export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete }) {
   const { t: text } = useTranslation("common");
-  function loadLocationFuncRaw() {
+  function loadLocationFuncRaw(keepAnswer) {
     if(onboarding) {
       if(onboarding.completed) {
         // Reset onboarding to start over - preserve template locations
@@ -40,21 +41,22 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           locations: onboarding.locations, // Keep template locations for gameplay
           gameResults: [] // Clear previous game results
         })
-      } else if(onboarding.round === 5) {
+      } else if(onboarding.round === (onboarding.locations?.length || 3)) {
         console.log("Setting onboarding to completed", onboarding);
         setOnboarding((prev)=>{
           const completedOnboarding = {
             completed: true,
-            finalOnboardingShown: true, // Prevent duplicate RoundOverScreen in home.js
-            round: prev.round, // Preserve round for parent component condition
+            finalOnboardingShown: true,
+            round: prev.round,
             points: prev.points,
+            mode: prev.mode,
             timeTaken: Date.now() - prev.startTime,
-            locations: prev.gameResults || [] // Use gameResults for the summary
+            locations: prev.gameResults || []
           };
           console.log("Completed onboarding state:", completedOnboarding);
           return completedOnboarding;
         })
-        setShowAnswer(false)
+        if (!keepAnswer) setShowAnswer(false)
       } else {
       setOnboarding((prev) => {
         return {
@@ -68,13 +70,19 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
 
       // display the results
-      setShowAnswer(false)
+      if (!keepAnswer) setShowAnswer(false)
 
         setSinglePlayerRound((prev) => {
           const completedGame = {
             ...prev,
             done: true
           };
+
+          // Daily mode: skip the default storeGame submission and let the parent handle results.
+          if (dailyMode && onRoundsComplete) {
+            try { onRoundsComplete(prev.locations); } catch (e) { console.error('onRoundsComplete error', e); }
+            return completedGame;
+          }
 
           // Store game for all completed games (official maps give XP, community maps give 0 XP but are still saved)
           if(session?.token?.secret && prev.locations.length > 0) {
@@ -88,6 +96,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
                   secret: session.token.secret,
                   official: gameOptions.official, // Pass official status to API
                   location: gameOptions.communityMapName || gameOptions.location, // Use community map name or location
+                  countryGuesser: !!countryGuesser,
+                  countryGuessrSubMode: countryGuessrMode?.subMode || 'country',
                   rounds: prev.locations.map(location => ({
                     lat: location.guessLat,
                     long: location.guessLong,
@@ -117,7 +127,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     } else {
 
 
-      loadLocation()
+      loadLocation({ keepAnswer })
 
       if(singlePlayerRound && !singlePlayerRound?.done) {
         setSinglePlayerRound((prev) => {
@@ -129,9 +139,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       } else if(setSinglePlayerRound) {
         // reset to default
         setHintsUsedThisGame(0);
+        if(!mapPinned) setMiniMapExpanded(false);
         setSinglePlayerRound({
           round: 1,
-          totalRounds: 5,
+          totalRounds: countryGuesser ? 10 : 5,
           locations: []
         })
       }
@@ -139,7 +150,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   }
 
-  function loadLocationFunc() {
+  function loadLocationFunc(keepAnswer) {
 
     function afterAd() {
 
@@ -165,11 +176,11 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     if((inGameDistribution || inCrazyGames) && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
       window.crazyMidgame(() => {
         afterAd()
-        loadLocationFuncRaw()
+        loadLocationFuncRaw(keepAnswer)
       });
     } else {
       afterAd()
-      loadLocationFuncRaw()
+      loadLocationFuncRaw(keepAnswer)
     }
 
 
@@ -186,20 +197,58 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [miniMapFullscreen, setMiniMapFullscreen] = useState(false)
   const [roundStartTime, setRoundStartTime] = useState(null);
   const [lostCountryStreak, setLostCountryStreak] = useState(0);
+  const [countryGuessrStreak, setCgStreak] = useState(() => {
+    try { return parseInt(gameStorage.getItem("countryGuessrStreak")) || 0; } catch(e) { return 0; }
+  });
+  const [lostCountryGuessrStreak, setLostCgStreak] = useState(0);
+  const [continentGuessrStreak, setContStreak] = useState(() => {
+    try { return parseInt(gameStorage.getItem("continentGuessrStreak")) || 0; } catch(e) { return 0; }
+  });
+  const [lostContinentGuessrStreak, setLostContStreak] = useState(0);
+  const [guessTier, setGuessTier] = useState(null); // "correct" | "wrongSameContinent" | "wrongDiffContinent"
+  const [guessedCountryCode, setGuessedCountryCode] = useState(null);
+  const [mapFadingOut, setMapFadingOut] = useState(false);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardVisible, setLeaderboardVisible] = useState(false);
   const [timeToNextRound, setTimeToNextRound] = useState(0); //only for onboarding
   const [singlePlayerTimeLeft, setSinglePlayerTimeLeft] = useState(0);
   const [mapPinned, setMapPinned] = useState(false);
+  const prevMultiplayerRoundStateRef = useRef({ state: null, round: null });
   // dist between guess & target
   const [km, setKm] = useState(null);
-  const [onboardingTextShown, setOnboardingTextShown] = useState(false);
-  const [onboardingWords, setOnboardingWords] = useState([]);
   const [explanationModalShown, setExplanationModalShown] = useState(false);
 
   const [explanations, setExplanations] = useState([]);
   const [showClueBanner, setShowClueBanner] = useState(false);
   const [hintsUsedThisGame, setHintsUsedThisGame] = useState(0);
   const [cmgAdsEnabled, setCmgAdsEnabled] = useState(false);
+
+  // Leaderboard: show after 5s delay in getready, fade out when state leaves getready
+  const inGetready = !!(
+    multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel &&
+    multiplayerState?.gameData?.state === 'getready' &&
+    multiplayerState?.gameData?.curRound !== 1 &&
+    multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds
+  );
+
+  // Once shown, stay shown until getready ends (don't depend on timer for hiding)
+  useEffect(() => {
+    if (inGetready && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && !showLeaderboard) {
+      // Delayed appearance: only show in last 5s of getready
+      setShowLeaderboard(true);
+      setLeaderboardVisible(true);
+    }
+  }, [inGetready, timeToNextMultiplayerEvt]);
+
+  useEffect(() => {
+    if (!inGetready && showLeaderboard) {
+      // State left getready — start fade-out, unmount after transition
+      setLeaderboardVisible(false);
+      const timer = setTimeout(() => setShowLeaderboard(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [inGetready]);
 
   useEffect(() => {
     if (!inCoolMathGames) return;
@@ -216,6 +265,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     if(showAnswer) {
       setShowPanoOnResult(false)
     } else {
+      setGuessedCountryCode(null);
     }
   }, [showAnswer])
 
@@ -268,10 +318,6 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
               nextRoundTime: Date.now() + (window.location.search.includes("crazygames") ? 60000 : 20000),
             }
           });
-          setOnboardingWords([
-            text("onboardingTimeEnd")
-          ])
-          setOnboardingTextShown(true);
         }
       }, 100)
 
@@ -328,6 +374,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           setCountryStreak(0);
           setSinglePlayerRound((prev) => {
             if (!prev) return prev;
+            if (!latLong || latLong.lat == null || latLong.long == null) return prev;
             return {
               ...prev,
               locations: [...prev.locations, {
@@ -363,48 +410,22 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   }, [latLong, multiplayerState])
 
   useEffect(() => {
-    try {
-    gameStorage.setItem("countryStreak", countryStreak);
-    } catch(e) {
-      console.log("error setting countryStreak in localstorage")
-    }
+    try { gameStorage.setItem("countryStreak", countryStreak); } catch(e) {}
   }, [countryStreak])
 
   useEffect(() => {
-    if(onboarding) {
-    //   setOnboardingTextShown(true);
-    //   if( onboarding.round === 1) {
-    //     setOnboardingWords([
-    //     text("welcomeToWorldguessr")+"!",
-    //     text("onboarding2"),
-    //     text("onboarding3"),
-    //     text("onboarding4"),
-    //   ])
-    // } else if(onboarding.round === 2) {
-    //   if(window.location.search.includes("crazygames")) {
-    //     setOnboardingWords([
-    //       text("greatJob"),
-    //     ])
-    //   } else {
-    //   setOnboardingWords([
-    //     text("greatJob"),
-    //     text("onboarding5"),
-    //   ])
-    // }
-    // } else if(onboarding.round === 3) {
-    //   setOnboardingWords([
-    //     text("astounding"),
-    //   ])
-    // } else if(onboarding.round === 4) {
-    //   setOnboardingWords([
-    //     text("onboarding10")
-    //   ])
-    // } else if(onboarding.round === 5) {
-    //   setOnboardingWords([
-    //     text("finalRound"),
-    //   ])
-    // }
-  }
+    try { gameStorage.setItem("countryGuessrStreak", countryGuessrStreak); } catch(e) {}
+  }, [countryGuessrStreak])
+
+  useEffect(() => {
+    try { gameStorage.setItem("continentGuessrStreak", continentGuessrStreak); } catch(e) {}
+  }, [continentGuessrStreak])
+
+  useEffect(() => {
+    // No typewriter text — modal handles intro, country buttons show immediately
+    if(onboarding && !onboarding.completed) {
+      setShowCountryButtons(true);
+    }
   }, [onboarding?.round])
 
 
@@ -443,6 +464,58 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
   }, [loading, latLong, width])
 
+  useEffect(() => {
+    if (!multiplayerState?.inGame) {
+      prevMultiplayerRoundStateRef.current = { state: null, round: null };
+      return;
+    }
+
+    const prevState = prevMultiplayerRoundStateRef.current.state;
+    const prevRound = prevMultiplayerRoundStateRef.current.round;
+    const curState = multiplayerState?.gameData?.state;
+    const curRound = multiplayerState?.gameData?.curRound;
+
+    const startedNewGuessRound = curState === "guess" && (
+      (prevState === "getready" && prevRound === curRound) ||
+      (prevState === "guess" && prevRound !== curRound)
+    );
+
+    if (startedNewGuessRound && !mapPinned) {
+      setMiniMapExpanded(false);
+      setMiniMapFullscreen(false);
+    }
+
+    prevMultiplayerRoundStateRef.current = { state: curState, round: curRound };
+  }, [multiplayerState?.inGame, multiplayerState?.gameData?.state, multiplayerState?.gameData?.curRound, mapPinned]);
+
+  // Explicitly reset minimap expansion on every new round (singleplayer or onboarding).
+  // Without this, singleplayer relies on a mouseleave event firing as the minimap
+  // transforms off-screen during the latLong=null async-fetch window — which browsers
+  // fire inconsistently once pointer-events flips to none, so miniMapExpanded can
+  // leak into the next round. Onboarding works "by accident" because its latLong
+  // goes old→new in one batch with no null window, keeping the mouseleave reliable.
+  const prevSinglePlayerRoundRef = useRef(null);
+  useEffect(() => {
+    const curRound = singlePlayerRound?.round;
+    const prev = prevSinglePlayerRoundRef.current;
+    if (curRound != null && prev != null && curRound !== prev && !mapPinned) {
+      setMiniMapExpanded(false);
+      setMiniMapFullscreen(false);
+    }
+    prevSinglePlayerRoundRef.current = curRound;
+  }, [singlePlayerRound?.round, mapPinned]);
+
+  const prevOnboardingRoundRef = useRef(null);
+  useEffect(() => {
+    const curRound = onboarding?.round;
+    const prev = prevOnboardingRoundRef.current;
+    if (curRound != null && prev != null && curRound !== prev && !mapPinned) {
+      setMiniMapExpanded(false);
+      setMiniMapFullscreen(false);
+    }
+    prevOnboardingRoundRef.current = curRound;
+  }, [onboarding?.round, mapPinned]);
+
   const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
 
   function showHint() {
@@ -452,21 +525,26 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     setHintsUsedThisGame((prev) => prev + 1);
   }
   useEffect(() => {
+    if (dailyMode) return;
     loadLocation()
     if(singlePlayerRound) {
       setHintsUsedThisGame(0);
       setSinglePlayerRound({
         round: 1,
-        totalRounds: 5,
+        totalRounds: countryGuesser ? 10 : 5,
         locations: []
       })
     }
   }, [gameOptions?.location])
-  function guess() {
+  function guess(correctOverride) {
+    // Guard against being called before a location has been loaded. Every branch
+    // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
+    if (!latLong || latLong.lat == null || latLong.long == null) return;
+    const isCorrect = correctOverride !== undefined ? correctOverride : countryGuesserCorrect;
     setShowAnswer(true)
     if(showCountryButtons || setShowCountryButtons)setShowCountryButtons(false);
     if(onboarding) {
-      const roundPoints = countryGuesser?2500:calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: 20000});
+      const roundPoints = (onboarding?.mode && onboarding.mode !== "classic") ? (isCorrect ? 1000 : 0) : countryGuesser ? (isCorrect ? 1000 : 0) : calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint?.lat, guessLon: pinPoint?.lng, usedHint: hintShown, maxDist: 20000});
       setOnboarding((prev) => {
 
         return {
@@ -476,8 +554,8 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           gameResults: [...(prev.gameResults || []), {
             lat: latLong.lat,
             long: latLong.long,
-            guessLat: pinPoint.lat,
-            guessLong: pinPoint.lng,
+            guessLat: pinPoint?.lat || null,
+            guessLong: pinPoint?.lng || null,
             points: roundPoints,
             timeTaken: Math.round((Date.now() - roundStartTime) / 1000)
           }]
@@ -487,13 +565,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     }
 
     if(singlePlayerRound) {
-      const roundPoints = calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
-      const roundXp = gameOptions?.official ? Math.round(roundPoints / 50) : 0;
+      const roundPoints = countryGuesser ? (isCorrect ? 1000 : 0) : calcPoints({ lat: latLong.lat, lon: latLong.long, guessLat: pinPoint.lat, guessLon: pinPoint.lng, usedHint: hintShown, maxDist: gameOptions.maxDist });
+      const roundXp = countryGuesser ? (gameOptions?.official && isCorrect ? 20 : 0) : (gameOptions?.official ? Math.round(roundPoints / 50) : 0);
 
       setSinglePlayerRound((prev) => {
         return {
           ...prev,
-          locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, panoId: latLong.panoId || null, guessLat: pinPoint.lat, guessLong: pinPoint.lng,
+          locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, panoId: latLong.panoId || null, guessLat: pinPoint?.lat || null, guessLong: pinPoint?.lng || null,
             points: roundPoints,
             timeTaken: Math.round((Date.now() - roundStartTime) / 1000),
             xpEarned: roundXp
@@ -510,11 +588,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
       function afterGuess(country) {
         setLostCountryStreak(0);
-        if(country === latLong.country) {
-          setCountryStreak(countryStreak + 1);
-        } else if(country !== "Unknown") {
-          setCountryStreak(0);
-          setLostCountryStreak(countryStreak);
+        if(!(country === "Unknown" && latLong.country === "Unknown")) {
+          if(country === latLong.country) {
+            setCountryStreak(countryStreak + 1);
+          } else if(country !== "Unknown") {
+            setCountryStreak(0);
+            setLostCountryStreak(countryStreak);
+          }
         }
       }
     findCountry({ lat: pinPoint.lat, lon: pinPoint.lng }).then((country) => {
@@ -533,6 +613,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
   const onboardingTimerShown = !((showAnswer||!onboarding));
+  const shouldShowMiniMap = !welcomeOverlayShown &&
+    (miniMapShown || showAnswer || mapFadingOut) &&
+    (!singlePlayerRound?.done && !onboarding?.completed &&
+      ((!showPanoOnResult && showAnswer) || (!showAnswer && !loading) || mapFadingOut)) &&
+    !(onboarding && !showAnswer && !mapFadingOut && onboarding.mode !== 'classic');
+  const forceHideMiniMap = !!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswer);
   return (
     <div className="gameUI">
 
@@ -544,7 +630,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     </div>
 )}
 
-{ inCrazyGames && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
+{ inCrazyGames && !singlePlayerRound?.done && !onboarding?.mode && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'':''}`}>
       <CrazyGamesBanner
         id="cg-banner-gameui"
@@ -640,10 +726,10 @@ start={true || isStartingDuel} isOpponent={true} />
 */}
 
 
-{ singlePlayerRound?.done && (
+{ singlePlayerRound?.done && !dailyMode && (
 <RoundOverScreen points={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)
 
-} maxPoints={25000}
+} maxPoints={countryGuesser ? singlePlayerRound.totalRounds * 1000 : singlePlayerRound.totalRounds * 5000}
 history={singlePlayerRound.locations}
 button1Text={"🎮 "+text("playAgain")}
 button1Press={() =>{
@@ -661,12 +747,11 @@ session={session}/>
 
 
       <div id="miniMapArea" onMouseEnter={() => {
-        setMiniMapExpanded(true)
+        if(!loading) setMiniMapExpanded(true)
       }} onMouseLeave={() => {
-        if(mapPinned) return;
-        // todo: if mouse down, don't collapse
+        if(mapPinned || showAnswer) return;
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded ? 'mapExpanded' : ''} ${(miniMapShown||showAnswer)&&(!singlePlayerRound?.done && !onboarding?.completed && ((!showPanoOnResult && showAnswer) || (!showAnswer))) ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded && !showAnswer ? 'mapExpanded' : ''} ${shouldShowMiniMap ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${(showAnswer && countryGuesser && !showPanoOnResult) || mapFadingOut ? 'countryGuessrMapReveal' : ''} ${mapFadingOut ? 'countryGuessrMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''} ${forceHideMiniMap ? 'forceHidden' : ''}`}>
 
 {!showAnswer && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
@@ -689,7 +774,7 @@ session={session}/>
           </button>
         </div>
 )}
-        <MapWidget shown={latLong && !loading} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} />
+        <MapWidget shown={latLong && !loading} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} hidePins={mapFadingOut} />
 
 
         <div className={`miniMap__btns ${showAnswer ? 'answerShownBtns' : ''}`}>
@@ -717,7 +802,7 @@ session={session}/>
           )}
           </>
         )}
-        {!loading && (
+        {!loading && !welcomeOverlayShown && (
           <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
             setMiniMapShown(!miniMapShown)
           }}>
@@ -735,39 +820,45 @@ session={session}/>
       </>
       )}
 
-      { countryGuesser && otherOptions && (
-        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer}
+      { countryGuesser && otherOptions?.length > 0 && (
+        <CountryBtns countries={otherOptions} shown={!loading && showCountryButtons && !showAnswer && !!latLong?.country} mode={onboarding?.mode || countryGuessrMode?.subMode || "country"} compact={!onboarding}
 
-         onCountryPress={(country) => {
-          const isCorrect = country === latLong.country;
-          if(!isCorrect && onboarding) {
-            setOnboardingWords([
-              "Not quite. Try again!",
-            ])
-            setOnboardingTextShown(true);
-            setCountryGuesserCorrect(false);
+         onCountryPress={(selected) => {
+          const isContinentMode = onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"));
+          const isCorrect = isContinentMode ? continentFromCode(latLong.country) === selected : selected === latLong.country;
+          setCountryGuesserCorrect(isCorrect);
+          setGuessedCountryCode(selected);
+          // Determine quip tier
+          if (isCorrect) {
+            setGuessTier("correct");
+          } else if (isContinentMode) {
+            setGuessTier("wrongDiffContinent");
           } else {
-            setCountryGuesserCorrect(true);
-            guess()
+            const guessedContinent = continentFromCode(selected);
+            const correctContinent = continentFromCode(latLong.country);
+            setGuessTier(guessedContinent === correctContinent ? "wrongSameContinent" : "wrongDiffContinent");
           }
+          if (isContinentMode) {
+            setLostContStreak(0);
+            if (isCorrect) {
+              setContStreak(prev => prev + 1);
+            } else {
+              setLostContStreak(continentGuessrStreak);
+              setContStreak(0);
+            }
+          } else {
+            setLostCgStreak(0);
+            if (isCorrect) {
+              setCgStreak(prev => prev + 1);
+            } else {
+              setLostCgStreak(countryGuessrStreak);
+              setCgStreak(0);
+            }
+          }
+          guess(isCorrect);
          }}/>
       )}
 
-      {onboarding && (
-        <OnboardingText onboarding={onboarding} shown={!loading && onboardingTextShown}
-        words={onboardingWords} pageDone={()=>{
-          setShowCountryButtons(true)
-          setOnboardingTextShown(false)
-          if(onboarding?.round >= 2 && !window.location.search.includes("crazygames")) {
-          setOnboarding((prev) => {
-            return {
-              ...prev,
-              nextRoundTime: Date.now() + 20000
-            }
-          })
-        }
-        }} />
-      )}
       {/* Duel timer — single line, old style */}
       {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && (
       <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
@@ -791,7 +882,7 @@ session={session}/>
       )}
 
       <span className={`timer timer--two-line ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 && !showAnswer && !pinPoint && onboarding ? 'critical' : ''}`}>
-        <span className="timer__round-label">{text("round", {r:onboarding?.round, mr: 5})}</span>
+        <span className="timer__round-label">{onboarding ? text("tutorialRound", {round: onboarding.round, total: onboarding.locations?.length || 3}) : text("round", {r:onboarding?.round, mr: 5})}</span>
         <span className="timer__main-row">
           {timeToNextRound
             ? <><span className="timer__countdown">{timeToNextRound.toFixed(1)}s</span> &middot; </>
@@ -803,7 +894,7 @@ session={session}/>
 
         {
           singlePlayerRound && !singlePlayerRound?.done && (
-            <span className={`timer timer--two-line shown ${singlePlayerTimeLeft <= 5 && singlePlayerTimeLeft > 0 && gameOptions.timePerRound > 0 && !showAnswer && !pinPoint ? 'critical' : ''}`}>
+            <span className={`timer timer--two-line shown ${dailyMode ? 'onTop' : ''} ${singlePlayerTimeLeft <= 5 && singlePlayerTimeLeft > 0 && gameOptions.timePerRound > 0 && !showAnswer && !pinPoint ? 'critical' : ''}`}>
               <span className="timer__round-label">{text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})}</span>
               <span className="timer__main-row">
                 {gameOptions.timePerRound > 0 && !showAnswer && singlePlayerTimeLeft > 0
@@ -823,15 +914,8 @@ session={session}/>
         )}
 
 
-        {multiplayerState && multiplayerState.inGame && !multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === 'getready' && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && multiplayerState?.gameData?.curRound !== 1 && multiplayerState?.gameData?.curRound <= multiplayerState?.gameData?.rounds && (() => {
-          // Double-check with fresh calculation to prevent flicker on slow devices
-          // when state changes but timeToNextMultiplayerEvt hasn't been updated yet
-          const freshTime = multiplayerState?.gameData?.nextEvtTime
-            ? Math.max(0, Math.floor(((multiplayerState.gameData.nextEvtTime - Date.now()) - timeOffset) / 100) / 10)
-            : 0;
-          return freshTime > 0 && freshTime < 5;
-        })() && (
-          <PlayerList multiplayerState={multiplayerState} playAgain={() => {
+        {showLeaderboard && (
+          <PlayerList multiplayerState={multiplayerState} fadingOut={!leaderboardVisible} inCrazyGames={inCrazyGames} playAgain={() => {
             backBtnPressed(true, "unranked")
           }} backBtn={() => {
             backBtnPressed()
@@ -886,9 +970,22 @@ session={session}/>
   )}
 <EndBanner
 countryStreaksEnabled={gameOptions?.location === "all"}
-singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} options={options} countryStreak={countryStreak} lostCountryStreak={lostCountryStreak}  usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
-  loadLocationFunc()
-
+isWorldMap={gameOptions?.location === "all"}
+dailyMode={dailyMode}
+singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} guessTier={guessTier} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
+  const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
+  if (isCountryGuessrMode) {
+    setMapFadingOut(true);
+    window._countryGuessrKeepAnswer = true;
+    loadLocationFunc(true);
+    setTimeout(() => {
+      setMapFadingOut(false);
+      setShowAnswer(false);
+      window._countryGuessrKeepAnswer = false;
+    }, 300);
+  } else {
+    loadLocationFunc();
+  }
   }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {
     setShowPanoOnResult(!showPanoOnResult)
   }} panoShown={showPanoOnResult} />
