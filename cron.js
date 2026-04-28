@@ -323,12 +323,15 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
     .allowDiskUse(true)
     .option({ maxTimeMS: 60000 });
 
-  const totalActiveUsers = userDeltas.length;
-
-  // Get user details for top 50k
+  // Get user details for top 50k. Exclude banned users and users with a
+  // pending forced name change so moderation actions remove them from this
+  // leaderboard on the next rebuild — without this, takeAction.js's scrub
+  // would silently undo itself every 15 minutes.
   const userIds = userDeltas.map(u => u.userId);
   const users = await User.find({
-    _id: { $in: userIds }
+    _id: { $in: userIds },
+    banned: { $ne: true },
+    pendingNameChange: { $ne: true }
   }).select('_id username countryCode supporter').lean().maxTimeMS(30000);
 
   // Create user lookup map
@@ -337,21 +340,25 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
     userMap.set(user._id.toString(), user);
   });
 
-  // Build final leaderboard with user details
-  const leaderboard = userDeltas.map((delta, index) => {
-    const user = userMap.get(delta.userId.toString());
-    return {
-      userId: delta.userId.toString(),
-      username: user?.username || 'Unknown',
-      delta: mode === 'xp' ? delta.xpDelta : delta.eloDelta,
-      currentValue: mode === 'xp' ? delta.currentXp : delta.currentElo,
-      rank: index + 1,
-      countryCode: user?.countryCode || null,
-      supporter: user?.supporter || false
-    };
-  });
+  // Build final leaderboard with user details — drop deltas whose user got
+  // filtered (banned / pending name change) before assigning ranks so the
+  // resulting list is contiguous.
+  const leaderboard = userDeltas
+    .filter(delta => userMap.has(delta.userId.toString()))
+    .map((delta, index) => {
+      const user = userMap.get(delta.userId.toString());
+      return {
+        userId: delta.userId.toString(),
+        username: user.username,
+        delta: mode === 'xp' ? delta.xpDelta : delta.eloDelta,
+        currentValue: mode === 'xp' ? delta.currentXp : delta.currentElo,
+        rank: index + 1,
+        countryCode: user.countryCode || null,
+        supporter: user.supporter || false
+      };
+    });
 
-  return { leaderboard, totalActiveUsers };
+  return { leaderboard, totalActiveUsers: leaderboard.length };
 };
 
 // Start the daily leaderboard computation timer

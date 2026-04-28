@@ -4,8 +4,57 @@ import ModerationLog from '../../models/ModerationLog.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
 import Game from '../../models/Game.js';
 import UserStats from '../../models/UserStats.js';
+import DailyChallengeScore from '../../models/DailyChallengeScore.js';
+import DailyLeaderboard from '../../models/DailyLeaderboard.js';
 import { leagues } from '../../components/utils/leagues.js';
 import { syncedClearCache } from '../../serverUtils/cacheBus.js';
+import { invalidateDailyPublicCache } from '../dailyChallenge/results.js';
+
+/**
+ * Remove a user from every daily leaderboard surface.
+ *
+ * Called from punitive actions (perm ban, temp ban, force_name_change) so the
+ * offender stops showing up on the daily-challenge top-10 and the precomputed
+ * daily XP/ELO leaderboards the moment the action lands. Without this, a
+ * banned cheater's name keeps sitting at #1 until their entries naturally fall
+ * off (which for past dates is "never").
+ *
+ * - DailyChallengeScore: flagged disqualified=true rather than deleted, so the
+ *   "one play per day" lock survives. The leaderboard query already filters
+ *   out disqualified rows.
+ * - DailyLeaderboard: $pulls the user's row from each cached top-50k array.
+ *   The cron rebuild also filters banned/pendingNameChange users so they don't
+ *   reappear on the next 15-minute cycle.
+ */
+async function scrubFromDailyLeaderboards(targetUserId) {
+  const userIdStr = targetUserId.toString();
+
+  // Capture which dates currently have live entries so we can invalidate the
+  // per-date public cache after the scrub. Done before the update because
+  // afterwards every row is disqualified.
+  const affectedDates = await DailyChallengeScore.find({
+    userId: targetUserId,
+    disqualified: { $ne: true }
+  }).distinct('date');
+
+  const [dcResult, dlResult] = await Promise.all([
+    DailyChallengeScore.updateMany(
+      { userId: targetUserId, disqualified: { $ne: true } },
+      { $set: { disqualified: true } }
+    ),
+    DailyLeaderboard.updateMany(
+      { 'leaderboard.userId': userIdStr },
+      { $pull: { leaderboard: { userId: userIdStr } } }
+    )
+  ]);
+
+  for (const date of affectedDates) invalidateDailyPublicCache(date);
+
+  return {
+    dailyChallengeScoresDisqualified: dcResult.modifiedCount,
+    dailyLeaderboardsScrubbed: dlResult.modifiedCount
+  };
+}
 
 /**
  * Refund ELO to opponents who lost ELO playing against a banned user
@@ -428,6 +477,7 @@ export default async function handler(req, res) {
     let moderationLog = null;
     let expiresAt = null;
     let eloRefundResult = null;
+    let leaderboardScrubResult = null;
 
     // Handle each action type
     switch (action) {
@@ -575,6 +625,9 @@ export default async function handler(req, res) {
           eloRefundResult = await refundEloToOpponents(targetUserId, targetUser.username);
         }
 
+        // Strip the user from every daily leaderboard surface
+        leaderboardScrubResult = await scrubFromDailyLeaderboards(targetUserId);
+
         // Find ALL pending reports against this user (not just the ones passed in)
         const pendingReportIdsBan = await Report.find({
           'reportedUser.accountId': targetUserId.toString(),
@@ -667,6 +720,9 @@ export default async function handler(req, res) {
         }
 
         syncedClearCache(`userAuth_${targetUser.secret}`);
+
+        // Strip the user from every daily leaderboard surface
+        leaderboardScrubResult = await scrubFromDailyLeaderboards(targetUserId);
 
         // Find ALL pending reports against this user (not just the ones passed in)
         const pendingReportIdsTempBan = await Report.find({
@@ -777,6 +833,12 @@ export default async function handler(req, res) {
         }
 
         syncedClearCache(`userAuth_${targetUser.secret}`);
+
+        // Strip the user from every daily leaderboard surface — their bad
+        // username should stop appearing on the daily-challenge top-10 and
+        // the precomputed XP/ELO daily leaderboards immediately, not after
+        // they get around to picking a new name.
+        leaderboardScrubResult = await scrubFromDailyLeaderboards(targetUserId);
 
         // Find ALL pending inappropriate_username reports against this user
         // (only resolve username reports, not cheating reports)
@@ -936,7 +998,8 @@ export default async function handler(req, res) {
       moderationLogId: moderationLog?._id,
       expiresAt: expiresAt,
       eloRefund: eloRefundResult, // ELO refund summary (null if no refunds)
-      message: getSuccessMessage(action, targetUser.username, eloRefundResult)
+      leaderboardScrub: leaderboardScrubResult, // Daily-leaderboard scrub summary (null if not applicable)
+      message: getSuccessMessage(action, targetUser.username, eloRefundResult, leaderboardScrubResult)
     });
 
   } catch (error) {
@@ -948,7 +1011,7 @@ export default async function handler(req, res) {
   }
 }
 
-function getSuccessMessage(action, username, eloRefundResult = null) {
+function getSuccessMessage(action, username, eloRefundResult = null, leaderboardScrubResult = null) {
   let message;
   switch (action) {
     case 'ignore':
@@ -979,6 +1042,13 @@ function getSuccessMessage(action, username, eloRefundResult = null) {
   // Add ELO refund info to message if applicable
   if (eloRefundResult && eloRefundResult.totalRefunded > 0) {
     message += `. Refunded ${eloRefundResult.totalRefunded} ELO to ${eloRefundResult.opponentsAffected} opponent(s) across ${eloRefundResult.gamesProcessed} game(s)`;
+  }
+
+  if (leaderboardScrubResult) {
+    const { dailyChallengeScoresDisqualified = 0, dailyLeaderboardsScrubbed = 0 } = leaderboardScrubResult;
+    if (dailyChallengeScoresDisqualified > 0 || dailyLeaderboardsScrubbed > 0) {
+      message += `. Removed from daily leaderboards (${dailyChallengeScoresDisqualified} challenge score(s), ${dailyLeaderboardsScrubbed} cached leaderboard(s))`;
+    }
   }
 
   return message;
