@@ -44,7 +44,7 @@ export default function Document() {
               width: 100%;
               height: 100%;
               background: url("${basePath}/street2.webp") center/cover no-repeat;
-              opacity: 0.5;
+              opacity: 0;
               z-index: 0;
               pointer-events: none;
               transition: opacity 0.5s ease;
