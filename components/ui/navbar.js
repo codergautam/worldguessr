@@ -7,7 +7,7 @@ import { asset } from '@/lib/basePath';
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode }) {
     const { t: text, lang } = useTranslation("common");
 
     const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer') || (screen === 'countryGuesser'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
@@ -26,7 +26,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 <div className={`nonHome ${screen === 'home' ? '' : 'shown'}`}>
                     {!mapModalOpen && <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>}
                     {!mapModalOpen && <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>}
-                    {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown &&  <>
+                    {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown &&  <>
                         <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} desktop`} onClick={backBtnPressed}>{screen === 'onboarding' ? text("menu") : text("back")}</button>
                         <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} mobile`} onClick={backBtnPressed}><FaArrowLeft /></button>
                     </>

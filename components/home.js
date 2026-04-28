@@ -3165,6 +3165,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     shown={!multiplayerState?.gameData?.duel}
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}
+                    partyModalShown={partyModalShown}
                     mapModalOpen={mapModal}
                     onConnectionError={() => setConnectionErrorModalShown(true)}
                     countryGuessrMode={countryGuessrMode}
@@ -3648,7 +3649,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         points={onboarding.points}
                         maxPoints={onboarding.mode === "classic" ? 15000 : 3000}
                         onClassic={() => {
-                            sendEvent("tutorial_end");
+                            sendEvent("tutorial_end", { mode: "classic" });
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             setShowAnswer(false);
                             setOnboarding(null);
@@ -3658,7 +3659,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             setScreen("singleplayer");
                         }}
                         onDuel={() => {
-                            sendEvent("tutorial_end");
+                            sendEvent("tutorial_end", { mode: "duel" });
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             setShowAnswer(false);
                             setOnboarding(null);
@@ -3666,7 +3667,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             handleMultiplayerAction("unrankedDuel");
                         }}
                         onCommunityMaps={() => {
-                            sendEvent("tutorial_end");
+                            sendEvent("tutorial_end", { mode: "community" });
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             setShowAnswer(false);
                             setOnboarding(null);
@@ -3675,7 +3676,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             setTimeout(() => setMapModal(true), 350);
                         }}
                         onCountryGuesser={() => {
-                            sendEvent("tutorial_end");
+                            sendEvent("tutorial_end", { mode: "country" });
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             try { gameStorage.setItem("singleplayerDefaultMode", "countryGuesser"); } catch(e) {}
                             setShowAnswer(false);
@@ -3684,7 +3685,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             enterCountryGuessrMode("country");
                         }}
                         onHome={() => {
-                            sendEvent("tutorial_end");
+                            sendEvent("tutorial_end", { mode: "home" });
                             try { gameStorage.setItem("onboarding", "done"); } catch(e) {}
                             setLatLong(null);
                             setShowAnswer(false);

@@ -93,43 +93,20 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
         onClose();
     };
 
-    if (selectCountryModalShown) {
-        return (
-            <MapsModal
-                showAllCountriesOption={true}
-                hideCountryGuessrModes={true}
-                shown={selectCountryModalShown}
-                onClose={() => setSelectCountryModalShown(false)}
-                session={session}
-                text={text}
-                customChooseMapCallback={(map) => {
-                    setMultiplayerState(prev => ({
-                        ...prev, 
-                        createOptions: {
-                            ...prev.createOptions, 
-                            location: map.countryMap || map.slug, 
-                            displayLocation: map.name,
-                            nm: gameOptions?.nm,
-                            npz: gameOptions?.npz,
-                            showRoadName: gameOptions?.showRoadName,
-                        }
-                    }));
-                    setSelectCountryModalShown(false);
-                }} 
-                chosenMap={multiplayerState?.createOptions?.location} 
-                showOptions={true} 
-                gameOptions={gameOptions} 
-                setGameOptions={setGameOptions} 
-            />
-        );
-    }
-    
+    // Render BOTH modals at once and toggle them via their `open`/`shown`
+    // props. The previous early-return swapped one for the other, which
+    // unmounted the party modal instantly (no exit animation) and produced a
+    // jarring "flash to nothing → maps modal slides in" transition. With both
+    // mounted, react-responsive-modal cross-fades them: the party modal
+    // gracefully fades down while the maps modal slides up.
     return (
+        <>
         <Modal
             onClose={commitAndClose}
-            open={shown}
+            open={shown && !selectCountryModalShown}
             center
             showCloseIcon={false}
+            animationDuration={400}
             classNames={{ modal: 'party-modal-container' }}
             styles={{
                 modal: {
@@ -616,5 +593,32 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 }
             `}</style>
         </Modal>
+        <MapsModal
+            showAllCountriesOption={true}
+            hideCountryGuessrModes={true}
+            shown={selectCountryModalShown}
+            onClose={() => setSelectCountryModalShown(false)}
+            session={session}
+            text={text}
+            customChooseMapCallback={(map) => {
+                setMultiplayerState(prev => ({
+                    ...prev,
+                    createOptions: {
+                        ...prev.createOptions,
+                        location: map.countryMap || map.slug,
+                        displayLocation: map.name,
+                        nm: gameOptions?.nm,
+                        npz: gameOptions?.npz,
+                        showRoadName: gameOptions?.showRoadName,
+                    }
+                }));
+                setSelectCountryModalShown(false);
+            }}
+            chosenMap={multiplayerState?.createOptions?.location}
+            showOptions={true}
+            gameOptions={gameOptions}
+            setGameOptions={setGameOptions}
+        />
+        </>
     );
 }
