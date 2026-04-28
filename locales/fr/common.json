@@ -645,5 +645,19 @@
   "dailyQuipGood10": "Vous avez transformé le monde en votre terrain de jeu personnel. Respect.",
   "aboveAvg": "+{{pct}} % au-dessus de la moyenne",
   "belowAvg": "{{pct}} % en dessous de la moyenne",
-  "exactAvg": "Moyenne"
+  "exactAvg": "Moyenne",
+  "account": "Compte",
+  "copyProfileLink": "Copier le lien du profil",
+  "dailyLandingTagline": "Le Défi Quotidien WorldGuessr est un puzzle de géographie gratuit, renouvelé toutes les 24 heures. Chaque jour, 3 lieux Google Street View aléatoires venus du monde entier — vous avez 60 secondes par manche pour placer le pin là où vous pensez être. Une seule tentative par jour, aucune seconde chance. Construisez votre série, grimpez au classement mondial et comparez vos réponses à celles des joueurs du monde entier.",
+  "ELO": "ELO",
+  "error": "Erreur",
+  "info": "Informations",
+  "player": "Joueur",
+  "player1": "Joueur 1",
+  "required": "Requis",
+  "result": "Résultat",
+  "success": "Succès",
+  "supporter": "Soutien",
+  "unknown": "Inconnu",
+  "warning": "Avertissement"
 }
