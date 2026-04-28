@@ -630,7 +630,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     </div>
 )}
 
-{ inCrazyGames && !singlePlayerRound?.done && !onboarding?.completed && !(width < 700 && height < 350) && (
+{ inCrazyGames && !singlePlayerRound?.done && !onboarding?.mode && !onboarding?.completed && !(width < 700 && height < 350) && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'':''}`}>
       <CrazyGamesBanner
         id="cg-banner-gameui"
@@ -894,7 +894,7 @@ session={session}/>
 
         {
           singlePlayerRound && !singlePlayerRound?.done && (
-            <span className={`timer timer--two-line shown ${singlePlayerTimeLeft <= 5 && singlePlayerTimeLeft > 0 && gameOptions.timePerRound > 0 && !showAnswer && !pinPoint ? 'critical' : ''}`}>
+            <span className={`timer timer--two-line shown ${dailyMode ? 'onTop' : ''} ${singlePlayerTimeLeft <= 5 && singlePlayerTimeLeft > 0 && gameOptions.timePerRound > 0 && !showAnswer && !pinPoint ? 'critical' : ''}`}>
               <span className="timer__round-label">{text("round", {r: singlePlayerRound.round, mr: singlePlayerRound.totalRounds})}</span>
               <span className="timer__main-row">
                 {gameOptions.timePerRound > 0 && !showAnswer && singlePlayerTimeLeft > 0
@@ -971,6 +971,7 @@ session={session}/>
 <EndBanner
 countryStreaksEnabled={gameOptions?.location === "all"}
 isWorldMap={gameOptions?.location === "all"}
+dailyMode={dailyMode}
 singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} guessTier={guessTier} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
   const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
   if (isCountryGuessrMode) {

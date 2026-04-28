@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
 import { FaCalendarDay, FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
@@ -91,10 +91,11 @@ export default function DailyChallengeScreen({
   setLatLongKey,
   loading,
   setLoading,
+  onPhaseChange,
 }) {
   const { t: text } = useTranslation();
   const today = getClientLocalDate();
-  const { locationData, fetchLocations, results, fetchResults, submit, loadingResults, claimResult, dismissClaimResult } = useDailyChallenge({ session });
+  const { locationData, locationError, fetchLocations, results, fetchResults, submit, loadingResults, claimResult, dismissClaimResult } = useDailyChallenge({ session });
 
   // Surface the post-signin claim outcome as a toast. Fires once per merge.
   useEffect(() => {
@@ -112,6 +113,27 @@ export default function DailyChallengeScreen({
   }, [claimResult, text, dismissClaimResult]);
 
   const [phase, setPhase] = useState('landing');
+
+  // Surface phase changes to home.js so the navbar can hide its back button
+  // only during the actual round (phase === 'game'), not on landing/results.
+  useEffect(() => {
+    onPhaseChange?.(phase);
+  }, [phase, onPhaseChange]);
+
+  // If /api/dailyChallenge/locations errors out, the previous behavior was
+  // to leave the user staring at a blank "daily-loading" shell forever
+  // because phase stays 'loading' without locationData. Surface a toast and
+  // drop them back to the landing so they can retry.
+  // The hook stores a fresh Error on each failure, so a ref is enough to
+  // dedupe — every retry that fails again toasts again.
+  const lastLocationErrorRef = useRef(null);
+  useEffect(() => {
+    if (!locationError) return;
+    if (lastLocationErrorRef.current === locationError) return;
+    lastLocationErrorRef.current = locationError;
+    toast.error(text('dailyLocationsLoadFailed'));
+    setPhase((prev) => (prev === 'loading' || prev === 'confirming' ? 'landing' : prev));
+  }, [locationError, text]);
 
   // Local game state (kept here, not in home — only StreetView inputs are shared)
   const [showAnswer, setShowAnswer] = useState(false);

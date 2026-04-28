@@ -26,7 +26,7 @@ const ONBOARDING_FACTS = [
     "onboardingFact3",
 ];
 
-export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, isWorldMap, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
+export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, isWorldMap, dailyMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
     const { t: text, lang } = useTranslation("common");
     const confettiTriggered = useRef(false);
     const autoAdvanceTimer = useRef(null);
@@ -124,7 +124,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     // On the world map, promote the country reveal when the guess landed in the
     // wrong country — that's the interesting signal, distance/points are secondary.
     let wrongCountryName = null;
-    if (isClassicRound && isWorldMap && pinPoint && latLong?.country) {
+    if (isClassicRound && (isWorldMap || dailyMode) && pinPoint && latLong?.country) {
         const guessCountry = findCountryLocal({ lat: pinPoint.lat, lon: pinPoint.lng });
         if (guessCountry && guessCountry !== "Unknown" && guessCountry !== latLong.country) {
             wrongCountryName = nameFromCode(latLong.country, lang);

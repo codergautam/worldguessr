@@ -579,6 +579,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }, []);
 
     const [onboarding, setOnboarding] = useState(null);
+    // Mirror DailyChallengeScreen's internal phase so the navbar can hide its
+    // back button only during the actual round, not on landing/results.
+    const [dailyPhase, setDailyPhase] = useState(null);
     const [onboardingCompleted, setOnboardingCompleted] = useState(null);
     const [otherOptions, setOtherOptions] = useState([]); // for country guesser
     const [showCountryButtons, setShowCountryButtons] = useState(true);
@@ -1078,6 +1081,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // check url
             const cg = window.location.search.includes("crazygames");
             const specifiedMapSlug = window.location.search.includes("map=");
+            // Party-link entry (?party=...) must skip onboarding for this
+            // session: the auto-join effect runs after `multiplayerState.verified`
+            // flips, which is later than onboarding's startup, so the tutorial
+            // would briefly start, allocate a streetview round, then get torn
+            // down — producing the "connection lost" glitch. Like ?map= and
+            // /daily, we don't write "done" to storage so the tutorial still
+            // appears next time the user lands on home without a party link.
+            const hasPartyParam = typeof window !== 'undefined'
+              && new URLSearchParams(window.location.search).has('party');
             // Direct /daily entry skips the classic-mode tutorial — first-time
             // users came here for the daily challenge, not for an onboarding
             // street-view round. We don't write "done" to localStorage so
@@ -1093,6 +1105,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             }
             else if (specifiedMapSlug && !cg) setOnboardingCompleted(true)
+            else if (hasPartyParam) setOnboardingCompleted(true)
             else if (onDailyEntry) setOnboardingCompleted(true)
             else setOnboardingCompleted(false)
         } catch (e) {
@@ -2676,7 +2689,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             };
             // Show midgame ad when leaving an active singleplayer game
             if (screen === "singleplayer" || screen === "countryGuesser") {
-                crazyMidgame(afterBack);
+                // crazyMidgame(afterBack);
+                afterBack();
             } else {
                 afterBack();
             }
@@ -3166,6 +3180,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     gameOptionsModalShown={gameOptionsModalShown}
                     selectCountryModalShown={selectCountryModalShown}
                     partyModalShown={partyModalShown}
+                    dailyPhase={dailyPhase}
                     mapModalOpen={mapModal}
                     onConnectionError={() => setConnectionErrorModalShown(true)}
                     countryGuessrMode={countryGuessrMode}
@@ -3280,7 +3295,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 {/* Community Maps icon (moved out of left menu) */}
                 {screen === "home" && onboardingCompleted && !mapModal &&
                     !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && (
-                    <DailyCommunityMapsButton onClick={() => setMapModal(true)} />
+                    <DailyCommunityMapsButton
+                        onClick={() => setMapModal(true)}
+                        loggedOut={!session?.token?.secret}
+                    />
                 )}
 
                 {/* Daily challenge screen (landing → game → results) */}
@@ -3298,6 +3316,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         setLatLongKey={setLatLongKey}
                         loading={loading}
                         setLoading={setLoading}
+                        onPhaseChange={setDailyPhase}
                     />
                 )}
 

@@ -1,7 +1,7 @@
 import { FaTowerBroadcast } from "react-icons/fa6";
 import { useState, useEffect, useRef } from "react";
 
-export default function WsIcon({ connected, shown, onClick, connecting }) {
+export default function WsIcon({ connected, shown, onClick, connecting, loggedOut }) {
   const [showIcon, setShowIcon] = useState(false);
   const [isSliding, setIsSliding] = useState(false);
   const [isSlideIn, setIsSlideIn] = useState(false);
@@ -149,7 +149,10 @@ export default function WsIcon({ connected, shown, onClick, connecting }) {
         onClick={onClick}
         style={{
           position: 'fixed',
-          top: '125px',
+          // When logged out, the bigger Login button + the Maps CTA stacked
+          // under it occupy the top-right corner down to ~148px. Drop the
+          // WsIcon below them so it stops clipping the buttons.
+          top: loggedOut ? '170px' : '125px',
           right: isSliding ? '-85px' : (isSlideIn ? '-85px' : '15px'),
           zIndex: 10000,
           width: '50px',

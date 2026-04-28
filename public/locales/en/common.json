@@ -169,6 +169,7 @@
   "neverShowAgain": "Don't show this again",
   "connectionLost": "Connection Lost",
   "connectionLostRecov": "Connection Lost. Reconnecting...",
+  "dailyLocationsLoadFailed": "Couldn't load today's challenge. Please check your connection and try again.",
   "reconnected": "Reconnected!",
   "friends": "Friends ({{cnt}})",
   "friendsText": "Friends",

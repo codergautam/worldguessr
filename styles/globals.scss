@@ -184,7 +184,7 @@ html {
     gap: 10px;
 }
 .settingsModalInner {
-    margin-left: 10px;
+    margin-left: 32px;
     margin-right: 10px;
     width: max-content;
     display: flex;
@@ -207,9 +207,9 @@ html {
     }
 
     .settingsModalInner {
-        margin-left: 20px; /* Add 20px left spacing */
-        margin-right: 10px;
-        width: calc(100% - 30px); /* Adjust width to account for margins */
+        margin-left: 28px; /* Add left spacing */
+        margin-right: 14px;
+        width: calc(100% - 42px); /* Adjust width to account for margins */
         justify-content: space-between; /* Spread label and input evenly */
     }
 
@@ -775,7 +775,7 @@ html {
     width: auto;
     z-index: 101;
     font-size: 1.5em;
-    border-radius: 50px;
+    border-radius: 8px;
     pointer-events: all;
     border: 1.4px solid var(--primaryDark);
     background: var(--gradGreenBtn);
@@ -872,6 +872,101 @@ html {
     background-color: var(--primary);
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
     transform: scale(1.05);
+}
+
+/* Logged-out "Login" button on the home screen.
+   Sized + styled to match the daily-landing CTA: solid `--primary` green,
+   `--primaryDark` border, 14px border-radius (less rounded than the old
+   50px pill), modest drop shadow, gentle hover lift + brighten. Bigger
+   padding + font so first-time visitors actually notice it.
+   Scoped to `.accountBtn:not(.loggedIn)` so the logged-in pill is untouched. */
+.accountBtn:not(.loggedIn) {
+    background: var(--primary);
+    border: 1.4px solid var(--primaryDark);
+    border-radius: 14px;
+    color: #fff;
+    font-weight: 600;
+    font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+    padding: 10px 28px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        background-color 0.25s ease;
+}
+
+.accountBtn:not(.loggedIn):hover {
+    background: #2c6a3f;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+    transform: translateY(-1px) scale(1.02);
+}
+
+.accountBtn:not(.loggedIn):active {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.accountBtn:not(.loggedIn):focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px rgba(36, 87, 52, 0.55),
+        0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Subtle pop on the Google glyph on hover — same idea as the daily CTA's
+   icon nudge, just enough to feel responsive without overdoing it. */
+.accountBtn:not(.loggedIn) .home__squarebtnicon {
+    transition: transform 0.2s ease;
+}
+.accountBtn:not(.loggedIn):hover .home__squarebtnicon {
+    transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .accountBtn:not(.loggedIn):hover {
+        transform: none;
+    }
+}
+
+/* Logged-in pill (the username + flag chip in the top-right).
+   The "glitched" hover came from the generic `.accountBtn:hover` swapping
+   the gradient `var(--gradGreenBtn)` for the flat color `var(--primary)`,
+   which read as a brief flash. Match the FriendBtn's green palette for
+   consistency: solid `--primaryTransparent` base (no gradient → no swap
+   glitch) and `--primary` on hover, just like .friendBtn. */
+.accountBtn.loggedIn {
+    background: var(--primaryTransparent);
+    border: 1.4px solid var(--primaryDark);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.25s ease,
+        background-color 0.25s ease;
+}
+
+.accountBtn.loggedIn:hover {
+    background: var(--primary);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: translateY(-1px) scale(1.03);
+}
+
+.accountBtn.loggedIn:active {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.accountBtn.loggedIn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px rgba(74, 154, 105, 0.55),
+        0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .accountBtn.loggedIn:hover {
+        transform: none;
+    }
 }
 
 .navBtn {
@@ -1282,6 +1377,10 @@ h1, h2, h3, span, label {
     transform: translateY(0) scale(1);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1001;
+}
+
+.timer.onTop {
+    top: 10px;
 }
 
 .timer--two-line {
@@ -3404,6 +3503,14 @@ img[alt="Google"] {
     border-radius: 16px;
     padding: 12px 14px;
     gap: 8px;
+    /* Container itself ignores pointer events so users can pan/drag the
+       Street View through the empty padding around the buttons. The actual
+       buttons re-enable pointer events below. */
+    pointer-events: none;
+}
+
+.countryGuessrOptions .countryGuessrBtn {
+    pointer-events: auto;
 }
 
 .countryGuessrOptions.shown {
@@ -3431,9 +3538,9 @@ img[alt="Google"] {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 10px 14px;
-    min-width: 100px;
+    gap: 5px;
+    padding: 8px 12px;
+    min-width: 86px;
     background: rgba(255, 255, 255, 0.08);
     border: 2px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
@@ -3459,32 +3566,32 @@ img[alt="Google"] {
 }
 
 .countryGuessrBtn__flag {
-    width: 48px;
-    height: 32px;
+    width: 40px;
+    height: 27px;
     object-fit: contain;
     border-radius: 3px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .countryGuessrBtn__emoji {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
 }
 
 img.countryGuessrBtn__emoji {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
 }
 
 .countryGuessrBtn__name {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     text-align: center;
     line-height: 1.2;
 }
 
 .countryGuessrBtn--continent {
-    min-width: 90px;
-    padding: 8px 12px;
+    min-width: 78px;
+    padding: 6px 10px;
 }
 
 .countryGuessrBtn--noHover {
@@ -3501,34 +3608,34 @@ img.countryGuessrBtn__emoji {
     }
 
     .countryGuessrBtn {
-        padding: 14px 22px;
-        min-width: 130px;
-        gap: 8px;
+        padding: 11px 18px;
+        min-width: 112px;
+        gap: 7px;
         border-radius: 14px;
     }
 
     .countryGuessrBtn__flag {
-        width: 72px;
-        height: 48px;
+        width: 60px;
+        height: 40px;
         border-radius: 4px;
     }
 
     .countryGuessrBtn__emoji {
-        font-size: 2.2rem;
+        font-size: 1.9rem;
     }
 
     img.countryGuessrBtn__emoji {
-        width: 42px;
-        height: 42px;
+        width: 36px;
+        height: 36px;
     }
 
     .countryGuessrBtn__name {
-        font-size: 0.95rem;
+        font-size: 0.85rem;
     }
 
     .countryGuessrBtn--continent {
-        min-width: 110px;
-        padding: 12px 16px;
+        min-width: 95px;
+        padding: 10px 14px;
     }
 
     .countryGuessrOptions {
@@ -3596,30 +3703,30 @@ img.countryGuessrBtn__emoji {
     .countryGuessrBtn {
         flex: 1 1 44%;
         min-width: 0;
-        padding: 8px 6px;
-        gap: 4px;
+        padding: 6px 5px;
+        gap: 3px;
         border-radius: 9px;
     }
 
     .countryGuessrBtn__flag {
-        width: 44px;
-        height: 30px;
+        width: 38px;
+        height: 26px;
         border-radius: 3px;
     }
 
     img.countryGuessrBtn__emoji {
-        width: 38px;
-        height: 38px;
+        width: 32px;
+        height: 32px;
     }
 
     .countryGuessrBtn__name {
-        font-size: 0.78rem;
+        font-size: 0.72rem;
     }
 
     .countryGuessrBtn--continent {
         flex: 1 1 30%;
         min-width: 0;
-        padding: 10px 6px;
+        padding: 8px 5px;
     }
 
     /* Compact mode (singleplayer, non-onboarding) on mobile */
@@ -3633,27 +3740,27 @@ img.countryGuessrBtn__emoji {
     }
 
     .compactMode .countryGuessrBtn {
-        padding: 10px 8px;
-        gap: 5px;
+        padding: 8px 6px;
+        gap: 4px;
         flex: 1 1 30%;
     }
 
     .compactMode .countryGuessrBtn__flag {
-        width: 48px;
-        height: 32px;
+        width: 40px;
+        height: 27px;
     }
 
     .compactMode img.countryGuessrBtn__emoji {
-        width: 42px;
-        height: 42px;
+        width: 36px;
+        height: 36px;
     }
 
     .compactMode .countryGuessrBtn__name {
-        font-size: 0.82rem;
+        font-size: 0.76rem;
     }
 
     .compactMode .countryGuessrBtn--continent {
-        padding: 10px 6px;
+        padding: 8px 5px;
     }
 }
 
@@ -3681,23 +3788,23 @@ img.countryGuessrBtn__emoji {
     .countryGuessrBtn {
         flex: 1 1 0;
         min-width: 0;
-        padding: 5px 4px;
+        padding: 4px 3px;
         gap: 2px;
         border-radius: 8px;
     }
 
     .countryGuessrBtn__flag {
-        width: 34px;
-        height: 23px;
+        width: 30px;
+        height: 20px;
     }
 
     img.countryGuessrBtn__emoji {
-        width: 28px;
-        height: 28px;
+        width: 24px;
+        height: 24px;
     }
 
     .countryGuessrBtn__name {
-        font-size: 0.7rem;
+        font-size: 0.65rem;
         line-height: 1.1;
     }
 
@@ -3707,7 +3814,7 @@ img.countryGuessrBtn__emoji {
 
     .countryGuessrBtn--continent {
         flex: 1 1 14%;
-        padding: 5px 3px;
+        padding: 4px 3px;
     }
 }
 

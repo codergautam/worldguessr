@@ -48,7 +48,7 @@
 
 .daily-community-maps-btn {
   position: fixed;
-  top: 110px;
+  top: 100px;
   right: 10px;
   z-index: 999;
   display: inline-flex;
@@ -94,7 +94,7 @@
 
 @media (max-width: 1280px) {
   .daily-community-maps-btn {
-    top: 100px;
+    top: 90px;
     height: 36px;
     font-size: 1em;
     padding: 0 14px;
@@ -103,7 +103,7 @@
 
 @media (max-width: 600px) {
   .daily-community-maps-btn {
-    top: 90px;
+    top: 85px;
     right: 10px;
     height: 32px;
     font-size: 0.95em;
@@ -113,6 +113,28 @@
   .daily-community-maps-btn svg {
     width: 16px;
     height: 16px;
+  }
+}
+
+/* Logged-out variant: pin directly under the (bigger) Login button so the
+   two top-right CTAs read as a stacked pair. The Login button (.accountBtn:
+   not(.loggedIn)) lives at right:50px/top:50px on desktop, right:20px/top:10px
+   on small screens, and is sized via padding 12px 28px. We match its `right`
+   anchor and offset `top` so this button sits ~8px below it across breakpoints. */
+.daily-community-maps-btn--below-login {
+  top: 110px;
+  right: 50px;
+}
+@media (max-width: 1280px) {
+  .daily-community-maps-btn--below-login {
+    top: 100px;
+    right: 50px;
+  }
+}
+@media (max-width: 600px) {
+  .daily-community-maps-btn--below-login {
+    top: 60px;
+    right: 20px;
   }
 }
 

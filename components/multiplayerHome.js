@@ -32,9 +32,32 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
         )
     }
 
-    if (!((multiplayerState?.inGame) || (multiplayerState?.enteringGameCode) ||
+    // Distinguish the three reasons we might be on this screen with no
+    // active game/queue/code:
+    //   1. WS still establishing/verifying (initial load, esp. ?party= deep
+    //      links that call setScreen("multiplayer") before the WS handshake
+    //      completes) → show "Connecting…", not "Connection Lost".
+    //   2. A join request is in flight — we already sent joinPrivateGame and
+    //      are waiting for the server to echo back inGame=true → also
+    //      "Connecting…", since this is a healthy in-progress action.
+    //   3. Genuinely disconnected → "Connection Lost".
+    const inActiveSession = multiplayerState?.inGame
+        || multiplayerState?.enteringGameCode
+        || multiplayerState?.gameQueued
+        || multiplayerState?.nextGameQueued;
+    const joinInFlight = !!multiplayerState?.joinOptions?.progress;
+    const isHandshaking = !multiplayerState?.connected
+        || multiplayerState?.connecting
+        || !multiplayerState?.verified;
 
-        (multiplayerState?.gameQueued) || (multiplayerState?.nextGameQueued))) {
+    if (!inActiveSession) {
+        if (isHandshaking || joinInFlight) {
+            return (
+                <div className="multiplayerHome">
+                    <BannerText position={"auto"} text={`${text("connecting")}...`} shown={true} hideCompass={true} />
+                </div>
+            )
+        }
         return (
             <div className="multiplayerHome">
                 <BannerText position={"auto"} text={text("connectionLost")} shown={true} hideCompass={true} />
