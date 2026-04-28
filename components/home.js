@@ -928,7 +928,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         // 3 universally recognizable locations for the tutorial
         const onboardingLocations = [
             { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR", "IN"] },
-            { lat: 40.7578892, long: -73.9856608, country: "US", otherOptions: ["GB", "JP", "AU"] },
+            { lat: 40.7566514, long: -73.986534, country: "US", otherOptions: ["GB", "JP", "AU"] },
             { lat: 48.8583601, long: 2.2915727, country: "FR", otherOptions: ["IT", "ES", "DE"] },
         ]
 
@@ -3065,42 +3065,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             )}
 
             {/* Coolmath splash is now rendered statically in _document.js and removed via useEffect */}
-
-
-
-            <div style={{
-                top: 0,
-                left: 0,
-                position: 'fixed',
-                width: '100%',
-                height: '100%',
-                transition: 'opacity 0.5s',
-                opacity: 0.5,
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                MozUserSelect: 'none',
-                msUserSelect: 'none',
-                pointerEvents: 'none',
-            }}>
-                <NextImage.default src={asset('/street2.webp')}
-                    draggable={false}
-                    width={1920}
-                    height={1080}
-                    priority
-                    alt="Game Background" style={{
-                        objectFit: "cover", userSelect: 'none',
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        height: "100%",
-                        backgroundSize: "cover",
-                        backgroundPosition: "center",
-                    }}
-                    sizes="100vw"
-                />
-            </div>
-
+            {/* Background street2 image is rendered via body::before in _document.js */}
 
             <main className={`home`} id="main">
 
