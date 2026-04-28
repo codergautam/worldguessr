@@ -1263,6 +1263,84 @@
   color: rgba(255, 255, 255, 0.8);
   font-size: 1.1rem;
 }
+
+/* Post-game submitting overlay — covers the lingering Street View while we
+   await /submit + /results. Uses the same warm-green gradient family as the
+   results card so the transition feels like a natural step in the daily
+   flow, not a hard cut to black. The fade is slow + eased so it never
+   reads as a "flash". A small frosted card holds the spinner + text so the
+   eye lands somewhere instead of on a flat overlay. */
+.daily-submitting {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(36, 87, 52, 0.32) 0%, rgba(36, 87, 52, 0) 70%),
+    linear-gradient(180deg, rgba(8, 22, 14, 0.78) 0%, rgba(3, 12, 7, 0.88) 100%);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  color: white;
+  animation: dailySubmittingFade 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.daily-submitting__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 32px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.daily-submitting__spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.14);
+  border-top-color: #4caf50;
+  animation: dailySubmittingSpin 0.9s linear infinite;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 10px rgba(76, 175, 80, 0.35));
+}
+
+.daily-submitting__title {
+  font-size: clamp(1.1rem, 2.4vw, 1.45rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+}
+
+.daily-submitting__hint {
+  font-size: clamp(0.85rem, 1.6vw, 1rem);
+  color: rgba(255, 255, 255, 0.65);
+  max-width: 420px;
+}
+
+@keyframes dailySubmittingSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes dailySubmittingFade {
+  from { opacity: 0; backdrop-filter: blur(0) saturate(100%); -webkit-backdrop-filter: blur(0) saturate(100%); }
+  to { opacity: 1; backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-submitting__spinner { animation-duration: 2s; }
+  .daily-submitting { animation: none; }
+}
 .daily-game-shell {
   display: contents;
 }

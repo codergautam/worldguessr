@@ -212,7 +212,7 @@ export default function DailyChallengeScreen({
 
   // Clean up home's StreetView when not actively in-game
   useEffect(() => {
-    if (phase === 'landing' || phase === 'confirming' || phase === 'results') {
+    if (phase === 'landing' || phase === 'confirming' || phase === 'results' || phase === 'submitting') {
       setLatLong(null);
     }
   }, [phase, setLatLong]);
@@ -285,6 +285,10 @@ export default function DailyChallengeScreen({
     const totalScore = rounds.reduce((s, r) => s + (r.score || 0), 0);
     const totalTime = rounds.reduce((s, r) => s + (r.timeMs || 0), 0);
     setFinalRounds(rounds);
+    // Immediately swap to a dedicated 'submitting' phase so the user sees
+    // a clear loading state instead of a stale Street View while the
+    // submit + results round-trips happen.
+    setPhase('submitting');
     try {
       const response = await submit({
         rounds,
@@ -298,8 +302,12 @@ export default function DailyChallengeScreen({
       console.error('[daily submit]', err);
       setSubmitResponse({ error: true, score: totalScore, disqualified });
     }
-    await fetchResults();
+    // Reveal the results screen as soon as submit returns — fetchResults
+    // (distribution + top10) runs in the background and the results card
+    // already gracefully handles the loadingResults state. This roughly
+    // halves the wait the user perceives between last round and modal.
     setPhase('results');
+    fetchResults();
   }, [submit, locationData, fetchResults, disqualified]);
 
   // When the user re-opens the daily after already playing, we don't have
@@ -420,6 +428,22 @@ export default function DailyChallengeScreen({
   if (phase === 'loading' || (phase === 'game' && !locationData)) {
     return renderDailyShell(
       <div className="daily-loading">
+      </div>
+    );
+  }
+
+  // Post-game submit state: the user has finished the last round and we're
+  // waiting on /api/dailyChallenge/submit to come back with rank/streak.
+  // Show an explicit "Tallying your score…" overlay instead of a stale
+  // Street View, which felt like the game had hung.
+  if (phase === 'submitting') {
+    return renderDailyShell(
+      <div className="daily-submitting" role="status" aria-live="polite">
+        <div className="daily-submitting__card">
+          <div className="daily-submitting__spinner" aria-hidden="true" />
+          <div className="daily-submitting__title">{text('dailySubmittingScore')}</div>
+          <div className="daily-submitting__hint">{text('dailySubmittingHint')}</div>
+        </div>
       </div>
     );
   }

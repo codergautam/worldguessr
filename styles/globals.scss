@@ -3587,6 +3587,14 @@ img.countryGuessrBtn__emoji {
     font-weight: 600;
     text-align: center;
     line-height: 1.2;
+    /* One-line names keep country buttons the same height as continent
+       buttons. Long names like "United Kingdom" used to wrap to 2 lines and
+       made the country round visibly taller than the continent round. The
+       button's title attr surfaces the full name on hover. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .countryGuessrBtn--continent {

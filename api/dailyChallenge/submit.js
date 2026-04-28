@@ -140,45 +140,60 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
     today: date,
   });
 
-  await DailyChallengeScore.create({
-    date,
-    userId: user._id,
-    username: user.username || 'Player',
-    score: finalScore,
-    totalTime: Number.isFinite(totalTime) ? totalTime : 0,
-    rounds: normalizedRounds,
-  });
+  // Most of the writes below are independent — they touch different
+  // collections (or different fields of the same User doc). Run them in
+  // parallel to roughly halve the wall-time the client waits on /submit.
+  // Only the rank query depends on incrementStats having committed first;
+  // chain those two inside one branch. The User streak/history update needs
+  // the computed rank for its historyEntry, so it waits on the rank chain
+  // — but the score-create + Game-history writes still run alongside it.
+  const rankPromise = (async () => {
+    await incrementStats(date, finalScore, normalizedRounds);
+    invalidateDailyPublicCache(date);
+    return computeRankAndPercentile(date, finalScore);
+  })();
 
-  await incrementStats(date, finalScore, normalizedRounds);
-  invalidateDailyPublicCache(date);
+  const userUpdatePromise = (async () => {
+    const { rank: rankForHistory } = await rankPromise;
+    const historyEntry = { date, score: finalScore, rank: rankForHistory };
+    const nextHistory = [historyEntry, ...(user.dailyHistory || []).filter(h => h.date !== date)].slice(0, 30);
+    return User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          dailyStreak: streak,
+          dailyStreakBest: best,
+          lastDailyDate: date,
+          dailyGraceUsedDates: graceAfter,
+          dailyHistory: nextHistory,
+        },
+      }
+    );
+  })();
 
-  await writeLoggedInDailyGame({
-    user,
-    date,
-    normalizedRounds,
-    dailyLocs,
-    finalScore,
-    finalXp,
-    totalTime,
-  });
+  const [, , rankResult] = await Promise.all([
+    DailyChallengeScore.create({
+      date,
+      userId: user._id,
+      username: user.username || 'Player',
+      score: finalScore,
+      totalTime: Number.isFinite(totalTime) ? totalTime : 0,
+      rounds: normalizedRounds,
+    }),
+    writeLoggedInDailyGame({
+      user,
+      date,
+      normalizedRounds,
+      dailyLocs,
+      finalScore,
+      finalXp,
+      totalTime,
+    }),
+    rankPromise,
+    userUpdatePromise,
+  ]);
 
-  const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore);
-
-  const historyEntry = { date, score: finalScore, rank };
-  const nextHistory = [historyEntry, ...(user.dailyHistory || []).filter(h => h.date !== date)].slice(0, 30);
-
-  await User.updateOne(
-    { _id: user._id },
-    {
-      $set: {
-        dailyStreak: streak,
-        dailyStreakBest: best,
-        lastDailyDate: date,
-        dailyGraceUsedDates: graceAfter,
-        dailyHistory: nextHistory,
-      },
-    }
-  );
+  const { rank, totalPlays, percentile } = rankResult;
 
   return res.status(200).json({
     score: finalScore,

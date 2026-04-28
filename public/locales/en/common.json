@@ -170,6 +170,8 @@
   "connectionLost": "Connection Lost",
   "connectionLostRecov": "Connection Lost. Reconnecting...",
   "dailyLocationsLoadFailed": "Couldn't load today's challenge. Please check your connection and try again.",
+  "dailySubmittingScore": "Tallying your score…",
+  "dailySubmittingHint": "Hang tight, almost there.",
   "reconnected": "Reconnected!",
   "friends": "Friends ({{cnt}})",
   "friendsText": "Friends",

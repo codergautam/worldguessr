@@ -5,33 +5,37 @@ import ContinentIcon from './ContinentIcon';
 import { continentKey } from './utils/continentLocale';
 
 function countryDiv({country, onPress, index, interactive, lang}) {
+  const fullName = nameFromCode(country, lang);
   return (
     <button
       key={country}
       className={`countryGuessrBtn ${interactive ? '' : 'countryGuessrBtn--noHover'}`}
       style={{ animationDelay: `${index * 0.07}s` }}
       onClick={() => interactive && onPress(country)}
+      title={fullName}
     >
       <img
         className="countryGuessrBtn__flag"
         src={`https://flagcdn.com/w80/${country?.toLowerCase()}.png`}
-        alt={nameFromCode(country, lang)}
+        alt={fullName}
       />
-      <span className="countryGuessrBtn__name">{nameFromCode(country, lang)}</span>
+      <span className="countryGuessrBtn__name">{fullName}</span>
     </button>
   )
 }
 
 function continentDiv({continent, onPress, index, interactive, text}) {
+  const fullName = text(continentKey(continent));
   return (
     <button
       key={continent}
       className={`countryGuessrBtn countryGuessrBtn--continent ${interactive ? '' : 'countryGuessrBtn--noHover'}`}
       style={{ animationDelay: `${index * 0.06}s` }}
       onClick={() => interactive && onPress(continent)}
+      title={fullName}
     >
       <ContinentIcon continent={continent} size={34} className="countryGuessrBtn__emoji" />
-      <span className="countryGuessrBtn__name">{text(continentKey(continent))}</span>
+      <span className="countryGuessrBtn__name">{fullName}</span>
     </button>
   )
 }
