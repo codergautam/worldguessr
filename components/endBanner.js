@@ -59,7 +59,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     // Auto-advance for onboarding (consider shorter on last round to keep flow snappy)
     const isOnboardingLastRound = onboarding && onboarding.round === (onboarding.locations?.length || 3);
     useEffect(() => {
-        if (guessed && onboarding && !onboarding.completed) {
+        if (guessed && onboarding && !onboarding.completed && onboarding.mode !== 'classic') {
             const duration = isOnboardingLastRound ? 7 : 7;
             setAutoAdvanceCountdown(duration);
             let count = duration;
