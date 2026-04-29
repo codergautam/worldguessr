@@ -2585,14 +2585,14 @@ h1, h2, h3, span, label {
         cursor: pointer;
         transition: all 0.2s ease;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-        
+
         &:hover {
             background-color: var(--primary);
             border-color: rgba(255, 255, 255, 0.4);
             transform: translateY(-2px);
             box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
         }
-        
+
         &:active {
             transform: translateY(0);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -3531,6 +3531,7 @@ img[alt="Google"] {
     gap: 8px;
     justify-content: center;
     align-items: stretch;
+    pointer-events: all;
 }
 
 .countryGuessrBtn {

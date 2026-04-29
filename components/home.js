@@ -3032,7 +3032,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 inCoolMathGames={inCoolMathGames}
                 inCrazyGames={inCrazyGames}
                 inGameDistribution={inGameDistribution}
-                titleOverride={initialScreen === 'daily' ? `${text('dailyChallenge')} — WorldGuessr` : undefined}
+                titleOverride={initialScreen === 'daily' ? `${text('dailyChallenge')} - WorldGuessr` : undefined}
                 descOverride={initialScreen === 'daily' ? text('dailyLandingTagline') : undefined}
                 canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : undefined}
             />
