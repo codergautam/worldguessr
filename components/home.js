@@ -796,17 +796,18 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // Fade out and remove the static HTML splash from _document.js
             const splash = document.getElementById('cmg-splash');
             if (splash) {
-                // Ensure splash was visible for at least 1.1s total
+                // Ensure splash was visible for at least 2.5s total
                 const elapsed = Date.now() - (window.__cmgSplashStart || 0);
-                const remaining = Math.max(0, 1100 - elapsed);
+                const remaining = Math.max(0, 2500 - elapsed);
 
                 const fadeOutTimer = setTimeout(() => {
-                    splash.style.transition = 'opacity 0.4s ease';
+                    splash.style.transition = 'opacity 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
                     splash.style.opacity = '0';
+                    splash.style.pointerEvents = 'none';
                 }, remaining);
                 const removeTimer = setTimeout(() => {
                     splash.remove();
-                }, remaining + 500);
+                }, remaining + 1600);
 
                 return () => {
                     clearTimeout(fadeOutTimer);
