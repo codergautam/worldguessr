@@ -71,7 +71,7 @@
   "privateGame": "Partie privée",
   "leaderboard": "Classement",
   "roundsCount": "{{rounds}} manches",
-  "gameCode": "Code de la partie ?",
+  "gameCode": "Code de la partie",
   "invalidPartyCode": "Code de fête invalide ou expiré",
   "partyFull": "Cette fête est pleine",
   "host": "Hôte",

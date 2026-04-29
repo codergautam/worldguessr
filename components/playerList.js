@@ -4,6 +4,9 @@ import { toast } from 'react-toastify';
 import UsernameWithFlag from './utils/usernameWithFlag';
 
 function getPartyLink(code, inCrazyGames) {
+  if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
+    return code;
+  }
   if (inCrazyGames) {
     try {
       const link = window.CrazyGames.SDK.game.showInviteButton({ code });
