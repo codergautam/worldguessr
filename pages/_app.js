@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import installErrorTracking from '@/lib/errorTracking';
+import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvider';
 
 import '@smastrom/react-rating/style.css'
 
@@ -69,7 +70,7 @@ function App({ Component, pageProps }) {
   }, []);
 
   return (
-    <>
+    <MultiplayerProvider>
       { process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID  ? (
       <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
       <Component {...pageProps} />
@@ -77,7 +78,7 @@ function App({ Component, pageProps }) {
       ) : (
         <Component {...pageProps} />
       )}
-    </>
+    </MultiplayerProvider>
   );
 }
 

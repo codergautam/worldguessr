@@ -22,7 +22,8 @@ import useWindowDimensions from "@/components/useWindowDimensions";
 import Script from "next/script";
 import SettingsModal from "@/components/settingsModal";
 import sendEvent from "@/components/utils/sendEvent";
-import initWebsocket from "@/components/utils/initWebsocket";
+import { useMultiplayer, initialMultiplayerState } from "@/components/multiplayer/MultiplayerProvider";
+import { getPlatform } from "@/components/utils/getPlatform";
 import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
@@ -64,32 +65,6 @@ import Ad from "./bannerAdNitro";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 
-
-const initialMultiplayerState = {
-    connected: false,
-    connecting: false,
-    verified: false,
-    shouldConnect: false,
-    gameQueued: false,
-    inGame: false,
-    nextGameQueued: false,
-    enteringGameCode: false,
-    nextGameType: null,
-    maxRetries: 50,
-    currentRetry: 0,
-    createOptions: {
-        rounds: 5,
-        timePerRound: 30,
-        location: "all",
-        displayLocation: "All countries",
-        progress: false
-    },
-    joinOptions: {
-        gameCode: null,
-        progress: false,
-        error: false
-    }
-}
 
 export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
@@ -678,48 +653,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [screen, isDailyPath]);
 
-    function gPlatform() {
-        try {
-        if(process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
-            return "gamedistribution";
-        } else if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
-            return "coolmath";
-        } else if (window.CrazyGames) {
-            return "crazygames";
-        } else if ( // check if domain is worldguessr.com
-            typeof window !== "undefined" &&
-            window.location.hostname === "worldguessr.com"
-            || window.location.hostname === "www.worldguessr.com"
-        ) {
-            return "worldguessr";
-        } else {
-            if(inIframe()) {
-                // return domain
-                try {
-                    const ancestorOrigin = window?.location?.ancestorOrigins[0] ?? document.referrer;
-                    const url = new URL(ancestorOrigin);
-                    return url.hostname.slice(0, 20);
-                } catch (e) {
-                    return "unknown_iframe";
-                }
-            } else {
-                if(typeof window !== "undefined" && window.location && window.location.hostname) {
-                    return window.location.hostname.slice(0, 20);
-                } else return "unknown";
-            }
-
-        }
-    } catch (e) {
-            return "error";
-    }
-
-    }
-
-    function getPlatform() {
-        const platform = gPlatform();
-        console.log("detected platform:", platform);
-        return platform;
-    }    // Close suggest login modal when user successfully logs in
+    // Close suggest login modal when user successfully logs in
     useEffect(() => {
         if (session?.token?.secret && showSuggestLoginModal) {
             setShowSuggestLoginModal(false);
@@ -1307,6 +1241,18 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") return;
 
+            // On the very first paint, trust whatever URL the user landed on
+            // and skip the auto-redirect entirely. Previously, e.g. visiting
+            // `/daily` with localStorage.lang === "es" would `router.replace`
+            // to `/es/daily`, unmounting and remounting Home and (until the
+            // MultiplayerProvider lift) leaking the WebSocket connection,
+            // which the server then kicked with "userAlreadyConnected".
+            // Subsequent language changes (from settings) still redirect.
+            if (langInitRef.current) {
+                langInitRef.current = false;
+                return;
+            }
+
             const currentPath = stripBase(window.location.pathname);
 
             // Special-case /daily (and /[lang]/daily): stay on daily, just swap
@@ -1316,10 +1262,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             if (dailyRegex.test(currentPath)) {
                 const desiredDaily = options.language === 'en' ? '/daily' : `/${options.language}/daily`;
                 if (currentPath !== desiredDaily) {
-                    langInitRef.current = false;
                     router.replace(desiredDaily);
-                } else {
-                    langInitRef.current = false;
                 }
                 return;
             }
@@ -1330,15 +1273,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             if (!isDefaultOnRoot && currentPath !== target) {
                 const currentQueryParams = new URLSearchParams(window.location.search);
                 const qPsuffix = currentQueryParams.toString() ? `?${currentQueryParams.toString()}` : "";
-                if (langInitRef.current) {
-                    // Initial load — update URL without history entry or page reload
-                    langInitRef.current = false;
-                    router.replace(target + qPsuffix);
-                } else {
-                    router.push(target + qPsuffix);
-                }
-            } else {
-                langInitRef.current = false;
+                router.push(target + qPsuffix);
             }
         } catch (e) { }
     }, [options?.language]);
@@ -1425,11 +1360,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [options])
 
-    // multiplayer stuff
-    const [ws, setWs] = useState(null);
-    const [multiplayerState, setMultiplayerState] = useState(
-        initialMultiplayerState
-    );
+    // multiplayer stuff — connection lives in MultiplayerProvider (mounted in
+    // _app.js) so it survives Next.js route changes and can't be opened twice.
+    const { ws, setWs, multiplayerState, setMultiplayerState, subscribeMessages, ensureConnected } = useMultiplayer();
+    // Tell the provider to actually open the WS. Provider is lazy by default
+    // so non-Home pages (/banned, /leaderboard, /maps, /mod, /learn, /user,
+    // /svEmbed, /privacy-*) don't open a socket they'll never use.
+    useEffect(() => { ensureConnected(); }, [ensureConnected]);
     const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
     const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
 
@@ -1669,103 +1606,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     }
 
-    useEffect(() => {
-        (async () => {
-
-
-            if (!ws && !multiplayerState.connecting && !multiplayerState.connected && !window?.dontReconnect) {
-                try {
-                    setMultiplayerState((prev) => ({
-                        ...prev,
-                        connecting: true,
-                        shouldConnect: false,
-                        currentRetry: 1
-                    }))
-
-                    // Custom retry wrapper to track attempts
-                    let ws = null;
-                    let currentAttempt = 1;
-                    const maxAttempts = 50;
-
-                    while (currentAttempt <= maxAttempts && !ws) {
-                        try {
-                            setMultiplayerState((prev) => ({
-                                ...prev,
-                                currentRetry: currentAttempt
-                            }))
-
-                            ws = await initWebsocket(clientConfig().websocketUrl, null, 5000, 0) // 0 retries, we handle it ourselves
-                            break;
-                        } catch (error) {
-                            console.log(`Connection attempt ${currentAttempt}/${maxAttempts} failed`);
-                            if (currentAttempt < maxAttempts) {
-                                currentAttempt++;
-                                await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second delay
-                            } else {
-                                throw error;
-                            }
-                        }
-                    }
-
-                    if (ws && ws.readyState === 1) {
-                        setWs(ws)
-                        setMultiplayerState((prev) => ({
-                            ...prev,
-                            connected: true,
-                            connecting: false,
-                            currentRetry: 0,
-                            error: false
-                        }))
-
-                        console.log("connected to ws", window.verifyPayload)
-                        if (!inCrazyGames && !window.location.search.includes("crazygames")) {
-
-                            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-                            let secret = "not_logged_in";
-                            try {
-                                const s = window.localStorage.getItem("wg_secret");
-                                if (s) {
-                                    secret = s;
-                                }
-                            } catch (e) {
-                            }
-                            if (session?.token?.secret) {
-                                secret = session.token.secret;
-                            }
-
-                            if (secret !== "not_logged_in") {
-                                window.verified = true;
-                            }
-                            const hasPartyLink = new URLSearchParams(window.location.search).has("party");
-                            ws.send(JSON.stringify({ type: "verify", secret, tz, rejoinCode: gameStorage.getItem("rejoinCode"), skipRejoin: hasPartyLink || undefined, platform: getPlatform() }))
-                        } else if (window.verifyPayload) {
-                            console.log("sending verify from verifyPayload")
-                            ws.send(window.verifyPayload)
-                        }
-                    } else {
-                        // Connection failed - set disconnected state to show red wsIcon
-                        console.error("WebSocket connection failed after all retries");
-                        setMultiplayerState((prev) => ({
-                            ...prev,
-                            connected: false,
-                            connecting: false,
-                            error: true
-                        }))
-                    }
-                } catch (error) {
-                    // All retries exhausted - set disconnected state to show red wsIcon
-                    console.error("WebSocket connection failed:", error);
-                    setMultiplayerState((prev) => ({
-                        ...prev,
-                        connected: false,
-                        connecting: false,
-                        error: true
-                    }))
-                }
-            }
-        })();
-    }, [multiplayerState, ws, screen])
-
+    // WebSocket connect / reconnect lives in MultiplayerProvider (pages/_app.js)
+    // so navigation between pages that mount Home (e.g. / -> /es, /daily -> /es/daily)
+    // doesn't tear down and re-open the connection — which previously caused the
+    // server to kick the older connection with a "userAlreadyConnected" error.
 
     useEffect(() => {
         if (inCrazyGames || window.poki) {
@@ -1908,12 +1752,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setMultiplayerChatEnabled(false)
             setMultiplayerChatOpen(false)
         }
-        if (!ws) return;
 
-
-
-        ws.onmessage = (msg) => {
-            const data = JSON.parse(msg.data);
+        // Subscribe to WS messages via the provider. The provider owns the
+        // connection lifecycle (so onmessage/onclose/onerror live there too)
+        // and forwards every parsed message to subscribers like this one.
+        const unsubscribe = subscribeMessages((data) => {
 
             if (data.type === "restartQueued") {
                 setMaintenance(data.value ? true : false)
@@ -2354,61 +2197,34 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     toast(text("streakGained", { streak }), { type: 'info', theme: "dark", autoClose: 5000, closeOnClick: true })
                 }
             }
-        }
+        });
 
-        // ws on disconnect
-        ws.onclose = () => {
-            setWs(null)
-            console.log("ws closed")
-            if (!window.isPageClosing) sendEvent("multiplayer_disconnect")
-            setMultiplayerState((prev) => ({
-                ...initialMultiplayerState,
-                maxRetries: prev.maxRetries,
-                currentRetry: prev.currentRetry,
-            }));
-            // Always disable chat when WebSocket disconnects to prevent chat button showing in menu
-            setMultiplayerChatEnabled(false)
-            setMultiplayerChatOpen(false)
+        return unsubscribe;
+        // The handler closes over multiplayerState/timeOffset/gameOptions.extent;
+        // re-subscribe whenever any of those change so the closure stays fresh.
+    }, [subscribeMessages, ws, multiplayerState, timeOffset, gameOptions?.extent]);
+
+    // Home-side cleanup when the WS goes from connected to disconnected.
+    // The provider already resets multiplayerState on close; this effect handles
+    // the home-only side effects (chat, error modal, redirect to home, toast).
+    // `text` is read through a ref so we don't re-fire on every Home render
+    // (useTranslation returns a fresh `t` closure each render).
+    const textRef = useRef(text);
+    useEffect(() => { textRef.current = text; }, [text]);
+    const prevWsForCloseRef = useRef(null);
+    useEffect(() => {
+        if (prevWsForCloseRef.current && !ws) {
+            setMultiplayerChatEnabled(false);
+            setMultiplayerChatOpen(false);
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "daily") {
-                setMultiplayerError(true)
-                setLoading(false)
-
-                toast.info(text("connectionLostRecov"))
-
-                setScreen("home")
+                setMultiplayerError(true);
+                setLoading(false);
+                toast.info(textRef.current("connectionLostRecov"));
+                setScreen("home");
             }
-
-
         }
-
-        ws.onerror = () => {
-            setWs(null)
-            console.log("ws error")
-            if (!window.isPageClosing) sendEvent("multiplayer_disconnect")
-
-            setMultiplayerState((prev) => ({
-                ...initialMultiplayerState,
-                maxRetries: prev.maxRetries,
-                currentRetry: prev.currentRetry,
-            }));
-            // Always disable chat when WebSocket has error to prevent chat button showing in menu
-            setMultiplayerChatEnabled(false)
-            setMultiplayerChatOpen(false)
-
-            if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "daily") {
-                setMultiplayerError(true)
-
-                toast.info(text("connectionLostRecov"))
-                setScreen("home")
-            }
-
-        }
-
-
-        return () => {
-            ws.onmessage = null;
-        }
-    }, [ws, multiplayerState, timeOffset, gameOptions?.extent]);
+        prevWsForCloseRef.current = ws;
+    }, [ws]);
 
     useEffect(() => {
         window.screen = screen;
