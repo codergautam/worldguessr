@@ -1238,6 +1238,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         try {
             window.localStorage.setItem("lang", options?.language)
             window.language = options?.language;
+            window.dispatchEvent(new CustomEvent('langChange', { detail: options?.language }));
 
             if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") return;
 
@@ -1916,12 +1917,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         setLoading(true)
                         // Increment key to force refresh even if coords are the same
                         setLatLongKey(k => k + 1)
-                        if (!prev?.gameData?.locations && data.locations) {
-                            setLatLong(data.locations[data.curRound - 1])
-
-
-                        } else {
-                            setLatLong(prev?.gameData?.locations[data.curRound - 1])
+                        const roundLoc = (prev?.gameData?.locations ?? data.locations)?.[data.curRound - 1];
+                        if (roundLoc) {
+                            setLatLong(roundLoc)
                         }
                     }
 
