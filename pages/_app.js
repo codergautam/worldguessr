@@ -15,6 +15,22 @@ import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvide
 
 import '@smastrom/react-rating/style.css'
 
+// Install before hydration so console.error / window.error patches are live
+// when React replays render errors during initial mount.
+let __errorTrackingCleanup = null;
+if (typeof window !== 'undefined') {
+  __errorTrackingCleanup = installErrorTracking();
+  // Fast Refresh / HMR: tear down so edits to errorTracking.js take effect
+  // without a full page reload, and so we don't leak listeners across reloads.
+  if (typeof module !== 'undefined' && module.hot) {
+    module.hot.dispose(() => {
+      try {
+        __errorTrackingCleanup?.();
+      } catch (_) { /* noop */ }
+    });
+  }
+}
+
 const SUPPORTED_LOCALES = ["es", "fr", "de", "ru"];
 
 function App({ Component, pageProps }) {
@@ -45,8 +61,6 @@ function App({ Component, pageProps }) {
     };
   }, []);
 
-  useEffect(() => installErrorTracking(), []);
-
   // Auto-redirect first-time visitors at `/` to their device locale (es/fr/de/ru)
   // if it's supported. Client-only so SSR / crawlers keep seeing English at `/`.
   useEffect(() => {
@@ -67,7 +81,7 @@ function App({ Component, pageProps }) {
       const hash = window.location.hash || '';
       router.replace(`/${code}${search}${hash}`);
     } catch (e) { /* noop — English fallback is fine */ }
-  }, []);
+  }, [router]);
 
   return (
     <MultiplayerProvider>
