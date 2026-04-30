@@ -109,6 +109,13 @@ async function handleLoggedIn({ res, date, rounds: normalizedRounds, totalTime, 
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
+  // Banned users must not write scores, bump the distribution buckets, or
+  // grow their streak. takeAction.js scrubs existing rows on ban, but submit
+  // is the ingress — without this gate, a banned user with a stale secret in
+  // localStorage can keep poisoning DailyChallengeStats post-ban.
+  if (user.banned) {
+    return res.status(403).json({ error: 'Account banned' });
+  }
 
   const existing = await DailyChallengeScore.findOne({ date, userId: user._id }).lean();
   if (existing) {
@@ -349,7 +356,10 @@ async function handler(req, res) {
       const percentile = stats?.totalPlays ? Math.round((beaten / stats.totalPlays) * 100) : null;
 
       if (secret && typeof secret === 'string') {
-        const user = await User.findOne({ secret }).select('_id username').lean();
+        const user = await User.findOne({ secret }).select('_id username banned').lean();
+        if (user?.banned) {
+          return res.status(403).json({ error: 'Account banned' });
+        }
         if (user) {
           try {
             await DailyChallengeScore.create({
