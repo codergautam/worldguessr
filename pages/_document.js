@@ -4,8 +4,9 @@ export default function Document() {
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
   return (
-    <Html lang="en" style={{ backgroundColor: '#000000' }}>
+    <Html lang="en" translate="no" className="notranslate" style={{ backgroundColor: '#000000' }}>
       <Head>
+        <meta name="google" content="notranslate" />
         <link rel="preload" href={`${basePath}/street2.webp`} as="image" type="image/webp" fetchpriority="high" />
         {/* Font preconnects and stylesheets */}
         <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -51,7 +52,7 @@ export default function Document() {
           `
         }} />
       </Head>
-      <body className="mainBody" style={{ backgroundColor: '#000000' }}>
+      <body className="mainBody notranslate" translate="no" style={{ backgroundColor: '#000000' }}>
         {process.env.NEXT_PUBLIC_COOLMATH === "true" && (
           <>
             <div id="cmg-splash" style={{
