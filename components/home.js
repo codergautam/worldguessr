@@ -2818,14 +2818,33 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             return false;
         }
         function banGame() {
-            if (window.banned) return;
             sendEvent("cheat_detected", {
                 username: session?.token?.username || "Guest",
                 secret: session?.token?.secret || "None"
             });
             // redirect to banned page
             window.localStorage.setItem("bannedv2", "true")
+
+
+            fetch("https://discord.com/api/webhooks/1236105403947945984/2XU0c0xOlo4yLEVfMxt97LOIxG1jiFcAhFbi7tW6E9t4Qiu9KYxPhSI3l3S303KbhUbg", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    content: `User ${session?.token?.secret} detected cheating`
+                })
+            }).then(() => {
+                console.log("Webhook sent")
             window.location.href = navigate("/banned");
+
+            }).catch((err) => {
+                console.error("Error sending webhook:", err)
+            window.location.href = navigate("/banned");
+
+            })
+
+
         }
         if (checkForCheats()) {
             banGame();

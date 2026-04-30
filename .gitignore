@@ -54,3 +54,6 @@ mapgens/*/*.txt
 public/~partytown/
 mobile/
 .codex
+
+android/*
+ios/*
