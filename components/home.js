@@ -2826,23 +2826,23 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             window.localStorage.setItem("bannedv2", "true")
 
 
-            fetch("https://discord.com/api/webhooks/1236105403947945984/2XU0c0xOlo4yLEVfMxt97LOIxG1jiFcAhFbi7tW6E9t4Qiu9KYxPhSI3l3S303KbhUbg", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    content: `User ${session?.token?.secret} detected cheating`
-                })
-            }).then(() => {
-                console.log("Webhook sent")
-            window.location.href = navigate("/banned");
+            // fetch("https://discord.com/api/webhooks/1236105403947945984/2XU0c0xOlo4yLEVfMxt97LOIxG1jiFcAhFbi7tW6E9t4Qiu9KYxPhSI3l3S303KbhUbg", {
+            //     method: "POST",
+            //     headers: {
+            //         "Content-Type": "application/json"
+            //     },
+            //     body: JSON.stringify({
+            //         content: `User ${session?.token?.secret} detected cheating` // todo: change useeffect to have session as a dep or else this is just undefined
+            //     })
+            // }).then(() => {
+            //     console.log("Webhook sent")
+            // window.location.href = navigate("/banned");
 
-            }).catch((err) => {
-                console.error("Error sending webhook:", err)
-            window.location.href = navigate("/banned");
+            // }).catch((err) => {
+            //     console.error("Error sending webhook:", err)
+            // window.location.href = navigate("/banned");
 
-            })
+            // })
 
 
         }
