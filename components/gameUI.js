@@ -215,6 +215,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [singlePlayerTimeLeft, setSinglePlayerTimeLeft] = useState(0);
   const [mapPinned, setMapPinned] = useState(false);
   const prevMultiplayerRoundStateRef = useRef({ state: null, round: null });
+  const multiplayerMapFadeTimerRef = useRef(null);
   // dist between guess & target
   const [km, setKm] = useState(null);
   const [explanationModalShown, setExplanationModalShown] = useState(false);
@@ -467,6 +468,11 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   useEffect(() => {
     if (!multiplayerState?.inGame) {
       prevMultiplayerRoundStateRef.current = { state: null, round: null };
+      if (multiplayerMapFadeTimerRef.current) {
+        clearTimeout(multiplayerMapFadeTimerRef.current);
+        multiplayerMapFadeTimerRef.current = null;
+      }
+      setMapFadingOut(false);
       return;
     }
 
@@ -479,14 +485,34 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       (prevState === "getready" && prevRound === curRound) ||
       (prevState === "guess" && prevRound !== curRound)
     );
+    const leftAnswerRevealForGuess = prevState === "getready" && prevRound !== 1 && curState === "guess" && prevRound === curRound;
 
     if (startedNewGuessRound && !mapPinned) {
       setMiniMapExpanded(false);
       setMiniMapFullscreen(false);
     }
 
+    if (leftAnswerRevealForGuess) {
+      if (multiplayerMapFadeTimerRef.current) {
+        clearTimeout(multiplayerMapFadeTimerRef.current);
+      }
+      setMapFadingOut(true);
+      multiplayerMapFadeTimerRef.current = setTimeout(() => {
+        setMapFadingOut(false);
+        multiplayerMapFadeTimerRef.current = null;
+      }, 300);
+    }
+
     prevMultiplayerRoundStateRef.current = { state: curState, round: curRound };
   }, [multiplayerState?.inGame, multiplayerState?.gameData?.state, multiplayerState?.gameData?.curRound, mapPinned]);
+
+  useEffect(() => {
+    return () => {
+      if (multiplayerMapFadeTimerRef.current) {
+        clearTimeout(multiplayerMapFadeTimerRef.current);
+      }
+    };
+  }, []);
 
   // Explicitly reset minimap expansion on every new round (singleplayer or onboarding).
   // Without this, singleplayer relies on a mouseleave event firing as the minimap
@@ -613,12 +639,21 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   const multiplayerTimerShown = !((loading||showAnswer||!multiplayerState||(multiplayerState?.gameData?.state === 'getready' && multiplayerState?.gameData?.curRound === 1)||multiplayerState?.gameData?.state === 'end'));
   const onboardingTimerShown = !((showAnswer||!onboarding));
+  const multiplayerAnswerRevealLeaving = !!(
+    multiplayerState?.inGame &&
+    prevMultiplayerRoundStateRef.current.state === "getready" &&
+    prevMultiplayerRoundStateRef.current.round !== 1 &&
+    multiplayerState?.gameData?.state === "guess" &&
+    prevMultiplayerRoundStateRef.current.round === multiplayerState?.gameData?.curRound
+  );
+  const mapFadingOutForRender = mapFadingOut || multiplayerAnswerRevealLeaving;
+  const showAnswerOnMap = showAnswer || mapFadingOutForRender;
   const shouldShowMiniMap = !welcomeOverlayShown &&
-    (miniMapShown || showAnswer || mapFadingOut) &&
+    (miniMapShown || showAnswerOnMap) &&
     (!singlePlayerRound?.done && !onboarding?.completed &&
-      ((!showPanoOnResult && showAnswer) || (!showAnswer && !loading) || mapFadingOut)) &&
-    !(onboarding && !showAnswer && !mapFadingOut && onboarding.mode !== 'classic');
-  const forceHideMiniMap = !!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswer);
+      ((!showPanoOnResult && showAnswerOnMap) || (!showAnswerOnMap && !loading) || mapFadingOutForRender)) &&
+    !(onboarding && !showAnswer && !mapFadingOutForRender && onboarding.mode !== 'classic');
+  const forceHideMiniMap = !!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswerOnMap);
   return (
     <div className="gameUI">
 
@@ -749,11 +784,11 @@ session={session}/>
       <div id="miniMapArea" onMouseEnter={() => {
         if(!loading) setMiniMapExpanded(true)
       }} onMouseLeave={() => {
-        if(mapPinned || showAnswer) return;
+        if(mapPinned || showAnswerOnMap) return;
         setMiniMapExpanded(false)
-      }} className={`miniMap ${miniMapExpanded && !showAnswer ? 'mapExpanded' : ''} ${shouldShowMiniMap ? 'shown' : ''} ${showAnswer ? 'answerShown' : 'answerNotShown'} ${(showAnswer && countryGuesser && !showPanoOnResult) || mapFadingOut ? 'countryGuessrMapReveal' : ''} ${mapFadingOut ? 'countryGuessrMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''} ${forceHideMiniMap ? 'forceHidden' : ''}`}>
+      }} className={`miniMap ${miniMapExpanded && !showAnswerOnMap ? 'mapExpanded' : ''} ${shouldShowMiniMap ? 'shown' : ''} ${showAnswerOnMap ? 'answerShown' : 'answerNotShown'} ${(showAnswerOnMap && countryGuesser && !showPanoOnResult) || mapFadingOutForRender ? 'countryGuessrMapReveal' : ''} ${mapFadingOutForRender ? 'countryGuessrMapFadeOut' : ''} ${miniMapFullscreen&&miniMapExpanded ? 'fullscreen' : ''} ${forceHideMiniMap ? 'forceHidden' : ''}`}>
 
-{!showAnswer && (
+{!showAnswerOnMap && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
           <button className="cornerBtn" onClick={() => {
             setMiniMapFullscreen(!miniMapFullscreen)
@@ -774,10 +809,10 @@ session={session}/>
           </button>
         </div>
 )}
-        <MapWidget shown={latLong && !loading} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswer} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} hidePins={mapFadingOut} />
+        <MapWidget shown={latLong && !loading} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} hidePins={mapFadingOutForRender} />
 
 
-        <div className={`miniMap__btns ${showAnswer ? 'answerShownBtns' : ''}`}>
+        <div className={`miniMap__btns ${showAnswerOnMap ? 'answerShownBtns' : ''}`}>
           <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>
            {multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final ? multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length) > 0 ? `${text("waitingForPlayers", {p:multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length)})}...` : `${text("waiting")}...` : text("guess")}
             </button>

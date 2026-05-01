@@ -240,14 +240,36 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
     });
   }
 
-  // Per-IP hard cap on guest writes — blocks sybil spam via localStorage-
-  // clear + reload. Distinct from the anon-anon path which just silently
-  // drops; here the client gets a 429 so it can surface a real message.
-  if (!anonWriteAllowed(req, date)) {
-    return res.status(429).json({ error: 'Too many plays from this IP today. Sign in to continue.' });
+  const priorProfile = await GuestProfile.findOne({ guestId }).lean();
+
+  // Per-IP cap on FRESH guestIds — blocks sybil spam where an attacker keeps
+  // clearing localStorage to spawn disposable identities and write fake
+  // GuestScore / GuestProfile rows. Returning guests (priorProfile exists)
+  // bypass the cap entirely: the unique-(guestId,date) replay check already
+  // limits each established identity to one play per day, so they can't be
+  // the source of write spam. Without this exception, a legitimate user on
+  // a shared NAT / household / café IP would lose their streak just because
+  // three other people there played as guests today.
+  //
+  // When the cap does fire we soft-fail rather than 429: still compute and
+  // return the same rank/percentile so the player sees their result, just
+  // skip the writes so the cap actually does its job. `notTracked: true`
+  // lets the client surface a "sign in to save progress" hint if it wants.
+  if (!priorProfile && !anonWriteAllowed(req, date)) {
+    const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore);
+    return res.status(200).json({
+      score: finalScore,
+      rank,
+      totalPlays,
+      percentile,
+      streak: 0,
+      streakBest: 0,
+      newPersonalBest: true,
+      guest: true,
+      notTracked: true,
+    });
   }
 
-  const priorProfile = await GuestProfile.findOne({ guestId }).lean();
   const { streak, best } = applyStreak({
     prevDate: priorProfile?.daily?.lastDate || null,
     currentStreak: priorProfile?.daily?.streak || 0,
