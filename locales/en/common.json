@@ -560,6 +560,8 @@
   "dailyHistoryTitle": "Your history",
   "dailyLeaderboard": "Today's leaderboard",
   "tooFewPlaysForChart": "Not enough players to draw a graph - check back later!",
+  "dailyLandingGraceDay": "⚠️ Grace day - play today or your {{streak}}-day streak ends at midnight",
+  "dailyLandingGraceDayShort": "Grace day",
   "dailyLandingLockInStreak": "🔥 Sign in to lock in your {{streak}}-day streak",
   "dailyGuestSignInToSave": "🔥 Sign in to save your {{streak}}-day streak",
   "dailyGuestClaimed": "Guest progress merged - {{mergedDays}} days added!",
