@@ -3,7 +3,6 @@ import User from '../../models/User.js';
 import GuestProfile from '../../models/GuestProfile.js';
 import GuestScore from '../../models/GuestScore.js';
 import DailyChallengeScore from '../../models/DailyChallengeScore.js';
-import DailyChallengeStats, { bucketIndexForScore } from '../../models/DailyChallengeStats.js';
 import { recomputeStreakFromHistory } from '../../serverUtils/dailyStreak.js';
 import { getDailyLocations } from '../../serverUtils/dailyChallenge.js';
 import { writeLoggedInDailyGame } from '../../serverUtils/dailyGameHistoryWriter.js';
@@ -197,11 +196,19 @@ async function handler(req, res) {
       }
     );
 
-    // Note: we intentionally do NOT touch DailyChallengeStats counters here.
-    // Those were already incremented when each guest score was originally
-    // submitted. Double-counting would poison the distribution.
-    void DailyChallengeStats;
-    void bucketIndexForScore;
+    // KNOWN ISSUE: claim backfills DailyChallengeScore rows, so claimed guest
+    // scores can appear on past-date leaderboards, but it does not bump
+    // DailyChallengeStats counters. That can leave a date showing, for
+    // example, "rank #3" on the leaderboard while totalPlays=2.
+    //
+    // Fix path: inside the per-day backfill try block, after
+    // DailyChallengeScore.create succeeds, call
+    // incrementStats(gs.date, gs.score, gs.rounds) and
+    // invalidateDailyPublicCache(gs.date). Punting for now because this change
+    // is scoped to excluding guest data from submit-time stats; claim abuse is
+    // already bounded by CLAIMS_PER_USER_PER_DAY, and after claim a legitimate
+    // signed account is attached to the score so the integrity argument does
+    // not apply.
 
     console.log('[claimGuestProgress]', JSON.stringify({
       guestId,

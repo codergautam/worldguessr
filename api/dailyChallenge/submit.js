@@ -12,11 +12,9 @@ import { writeLoggedInDailyGame } from '../../serverUtils/dailyGameHistoryWriter
 
 const MAX_TOTAL_XP = 500;
 
-// Severe per-IP cap on anon stat contributions. Anon plays feed the
-// distribution curve (which logged-in honest players see), so a single IP
-// scripting submits could poison the comparison. Applied to both the
-// anon-anon path (silent) and the guest path (hard 429 — guests get a
-// real error so the UI can surface a retry or signin nudge).
+// Severe per-IP cap on guest writes. Guests no longer feed the distribution,
+// so this exists purely as anti-abuse for GuestScore/GuestProfile write spam.
+// Guests get a hard 429 so the UI can surface a retry or signin nudge.
 const ANON_WRITES_PER_IP_PER_DAY = 3;
 const anonWriteTracker = new Map(); // `${ip}|${date}` -> count
 
@@ -259,7 +257,7 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
   }, { allowGrace: false });
 
   // Write GuestScore first — if this throws (including the dup-key race with
-  // a concurrent submit), we abort before bumping stats or profile.
+  // a concurrent submit), we abort before updating the profile.
   try {
     await GuestScore.create({
       guestId,
@@ -274,10 +272,6 @@ async function handleGuest({ req, res, date, rounds: normalizedRounds, totalTime
     }
     throw err;
   }
-
-  // Increment stats (counts as anon for the anonPlays tally).
-  await incrementStats(date, finalScore, normalizedRounds, { anon: true });
-  invalidateDailyPublicCache(date);
 
   const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore);
 
@@ -427,13 +421,8 @@ async function handler(req, res) {
       });
     }
 
-    // Anon-anon — no persistent identity at all. Per-IP cap silently caps
-    // distribution pollution; UX unchanged (percentile still returned).
-    const shouldPersistAnon = anonWriteAllowed(req, date);
-    if (shouldPersistAnon) {
-      await incrementStats(date, finalScore, normalizedRounds, { anon: true });
-      invalidateDailyPublicCache(date);
-    }
+    // Anon-anon — no persistent identity at all. Modern clients should have a
+    // guestId, but keep the response shape for legacy/defensive callers.
     const { rank, totalPlays, percentile } = await computeRankAndPercentile(date, finalScore);
 
     return res.status(200).json({
