@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FaCalendarDay, FaClock, FaTrophy, FaPlay, FaCheck } from 'react-icons/fa';
 import { useTranslation } from '@/components/useTranslations';
-import { formatCountdown, msUntilLocalMidnight, challengeNumber } from '@/utils/dailyDate';
+import { formatCountdown, msUntilLocalMidnight } from '@/utils/dailyDate';
 import DailyStreakBadge from './DailyStreakBadge';
 import DailyLeaderboardPanel from './DailyLeaderboardPanel';
 import PersonalRecordsCard from './PersonalRecordsCard';
@@ -17,7 +17,11 @@ export default function DailyLanding({ today, todayTop10 = [], userData = null, 
   }, []);
 
   const playedToday = userData?.playedToday;
-  const chNum = challengeNumber(today);
+  // graceDay is only true for logged-in users whose stored streak is alive
+  // today purely because of the unused-grace branch (server-computed in
+  // api/dailyChallenge/results.js). Don't show the warning if they've
+  // already played today.
+  const graceDay = !!userData?.graceDay && !playedToday && (userData?.streak || 0) > 0;
 
   return (
     <div className={`daily-landing ${animateEntrance ? 'daily-landing--opening' : ''}`}>
@@ -40,9 +44,15 @@ export default function DailyLanding({ today, todayTop10 = [], userData = null, 
           </span>
         </button>
 
+        {graceDay && (
+          <div className="daily-landing-grace-banner" role="status">
+            {text('dailyLandingGraceDay', { streak: userData.streak })}
+          </div>
+        )}
+
         <div className="daily-landing-user-stats">
           {userData?.streak > 0 && (
-            <DailyStreakBadge streak={userData.streak} size="lg" variant={playedToday ? 'done' : 'pulsing'} />
+            <DailyStreakBadge streak={userData.streak} size="lg" variant={graceDay ? 'at-risk' : (playedToday ? 'done' : 'pulsing')} />
           )}
           {!isLoggedIn && (
             <span style={{ color: 'rgba(255,255,255,0.8)' }}>

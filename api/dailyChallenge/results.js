@@ -5,7 +5,7 @@ import DailyChallengeStats, { bucketIndexForScore } from '../../models/DailyChal
 import GuestProfile from '../../models/GuestProfile.js';
 import GuestScore from '../../models/GuestScore.js';
 import { isValidDailyDate } from '../../serverUtils/dailyChallenge.js';
-import { effectiveStreak } from '../../serverUtils/dailyStreak.js';
+import { effectiveStreak, isGraceDay } from '../../serverUtils/dailyStreak.js';
 
 // Distribution + top-10 (the expensive part) are identical for every caller
 // on the same date — cache for a few seconds. User-specific block is fetched
@@ -110,6 +110,10 @@ async function fetchGuestBlock(date, guestId) {
     username: null,
     streak: liveStreak,
     streakBest: profile?.daily?.streakBest || 0,
+    // Guests don't get grace at all (allowGrace: false above), so this field
+    // is always false here. Included for shape parity with the logged-in
+    // response so the client doesn't need a different render path.
+    graceDay: false,
     // playedToday reflects only valid scored runs; a DQ locks the day but
     // doesn't count as "played" for the menu badge / "view results" CTA.
     playedToday: !!own && !isDq,
@@ -173,17 +177,25 @@ async function fetchUserBlock(date, secret) {
   // who missed the grace window still has an N-day count sitting in the DB.
   // Compute the live value here so every read surface (landing, menu badge,
   // results modal) shows 0 the moment the streak is actually lost.
-  const liveStreak = effectiveStreak({
+  const streakInputs = {
     streak: user.dailyStreak || 0,
     lastDate: user.lastDailyDate,
     graceDates: user.dailyGraceUsedDates,
     today: date,
-  });
+  };
+  const liveStreak = effectiveStreak(streakInputs);
+  // graceDay means: streak is alive today only because of the unused-grace
+  // branch (diff=2 from lastDate, no grace consumed in last 7 days). If the
+  // user doesn't play today, tomorrow's diff becomes 3 and the streak dies.
+  // Don't surface graceDay if they've already played today — there's nothing
+  // at risk in that case.
+  const graceDay = !(!!own && !isDq) && isGraceDay(streakInputs);
 
   return {
     username: user.username,
     streak: liveStreak,
     streakBest: user.dailyStreakBest || 0,
+    graceDay,
     playedToday: !!own && !isDq,
     disqualifiedToday: isDq,
     ownScore: isDq ? null : (own?.score ?? null),
