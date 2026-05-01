@@ -485,7 +485,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         function finish() {
             const onboardingCompletedd = gameStorage.getItem("onboarding");
             console.log("onboarding", onboardingCompletedd)
-            if (onboardingCompletedd !== "done") startOnboarding();
+            if (onboardingCompletedd !== "done") {
+                const started = startOnboarding();
+                if (started) setWelcomeOverlayShown(true);
+            }
             else setOnboardingCompleted(true)
 
             if (window.location.search.includes("map=")) {
@@ -847,17 +850,21 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     function startOnboarding(mode = "classic") {
 
-        if (inCrazyGames) {
+        if (inCrazyGames || window.inCrazyGames) {
             // make sure its not an invite link
-            const code = window.CrazyGames.SDK.game.getInviteParam("code")
-            if (code && code.length === 6) {
-                return;
+            try {
+                const code = window.CrazyGames?.SDK?.game?.getInviteParam?.("code")
+                if (code && code.length === 6) {
+                    return false;
+                }
+            } catch (e) {
+                console.error("crazygames invite check failed", e);
             }
 
             // make sure tis not already completed
             const onboarding = gameStorage.getItem("onboarding");
             if (onboarding === "done") {
-                return;
+                return false;
             }
         }
 
@@ -878,6 +885,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         })
         sendEvent("tutorial_begin", { mode })
         setShowCountryButtons(mode !== "classic")
+        return true;
     }
     function openMap(mapSlug) {
         const country = countries.find((c) => c === mapSlug.toUpperCase());
@@ -1179,9 +1187,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             if (onboardingCompleted === null) return;
             if (!loading) {
 
-                // Start onboarding immediately so street view preloads, then show modal on top
-                if (!inCrazyGames) {
-                    startOnboarding("classic");
+                // Start onboarding immediately so street view preloads, then show modal on top.
+                // CrazyGames used to skip this branch, which started the tutorial without
+                // letting players choose the onboarding mode.
+                if (startOnboarding("classic")) {
                     setWelcomeOverlayShown(true);
                     return;
                 }

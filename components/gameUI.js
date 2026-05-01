@@ -24,13 +24,32 @@ import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
 
+const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
+
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
 
 export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete }) {
   const { t: text } = useTranslation("common");
-  function loadLocationFuncRaw(keepAnswer) {
+  const onboardingRevealStartedAt = useRef(0);
+
+  function logOnboardingAdvance(event, details = {}) {
+    if (process.env.NEXT_PUBLIC_COOLMATH !== "true") return;
+    console.log("[onboarding-advance]", {
+      event,
+      round: onboarding?.round,
+      mode: onboarding?.mode,
+      showAnswer,
+      elapsedMs: onboardingRevealStartedAt.current ? Date.now() - onboardingRevealStartedAt.current : null,
+      ...details,
+    });
+  }
+
+  function loadLocationFuncRaw(keepAnswer, advanceSource) {
+    if (onboarding && advanceSource) {
+      logOnboardingAdvance("loadLocationFuncRaw", { keepAnswer, advanceSource });
+    }
     if(onboarding) {
       if(onboarding.completed) {
         // Reset onboarding to start over - preserve template locations
@@ -150,7 +169,10 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   }
 
-  function loadLocationFunc(keepAnswer) {
+  function loadLocationFunc(keepAnswer, advanceSource) {
+    if (onboarding && advanceSource) {
+      logOnboardingAdvance("loadLocationFunc", { keepAnswer, advanceSource });
+    }
 
     function afterAd() {
 
@@ -176,11 +198,11 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     if((inGameDistribution || inCrazyGames) && singlePlayerRound && !singlePlayerRound.done && singlePlayerRound.round > 1 && window.crazyMidgame) {
       window.crazyMidgame(() => {
         afterAd()
-        loadLocationFuncRaw(keepAnswer)
+        loadLocationFuncRaw(keepAnswer, advanceSource)
       });
     } else {
       afterAd()
-      loadLocationFuncRaw(keepAnswer)
+      loadLocationFuncRaw(keepAnswer, advanceSource)
     }
 
 
@@ -265,10 +287,14 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   useEffect(() => {
     if(showAnswer) {
       setShowPanoOnResult(false)
+      if (onboarding && !onboarding.completed && onboarding.mode !== "classic") {
+        onboardingRevealStartedAt.current = Date.now();
+      }
     } else {
       setGuessedCountryCode(null);
+      onboardingRevealStartedAt.current = 0;
     }
-  }, [showAnswer])
+  }, [showAnswer, onboarding?.round, onboarding?.completed, onboarding?.mode])
 
 
 
@@ -441,13 +467,24 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       // Don't handle space during onboarding completion - let home button handle it
       if(onboarding?.completed) return;
       if(singlePlayerRound?.done && e.key === ' ') {
-        loadLocationFunc()
+        loadLocationFunc(undefined, "space-singleplayer-done")
         return;
       }
       if(pinPoint && e.key === ' ' && !showAnswer) {
         guess();
       } else if(showAnswer && e.key === ' ') {
-        loadLocationFunc()
+        if (onboarding && !onboarding.completed && onboarding.mode !== "classic") {
+          const elapsedMs = onboardingRevealStartedAt.current ? Date.now() - onboardingRevealStartedAt.current : 0;
+          logOnboardingAdvance("blocked-space-advance", {
+            key: e.key,
+            code: e.code,
+            repeat: e.repeat,
+            targetTag: e.target?.tagName,
+            activeTag: document.activeElement?.tagName,
+          });
+          if (elapsedMs < ONBOARDING_MIN_MANUAL_ADVANCE_MS) return;
+        }
+        loadLocationFunc(undefined, "space-answer")
       }
     }
     // on space key press, guess
@@ -567,6 +604,9 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
     if (!latLong || latLong.lat == null || latLong.long == null) return;
     const isCorrect = correctOverride !== undefined ? correctOverride : countryGuesserCorrect;
+    if (onboarding && !onboarding.completed && onboarding.mode !== "classic") {
+      onboardingRevealStartedAt.current = Date.now();
+    }
     setShowAnswer(true)
     if(showCountryButtons || setShowCountryButtons)setShowCountryButtons(false);
     if(onboarding) {
@@ -890,6 +930,11 @@ session={session}/>
               setCgStreak(0);
             }
           }
+          logOnboardingAdvance("country-button-guess", {
+            selected,
+            isCorrect,
+            mode: isContinentMode ? "continent" : "country",
+          });
           guess(isCorrect);
          }}/>
       )}
@@ -1007,12 +1052,12 @@ session={session}/>
 countryStreaksEnabled={gameOptions?.location === "all"}
 isWorldMap={gameOptions?.location === "all"}
 dailyMode={dailyMode}
-singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} guessTier={guessTier} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={()=>{
+singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} guessTier={guessTier} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={(advanceRequest)=>{
   const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
   if (isCountryGuessrMode) {
     setMapFadingOut(true);
     window._countryGuessrKeepAnswer = true;
-    loadLocationFunc(true);
+    loadLocationFunc(true, advanceRequest?.source || "endBanner");
     setTimeout(() => {
       setMapFadingOut(false);
       setShowAnswer(false);

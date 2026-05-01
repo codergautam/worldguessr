@@ -25,13 +25,49 @@ const ONBOARDING_FACTS = [
     "onboardingFact2",
     "onboardingFact3",
 ];
+const ONBOARDING_AUTO_ADVANCE_SECONDS = 7;
 
 export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, isWorldMap, dailyMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
     const { t: text, lang } = useTranslation("common");
     const confettiTriggered = useRef(false);
     const autoAdvanceTimer = useRef(null);
+    const autoAdvanceTimeout = useRef(null);
+    const revealStartedAt = useRef(0);
+    const fullResetRef = useRef(fullReset);
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState(null);
     const [hiding, setHiding] = useState(false);
+    const shouldAutoAdvanceOnboarding = guessed && onboarding && !onboarding.completed && onboarding.mode !== 'classic';
+
+    if (shouldAutoAdvanceOnboarding && !revealStartedAt.current) {
+        revealStartedAt.current = Date.now();
+    }
+
+    useEffect(() => {
+        fullResetRef.current = fullReset;
+    }, [fullReset]);
+
+    function logOnboardingAdvance(event, details = {}) {
+        if (process.env.NEXT_PUBLIC_COOLMATH !== "true") return;
+        console.log("[onboarding-advance]", {
+            event,
+            round: onboarding?.round,
+            mode: onboarding?.mode,
+            elapsedMs: revealStartedAt.current ? Date.now() - revealStartedAt.current : null,
+            countdown: autoAdvanceCountdown,
+            ...details,
+        });
+    }
+
+    function clearAutoAdvance() {
+        if (autoAdvanceTimer.current) {
+            clearInterval(autoAdvanceTimer.current);
+            autoAdvanceTimer.current = null;
+        }
+        if (autoAdvanceTimeout.current) {
+            clearTimeout(autoAdvanceTimeout.current);
+            autoAdvanceTimeout.current = null;
+        }
+    }
 
     // Reset hiding when new round starts
     useEffect(() => {
@@ -59,21 +95,31 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     // Auto-advance for onboarding (consider shorter on last round to keep flow snappy)
     const isOnboardingLastRound = onboarding && onboarding.round === (onboarding.locations?.length || 3);
     useEffect(() => {
-        if (guessed && onboarding && !onboarding.completed && onboarding.mode !== 'classic') {
-            const duration = isOnboardingLastRound ? 7 : 7;
+        clearAutoAdvance();
+        if (shouldAutoAdvanceOnboarding) {
+            const duration = isOnboardingLastRound ? ONBOARDING_AUTO_ADVANCE_SECONDS : ONBOARDING_AUTO_ADVANCE_SECONDS;
+            const endAt = Date.now() + duration * 1000;
+            revealStartedAt.current = Date.now();
             setAutoAdvanceCountdown(duration);
-            let count = duration;
+            logOnboardingAdvance("timer-start", { duration });
             const interval = setInterval(() => {
-                count--;
-                setAutoAdvanceCountdown(count);
-                if (count <= 0) { clearInterval(interval); setHiding(true); fullReset(); }
-            }, 1000);
+                setAutoAdvanceCountdown(Math.max(0, Math.ceil((endAt - Date.now()) / 1000)));
+            }, 250);
+            const timeout = setTimeout(() => {
+                clearAutoAdvance();
+                setAutoAdvanceCountdown(0);
+                setHiding(true);
+                logOnboardingAdvance("timer-fired");
+                fullResetRef.current({ source: "endBannerAutoAdvance" });
+            }, duration * 1000);
             autoAdvanceTimer.current = interval;
-            return () => clearInterval(interval);
+            autoAdvanceTimeout.current = timeout;
+            return clearAutoAdvance;
         } else {
             setAutoAdvanceCountdown(null);
+            revealStartedAt.current = 0;
         }
-    }, [guessed, onboarding?.round]);
+    }, [shouldAutoAdvanceOnboarding, guessed, onboarding?.round, onboarding?.completed, onboarding?.mode, isOnboardingLastRound]);
 
     const isLastRound = (onboarding && onboarding.round === (onboarding.locations?.length || 3))
         || (singlePlayerRound && singlePlayerRound.round === singlePlayerRound.totalRounds);
@@ -198,10 +244,17 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
             {!multiplayerState && (
                 <div className="endButtonContainer">
                     {onboarding && !onboarding.completed ? (
-                        <button className={`playAgain${isLastRound ? ' lastRoundPulse' : ''}`} onClick={() => {
-                            if (autoAdvanceTimer.current) clearInterval(autoAdvanceTimer.current);
+                        <button className={`playAgain${isLastRound ? ' lastRoundPulse' : ''}`} onClick={(event) => {
+                            clearAutoAdvance();
                             setHiding(true);
-                            fullReset();
+                            logOnboardingAdvance("manual-click", {
+                                pointerType: event?.nativeEvent?.pointerType,
+                                detail: event?.detail,
+                                isTrusted: event?.nativeEvent?.isTrusted,
+                                clientX: event?.nativeEvent?.clientX,
+                                clientY: event?.nativeEvent?.clientY,
+                            });
+                            fullReset({ source: "endBannerClick" });
                         }}>
                             {`${isLastRound ? text("viewResults") : text("nextRound")}${autoAdvanceCountdown != null ? ` (${autoAdvanceCountdown})` : ''}`}
                         </button>
