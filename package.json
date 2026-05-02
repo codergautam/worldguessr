@@ -15,6 +15,7 @@
     "heroku-postbuild": "cross-env  next build"
   },
   "dependencies": {
+    "@capacitor/core": "^7.6.2",
     "@googlemaps/js-api-loader": "^1.16.6",
     "@osm_borders/maritime_10m": "^1.1.0",
     "@react-oauth/google": "^0.12.1",
@@ -61,10 +62,11 @@
     "sass": "^1.77.2",
     "sharp": "^0.33.5",
     "stats.js": "^0.17.0",
-    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.52.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.52.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.3.1",
     "concurrently": "^9.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.1",
