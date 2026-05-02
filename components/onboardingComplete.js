@@ -33,6 +33,7 @@ export default function OnboardingComplete({
 }) {
   const { t: text } = useTranslation("common");
   const isClassic = mode === "classic";
+  const isCoolMath = process.env.NEXT_PUBLIC_COOLMATH === "true";
 
   const [animatedPoints, setAnimatedPoints] = useState(0);
   const confettiFiredRef = useRef(false);
@@ -138,13 +139,15 @@ export default function OnboardingComplete({
                 onClick={handleDuel}
                 accent="duel"
               />
-              <ActionCard
-                icon={<FaGlobeAmericas />}
-                title={text("communityMaps")}
-                desc={text("obDescDiscover")}
-                onClick={handleCommunityMaps}
-                accent="community"
-              />
+              {!isCoolMath && (
+                <ActionCard
+                  icon={<FaGlobeAmericas />}
+                  title={text("communityMaps")}
+                  desc={text("obDescDiscover")}
+                  onClick={handleCommunityMaps}
+                  accent="community"
+                />
+              )}
             </>
           ) : (
             <>
@@ -162,13 +165,15 @@ export default function OnboardingComplete({
                 onClick={handleClassic}
                 accent="classic"
               />
-              <ActionCard
-                icon={<FaGlobeAmericas />}
-                title={text("communityMaps")}
-                desc={text("obDescDiscover")}
-                onClick={handleCommunityMaps}
-                accent="community"
-              />
+              {!isCoolMath && (
+                <ActionCard
+                  icon={<FaGlobeAmericas />}
+                  title={text("communityMaps")}
+                  desc={text("obDescDiscover")}
+                  onClick={handleCommunityMaps}
+                  accent="community"
+                />
+              )}
             </>
           )}
         </div>
