@@ -1,6 +1,6 @@
 // API Configuration
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://worldguessr.com';
-export const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'wss://worldguessr.com/ws';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.worldguessr.com';
+export const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'wss://server.worldguessr.com/wg';
 
 // Game Configuration
 export const DEFAULT_ROUNDS = 5;
