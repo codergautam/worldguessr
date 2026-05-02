@@ -69,6 +69,7 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.1",
     "google-translate-free": "^2.4.5",
+    "mapcheckr-cli": "^1.0.0",
     "nodemon": "^3.1.3"
   }
 }

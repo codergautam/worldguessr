@@ -11,16 +11,11 @@ import BannerText from "@/components/bannerText";
 import shuffle from "@/utils/shuffle";
 // findLatLongRandom is dynamically imported when needed to avoid loading Google Maps API on page load
 import Link from "next/link";
-import MultiplayerHome from "@/components/multiplayerHome";
-import AccountModal from "@/components/accountModal";
-import SetUsernameModal from "@/components/setUsernameModal";
-import ChatBox from "@/components/chatBox";
 import React from "react";
 import countryMaxDists from '../public/countryMaxDists.json';
 import { useTranslation } from '@/components/useTranslations'
 import useWindowDimensions from "@/components/useWindowDimensions";
 import Script from "next/script";
-import SettingsModal from "@/components/settingsModal";
 import sendEvent from "@/components/utils/sendEvent";
 import { useMultiplayer, initialMultiplayerState } from "@/components/multiplayer/MultiplayerProvider";
 import { getPlatform } from "@/components/utils/getPlatform";
@@ -28,42 +23,51 @@ import 'react-toastify/dist/ReactToastify.css';
 import dynamic from "next/dynamic";
 import NextImage from "next/image";
 import OnboardingText from "@/components/onboardingText";
-import WelcomeOverlay from "@/components/welcomeOverlay";
-import OnboardingComplete from "@/components/onboardingComplete";
 import continentFromCode, { ALL_CONTINENTS } from "@/components/utils/continentFromCode";
 import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
+// Pre-existing dynamic chunks: results screen and daily-challenge screen are
+// big and only render after a round/onboarding completes. AccountModal stays
+// dynamic because it pulls in chart.js (~220 KB) for the XP graph — saving
+// that on the critical path is worth the one-time async open. MapGuessrModal
+// is also kept dynamic to match its prior behavior.
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
 const DailyChallengeScreen = dynamic(() => import('@/components/daily/DailyChallengeScreen'), { ssr: false });
+const AccountModal = dynamic(() => import('@/components/accountModal'), { ssr: false });
+const MapGuessrModal = dynamic(() => import('@/components/mapGuessrModal'), { ssr: false });
+import MultiplayerHome from "@/components/multiplayerHome";
+import SetUsernameModal from "@/components/setUsernameModal";
+import ChatBox from "@/components/chatBox";
+import SettingsModal from "@/components/settingsModal";
+import WelcomeOverlay from "@/components/welcomeOverlay";
+import OnboardingComplete from "@/components/onboardingComplete";
+import SuggestAccountModal from "@/components/suggestAccountModal";
+import MapsModal from "@/components/maps/mapsModal";
+import DiscordModal from "@/components/discordModal";
+import AlertModal from "@/components/ui/AlertModal";
+import WhatsNewModal from "@/components/ui/WhatsNewModal";
+import PendingNameChangeModal from "./pendingNameChangeModal";
 import DailyMenuItem from '@/components/daily/DailyMenuItem';
 import DailyCommunityMapsButton from '@/components/daily/DailyCommunityMapsButton';
 import msToTime from "@/components/msToTime";
-import SuggestAccountModal from "@/components/suggestAccountModal";
 import { toast, ToastContainer } from "react-toastify";
 import { inIframe, isForbiddenIframe } from "@/components/utils/inIframe";
-import MapsModal from "@/components/maps/mapsModal";
 
 import countries from "@/public/countries.json";
 import officialCountryMaps from "@/public/officialCountryMaps.json";
 
 import gameStorage from "@/components/utils/localStorage";
-import DiscordModal from "@/components/discordModal";
-import AlertModal from "@/components/ui/AlertModal";
-import WhatsNewModal from "@/components/ui/WhatsNewModal";
-const MapGuessrModal = dynamic(() => import("@/components/mapGuessrModal"), { ssr: false });
 import changelog from "@/components/changelog.json";
 import clientConfig from "@/clientConfig";
 import { useGoogleLogin } from "@react-oauth/google";
 // import haversineDistance from "./utils/haversineDistance";
 import StreetView from "./streetview/streetView";
-import Stats from "stats.js";
 // import SvEmbedIframe from "./streetview/svHandler"; // REMOVED: Using direct StreetView instead of double-iframe setup
 // import getTimeString, { getMaintenanceDate } from "./maintenanceTime";
 // import MaintenanceBanner from "./MaintenanceBanner";
 import Ad from "./bannerAdNitro";
 import GameDistributionBanner from "./bannerAdGameDistribution";
-import PendingNameChangeModal from "./pendingNameChangeModal";
 
 
 export default function Home({ initialScreen, dailyBootstrap } = {}) {
@@ -159,16 +163,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         const { ramUsage } = options;
         if (ramUsage) {
             if (!statsRef.current) {
-                var stats = new Stats();
-                stats.showPanel(2); // 0: fps, 1: ms, 2: mb, 3+: custom
-
-                // move a bit lower
-                stats.dom.style.transform = "translate(10px, 150px)";
-                stats.dom.style.pointerEvents = "none";
-
-                document.body.appendChild(stats.dom);
-                statsRef.current = stats;
-
+                // Lazy-load stats.js — only debug users with the toggle on need it.
+                import('stats.js').then(({ default: Stats }) => {
+                    if (statsRef.current) return;
+                    var stats = new Stats();
+                    stats.showPanel(2); // 0: fps, 1: ms, 2: mb, 3+: custom
+                    stats.dom.style.transform = "translate(10px, 150px)";
+                    stats.dom.style.pointerEvents = "none";
+                    document.body.appendChild(stats.dom);
+                    statsRef.current = stats;
+                });
             } else {
                 statsRef.current.dom.style.display = "";
             }
@@ -872,9 +876,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         // 3 universally recognizable locations for the tutorial
         const onboardingLocations = [
-            { lat: 29.9773337, long: 31.1321796, country: "EG", otherOptions: ["TR", "BR", "IN"] },
-            { lat: 40.7566514, long: -73.986534, country: "US", otherOptions: ["GB", "JP", "AU"] },
-            { lat: 48.8583601, long: 2.2915727, country: "FR", otherOptions: ["IT", "ES", "DE"] },
+            { lat: 29.9773337, long: 31.1321796, heading: 223, pitch: 5, country: "EG", otherOptions: ["TR", "BR", "IN"] },
+            { lat: 40.7566514, long: -73.986534, heading: 31, country: "US", otherOptions: ["GB", "JP", "AU"] },
+            { lat: 48.8583601, long: 2.2915727, heading: 41, country: "FR", otherOptions: ["IT", "ES", "DE"] },
         ]
 
         setOnboarding({

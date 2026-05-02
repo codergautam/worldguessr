@@ -3,7 +3,6 @@ import { toast } from "react-toastify";
 import { FaSearch, FaPlus, FaArrowLeft, FaMapMarkedAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
 import MakeMapForm from "./makeMap";
 import MapTile from "./mapTile";
-import { backupMapHome } from "../utils/backupMapHome.js";
 import config from "@/clientConfig";
 import { useMapSearch } from "../hooks/useMapSearch";
 import { asset } from '@/lib/basePath';
@@ -64,10 +63,16 @@ export default function MapView({
         setIsLoading(true);
         window.cConfig = config();
 
-        let backupMapHomeTimeout = setTimeout(() => {
-            setMapHome(backupMapHome);
-            setIsLoading(false);
-        }, 5000);
+        // Lazy-load the ~70KB backupMapHome JSON only when the API is slow or
+        // unreachable, so it stays out of the home-page bundle.
+        const loadBackupFallback = () => {
+            import("../utils/backupMapHome.js").then(({ backupMapHome }) => {
+                setMapHome(backupMapHome);
+                setIsLoading(false);
+            });
+        };
+
+        let backupMapHomeTimeout = setTimeout(loadBackupFallback, 5000);
 
         const isAnon = !session?.token?.secret;
         const mapHomeUrl = window.cConfig.apiUrl + "/api/map/mapHome" + (isAnon ? "?anon=true" : "");
@@ -90,8 +95,8 @@ export default function MapView({
             clearTimeout(backupMapHomeTimeout);
         })
         .catch(() => {
-            setMapHome(backupMapHome);
-            setIsLoading(false);
+            clearTimeout(backupMapHomeTimeout);
+            loadBackupFallback();
         });
     }
 

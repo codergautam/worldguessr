@@ -5,7 +5,8 @@ import triggerConfetti from "./utils/triggerConfetti";
 import nameFromCode from "./utils/nameFromCode";
 import continentFromCode from "./utils/continentFromCode";
 import { continentKey } from "./utils/continentLocale";
-import findCountryLocal from "./findCountryLocal";
+import findCountryLocal, { findCountryLocalSync } from "./findCountryLocal";
+import { loadBorders } from "./utils/loadBorders";
 const QUIP_KEYS = {
   correct: Array.from({length: 24}, (_, i) => `quipCorrect${i+1}`),
   wrongSameContinent: Array.from({length: 20}, (_, i) => `quipWrongSame${i+1}`),
@@ -169,13 +170,32 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
 
     // On the world map, promote the country reveal when the guess landed in the
     // wrong country — that's the interesting signal, distance/points are secondary.
-    let wrongCountryName = null;
-    if (isClassicRound && (isWorldMap || dailyMode) && pinPoint && latLong?.country) {
-        const guessCountry = findCountryLocal({ lat: pinPoint.lat, lon: pinPoint.lng });
-        if (guessCountry && guessCountry !== "Unknown" && guessCountry !== latLong.country) {
-            wrongCountryName = nameFromCode(latLong.country, lang);
+    // Borders data is fetched lazily; on a cold first guess we may render once
+    // without the wrongCountry copy and then re-render once the data arrives.
+    const wantsWrongCountry = isClassicRound && (isWorldMap || dailyMode) && pinPoint && latLong?.country;
+    const [wrongCountryName, setWrongCountryName] = useState(null);
+    useEffect(() => {
+        if (!wantsWrongCountry) {
+            setWrongCountryName(null);
+            return;
         }
-    }
+        // Try sync (cached) first to avoid an extra render.
+        const sync = findCountryLocalSync({ lat: pinPoint.lat, lon: pinPoint.lng });
+        if (sync !== null) {
+            setWrongCountryName(sync && sync !== "Unknown" && sync !== latLong.country ? nameFromCode(latLong.country, lang) : null);
+            return;
+        }
+        let cancelled = false;
+        findCountryLocal({ lat: pinPoint.lat, lon: pinPoint.lng })
+            .then((guessCountry) => {
+                if (cancelled) return;
+                setWrongCountryName(guessCountry && guessCountry !== "Unknown" && guessCountry !== latLong.country ? nameFromCode(latLong.country, lang) : null);
+            })
+            .catch(() => {
+                if (!cancelled) setWrongCountryName(null);
+            });
+        return () => { cancelled = true; };
+    }, [wantsWrongCountry, pinPoint?.lat, pinPoint?.lng, latLong?.country, lang]);
 
     const distanceText = (pinPoint && km >= 0)
         ? text(`guessDistance${options.units === "imperial" ? "Mi" : "Km"}`, { d: options.units === "imperial" ? (km * 0.621371).toFixed(1) : km })

@@ -6,7 +6,7 @@ import countryMaxDists from '../../public/countryMaxDists.json' with {type: "jso
 import MapModel from "../../models/Map.js";
 import findLatLongRandom from '../../components/findLatLongServer.js';
 import {games, players } from '../../serverUtils/states.js';
-import { getRandomPointInCountry } from "../../components/randomLoc.js";
+import { getRandomPointInCountry } from "../../components/randomLoc.server.js";
 import lookup from "coordinate_to_country";
 import calcPoints from "../../components/calcPoints.js";
 import { boundingExtent } from "ol/extent.js";

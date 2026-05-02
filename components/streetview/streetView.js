@@ -19,12 +19,13 @@ const StreetView = ({
   const iframeRef = useRef(null);
   const prevLocationRef = useRef(null);
   const prevRefreshKeyRef = useRef(refreshKey);
-
   // Update iframe src when location or refreshKey changes
   // DON'T reset hasLoaded - keep showing old content until new loads
   useEffect(() => {
     if (iframeRef.current && (lat && long || panoId)) {
-      const newSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en`;
+      const headingParam = (heading !== null && heading !== undefined) ? `&heading=${heading}` : '';
+      const pitchParam = (pitch !== null && pitch !== undefined) ? `&pitch=${pitch}` : '';
+      const newSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en${headingParam}${pitchParam}`;
 
       const locationKey = `${lat}-${long}-${panoId}`;
       const locationChanged = prevLocationRef.current !== null && prevLocationRef.current !== locationKey;
@@ -58,8 +59,6 @@ const StreetView = ({
   //   `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
 
   // disable panoId
-  const iframeSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en`;
-
   return (
     <iframe
       ref={iframeRef}
