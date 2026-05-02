@@ -32,6 +32,21 @@ export function effectiveStreak({ streak, lastDate, graceDates, today }, opts = 
   return isStreakAlive({ lastDate, graceDates, today }, opts) ? streak : 0;
 }
 
+// True when the user's streak is currently alive ONLY because of the grace
+// window — i.e. they haven't played today, didn't play yesterday either, but
+// the 2-day-gap-with-unused-grace branch in isStreakAlive is keeping the
+// number on screen. Surfaces the "play today or you lose it" UX hint to the
+// landing page / menu badge. Returns false for guests (allowGrace=false) or
+// any case where the streak survives without leaning on grace.
+export function isGraceDay({ streak, lastDate, graceDates, today }, opts = {}) {
+  if (!streak || streak <= 0) return false;
+  if (opts.allowGrace === false) return false;
+  if (!lastDate || !today) return false;
+  const diff = daysBetween(lastDate, today);
+  if (diff !== 2) return false;
+  return pruneGraceDates(graceDates, today).length < 1;
+}
+
 // Incremental streak update — called on every submit. Matches the original
 // logic that used to live inline in api/dailyChallenge/submit.js.
 //

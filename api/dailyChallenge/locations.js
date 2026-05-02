@@ -1,4 +1,5 @@
 import ratelimiter from '../../components/utils/ratelimitMiddleware.js';
+import User from '../../models/User.js';
 import { getDailyLocations, isValidDailyDate, issueSessionToken, challengeNumberForDate } from '../../serverUtils/dailyChallenge.js';
 
 async function handler(req, res) {
@@ -6,9 +7,20 @@ async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { date } = req.query;
+  const { date, secret } = req.query;
   if (!date || !isValidDailyDate(date)) {
     return res.status(400).json({ error: 'Invalid or out-of-range date' });
+  }
+
+  // Honest banned users still hold a valid secret in localStorage; refuse to
+  // hand out locations + a fresh session token so the client surfaces the ban
+  // before they grind through three rounds. Anon callers (no secret) are
+  // unaffected — submit.js is the authoritative write-side gate.
+  if (secret && typeof secret === 'string') {
+    const user = await User.findOne({ secret }).select('banned').lean();
+    if (user?.banned) {
+      return res.status(403).json({ error: 'Account banned' });
+    }
   }
 
   try {

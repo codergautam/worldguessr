@@ -26,12 +26,24 @@ export function useTranslation() {
   const [storedLang, setStoredLang] = useState(null);
 
   useEffect(() => {
-    if(!pathLang) {
+    if(pathLang) return;
+
+    const readStored = () => {
       try {
         const stored = window.localStorage.getItem("lang");
         if(stored && langs.includes(stored)) setStoredLang(stored);
       } catch(e) {}
-    }
+    };
+
+    readStored();
+
+    const handler = (e) => {
+      const next = e?.detail;
+      if(next && langs.includes(next)) setStoredLang(next);
+      else readStored();
+    };
+    window.addEventListener('langChange', handler);
+    return () => window.removeEventListener('langChange', handler);
   }, [pathLang]);
 
   // URL path takes priority, then localStorage, then "en"
