@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<title>WorldGuessr Dev</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #0a0a0a;
+    color: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(env(safe-area-inset-top), 24px) 24px max(env(safe-area-inset-bottom), 24px);
+  }
+  .card { width: 100%; max-width: 420px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: #888; font-size: 14px; margin: 0 0 24px; }
+  label { display: block; font-size: 11px; color: #888; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.6px; }
+  input[type=url], input[type=text] {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    background: #1a1a1a;
+    color: #fff;
+    border: 1px solid #2a2a2a;
+    border-radius: 8px;
+    outline: none;
+    -webkit-appearance: none;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  input:focus { border-color: #4a4a4a; }
+  button {
+    width: 100%;
+    padding: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    background: #2563eb;
+    color: #fff;
+    border: 0;
+    border-radius: 8px;
+    margin-top: 10px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:active { background: #1d4ed8; }
+  button.secondary { background: transparent; color: #aaa; font-weight: 500; }
+  button.secondary:active { color: #fff; }
+  .countdown { font-size: 12px; color: #555; margin-top: 14px; text-align: center; min-height: 14px; }
+  .url-box { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; color: #f5f5f5; word-break: break-all; padding: 12px; background: #1a1a1a; border-radius: 6px; margin: 0 0 4px; }
+  .footer { font-size: 11px; color: #555; text-align: center; margin-top: 24px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>WorldGuessr Dev</h1>
+  <p class="sub">Local development build. The app loads from this URL.</p>
+
+  <div id="connect-view" hidden>
+    <label>Saved dev URL</label>
+    <div class="url-box" id="saved-url"></div>
+    <button id="connect">Connect</button>
+    <button class="secondary" id="edit">Change URL</button>
+    <div class="countdown" id="countdown"></div>
+  </div>
+
+  <div id="form-view" hidden>
+    <label for="url">Dev server URL</label>
+    <input id="url" type="url" placeholder="http://192.168.1.42:3000" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <button id="save">Save &amp; Connect</button>
+    <button class="secondary" id="cancel" hidden>Cancel</button>
+  </div>
+
+  <div class="footer">Saved between launches. Force-quit and relaunch to come back here.</div>
+</div>
+
+<script>
+(function () {
+  var KEY = "wg_dev_url";
+  var AUTO_DELAY_MS = 2000;
+
+  function read() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
+  function write(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+
+  var saved = read();
+
+  var connectView = document.getElementById("connect-view");
+  var formView = document.getElementById("form-view");
+  var savedUrlEl = document.getElementById("saved-url");
+  var countdownEl = document.getElementById("countdown");
+  var connectBtn = document.getElementById("connect");
+  var editBtn = document.getElementById("edit");
+  var saveBtn = document.getElementById("save");
+  var cancelBtn = document.getElementById("cancel");
+  var urlInput = document.getElementById("url");
+
+  var redirectTimer = null;
+  var tickTimer = null;
+
+  function cancelAutoConnect() {
+    if (redirectTimer) { clearTimeout(redirectTimer); redirectTimer = null; }
+    if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+    countdownEl.textContent = "";
+  }
+
+  function startAutoConnect() {
+    var remaining = AUTO_DELAY_MS;
+    countdownEl.textContent = "Auto-connecting in " + Math.ceil(remaining / 1000) + "s";
+    tickTimer = setInterval(function () {
+      remaining -= 100;
+      if (remaining <= 0) { clearInterval(tickTimer); tickTimer = null; return; }
+      countdownEl.textContent = "Auto-connecting in " + Math.ceil(remaining / 1000) + "s";
+    }, 100);
+    redirectTimer = setTimeout(connect, AUTO_DELAY_MS);
+  }
+
+  function showConnect() {
+    saved = read();
+    savedUrlEl.textContent = saved || "";
+    connectView.hidden = false;
+    formView.hidden = true;
+    startAutoConnect();
+  }
+
+  function showForm() {
+    cancelAutoConnect();
+    connectView.hidden = true;
+    formView.hidden = false;
+    cancelBtn.hidden = !saved;
+    if (saved) urlInput.value = saved;
+    setTimeout(function () { urlInput.focus(); }, 50);
+  }
+
+  function connect() {
+    cancelAutoConnect();
+    if (!saved) return;
+    location.replace(saved);
+  }
+
+  function save() {
+    var v = urlInput.value.trim();
+    if (!v) return;
+    if (!/^https?:\/\//i.test(v)) v = "http://" + v;
+    write(v);
+    saved = v;
+    location.replace(v);
+  }
+
+  connectBtn.addEventListener("click", connect);
+  editBtn.addEventListener("click", showForm);
+  saveBtn.addEventListener("click", save);
+  cancelBtn.addEventListener("click", showConnect);
+  urlInput.addEventListener("keydown", function (e) { if (e.key === "Enter") save(); });
+
+  if (saved) showConnect();
+  else showForm();
+})();
+</script>
+</body>
+</html>

@@ -9,6 +9,7 @@
     "dev:gd": "cross-env NEXT_PUBLIC_GAMEDISTRIBUTION=true npm run dev",
     "build": "cross-env next build",
     "build:mobile": "cross-env BUILD_TARGET=mobile next build && node scripts/sync-version.mjs && cap sync",
+    "build:dev-shell": "node scripts/build-dev-shell.mjs",
     "cap:sync": "cap sync",
     "cap:ios": "cap open ios",
     "cap:android": "cap open android",
