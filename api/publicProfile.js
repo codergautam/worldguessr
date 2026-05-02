@@ -2,15 +2,18 @@ import mongoose from 'mongoose';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import { getLeague } from '../components/utils/leagues.js';
 import { rateLimit } from '../utils/rateLimit.js';
+import { registerStat } from '../serverUtils/statRegistry.js';
 
 
 // Cache for profile data (userId -> {data, timestamp})
 const profileCache = new Map();
+registerStat('api/publicProfile.profileCache', () => profileCache.size);
 const CACHE_DURATION = 60000; // 60 seconds
 
 // In-memory store for IP -> profile views to prevent refresh spam
 // Format: "ip:userId" -> timestamp
 const profileViewTracking = new Map();
+registerStat('api/publicProfile.profileViewTracking', () => profileViewTracking.size);
 const VIEW_COOLDOWN = 5 * 60 * 1000; // 5 minutes - same IP can't count as a view again for 5 minutes
 
 // Cleanup old cache entries every 2 minutes

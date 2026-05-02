@@ -145,6 +145,35 @@ export default async function handler(req, res) {
       perModDailyMap[modId][entry._id.day] = entry.count;
     }
 
+    // Per-moderator daily reports handled (by reviewedBy.accountId)
+    const dailyReportsPerMod = await Report.aggregate([
+      {
+        $match: {
+          reviewedAt: { $gte: startOfMonth, $lt: endOfMonth },
+          status: { $ne: 'pending' },
+          'reviewedBy.accountId': { $exists: true }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            day: { $dayOfMonth: { date: '$reviewedAt', timezone: 'UTC' } },
+            moderatorId: '$reviewedBy.accountId'
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.day': 1 } }
+    ]);
+
+    const perModReportsMap = {};
+    for (const entry of dailyReportsPerMod) {
+      const modId = entry._id.moderatorId;
+      if (!staffIdSet.has(modId)) continue;
+      if (!perModReportsMap[modId]) perModReportsMap[modId] = {};
+      perModReportsMap[modId][entry._id.day] = entry.count;
+    }
+
     // Build daily data array for the month
     const daysInMonth = new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate();
     const dailyReports = [];
@@ -164,6 +193,15 @@ export default async function handler(req, res) {
       dailyByModerator[modId] = [];
       for (let day = 1; day <= daysInMonth; day++) {
         dailyByModerator[modId].push(perModDailyMap[modId][day] || 0);
+      }
+    }
+
+    // Build per-mod daily reports-handled arrays
+    const dailyReportsByModerator = {};
+    for (const modId of Object.keys(perModReportsMap)) {
+      dailyReportsByModerator[modId] = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        dailyReportsByModerator[modId].push(perModReportsMap[modId][day] || 0);
       }
     }
 
@@ -187,6 +225,7 @@ export default async function handler(req, res) {
       grandTotal,
       dailyReports,
       dailyByModerator,
+      dailyReportsByModerator,
       month: targetMonth,
       year: targetYear,
       availableMonths: availableMonths.map(m => ({ year: m._id.year, month: m._id.month }))

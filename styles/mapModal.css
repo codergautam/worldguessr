@@ -8,7 +8,59 @@
   --map-card-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   --map-border-radius: 8px;
   --map-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  --map-animation-duration: 0.4s;
+  --map-animation-duration: 0.25s;
+}
+
+/* Fullscreen map modal — open/close on the actual react-responsive-modal dialog node */
+@keyframes mapModalShellIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes mapModalShellOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@keyframes mapModalOverlayIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes mapModalOverlayOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Match library animation name + duration; easing complements the keyframes above */
+.g2_modal.map-modal-full.react-responsive-modal-modal {
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.map-modal-full-container.react-responsive-modal-container {
+  overflow-x: hidden !important;
+  overflow-y: hidden !important;
+  text-align: left !important;
 }
 
 /* Loading States */
@@ -41,42 +93,65 @@
   opacity: 0.8;
 }
 
-/* Map View Container */
+/* Map View Container
+   NOTE: previously used backdrop-filter: blur(50px) which was the primary cause
+   of GPU jank and white-flicker artifacts on low-end devices (Chromebooks).
+   A 50px blur over a tall scrollable region forces the compositor to re-sample
+   a huge underlying area on every paint, scroll, focus or layout change. We
+   replicate the frosted-depth feel here with a layered gradient + inset
+   highlight that costs essentially nothing on the GPU. */
 .mapView {
-  max-width: 1400px;
-  margin: 0 auto;
+  max-width: min(1400px, calc(100% - 32px));
+  margin: 16px auto;
   padding: 0 20px 100px;
-  animation: slideInUp var(--map-animation-duration) ease-out;
-  animation-fill-mode: forwards; /* Ensures animation stays in final state */
-  backdrop-filter: blur(50px);
+  background:
+    linear-gradient(180deg, rgba(8, 18, 12, 0.78) 0%, rgba(5, 12, 8, 0.82) 100%),
+    linear-gradient(135deg, rgba(36, 87, 52, 0.12) 0%, rgba(0, 0, 0, 0) 60%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--map-border-radius);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   -webkit-overflow-scrolling: touch;
 }
 
-
-.mapView.slideout_right {
-  animation: slideOutRight var(--map-animation-duration) ease-in forwards;
-}
-
-@keyframes slideInUp {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1);
   }
 }
 
-@keyframes slideOutRight {
+@keyframes fadeOut {
   from {
     opacity: 1;
-    transform: translateX(0);
+    transform: scale(1);
   }
   to {
     opacity: 0;
-    transform: translateX(100%);
+    transform: scale(0.98);
   }
+}
+
+/* Sticky Header
+   Was backdrop-filter: blur(20px) — re-blurred on every scroll which is the
+   worst possible time for the user to perceive jank. Solid gradient + soft
+   bottom shadow gives the same "floating header" depth without the GPU cost. */
+.map-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(180deg, rgba(15, 30, 20, 0.96) 0%, rgba(15, 30, 20, 0.92) 100%);
+  padding: 20px 0 10px;
+  margin: 0 -20px 20px;
+  padding-left: 20px;
+  padding-right: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+  border-top-left-radius: var(--map-border-radius);
+  border-top-right-radius: var(--map-border-radius);
 }
 
 /* Header Section */
@@ -84,9 +159,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 32px;
-  padding: 24px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 16px;
 }
 
 .map-header-left {
@@ -145,7 +218,7 @@
 
 /* Search Section */
 .map-search-section {
-  margin-bottom: 32px;
+  margin-bottom: 16px;
 }
 
 .map-search-container {
@@ -154,16 +227,20 @@
   margin: 0 auto;
 }
 
-.map-search-input {
+/* The compound `.map-search-section .map-search-input` selector outranks the
+   unscoped `input[type="text"]` rule in styles/multiPlayerModal.css (specificity
+   0,1,1) which otherwise wins and forces padding:10px / margin:10px onto this
+   input — that's what was causing the search icon to overlap the placeholder. */
+.map-search-section .map-search-input {
   width: 100%;
-  padding: 16px 24px 16px 56px;
+  padding: 12px 24px 12px 56px;
+  margin: 0;
   font-size: 1.1rem;
   border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 50px;
   background: rgba(255, 255, 255, 0.95);
   color: #333;
-  backdrop-filter: blur(10px);
-  transition: var(--map-transition);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
 }
 
@@ -188,14 +265,10 @@
   flex-wrap: wrap;
   justify-content: center;
   gap: 24px;
-  margin-bottom: 32px;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.05);
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.06);
   border-radius: var(--map-border-radius);
-  backdrop-filter: blur(10px);
-  opacity: 0;
-  transform: translateY(30px);
-  animation: slideInUp var(--map-animation-duration) ease-out 0.2s forwards;
 }
 
 .map-option {
@@ -247,30 +320,86 @@
   color: white;
 }
 
-/* All Countries Option */
+/* Category Pills Navigation */
+.map-category-pills {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+  justify-content: center;
+}
+
+.map-category-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.map-category-pill {
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--map-transition);
+}
+
+.map-category-pill:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* All Countries Option (legacy) */
 .all-countries-tile {
   display: flex;
   justify-content: center;
   margin-bottom: 32px;
-  opacity: 0;
-  transform: translateY(30px);
-  animation: slideInUp var(--map-animation-duration) ease-out 0.3s forwards;
 }
 
-/* Map Sections */
+/* Singleplayer Mode Tiles (World, Country Guesser, Continent Guesser) */
+.singleplayer-mode-tiles {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+  margin-top: 32px;
+  flex-wrap: wrap;
+}
+
+.singleplayer-mode-tiles .map-tile {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 800px) {
+  .singleplayer-mode-tiles {
+    gap: 10px;
+  }
+  .singleplayer-mode-tiles .map-tile {
+    width: 180px;
+  }
+}
+
+@media (max-width: 500px) {
+  .singleplayer-mode-tiles .map-tile {
+    width: 150px;
+  }
+}
+
+/* Map Sections
+   content-visibility: auto lets the browser skip layout/paint for any
+   section that isn't near the viewport. contain-intrinsic-size reserves
+   space so the scrollbar doesn't jump. This is the single biggest reason
+   the page feels "soft" on Chromebooks — only visible sections cost work. */
 .map-section {
   margin-bottom: 40px;
-  opacity: 0;
-  transform: translateY(30px);
-  animation: slideInUp var(--map-animation-duration) ease-out forwards;
-}
-
-.map-section:nth-child(odd) {
-  animation-delay: 0.1s;
-}
-
-.map-section:nth-child(even) {
-  animation-delay: 0.2s;
+  content-visibility: auto;
+  /* `auto` makes the browser remember each section's real size after first
+     paint, so scrollIntoView from the category pills lands accurately even
+     after a section has been recycled out of the viewport. */
+  contain-intrinsic-size: auto 360px;
 }
 
 .map-section-title {
@@ -294,109 +423,53 @@
   border-radius: 2px;
 }
 
-
-.comm_map_header {
-  padding-bottom: 10px;
-  font-size: clamp(1.2em, 2vw, 3em);
+/* Spotlight section — purple accent */
+.map-section--spotlight .map-section-title {
+  color: #d6b3ff;
 }
-.comm_map_category_header {
-  font-size: clamp(1.1em, 1.7vw, 2.8em);
+.map-section--spotlight .map-section-title::before {
+  background: linear-gradient(135deg, #7e3ff2, #b57bff);
+}
+.map-section--spotlight .map-tile {
+  border-color: rgba(157, 96, 255, 0.35);
+  background: linear-gradient(135deg, rgba(126, 63, 242, 0.22) 0%, rgba(75, 0, 130, 0.28) 100%);
+}
+.map-section--spotlight .map-tile::before {
+  background: linear-gradient(135deg, rgba(126, 63, 242, 0.18) 0%, rgba(75, 0, 130, 0.1) 100%);
+}
+.map-section--spotlight .map-tile:hover {
+  border-color: #b57bff;
+}
+
+/* Popular section — subtle golden accent */
+.map-section--popular .map-section-title {
+  color: #ffe7a8;
+}
+.map-section--popular .map-section-title::before {
+  background: linear-gradient(135deg, #d4a000, #ffd76a);
+}
+.map-section--popular .map-tile {
+  border-color: rgba(255, 200, 90, 0.28);
+  background: linear-gradient(135deg, rgba(212, 160, 0, 0.14) 0%, rgba(120, 85, 0, 0.18) 100%);
+}
+.map-section--popular .map-tile::before {
+  background: linear-gradient(135deg, rgba(255, 200, 90, 0.12) 0%, rgba(140, 95, 0, 0.06) 100%);
+}
+.map-section--popular .map-tile:hover {
+  border-color: #ffd76a;
 }
 
 /* Map Grid */
 .map-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 16px;
   padding: 0;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-}/* Default collapsed view - horizontal scrolling */
-.map-grid.collapsed {
-  /* grid-auto-flow: column; */
-  grid-template-rows: repeat(2, 1fr);
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Reduced from 240px */
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1);
-  scroll-behavior: smooth;
-  padding-bottom: 8px;
-  max-height: calc(2 * (120px + 16px)); /* Updated height calculation */
-  -webkit-overflow-scrolling: touch;
 }
 
-.map-grid.collapsed.country-maps {
-  grid-template-rows: repeat(2, 1fr);
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Reduced from 200px */
-  max-height: calc(2 * (120px + 16px)); /* Fixed height for country maps */
-}
-
-.map-grid.collapsed.popular-maps {
-  grid-template-rows: repeat(2, 1fr);
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Reduced from 240px */
-  max-height: calc(2 * (120px + 16px)); /* Reduced to 2 rows like other sections */
-}
-
-.map-grid.collapsed.spotlight-maps {
-  grid-template-rows: repeat(1, 1fr);
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  max-height: calc(1 * (120px + 16px)); /* Updated height for bigger tiles */
-}
-
-/* Small Mobile: spotlight shows one tile per row */
-@media (max-width: 480px) {
-  .map-grid.collapsed.spotlight-maps {
-    grid-template-columns: 1fr;
-    grid-template-rows: none;
-    max-height: none;
-  }
-}
-
-
-/* Expanded view - remove height/row constraints but KEEP column layout */
-.map-grid.expanded {
-  overflow: visible;
-  max-height: none;
-  grid-template-rows: none; /* Remove row constraints */
-  /* Inherit grid-template-columns from collapsed state to maintain tile layout */
-}
-
-/* Explicitly maintain grid columns when expanded */
-.map-grid.expanded {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-}
-
-.map-grid.expanded.country-maps {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-}
-
-.map-grid.expanded.popular-maps {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-}
-
-.map-grid.expanded.spotlight-maps {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-}
-
-/* Custom scrollbar for horizontal scrolling */
-.map-grid.collapsed::-webkit-scrollbar {
-  height: 6px;
-}
-
-.map-grid.collapsed::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-}
-
-.map-grid.collapsed::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
-  transition: background 0.3s ease;
-}
-
-.map-grid.collapsed::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.5);
+.map-grid.country-maps {
+  grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+  gap: 12px;
 }
 
 /* Show More/Less Button */
@@ -415,8 +488,7 @@
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
   position: relative;
   overflow: hidden;
 }
@@ -448,134 +520,145 @@
 }
 
 .map-section-container {
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: var(--map-border-radius);
-  padding: 20px;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  border: none;
   position: relative;
-  overflow: hidden;
-  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   -webkit-overflow-scrolling: touch;
 }
 
-
-
-/* Map Tiles */
+/* Map Tiles - Split Layout
+   Was backdrop-filter: blur(20px) PER TILE plus a transform-scale fadeIn —
+   meaning expanding a section that mounts ~100 new tiles created ~100 fresh
+   GPU compositing layers each demanding a backdrop re-sample, while the
+   scale animation simultaneously triggered paint work. That's the cause of
+   the expansion lag.
+   Replacement: a subtle 2-stop gradient (green tint top-left → black) with
+   an inset top highlight to fake the "lit-from-above glass card" depth, and
+   an opacity-only fadeIn on a translateY (transform-only, GPU-cheap). */
 .map-tile {
-  background: var(--map-card-bg);
+  background: linear-gradient(135deg, rgba(36, 87, 52, 0.20) 0%, rgba(0, 0, 0, 0.58) 100%);
   border-radius: var(--map-border-radius);
-  padding: 16px;
   cursor: pointer;
-  transition: var(--map-transition);
-  box-shadow: var(--map-card-shadow);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:
+    var(--map-card-shadow),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  height: 120px; /* Support 3 lines of text */
+  border: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   color: white;
 }
 
-.map-tile::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(36, 87, 52, 0.1) 0%, rgba(36, 87, 52, 0.05) 100%);
-  pointer-events: none;
+@media (prefers-reduced-motion: no-preference) {
+  .map-tile {
+    animation: tileFadeIn var(--map-animation-duration) cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+}
+
+@keyframes tileFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.map-tile-image,
+.map-tile-content {
+  position: relative;
+  z-index: 1;
 }
 
 .map-tile:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-  border-color: var(--map-primary);
-  background: rgba(0, 0, 0, 0.9);
+  transform: translateY(-2px);
+  border-color: var(--map-primary-light);
+  background: rgba(20, 36, 25, 0.92);
 }
 
-.map-tile.country {
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  color: white;
-  height: 120px; /* Fixed height for country tiles */
-}
-
-.map-tile.country::before {
-  background: linear-gradient(135deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.4) 100%);
-}
-
-.map-tile.country .map-tile__header {
+.map-tile-image {
+  width: 100%;
+  aspect-ratio: 21 / 9;
+  background-color: rgba(255, 255, 255, 0.04);
   position: relative;
-  z-index: 1;
+  overflow: hidden;
+}
+
+.map-tile.country .map-tile-image {
+  aspect-ratio: 16 / 9;
+}
+
+/* Real <img> inside the tile — browser handles loading="lazy" + async
+   decode so offscreen tiles cost nothing. The opacity transition is the
+   "beautiful" entrance: an image gracefully fades in once decoded. */
+.map-tile-image img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.map-tile-image img.loaded {
+  opacity: 1;
+}
+
+.map-tile-content {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.map-tile.country .map-tile-content {
+  padding: 8px 12px;
 }
 
 /* Map Tile Header */
-.map-tile__header {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  position: relative;
-  z-index: 1;
-}
-
 .map-tile__top-section {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 8px;
-  gap: 12px;
-}
-
-.map-tile__mapdetails {
+  gap: 6px;
   flex-grow: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-
-.map-tile__content {
-  flex-grow: 1;
-  height: 100%;
-  position: relative;
 }
 
 .map-tile__name {
-  font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.map-tile__name h3 {
+  font-size: 0.9rem;
   font-weight: 600;
   color: white;
-  margin: 0 0 6px 0;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  margin: 0;
+  line-height: 1.3;
   word-break: break-word;
   hyphens: auto;
 }
 
-.map-tile.country .map-tile__name {
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+.map-tile.country .map-tile__name h3 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
 }
 
 .map-tile__bottom-section {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
   gap: 8px;
-  margin: 0;
+  margin-top: auto;
 }
 
 .map-tile__author {
@@ -587,14 +670,25 @@
   line-height: 1.2;
   flex-grow: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.map-tile.country .map-tile__author {
-  color: rgba(255, 255, 255, 0.9);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+/* Location count — always visible, never shrinks. */
+.map-tile__author .map-tile__locations {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Username — shrinks and ellipses before the location count is touched. */
+.map-tile__author .map-tile__username {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Map Tile Actions */
@@ -609,26 +703,26 @@
 .map-tile__heart {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: rgba(220, 53, 69, 0.2);
-  border: 1px solid rgba(220, 53, 69, 0.4);
-  border-radius: 12px;
-  color: #dc3545;
-  font-size: 1rem;
+  gap: 3px;
+  padding: 3px 6px;
+  background: rgba(110, 20, 30, 0.65);
+  border: 1px solid rgba(220, 53, 69, 0.55);
+  border-radius: 8px;
+  color: #ff6b7a;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: var(--map-transition);
   white-space: nowrap;
+  justify-content: center;
 }
 
 .map-tile__heart:hover:not(.disabled) {
-  background: rgba(220, 53, 69, 0.3);
+  background: rgba(130, 25, 35, 0.8);
   transform: scale(1.05);
 }
 
 .map-tile__heart.disabled {
-  opacity: 0.5;
   cursor: not-allowed;
 }
 
@@ -647,8 +741,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 25px;
+  height: 25px;
   border-radius: 4px;
   border: none;
   cursor: pointer;
@@ -686,18 +780,19 @@
   font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
+  margin-top: 4px;
 }
 
 .map-tile__status.rejected {
-  background: rgba(220, 53, 69, 0.2);
-  color: #ff6b7a;
-  border: 1px solid rgba(220, 53, 69, 0.4);
+  background: rgba(220, 53, 69, 0.8);
+  color: white;
+  border: 1px solid rgba(220, 53, 69, 1);
 }
 
 .map-tile__status.in-review {
-  background: rgba(255, 193, 7, 0.2);
-  color: #ffd43b;
-  border: 1px solid rgba(255, 193, 7, 0.4);
+  background: rgba(255, 193, 7, 0.8);
+  color: #000;
+  border: 1px solid rgba(255, 193, 7, 1);
 }
 
 /* Review Options */
@@ -711,13 +806,14 @@
 }
 
 .map-tile__review-options button {
-  padding: 4px 8px;
+  padding: 8px 12px;
   border: none;
   border-radius: 4px;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: var(--map-transition);
+  min-height: 40px;
 }
 
 .map-tile__review-options .accept {
@@ -739,7 +835,7 @@
 }
 
 .map-tile__review-options label {
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.8);
   display: flex;
   align-items: center;
@@ -753,7 +849,7 @@
   background: rgba(220, 53, 69, 0.15);
   border-left: 2px solid #dc3545;
   border-radius: 0 4px 4px 0;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
   color: #ff6b7a;
   line-height: 1.3;
 }
@@ -795,30 +891,18 @@
   border-radius: 3px;
   font-weight: 500;
 }
-.map-grid {
-  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-              grid-template-rows 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-              grid-template-columns 0.5s cubic-bezier(0.4, 0, 0.2, 1),
-              overflow 0.3s ease 0.2s;
-}
-
-/* Fade in animation for newly visible tiles */
-.map-tile {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
 
 /* Responsive Design */
-@media (max-width: 1200px) {
-  .map-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  }
-}
-
 @media (max-width: 768px) {
   .mapView {
     padding: 0 16px 80px;
+  }
+
+  .map-sticky-header {
+    padding: 16px 0 8px;
+    margin: -16px -16px 16px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
 
   .map-header {
@@ -850,12 +934,21 @@
     padding: 16px;
   }
 
-  .map-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 14px;
+  .map-category-pills {
+    justify-content: flex-start;
   }
 
-  .map-search-input {
+  .map-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+  }
+
+  .map-grid.country-maps {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 10px;
+  }
+
+  .map-search-section .map-search-input {
     padding: 14px 20px 14px 48px;
     font-size: 1rem;
   }
@@ -870,12 +963,32 @@
     padding: 0 12px 60px;
   }
 
-  .map-tile {
-    padding: 12px;
-    min-height: 75px;
+  .map-sticky-header {
+    padding: 12px 0 8px;
+    margin: -12px -12px 12px;
+    padding-left: 12px;
+    padding-right: 12px;
   }
 
-  .map-tile__name {
+  .map-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+  }
+
+  .map-grid.country-maps {
+    grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+    gap: 8px;
+  }
+
+  .map-tile-content {
+    padding: 8px;
+  }
+
+  .map-tile.country .map-tile-content {
+    padding: 6px 8px;
+  }
+
+  .map-tile__name h3 {
     font-size: 0.85rem;
   }
 
@@ -884,7 +997,7 @@
   }
 
   .map-tile__heart {
-    padding: 3px 6px;
+    padding: 2px 5px;
     font-size: 0.7rem;
   }
 
@@ -893,13 +1006,12 @@
     padding: 10px 16px;
     font-size: 0.9rem;
   }
-
-  .map-grid {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  }
 }
 
-/* Make Map Form - Complete Redesign */
+/* Make Map Form - Complete Redesign
+   Removed backdrop-filter: blur(20px) — the form's bg is already 92% opaque
+   so the blur was perceptually invisible but still allocated a compositing
+   layer. The visual is unchanged. */
 .make-map-form {
   max-width: 800px;
   margin: 0 auto 24px;
@@ -907,10 +1019,11 @@
   background: rgba(15, 15, 15, 0.92);
   color: white;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(20px);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  animation: slideInUp var(--map-animation-duration) ease-out;
+  animation: fadeIn var(--map-animation-duration) ease-out;
 }
 
 .make-map-form h2 {
@@ -1267,316 +1380,18 @@
   color: #51cf66 !important;
 }
 
-/* Base */
-.map-grid.collapsed .map-tile { flex-shrink: 0; }
-
-/* ≤ 1400 px */
-@media (max-width: 1400px) {
-    .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-  }
-
-/* ≤ 1200 px */
-@media (max-width: 1200px) {
-  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-  .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-}
-
-/* ≤ 1000 px - Small desktop screens */
-@media (max-width: 1000px) {
-  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
-  .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
-}
-
-/* Height-based media queries for shorter screens */
-@media (max-height: 700px) {
-  .map-tile {
-    height: 105px; /* Support 3 lines on short screens */
-    padding: 8px;
-  }
-  
-  .map-tile__content {
-    height: 100%;
-    position: relative;
-  }
-  
-  .map-tile__top-section {
-    margin: 0;
-  }
-  
-  .map-tile__bottom-section {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    margin: 0;
-  }
-  
-  .map-tile.country {
-    height: 80px;
-  }
-  .map-tile__name {
-    font-size: 0.8rem;
-    margin: 0;
-  }
-  .map-tile__author {
-    font-size: 0.65rem;
-    margin: 0;
-  }
-  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-  .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
-}
-
-@media (max-height: 600px) {
-  .map-tile {
-    height: 100px; /* Support 3 lines on very short screens */
-    padding: 8px;
-  }
-  
-  .map-tile__content {
-    height: 100%;
-    position: relative;
-  }
-  
-  .map-tile__top-section {
-    margin: 0;
-  }
-  
-  .map-tile__bottom-section {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    margin: 0;
-  }
-  
-  .map-tile.country {
-    height: 60px;
-  }
-  .map-tile__name {
-    font-size: 0.75rem;
-    margin: 0;
-  }
-  .map-tile__author {
-    font-size: 0.6rem;
-    margin: 0;
-  }
-  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-}
-
-/* ≤ 768 px */
-@media (max-width: 768px) {
-  .make-map-form { margin: 0 16px 24px; padding: 24px 20px; }
-  .url-input-container { flex-direction: column; align-items: stretch; gap: 12px; }
-  .delete-button { align-self: flex-end; width: auto; padding: 8px 16px; }
-  .make-map-form > div[style*="alignItems"] { flex-direction: column; align-items: flex-start; gap: 8px; }
-
-  /* Completely redesigned compact mobile tiles */
-  .map-tile {
-    height: 75px; /* Compact for mobile */
-    min-height: 75px; /* Override any larger min-height */
-    padding: 8px;
-    position: relative;
-  }
-  
-  .map-tile__header {
-    height: 100%;
-    position: relative;
-  }
-  
-  .map-tile__mapdetails {
-    height: 100%;
-    position: relative;
-  }
-  
-  .map-tile__content {
-    height: 100%;
-    position: relative;
-  }
-  
-  .map-tile__top-section {
-    margin: 0;
-  }
-  
-  .map-tile__name {
-    font-size: 0.8rem;
-    line-height: 1.2;
-    margin: 0;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3; /* Allow 3 lines max */
-    line-clamp: 3;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    word-break: break-word;
-    max-height: 38px; /* 3 lines at 1.2 line height with smaller font */
-  }
-  
-  .map-tile__bottom-section {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    margin: 0;
-  }
-  
-  .map-tile__author {
-    font-size: 0.7rem;
-    margin: 0 !important;
-    height: 16px; /* Fixed height */
-    line-height: 16px; /* Consistent line height */
-    white-space: nowrap; /* Prevent wrapping that causes movement */
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .map-tile.country {
-    height: 55px;
-  }
-  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-  .show-more-btn { padding: 14px 20px; font-size: 0.95rem; }
-}
-
-/* ≤ 480 px */
-@media (max-width: 480px) {
-  .make-map-form { margin: 0 12px 20px; padding: 20px 16px; }
-  .make-map-form h2 { font-size: 1.5rem; }
-  .add-button { width: 100%; justify-content: center; }
-
-  .map-tile {
-    height: 70px; /* Compact for small screens */
-    min-height: 70px; /* Override any larger min-height */
-    padding: 6px;
-  }
-  
-  .map-tile__header {
-    height: 100%;
-  }
-  
-  .map-tile__mapdetails {
-    height: 100%;
-  }
-  
-  .map-tile__content {
-    height: 100%;
-    position: relative;
-  }
-  
-  .map-tile__top-section {
-    margin: 0;
-  }
-  
-  .map-tile__name {
-    font-size: 0.75rem;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    margin: 0;
-    -webkit-line-clamp: 3; /* Allow 3 lines */
-    line-clamp: 3;
-    word-break: break-word;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-height: 36px; /* 3 lines at smaller font */
-  }
-  
-  .map-tile__bottom-section {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    margin: 0;
-  }
-  
-  .map-tile.country {
-    height: 65px;
-  }
-  .map-tile__author {
-    font-size: 0.6rem;
-  }
-  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
-  .map-grid.collapsed.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-  .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
-  .show-more-btn { padding: 12px 16px; font-size: 0.9rem; margin-top: 12px; }
-}
-
-/* Extra small screens */
-@media (max-width: 360px) {
-  .map-tile {
-    height: 65px; /* Compact for very small screens */
-    min-height: 65px; /* Override any larger min-height */
-    padding: 6px;
-  }
-  .map-tile.country {
-    height: 50px;
-  }
-  .map-tile__name {
-    font-size: 0.7rem;
-  }
-  .map-tile__author {
-    font-size: 0.55rem;
-  }
-  .map-grid.collapsed { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
-  .map-grid.collapsed.country-maps { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
-  .map-grid.collapsed.spotlight-maps { grid-template-columns: 1fr !important; }
-  .map-grid.expanded { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 6px; }
-  .map-grid.expanded.country-maps { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
-  .map-grid.expanded.spotlight-maps { grid-template-columns: 1fr !important; }
-}
-
 /* iOS Safari specific fixes */
 @supports (-webkit-touch-callout: none) {
   .mapView {
     -webkit-overflow-scrolling: touch;
-    overflow-scrolling: touch;
-  }
-
-  .map-grid.collapsed {
-    -webkit-overflow-scrolling: touch;
-    overflow-scrolling: touch;
-    transform: translateZ(0);
   }
 
   .map-section-container {
     -webkit-overflow-scrolling: touch;
-    overflow-scrolling: touch;
-    transform: translateZ(0);
-  }
-
-  /* Fix for iOS sticky positioning issues */
-  .map-tile {
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
   }
 
   /* Prevent iOS zoom on input focus */
-  .map-search-input {
+  .map-search-section .map-search-input {
     font-size: 16px;
   }
 
@@ -1587,6 +1402,19 @@
   .make-map-form input[type="text"],
   .make-map-form textarea {
     font-size: 16px;
+  }
+}
+
+/* Respect reduced-motion: kill the image fade and the hover lift. */
+@media (prefers-reduced-motion: reduce) {
+  .map-tile-image img {
+    transition: none;
+    opacity: 1;
+  }
+  .map-tile,
+  .map-tile:hover {
+    transition: none;
+    transform: none;
   }
 }
 
@@ -1601,5 +1429,4 @@
     width: 100% !important;
     margin-left: 0 !important;
   }
-
 }

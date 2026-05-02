@@ -2,7 +2,7 @@ import Head from "next/head";
 import { useEffect } from "react";
 import { asset } from '@/lib/basePath';
 
-export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false }) {
+export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false, titleOverride, descOverride, canonicalOverride }) {
   useEffect(() => {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
@@ -82,17 +82,30 @@ ads.js"></script>*/
       script2.async = false;
       document.body.appendChild(script2);
 
-      // Also load NitroPay for optional CMG ads
-      window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
-      const nitroScript = document.createElement('script');
-      nitroScript.src = "https://s.nitropay.com/ads-2071.js";
-      nitroScript.async = true;
-      document.head.appendChild(nitroScript);
+      // Only load NitroPay if cmgopt flag is true
+      let nitroScript = null;
+      let unmounted = false;
+      fetch('https://www.worldguessr.com/cmgopt.txt')
+        .then(res => res.text())
+        .then(text => {
+          if (unmounted) return;
+          if (text.trim() === 'true') {
+            window.nitroAds=window.nitroAds||{createAd:function(){return new Promise(e=>{window.nitroAds.queue.push(["createAd",arguments,e])})},addUserToken:function(){window.nitroAds.queue.push(["addUserToken",arguments])},queue:[]};
+            nitroScript = document.createElement('script');
+            nitroScript.src = "https://s.nitropay.com/ads-2071.js";
+            nitroScript.async = true;
+            document.head.appendChild(nitroScript);
+          }
+        })
+        .catch(() => {});
 
       return () => {
+        unmounted = true;
         document.body.removeChild(script);
         document.body.removeChild(script2);
-        document.head.removeChild(nitroScript);
+        if (nitroScript && nitroScript.parentNode) {
+          document.head.removeChild(nitroScript);
+        }
       }
 
     }else if(process.env.NEXT_PUBLIC_POKI === "true") {
@@ -150,20 +163,25 @@ ads.js"></script>*/
     }
   }, []);
 
+  const resolvedTitle = titleOverride || (inCoolMathGames
+    ? "WorldGuessr - Play it now at CoolmathGames.com"
+    : text("tabTitle"));
+  const resolvedDesc = descOverride || text("shortDescMeta");
+  const resolvedOgTitle = titleOverride || text("fullTitle");
+  const resolvedOgDesc = descOverride || text("fullDescMeta");
+
   return (
           <Head>
-      <title>
-        { inCoolMathGames ? "WorldGuessr - Play it now at CoolmathGames.com" :
-        text("tabTitle") }
-        </title>
-    <meta property="og:title" content={text("fullTitle")}/>
+      <title>{resolvedTitle}</title>
+    <meta property="og:title" content={resolvedOgTitle}/>
 
     <meta name="description"
-    content={text("shortDescMeta")}
+    content={resolvedDesc}
     />
     <meta property="og:description"
-    content={text("fullDescMeta")}
+    content={resolvedOgDesc}
     />
+    {canonicalOverride && <link rel="canonical" href={canonicalOverride} />}
 
 <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no"/>
     <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />

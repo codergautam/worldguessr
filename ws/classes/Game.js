@@ -16,6 +16,7 @@ import GameModel from "../../models/Game.js";
 import User from "../../models/User.js";
 import UserStatsService from "../../components/utils/userStatsService.js";
 import shuffle from "../../utils/shuffle.js";
+import continentMapping from '../../public/continentMapping.json' with {type: "json"};
 
 export default class Game {
   constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
@@ -657,19 +658,48 @@ export default class Game {
 
       if(this.location === "all") {
 
-    for (let i = 0; i < this.rounds; i++) {
-      let loc;
-        // get n random from the list
-        loc = allLocations[Math.floor(Math.random() * allLocations.length)];
-        this.maxDist = 20000;
-        this.extent = null;
+    this.maxDist = 20000;
+    this.extent = null;
 
-      this.locations.push(loc);
+    if (!this.duel) {
+      // Public games: ensure at least 3 distinct continents
+      const MIN_CONTINENTS = 3;
+      const MAX_ATTEMPTS = 50;
+      let bestPick = [];
+      let bestContinentCount = 0;
 
-      this.sendAllPlayers({
-        type: 'generating',
-        generated: this.locations.length,
-      })
+      for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        const candidate = [];
+        for (let i = 0; i < this.rounds; i++) {
+          candidate.push(allLocations[Math.floor(Math.random() * allLocations.length)]);
+        }
+        const continents = new Set(candidate.map(l => continentMapping[l.country]).filter(Boolean));
+        if (continents.size >= MIN_CONTINENTS) {
+          bestPick = candidate;
+          break;
+        }
+        if (continents.size > bestContinentCount) {
+          bestContinentCount = continents.size;
+          bestPick = candidate;
+        }
+      }
+
+      for (const loc of bestPick) {
+        this.locations.push(loc);
+        this.sendAllPlayers({
+          type: 'generating',
+          generated: this.locations.length,
+        })
+      }
+    } else {
+      // Duels: pure random
+      for (let i = 0; i < this.rounds; i++) {
+        this.locations.push(allLocations[Math.floor(Math.random() * allLocations.length)]);
+        this.sendAllPlayers({
+          type: 'generating',
+          generated: this.locations.length,
+        })
+      }
     }
   } else {
 
@@ -713,7 +743,18 @@ export default class Game {
   sendAllPlayers(json) {
     for (const playerId of Object.keys(this.players)) {
       const p = players.get(playerId);
-      p.send(json);
+      if (!p) {
+        // Player was cleaned out of the global map (e.g. 30s disconnect purge
+        // in ws.js) but never removed from this.players. Drop the stale entry
+        // so we stop iterating it on every tick.
+        delete this.players[playerId];
+        continue;
+      }
+      try {
+        p.send(json);
+      } catch (e) {
+        console.error('sendAllPlayers: send failed for', playerId, e?.message);
+      }
     }
   }
   async end(leftUser) {

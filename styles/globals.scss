@@ -23,7 +23,6 @@
 }
 
 
-
 html * {
     margin: 0;
     font-family: "Lexend", sans-serif;
@@ -49,14 +48,18 @@ button {
 
 
 
+
 body,
 html {
-    touch-action: pan-x, pan-y !important;
+    touch-action: pan-x pan-y !important;
     background-color: #000000 !important;
+    padding: 0;
+    margin: 0;
 }
 
 /* Leaflet map optimizations for sharp rendering */
 .leaflet-container {
+    touch-action: none;
     image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
     image-rendering: pixelated;
@@ -105,6 +108,15 @@ html {
     }
 }
 
+.animatedLine {
+    opacity: 0;
+    animation: fadeLineIn 0.5s ease 0.1s forwards;
+}
+
+@keyframes fadeLineIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
 
 .home__content {
     //position: fixed;
@@ -138,7 +150,6 @@ html {
 .cshown {
     //left: 50%;
     opacity: 1;
-    animation: fadeIn 0.5s ease-in-out forwards;
     pointer-events: all;
     display: flex !important;
 }
@@ -173,7 +184,7 @@ html {
     gap: 10px;
 }
 .settingsModalInner {
-    margin-left: 10px;
+    margin-left: 32px;
     margin-right: 10px;
     width: max-content;
     display: flex;
@@ -196,9 +207,9 @@ html {
     }
 
     .settingsModalInner {
-        margin-left: 20px; /* Add 20px left spacing */
-        margin-right: 10px;
-        width: calc(100% - 30px); /* Adjust width to account for margins */
+        margin-left: 28px; /* Add left spacing */
+        margin-right: 14px;
+        width: calc(100% - 42px); /* Adjust width to account for margins */
         justify-content: space-between; /* Spread label and input evenly */
     }
 
@@ -215,8 +226,9 @@ html {
     }
 }
 .g2_modal {
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
+    height: 100svh;
     display: flex !important;
     position: absolute;
     object-fit: cover;
@@ -244,8 +256,9 @@ html {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
+  height: 100svh;
   z-index: 101;
   opacity: 0;
   visibility: hidden;
@@ -764,9 +777,11 @@ html {
     font-size: 1.5em;
     border-radius: 8px;
     pointer-events: all;
-    background-color: var(--primaryTransparent);
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradGreenBtn);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     padding: 1px 10px;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
 }
 
 .accountBtn.loggedIn {
@@ -840,7 +855,8 @@ html {
 }
 
 .accountBtn:hover {
-    background-color: var(--primary);
+    background: var(--primary);
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 // Green styling for account button during onboarding
@@ -858,6 +874,101 @@ html {
     transform: scale(1.05);
 }
 
+/* Logged-out "Login" button on the home screen.
+   Sized + styled to match the daily-landing CTA: solid `--primary` green,
+   `--primaryDark` border, 14px border-radius (less rounded than the old
+   50px pill), modest drop shadow, gentle hover lift + brighten. Bigger
+   padding + font so first-time visitors actually notice it.
+   Scoped to `.accountBtn:not(.loggedIn)` so the logged-in pill is untouched. */
+.accountBtn:not(.loggedIn) {
+    background: var(--primary);
+    border: 1.4px solid var(--primaryDark);
+    border-radius: 14px;
+    color: #fff;
+    font-weight: 600;
+    font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+    padding: 10px 28px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        background-color 0.25s ease;
+}
+
+.accountBtn:not(.loggedIn):hover {
+    background: #2c6a3f;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+    transform: translateY(-1px) scale(1.02);
+}
+
+.accountBtn:not(.loggedIn):active {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.accountBtn:not(.loggedIn):focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px rgba(36, 87, 52, 0.55),
+        0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* Subtle pop on the Google glyph on hover — same idea as the daily CTA's
+   icon nudge, just enough to feel responsive without overdoing it. */
+.accountBtn:not(.loggedIn) .home__squarebtnicon {
+    transition: transform 0.2s ease;
+}
+.accountBtn:not(.loggedIn):hover .home__squarebtnicon {
+    transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .accountBtn:not(.loggedIn):hover {
+        transform: none;
+    }
+}
+
+/* Logged-in pill (the username + flag chip in the top-right).
+   The "glitched" hover came from the generic `.accountBtn:hover` swapping
+   the gradient `var(--gradGreenBtn)` for the flat color `var(--primary)`,
+   which read as a brief flash. Match the FriendBtn's green palette for
+   consistency: solid `--primaryTransparent` base (no gradient → no swap
+   glitch) and `--primary` on hover, just like .friendBtn. */
+.accountBtn.loggedIn {
+    background: var(--primaryTransparent);
+    border: 1.4px solid var(--primaryDark);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition:
+        transform 0.2s ease,
+        box-shadow 0.25s ease,
+        background-color 0.25s ease;
+}
+
+.accountBtn.loggedIn:hover {
+    background: var(--primary);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: translateY(-1px) scale(1.03);
+}
+
+.accountBtn.loggedIn:active {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+
+.accountBtn.loggedIn:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px rgba(74, 154, 105, 0.55),
+        0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .accountBtn.loggedIn:hover {
+        transform: none;
+    }
+}
+
 .navBtn {
     font-size: 1.0em;
     width: auto;
@@ -866,6 +977,67 @@ html {
     padding-left: 10px;
     padding-right: 10px;
 }
+
+.onboardingTopRightBtns {
+    position: fixed;
+    top: 5px;
+    right: 10px;
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+}
+
+.onboardingTopRightBtns > * {
+    pointer-events: all;
+}
+
+/* Keep toasts above onboarding top-right controls */
+.Toastify__toast-container {
+    z-index: 10020 !important;
+}
+
+.onboardingJoinPartyBtn {
+    height: 42px;
+    min-width: 138px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.onboardingJoinPartyBtn__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px;
+    margin-right: 10px;
+    white-space: nowrap;
+}
+
+.onboardingLoginBtn {
+    display: flex;
+    align-items: center;
+}
+
+.onboardingLoginBtn .navBtn:not(.backBtn) {
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradGreenBtn);
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.onboardingLoginBtn .navBtn:not(.backBtn):hover {
+    background-color: var(--primary);
+    box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
+}
+
 
 @media screen and (max-width: 600px) {
     .navBtn {
@@ -1205,6 +1377,10 @@ h1, h2, h3, span, label {
     transform: translateY(0) scale(1);
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 1001;
+}
+
+.timer.onTop {
+    top: 10px;
 }
 
 .timer--two-line {
@@ -1673,6 +1849,8 @@ h1, h2, h3, span, label {
     z-index: 1000;
     transform: translateY(105%);
     opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
 }
 
 .gm-bundled-control-on-bottom {
@@ -1703,6 +1881,15 @@ h1, h2, h3, span, label {
 #miniMapArea.shown {
     opacity: 50%;
     transform: translateY(0%);
+    pointer-events: auto;
+}
+
+#miniMapArea.forceHidden {
+    opacity: 0 !important;
+    transform: translateY(105%) !important;
+    pointer-events: none !important;
+    transition: none !important;
+    animation: none !important;
 }
 
 
@@ -1837,6 +2024,26 @@ h1, h2, h3, span, label {
         right: 0;
         padding: 0 12px;
         gap: 10px;
+    }
+
+    /* WsIcon (top:125px, right:15px, 50px wide, 50px tall) collides with the
+       expanded-map button row only when the row's top edge (0.3H - 56px) falls
+       above 175px and its bottom edge (0.3H - 8px) falls below 125px — i.e.
+       portrait viewport heights ~444–770px. Reserve the right column only then
+       and only when the icon is actually mounted. */
+    @media (orientation: portrait) and (min-height: 444px) and (max-height: 770px) {
+        body.ws-icon-shown .mobile_minimap__btns.miniMapShown {
+            padding-right: 75px;
+        }
+    }
+
+    /* Landscape on short viewports: the round-details tile sits in the top-right
+       area and blocks the minimize button even beyond the WsIcon column. Shift
+       the row further left so the minimize clears both. */
+    @media (orientation: landscape) and (max-height: 515px) {
+        .mobile_minimap__btns.miniMapShown {
+            padding-right: 160px;
+        }
     }
 
     /* Mobile guess button when map is expanded */
@@ -2087,14 +2294,15 @@ h1, h2, h3, span, label {
     user-select: none;
     border: none !important;
     transition: all 100ms ease;
-    width: 100vw;
-    height: calc(100vh - 5px);
+    width: 100%;
+    height: 100%;
     box-sizing: border-box;
     border: 3px;
     box-sizing: border-box;
     opacity: 1;
     transition: all 0.5s;
     position: fixed !important;
+    touch-action: none;
 }
 
 .svframe {
@@ -2152,12 +2360,39 @@ h1, h2, h3, span, label {
     height: 100vh;
     opacity: 100%;
     right: 0;
-    top: 0px;
+    bottom: 0;
+    border-radius: 0;
     margin-right: 0;
     margin-top: 0;
-    transition: all 1000ms ease;
+    transition: all 300ms ease;
 }
 
+@media screen and (max-width: 600px) {
+    #miniMapArea.answerShown {
+        top: 0;
+        bottom: auto;
+        transition: none;
+    }
+}
+
+#miniMapArea.countryGuessrMapReveal {
+    transform: none;
+    animation: mapFadeReveal 0.5s ease forwards;
+}
+
+#miniMapArea.countryGuessrMapFadeOut {
+    animation: mapFadeOut 0.3s ease forwards;
+}
+
+@keyframes mapFadeReveal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes mapFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
 
 
 #miniMapArea.gameOver {
@@ -2188,17 +2423,19 @@ h1, h2, h3, span, label {
 }
 
 .countryCard {
-    flex: 1 0 20%; /* This will make each card take up approximately 1/3 of the container's width */
-    background: linear-gradient(135deg, #f6d365 0%, #fda085 100%);
-    margin: 10px;
-    padding: 5px;
-    border-radius: 10px;
-    box-shadow: 0px 10px 29px 0px rgba(0, 0, 0, 0.22);
-    height: 100px;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 200px;
+    background: linear-gradient(135deg, #1a3a28 0%, #0d1117 100%);
+    margin: 0;
+    padding: 0;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    height: 90px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.3s ease-in-out;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
     cursor: pointer;
 }
 
@@ -2213,21 +2450,23 @@ h1, h2, h3, span, label {
 }
 
 .countryCard:hover {
-    transform: scale(1.05);
+    transform: translateY(-3px) scale(1.03);
 }
 
 .countryName {
-    color: black;
-    background-color: white;
-    border: 1px solid black;
-    padding: 5px;
-    font-size: 1.2em;
+    color: white;
+    background: none;
+    border: none;
+    padding: 8px 12px;
+    font-size: 1.05em;
+    font-family: "Lexend", sans-serif;
+    font-weight: 600;
     text-align: center;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
 }
 
 #endBanner {
-    min-height: 150px;
+    min-height: auto;
     background: var(--gradLight);
     background-color: rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(10px);
@@ -2238,10 +2477,20 @@ h1, h2, h3, span, label {
     justify-content: center;
     align-items: center;
     left: 50%;
-    padding: 20px;
+    padding: 14px 20px 20px;
     margin-bottom: 10px;
     z-index: 1001;
     pointer-events: all;
+}
+
+#endBanner.countryGuessrDelayed {
+    pointer-events: none;
+    animation: bannerFadeIn 0.5s ease 0.8s both;
+}
+
+@keyframes bannerFadeIn {
+    from { opacity: 0; transform: translateY(12px); pointer-events: none; }
+    to { opacity: 1; transform: translateY(0); pointer-events: all; }
 }
 
 
@@ -2269,12 +2518,26 @@ h1, h2, h3, span, label {
     width: 100%;
     margin-top: 10px;
     bottom: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box;
     z-index: 100;
     justify-content: center;
     align-items: center;
     gap: 10px;
     z-index: 1001;
     font-family: lexend;
+}
+
+/* iOS landscape: keep the banner buttons away from the screen edges so taps
+   don't hit the home-indicator / edge-swipe zones and summon the pull tab. */
+@media (orientation: landscape) and (max-height: 500px) and (hover: none) {
+    .endCards {
+        padding-left: max(env(safe-area-inset-left), 16px);
+        padding-right: max(env(safe-area-inset-right), 16px);
+        padding-bottom: max(env(safe-area-inset-bottom), 8px);
+    }
 }
 
 @media screen and (max-width: 600px) {
@@ -2285,44 +2548,140 @@ h1, h2, h3, span, label {
 }
 
 .bannerContent {
-    font-size: min(clamp(1.6em, 2.5vw, 1.8em), clamp(1.4em, 3vh, 1.7em));
+    font-size: min(clamp(1.4em, 2.5vw, 1.6em), clamp(1.2em, 3vh, 1.5em));
     text-align: center;
     font-family: lexend;
     display: flex;
-    gap: 5px;
+    gap: 8px;
     flex-direction: column;
+    align-items: center;
+}
+
+.bannerContent .motivation {
+    margin: 0;
+    padding: 0;
 }
 
 
 
 .endButtonContainer {
     display: flex;
-    justify-content: space-around; /* Adjusts spacing between buttons */
-    align-items: center; /* Vertically centers buttons in the container */
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+    width: 100%;
 
     button {
         font-family: lexend;
-        font-size: 1em;
-        padding: 10px 20px;
-        margin: 5px;
+        font-size: 1.1em;
+        font-weight: 500;
+        padding: 12px 24px;
         background-color: var(--primaryTransparent);
-        border: 2px solid var(--primary);
+        border: 2px solid rgba(255, 255, 255, 0.2);
         color: white;
-        border: none;
-        border-radius: 5px;
+        border-radius: 8px;
         cursor: pointer;
-        transition: background-color 0.3s;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+
+        &:hover {
+            background-color: var(--primary);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        &:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
     }
 
-    button:hover {
-        background-color: #666;
+    button.playAgain {
+        font-size: 1.3em;
+        font-weight: 600;
+        padding: 16px 40px;
+        background: linear-gradient(135deg, var(--primary) 0%, #2e7042 100%);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+
+        &:hover {
+            background: linear-gradient(135deg, #2e7042 0%, #388a51 100%);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
     }
+}
+
+/* Pulsing glow on last onboarding round to draw attention to View Results */
+.lastRoundPulse {
+    animation: lastRoundPulse 1.5s ease-in-out infinite !important;
+    font-size: 1.35em !important;
+    padding: 16px 42px !important;
+}
+
+@keyframes lastRoundPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(36, 87, 52, 0.7); }
+    50% { box-shadow: 0 0 16px 6px rgba(36, 87, 52, 0.4); }
 }
 
 .mainBannerTxt {
     font-size: 1.2em;
     font-weight: 500;
     padding: 0px;
+    animation: bannerPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bannerPop {
+    0% { opacity: 0; transform: scale(0.85) translateY(8px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.streakBadge {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(255, 140, 0, 0.25) 0%, rgba(255, 69, 0, 0.2) 100%);
+    border: 1px solid rgba(255, 140, 0, 0.4);
+    border-radius: 20px;
+    padding: 4px 14px !important;
+    font-weight: 700 !important;
+    font-size: 1em !important;
+    animation: streakPulse 0.5s ease;
+}
+
+@keyframes streakPulse {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.encouragement {
+    font-style: italic;
+    opacity: 0.85;
+    font-size: 0.85em !important;
+}
+
+.quip {
+    font-style: italic;
+    opacity: 0.9;
+    font-size: 0.85em !important;
+    margin-top: 2px !important;
+}
+
+.bannerPoints {
+    font-weight: 100 900;
+    font-size: 0.95em !important;
+}
+
+.locationFact {
+    font-size: 0.8em !important;
+    color: rgba(255, 255, 255, 0.75);
+    max-width: 400px;
+    line-height: 1.4;
+    margin-top: 2px !important;
 }
 
 .smallmainBannerTxt {
@@ -2339,31 +2698,154 @@ h1, h2, h3, span, label {
 
 @media screen and (max-width: 600px) {
 
+    .bannerContent {
+        font-size: clamp(1rem, 4.5vw, 1.25rem);
+    }
 
     .motivation {
-        font-size: 0.6em;
+        font-size: 0.95em;
+    }
+
+    .quip {
+        font-size: 0.9em !important;
+    }
+
+    .encouragement {
+        font-size: 0.9em !important;
+    }
+
+    .bannerPoints {
+        font-size: 1.05em !important;
+    }
+
+    .locationFact {
+        font-size: 0.9em !important;
+        max-width: 320px;
+    }
+
+    .endButtonContainer button {
+        padding: 10px 20px !important;
+        font-size: 1em !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 14px 28px !important;
+        font-size: 1.15em !important;
     }
 
     .mainBannerTxt {
-        font-size: 0.8em;
+        font-size: 1.15em;
     }
 
     .smallmainBannerTxt {
-        font-size: 0.6em;
+        font-size: 0.9em;
     }
 
     @media screen and (max-height: 840px) {
         .mainBannerTxt {
-            font-size: 0.7em;
+            font-size: 1.05em;
         }
 
         .smallmainBannerTxt {
-            font-size: 0.6em;
+            font-size: 0.85em;
         }
 
         .motivation {
-            font-size: 0.5em;
+            font-size: 0.9em;
         }
+
+        .quip {
+            font-size: 0.85em !important;
+        }
+
+        .encouragement {
+            font-size: 0.85em !important;
+        }
+
+        .bannerPoints {
+            font-size: 0.95em !important;
+        }
+
+        .locationFact {
+            font-size: 0.8em !important;
+        }
+
+        .endButtonContainer button {
+            padding: 9px 16px !important;
+            font-size: 0.95em !important;
+        }
+        .endButtonContainer button.playAgain {
+            padding: 12px 24px !important;
+            font-size: 1.1em !important;
+        }
+    }
+}
+
+/* Landscape phones: banner was eating too much vertical space. Tighten padding,
+   gaps, and nudge font sizes down. Targets short-height viewports only so portrait
+   phones (height > 500px) keep the comfortable sizes above. */
+@media (orientation: landscape) and (max-height: 500px) {
+    #endBanner {
+        padding: 5px 14px 7px !important;
+        margin-bottom: 3px !important;
+        border-radius: 8px;
+    }
+
+    /* Default rule pushes this button 10px past the banner's right edge via a
+       translate — fine on desktop, but gets clipped on phone landscape where the
+       banner is tight. Keep it inside the padding box here. */
+    .topGameInfoButton {
+        transform: none !important;
+        align-self: flex-end;
+        padding: 2px 8px !important;
+        white-space: nowrap;
+    }
+
+    .bannerContent {
+        font-size: clamp(0.85rem, 3vh, 1.05rem) !important;
+        gap: 2px !important;
+    }
+
+    .mainBannerTxt {
+        font-size: 1em !important;
+    }
+
+    .smallmainBannerTxt {
+        font-size: 0.85em !important;
+    }
+
+    .motivation {
+        font-size: 0.82em !important;
+    }
+
+    .quip {
+        font-size: 0.78em !important;
+    }
+
+    .encouragement {
+        font-size: 0.78em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.9em !important;
+    }
+
+    .locationFact {
+        font-size: 0.72em !important;
+        max-width: 420px;
+    }
+
+    .endButtonContainer {
+        margin-top: 2px !important;
+    }
+
+    .endButtonContainer button {
+        padding: 6px 16px !important;
+        font-size: 0.85em !important;
+        margin: 2px !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px !important;
+        font-size: 1em !important;
     }
 }
 
@@ -2381,9 +2863,10 @@ h1, h2, h3, span, label {
 
 
 .multiplayerHome {
-    height: calc(100vh);
+    height: 100%;
+    height: 100svh;
     box-sizing: border-box;
-    width: 100vw;
+    width: 100%;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -2414,8 +2897,9 @@ h1, h2, h3, span, label {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
+    width: 100%;
+    height: 100%;
+    height: 100svh;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -2699,6 +3183,16 @@ input[placeholder="Please login to chat"] {
     100% {
         opacity: 0.8;
     }
+}
+
+.multiplayerLeaderboard.leaderboardFadingOut {
+    animation: fadeOutLb 500ms ease forwards;
+    pointer-events: none;
+}
+
+@keyframes fadeOutLb {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
 }
 
 .multiplayerLeaderboard {
@@ -2999,29 +3493,190 @@ img[alt="Google"] {
     position: fixed;
     z-index: 1000;
     display: none;
-    flex-direction: row;
-    bottom: 50px;
+    flex-direction: column;
+    align-items: center;
+    bottom: 30px;
     left: 50%;
-    width: 60%;
-    opacity: 0;
-    transform: translateX(-50%) translateY(-100%);
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 12px 14px;
+    gap: 8px;
+    /* Container itself ignores pointer events so users can pan/drag the
+       Street View through the empty padding around the buttons. The actual
+       buttons re-enable pointer events below. */
+    pointer-events: none;
+}
+
+.countryGuessrOptions .countryGuessrBtn {
+    pointer-events: auto;
 }
 
 .countryGuessrOptions.shown {
     display: flex;
-    animation: fadeIn 1s ease-in-out forwards;
-    transform: translateY(0%) translateX(-50%);
-    opacity: 1;
 }
 
-.countryGuessrCard {
-    background-color: #0F251D;
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    border: 3px solid #0a0c0b;
-    border-radius: 10px;
+.countryGuessrPrompt {
+    color: rgba(255, 255, 255, 0.85);
+    font-family: "Lexend", sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin: 0;
+    padding: 0;
 }
+
+.countryGuessrBtnRow {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: stretch;
+    pointer-events: all;
+}
+
+.countryGuessrBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 8px 12px;
+    min-width: 86px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    color: white;
+    opacity: 0;
+    transform: translateY(16px);
+    animation: cardSlideIn 0.35s ease forwards;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-3px);
+        border-color: #3fb950;
+        background: rgba(63, 185, 80, 0.1);
+        box-shadow: 0 4px 16px rgba(63, 185, 80, 0.15);
+    }
+
+    &:active {
+        transform: scale(0.96);
+        transition: transform 0.1s;
+    }
+}
+
+.countryGuessrBtn__flag {
+    width: 40px;
+    height: 27px;
+    object-fit: contain;
+    border-radius: 3px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.countryGuessrBtn__emoji {
+    font-size: 1.4rem;
+}
+
+img.countryGuessrBtn__emoji {
+    width: 30px;
+    height: 30px;
+}
+
+.countryGuessrBtn__name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.2;
+    /* One-line names keep country buttons the same height as continent
+       buttons. Long names like "United Kingdom" used to wrap to 2 lines and
+       made the country round visibly taller than the continent round. The
+       button's title attr surfaces the full name on hover. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.countryGuessrBtn--continent {
+    min-width: 78px;
+    padding: 6px 10px;
+}
+
+.countryGuessrBtn--noHover {
+    pointer-events: none;
+}
+
+@media screen and (min-width: 1200px) {
+    .countryGuessrPrompt {
+        font-size: 1rem;
+    }
+
+    .countryGuessrBtnRow {
+        gap: 12px;
+    }
+
+    .countryGuessrBtn {
+        padding: 11px 18px;
+        min-width: 112px;
+        gap: 7px;
+        border-radius: 14px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 60px;
+        height: 40px;
+        border-radius: 4px;
+    }
+
+    .countryGuessrBtn__emoji {
+        font-size: 1.9rem;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 36px;
+        height: 36px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.85rem;
+    }
+
+    .countryGuessrBtn--continent {
+        min-width: 95px;
+        padding: 10px 14px;
+    }
+
+    .countryGuessrOptions {
+        padding: 16px 18px;
+        gap: 10px;
+        border-radius: 18px;
+    }
+}
+
+/* Continent mode (6 buttons in a 70%-wide container) overflows a single row
+   on narrow viewports. Wrap into a 3+3 layout. Country mode (4 buttons, no
+   fixed container width) doesn't have this issue. Placed before the mobile
+   and landscape-phone blocks so those override with their own flex-basis. */
+@media (max-width: 900px) {
+    .countryGuessrOptions.continentMode .countryGuessrBtnRow {
+        flex-wrap: wrap;
+    }
+
+    .countryGuessrOptions.continentMode .countryGuessrBtn--continent {
+        flex: 1 1 30%;
+        min-width: 0;
+    }
+}
+
+
+@keyframes cardSlideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
 
 .onboardingDiv {
     position: fixed;
@@ -3052,20 +3707,141 @@ img[alt="Google"] {
 
 @media screen and (max-width: 600px), screen and (pointer:coarse) {
     .countryGuessrOptions {
-        bottom: 0;
-        width: 100%;
+        bottom: 8px;
+        width: calc(100% - 12px);
+        padding: 8px;
+        gap: 5px;
+        border-radius: 12px;
     }
 
-    .countryGuessrCard {
-        width: 100%;
-        height: 100px;
+    .countryGuessrPrompt {
+        font-size: 0.82rem;
     }
 
-    .onboardingDiv {
-        width: 80%;
-        top: 50px;
+    .countryGuessrBtnRow {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .countryGuessrBtn {
+        flex: 1 1 44%;
+        min-width: 0;
+        padding: 6px 5px;
+        gap: 3px;
+        border-radius: 9px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 38px;
+        height: 26px;
+        border-radius: 3px;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 32px;
+        height: 32px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.72rem;
+    }
+
+    .countryGuessrBtn--continent {
+        flex: 1 1 30%;
+        min-width: 0;
+        padding: 8px 5px;
+    }
+
+    /* Compact mode (singleplayer, non-onboarding) on mobile */
+    .compactMode.countryGuessrOptions {
+        padding: 8px;
+        gap: 5px;
+    }
+
+    .compactMode .countryGuessrBtnRow {
+        gap: 5px;
+    }
+
+    .compactMode .countryGuessrBtn {
+        padding: 8px 6px;
+        gap: 4px;
+        flex: 1 1 30%;
+    }
+
+    .compactMode .countryGuessrBtn__flag {
+        width: 40px;
+        height: 27px;
+    }
+
+    .compactMode img.countryGuessrBtn__emoji {
+        width: 36px;
+        height: 36px;
+    }
+
+    .compactMode .countryGuessrBtn__name {
+        font-size: 0.76rem;
+    }
+
+    .compactMode .countryGuessrBtn--continent {
+        padding: 8px 5px;
     }
 }
+
+/* Short viewports (landscape phones): collapse 4 country buttons to a single row
+   so the banner + buttons don't eat the full screen. 3/4 buttons fit at ~22-24%;
+   6 continent buttons still wrap nicely at 1 1 14%. */
+@media (max-height: 500px) and (pointer: coarse),
+       (max-height: 500px) and (max-width: 900px) {
+    .countryGuessrOptions {
+        bottom: 4px;
+        padding: 6px 8px;
+        gap: 3px;
+        border-radius: 10px;
+    }
+
+    .countryGuessrPrompt {
+        font-size: 0.72rem;
+    }
+
+    .countryGuessrBtnRow {
+        flex-wrap: nowrap;
+        gap: 4px;
+    }
+
+    .countryGuessrBtn {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 4px 3px;
+        gap: 2px;
+        border-radius: 8px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 30px;
+        height: 20px;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 24px;
+        height: 24px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.65rem;
+        line-height: 1.1;
+    }
+
+    .countryGuessrOptions.continentMode .countryGuessrBtnRow {
+        flex-wrap: wrap;
+    }
+
+    .countryGuessrBtn--continent {
+        flex: 1 1 14%;
+        padding: 4px 3px;
+    }
+}
+
 .leaflet-container {
     height: 100% !important;
     width: 100% !important;
@@ -3096,6 +3872,16 @@ img[alt="Google"] {
     transition: all 0.5s;
     opacity: 1;
     scale: 1;
+}
+
+/* Smooth fade-in when onboarding results screen mounts */
+.onboarding-results-reveal .round-over-screen {
+    animation: onboardingResultsFade 0.5s ease forwards;
+}
+
+@keyframes onboardingResultsFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 .round-over-screen.duel {
@@ -3926,10 +4712,10 @@ img[alt="Google"] {
     }
 
     /* Minimap even smaller */
-    #miniMapArea {
-        width: 120px !important;
-        height: 80px !important;
-    }
+    // #miniMapArea {
+    //     width: 120px !important;
+    //     height: 80px !important;
+    // }
 
     #miniMapContent {
         width: 120px !important;
@@ -3940,28 +4726,48 @@ img[alt="Google"] {
         bottom: 90px !important;
     }
 
-    /* End banner minimal */
+    /* End banner minimal — bumped up for iOS landscape readability */
     #endBanner {
-        min-height: 40px !important;
-        padding: 3px !important;
+        min-height: auto !important;
+        padding: 6px 12px !important;
     }
 
     .bannerContent {
-        font-size: 0.8em !important;
-        gap: 1px !important;
+        font-size: 0.9em !important;
+        gap: 2px !important;
     }
 
     .mainBannerTxt {
-        font-size: 0.6em !important;
+        font-size: 0.8em !important;
     }
 
     .motivation {
-        font-size: 0.5em !important;
+        font-size: 0.65em !important;
+    }
+
+    .quip {
+        font-size: 0.6em !important;
+    }
+
+    .encouragement {
+        font-size: 0.6em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.7em !important;
+    }
+
+    .locationFact {
+        font-size: 0.6em !important;
     }
 
     .endButtonContainer button {
-        padding: 2px 4px !important;
-        font-size: 0.5em !important;
+        padding: 6px 14px !important;
+        font-size: 0.85em !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px !important;
+        font-size: 1em !important;
     }
 
     /* Home page navigation separators constraint */
@@ -4088,9 +4894,29 @@ img[alt="Google"] {
         font-size: 0.7em;
     }
 
+    .quip {
+        font-size: 0.7em !important;
+    }
+
+    .encouragement {
+        font-size: 0.7em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.8em !important;
+    }
+
+    .locationFact {
+        font-size: 0.65em !important;
+    }
+
     .endButtonContainer button {
-        padding: 6px 12px;
-        font-size: 0.8em;
+        padding: 6px 14px;
+        font-size: 0.85em;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px;
+        font-size: 1em;
     }
 
     /* Round over content optimizations */
@@ -5489,5 +6315,679 @@ div:hover .elo-badge {
     &:hover {
         background: rgba(255, 255, 255, 0.25);
         transform: translateY(-1px);
+    }
+}
+
+/* ===== Welcome Modal ===== */
+.welcome-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    background: rgba(0, 0, 0, 0);
+    backdrop-filter: blur(0px);
+    transition: background 0.4s ease, backdrop-filter 0.4s ease;
+
+    &.visible {
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(6px);
+    }
+}
+
+.welcome-modal {
+    max-width: 440px;
+    width: 92%;
+    background: linear-gradient(160deg, #1a2e23 0%, #0d1117 100%);
+    border: 1px solid rgba(63, 185, 80, 0.2);
+    border-radius: 18px;
+    padding: 36px 28px 28px;
+    text-align: center;
+    color: white;
+    font-family: "Lexend", sans-serif;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+    opacity: 0;
+    transform: scale(0.92) translateY(12px);
+    transition: opacity 0.35s ease, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    &.visible {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.welcome-modal__hero {
+    font-size: 3rem;
+    margin-bottom: 4px;
+    animation: welcomePulse 2.5s ease-in-out infinite;
+}
+
+@keyframes welcomePulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+}
+
+.welcome-modal__title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #3fb950;
+    margin-bottom: 6px;
+}
+
+.welcome-modal__desc {
+    font-size: 0.92rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.55;
+    margin-bottom: 24px;
+    max-width: 340px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.welcome-modal__modes {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.welcome-modal__mode-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-align: left;
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.04);
+    color: white;
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    font-size: 0.9rem;
+    transition: transform 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+
+    &:hover {
+        transform: translateY(-2px);
+        border-color: #3fb950;
+        background: rgba(63, 185, 80, 0.06);
+        box-shadow: 0 4px 16px rgba(63, 185, 80, 0.1);
+    }
+
+    &:active {
+        transform: scale(0.98);
+    }
+
+    strong {
+        display: block;
+        font-size: 1rem;
+        margin-bottom: 2px;
+    }
+}
+
+.welcome-modal__mode-btn--recommended {
+    border-color: rgba(63, 185, 80, 0.35);
+    background: rgba(63, 185, 80, 0.06);
+}
+
+.welcome-modal__mode-badge {
+    position: absolute;
+    top: -9px;
+    right: 12px;
+    background: #3fb950;
+    color: #0d1117;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.welcome-modal__mode-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.welcome-modal__mode-sub {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
+}
+
+.welcome-modal__skip {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.8rem;
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    transition: color 0.2s;
+
+    &:hover {
+        color: rgba(255, 255, 255, 0.7);
+    }
+}
+
+/* ===== Onboarding Complete (Celebration + Keep Playing) ===== */
+.ob-complete {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1002;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    animation: onboardingResultsFade 0.5s ease forwards;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.ob-complete__modal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px;
+    gap: 14px;
+    max-width: 420px;
+    width: 100%;
+    max-height: 95vh;
+    overflow-y: auto;
+    border-radius: 20px;
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradFull);
+    backdrop-filter: blur(16px);
+    filter: drop-shadow(0px 8px 24px rgba(0, 0, 0, 0.5));
+    animation: fadeInUp 0.4s ease forwards;
+    box-sizing: border-box;
+}
+
+/* Celebration hero */
+.ob-complete__celebration {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 2px;
+    text-align: center;
+}
+
+.ob-complete__trophy {
+    font-size: 38px;
+    color: #ffd700;
+    filter: drop-shadow(0 4px 10px rgba(255, 215, 0, 0.45));
+    animation: obCompleteTrophyFloat 3s ease-in-out infinite;
+    margin-bottom: 2px;
+}
+
+.ob-complete__title {
+    font-family: "Lexend", sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.ob-complete__score-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.ob-complete__score-value {
+    font-family: "Lexend", sans-serif;
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: white;
+    line-height: 1;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    font-variant-numeric: tabular-nums;
+}
+
+.ob-complete__score-max {
+    font-family: "Lexend", sans-serif;
+    font-size: 1.1rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.ob-complete__score-label {
+    font-family: "Lexend", sans-serif;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.5);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+.ob-complete__prompt {
+    font-family: "Lexend", sans-serif;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 300;
+    margin: 0;
+    text-align: center;
+}
+
+/* Mode cards */
+.ob-complete__grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.ob-complete__card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1.4px solid var(--primaryDark);
+    border-left-width: 3px;
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    text-align: left;
+    transition: background 0.25s, transform 0.25s, box-shadow 0.25s;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.ob-complete__card:hover {
+    background-color: var(--primaryTransparent);
+    transform: translateX(2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ob-complete__card:active {
+    transform: scale(0.98);
+    transition: transform 0.1s;
+}
+
+.ob-complete__card--continue  { border-left-color: #4a90e2; }
+.ob-complete__card--classic   { border-left-color: #d14b6e; }
+.ob-complete__card--duel      { border-left-color: #f07a3e; }
+.ob-complete__card--community { border-left-color: #3eb07c; }
+.ob-complete__card--country   { border-left-color: #4a90e2; }
+
+.ob-complete__card-icon {
+    font-size: 1.3rem;
+    flex-shrink: 0;
+    color: rgba(255, 255, 255, 0.85);
+    display: flex;
+    align-items: center;
+}
+
+.ob-complete__card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.ob-complete__card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: white;
+}
+
+.ob-complete__card-desc {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.55);
+    font-weight: 300;
+    line-height: 1.35;
+}
+
+/* Home link */
+.ob-complete__home {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    font-size: 0.85rem;
+    transition: color 0.3s;
+}
+
+.ob-complete__home:hover {
+    color: white;
+}
+
+@keyframes obCompleteTrophyFloat {
+    0%, 100% { transform: translateY(0px); }
+    50%      { transform: translateY(-5px); }
+}
+
+/* Tablet / wide: 2-col grid with last odd card spanning both */
+@media (min-width: 520px) {
+    .ob-complete__modal {
+        padding: 28px 26px;
+        max-width: 460px;
+        gap: 16px;
+    }
+    .ob-complete__grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    .ob-complete__grid > .ob-complete__card:nth-child(3):last-child {
+        grid-column: span 2;
+    }
+    .ob-complete__score-value {
+        font-size: 2.8rem;
+    }
+}
+
+/* Short viewports (landscape phones): compact */
+@media (max-height: 600px) {
+    .ob-complete__trophy { font-size: 28px; }
+    .ob-complete__title { font-size: 1.3rem; }
+    .ob-complete__score-value { font-size: 1.9rem; }
+    .ob-complete__modal { gap: 10px; padding: 18px 16px; }
+    .ob-complete__card { padding: 10px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ob-complete,
+    .ob-complete__modal,
+    .ob-complete__trophy,
+    .ob-complete__card,
+    .ob-complete__signin {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* ===== Country Guesser Config ===== */
+.countryGuessr-config {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1000;
+    display: flex;
+    background-color: black;
+    background-size: cover;
+    background-position: center;
+    animation: fadeIn 0.3s ease forwards;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.countryGuessr-config__sidebar {
+    padding-top: 50px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    width: 30vw;
+    gap: 15px;
+    padding-left: 5vw;
+    background: linear-gradient(65deg, var(--gradTopBase)),
+                linear-gradient(90deg, var(--gradBottomBase));
+    animation: nav_slide_in 0.3s ease-in-out forwards;
+}
+
+.countryGuessr-config--selected {
+    color: aqua !important;
+    margin-left: 10px;
+}
+
+.countryGuessr-config__back {
+    margin-top: auto;
+    margin-bottom: 50px;
+}
+
+.countryGuessr-config__content {
+    flex-grow: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 50px 5vw;
+    overflow-y: auto;
+}
+
+.countryGuessr-config__heading {
+    color: white;
+    font-size: min(clamp(1.1em, 1.8vw, 2.3em), clamp(0.9em, 2.5vh, 2em));
+    font-weight: 300;
+    margin-bottom: 20px;
+    font-family: "Lexend", sans-serif;
+}
+
+.countryGuessr-config__regions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 30px;
+}
+
+.countryGuessr-config__region-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-radius: 15px;
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradLight);
+    backdrop-filter: blur(10px);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    font-size: 0.95rem;
+    transition: all 0.3s;
+
+    &.active {
+        background: var(--gradGreenBtn);
+        color: white;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+        transform: scale(1.03);
+    }
+
+    &:hover {
+        background-color: var(--primaryTransparent);
+        color: white;
+        transform: scale(1.05);
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    }
+}
+
+.countryGuessr-config__region-emoji {
+    font-size: 1.3rem;
+}
+
+.countryGuessr-config__warning {
+    color: #f0ad4e;
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    font-family: "Lexend", sans-serif;
+}
+
+.countryGuessr-config__play-btn {
+    width: 100%;
+    max-width: 300px;
+    font-size: min(clamp(1.3em, 2.5vw, 3em), clamp(1.1em, 3.5vh, 2.5em));
+    padding: 12px 0;
+    border-radius: 15px;
+}
+
+/* Country Guesser Config responsive */
+@media (max-aspect-ratio: 1/1.5) or (max-height: 600px) or (min-aspect-ratio: 3/1) {
+    .countryGuessr-config {
+        flex-direction: column;
+    }
+
+    .countryGuessr-config__sidebar {
+        width: 100%;
+        height: auto;
+        padding-top: 70px;
+        padding-right: 7vw;
+        gap: 5px;
+        background: linear-gradient(160deg, var(--gradTopBase)),
+                    linear-gradient(180deg, var(--gradBottomBase));
+    }
+
+    .countryGuessr-config__sidebar .g2_nav_group {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .countryGuessr-config__back {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .countryGuessr-config__content {
+        padding: 20px 5vw;
+        justify-content: flex-start;
+    }
+
+    .countryGuessr-config__regions {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        max-width: 100%;
+    }
+
+    .countryGuessr-config__play-btn {
+        max-width: 100%;
+    }
+}
+
+/* ===== Continent Mode Layout ===== */
+.countryGuessrOptions.continentMode {
+    width: 70%;
+    max-width: 750px;
+    gap: 6px;
+}
+
+/* ===== Post-Tutorial Screen ===== */
+.post-tutorial {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: 24px 20px 12px;
+    color: white;
+    font-family: "Lexend", sans-serif;
+    animation: fadeInUp 0.4s ease forwards;
+}
+
+.post-tutorial__title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #3fb950;
+    margin-bottom: 4px;
+}
+
+.post-tutorial__subtitle {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 16px;
+}
+
+.post-tutorial__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.post-tutorial__btn {
+    width: 260px;
+    font-size: 0.9rem !important;
+    padding: 12px 20px !important;
+}
+
+.post-tutorial__btn--alt {
+    opacity: 0.85;
+}
+
+.post-tutorial__link {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    font-size: 0.82rem;
+    text-decoration: underline;
+
+    &:hover {
+        color: rgba(255, 255, 255, 0.8);
+    }
+}
+
+/* ===== Tutorial Pill ===== */
+.tutorial-pill {
+    position: fixed;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1001;
+    background: rgba(63, 185, 80, 0.85);
+    color: white;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-family: "Lexend", sans-serif;
+    font-weight: 600;
+    backdrop-filter: blur(4px);
+}
+
+@media (max-width: 480px) {
+    .welcome-modal {
+        padding: 24px 18px 20px;
+        width: 95%;
+    }
+
+    .welcome-modal__hero {
+        font-size: 2.4rem;
+    }
+
+    .welcome-modal__title {
+        font-size: 1.4rem;
+    }
+
+    .welcome-modal__desc {
+        font-size: 0.85rem;
+    }
+
+    .welcome-modal__mode-btn {
+        padding: 14px 14px;
+        gap: 10px;
+    }
+
+    .welcome-modal__mode-badge {
+        font-size: 0.6rem;
+        top: -8px;
+        right: 8px;
+    }
+
+    .countryGuessrOptions.continentMode {
+        width: calc(100% - 12px);
+    }
+
+    .post-tutorial__btn {
+        width: 100%;
+        max-width: 280px;
     }
 }

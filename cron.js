@@ -272,56 +272,66 @@ const computeDailyLeaderboards = async () => {
 
 // Helper function to compute leaderboard for a specific mode (xp or elo)
 const computeLeaderboardForMode = async (mode, dayAgo) => {
-  const field = mode === 'xp' ? 'totalXp' : 'elo';
-
-  // Optimized aggregation pipeline with query timeout
+  // Only events that actually move XP/ELO contribute to the daily delta.
+  // weekly_update writes one row per user (millions) and was the dominant
+  // source of work; excluding it shrinks the working set massively.
+  //
+  // We use $top/$bottom (Mongo 5.2+) so $group can pick the latest/oldest doc
+  // per user without a global blocking $sort over the whole 24h slice. The
+  // pipeline becomes a streaming hash aggregation with one-doc accumulators.
+  const deltaField = mode === 'xp' ? 'xpDelta' : 'eloDelta';
   const pipeline = [
     {
       $match: {
-        timestamp: { $gte: dayAgo }
+        timestamp: { $gte: dayAgo },
+        triggerEvent: { $in: ['game_completed', 'elo_refund'] }
       }
     },
-    { $sort: { userId: 1, timestamp: -1 } },
     {
       $group: {
         _id: '$userId',
-        latestTotalXp: { $first: '$totalXp' },
-        latestElo: { $first: '$elo' },
-        oldestTotalXp: { $last: '$totalXp' },
-        oldestElo: { $last: '$elo' }
+        latest: {
+          $top: {
+            sortBy: { timestamp: -1 },
+            output: { totalXp: '$totalXp', elo: '$elo' }
+          }
+        },
+        oldest: {
+          $bottom: {
+            sortBy: { timestamp: -1 },
+            output: { totalXp: '$totalXp', elo: '$elo' }
+          }
+        }
       }
     },
     {
       $project: {
         userId: '$_id',
-        xpDelta: { $subtract: ['$latestTotalXp', '$oldestTotalXp'] },
-        eloDelta: { $subtract: ['$latestElo', '$oldestElo'] },
-        currentXp: '$latestTotalXp',
-        currentElo: '$latestElo'
+        xpDelta:    { $subtract: ['$latest.totalXp', '$oldest.totalXp'] },
+        eloDelta:   { $subtract: ['$latest.elo',     '$oldest.elo'] },
+        currentXp:  '$latest.totalXp',
+        currentElo: '$latest.elo'
       }
     },
-    {
-      $match: {
-        [mode === 'xp' ? 'xpDelta' : 'eloDelta']: { $gt: 0 }
-      }
-    },
-    {
-      $sort: {
-        [mode === 'xp' ? 'xpDelta' : 'eloDelta']: -1
-      }
-    },
+    { $match: { [deltaField]: { $gt: 0 } } },
+    { $sort:  { [deltaField]: -1 } },
     { $limit: 50000 }
   ];
 
   // Execute aggregation with maxTimeMS to prevent hanging
-  const userDeltas = await UserStats.aggregate(pipeline).option({ maxTimeMS: 30000 }); // 30 second timeout
+  const userDeltas = await UserStats.aggregate(pipeline)
+    .allowDiskUse(true)
+    .option({ maxTimeMS: 60000 });
 
-  const totalActiveUsers = userDeltas.length;
-
-  // Get user details for top 50k
+  // Get user details for top 50k. Exclude banned users and users with a
+  // pending forced name change so moderation actions remove them from this
+  // leaderboard on the next rebuild — without this, takeAction.js's scrub
+  // would silently undo itself every 15 minutes.
   const userIds = userDeltas.map(u => u.userId);
   const users = await User.find({
-    _id: { $in: userIds }
+    _id: { $in: userIds },
+    banned: { $ne: true },
+    pendingNameChange: { $ne: true }
   }).select('_id username countryCode supporter').lean().maxTimeMS(30000);
 
   // Create user lookup map
@@ -330,21 +340,25 @@ const computeLeaderboardForMode = async (mode, dayAgo) => {
     userMap.set(user._id.toString(), user);
   });
 
-  // Build final leaderboard with user details
-  const leaderboard = userDeltas.map((delta, index) => {
-    const user = userMap.get(delta.userId.toString());
-    return {
-      userId: delta.userId.toString(),
-      username: user?.username || 'Unknown',
-      delta: mode === 'xp' ? delta.xpDelta : delta.eloDelta,
-      currentValue: mode === 'xp' ? delta.currentXp : delta.currentElo,
-      rank: index + 1,
-      countryCode: user?.countryCode || null,
-      supporter: user?.supporter || false
-    };
-  });
+  // Build final leaderboard with user details — drop deltas whose user got
+  // filtered (banned / pending name change) before assigning ranks so the
+  // resulting list is contiguous.
+  const leaderboard = userDeltas
+    .filter(delta => userMap.has(delta.userId.toString()))
+    .map((delta, index) => {
+      const user = userMap.get(delta.userId.toString());
+      return {
+        userId: delta.userId.toString(),
+        username: user.username,
+        delta: mode === 'xp' ? delta.xpDelta : delta.eloDelta,
+        currentValue: mode === 'xp' ? delta.currentXp : delta.currentElo,
+        rank: index + 1,
+        countryCode: user.countryCode || null,
+        supporter: user.supporter || false
+      };
+    });
 
-  return { leaderboard, totalActiveUsers };
+  return { leaderboard, totalActiveUsers: leaderboard.length };
 };
 
 // Start the daily leaderboard computation timer

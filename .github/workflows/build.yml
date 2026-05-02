@@ -12,6 +12,7 @@ jobs:
       CI: false
       NEXT_PUBLIC_API_URL: api.worldguessr.com
       NEXT_PUBLIC_WS_HOST: server.worldguessr.com
+      NEXT_PUBLIC_AUTH_URL: gauth.worldguessr.com
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: 471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com
 
     steps:

@@ -44,12 +44,7 @@ export default async function handler(req, res) {
   if (typeof map.created_at === 'string') {
     map.created_at = new Date(map.created_at);
   }
-  // Get total location count efficiently without loading the array
-  const countResult = await Map.aggregate([
-    { $match: { slug } },
-    { $project: { locationcnt: { $size: { $ifNull: ["$data", []] } } } }
-  ]);
-  const locationcnt = countResult[0]?.locationcnt || 0;
+  const locationcnt = map?.locationsCnt;
 
   const authorId = map.created_by;
   const authorUser = await User.findById(authorId).lean();

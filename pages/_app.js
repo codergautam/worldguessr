@@ -3,57 +3,88 @@ import "@/styles/multiPlayerModal.css";
 import "@/styles/accountModal.css";
 import "@/styles/mapModal.css";
 import '@/styles/duel.css';
+import '@/styles/daily.scss';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
 import { useEffect } from "react";
-import { asset } from '@/lib/basePath';
+import { useRouter } from "next/router";
+import { asset, stripBase } from '@/lib/basePath';
+import installErrorTracking from '@/lib/errorTracking';
+import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvider';
 
 import '@smastrom/react-rating/style.css'
 
+// Install before hydration so console.error / window.error patches are live
+// when React replays render errors during initial mount.
+let __errorTrackingCleanup = null;
+if (typeof window !== 'undefined') {
+  __errorTrackingCleanup = installErrorTracking();
+  // Fast Refresh / HMR: tear down so edits to errorTracking.js take effect
+  // without a full page reload, and so we don't leak listeners across reloads.
+  if (typeof module !== 'undefined' && module.hot) {
+    module.hot.dispose(() => {
+      try {
+        __errorTrackingCleanup?.();
+      } catch (_) { /* noop */ }
+    });
+  }
+}
+
+const SUPPORTED_LOCALES = ["es", "fr", "de", "ru"];
+
 function App({ Component, pageProps }) {
+  const router = useRouter();
+
   useEffect(() => {
     // Set CSS custom properties for background images that need basePath
-    document.documentElement.style.setProperty('--bg-street2', `url("${asset('/street2.webp')}")`);
-  }, []);
+    const streetBackground = asset('/street2.webp');
+    document.documentElement.style.setProperty('--bg-street2', `url("${streetBackground}")`);
 
-  useEffect(() => {
-    const ignoredErrors = [
-      'ResizeObserver loop',
-      'net::ERR_',
-      'CORS',
-      'Script error',
-    ];
-    const shouldIgnore = (msg) => !msg || ignoredErrors.some((e) => msg.includes(e));
-
-    const handleError = (event) => {
-      if (shouldIgnore(event.message)) return;
-      window.gtag?.('event', 'exception', {
-        description: event.message,
-        fatal: false,
-      });
+    let cancelled = false;
+    const markAppReady = () => {
+      if (!cancelled) document.body.classList.add('app-ready');
     };
 
-    const handleRejection = (event) => {
-      const msg = event.reason?.message || '';
-      if (shouldIgnore(msg)) return;
-      window.gtag?.('event', 'exception', {
-        description: msg || 'Unhandled promise rejection',
-        fatal: false,
-      });
-    };
+    const backgroundImage = new window.Image();
+    backgroundImage.decoding = 'async';
+    backgroundImage.onload = markAppReady;
+    backgroundImage.onerror = markAppReady;
+    backgroundImage.src = streetBackground;
 
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleRejection);
+    if (backgroundImage.complete) markAppReady();
 
     return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleRejection);
+      cancelled = true;
+      backgroundImage.onload = null;
+      backgroundImage.onerror = null;
     };
   }, []);
 
+  // Auto-redirect first-time visitors at `/` to their device locale (es/fr/de/ru)
+  // if it's supported. Client-only so SSR / crawlers keep seeing English at `/`.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const path = stripBase(window.location.pathname || '/');
+      if (path !== '/') return; // only redirect from the bare root
+
+      // Skip if the user already picked a language (stored by /langSwitcher or prior visit)
+      const stored = window.localStorage.getItem("lang");
+      if (stored) return;
+
+      const code = (navigator.language || "").slice(0, 2).toLowerCase();
+      if (!SUPPORTED_LOCALES.includes(code)) return;
+
+      // Preserve query string / hash when redirecting
+      const search = window.location.search || '';
+      const hash = window.location.hash || '';
+      router.replace(`/${code}${search}${hash}`);
+    } catch (e) { /* noop — English fallback is fine */ }
+  }, [router]);
+
   return (
-    <>
+    <MultiplayerProvider>
       { process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID  ? (
       <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
       <Component {...pageProps} />
@@ -61,7 +92,7 @@ function App({ Component, pageProps }) {
       ) : (
         <Component {...pageProps} />
       )}
-    </>
+    </MultiplayerProvider>
   );
 }
 

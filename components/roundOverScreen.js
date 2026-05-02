@@ -12,6 +12,8 @@ import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
 import UsernameWithFlag from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
+import generateShareText from './utils/generateShareText';
+import sendEvent from './utils/sendEvent';
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -101,6 +103,7 @@ const GameSummary = ({
   const [animatedElo, setAnimatedElo] = useState(data?.oldElo || 0);
   const [stars, setStars] = useState([]);
   const [eloAnimationComplete, setEloAnimationComplete] = useState(false);
+
 
   // Initialize Leaflet icons from shared cache (icons created once globally)
   useEffect(() => {
@@ -221,24 +224,14 @@ const GameSummary = ({
       // zero to 30% - bronze star
       if (percentage <= 20) {
         newStars = [bronze];
-      } else if (percentage <= 30) {
+      } else if (percentage <= 40) {
         newStars = [bronze, bronze];
-      } else if (percentage <= 45) {
+      }  else if (percentage <= 50) {
         newStars = [bronze, bronze, bronze];
-      } else if (percentage <= 50) {
-        newStars = [silver, silver, bronze];
-      } else if (percentage <= 60) {
-        newStars = [silver, silver, silver];
-      } else if(percentage <= 62) {
-        newStars = [gold, silver, silver];
       } else if (percentage <= 65) {
-        newStars = [gold, gold, silver];
-      } else if (percentage <= 79) {
-        newStars = [gold, gold, gold];
-      } else if (percentage <= 82) {
-        newStars = [platinum, gold, gold];
+        newStars = [silver, silver, silver];
       } else if (percentage <= 85) {
-        newStars = [platinum, platinum, gold];
+        newStars = [gold, gold, gold];
       } else if (percentage <= 100) {
         newStars = [platinum, platinum, platinum];
       }
@@ -664,6 +657,28 @@ const GameSummary = ({
     return [];
   }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.public]);
 
+  // Compute the map's initial bounds from round locations + guesses up front
+  // so MapContainer mounts already fitted to them. Passing `bounds` to a v4
+  // MapContainer runs fitBounds at map creation, so the very first tile fetch
+  // hits the correct area — no split-second [0,0] / zoom 2 world-map flash
+  // before the fitMapToBounds effect snaps it later.
+  const initialBounds = useMemo(() => {
+    if (typeof window === 'undefined' || !window.L || !gameHistory?.length) {
+      return null;
+    }
+    const b = window.L.latLngBounds();
+    gameHistory.forEach((round) => {
+      if (round.lat != null && round.long != null) b.extend([round.lat, round.long]);
+      if (round.guessLat != null && round.guessLong != null) b.extend([round.guessLat, round.guessLong]);
+      if (round.players) {
+        Object.values(round.players).forEach((p) => {
+          if (p.lat != null && p.long != null) b.extend([p.lat, p.long]);
+        });
+      }
+    });
+    return b.isValid() ? b : null;
+  }, [gameHistory, leafletReady]);
+
   // Don't render until Leaflet is ready
   if (!leafletReady || !destIconRef.current || !srcIconRef.current || !src2IconRef.current) {
     return (
@@ -839,8 +854,9 @@ const GameSummary = ({
         <div className="game-summary-container">
           <div className="game-summary-map">
             <MapContainer
-              center={[0, 0]}
-              zoom={2}
+              {...(initialBounds
+                ? { bounds: initialBounds, boundsOptions: { padding: [20, 20] } }
+                : { center: [0, 0], zoom: 2 })}
               minZoom={1}
               maxZoom={18}
               worldCopyJump={false}
@@ -1261,8 +1277,9 @@ const GameSummary = ({
     <div className={`game-summary-container `}>
       <div className="game-summary-map">
         <MapContainer
-          center={[0, 0]}
-          zoom={2}
+          {...(initialBounds
+            ? { bounds: initialBounds, boundsOptions: { padding: [20, 20] } }
+            : { center: [0, 0], zoom: 2 })}
           minZoom={1}
           maxZoom={18}
           worldCopyJump={false}

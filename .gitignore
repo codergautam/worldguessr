@@ -48,7 +48,8 @@ public/wiki
 vali-data/*
 mapgens/*.txt
 mapgens/*-locations.json
-
+mapgens/*/*-locations.json
+mapgens/*/*.txt
 # Partytown (generated from node_modules)
 public/~partytown/
 mobile/node_modules/
@@ -56,3 +57,8 @@ mobile/.expo/
 mobile/dist/
 mobile/ios/
 mobile/android/
+mobile/
+.codex
+
+android/*
+ios/*

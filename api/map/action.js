@@ -15,6 +15,7 @@ import { Filter} from 'bad-words';
 const filter = new Filter();
 import countries from '../../public/countries.json' with { type: "json" };
 import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
+import { syncedClearCache } from '../../serverUtils/cacheBus.js';
 
 // Function to convert latitude and longitude to Cartesian coordinates
 function latLngToCartesian(lat, lng) {
@@ -80,6 +81,9 @@ async function validateMap(name, data, description_short, description_long, edit
   }
 
   const slug = generateSlug(name);
+  if(!slug) {
+    return 'Name must contain at least one Latin letter or number';
+  }
   if(slug === 'all' || countries.includes(slug.toUpperCase()) || Object.values(officialCountryMaps).find(map => map.slug === slug)) {
     // return res.status(400).json({ message: 'Please choose a different name' });
     return 'Please choose a different name';
@@ -150,9 +154,12 @@ export default async function handler(req, res) {
     return res.status(404).json({ message: 'User not found' });
   }
 
-  // prevent banned users from creating/editing maps
+  // prevent banned or force-name-changed users from creating/editing maps
   if(user.banned) {
     return res.status(403).json({ message: 'Your account is suspended. You cannot create or edit maps.' });
+  }
+  if(user.pendingNameChange) {
+    return res.status(403).json({ message: 'You must change your name before you can create or edit maps.' });
   }
 
   // creating map
@@ -169,6 +176,7 @@ export default async function handler(req, res) {
       name,
       created_by: user._id,
       data: validation.locationsData,
+      locationsCnt: validation.locationsData.length,
       description_short,
       description_long,
       maxDist: validation.maxDist,
@@ -190,9 +198,6 @@ export default async function handler(req, res) {
     if(!map) {
       return res.status(404).json({ message: 'Map not found' });
     }
-    if(!map.resubmittable) {
-      return res.status(400).json({ message: 'This map cannot be edited' });
-    }
     if(!user.staff && map.created_by.toString() !== user._id.toString()) {
       return res.status(403).json({ message: 'You do not have permission to edit this map' });
     }
@@ -205,6 +210,7 @@ export default async function handler(req, res) {
     // map.slug = validation.slug;
     map.name = name;
     map.data = validation.locationsData;
+    map.locationsCnt = validation.locationsData.length;
     map.description_short = description_short;
     map.description_long = description_long;
     // map.in_review= user.instant_accept_maps ? false : true;
@@ -216,6 +222,9 @@ export default async function handler(req, res) {
 
     await map.save();
 
+    // clear cache
+    syncedClearCache('mapLocations_'+map.slug);
+      
     return res.status(200).json({ message: 'Map edited', map });
   } else if(action === 'get') {
     if(!mapId) {

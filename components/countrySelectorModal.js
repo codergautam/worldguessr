@@ -5,7 +5,7 @@ import nameFromCode from './utils/nameFromCode';
 import { VALID_COUNTRY_CODES } from '@/serverUtils/timezoneToCountry';
 
 export default function CountrySelectorModal({ shown, onClose, currentCountry, onSelect, session, ws }) {
-  const { t: text } = useTranslation("common");
+  const { t: text, lang } = useTranslation("common");
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -14,10 +14,10 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
 
     const query = searchQuery.toLowerCase();
     return VALID_COUNTRY_CODES.filter(code => {
-      const name = nameFromCode(code);
+      const name = nameFromCode(code, lang);
       return name.toLowerCase().includes(query) || code.toLowerCase().includes(query);
     });
-  }, [searchQuery]);
+  }, [searchQuery, lang]);
 
   const handleSelect = async (countryCode) => {
     setSaving(true);
@@ -164,7 +164,7 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
                 }}
               />
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {nameFromCode(code)}
+                {nameFromCode(code, lang)}
               </span>
             </button>
           ))}

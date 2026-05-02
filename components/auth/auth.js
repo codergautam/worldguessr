@@ -1,7 +1,8 @@
 import { inIframe } from "../utils/inIframe";
 import { toast } from "react-toastify";
-import retryManager from "../utils/retryFetch";
+import { fetchWithFallback } from "../utils/retryFetch";
 import { useState, useEffect } from "react";
+import { claimGuestProgressIfAny, resetClaimGuestProgressState } from "../../utils/claimGuestProgress";
 
 // secret: userDb.secret, username: userDb.username, email: userDb.email, staff: userDb.staff, canMakeClues: userDb.canMakeClues, supporter: userDb.supporter
 let session = false;
@@ -16,6 +17,14 @@ function notifySessionChange() {
 
 export function signOut() {
   window.localStorage.removeItem("wg_secret");
+  // Guest id is cleared alongside the secret so a different account signing
+  // in on the same device can't auto-absorb the previous user's orphaned
+  // guest progress.
+  window.localStorage.removeItem("wg_guest_id");
+  // Drop any lingering claim result from this session — otherwise the next
+  // sign-in would consume a stale cached result instead of firing a fresh
+  // claim for the new guestId.
+  resetClaimGuestProgressState();
   session = null;
   notifySessionChange();
   if(window.dontReconnect) {
@@ -95,7 +104,7 @@ export function useSession() {
     }
   }
 
-  if(session === false && !window.fetchingSession && window.cConfig?.apiUrl) {
+  if(session === false && !window.fetchingSession && (window.cConfig?.authUrl || window.cConfig?.apiUrl)) {
     let secret = null;
     try {
 
@@ -111,7 +120,8 @@ export function useSession() {
     const authStartTime = performance.now();
     console.log(`[Auth] Starting authentication with retry mechanism (5s timeout, unlimited retries)`);
 
-    retryManager.fetchWithRetry(
+    fetchWithFallback(
+      (window.cConfig?.authUrl || window.cConfig?.apiUrl) + "/api/googleAuth",
       window.cConfig?.apiUrl + "/api/googleAuth",
       {
         method: "POST",
@@ -146,6 +156,11 @@ export function useSession() {
           session = {token: data};
           console.log(`[Auth] Session established for user:`, data.username);
           notifySessionChange();
+          // Merge any pre-signin guest daily progress into this account
+          // regardless of which page the user signed in from. The hook on the
+          // Daily screen will see the cached result via the shared helper and
+          // surface a toast. Fire-and-forget — failure shouldn't block auth.
+          claimGuestProgressIfAny(data.secret).catch(() => {});
         } else {
           console.log(`[Auth] No session data received, user not logged in`);
           session = null;

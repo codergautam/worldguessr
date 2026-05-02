@@ -151,15 +151,20 @@ export default class Player {
 
 
       if(dcPlayer.gameId && games.has(dcPlayer.gameId)) {
-        // reconnect to game
-        const game = games.get(dcPlayer.gameId);
-        game.rejoinGame(dcPlayer);
-        dcPlayer.send({
-          type: 'toast',
-          toastType: 'success',
-          key: 'reconnected',
-
-        });
+        if (json.skipRejoin) {
+          // Leave old game instead of rejoining (e.g. joining via party link)
+          const game = games.get(dcPlayer.gameId);
+          game.removePlayer(dcPlayer, true);
+        } else {
+          // reconnect to game
+          const game = games.get(dcPlayer.gameId);
+          game.rejoinGame(dcPlayer);
+          dcPlayer.send({
+            type: 'toast',
+            toastType: 'success',
+            key: 'reconnected',
+          });
+        }
       }
 
       // destroy this player
@@ -201,6 +206,7 @@ export default class Player {
 
         let valid;
         if(json.secret) {
+          console.log('validating secret', json.secret);
         valid =  await validateSecret(json.secret, User);
         }
         if (valid) {
@@ -361,6 +367,7 @@ export default class Player {
           this.allowFriendReq = valid.allowFriendReq;
 
         } else {
+          console.log('failed to login', json.secret);
           this.send({
             type: 'error',
             message: 'Failed to login',

@@ -1278,6 +1278,16 @@ app.ws('/wg', {
     if (players.has(ws.id)) {
       const player = players.get(ws.id);
 
+      // A reconnect can move this player id to a new websocket before the old
+      // socket's close event fires. Ignore the stale close so it does not mark
+      // the newly reconnected player as disconnected or remove them from games.
+      if (player.ws !== ws) {
+        if (playersInQueue.has(ws.id)) {
+          playersInQueue.delete(ws.id);
+        }
+        return;
+      }
+
       // handle case where user just made an account and name is not set
       if(!player.username) {
         // disconnect the player
@@ -1497,7 +1507,7 @@ try {
         if(game.curRound <= game.rounds) {
           game.curRound++;
           game.state = 'getready';
-          game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 5000: 0);
+          game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds && !game.duel ? 5000: 0);
           game.sendStateUpdate();
 
 
@@ -1520,7 +1530,6 @@ try {
         }
       }
 
-
       // find games that can be joined
       // unranked (meaning non duel) public games
       if (playersInQueue.size < 1) {
@@ -1530,6 +1539,9 @@ try {
         continue;
       }
       if (game.rounds - game.curRound < minRoundsRemaining) {
+        continue;
+      }
+      if (game.state === 'guess' && (game.nextEvtTime - Date.now()) < game.timePerRound / 3) {
         continue;
       }
       if (playerCnt >= game.maxPlayers) {

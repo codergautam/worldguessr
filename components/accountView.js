@@ -8,6 +8,7 @@ import XPGraph from "./XPGraph";
 import PendingNameChangeModal from "./pendingNameChangeModal";
 import CountrySelectorModal from "./countrySelectorModal";
 import CountryFlag from "./utils/countryFlag";
+import { fetchWithFallback } from "./utils/retryFetch";
 
 export default function AccountView({ accountData, setAccountData, supporter, eloData, session, setSession, isPublic = false, username = null, viewingPublicProfile = false, ws = null }) {
     const { t: text } = useTranslation("common");
@@ -58,13 +59,18 @@ export default function AccountView({ accountData, setAccountData, supporter, el
         const username = prompt(text("enterNewName"));
 
         window.settingName = true;
-        const response = await fetch(window.cConfig.apiUrl + '/api/setName', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+        const response = await fetchWithFallback(
+            (window.cConfig.authUrl || window.cConfig.apiUrl) + '/api/setName',
+            window.cConfig.apiUrl + '/api/setName',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username, token: secret })
             },
-            body: JSON.stringify({ username, token: secret })
-        });
+            'setName'
+        );
 
         if (response.ok) {
             window.settingName = false;
