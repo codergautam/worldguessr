@@ -2339,7 +2339,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 console.log("error requesting midgame ad", e)
                 adFinished()
             }
-        } else if (process.env.NEXT_PUBLIC_COOLMATH === "true" && Date.now() - window.lastCoolmathAd > 120000) {
+        } else if (process.env.NEXT_PUBLIC_COOLMATH === "true" && Date.now() - window.lastCoolmathAd > 600000) {
             try {
                 window.lastCoolmathAd = Date.now();
                 let cleanedUp = false;
