@@ -3126,9 +3126,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     </div>
                 )}
 
-                {!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
-
-                    <div className={`home_ad `} style={{ display: (screen === 'home' && (!inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION)) ? '' : 'none' }}>
+                {screen === 'home' && !inCrazyGames && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION &&
+                    <div className="home_ad">
                         <Ad
                             unit={"worldguessr_home_ad"}
                             inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={height < 510 ? [[300, 250]] : [[320, 50], [300, 250]]} screenW={width} vertThresh={width < 600 ? 0.28 : 0.5} />
