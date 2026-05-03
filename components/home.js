@@ -2342,18 +2342,40 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         } else if (process.env.NEXT_PUBLIC_COOLMATH === "true" && Date.now() - window.lastCoolmathAd > 120000) {
             try {
                 window.lastCoolmathAd = Date.now();
-                function onEnd() {
-                    adFinished()
-                    console.log("End midgame ad")
+                let cleanedUp = false;
+                let safetyTimeout = null;
+                const cleanup = () => {
+                    if (cleanedUp) return;
+                    cleanedUp = true;
+                    document.removeEventListener("adBreakStart", onStart);
                     document.removeEventListener("adBreakComplete", onEnd);
+                    if (safetyTimeout) {
+                        clearTimeout(safetyTimeout);
+                        safetyTimeout = null;
+                    }
+                };
+                function onEnd() {
+                    console.log("End midgame ad");
+                    cleanup();
+                    adFinished();
                 }
                 function onStart() {
-                    console.log("Start midgame ad")
-                    document.removeEventListener("adBreakStart", onStart);
+                    console.log("Start midgame ad");
+                    // Real ad started — cancel the no-fill fallback so it can't resume mid-ad.
+                    if (safetyTimeout) {
+                        clearTimeout(safetyTimeout);
+                        safetyTimeout = null;
+                    }
                 }
-                window.cmgAdBreak();
                 document.addEventListener("adBreakStart", onStart);
                 document.addEventListener("adBreakComplete", onEnd);
+                window.cmgAdBreak();
+                // Fallback: if adBreakComplete never fires (no fill, blocker), release listeners and resume.
+                safetyTimeout = setTimeout(() => {
+                    console.log("CMG ad timeout, forcing resume");
+                    cleanup();
+                    adFinished();
+                }, 15000);
             } catch (e) {
                 console.log("error requesting midgame ad", e)
                 adFinished()
@@ -2361,14 +2383,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         } else if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
             try {
                 if (typeof gdsdk !== 'undefined' && typeof gdsdk.showAd !== 'undefined') {
+                    // Clear any previous pending state to avoid leaking the prior closure.
+                    if (window._gdAdTimeout) {
+                        clearTimeout(window._gdAdTimeout);
+                        window._gdAdTimeout = null;
+                    }
                     window._gdAdFinished = adFinished;
                     // Safety timeout in case SDK events never fire (no fill, dev mode, errors)
                     window._gdAdTimeout = setTimeout(() => {
                         console.log("GD ad timeout, forcing resume");
-                        if (window._gdAdFinished) {
-                            window._gdAdFinished();
-                            window._gdAdFinished = null;
-                        }
+                        window._gdAdTimeout = null;
+                        const cb = window._gdAdFinished;
+                        window._gdAdFinished = null;
+                        if (cb) cb();
                     }, 15000);
                     gdsdk.showAd('interstitial');
                 } else {
