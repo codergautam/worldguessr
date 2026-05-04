@@ -2567,7 +2567,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         window.roundStartTime = performance.now();
         setLoading(true)
         if (!keepAnswer) setShowAnswer(false)
-        setPinPoint(null)
+        if (!keepAnswer) setPinPoint(null)
         if (!keepAnswer) setLatLong(null)
         setHintShown(false)
 

@@ -58,54 +58,28 @@ html {
 }
 
 /* Leaflet map optimizations for sharp rendering */
+// Leaflet manages its own GPU compositing on .leaflet-map-pane via
+// translate3d. Do NOT add additional transforms to the container, tile
+// containers, or individual tiles — extra GPU layers desynchronize the
+// tilePane from the overlayPane (where polylines/circles live), producing
+// visible lag of vector overlays behind tiles during pan/zoom.
 .leaflet-container {
     touch-action: none;
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-    image-rendering: pixelated;
-
-    /* Prevent blurriness on high-DPI screens */
-    -webkit-transform-origin: 0 0;
-    -ms-transform-origin: 0 0;
-    transform-origin: 0 0;
-
-    /* Hardware acceleration */
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
-
-    /* Ensure proper antialiasing */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    // Match Google Maps' empty-tile color. When the click handler shifts
+    // the camera through a 360° lng wrap, Leaflet briefly rebuilds the tile
+    // pane; this background fills the sub-frame gap with map-water blue
+    // instead of the bare-container gray.
+    background-color: #aadaff;
 }
 
-.leaflet-tile-container {
-    /* Prevent tile interpolation/smoothing */
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-    image-rendering: pixelated;
-}
-
-.leaflet-tile {
-    /* Ensure tiles load at full resolution */
-    image-rendering: auto;
-    image-rendering: -webkit-optimize-contrast;
-
-    /* Prevent blurry tiles */
-    -webkit-backface-visibility: hidden;
-    backface-visibility: hidden;
-
-    /* Hardware acceleration for tiles */
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
-}
-
-/* Fix for retina/high-DPI displays */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
-    .leaflet-container {
-        /* Better handling of high-DPI rendering */
-        -webkit-transform: scale(1);
-        transform: scale(1);
-    }
+.leaflet-camera-reset-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 10000;
+    pointer-events: none;
+    background-color: #aadaff;
 }
 
 .animatedLine {
@@ -1036,6 +1010,47 @@ html {
     background-color: var(--primary);
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
     transform: scale(1.05);
+}
+
+@media screen and (max-width: 600px) {
+    .onboardingTopRightBtns {
+        gap: 4px;
+        right: 6px;
+    }
+
+    .onboardingTopRightBtns .onboardingJoinPartyBtn {
+        height: 34px;
+        min-width: 104px;
+        padding-left: 6px;
+        padding-right: 6px;
+        font-size: 0.9em;
+    }
+
+    .onboardingJoinPartyBtn__content {
+        margin-left: 4px;
+        margin-right: 4px;
+    }
+
+    .onboardingLoginBtn .navBtn:not(.backBtn) {
+        min-height: 34px;
+        padding-left: 8px;
+        padding-right: 8px;
+        font-size: 0.9em;
+    }
+
+    .onboardingLoginBtn .navBtn:not(.backBtn) > div {
+        margin-left: 2px !important;
+        margin-right: 2px !important;
+    }
+
+    .onboardingLoginBtn .home__squarebtnicon {
+        width: 0.9em;
+        height: 0.9em;
+    }
+
+    .onboardingLoginBtn .navBtn:not(.backBtn) p {
+        font-size: 1em !important;
+    }
 }
 
 
@@ -2364,19 +2379,40 @@ h1, h2, h3, span, label {
     border-radius: 0;
     margin-right: 0;
     margin-top: 0;
-    transition: all 300ms ease;
+    // Explicit property list — `all` forces the browser to check transitions
+    // on every property, which adds style-recompute work per frame.
+    // `transform` and `opacity` must be here so the slide-out animation runs
+    // when `.shown` is removed (e.g. toggling map ↔ street view during the
+    // reveal): the base #miniMapArea has translateY(105%) + opacity 0 and we
+    // need to animate back to that, not snap.
+    transition:
+        width 300ms ease,
+        height 300ms ease,
+        top 300ms ease,
+        right 300ms ease,
+        bottom 300ms ease,
+        left 300ms ease,
+        border-radius 300ms ease,
+        margin 300ms ease,
+        transform 300ms ease,
+        opacity 300ms ease;
 }
 
 @media screen and (max-width: 600px) {
     #miniMapArea.answerShown {
         top: 0;
         bottom: auto;
-        transition: none;
+        transition:
+            transform 600ms ease,
+            opacity 600ms ease;
     }
 }
 
 #miniMapArea.countryGuessrMapReveal {
     transform: none;
+    // Country/continent modes mount the map only for the reveal. Snap straight
+    // to fullscreen and let the fade + Leaflet camera animation carry it.
+    transition: none;
     animation: mapFadeReveal 0.5s ease forwards;
 }
 
@@ -5622,11 +5658,10 @@ div[dir="ltr"] {
     background: #d4af37;
 }
 
-.leaflet-zoom-anim
-.leaflet-zoom-animated {
-    transition-timing-function: linear;
-    transition-duration: 100ms;
-}
+// (Removed) `.leaflet-zoom-anim .leaflet-zoom-animated { duration: 100ms }`
+// override desynced tile zoom from overlay-pane zoom — Leaflet manages its
+// own zoom-animation timing; overriding it makes polylines/circles visibly
+// lag behind tiles during zoom.
 
 // Modern Health Bar Styles with Animations
 .health-bar-container.modern {

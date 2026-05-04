@@ -28,7 +28,7 @@ const ONBOARDING_FACTS = [
 ];
 const ONBOARDING_AUTO_ADVANCE_SECONDS = 7;
 
-export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, isWorldMap, dailyMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown }) {
+export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, onboarding, countryGuesser, countryGuesserCorrect, guessTier, isContinentMode, isWorldMap, dailyMode, options, lostCountryStreak, session, guessed, latLong, pinPoint, countryStreak, fullReset, km, multiplayerState, usedHint, toggleMap, panoShown, setExplanationModalShown, mapFadingOut }) {
     const { t: text, lang } = useTranslation("common");
     const confettiTriggered = useRef(false);
     const autoAdvanceTimer = useRef(null);
@@ -36,7 +36,6 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     const revealStartedAt = useRef(0);
     const fullResetRef = useRef(fullReset);
     const [autoAdvanceCountdown, setAutoAdvanceCountdown] = useState(null);
-    const [hiding, setHiding] = useState(false);
     const shouldAutoAdvanceOnboarding = guessed && onboarding && !onboarding.completed && onboarding.mode !== 'classic';
 
     if (shouldAutoAdvanceOnboarding && !revealStartedAt.current) {
@@ -69,11 +68,6 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
             autoAdvanceTimeout.current = null;
         }
     }
-
-    // Reset hiding when new round starts
-    useEffect(() => {
-        if (guessed) setHiding(false);
-    }, [guessed]);
 
     const points = (!multiplayerState?.inGame && singlePlayerRound?.lastPoint != null)
         ? singlePlayerRound.lastPoint
@@ -109,8 +103,9 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
             const timeout = setTimeout(() => {
                 clearAutoAdvance();
                 setAutoAdvanceCountdown(0);
-                setHiding(true);
                 logOnboardingAdvance("timer-fired");
+                // fullReset → gameUI.advanceRound → setMapFadingOut(true),
+                // which hides this banner via the mapFadingOut prop.
                 fullResetRef.current({ source: "endBannerAutoAdvance" });
             }, duration * 1000);
             autoAdvanceTimer.current = interval;
@@ -202,7 +197,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
         : null;
 
     return (
-        <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !hiding ? '' : 'none' }}>
+        <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !mapFadingOut ? '' : 'none' }}>
 
             <button className="openInMaps topGameInfoButton" onClick={toggleMap}>
                 {panoShown ? text("showMap") : text("showPano")}
@@ -266,7 +261,6 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                     {onboarding && !onboarding.completed ? (
                         <button className={`playAgain${isLastRound ? ' lastRoundPulse' : ''}`} onClick={(event) => {
                             clearAutoAdvance();
-                            setHiding(true);
                             logOnboardingAdvance("manual-click", {
                                 pointerType: event?.nativeEvent?.pointerType,
                                 detail: event?.detail,
@@ -279,7 +273,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                             {`${isLastRound ? text("viewResults") : text("nextRound")}${autoAdvanceCountdown != null ? ` (${autoAdvanceCountdown})` : ''}`}
                         </button>
                     ) : (
-                        <button className="playAgain" onClick={() => { setHiding(true); fullReset(); }}>
+                        <button className="playAgain" onClick={() => { fullReset(); }}>
                             {isLastRound ? text("viewResults") : text("nextRound")}
                         </button>
                     )}
