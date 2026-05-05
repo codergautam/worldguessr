@@ -8,6 +8,11 @@
     "devclient": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon authServer.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch authServer.js --watch api/googleAuth.js --watch api/setName.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
     "dev:gd": "cross-env NEXT_PUBLIC_GAMEDISTRIBUTION=true npm run dev",
     "build": "cross-env next build",
+    "build:dev-shell": "node scripts/build-dev-shell.mjs",
+    "dev-origins": "node scripts/print-dev-origins.mjs",
+    "cap:sync": "cap sync",
+    "cap:ios": "cap run ios",
+    "cap:android": "cap run android",
     "start-api": "cross-env  NODE_ENV=production node server.js",
     "start-auth": "cross-env NODE_ENV=production node authServer.js",
     "start-ws": "cross-env UWS_HTTP_MAX_HEADERS_SIZE=16384 NODE_ENV=production node ws/ws",
@@ -15,7 +20,9 @@
     "heroku-postbuild": "cross-env  next build"
   },
   "dependencies": {
+    "@capacitor/android": "^7.6.2",
     "@capacitor/core": "^7.6.2",
+    "@capacitor/ios": "^7.6.2",
     "@googlemaps/js-api-loader": "^1.16.6",
     "@osm_borders/maritime_10m": "^1.1.0",
     "@react-oauth/google": "^0.12.1",
@@ -66,7 +73,7 @@
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.52.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.3.1",
+    "@capacitor/cli": "^7.6.2",
     "concurrently": "^9.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.1",

@@ -24,9 +24,6 @@
       "WebSearch",
       "Bash(npx next:*)",
       "WebFetch(domain:restcountries.com)"
-    ],
-    "deny": [
-      "Bash(git push:*)"
     ]
   }
 }

@@ -38,6 +38,21 @@ const nextConfig = {
     images: {
         unoptimized: true,
     },
+    // Next 15 enforces Origin checks on dev assets and HMR; the Capacitor
+    // WebView's Origin is the dev URL itself (see capacitor.config.ts native
+    // hook), so the host the request comes from is your LAN IP / tunnel host.
+    // Wildcards must have ≥2 segments. LAN IPs must be listed exactly — pipe
+    // them through NEXT_PUBLIC_DEV_ORIGINS (comma-separated). Run
+    // `pnpm dev-origins` to print a ready-to-paste line.
+    allowedDevOrigins: [
+        '*.local',
+        '*.ngrok-free.app',
+        '*.ngrok.app',
+        '*.trycloudflare.com',
+        '*.ts.net',
+        '127.0.0.1',
+        ...(process.env.NEXT_PUBLIC_DEV_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean) ?? []),
+    ],
     output: 'export',
     async rewrites() {
         return [
