@@ -1862,7 +1862,7 @@ h1, h2, h3, span, label {
     margin-left: auto;
     margin-right: 0px;
     z-index: 1000;
-    transform: translateY(105%);
+    transform: translateY(calc(100% + 16px));
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.4s ease;
@@ -1901,7 +1901,7 @@ h1, h2, h3, span, label {
 
 #miniMapArea.forceHidden {
     opacity: 0 !important;
-    transform: translateY(105%) !important;
+    transform: translateY(calc(100% + 16px)) !important;
     pointer-events: none !important;
     transition: none !important;
     animation: none !important;
@@ -1939,7 +1939,7 @@ h1, h2, h3, span, label {
 
 @media screen and (max-width: 600px), screen and (pointer:coarse) {
     #miniMapArea {
-        transform: translateY(100%);
+        transform: translateY(calc(100% + 16px));
         opacity: 0;
     }
 
