@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Dev IPA — permits cleartext HTTP to any host so the WebView can load
+  http://<lan-ip>:3000 (next dev). User CA trust is enabled to support
+  proxies / Charles inspection during dev. Do NOT ship this in a prod APK.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -34,7 +34,7 @@ jobs:
       run: npm i
 
     - name: Build GameDistribution version
-      run: npm run build
+      run: npm run build:prod
 
     - name: Get branch name
       id: branch
