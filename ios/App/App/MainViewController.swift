@@ -26,4 +26,30 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(WGDevShellPlugin())
     }
+
+    override open var canBecomeFirstResponder: Bool {
+        true
+    }
+
+    override open func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        becomeFirstResponder()
+    }
+
+    override open func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
+        guard motion == .motionShake else {
+            super.motionEnded(motion, with: event)
+            return
+        }
+
+        UserDefaults.standard.removeObject(forKey: MainViewController.prefsKey)
+        UserDefaults.standard.synchronize()
+        restart()
+    }
+
+    private func restart() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            exit(0)
+        }
+    }
 }

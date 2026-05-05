@@ -67,7 +67,7 @@
   <button class="secondary" id="forget" hidden>Forget saved URL</button>
   <div class="hint" id="hint"></div>
 
-  <div class="footer">URL is stored natively. Force-quit and relaunch from cold to come back here after a successful save.</div>
+  <div class="footer">URL is stored natively. Shake the phone later to reset it and return to this shell.</div>
 </div>
 
 <script>
@@ -104,6 +104,15 @@
     var v = urlInput.value.trim();
     if (!v) { hint.className = "hint err"; hint.textContent = "Enter a URL."; return; }
     if (!/^https?:\/\//i.test(v)) v = "http://" + v;
+    try {
+      var parsed = new URL(v);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error("bad protocol");
+      v = parsed.href.replace(/\/$/, "");
+    } catch (e) {
+      hint.className = "hint err";
+      hint.textContent = "Enter a valid http:// or https:// URL.";
+      return;
+    }
     saveBtn.disabled = true;
     hint.className = "hint";
     hint.textContent = "Saving and restarting…";
