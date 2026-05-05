@@ -22,6 +22,7 @@ import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
+import BackgroundMusic from "./BackgroundMusic";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
 
@@ -753,6 +754,11 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         : `free:${gameOptions?.location || 'all'}:${latLong?.lat ?? ''}:${latLong?.long ?? ''}`;
   return (
     <div className="gameUI">
+
+      <BackgroundMusic
+        round={onboarding?.round || singlePlayerRound?.round || multiplayerState?.gameData?.curRound || 1}
+        playing={!loading && !showAnswer && !(singlePlayerRound?.done) && !(onboarding?.completed)}
+      />
 
 { !onboarding && !inCrazyGames && !inCoolMathGames && !inGameDistribution && (!session?.token?.supporter) && !singlePlayerRound?.done && !onboarding?.completed && (
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
