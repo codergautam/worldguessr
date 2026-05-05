@@ -23,7 +23,7 @@ const config: CapacitorConfig = {
     allowNavigation: ['*'],
   },
   ios: {
-    contentInset: 'always',
+    contentInset: 'never',
     limitsNavigationsToAppBoundDomains: false,
     backgroundColor: '#000000',
   },

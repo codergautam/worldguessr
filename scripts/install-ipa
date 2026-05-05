@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export INSTALL_IPA_COMMAND="./install-ipa"
+exec "$ROOT/scripts/install-ipa-linux.sh" "$@"

@@ -1,0 +1,123 @@
+body.capacitor-native {
+  --wg-safe-top: env(safe-area-inset-top, 0px);
+}
+
+body.capacitor-native .timer {
+  top: calc(50px + var(--wg-safe-top));
+}
+
+body.capacitor-native .timer.onTop {
+  top: calc(10px + var(--wg-safe-top));
+}
+
+body.capacitor-native .timer.duel {
+  top: calc(100px + var(--wg-safe-top));
+}
+
+@media screen and (max-width: 830px) {
+  body.capacitor-native .timer.duel {
+    top: calc(40px + var(--wg-safe-top));
+  }
+}
+
+@media screen and (max-width: 540px) {
+  body.capacitor-native .timer.duel {
+    top: calc(110px + var(--wg-safe-top));
+  }
+}
+
+body.capacitor-native .topAdFixed {
+  top: calc(5px + var(--wg-safe-top));
+}
+
+@media screen and (max-width: 700px) {
+  body.capacitor-native .topAdFixed {
+    top: calc(50px + var(--wg-safe-top));
+  }
+
+  body.capacitor-native .topAdFixed.moreDown {
+    top: calc(100px + var(--wg-safe-top));
+  }
+}
+
+body.capacitor-native .accountBtn {
+  top: calc(50px + var(--wg-safe-top));
+}
+
+body.capacitor-native .accountBtn.loggedIn {
+  top: calc(10px + var(--wg-safe-top));
+}
+
+body.capacitor-native .friendBtnFixed {
+  top: calc(10px + var(--wg-safe-top));
+}
+
+@media screen and (max-width: 600px) {
+  body.capacitor-native .accountBtn {
+    top: calc(10px + var(--wg-safe-top));
+  }
+}
+
+body.capacitor-native .onboardingTopRightBtns {
+  top: calc(5px + var(--wg-safe-top));
+}
+
+body.capacitor-native .navbar {
+  top: var(--wg-safe-top);
+}
+
+body.capacitor-native .g2_nav_ui {
+  padding-top: calc(50px + var(--wg-safe-top));
+}
+
+body.capacitor-native .daily-community-maps-btn {
+  top: calc(100px + var(--wg-safe-top));
+}
+
+@media (max-width: 1280px) {
+  body.capacitor-native .daily-community-maps-btn {
+    top: calc(90px + var(--wg-safe-top));
+  }
+}
+
+@media (max-width: 600px) {
+  body.capacitor-native .daily-community-maps-btn {
+    top: calc(85px + var(--wg-safe-top));
+  }
+}
+
+body.capacitor-native .daily-community-maps-btn--below-login {
+  top: calc(110px + var(--wg-safe-top));
+}
+
+@media (max-width: 1280px) {
+  body.capacitor-native .daily-community-maps-btn--below-login {
+    top: calc(100px + var(--wg-safe-top));
+  }
+}
+
+@media (max-width: 600px) {
+  body.capacitor-native .daily-community-maps-btn--below-login {
+    top: calc(60px + var(--wg-safe-top));
+  }
+}
+
+body.capacitor-native .daily-round-badge {
+  top: calc(60px + var(--wg-safe-top));
+}
+
+body.capacitor-native .tutorial-pill {
+  top: calc(10px + var(--wg-safe-top));
+}
+
+body.capacitor-native .leagueBtn {
+  top: calc(60px + var(--wg-safe-top));
+}
+
+body.capacitor-native .hbparent [style*="position: fixed"][style*="top"] {
+  top: var(--wg-safe-top) !important;
+}
+
+body.capacitor-native .gameBtnContainer[style*="position: fixed"] {
+  top: calc(90px + var(--wg-safe-top)) !important;
+}

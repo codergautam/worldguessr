@@ -14,6 +14,7 @@
     "cap:sync": "cap sync",
     "cap:ios": "cap run ios",
     "cap:android": "cap run android",
+    "ios:install": "bash scripts/install-ipa-linux.sh",
     "start-api": "cross-env  NODE_ENV=production node server.js",
     "start-auth": "cross-env NODE_ENV=production node authServer.js",
     "start-ws": "cross-env UWS_HTTP_MAX_HEADERS_SIZE=16384 NODE_ENV=production node ws/ws",

@@ -4,6 +4,7 @@ import "@/styles/accountModal.css";
 import "@/styles/mapModal.css";
 import '@/styles/duel.css';
 import '@/styles/daily.scss';
+import '@/styles/capacitor.scss';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
@@ -37,6 +38,17 @@ function App({ Component, pageProps }) {
   const router = useRouter();
 
   useEffect(() => {
+    const platform = window.Capacitor?.getPlatform?.();
+    const isNativeCapacitor =
+      window.Capacitor?.isNativePlatform?.() ||
+      platform === 'ios' ||
+      platform === 'android' ||
+      !!window.webkit?.messageHandlers?.bridge;
+
+    document.body.classList.toggle('capacitor-native', !!isNativeCapacitor);
+    document.body.classList.toggle('capacitor-ios', platform === 'ios' || !!window.webkit?.messageHandlers?.bridge);
+    document.body.classList.toggle('capacitor-android', platform === 'android');
+
     // Set CSS custom properties for background images that need basePath
     const streetBackground = asset('/street2.webp');
     document.documentElement.style.setProperty('--bg-street2', `url("${streetBackground}")`);
@@ -56,6 +68,7 @@ function App({ Component, pageProps }) {
 
     return () => {
       cancelled = true;
+      document.body.classList.remove('capacitor-native', 'capacitor-ios', 'capacitor-android');
       backgroundImage.onload = null;
       backgroundImage.onerror = null;
     };
