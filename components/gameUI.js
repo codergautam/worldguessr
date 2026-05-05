@@ -14,7 +14,6 @@ import continentFromCode from "./utils/continentFromCode";
 import countryCoordinates from "../public/countryCoordinates.json";
 import ClueBanner from "./clueBanner";
 import ExplanationModal from "./explanationModal";
-import { toast } from "react-toastify";
 import sendEvent from "./utils/sendEvent";
 import Ad from "./bannerAdNitro";
 // import Ad from "./bannerAdAdinplay";
@@ -208,6 +207,46 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   }
 
+  // Single canonical "advance to next round" path used by every trigger
+  // (EndBanner button, space key, auto-advance). Without this, each caller
+  // had its own copy of the fade timing and only the one that was edited
+  // would have the fade — pressing the other path showed the raw size
+  // revert / slide-down.
+  //
+  // Country-guessr / onboarding (non-classic) want the keepAnswer flow so
+  // the answer overlay can fade out without resetting state. Singleplayer
+  // gets the three-phase fade → forceHidden window → slide-up choreography.
+  function advanceRound(advanceSource) {
+    const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
+    if (isCountryGuessrMode) {
+      setFadeOutMapLocation(latLong);
+      setMapFadingOut(true);
+      window._countryGuessrKeepAnswer = true;
+      loadLocationFunc(true, advanceSource);
+      setTimeout(() => {
+        setMapFadingOut(false);
+        setFadeOutMapLocation(null);
+        setShowAnswer(false);
+        setPinPoint(null);
+        window._countryGuessrKeepAnswer = false;
+      }, 300);
+    } else {
+      setFadeOutMapLocation(latLong);
+      setMapFadingOut(true);
+      loadLocationFunc(true, advanceSource);
+      setTimeout(() => {
+        setShowAnswer(false);
+        setMapFadingOut(false);
+        setFadeOutMapLocation(null);
+        setPinPoint(null);
+        setMapResetting(true);
+      }, 300);
+      setTimeout(() => {
+        setMapResetting(false);
+      }, 550);
+    }
+  }
+
 
   const { width, height } = useWindowDimensions();
   // how to determine if touch screen?
@@ -230,6 +269,11 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [guessTier, setGuessTier] = useState(null); // "correct" | "wrongSameContinent" | "wrongDiffContinent"
   const [guessedCountryCode, setGuessedCountryCode] = useState(null);
   const [mapFadingOut, setMapFadingOut] = useState(false);
+  const [fadeOutMapLocation, setFadeOutMapLocation] = useState(null);
+  // Set true during the singleplayer round-end window where the map needs
+  // to be force-hidden offscreen (between fade-out finishing and the slide-
+  // up starting). Driven into forceHideMiniMap below.
+  const [mapResetting, setMapResetting] = useState(false);
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardVisible, setLeaderboardVisible] = useState(false);
@@ -262,7 +306,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       setShowLeaderboard(true);
       setLeaderboardVisible(true);
     }
-  }, [inGetready, timeToNextMultiplayerEvt]);
+  }, [inGetready, timeToNextMultiplayerEvt, showLeaderboard]);
 
   useEffect(() => {
     if (!inGetready && showLeaderboard) {
@@ -271,7 +315,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       const timer = setTimeout(() => setShowLeaderboard(false), 500);
       return () => clearTimeout(timer);
     }
-  }, [inGetready]);
+  }, [inGetready, showLeaderboard]);
 
   useEffect(() => {
     if (!inCoolMathGames) return;
@@ -484,7 +528,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
           });
           if (elapsedMs < ONBOARDING_MIN_MANUAL_ADVANCE_MS) return;
         }
-        loadLocationFunc(undefined, "space-answer")
+        advanceRound("space-answer")
       }
     }
     // on space key press, guess
@@ -510,6 +554,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         multiplayerMapFadeTimerRef.current = null;
       }
       setMapFadingOut(false);
+      setFadeOutMapLocation(null);
       return;
     }
 
@@ -533,9 +578,11 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       if (multiplayerMapFadeTimerRef.current) {
         clearTimeout(multiplayerMapFadeTimerRef.current);
       }
+      setFadeOutMapLocation(latLong);
       setMapFadingOut(true);
       multiplayerMapFadeTimerRef.current = setTimeout(() => {
         setMapFadingOut(false);
+        setFadeOutMapLocation(null);
         multiplayerMapFadeTimerRef.current = null;
       }, 300);
     }
@@ -693,7 +740,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     (!singlePlayerRound?.done && !onboarding?.completed &&
       ((!showPanoOnResult && showAnswerOnMap) || (!showAnswerOnMap && !loading) || mapFadingOutForRender)) &&
     !(onboarding && !showAnswer && !mapFadingOutForRender && onboarding.mode !== 'classic');
-  const forceHideMiniMap = !!(multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswerOnMap);
+  const forceHideMiniMap = !!(
+    (multiplayerState?.inGame && multiplayerState?.gameData?.state === 'guess' && loading && !showAnswerOnMap)
+    || mapResetting
+  );
+  const mapLocationForRender = mapFadingOutForRender && fadeOutMapLocation ? fadeOutMapLocation : latLong;
+  const mapReadyForCameraReset = !welcomeOverlayShown && !forceHideMiniMap && !loading && !!mapLocationForRender;
   return (
     <div className="gameUI">
 
@@ -849,7 +901,7 @@ session={session}/>
           </button>
         </div>
 )}
-        <MapWidget shown={latLong && !loading} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={latLong} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} hidePins={mapFadingOutForRender} />
+        <MapWidget shown={mapReadyForCameraReset} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={mapLocationForRender} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} hidePins={false} stopCameraAnimations={mapFadingOutForRender || forceHideMiniMap} />
 
 
         <div className={`miniMap__btns ${showAnswerOnMap ? 'answerShownBtns' : ''}`}>
@@ -1053,20 +1105,8 @@ countryStreaksEnabled={gameOptions?.location === "all"}
 isWorldMap={gameOptions?.location === "all"}
 dailyMode={dailyMode}
 singlePlayerRound={singlePlayerRound} onboarding={onboarding} countryGuesser={countryGuesser} countryGuesserCorrect={countryGuesserCorrect} guessTier={guessTier} options={options} isContinentMode={onboarding?.mode === "continent" || (!onboarding && countryGuesser && otherOptions?.includes?.("Africa"))} countryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? continentGuessrStreak : countryGuessrStreak) : countryStreak} lostCountryStreak={countryGuesser ? (otherOptions?.includes?.("Africa") || onboarding?.mode === "continent" ? lostContinentGuessrStreak : lostCountryGuessrStreak) : lostCountryStreak} usedHint={hintShown} session={session}  guessed={showAnswer} latLong={latLong} pinPoint={pinPoint} fullReset={(advanceRequest)=>{
-  const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
-  if (isCountryGuessrMode) {
-    setMapFadingOut(true);
-    window._countryGuessrKeepAnswer = true;
-    loadLocationFunc(true, advanceRequest?.source || "endBanner");
-    setTimeout(() => {
-      setMapFadingOut(false);
-      setShowAnswer(false);
-      window._countryGuessrKeepAnswer = false;
-    }, 300);
-  } else {
-    loadLocationFunc();
-  }
-  }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} toggleMap={() => {
+  advanceRound(advanceRequest?.source || "endBanner");
+  }} km={km} setExplanationModalShown={setExplanationModalShown} multiplayerState={multiplayerState} mapFadingOut={mapFadingOut} toggleMap={() => {
     setShowPanoOnResult(!showPanoOnResult)
   }} panoShown={showPanoOnResult} />
 

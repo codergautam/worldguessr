@@ -13,7 +13,7 @@ import countries from './public/countries.json' with { type: "json" };
 import fs from 'fs';
 import path from 'path';
 
-import mainWorld from './public/world-main.json' with { type: "json" };
+import mainWorld from './data/world-main.json' with { type: "json" };
 import arbitraryWorld from './data/world-arbitrary.json' with { type: "json" };
 import pinpointableWorld from './data/world-pinpointable.json' with { type: "json" };
 import diverseWorld from './data/diverse-locations.json' with { type: "json" };
@@ -385,7 +385,7 @@ const SHUFFLE_INTERVAL = 30 * 1000; // Reshuffle every 30 seconds for freshness
 
 // Get override countries (countries with manual map overrides)
 const overrideCountries = [];
-const mapOverridesDir = path.join(process.cwd(), 'public', 'mapOverrides');
+const mapOverridesDir = path.join(process.cwd(), 'data', 'mapOverrides');
 const mapOverrideFiles = fs.readdirSync(mapOverridesDir).filter(file => file.endsWith('.json'));
 for (const file of mapOverrideFiles) {
   overrideCountries.push(file.split('.')[0]);
@@ -418,14 +418,18 @@ const initializeCountryPools = () => {
 
   // Group by country
   for (const loc of allLocations) {
-    const { lat, lng, country } = loc;
+    const { lat, lng, country, heading, pitch, panoId } = loc;
     if (!country) continue;
     if (overrideCountries.includes(country)) continue; // Skip overridden countries
 
     if (!countryPools[country]) {
       countryPools[country] = [];
     }
-    countryPools[country].push({ lat, long: lng, country });
+    const entry = { lat, long: lng, country };
+    if (heading !== undefined && heading !== null) entry.heading = heading;
+    if (pitch !== undefined && pitch !== null) entry.pitch = pitch;
+    if (panoId) entry.panoId = panoId;
+    countryPools[country].push(entry);
   }
 
   // Shuffle each pool and initialize offsets
@@ -553,10 +557,13 @@ const updateAllCountriesCache = async () => {
     const locations = [];
     for (const index of indexes) {
       try {
-        const { lat, lng, country } = mainWorld[index];
-        locations.push({ lat, long: lng, country });
+        const { lat, lng, country, heading, pitch, panoId } = mainWorld[index];
+        const entry = { lat, long: lng, country };
+        if (heading !== undefined && heading !== null) entry.heading = heading;
+        if (pitch !== undefined && pitch !== null) entry.pitch = pitch;
+        if (panoId) entry.panoId = panoId;
+        locations.push(entry);
       } catch (error) {
-        locations.push({ lat, long: lng });
         console.error('Error looking up country', error, index);
       }
     }

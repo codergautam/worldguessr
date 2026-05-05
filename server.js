@@ -287,7 +287,7 @@ registerStat('server.countryLocations', () => Object.keys(countryLocations).leng
 
 let rawOverrides = {};
 
-const mapOverridesDir = path.join(process.cwd(), 'public', 'mapOverrides');
+const mapOverridesDir = path.join(process.cwd(), 'data', 'mapOverrides');
 const mapOverrideFiles = fs.readdirSync(mapOverridesDir).filter(file => file.endsWith('.json'));
 
 for (const file of mapOverrideFiles) {
@@ -312,11 +312,15 @@ app.get('/countryLocations/:country', (req, res) => {
 
     if( rawOverrides[req.params.country]) {
       countryLocations[req.params.country].locations = shuffle(rawOverrides[req.params.country].customCoordinates).slice(0, 1000).map(loc => {
-        return {
+        const entry = {
           lat: loc.lat,
           long: loc.lng,
           country: req.params.country
-        }
+        };
+        if (loc.heading !== undefined && loc.heading !== null) entry.heading = loc.heading;
+        if (loc.pitch !== undefined && loc.pitch !== null) entry.pitch = loc.pitch;
+        if (loc.panoId) entry.panoId = loc.panoId;
+        return entry;
       });
 
       countryLocations[req.params.country].cacheUpdate = Date.now();
