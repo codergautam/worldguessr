@@ -336,14 +336,18 @@ const BoundsApplier = memo(function BoundsApplier({ bounds }) {
   return null;
 });
 
-const CameraAnimationStopper = memo(function CameraAnimationStopper({ active, resizingRef }) {
+const CameraAnimationStopper = memo(function CameraAnimationStopper({ active, cameraCancelKey, resizingRef }) {
   const map = useMap();
+  const lastCameraCancelKeyRef = useRef(cameraCancelKey);
   useLayoutEffect(() => {
-    if (!map || !active) return;
+    if (!map) return;
+    const cancelKeyChanged = lastCameraCancelKeyRef.current !== cameraCancelKey;
+    lastCameraCancelKeyRef.current = cameraCancelKey;
+    if (!active && !cancelKeyChanged) return;
     resizingRef.current = false;
     stopMapAnimations(map);
     try { map.invalidateSize({ pan: false, animate: false }); } catch {}
-  }, [map, active, resizingRef]);
+  }, [map, active, cameraCancelKey, resizingRef]);
   return null;
 });
 
@@ -463,7 +467,7 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, re
  *      flyTo's cached pixel transform stays valid the whole time.
  */
 const RevealController = memo(function RevealController({
-  answerShown, dest, pinPoint, countryGuessPin, resizingRef, stopCameraAnimations,
+  answerShown, dest, pinPoint, countryGuessPin, resizingRef, stopCameraAnimations, cameraCancelKey,
 }) {
   const map = useMap();
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
@@ -558,7 +562,7 @@ const RevealController = memo(function RevealController({
     return () => { cancelled = true; cleanup(); };
     // pin/country/dest captured at reveal start; re-running mid-reveal would
     // restart the animation, which we don't want.
-  }, [answerShown, stopCameraAnimations]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [answerShown, stopCameraAnimations, cameraCancelKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
 });
@@ -787,6 +791,7 @@ const MapComponent = ({
   hidePins,
   stopCameraAnimations,
   resetKey,
+  cameraCancelKey,
 }) => {
   const { t: text } = useTranslation("common");
   const plopSound = useRef(null);
@@ -855,7 +860,7 @@ const MapComponent = ({
         />
       </div>
 
-      <CameraAnimationStopper active={stopCameraAnimations} resizingRef={resizingRef} />
+      <CameraAnimationStopper active={stopCameraAnimations} cameraCancelKey={cameraCancelKey} resizingRef={resizingRef} />
       <BoundsApplier bounds={answerShown ? null : VIEW_BOUNDS} />
       <ClickHandler
         answerShown={answerShown}
@@ -871,6 +876,7 @@ const MapComponent = ({
         countryGuessPin={countryGuessPin}
         resizingRef={resizingRef}
         stopCameraAnimations={stopCameraAnimations}
+        cameraCancelKey={cameraCancelKey}
       />
       <ContainerResizeBridge resizingRef={resizingRef} />
 
