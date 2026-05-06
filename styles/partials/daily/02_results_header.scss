@@ -1,0 +1,148 @@
+.daily-results-card {
+  width: 100%;
+  max-width: 720px;
+  max-height: 92vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--gradLight);
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 28px 24px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  color: white;
+  animation: dailyResultsAppear 0.4s cubic-bezier(0.2, 0.7, 0.3, 1.2);
+  position: relative;
+}
+@keyframes dailyResultsAppear {
+  from { opacity: 0; transform: scale(0.96) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.daily-results-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.2s;
+}
+.daily-results-close:hover { opacity: 1; }
+
+.daily-header-label {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.daily-header-score {
+  font-family: "Jockey One", sans-serif;
+  font-size: clamp(2.6rem, 8vw, 4.2rem);
+  color: #4CAF50;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  line-height: 1.05;
+  margin: 4px 0 6px;
+  transition: filter 0.3s ease;
+}
+.daily-header-score.animating {
+  filter: drop-shadow(0 0 8px rgba(76, 175, 80, 0.6));
+}
+.daily-header-score .max {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.55em;
+  margin-left: 0.2em;
+}
+.daily-header-stars {
+  display: flex;
+  gap: 0.4em;
+  justify-content: flex-start;
+  align-items: center;
+  margin: 8px 0;
+}
+.daily-motivational-quip {
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 1.05rem;
+  margin: 8px 0 14px;
+  text-align: center;
+  max-width: 80%;
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+}
+.daily-header-star {
+  display: inline-flex;
+  align-items: center;
+  animation: starAppear 0.5s ease-in-out forwards;
+  opacity: 0;
+  transform: scale(0);
+}
+.daily-header-star svg {
+  font-size: 1.8rem;
+}
+.daily-header-star img {
+  width: 1.8rem;
+  height: 1.8rem;
+  object-fit: contain;
+  filter: drop-shadow(0 0 6px rgba(185, 242, 255, 0.5));
+}
+.daily-header-star.tier-gold svg {
+  filter: drop-shadow(0 0 4px rgba(255, 215, 0, 0.55));
+}
+.daily-header-star.tier-silver svg {
+  filter: drop-shadow(0 0 3px rgba(205, 127, 50, 0.4));
+}
+.daily-header-rank {
+  font-size: 1.05rem;
+  color: white;
+  margin-bottom: 6px;
+}
+.daily-header-rank .rank-num { color: #ffd700; font-weight: 700; }
+.daily-header-rank .pct { color: #ffd700; font-weight: 700; }
+.daily-header-streak-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.6em;
+  margin-top: 4px;
+  flex-wrap: wrap;
+  color: rgba(255, 255, 255, 0.9);
+}
+.daily-personal-best-ribbon {
+  text-align: center;
+  background: linear-gradient(90deg, transparent, #ffd700 20%, #ffb300 50%, #ffd700 80%, transparent);
+  color: #1a0a00;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+  animation: shimmerRibbon 2.5s linear infinite;
+  background-size: 200% 100%;
+}
+.daily-disqualified-ribbon {
+  text-align: center;
+  background: rgba(220, 53, 69, 0.18);
+  color: #ff9a8c;
+  border: 1px solid rgba(220, 53, 69, 0.5);
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 0.92rem;
+}
+@keyframes shimmerRibbon {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.daily-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+}

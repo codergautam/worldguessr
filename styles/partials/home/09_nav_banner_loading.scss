@@ -1,0 +1,133 @@
+
+.wg-banner__row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+
+.wg-banner__text {
+  color: white;
+  font-size: clamp(40px, 6.5vw, 84px);
+  line-height: 1;
+
+  text-shadow:
+    0 8px 36px rgba(0, 0, 0, 0.55),
+    0 2px 12px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
+}
+
+.wg-banner__spinner {
+  width: clamp(60px, 9vw, 120px);
+  height: clamp(60px, 9vw, 120px);
+  object-fit: contain;
+
+  filter:
+    drop-shadow(0 10px 32px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 22px rgba(0, 0, 0, 0.3));
+}
+
+.wg-banner__sub {
+  display: block;
+  margin-top: 18px;
+  text-align: center;
+  color: white;
+  font-size: clamp(20px, 3vw, 32px);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+}
+
+.wg-redesign-active {
+  .home__footer,
+  .g2_nav_ui,
+  #g2_playerCount,
+  .leagueBtn,
+  .friendBtnFixed,
+  .home_ad,
+  .daily-community-maps-btn {
+    display: none !important;
+  }
+}
+
+.wg-bgWrap {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+.wg-bgWrap--shown {
+  opacity: 1;
+}
+
+.wg-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  pointer-events: none;
+
+}
+
+.wg-loading__topLeft {
+  position: absolute;
+  top: 4px;
+  left: 10px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  pointer-events: auto;
+
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.wg-loading--shown .wg-loading__topLeft {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.wg-nav__brand--loading {
+  cursor: default;
+}
+
+.wg-loading--shown .wg-loading__topLeft {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+body.wg-loading-active {
+  .navbar .nonHome,
+  .navbar .navbar__right,
+  .wg-mapSwitcher,
+  .wg-reloadBtn,
+  .timer {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.22s ease;
+  }
+}
+
+.wg-backBtn--nav {
+  transition: filter 0.12s ease, opacity 0.22s ease;
+}
+
+body.wg-home-active,
+body.wg-loading-active {
+  overflow: hidden;
+}
+
+$wg-hud-blue:        linear-gradient(180deg, #4f8bff 0%, #2c63d8 100%);
+$wg-hud-blue-border: rgba(155, 195, 255, 0.45);
+$wg-hud-dark:        rgba(0, 0, 0, 0.78);
+$wg-hud-dark-hover:  rgba(20, 22, 32, 0.85);
+
+%wg-hud-card {
+  font-family: 'Lexend', sans-serif;
+  font-weight: 700;
+  color: white;
+  border-radius: 12px;
+  box-shadow: none;
+  transition: filter 0.12s ease;
+}

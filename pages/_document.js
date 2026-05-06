@@ -49,8 +49,23 @@ export default function Document() {
               z-index: 0;
               pointer-events: none;
             }
+            html.wg-home-route body::before { display: none !important; }
           `
         }} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var p = (location.pathname || '/').replace(/\\/+$/, '') || '/';
+                  if (p === '' || p === '/' || /^\\/(?:en|fr|es|de|ru)$/.test(p)) {
+                    document.documentElement.classList.add('wg-home-route');
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
       </Head>
       <body className="mainBody notranslate" translate="no" style={{ backgroundColor: '#000000' }}>
         {process.env.NEXT_PUBLIC_COOLMATH === "true" && (

@@ -217,6 +217,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // the answer overlay can fade out without resetting state. Singleplayer
   // gets the three-phase fade → forceHidden window → slide-up choreography.
   function advanceRound(advanceSource) {
+    setMapCameraCancelKey((prev) => prev + 1);
     const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
     if (isCountryGuessrMode) {
       setFadeOutMapLocation(latLong);
@@ -231,19 +232,15 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         window._countryGuessrKeepAnswer = false;
       }, 300);
     } else {
-      setFadeOutMapLocation(latLong);
-      setMapFadingOut(true);
+      setShowAnswer(false);
+      setPinPoint(null);
+      setMapFadingOut(false);
+      setFadeOutMapLocation(null);
+      setMapResetting(true);
       loadLocationFunc(true, advanceSource);
       setTimeout(() => {
-        setShowAnswer(false);
-        setMapFadingOut(false);
-        setFadeOutMapLocation(null);
-        setPinPoint(null);
-        setMapResetting(true);
-      }, 300);
-      setTimeout(() => {
         setMapResetting(false);
-      }, 550);
+      }, 350);
     }
   }
 
@@ -270,6 +267,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [guessedCountryCode, setGuessedCountryCode] = useState(null);
   const [mapFadingOut, setMapFadingOut] = useState(false);
   const [fadeOutMapLocation, setFadeOutMapLocation] = useState(null);
+  const [mapCameraCancelKey, setMapCameraCancelKey] = useState(0);
   // Set true during the singleplayer round-end window where the map needs
   // to be force-hidden offscreen (between fade-out finishing and the slide-
   // up starting). Driven into forceHideMiniMap below.
@@ -636,7 +634,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   }
   useEffect(() => {
     if (dailyMode) return;
-    loadLocation()
+    loadLocation({ force: true })
     if(singlePlayerRound) {
       setHintsUsedThisGame(0);
       setSinglePlayerRound({
@@ -746,6 +744,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   );
   const mapLocationForRender = mapFadingOutForRender && fadeOutMapLocation ? fadeOutMapLocation : latLong;
   const mapReadyForCameraReset = !welcomeOverlayShown && !forceHideMiniMap && !loading && !!mapLocationForRender;
+  const mapCameraResetKey = multiplayerState?.inGame
+    ? `mp:${multiplayerState?.gameData?.code || ''}:${multiplayerState?.gameData?.curRound || ''}:${multiplayerState?.gameData?.state || ''}`
+    : onboarding
+      ? `onboarding:${onboarding?.mode || 'classic'}:${onboarding?.round || ''}`
+      : singlePlayerRound
+        ? `single:${gameOptions?.location || 'all'}:${singlePlayerRound?.round || ''}:${singlePlayerRound?.done ? 'done' : 'playing'}`
+        : `free:${gameOptions?.location || 'all'}:${latLong?.lat ?? ''}:${latLong?.long ?? ''}`;
   return (
     <div className="gameUI">
 
@@ -901,7 +906,7 @@ session={session}/>
           </button>
         </div>
 )}
-        <MapWidget shown={mapReadyForCameraReset} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={mapLocationForRender} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} hidePins={false} stopCameraAnimations={mapFadingOutForRender || forceHideMiniMap} />
+        <MapWidget shown={mapReadyForCameraReset} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} location={mapLocationForRender} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} stopCameraAnimations={mapFadingOutForRender || forceHideMiniMap} resetKey={mapCameraResetKey} cameraCancelKey={mapCameraCancelKey} />
 
 
         <div className={`miniMap__btns ${showAnswerOnMap ? 'answerShownBtns' : ''}`}>

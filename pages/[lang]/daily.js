@@ -1,4 +1,4 @@
-import HomeShell from '@/components/homeShell';
+import Home from '@/components/home';
 
 const SUPPORTED = ['es', 'fr', 'de', 'ru', 'en'];
 
@@ -14,5 +14,5 @@ export async function getStaticProps() {
 }
 
 export default function LocalizedDailyPage() {
-  return <HomeShell initialScreen="daily" />;
+  return <Home initialScreen="daily" />;
 }

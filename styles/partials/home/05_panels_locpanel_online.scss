@@ -1,0 +1,310 @@
+
+.wg-onlineBtn__icon {
+  font-size: 16px;
+  color: #58df88;
+}
+
+.wg-locPanel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  height: 100svh;
+  width: min(440px, 92vw);
+  z-index: 80;
+  background: rgba(10, 14, 24, 0.88);
+  backdrop-filter: blur($wg-blur-strong);
+  -webkit-backdrop-filter: blur($wg-blur-strong);
+  border-right: 1px solid $wg-card-border;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow: 16px 0 40px rgba(0, 0, 0, 0.55);
+}
+.wg-locPanel--shown { transform: translateX(0); }
+
+.wg-locPanel__scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 79;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.wg-locPanel__scrim--shown { opacity: 1; }
+
+.wg-locPanel__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid $wg-card-border;
+  background: rgba(0, 0, 0, 0.45);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.18s ease;
+
+  &:hover { background: rgba(0, 0, 0, 0.7); }
+}
+
+.wg-locPanel__hero {
+  position: relative;
+  height: 220px;
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+.wg-locPanel__heroFade {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(10, 14, 24, 0.95) 100%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0) 60%, rgba(0, 0, 0, 0.5) 100%);
+}
+
+.wg-locPanel__heroText {
+  position: absolute;
+  bottom: 16px;
+  left: 22px;
+  right: 22px;
+  z-index: 1;
+}
+
+.wg-locPanel__heroPlace {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: $wg-text-mid;
+  font-weight: 600;
+}
+
+.wg-locPanel__flag {
+  width: 22px;
+  height: auto;
+  border-radius: 2px;
+}
+
+.wg-locPanel__heroTitle {
+  margin: 4px 0 2px;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.wg-locPanel__heroTagline {
+  font-size: 13px;
+  color: $wg-text-mid;
+}
+
+.wg-locPanel__body {
+  padding: 22px 22px 28px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 3px; }
+}
+
+.wg-locPanel__desc {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.wg-locPanel__facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wg-locPanel__fact {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.wg-locPanel__factLabel {
+  font-size: 11.5px;
+  color: $wg-text-dim;
+  margin-bottom: 2px;
+}
+
+.wg-locPanel__factValue {
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+}
+
+.wg-locPanel__sources {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.wg-locPanel__sourcesLabel {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: 0.1px;
+}
+
+.wg-locPanel__sourcesList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wg-locPanel__sourceItem {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  &:last-child { border-bottom: none; }
+}
+
+.wg-locPanel__source {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  color: $wg-blue-soft;
+  text-decoration: none;
+  transition: color 0.15s ease, padding-left 0.15s ease;
+
+  &::before {
+    content: '↗';
+    margin-right: 8px;
+    font-size: 11px;
+    opacity: 0.7;
+    transform: translateY(-1px);
+  }
+
+  &:hover {
+    color: white;
+    padding-left: 4px;
+  }
+}
+
+.wg-onlinePanel {
+  position: fixed;
+  right: 26px;
+  bottom: 0;
+  width: min(420px, calc(100vw - 52px));
+  z-index: 80;
+
+  padding: 18px 18px 78px;
+  border-radius: $wg-radius-lg $wg-radius-lg 0 0;
+  background: rgba(7, 10, 18, 0.92);
+  backdrop-filter: blur($wg-blur-strong);
+  -webkit-backdrop-filter: blur($wg-blur-strong);
+  border: 1px solid $wg-card-border;
+  border-bottom: none;
+  box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.55);
+
+  transform: translateY(110%);
+  transition: transform 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.wg-onlinePanel--shown {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.wg-onlinePanel__close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid $wg-card-border;
+  background: rgba(0, 0, 0, 0.4);
+  color: white;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  cursor: pointer;
+  &:hover { background: rgba(0, 0, 0, 0.65); }
+}
+
+.wg-onlinePanel__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding-right: 36px;
+}
+
+.wg-onlinePanel__headerIcon {
+  font-size: 22px;
+  color: #58df88;
+}
+
+.wg-onlinePanel__totalNum {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.wg-onlinePanel__totalLabel {
+  font-size: 12px;
+  color: $wg-text-dim;
+  margin-top: 2px;
+}
+
+.wg-onlinePanel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wg-onlinePanel__stat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid $wg-card-border;
+}
+
+.wg-onlinePanel__statIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 16px;
+  color: $wg-blue-soft;
+  flex-shrink: 0;
+}
+
+.wg-onlinePanel__statText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.wg-onlinePanel__statValue {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.wg-onlinePanel__statLabel {
+  font-size: 11.5px;
+  color: $wg-text-dim;
+  margin-top: 3px;
+}

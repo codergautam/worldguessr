@@ -2,7 +2,6 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, memo } fr
 import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
-import { asset } from '@/lib/basePath';
 import { getPinIcons } from '@/lib/markerIcons';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
@@ -43,6 +42,7 @@ const REVEAL = {
 
 const MOBILE_MEDIA_QUERY = "(max-width: 600px)";
 const EXTENT_FIT_PADDING = [12, 12];
+const MIN_EXTENT_SPAN_DEGREES = 0.0001;
 
 /* ---------------------------------------------------------------------------
  *  Geometry helpers (pure)
@@ -77,52 +77,127 @@ function formatKm(meters) {
   return parseFloat(km.toFixed(2));
 }
 
-function getResetTarget(map, extent) {
-  if (!extent) {
-    return { center: L.latLng(30, 0), zoom: 2 };
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function sanitizeExtent(extent) {
+  if (!Array.isArray(extent) || extent.length < 4) return null;
+
+  const [rawWest, rawSouth, rawEast, rawNorth] = extent.map(Number);
+  if (![rawWest, rawSouth, rawEast, rawNorth].every(isFiniteNumber)) return null;
+
+  let west = Math.min(rawWest, rawEast);
+  let east = Math.max(rawWest, rawEast);
+  let south = clamp(Math.min(rawSouth, rawNorth), VIEW_BOUNDS[0][0], VIEW_BOUNDS[1][0]);
+  let north = clamp(Math.max(rawSouth, rawNorth), VIEW_BOUNDS[0][0], VIEW_BOUNDS[1][0]);
+
+  if (east - west < MIN_EXTENT_SPAN_DEGREES) {
+    const midLng = (west + east) / 2;
+    west = midLng - MIN_EXTENT_SPAN_DEGREES / 2;
+    east = midLng + MIN_EXTENT_SPAN_DEGREES / 2;
   }
 
-  const bounds = L.latLngBounds([extent[1], extent[0]], [extent[3], extent[2]]);
+  if (north - south < MIN_EXTENT_SPAN_DEGREES) {
+    const midLat = clamp((south + north) / 2, VIEW_BOUNDS[0][0], VIEW_BOUNDS[1][0]);
+    south = clamp(midLat - MIN_EXTENT_SPAN_DEGREES / 2, VIEW_BOUNDS[0][0], VIEW_BOUNDS[1][0]);
+    north = clamp(midLat + MIN_EXTENT_SPAN_DEGREES / 2, VIEW_BOUNDS[0][0], VIEW_BOUNDS[1][0]);
+
+    if (north - south < MIN_EXTENT_SPAN_DEGREES) {
+      if (south <= VIEW_BOUNDS[0][0]) north = south + MIN_EXTENT_SPAN_DEGREES;
+      else south = north - MIN_EXTENT_SPAN_DEGREES;
+    }
+  }
+
+  return [west, south, east, north];
+}
+
+function constrainResetTarget(map, center, zoom) {
+  const limitedZoom = isFiniteNumber(zoom) ? zoom : 2;
+  const latLng = L.latLng(center);
   try {
-    return map._getBoundsCenterZoom(bounds, { padding: L.point(EXTENT_FIT_PADDING) });
-  } catch {
     return {
+      center: map._limitCenter
+        ? map._limitCenter(latLng, limitedZoom, L.latLngBounds(VIEW_BOUNDS))
+        : latLng,
+      zoom: limitedZoom,
+    };
+  } catch {
+    return { center: latLng, zoom: limitedZoom };
+  }
+}
+
+function getResetTarget(map, extent) {
+  const safeExtent = sanitizeExtent(extent);
+  if (!safeExtent) {
+    return constrainResetTarget(map, L.latLng(30, 0), 2);
+  }
+
+  const bounds = L.latLngBounds([safeExtent[1], safeExtent[0]], [safeExtent[3], safeExtent[2]]);
+  let target;
+  try {
+    target = map._getBoundsCenterZoom(bounds, { padding: L.point(EXTENT_FIT_PADDING) });
+  } catch {
+    target = {
       center: bounds.getCenter(),
       zoom: map.getBoundsZoom(bounds, false, EXTENT_FIT_PADDING),
     };
   }
+
+  return constrainResetTarget(map, target.center, target.zoom);
 }
 
 function stopMapAnimations(map) {
-  try { map.stop(); } catch {}
-  try { map._stop?.(); } catch {}
-  try { map._panAnim?.stop?.(); } catch {}
+  if (!map) return;
+  try { clearTimeout(map._sizeTimer); } catch {}
   try {
     if (map._flyToFrame != null && L?.Util?.cancelAnimFrame) {
       L.Util.cancelAnimFrame(map._flyToFrame);
-      map._flyToFrame = null;
     }
+    map._flyToFrame = null;
   } catch {}
   try {
     if (map._animRequest != null && L?.Util?.cancelAnimFrame) {
       L.Util.cancelAnimFrame(map._animRequest);
-      map._animRequest = null;
+    }
+    map._animRequest = null;
+  } catch {}
+  try {
+    if (map.touchZoom?._animRequest != null && L?.Util?.cancelAnimFrame) {
+      L.Util.cancelAnimFrame(map.touchZoom._animRequest);
+      map.touchZoom._animRequest = null;
     }
   } catch {}
-  try { map._moveEnd?.(true); } catch {}
+  try { map._stop?.(); } catch {}
+  try { map._panAnim?.stop?.(); } catch {}
+  try {
+    if (map._animatingZoom) {
+      map._animatingZoom = false;
+      delete map._animateToCenter;
+      delete map._animateToZoom;
+      delete map._tempFireZoomEvent;
+      L?.DomUtil?.removeClass?.(map._mapPane, "leaflet-zoom-anim");
+    }
+  } catch {}
+  try { map.stop(); } catch {}
 }
 
 function forceCrispViewReset(map, center, zoom) {
-  // During reveal Leaflet may be mid flyTo/zoom animation. A normal fitBounds
+  // During reveal Leaflet may be mid fly/pan/zoom animation. A normal fitBounds
   // can inherit that pixel origin and leave scaled, blurry tiles until the user
-  // zooms. Force an unanimated _resetView at the final camera instead.
-  const maxBounds = map.options.maxBounds;
+  // zooms. Cancel animation state first, then apply a target already constrained
+  // to the vertical play bounds so the next user interaction has nothing to snap.
+  const target = constrainResetTarget(map, center, zoom);
   stopMapAnimations(map);
-  try { map.options.maxBounds = null; } catch {}
   try { map.invalidateSize({ pan: false, animate: false }); } catch {}
-  try { map.setView(center, zoom, { animate: false, reset: true }); } catch {}
+  try { map.setMaxBounds(L.latLngBounds(VIEW_BOUNDS)); } catch {}
+  try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
   try { map._resetView?.(map.getCenter(), map.getZoom(), true); } catch {}
-  try { map.options.maxBounds = maxBounds; } catch {}
+  stopMapAnimations(map);
   try { map.panInsideBounds(L.latLngBounds(VIEW_BOUNDS), { animate: false }); } catch {}
   try { map._resetView?.(map.getCenter(), map.getZoom(), true); } catch {}
   try { map.invalidateSize({ pan: false, animate: false }); } catch {}
@@ -260,14 +335,18 @@ const BoundsApplier = memo(function BoundsApplier({ bounds }) {
   return null;
 });
 
-const CameraAnimationStopper = memo(function CameraAnimationStopper({ active, resizingRef }) {
+const CameraAnimationStopper = memo(function CameraAnimationStopper({ active, cameraCancelKey, resizingRef }) {
   const map = useMap();
+  const lastCameraCancelKeyRef = useRef(cameraCancelKey);
   useLayoutEffect(() => {
-    if (!map || !active) return;
+    if (!map) return;
+    const cancelKeyChanged = lastCameraCancelKeyRef.current !== cameraCancelKey;
+    lastCameraCancelKeyRef.current = cameraCancelKey;
+    if (!active && !cancelKeyChanged) return;
     resizingRef.current = false;
     stopMapAnimations(map);
     try { map.invalidateSize({ pan: false, animate: false }); } catch {}
-  }, [map, active, resizingRef]);
+  }, [map, active, cameraCancelKey, resizingRef]);
   return null;
 });
 
@@ -275,16 +354,21 @@ const CameraAnimationStopper = memo(function CameraAnimationStopper({ active, re
  * Fits the map to a custom extent during the guessing phase. It waits for the
  * minimap to be visible so Leaflet computes zoom from the real play viewport.
  */
-const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown }) {
+const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, resetKey }) {
   const map = useMap();
   const [resettingCamera, setResettingCamera] = useState(false);
   const lastExtentKeyRef = useRef(null);
+  const lastResetKeyRef = useRef(null);
   const needsFitRef = useRef(true);
   // Stable string key so we don't re-fit on identical-but-new array refs.
   const extentKey = extent ? extent.join(',') : null;
   useEffect(() => {
     if (lastExtentKeyRef.current !== extentKey) {
       lastExtentKeyRef.current = extentKey;
+      needsFitRef.current = true;
+    }
+    if (lastResetKeyRef.current !== resetKey) {
+      lastResetKeyRef.current = resetKey;
       needsFitRef.current = true;
     }
 
@@ -328,7 +412,9 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown }) 
           needsFitRef.current = false;
           setResettingCamera(false);
         });
-      } catch {}
+      } catch {
+        setResettingCamera(false);
+      }
     };
 
     const tick = () => {
@@ -362,7 +448,7 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown }) 
       if (finalRafId != null) cancelAnimationFrame(finalRafId);
       if (fallbackTimer != null) clearTimeout(fallbackTimer);
     };
-  }, [map, extentKey, answerShown, shown]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [map, extentKey, answerShown, shown, resetKey]); // eslint-disable-line react-hooks/exhaustive-deps
   return resettingCamera ? <div className="leaflet-camera-reset-cover" /> : null;
 });
 
@@ -380,7 +466,7 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown }) 
  *      flyTo's cached pixel transform stays valid the whole time.
  */
 const RevealController = memo(function RevealController({
-  answerShown, dest, pinPoint, countryGuessPin, resizingRef, stopCameraAnimations,
+  answerShown, dest, pinPoint, countryGuessPin, resizingRef, stopCameraAnimations, cameraCancelKey,
 }) {
   const map = useMap();
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
@@ -475,7 +561,7 @@ const RevealController = memo(function RevealController({
     return () => { cancelled = true; cleanup(); };
     // pin/country/dest captured at reveal start; re-running mid-reveal would
     // restart the animation, which we don't want.
-  }, [answerShown, stopCameraAnimations]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [answerShown, stopCameraAnimations, cameraCancelKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return null;
 });
@@ -682,6 +768,34 @@ const HintCircle = memo(function HintCircle({ location, gameOptions, round }) {
   return <Circle center={offsetCenter} radius={radiusMeters} className="hintCircle" />;
 });
 
+function copyLocation(location) {
+  if (!location || location.lat == null || location.long == null) return null;
+  return { ...location };
+}
+
+function copyCountryGuessPin(countryGuessPin) {
+  if (!countryGuessPin || countryGuessPin.lat == null || countryGuessPin.lng == null) return null;
+  return { lat: countryGuessPin.lat, lng: countryGuessPin.lng };
+}
+
+function copyMultiplayerAnswerPlayers(multiplayerState) {
+  return (multiplayerState?.gameData?.players || []).map((player) => ({
+    id: player.id,
+    username: player.username,
+    countryCode: player.countryCode,
+    guess: player.guess ? [player.guess[0], player.guess[1]] : null,
+  }));
+}
+
+function createAnswerSnapshot({ location, pinPoint, countryGuessPin, multiplayerState }) {
+  return {
+    location: copyLocation(location),
+    pinPoint,
+    countryGuessPin: copyCountryGuessPin(countryGuessPin),
+    players: copyMultiplayerAnswerPlayers(multiplayerState),
+  };
+}
+
 /* ===========================================================================
  *  Public component
  * ======================================================================== */
@@ -701,14 +815,37 @@ const MapComponent = ({
   round,
   gameOptions,
   countryGuessPin,
-  hidePins,
   stopCameraAnimations,
+  resetKey,
+  cameraCancelKey,
 }) => {
   const { t: text } = useTranslation("common");
-  const plopSound = useRef(null);
   // Single source of truth for "the reveal animation owns invalidateSize".
   // Lives on a ref so toggling it doesn't trigger renders.
   const resizingRef = useRef(false);
+  const answerSnapshotRef = useRef(null);
+
+  // The answer map can remain mounted while multiplayer has already advanced
+  // live props to the next round. Freeze every answer overlay input at reveal
+  // start so fade-out cannot expose the upcoming destination or clear old guesses.
+  if (answerShown && !answerSnapshotRef.current && location) {
+    answerSnapshotRef.current = createAnswerSnapshot({
+      location,
+      pinPoint,
+      countryGuessPin,
+      multiplayerState,
+    });
+  } else if (!answerShown && answerSnapshotRef.current) {
+    answerSnapshotRef.current = null;
+  }
+
+  const answerSnapshot = answerSnapshotRef.current;
+  const answerLocation = answerShown ? (answerSnapshot?.location || location) : location;
+  const renderedPinPoint = answerShown ? (answerSnapshot?.pinPoint || pinPoint) : pinPoint;
+  const answerCountryGuessPin = answerShown ? (answerSnapshot?.countryGuessPin || countryGuessPin) : countryGuessPin;
+  const answerPlayers = answerShown
+    ? (answerSnapshot?.players || multiplayerState?.gameData?.players || [])
+    : (multiplayerState?.gameData?.players || []);
 
   // Single canvas renderer reused across all polylines. Canvas avoids the SVG
   // overlay-pane desync during pan/zoom (one shared transform pipeline with
@@ -736,10 +873,13 @@ const MapComponent = ({
 
   // Distance reporting: when reveal lands and we have both points, compute km.
   useEffect(() => {
-    if (!(answerShown && pinPoint && location)) return;
-    const meters = pinPoint.distanceTo({ lat: location.lat, lng: location.long });
+    if (!(answerShown && renderedPinPoint && answerLocation)) return;
+    const guessLatLng = typeof renderedPinPoint.distanceTo === "function"
+      ? renderedPinPoint
+      : L.latLng(renderedPinPoint.lat, renderedPinPoint.lng);
+    const meters = guessLatLng.distanceTo({ lat: answerLocation.lat, lng: answerLocation.long });
     setKm(formatKm(meters));
-  }, [answerShown, pinPoint, location, setKm]);
+  }, [answerShown, renderedPinPoint, answerLocation, setKm]);
 
   // Tooltip strings — captured once per language change so we don't churn
   // memoized layers.
@@ -771,7 +911,7 @@ const MapComponent = ({
         />
       </div>
 
-      <CameraAnimationStopper active={stopCameraAnimations} resizingRef={resizingRef} />
+      <CameraAnimationStopper active={stopCameraAnimations} cameraCancelKey={cameraCancelKey} resizingRef={resizingRef} />
       <BoundsApplier bounds={answerShown ? null : VIEW_BOUNDS} />
       <ClickHandler
         answerShown={answerShown}
@@ -779,47 +919,46 @@ const MapComponent = ({
         ws={ws}
         setPinPoint={setPinPoint}
       />
-      <ExtentFitter extent={gameOptions?.extent} answerShown={answerShown} shown={shown} />
+      <ExtentFitter extent={gameOptions?.extent} answerShown={answerShown} shown={shown} resetKey={resetKey} />
       <RevealController
         answerShown={answerShown}
-        dest={location}
-        pinPoint={pinPoint}
-        countryGuessPin={countryGuessPin}
+        dest={answerLocation}
+        pinPoint={renderedPinPoint}
+        countryGuessPin={answerCountryGuessPin}
         resizingRef={resizingRef}
         stopCameraAnimations={stopCameraAnimations}
+        cameraCancelKey={cameraCancelKey}
       />
       <ContainerResizeBridge resizingRef={resizingRef} />
 
-      {answerShown && !hidePins && (
-        <DestMarker location={location} icon={icons.dest} />
+      {answerShown && (
+        <DestMarker location={answerLocation} icon={icons.dest} />
       )}
 
-      {!hidePins && (
-        <YourGuessLayer
-          pinPoint={pinPoint}
-          location={location}
-          icon={myIcon}
-          polylineRenderer={canvasRenderer}
-          showLine={Boolean(answerShown && location)}
-          tooltipText={yourGuessText}
-        />
-      )}
+      <YourGuessLayer
+        pinPoint={renderedPinPoint}
+        location={answerLocation}
+        icon={myIcon}
+        polylineRenderer={canvasRenderer}
+        showLine={Boolean(answerShown && answerLocation)}
+        tooltipText={yourGuessText}
+      />
 
-      {answerShown && !hidePins && (
+      {answerShown && (
         <CountryGuessLayer
-          countryGuessPin={countryGuessPin}
-          location={location}
+          countryGuessPin={answerCountryGuessPin}
+          location={answerLocation}
           icon={myIcon}
           polylineRenderer={canvasRenderer}
           tooltipText={yourGuessText}
         />
       )}
 
-      {answerShown && multiplayerState?.inGame && location && (
+      {answerShown && multiplayerState?.inGame && answerLocation && (
         <MultiplayerLayer
-          players={multiplayerState?.gameData?.players}
+          players={answerPlayers}
           myId={multiplayerState?.gameData?.myId}
-          dest={location}
+          dest={answerLocation}
           srcIcon={icons.src2}
           polandballIcon={icons.polandball}
           polylineRenderer={canvasRenderer}
@@ -848,8 +987,6 @@ const MapComponent = ({
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}
       />
-
-      <audio ref={plopSound} src={asset("/plop.mp3")} preload="auto" />
     </MapContainer>
   );
 };

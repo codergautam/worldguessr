@@ -7,6 +7,7 @@ import "@/styles/multiplayer.scss";
 import "@/styles/country-guesser.scss";
 import "@/styles/chatbox.scss";
 import "@/styles/onboarding-modals.scss";
+import "@/styles/homeScreen.scss";
 import "@/styles/multiPlayerModal.css";
 import "@/styles/accountModal.css";
 import "@/styles/mapModal.css";

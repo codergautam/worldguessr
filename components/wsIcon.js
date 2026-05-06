@@ -149,15 +149,12 @@ export default function WsIcon({ connected, shown, onClick, connecting, loggedOu
         onClick={onClick}
         style={{
           position: 'fixed',
-          // When logged out, the bigger Login button + the Maps CTA stacked
-          // under it occupy the top-right corner down to ~148px. Drop the
-          // WsIcon below them so it stops clipping the buttons.
-          top: loggedOut ? '170px' : '125px',
-          right: isSliding ? '-85px' : (isSlideIn ? '-85px' : '15px'),
+          top: loggedOut ? '100px' : '110px',
+          right: isSliding ? '-85px' : (isSlideIn ? '-85px' : '26px'),
           zIndex: 10000,
-          width: '50px',
-          height: '50px',
-          borderRadius: '15px',
+          width: '44px',
+          height: '44px',
+          borderRadius: '12px',
           backgroundColor: 'rgba(0, 0, 0, 0.8)',
           backdropFilter: 'blur(10px)',
           display: 'flex',
@@ -166,7 +163,7 @@ export default function WsIcon({ connected, shown, onClick, connecting, loggedOu
           cursor: onClick ? 'pointer' : 'default',
           boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
           transition: 'right 0.4s ease-in-out, transform 0.4s ease-in-out, all 0.3s ease',
-          border: `3px solid ${getColor()}`,
+          border: `2px solid ${getColor()}`,
           pointerEvents: 'auto',
           animation: (!isSliding && !isSlideIn) ? getAnimation() : 'none',
           transform: isSlideIn ? 'translateX(100px)' : 'translateX(0)'
