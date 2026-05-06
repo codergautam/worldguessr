@@ -1,0 +1,200 @@
+
+.league-container {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+/* Responsive layout for mobile devices */
+@media (max-width: 600px) {
+    .league-container {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+/* Duel Anti-Cheat Warning */
+.duel-warning-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    pointer-events: none;
+    animation: slideInFromBottom 0.5s ease-out;
+}
+
+.duel-warning-content {
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    padding: 15px 25px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    max-width: 500px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+}
+
+.warning-icon {
+    font-size: 24px;
+    animation: pulse 1.5s infinite;
+}
+
+.warning-text {
+    color: white;
+    font-family: "Lexend", sans-serif;
+}
+
+.warning-title {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.warning-subtitle {
+    font-size: 16px;
+    font-weight: 500;
+    opacity: 0.95;
+}
+
+@keyframes slideInFromBottom {
+    from {
+        transform: translate(-50%, 100px);
+        opacity: 0;
+    }
+    to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .duel-warning-container {
+        bottom: 15px;
+        left: 15px;
+        right: 15px;
+        transform: none;
+        animation: slideInFromBottomMobile 0.5s ease-out;
+    }
+
+    .duel-warning-content {
+        padding: 12px 20px;
+        gap: 12px;
+        // center horiz
+        margin: 0 auto;
+        width: 60%;
+    }
+
+    .warning-icon {
+        font-size: 20px;
+    }
+
+    .warning-title {
+        font-size: 13px;
+        margin-bottom: 3px;
+    }
+
+    .warning-subtitle {
+        font-size: 14px;
+    }
+}
+@media (max-width: 400px) {
+     .duel-warning-content {
+
+        width: 100%;
+    }
+}
+
+@keyframes slideInFromBottomMobile {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.home_ad {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    z-index: 999;
+}
+
+// under 600px, center the home_ad horiz
+@media (max-width: 600px) {
+    .home_ad {
+        right: 50%;
+        transform: translateX(50%);
+    }
+}
+
+// Moderation banners (name change required, account suspended)
+.modBanner {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    padding: 12px 40px 12px 20px; // extra right padding for close button
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    max-width: 90vw;
+
+    &.modBanner--warning {
+        background-color: #d29922;
+        color: #000;
+    }
+
+    &.modBanner--error {
+        background-color: #f85149;
+        color: #fff;
+    }
+}
+
+.modBanner__close {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    opacity: 0.6;
+    padding: 4px 8px;
+    line-height: 1;
+    transition: opacity 0.15s;
+
+    &:hover {
+        opacity: 1;
+    }
+
+    .modBanner--warning & {
+        color: #000;
+    }
+
+    .modBanner--error & {
+        color: #fff;
+    }
+}

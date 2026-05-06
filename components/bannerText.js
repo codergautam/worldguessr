@@ -1,33 +1,34 @@
-import NextImage from "next/image"
-import { asset } from '@/lib/basePath'
+import { asset } from '@/lib/basePath';
 
-export default function BannerText({shown, text, hideCompass, subText, position}) {
+export default function BannerText({ shown, text, hideCompass, subText, position }) {
   return (
     <div
-      className={`banner-text ${shown ? 'shown' : 'hidden'}`}
+      className={`banner-text wg-banner ${shown ? 'shown' : 'hidden'}`}
       style={{
         position: position || 'fixed',
         zIndex: 1000,
         top: '50%',
-        left: "50%",
-        transform: "translate(-50%, -50%)",
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
         pointerEvents: 'none',
-        flexDirection: 'column'
       }}
     >
-      <div style={{ display: "flex"}}>
-        <span style={{color: 'white', fontSize: '50px', marginTop: '20px', textAlign: 'center'}}>
+      <div className="wg-banner__row">
+        <span className="wg-banner__text wg-gmarket-bold">
           {text || 'Loading...'}
         </span>
-        { !hideCompass && (
-          <NextImage.default alt="Loading compass" src={asset('/loader.gif')} width={100} height={100} />
+        {!hideCompass && (
+          <img
+            className="wg-banner__spinner"
+            src={asset('/assets/spinner.gif')}
+            alt=""
+            draggable={false}
+          />
         )}
       </div>
       {subText && (
-        <span style={{color: 'white', fontSize: '30px', marginTop: '20px', textAlign: 'center'}}>
-          {subText}
-        </span>
+        <span className="wg-banner__sub wg-gmarket-bold">{subText}</span>
       )}
     </div>
-  )
+  );
 }

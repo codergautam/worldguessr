@@ -4,13 +4,15 @@ import AccountBtn from "./accountBtn";
 import { FaPencil } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import { asset } from '@/lib/basePath';
+import Image from 'next/image';
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, showAnswer }) {
     const { t: text, lang } = useTranslation("common");
 
-    const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer') || (screen === 'countryGuesser') || (screen === 'daily' && dailyPhase === 'game'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
+    const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer') || (screen === 'countryGuesser') || (screen === 'daily' && dailyPhase === 'game'))) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
+    const reloadDisabled = !!(loading || showAnswer);
 
     const [showAccBtn, setShowAccBtn] = useState(true);
     useEffect(() => {
@@ -24,18 +26,30 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
         <>
             <div className={`navbar ${shown ? "" : "hidden"} ${screen == "home" ? "": "navbarColor"} ${screen === "onboarding" ? "onboarding" : ""}`}>
                 <div className={`nonHome ${screen === 'home' ? '' : 'shown'}`}>
-                    {!mapModalOpen && <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>}
-                    {!mapModalOpen && <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>}
-                    {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) &&  <>
-                        <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} desktop`} onClick={backBtnPressed}>{screen === 'onboarding' ? text("menu") : text("back")}</button>
-                        <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} mobile`} onClick={backBtnPressed}><FaArrowLeft /></button>
-                    </>
-                    }
+                    {!mapModalOpen && (
+                        <span className="wg-nav__brand" aria-label="WorldGuessr">
+                            <Image.default
+                                src={asset('/assets/logos/title.png')}
+                                alt="WorldGuessr"
+                                width={140}
+                                height={32}
+                                priority
+                                draggable={false}
+                            />
+                        </span>
+                    )}
+                    {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) && (
+                        <button className="wg-backBtn wg-backBtn--nav" onClick={backBtnPressed}>{screen === 'onboarding' ? text("menu") : text("back")}</button>
+                    )}
                 </div>
                 {reloadBtn && !accountModalOpen && !gameOptionsModalShown && (
-                    <button className="gameBtn navBtn backBtn reloadBtn g2_blue_button" onClick={reloadBtnPressed}>
-                        {/* use svg /arrow-turn-down-left-svgrepo-com.svg white color */}
-                        <img src={asset("/return.png")} alt="reload"  height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} />
+                    <button
+                        className={`wg-reloadBtn ${reloadDisabled ? 'wg-reloadBtn--disabled' : ''}`}
+                        onClick={reloadDisabled ? undefined : reloadBtnPressed}
+                        disabled={reloadDisabled}
+                        aria-label="Reload pano"
+                    >
+                        <img src={asset("/return.png")} alt="" height={14} style={{ filter: 'invert(1)' }} />
                     </button>
                 )}
 
@@ -58,7 +72,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 <div className="navbar__right">
 
                     {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && (
-                        <button className="gameBtn navBtn g2_green_button g2_lexend" disabled={loading} onClick={() => setGameOptionsModalShown(true)}>
+                        <button className="wg-mapSwitcher g2_lexend" disabled={loading} onClick={() => setGameOptionsModalShown(true)}>
                             {screen === 'countryGuesser'
                                 ? (countryGuessrMode?.subMode === "continent" ? text("continentGuesser") : text("countryGuesser"))
                                 : <>
@@ -73,11 +87,11 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
 
                             &nbsp;
 
-                            <FaPencil size={20} />
+                            <FaPencil size={14} />
                         </button>
                     )}
 
-                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && screen !== 'daily' && (
+                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && screen !== 'daily' && screen !== "home" && (
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
                             inGameDistribution={inGameDistribution}

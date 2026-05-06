@@ -1,0 +1,532 @@
+
+.gm-bundled-control-on-bottom {
+    right: auto !important;
+    left: 0 !important;
+}
+// obnly on ios
+@supports (-webkit-touch-callout: none) {
+    .gm-bundled-control-on-bottom {
+        transform: translateY(-100px) !important;
+    }
+}
+
+.gm-style-cc {
+    display: none;
+}
+// less than 460px
+// @media screen and (max-width: 460px) {
+//   .gm-bundled-control-on-bottom {
+//     bottom: calc(161px + 100px) !important;
+//   }
+
+
+// }
+
+
+
+#miniMapArea.shown {
+    opacity: 50%;
+    transform: translateY(0%);
+    pointer-events: auto;
+}
+
+#miniMapArea.forceHidden {
+    opacity: 0 !important;
+    transform: translateY(calc(100% + 16px)) !important;
+    pointer-events: none !important;
+    transition: none !important;
+    animation: none !important;
+}
+
+
+#miniMapContent {
+    cursor: crosshair;
+    height: 100%;
+    background-color: #B9D3DC;
+    position: relative;
+}
+
+#miniMapArea.answerNotShown {
+    transition: all 250ms ease;
+}
+
+#miniMapArea.answerNotShown #miniMapContent {
+    border: 5px solid #0F251D;
+    border-radius: 10px;
+}
+
+#miniMapArea.answerShown .ol-zoom {
+    display: none;
+}
+
+#miniMapArea.answerShown .leaflet-control-zoom {
+    display: none;
+}
+
+.mapCornerBtns {
+    position: relative;
+    transform: translateY(-5px);
+}
+
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    #miniMapArea {
+        transform: translateY(calc(100% + 16px));
+        opacity: 0;
+    }
+
+    #miniMapArea.miniMap.shown {
+        bottom: 0;
+        right: 0;
+        opacity: 100%;
+        transform: translateY(0%);
+        margin-right: 0;
+        width: 100%;
+    }
+
+    #miniMapArea.miniMap.shown .chatboxBtn {
+        transform: translate(0, 0) !important;
+    }
+    // #miniMapArea.answerShown {
+    //   transform: none;
+    // }
+    #miniMapContent {
+        border: none;
+    }
+}
+
+.miniMap__btns {
+    height: 10%;
+    min-height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+}
+
+.miniMap__btn {
+    font-family: lexend;
+    height: 100%;
+    width: 100%;
+    color: white;
+    font-size: 1.5em;
+    cursor: pointer;
+    border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.g2_mobile_guess {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 6px 12px;
+    background: var(--gradGreenBtn);
+    border: 2px solid var(--primaryDark);
+    box-shadow:
+        0 4px 15px rgba(36, 87, 52, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.g2_mobile_guess:hover {
+    transform: scale(1.02);
+    background-color: var(--primary);
+    box-shadow:
+        0 6px 20px rgba(36, 87, 52, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.g2_mobile_guess:active {
+    transform: scale(0.98);
+}
+
+.mobile_minimap__btns {
+    display: none;
+}
+
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    .miniMap__btns {
+        display: none;
+    }
+
+    .mobile_minimap__btns {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        margin-top: 10px;
+        position: absolute;
+        border-radius: 16px;
+        right: 65px;
+        bottom: 30px;
+        animation: fadeIn 1s ease-in-out forwards;
+    }
+
+    .mobile_minimap__btns.miniMapShown {
+        bottom: calc(70% + 8px);
+        width: 100%;
+        right: 0;
+        padding: 0 12px;
+        gap: 10px;
+    }
+
+    /* WsIcon (top:125px, right:15px, 50px wide, 50px tall) collides with the
+       expanded-map button row only when the row's top edge (0.3H - 56px) falls
+       above 175px and its bottom edge (0.3H - 8px) falls below 125px — i.e.
+       portrait viewport heights ~444–770px. Reserve the right column only then
+       and only when the icon is actually mounted. */
+    @media (orientation: portrait) and (min-height: 444px) and (max-height: 770px) {
+        body.ws-icon-shown .mobile_minimap__btns.miniMapShown {
+            padding-right: 75px;
+        }
+    }
+
+    /* Landscape on short viewports: the round-details tile sits in the top-right
+       area and blocks the minimize button even beyond the WsIcon column. Shift
+       the row further left so the minimize clears both. */
+    @media (orientation: landscape) and (max-height: 515px) {
+        .mobile_minimap__btns.miniMapShown {
+            padding-right: 160px;
+        }
+    }
+
+    /* Mobile guess button when map is expanded */
+    .mobile_minimap__btns.miniMapShown .guessBtn {
+        flex: 1;
+        height: 48px;
+        font-size: 1.1em;
+        border-radius: 14px;
+    }
+
+    /* Mobile hint button when map is expanded */
+    .mobile_minimap__btns.miniMapShown .hintBtn {
+        width: auto;
+        min-width: 80px;
+        height: 48px;
+        font-size: 1em;
+        border-radius: 14px;
+        padding: 0 16px;
+    }
+
+    .mobileMiniMapExpandedToggle {
+        width: auto;
+        min-width: 60px;
+        height: 48px;
+        border-radius: 14px !important;
+    }
+}
+// @media screen and (max-width: 460px) {
+//   .mobile_minimap__btns {
+//     bottom: calc(20px + 50px);
+//   }
+
+// }
+
+.chatboxBtn {
+    transform: translate(0px, 5px);
+}
+
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    .chatboxBtn.minimap {
+        transform: translate(5px, 0px);
+    }
+}
+
+// @media screen and (max-width: 580px) {
+//   .chatboxBtn {
+//     transform: translate(60px, -45px);
+//   }
+
+// }
+.chatboxBtn.open {
+    transform: translate(0, 0);
+}
+
+// Z-index layering fix
+// Priority: react-chatbot-kit-chat-container > guessBtn > chatboxBtn
+.chatboxBtn {
+    z-index: 1000;
+    position: relative;
+}
+
+.guessBtn,
+.g2_mobile_guess {
+    z-index: 1500;
+    position: relative;
+}
+
+.react-chatbot-kit-chat-container {
+    z-index: 2500;
+    position: relative;
+}
+
+.answerShownBtns {
+    display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GUESS BUTTON - Primary action with deep blue design
+   ═══════════════════════════════════════════════════════════════════════════ */
+.guessBtn {
+    background: var(--gradBlue);
+    border: 1px solid rgba(29, 29, 91, 0.8);
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow:
+        0 4px 15px rgba(29, 29, 91, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1), filter 0.35s ease, opacity 0.35s ease;
+    position: relative;
+    overflow: hidden;
+    filter: grayscale(0) brightness(1);
+    opacity: 1;
+}
+
+/* Shimmer effect overlay */
+.guessBtn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.15) 50%,
+        transparent 100%
+    );
+    transition: left 0.5s ease;
+}
+
+.guessBtn:hover::before {
+    left: 100%;
+}
+
+.guessBtn:hover {
+    transform: translateY(-2px);
+    background-color: rgba(30, 62, 156, 1);
+    box-shadow:
+        0 8px 25px rgba(29, 29, 91, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.guessBtn:active {
+    transform: translateY(1px);
+    box-shadow:
+        0 2px 10px rgba(29, 29, 91, 0.5),
+        inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HINT BUTTON - Secondary action matching green theme
+   ═══════════════════════════════════════════════════════════════════════════ */
+.hintBtn {
+    width: auto;
+    padding: 0 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: var(--gradGreenBtn);
+    border: 1px solid var(--primaryDark);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.2em;
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    box-shadow:
+        0 3px 12px rgba(36, 87, 52, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+/* Glow pulse animation */
+.hintBtn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, transparent 70%);
+    transform: translate(-50%, -50%);
+    transition: all 0.4s ease;
+}
+
+.hintBtn:hover::after {
+    width: 200%;
+    height: 200%;
+}
+
+.hintBtn:hover {
+    transform: translateY(-2px) scale(1.02);
+    background-color: var(--primary);
+    box-shadow:
+        0 6px 20px rgba(36, 87, 52, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+        0 0 20px rgba(36, 87, 52, 0.3);
+}
+
+.hintBtn:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow:
+        0 2px 8px rgba(36, 87, 52, 0.4),
+        inset 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.hintBtn.hintShown {
+    display: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILITY STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+.cornerBtn {
+    font-size: 1.5em;
+    background: linear-gradient(135deg, #1ea0ac 0%, #17889a 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 5px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+}
+
+.cornerBtn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(30, 160, 172, 0.4);
+}
+
+.ol-viewport {
+    border-radius: 10px;
+}
+
+/* Unavailable/disabled state - smooth transition using filter */
+.miniMap__btn.unavailable {
+    cursor: not-allowed;
+    filter: grayscale(0.7) brightness(0.7);
+    opacity: 0.85;
+    transition: filter 0.35s ease, opacity 0.35s ease;
+}
+
+.miniMap__btn.unavailable::before {
+    display: none;
+}
+
+.miniMap__btn.unavailable:hover {
+    transform: none !important;
+    filter: grayscale(0.7) brightness(0.7);
+}
+
+.streetview,
+#streetview {
+    user-select: none;
+    border: none !important;
+    transition: all 100ms ease;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border: 3px;
+    box-sizing: border-box;
+    opacity: 1;
+    transition: all 0.5s;
+    position: fixed !important;
+    touch-action: none;
+}
+
+.svframe {
+    transition: opacity 0.5s ease-in-out;
+    opacity: 1;
+}
+
+.svframe-fade-out {
+    opacity: 0;
+}
+
+.svframe-fade-in {
+    opacity: 1;
+}
+
+#googlemaps.hidden,
+#streetview.hidden {
+    // transform: translateY(-105%);
+    opacity: 0;
+}
+
+#streetview {
+    transition: opacity 0.2s ease-out;
+    background-color: #1a1a2e; /* Prevent white flash during iframe src change */
+}
+
+// on screens larger than 600px
+@media screen and (min-width: 600px) and (pointer: fine) {
+    #miniMapArea.mapExpanded {
+        /* full screen center not 100% */
+        height: 65%;
+        width: 55%;
+    }
+
+    #miniMapArea.fullscreen {
+        height: 80%;
+        width: 75%;
+    }
+}
+
+// if less than 600px or touch screen
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    #miniMapArea {
+        /* full screen center not 100% */
+        height: 70%;
+        width: 100%;
+        right: 0;
+        bottom: 0;
+    }
+}
+
+
+
+#miniMapArea.answerShown {
+    width: 100%;
+    box-sizing: border-box;
+    height: 100vh;
+    opacity: 100%;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+    margin-right: 0;
+    margin-top: 0;
+    // Explicit property list — `all` forces the browser to check transitions
+    // on every property, which adds style-recompute work per frame.
+    // `transform` and `opacity` must be here so the slide-out animation runs
+    // when `.shown` is removed (e.g. toggling map ↔ street view during the
+    // reveal): the base #miniMapArea has translateY(105%) + opacity 0 and we
+    // need to animate back to that, not snap.
+    transition:
+        width 300ms ease,
+        height 300ms ease,
+        top 300ms ease,
+        right 300ms ease,
+        bottom 300ms ease,
+        left 300ms ease,
+        border-radius 300ms ease,
+        margin 300ms ease,
+        transform 300ms ease,
+        opacity 300ms ease;
+}

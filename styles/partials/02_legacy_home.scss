@@ -1,0 +1,142 @@
+// we have to do this for ios otherwise back btn makes a blank home page, not sure why
+// not even all ios devices some randomly
+.cshown {
+    //left: 50%;
+    opacity: 1;
+    pointer-events: all;
+    display: flex !important;
+}
+
+.home__btns {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 90vw;
+    max-width: 1000px;
+
+    button {
+        animation: fadeIn 0.4s ease-in-out forwards;
+        opacity: 0;
+    }
+
+    gap: 10px;
+}
+
+.home__ui {
+    /* vertically centered inside home__content */
+    //height: 100%;
+}
+
+
+
+
+.settingsModal{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.settingsModalInner {
+    margin-left: 32px;
+    margin-right: 10px;
+    width: max-content;
+    display: flex;
+    flex-direction: row;
+}
+.settingsModalInner label {
+    font-size: min(clamp(1.3em, 3vw, 1.8em), clamp(1.1em, 4vh, 1.6em));
+}
+.settingsModalInner select, .settingsModalInner input {
+    margin-left: 20px;
+}
+.settingsModalInner.g2_input {
+    width: min-content;
+}
+
+/* Mobile left spacing for settings options */
+@media (max-width: 1024px) {
+    .settingsModal {
+        align-items: flex-start; /* Align all children to the left */
+    }
+
+    .settingsModalInner {
+        margin-left: 28px; /* Add left spacing */
+        margin-right: 14px;
+        width: calc(100% - 42px); /* Adjust width to account for margins */
+        justify-content: space-between; /* Spread label and input evenly */
+    }
+
+    .settingsModalInner label {
+        flex: 1;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .settingsModalInner select,
+    .settingsModalInner input[type="checkbox"] {
+        flex-shrink: 0;
+        margin-left: 20px;
+    }
+}
+.g2_modal {
+    width: 100%;
+    height: 100%;
+    height: 100svh;
+    display: flex !important;
+    position: absolute;
+    object-fit: cover;
+    background-size: cover;
+    background-position: center;
+}
+
+.home__content.g2_modal {
+    height: 100svh; // match .home's svh so scroll area isn't clipped on iOS
+}
+
+@keyframes nav_slide_in {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+/* Loading overlay - covers iframe during round transitions to prevent white flicker */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  height: 100svh;
+  z-index: 101;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+}
+
+.loading-overlay--visible {
+  opacity: 1;
+  visibility: visible;
+  transition: none; /* Instant show - no transition when appearing */
+}
+
+.banner-text {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.banner-text.shown {
+  opacity: 1;
+    visibility: visible;
+}
+
+.banner-text.hidden {
+  opacity: 0;
+    visibility: hidden;
+}

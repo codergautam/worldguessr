@@ -1,0 +1,284 @@
+
+@media screen and (min-width: 600px) {
+    .desktop {
+        display: block;
+    }
+
+    .mobile {
+        display: none;
+    }
+}
+
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    .desktop {
+        display: none;
+    }
+
+    .mobile {
+        display: block;
+    }
+
+    .home__footer {
+        // center it
+        bottom: 10px;
+        left: calc(50% - 150px);
+    }
+}
+
+
+.gameCodeInput {
+    background-color: white;
+    font-size: clamp(1em, 2vw, 3em);
+}
+
+.goBtn {
+}
+
+.inverted {
+    -webkit-filter: invert(100%);
+    -moz-filter: invert(100%);
+    -o-filter: invert(100%);
+    -ms-filter: invert(100%);
+}
+
+.gm-control-active[title="Zoom in"],
+.gm-control-active[title="Zoom out"] {
+    -webkit-filter: invert(100%);
+    -moz-filter: invert(100%);
+    -o-filter: invert(100%);
+    -ms-filter: invert(100%);
+}
+
+.gm-compass {
+    transform: translateY(50%);
+}
+
+.streetview.nmpz .gm-compass {
+    transform: translateY(-20px);
+}
+
+#playerCnt {
+    font-size: 1.5em;
+    margin-top: 5px;
+}
+
+img[alt="Google"] {
+    display: none;
+}
+
+.bigSpan {
+    font-size: 1em;
+    transition: all 250ms ease;
+}
+
+.onlineText {
+    position: fixed;
+    transition: all 0.5s;
+    opacity: 1;
+    transform: translateX(0px);
+}
+
+// .onlineText.notHome {
+//     transform: translateX(210px);
+// }
+
+.onlineText.hide {
+    transform: translateX(250px);
+}
+
+.onlineText.notHome.hide {
+    transform: translateX(250px);
+}
+
+.wiki {
+    left: 0;
+    top: 0;
+    color: white;
+}
+
+.play {
+    width: fit-content;
+    padding-left: 10px;
+    padding-right: 10px;
+    // italic
+}
+
+.countryGuessrOptions {
+    position: fixed;
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 12px 14px;
+    gap: 8px;
+    /* Container itself ignores pointer events so users can pan/drag the
+       Street View through the empty padding around the buttons. The actual
+       buttons re-enable pointer events below. */
+    pointer-events: none;
+}
+
+.countryGuessrOptions .countryGuessrBtn {
+    pointer-events: auto;
+}
+
+.countryGuessrOptions.shown {
+    display: flex;
+}
+
+.countryGuessrPrompt {
+    color: rgba(255, 255, 255, 0.85);
+    font-family: "Lexend", sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin: 0;
+    padding: 0;
+}
+
+.countryGuessrBtnRow {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: stretch;
+    pointer-events: all;
+}
+
+.countryGuessrBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 8px 12px;
+    min-width: 86px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    color: white;
+    opacity: 0;
+    transform: translateY(16px);
+    animation: cardSlideIn 0.35s ease forwards;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-3px);
+        border-color: #3fb950;
+        background: rgba(63, 185, 80, 0.1);
+        box-shadow: 0 4px 16px rgba(63, 185, 80, 0.15);
+    }
+
+    &:active {
+        transform: scale(0.96);
+        transition: transform 0.1s;
+    }
+}
+
+.countryGuessrBtn__flag {
+    width: 40px;
+    height: 27px;
+    object-fit: contain;
+    border-radius: 3px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.countryGuessrBtn__emoji {
+    font-size: 1.4rem;
+}
+
+img.countryGuessrBtn__emoji {
+    width: 30px;
+    height: 30px;
+}
+
+.countryGuessrBtn__name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.2;
+    /* One-line names keep country buttons the same height as continent
+       buttons. Long names like "United Kingdom" used to wrap to 2 lines and
+       made the country round visibly taller than the continent round. The
+       button's title attr surfaces the full name on hover. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.countryGuessrBtn--continent {
+    min-width: 78px;
+    padding: 6px 10px;
+}
+
+.countryGuessrBtn--noHover {
+    pointer-events: none;
+}
+
+@media screen and (min-width: 1200px) {
+    .countryGuessrPrompt {
+        font-size: 1rem;
+    }
+
+    .countryGuessrBtnRow {
+        gap: 12px;
+    }
+
+    .countryGuessrBtn {
+        padding: 11px 18px;
+        min-width: 112px;
+        gap: 7px;
+        border-radius: 14px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 60px;
+        height: 40px;
+        border-radius: 4px;
+    }
+
+    .countryGuessrBtn__emoji {
+        font-size: 1.9rem;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 36px;
+        height: 36px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.85rem;
+    }
+
+    .countryGuessrBtn--continent {
+        min-width: 95px;
+        padding: 10px 14px;
+    }
+
+    .countryGuessrOptions {
+        padding: 16px 18px;
+        gap: 10px;
+        border-radius: 18px;
+    }
+}
+
+/* Continent mode (6 buttons in a 70%-wide container) overflows a single row
+   on narrow viewports. Wrap into a 3+3 layout. Country mode (4 buttons, no
+   fixed container width) doesn't have this issue. Placed before the mobile
+   and landscape-phone blocks so those override with their own flex-basis. */
+@media (max-width: 900px) {
+    .countryGuessrOptions.continentMode .countryGuessrBtnRow {
+        flex-wrap: wrap;
+    }
+
+    .countryGuessrOptions.continentMode .countryGuessrBtn--continent {
+        flex: 1 1 30%;
+        min-width: 0;
+    }
+}

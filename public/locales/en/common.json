@@ -1,4 +1,13 @@
 {
+  "playSingleplayer": "Play Singleplayer",
+  "playSingleplayerSub": "Jump into a random location and guess where you are.",
+  "casualMatch": "Casual Match",
+  "createParty": "Create Party",
+  "joinParty": "Join Party",
+  "social": "Social",
+  "daily": "Daily",
+  "extra": "Extra",
+  "communityMaps": "Community Maps",
   "singleplayer": "Singleplayer",
   "classic": "Classic",
   "countryGuesser": "Country Guesser",

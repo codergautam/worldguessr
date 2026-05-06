@@ -1,0 +1,685 @@
+
+/* Very low height optimizations for wide screens */
+@media (min-width: 800px) and (max-height: 450px) and (min-height: 351px) {
+    .game-summary-container {
+        flex-direction: row;
+        height: 100vh;
+    }
+
+    .game-summary-sidebar {
+        width: 320px; /* Narrower sidebar for very low height */
+        height: 100vh;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 320px);
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+    }
+
+    .summary-header {
+        padding: 8px 15px 6px;
+        padding-top: 12px !important;
+    }
+
+    .summary-title {
+        font-size: 1.1rem;
+        margin-bottom: 3px;
+    }
+
+    .summary-score {
+        font-size: 1.6rem;
+        margin-bottom: 2px;
+    }
+
+    .summary-total {
+        font-size: 0.8rem;
+        margin-bottom: 6px;
+    }
+
+    .star-container {
+        margin-bottom: 0.3rem;
+    }
+
+    .star {
+        font-size: 1.2rem;
+    }
+
+    .summary-actions {
+        gap: 4px;
+        margin-bottom: 4px;
+    }
+
+    .action-btn {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+    }
+
+    .round-item {
+        padding: 6px 12px;
+    }
+
+    .round-number {
+        font-size: 0.9rem;
+    }
+
+    .round-points {
+        font-size: 1rem;
+    }
+
+    .round-details {
+        font-size: 0.75rem;
+        gap: 2px;
+    }
+
+    .detail-icon {
+        font-size: 0.8rem;
+    }
+
+    .elo-value {
+        font-size: 1.2rem;
+    }
+
+    .elo-change {
+        font-size: 0.8rem;
+    }
+
+    .time-elapsed {
+        font-size: 0.8rem;
+    }
+
+    /* End banner optimizations for very low height */
+    #endBanner {
+        min-height: 80px;
+        padding: 10px;
+        margin-bottom: 5px;
+    }
+
+    .bannerContent {
+        font-size: 1.2em;
+        gap: 3px;
+    }
+
+    .mainBannerTxt {
+        font-size: 0.9em;
+    }
+
+    .smallmainBannerTxt {
+        font-size: 0.8em;
+    }
+
+    .motivation {
+        font-size: 0.7em;
+    }
+
+    .quip {
+        font-size: 0.7em !important;
+    }
+
+    .encouragement {
+        font-size: 0.7em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.8em !important;
+    }
+
+    .locationFact {
+        font-size: 0.65em !important;
+    }
+
+    .endButtonContainer button {
+        padding: 6px 14px;
+        font-size: 0.85em;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px;
+        font-size: 1em;
+    }
+
+    /* Round over content optimizations */
+    .round-over-content {
+        padding: 20px;
+        max-width: 400px;
+    }
+
+    /* Multipler home optimizations */
+    .multiplayerHome {
+        padding: 10px;
+    }
+
+    /* Join party optimizations */
+    .join-party-card {
+        padding: 20px;
+        max-width: 360px;
+    }
+
+    .join-party-title {
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+    }
+
+    .join-party-input {
+        padding: 10px 15px;
+        font-size: 1rem;
+    }
+
+    .join-party-button {
+        padding: 10px 15px;
+        font-size: 1rem;
+    }
+
+    /* Minimap optimizations for very low height */
+
+
+
+
+    /* Onboarding div optimizations */
+    .onboardingDiv {
+        width: 60%;
+        top: 20px;
+        padding: 15px 25px;
+        font-size: 1.2em;
+    }
+
+    /* Country guesser options optimizations */
+    .countryGuessrOptions {
+        bottom: 20px;
+        width: 80%;
+    }
+
+    .countryGuessrCard {
+        height: 80px;
+    }
+
+    /* Home page navigation separators constraint */
+    .g2_nav_hr {
+        max-width: 500px !important;
+    }
+}
+
+/* Low width/height desktop optimizations */
+@media (min-width: 1025px) and (max-width: 1366px), (min-width: 1025px) and (max-height: 768px) {
+    .summary-header {
+        padding: 20px 20px 15px;
+        padding-top: 40px;
+    }
+
+    .summary-title {
+        font-size: 1.8rem;
+        margin-bottom: 8px;
+    }
+
+    .summary-score {
+        font-size: 2.5rem;
+        margin-bottom: 4px;
+    }
+
+    .summary-total {
+        font-size: 1rem;
+        margin-bottom: 12px;
+    }
+
+    .summary-actions {
+        gap: 8px;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+
+    .star-container {
+        margin-bottom: 0.75rem;
+    }
+
+    .star {
+        font-size: 1.6rem;
+    }
+
+    /* ELO container adjustments */
+    .elo-value {
+        font-size: 1.6rem;
+    }
+
+    .elo-change {
+        font-size: 0.9rem;
+    }
+
+    .time-elapsed {
+        font-size: 0.9rem;
+    }
+}
+
+.elo-container {
+    display: flex;
+    align-items: baseline; /* Align smaller text with larger text */
+    gap: 8px; /* Add some space between Elo value and change */
+}
+
+.elo-value {
+    font-size: 2rem; /* Make Elo value larger */
+    font-weight: bold;
+    color: black;
+}
+
+.elo-change {
+    font-size: 1rem; /* Make Elo change smaller */
+    font-weight: normal;
+    color: green; /* Default color */
+}
+
+.time-elapsed {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 1rem;
+    color: black;
+}
+
+.historyItem {
+    font-family: lexend !important;
+    color: white;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.detail-icon {
+    color: #FFD700; /* Gold color */
+    font-size: 1.5rem;
+}
+
+.detail-text {
+    font-size: 1.2rem;
+    color: white;
+    font-family: lexend;
+}
+
+.play-again-btn {
+    padding: 10px 20px;
+    font-size: 1.2rem;
+    color: #fff;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    font-family: lexend;
+}
+
+.play-again-btn:hover {
+    background: #0056b3;
+}
+
+
+.star-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.star {
+    font-size: 2rem;
+    color: gold;
+}
+
+.star.empty {
+    color: var(--primary);
+    animation: none;
+    opacity: 1;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+.wsIcon {
+    position: fixed;
+    z-index: 1000;
+    top: 40px;
+    left: 20px;
+    width: 50px;
+    height: 50px;
+}
+
+
+
+.input-group {
+    display: flex;
+    margin-bottom: 20px;
+    height: fit-content;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100%;
+}
+
+.friend-input {
+    flex-grow: 1;
+    padding: 10px;
+    border-radius: 5px;
+    border: 1px solid #555;
+    background: #444;
+    color: white;
+    margin: 0 !important;
+    margin-right: 10px !important;
+}
+
+.send-request-button {
+    border: none;
+    border-radius: 5px;
+    background-color: #4CAF50;
+    color: white;
+    // height: fit-content;
+    cursor: pointer;
+}
+
+.friends-list {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.friends-list-parent {
+    height: 100%;
+    width: 100%;
+    overflow-y: auto;
+}
+
+.friend-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #444;
+    padding: 10px;
+    border-radius: 5px;
+    max-width: 300px;
+    width: 100%;
+}
+
+.view-requests-button {
+    padding: 10px 20px;
+    margin-right: 10px;
+    border: 1.4px solid var(--primaryDark);
+    width: 23%;
+    min-width: 150px;
+    background: var(--gradLight);
+    background-color: var(--primaryTransparent);
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    backdrop-filter: blur(10px);
+}
+
+.view-requests-button.selected {
+    background-color: rgba(0, 0, 0, 0.3);
+
+}
+
+.request-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #444;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.accept-button {
+    background-color: #4CAF50;
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-right: 5px;
+}
+
+.decline-button {
+    background-color: #F44336;
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.cancel-button {
+    background-color: #F44336;
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.invite-button {
+    background-color: #322ccd;
+    border: none;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.friendsContent {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    gap: 5px;
+    padding-left: 10px;
+}
+
+.friendsTabs {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+}
+
+.friendsSection {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    text-align: left;
+    font-size: 1.2em;
+    justify-content: flex-start;
+}
+
+
+@media screen and (max-width: 680px) {
+    .friendsModal {
+        width: 100% !important;
+        left: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+}
+
+.mapAttr {
+    position: absolute;
+    z-index: 1000;
+    bottom: -10px;
+    left: 5px;
+    pointer-events: none;
+    user-select: none;
+}
+
+.react-responsive-modal-root{
+    overflow: hidden !important;
+}
+
+.leaflet-control-attribution {
+    display: none;
+}
+
+.leaflet-control-zoom-in span,
+.leaflet-control-zoom-out span {
+    color: black !important;
+}
+
+.react-responsive-modal-closeButton {
+    background-color: white !important;
+}
+
+.friend-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.friend-state {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.9em;
+}
+
+.friend-name {
+    font-size: 1.2em;
+}
+
+.mainHomeBtns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100px;
+    margin-bottom: 20px;
+}
+
+.multiplayerPrivBtns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100px;
+}
+
+.clueBanner {
+    max-width: 40vw;
+}
+
+@media screen and (max-width: 600px) {
+    .mainHomeBtns {
+        flex-direction: column;
+        gap: 10px;
+        // height: 200px;
+        height: auto;
+    }
+
+    .multiplayerPrivBtns {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .clueBanner {
+        max-width: 100vw;
+        max-height: 50vh;
+    }
+
+    .homeBtn {
+        height: 50px;
+    }
+}
+
+.react-responsive-modal-modal {
+    max-width: none !important;
+}
+
+/* Hide the elements with specific inline styles */
+[style*="position: absolute;"][style*="pointer-events: none;"][style*="transform: translate(-50%, -50%);"][style*="z-index: 1000;"][style*="top: 50%;"][style*="color: white;"][style*="font-size: 20px;"][style*="left: 50%;"][style*="background-color: rgba(0, 0, 0, 0.3);"][style*="padding: 5px;"][style*="border-radius: 3px;"][style*="text-align: center;"] {
+    display: none !important;
+}
+
+div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans-serif; padding: 15px 25px; box-sizing: border-box; top: 5px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 5px; left: 50%; max-width: 375px; position: absolute; transform: translateX(-50%); width: calc(100% - 10px); z-index: 1;"] {
+    display: none;
+}
+
+.mapSectionWrap{
+    display: flex !important;
+    flex-wrap: wrap;
+}
+
+
+.privacyPolicyLink {
+    color: white;
+    text-decoration: underline;
+    cursor: pointer;
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    z-index: 1000;
+}
+
+
+.privacyPolicyLink a {
+    color: white;
+    text-decoration: underline;
+}
+
+.topAdFixed {
+  position: fixed;
+  top: 5px;
+  z-index: 1001;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+@media screen and (max-width: 700px) {
+    .topAdFixed {
+        top: 50px;
+    }
+
+    .topAdFixed.moreDown {
+        top: 100px;
+    }
+}
+// .topAdFixed {
+//     position: fixed;
+//   bottom: 5px;
+//   z-index: 100;
+//   left: 50%;
+//   transform: translateX(-50%);
+// }
+div[dir="ltr"] {
+    // invert the colors
+    filter: invert(1);
+}
+
+.mainBody {
+    overflow: hidden;
+    user-select: none;
+    background-color: #000000 !important;
+}
+
+.mapSearch {
+    margin: 0;
+    padding: 0;
+}
+.mapSearch input{
+    width: 90%;
+    margin: 0 !important;
+}
+
+.mapSearchInput {
+    width: 50%;
+    background-color: #e3e3e3 !important;
+    // placehoder color
+    color: #000000 !important;
+    font-size: 1.3em;
+}

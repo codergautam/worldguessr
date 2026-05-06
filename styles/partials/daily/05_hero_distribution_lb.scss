@@ -1,0 +1,202 @@
+
+/* Distribution chart */
+.daily-distribution-chart-wrap {
+  position: relative;
+  width: 100%;
+}
+.daily-distribution-chart {
+  width: 100%;
+  height: 180px;
+  display: block;
+  overflow: visible;
+}
+.daily-distribution-tooltip {
+  position: absolute;
+  bottom: calc(100% - 6px);
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: white;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  animation: daily-tooltip-in 120ms ease-out;
+}
+.daily-distribution-tooltip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: rgba(0, 0, 0, 0.92);
+}
+.daily-distribution-tooltip-range {
+  font-weight: 700;
+  color: #ffd700;
+  font-variant-numeric: tabular-nums;
+}
+.daily-distribution-tooltip-count {
+  color: rgba(255, 255, 255, 0.78);
+  font-variant-numeric: tabular-nums;
+}
+@keyframes daily-tooltip-in {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+.daily-distribution-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+.daily-distribution-standing {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+.daily-distribution-pct {
+  color: #ffd700;
+  font-weight: 700;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+.daily-distribution-rank {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.daily-distribution-user-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  color: #ffd700;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+  max-width: calc(100% - 8px);
+}
+.daily-distribution-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+.daily-distribution-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Leaderboard */
+.daily-leaderboard {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.daily-leaderboard-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.daily-leaderboard-row:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.01);
+}
+.rank-name-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.daily-leaderboard-row .rank {
+  min-width: 24px;
+  text-align: center;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1.1rem;
+}
+.daily-leaderboard-row .name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  font-size: 1.05rem;
+}
+.daily-leaderboard-name-link {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.daily-leaderboard-name-link:hover {
+  color: #4CAF50;
+  text-decoration: underline;
+}
+.daily-leaderboard-row .score {
+  font-family: "Jockey One", sans-serif;
+  font-weight: 400;
+  font-size: 1.3rem;
+  color: #4CAF50;
+  font-variant-numeric: tabular-nums;
+}
+.daily-leaderboard-row.self {
+  background: linear-gradient(90deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.05));
+  border: 1px solid rgba(76, 175, 80, 0.4);
+}
+.daily-leaderboard-separator {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 1.2rem;
+  margin: 4px 0;
+  letter-spacing: 4px;
+}
+.daily-leaderboard-signin {
+  padding: 16px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px dashed rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Round breakdown — bar graph */
+.daily-round-bars {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 8px 4px 4px;
+}

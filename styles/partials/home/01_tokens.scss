@@ -1,0 +1,74 @@
+
+
+$wg-bg-card:        rgba(8, 12, 22, 0.78);
+$wg-bg-card-hover:  rgba(16, 22, 36, 0.86);
+$wg-bg-card-strong: rgba(7, 10, 18, 0.85);
+$wg-bg-menu:        rgba(7, 10, 18, 0.42);
+$wg-side-fade:      #030c15;
+$wg-card-border:    rgba(255, 255, 255, 0.08);
+$wg-blur:           20px;
+$wg-blur-strong:    26px;
+$wg-radius:         16px;
+$wg-radius-lg:      22px;
+$wg-radius-sm:      10px;
+$wg-blue:           #3b82f6;
+$wg-blue-soft:      #60a5fa;
+$wg-blue-label:     #5fa6ff;
+$wg-text-dim:       rgba(255, 255, 255, 0.62);
+$wg-text-mid:       rgba(255, 255, 255, 0.82);
+
+@font-face {
+  font-family: 'GmarketSans';
+  src: url('/assets/fonts/GmarketSansLight.otf') format('opentype');
+  font-weight: 300;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'GmarketSans';
+  src: url('/assets/fonts/GmarketSansMedium.otf') format('opentype');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'GmarketSans';
+  src: url('/assets/fonts/GmarketSansBold.otf') format('opentype');
+  font-weight: 700;
+  font-display: swap;
+}
+
+.wg-gmarket-bold {
+  font-family: 'GmarketSans', 'Lexend', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+@keyframes wg-fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes wg-fadeInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes wg-fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.wg-home {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  color: white;
+  font-family: 'Lexend', sans-serif;
+  overflow: hidden;
+
+  & * { box-sizing: border-box; }
+
+  transition: opacity 0.22s ease;
+
+  &.wg-home--exiting {
+    opacity: 0;
+    pointer-events: none;
+  }
+}

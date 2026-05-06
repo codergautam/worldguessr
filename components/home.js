@@ -68,6 +68,9 @@ import StreetView from "./streetview/streetView";
 // import MaintenanceBanner from "./MaintenanceBanner";
 import Ad from "./bannerAdNitro";
 import GameDistributionBanner from "./bannerAdGameDistribution";
+import HomeScreen from "./homeScreen/HomeScreen";
+import DynamicBackground from "./homeScreen/DynamicBackground";
+import WgLoadingScreen from "./homeScreen/WgLoadingScreen";
 
 
 export default function Home({ initialScreen, dailyBootstrap } = {}) {
@@ -84,6 +87,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [loading, setLoading] = useState(false);
     const [mapSwitchMaskShown, setMapSwitchMaskShown] = useState(false);
     const [mapSwitchSawLoading, setMapSwitchSawLoading] = useState(false);
+    const [wgBgLocation, setWgBgLocation] = useState(null);
+    const [wgCardLocation, setWgCardLocation] = useState(null);
+    const [wgBgMounted, setWgBgMounted] = useState(false);
+    const [wgInGame, setWgInGame] = useState(false);
     // game state
     const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
     const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
@@ -91,6 +98,41 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // location aka map slug
     const [gameOptions, setGameOptions] = useState({ location: "all", maxDist: 20000, official: true, countryMap: false, communityMapName: "", extent: null, showRoadName: true, timePerRound: 0 }) // rate limit fix: showRoadName true
     const [showAnswer, setShowAnswer] = useState(false)
+
+    const wgLoadingTakeover = (loading || mapSwitchMaskShown) && !wgInGame;
+    const wgLoadingActive = wgLoadingTakeover;
+    const wgShowBg = screen === 'home' || wgLoadingTakeover;
+    useEffect(() => {
+        if (latLong && latLong.lat && latLong.long && (screen === 'singleplayer' || screen === 'countryGuesser')) {
+            setWgInGame(true);
+        }
+    }, [latLong, screen]);
+    useEffect(() => {
+        if (screen === 'home') setWgInGame(false);
+    }, [screen]);
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        if (wgLoadingActive) {
+            document.body.classList.add('wg-loading-active');
+            return () => document.body.classList.remove('wg-loading-active');
+        }
+    }, [wgLoadingActive]);
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        if (showAnswer) {
+            document.body.classList.add('wg-results-active');
+            return () => document.body.classList.remove('wg-results-active');
+        }
+    }, [showAnswer]);
+    useEffect(() => {
+        if (wgShowBg) {
+            setWgBgMounted(true);
+            return undefined;
+        }
+        if (!wgBgMounted) return undefined;
+        const t = setTimeout(() => setWgBgMounted(false), 500);
+        return () => clearTimeout(t);
+    }, [wgShowBg, wgBgMounted]);
 
     const [pinPoint, setPinPointState] = useState(null)
     const pinPointRef = useRef(null)
@@ -2955,7 +2997,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {/* Coolmath splash is now rendered statically in _document.js and removed via useEffect */}
             {/* Background street2 image is rendered via body::before in _document.js */}
 
-            <main className={`home`} id="main">
+            <main className={`home ${screen === "home" && onboardingCompleted ? "wg-redesign-active" : ""}`} id="main">
 
                 <StreetView
                     nm={gameOptions?.nm}
@@ -2985,38 +3027,16 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     }}
                 />
 
-                {/* Loading overlay - covers iframe with background image to prevent white flicker */}
-                <div className={`loading-overlay ${(loading || mapSwitchMaskShown) ? 'loading-overlay--visible' : ''}`}>
-                    <NextImage.default src={asset('/street2.webp')}
-                        draggable={false}
-                        width={1920}
-                        height={1080}
-                        priority
-                        alt="Loading Background"
-                        style={{
-                            objectFit: "cover",
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            height: "100%",
-                            opacity: 0.5,
-                        }}
-                        sizes="100vw"
-                    />
-                    {/* Dark background behind the semi-transparent image to match home screen look */}
-                    <div style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        height: "100%",
-                        backgroundColor: "#000",
-                        zIndex: -1,
-                    }} />
-                </div>
-
-                <BannerText text={`${text("loading")}...`} shown={loading} showCompass={true} />
+                {wgBgMounted && wgBgLocation && (
+                    <div className={`wg-bgWrap ${wgShowBg ? 'wg-bgWrap--shown' : ''}`}>
+                        <DynamicBackground imageSrc={wgBgLocation.currentImage} />
+                    </div>
+                )}
+                <WgLoadingScreen
+                    shown={wgLoadingTakeover}
+                    onBack={() => backBtnPressed()}
+                    text={text}
+                />
 
 
 
@@ -3037,6 +3057,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     maintenance={maintenance}
                     inCrazyGames={inCrazyGames}
                     loading={loading}
+                    showAnswer={showAnswer}
                     onFriendsPress={() => { setAccountModalOpen(true); setAccountModalPage("list"); }}
                     loginQueued={loginQueued}
                     setLoginQueued={setLoginQueued}
@@ -3193,7 +3214,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     />
                 )}
 
-                {screen == "home" &&
+                {false && screen == "home" &&
                     <div className={`home__content g2_modal ${screen !== "home" ? "hidden" : "cshown"} `}>
                         <div className={`g2_nav_ui ${navSlideOut ? 'g2_slide_out' : ''} ${onboardingCompleted !== true ? 'hide' : ''}`} >
 
@@ -3403,6 +3424,68 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         </div>
                     </div>
                 }
+
+                {screen === "home" && onboardingCompleted === true && (
+                    <HomeScreen
+                        session={session}
+                        eloData={eloData}
+                        animatedEloDisplay={animatedEloDisplay}
+                        loading={loading}
+                        maintenance={maintenance}
+                        multiplayerState={multiplayerState}
+                        inCrazyGames={inCrazyGames}
+                        inGameDistribution={inGameDistribution}
+                        inCoolMath={!!process.env.NEXT_PUBLIC_COOLMATH}
+                        loginQueued={loginQueued}
+                        setLoginQueued={setLoginQueued}
+                        options={options}
+                        setOptions={setOptions}
+                        bgLocation={wgBgLocation}
+                        setBgLocation={setWgBgLocation}
+                        cardLocation={wgCardLocation}
+                        setCardLocation={setWgCardLocation}
+                        onPlaySingleplayer={() => {
+                            if (loading) return;
+                            setMiniMapShown(false);
+                            setLoading(true);
+                            crazyMidgame(() => {
+                                if (!hasEnteredSingleplayer.current) {
+                                    hasEnteredSingleplayer.current = true;
+                                    const pref = gameStorage.getItem("singleplayerDefaultMode");
+                                    if (pref === "countryGuesser") {
+                                        enterCountryGuessrMode("country");
+                                        return;
+                                    } else if (pref === "continentGuesser") {
+                                        enterCountryGuessrMode("continent");
+                                        return;
+                                    }
+                                }
+                                setScreen(lastSingleplayerScreen.current || "singleplayer");
+                            });
+                        }}
+                        onRankedDuel={() => handleMultiplayerAction("publicDuel")}
+                        onCasualMatch={() => handleMultiplayerAction("unrankedDuel")}
+                        onCreateParty={() => {
+                            if (!ws || !multiplayerState?.connected) {
+                                setConnectionErrorModalShown(true);
+                                return;
+                            }
+                            setAwaitingCreatePartyScreen(true);
+                            handleMultiplayerAction("createPrivateGame");
+                        }}
+                        onJoinParty={() => {
+                            if (!ws || !multiplayerState?.connected) {
+                                setConnectionErrorModalShown(true);
+                                return;
+                            }
+                            handleMultiplayerAction("joinPrivateGame");
+                        }}
+                        onDailyChallenge={() => enterDailyMode()}
+                        onCommunityMaps={() => setMapModal(true)}
+                        onOpenAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
+                        onConnectionError={() => setConnectionErrorModalShown(true)}
+                    />
+                )}
                 {(mapModal || gameOptionsModalShown) && <MapsModal shown={true} session={session} onClose={() => {
                     if (mapModalClosing) return;
                     setMapModalClosing(true);
