@@ -1,5 +1,5 @@
-import Home from '@/components/home';
+import HomeShell from '@/components/homeShell';
 
 export default function DailyPage() {
-  return <Home initialScreen="daily" />;
+  return <HomeShell initialScreen="daily" />;
 }

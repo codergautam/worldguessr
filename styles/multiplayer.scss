@@ -1,0 +1,840 @@
+/* multiplayer.scss — multiplayer-only flows: leaderboard, health bars, join-party, party modal. */
+
+.multiplayerHome {
+    height: 100%;
+    height: 100svh;
+    box-sizing: border-box;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    position: fixed;
+    bottom: 0;
+    z-index: 101;
+    pointer-events: all;
+    //animation: fadeIn 1s ease-in-out forwards;
+}
+
+.multiplayerHome.inGame {
+    pointer-events: none;
+}
+
+.multiplayerFinalBtns {
+    pointer-events: all;
+}
+
+.multiplayerOptionBtn {
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+// Join Party Screen Styles
+.join-party-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    height: 100svh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    pointer-events: all;
+    box-sizing: border-box;
+}
+
+.join-party-card {
+    background: var(--gradLight);
+    backdrop-filter: blur(15px);
+    border-radius: 24px;
+    padding: clamp(30px, 5vw, 50px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    width: 100%;
+    max-width: 480px;
+    min-width: 320px;
+    text-align: center;
+    animation: slideInUp 0.6s ease-out;
+}
+
+.join-party-title {
+    color: white;
+    font-size: min(clamp(1.8rem, 4vw, 2.5rem), clamp(1.5rem, 5vh, 2.2rem));
+    font-weight: 600;
+    margin: 0 0 30px 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    letter-spacing: 0.5px;
+}
+
+.join-party-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.join-party-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+
+    @media (min-width: 520px) {
+        flex-direction: row;
+        align-items: stretch;
+        gap: 12px;
+    }
+}
+
+.join-party-input {
+    flex: 1;
+    padding: 16px 20px;
+    font-size: min(clamp(1rem, 2.5vw, 1.2rem), clamp(0.9rem, 3vh, 1.1rem));
+    border: 2px solid var(--primaryDark);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    text-align: center;
+    font-weight: 600;
+    letter-spacing: 2px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
+    &::placeholder {
+        color: #999;
+        font-weight: 400;
+        letter-spacing: normal;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        transform: translateY(-1px);
+    }
+}
+
+.join-party-button {
+    padding: 16px 24px;
+    font-size: min(clamp(1rem, 2.5vw, 1.2rem), clamp(0.9rem, 3vh, 1.1rem));
+    font-weight: 600;
+    border: 2px solid var(--primaryDark);
+    border-radius: 12px;
+    background: var(--primary);
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    min-width: 100px;
+    flex-shrink: 0;
+
+    &:hover:not(:disabled) {
+        background: var(--primaryDark);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    &:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    &:active:not(:disabled) {
+        transform: translateY(-1px);
+    }
+}
+
+.join-party-error {
+    color: #ff4757;
+    font-size: clamp(0.9rem, 2vw, 1.1rem);
+    font-weight: 500;
+    padding: 12px 16px;
+    background: rgba(255, 71, 87, 0.1);
+    border: 1px solid rgba(255, 71, 87, 0.3);
+    border-radius: 8px;
+    text-shadow: none;
+    animation: errorSlideIn 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes errorSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.publicGame {
+    background-color: #7a3232;
+}
+
+.publicGame:hover {
+    background-color: #542626;
+}
+
+.unrankedGame {
+    background-color: #327a32;
+}
+
+.unrankedGame:hover {
+    background-color: #265226;
+}
+
+@keyframes fadeInLb {
+    0% {
+        opacity: 0;
+    }
+
+    100% {
+        opacity: 0.8;
+    }
+}
+
+.multiplayerLeaderboard.leaderboardFadingOut {
+    animation: fadeOutLb 500ms ease forwards;
+    pointer-events: none;
+}
+
+@keyframes fadeOutLb {
+    0% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.multiplayerLeaderboard {
+    background-color: #062413;
+    border-radius: 10px;
+    position: fixed;
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: safe center;
+    align-items: center;
+    transition: all 0.5s;
+    animation: fadeInLb 0.6s ease-out forwards;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1100;
+    overflow-y: auto;
+    padding: 40px 20px 60px;
+    gap: 6px;
+}
+
+.multiplayerLeaderboard .bigSpan {
+    font-size: clamp(1.5rem, 5vw, 2.2rem);
+    font-weight: 700;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+}
+
+.multiplayerLeaderboard__player {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    margin-bottom: 0;
+    border-radius: 8px;
+    background-color: #fff;
+    width: min(500px, 90vw);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.multiplayerLeaderboard__player:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.multiplayerLeaderboard__player.me {
+    background-color: #d4edda;
+    border-left: 4px solid #28a745;
+}
+
+.multiplayerLeaderboard__player__username {
+    font-size: clamp(14px, 3.5vw, 16px);
+    font-weight: 600;
+    color: #000;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.multiplayerLeaderboard__player__score {
+    font-size: clamp(16px, 4vw, 20px);
+    font-weight: 700;
+    color: #000;
+    flex-shrink: 0;
+    margin-left: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+.multiplayerLeaderboard__separator {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 4px 0;
+    letter-spacing: 4px;
+}
+
+.multiplayerFinalBtns {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.multiplayerFinalBtns .gameBtn {
+    background-color: #28a745;
+    border: none;
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.15s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.multiplayerFinalBtns .gameBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    background-color: #2ebd4e;
+}
+
+/* Mobile responsive adjustments for leaderboard */
+@media screen and (max-width: 600px), screen and (pointer: coarse) {
+    .multiplayerLeaderboard {
+        padding: 20px 12px 30px;
+        gap: 5px;
+    }
+
+    .multiplayerLeaderboard .bigSpan {
+        font-size: 1.3rem;
+        margin-bottom: 4px;
+    }
+
+    .multiplayerLeaderboard__player {
+        width: 95vw;
+        padding: 8px 12px;
+        border-radius: 6px;
+    }
+
+    .multiplayerLeaderboard__player__username {
+        font-size: 13px;
+    }
+
+    .multiplayerLeaderboard__player__score {
+        font-size: 15px;
+        margin-left: 8px;
+    }
+
+    .multiplayerLeaderboard__separator {
+        font-size: 18px;
+        margin: 2px 0;
+    }
+
+    .multiplayerFinalBtns {
+        width: 95vw;
+        margin-top: 12px;
+        gap: 8px;
+    }
+
+    .multiplayerFinalBtns .gameBtn {
+        flex: 1;
+        min-width: 100px;
+        padding: 10px 16px;
+    }
+}
+
+/* Short screen height adjustments for leaderboard */
+@media screen and (max-height: 700px) {
+    .multiplayerLeaderboard {
+        padding: 15px 12px 25px;
+        gap: 4px;
+    }
+
+    .multiplayerLeaderboard .bigSpan {
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+    }
+
+    .multiplayerLeaderboard__player {
+        padding: 6px 12px;
+    }
+
+    .multiplayerLeaderboard__player__username {
+        font-size: 13px;
+    }
+
+    .multiplayerLeaderboard__player__score {
+        font-size: 14px;
+    }
+
+    .multiplayerLeaderboard__separator {
+        font-size: 16px;
+        margin: 1px 0;
+    }
+
+    .multiplayerFinalBtns {
+        margin-top: 10px;
+        gap: 6px;
+    }
+
+    .multiplayerFinalBtns .gameBtn {
+        padding: 8px 14px;
+    }
+}
+
+/* Mobile responsive party modal */
+@media (max-width: 768px) {
+    .party-modal-responsive {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        padding: 15px !important;
+        margin: 0 auto !important;
+    }
+}
+
+// Timer positioning for mobile to avoid overlap with health bars
+@media screen and (max-width: 830px) {
+
+
+    /* Make health bars more compact on mobile */
+    .player-info-modern {
+        margin-top: 6px; /* Reduced from 12px */
+    }
+
+    .health-bar-container.modern {
+        margin: 10px; /* Reduced overall container margin */
+    }
+}
+
+// Modern Health Bar Styles with Animations
+.health-bar-container.modern {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 200px;
+    margin: 15px;
+    font-family: 'Lexend', sans-serif;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+    &.animating {
+        transform: scale(1.05);
+        filter: drop-shadow(0 8px 25px rgba(0, 0, 0, 0.3));
+    }
+}
+
+.damage-indicator {
+    position: absolute;
+    top: -30px;
+    right: 0;
+    color: #ff4757;
+    font-weight: bold;
+    font-size: 18px;
+    animation: damage-float 2s ease-out forwards;
+    z-index: 1000;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+@keyframes damage-float {
+    0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(-40px) scale(1.2);
+    }
+}
+
+.health-bar-wrapper {
+    width: 100%;
+    position: relative;
+}
+
+.health-bar-bg {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(30, 30, 30, 0.9) 100%);
+    border-radius: 15px;
+    padding: 8px;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 2px 4px rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.health-bar-track {
+    position: relative;
+    width: 100%;
+    height: 24px;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+
+.health-bar-fill {
+    height: 100%;
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        animation: shimmer 3s infinite;
+    }
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
+}
+
+.health-bar-shine {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    right: 2px;
+    height: 8px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.6) 50%, transparent 100%);
+    border-radius: 10px;
+}
+
+.health-bar-pulse {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 12px;
+    animation: healthBarBgPulse 2s ease-in-out infinite;
+    opacity: 0.3;
+}
+
+@keyframes healthBarBgPulse {
+    0%, 100% { opacity: 0.1; }
+    50% { opacity: 0.4; }
+}
+
+.health-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+    z-index: 10;
+}
+
+.health-number {
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.health-max {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.player-info-modern {
+    margin-top: 12px;
+    text-align: center;
+    transition: all 0.3s ease;
+
+    &.starting {
+        transform: scale(1.2);
+        margin-top: 16px;
+    }
+}
+
+.player-name-wrapper {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.7) 0%, rgba(20, 20, 20, 0.8) 100%);
+    padding: 8px 16px;
+    border-radius: 20px;
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.player-name {
+    color: white;
+    font-weight: 600;
+    font-size: 16px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+    margin-right: 8px;
+}
+
+.player-elo {
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.3s ease;
+
+    &:hover {
+        transform: scale(1.1);
+    }
+}
+
+.hb-start1,
+.hb-start2 {
+    top: 50% !important;
+    right: 50% !important;
+    position: static !important;
+}
+
+.hb-parent {
+    display: flex !important;
+    justify-content: center;
+    position: absolute;
+    pointer-events: none;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    flex-direction: column;
+}
+
+.hb-bars {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 40px;
+    max-width: 100vw;
+    overflow: hidden;
+}
+
+/* AAA Game Style VS element for DUEL INTRO ONLY - not round over screen */
+.hb-bars .vs-divider,
+.hb-bars p {
+    font-family: lexend, sans-serif !important;
+    font-weight: 900 !important;
+    font-size: 32px !important;
+    color: #ffffff !important;
+    text-shadow:
+        0 0 25px #00ffff,
+        0 0 50px #00ffff,
+        0 0 75px #00ffff,
+        3px 3px 0 #000000,
+        -3px -3px 0 #000000,
+        3px -3px 0 #000000,
+        -3px 3px 0 #000000 !important;
+    letter-spacing: 8px !important;
+    animation: vsGlow 2s ease-in-out infinite alternate !important;
+    margin: 12px 0 !important;
+    text-align: center !important;
+    background: linear-gradient(45deg, rgba(0, 255, 255, 0.15), rgba(255, 255, 255, 0.08));
+    border-radius: 12px;
+    padding: 12px 24px !important;
+    border: 3px solid rgba(0, 255, 255, 0.4);
+    box-shadow:
+        0 0 20px rgba(0, 255, 255, 0.3),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+}
+
+/* AAA Game Style Duel Intro for Mobile */
+@media (max-width: 830px) {
+    .hb-bars {
+        flex-direction: column;
+        gap: 5px; /* Much closer spacing */
+        animation: duelIntroSlide 0.8s ease-out;
+    }
+
+    /* Override desktop styling for mobile - DUEL INTRO ONLY */
+    .hb-bars .vs-divider,
+    .hb-bars p {
+        font-family: lexend, sans-serif !important;
+        font-weight: 900 !important;
+        font-size: 28px !important;
+        color: #ffffff !important;
+        text-shadow:
+            0 0 20px #00ffff,
+            0 0 40px #00ffff,
+            0 0 60px #00ffff,
+            2px 2px 0 #000000,
+            -2px -2px 0 #000000,
+            2px -2px 0 #000000,
+            -2px 2px 0 #000000 !important;
+        letter-spacing: 6px !important;
+        animation: vsGlow 2s ease-in-out infinite alternate !important;
+        margin: 8px 0 !important;
+        text-align: center !important;
+        background: linear-gradient(45deg, rgba(0, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+        border-radius: 8px;
+        padding: 8px 16px !important;
+        border: 2px solid rgba(0, 255, 255, 0.3);
+    }
+
+    /* First player at top */
+    .hb-bars > div:first-child {
+        order: 0;
+        animation: playerSlideDown 0.6s ease-out 0.2s both;
+    }
+
+    /* Second player at bottom */
+    .hb-bars > div:last-child {
+        order: 2;
+        animation: playerSlideUp 0.6s ease-out 0.4s both;
+    }
+
+    /* Constrain player names in VS container */
+    .hb-bars .player-name {
+        max-width: 180px !important; /* Increased from 120px for better long name support */
+        font-size: 13px !important;
+    }
+}
+
+@keyframes duelIntroSlide {
+    0% { opacity: 0; transform: scale(0.8); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes vsGlow {
+    0% {
+        text-shadow:
+            0 0 20px #00ffff,
+            0 0 40px #00ffff,
+            2px 2px 0 #000000,
+            -2px -2px 0 #000000,
+            2px -2px 0 #000000,
+            -2px 2px 0 #000000;
+        transform: scale(1);
+        border-color: rgba(0, 255, 255, 0.3);
+    }
+    100% {
+        text-shadow:
+            0 0 30px #00ffff,
+            0 0 60px #00ffff,
+            0 0 80px #00ffff,
+            2px 2px 0 #000000,
+            -2px -2px 0 #000000,
+            2px -2px 0 #000000,
+            -2px 2px 0 #000000;
+        transform: scale(1.08);
+        border-color: rgba(0, 255, 255, 0.6);
+    }
+}
+
+@keyframes playerSlideDown {
+    0% {
+        opacity: 0;
+        transform: translateY(-50px) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes playerSlideUp {
+    0% {
+        opacity: 0;
+        transform: translateY(50px) scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Enhanced Media Queries */
+@media (min-width: 600px) {
+    .health-bar-container.modern {
+        width: 280px;
+        margin: 25px;
+    }
+
+    .health-bar-track {
+        height: 28px;
+    }
+
+    .health-number {
+        font-size: 18px;
+    }
+
+    .player-name {
+        font-size: 18px;
+    }
+
+    .player-elo {
+        font-size: 16px;
+    }
+}
+
+@media (max-width:830px) {
+    .health-bar-container.modern {
+        width: 160px; /* Back to compact mobile size */
+        margin: 8px;
+    }
+
+    .health-bar-track {
+        height: 18px; /* Smaller track */
+    }
+
+    .health-number {
+        font-size: 12px;
+    }
+
+    .health-max {
+        font-size: 10px;
+    }
+
+    /* Better long name support - compact but readable */
+    .player-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px; /* Increased from 140px for better long name support */
+        font-size: 14px;
+        display: block;
+        text-align: center;
+        min-width: 0; /* Allow flex shrinking */
+    }
+
+    .player-elo {
+        font-size: 12px;
+    }
+}
+
+@keyframes slideInFromBottomMobile {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

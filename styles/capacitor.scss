@@ -40,23 +40,9 @@ body.capacitor-native .topAdFixed {
   }
 }
 
-body.capacitor-native .accountBtn {
-  top: calc(50px + var(--wg-safe-top));
-}
-
-body.capacitor-native .accountBtn.loggedIn {
-  top: calc(10px + var(--wg-safe-top));
-}
-
-body.capacitor-native .friendBtnFixed {
-  top: calc(10px + var(--wg-safe-top));
-}
-
-@media screen and (max-width: 600px) {
-  body.capacitor-native .accountBtn {
-    top: calc(10px + var(--wg-safe-top));
-  }
-}
+/* .accountBtn / .accountBtn.loggedIn / .friendBtnFixed safe-area overrides
+   removed with the rest of the top-right chrome — needs to be redone
+   alongside the new chrome styling. */
 
 body.capacitor-native .onboardingTopRightBtns {
   top: calc(5px + var(--wg-safe-top));
@@ -110,9 +96,7 @@ body.capacitor-native .tutorial-pill {
   top: calc(10px + var(--wg-safe-top));
 }
 
-body.capacitor-native .leagueBtn {
-  top: calc(60px + var(--wg-safe-top));
-}
+/* .leagueBtn safe-area override removed — redo with new chrome. */
 
 body.capacitor-native .hbparent [style*="position: fixed"][style*="top"] {
   top: var(--wg-safe-top) !important;

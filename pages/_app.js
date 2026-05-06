@@ -1,4 +1,12 @@
 import "@/styles/globals.scss";
+import "@/styles/buttons.scss";
+import "@/styles/navbar.scss";
+import "@/styles/home.scss";
+import "@/styles/game.scss";
+import "@/styles/multiplayer.scss";
+import "@/styles/country-guesser.scss";
+import "@/styles/chatbox.scss";
+import "@/styles/onboarding-modals.scss";
 import "@/styles/multiPlayerModal.css";
 import "@/styles/accountModal.css";
 import "@/styles/mapModal.css";

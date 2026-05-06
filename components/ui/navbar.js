@@ -77,23 +77,17 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         </button>
                     )}
 
-                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && screen !== 'daily' && (
+                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && screen !== 'daily' && screen !== 'home' && (
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
                             inGameDistribution={inGameDistribution}
                             session={session}
-                            navbarMode={screen !== "home"}
                             openAccountModal={openAccountModal}
                             loginQueued={loginQueued}
                             setLoginQueued={setLoginQueued}
                         />
                     )}
 
-                    {session?.token?.secret && !accountModalOpen && screen !== "onboarding" && !gameOptionsModalShown && !mapModalOpen && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
-                        <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
-                            <FaUserFriends size={40} className={`friendBtnIcon ${screen === "home" ? "friendBtnIconFixed" : ""}`} />
-                        </button>
-                    )}
                 </div>
             </div>
             {screen === "onboarding" && (

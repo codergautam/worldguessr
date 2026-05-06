@@ -1,0 +1,203 @@
+/* home.scss — selectors used by the home shell, the learn page, and the
+   surviving g2_nav navigation chrome (still used by settingsModal,
+   countryGuessrConfig, DailyMenuItem, multiplayerHome). */
+
+/* Used by components/home.js shell, components/homeShell.js, pages/maps.js */
+.home {
+    background-color: black;
+    width: 100vw;
+    box-sizing: border-box;
+    height: 100vh;
+    height: 100svh; /* Dynamic viewport height for modern browsers */
+    display: flex;
+    overflow: hidden; /* Prevent unwanted scrolling on iOS */
+}
+
+/* Used by pages/learn.js */
+.home__content {
+    z-index: 100;
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+/* Used by pages/learn.js */
+.home__ui {
+    /* vertically centered inside home__content */
+}
+
+/* Used by pages/learn.js */
+.home__title {
+    font-size: min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em));
+    font-weight: 500;
+    color: white;
+    -webkit-text-stroke: 1px black;
+    text-shadow: 2px 2px black;
+    margin-bottom: 0;
+}
+
+/* Used by pages/learn.js */
+.home__subtitle {
+    font-size: min(clamp(1.2em, 1.8vw, 1.5em), clamp(1em, 2.5vh, 1.3em));
+    font-weight: 500;
+    color: white;
+    text-align: center;
+    margin-bottom: 20px;
+    -webkit-text-stroke: 1px black;
+    text-shadow: 2px 2px black;
+    animation: fadeIn 0.4s ease-in-out forwards;
+}
+
+/* Used by settingsModal, multiplayerHome, accountBtn, countryGuessrConfig */
+.home__squarebtnicon {
+}
+
+.home__squarebtn {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+/* Used by homeShell.js for screen wrappers */
+.home__singleplayer {
+    z-index: 101;
+}
+
+.home__multiplayer {
+}
+
+.home__onboarding {
+}
+
+/* g2_nav navigation chrome — used by settingsModal, countryGuessrConfig,
+   DailyMenuItem (sliding side panels). NOT used by the home shell. */
+@keyframes nav_slide_in {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.g2_nav_ui {
+    padding-top: 50px;
+    left: 0px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    width: 30vw;
+    gap: 15px;
+    padding-left: 5vw;
+    background: linear-gradient(65deg, var(--gradTopBase)),
+                linear-gradient(90deg, var(--gradBottomBase));
+    transition: opacity 0.3s ease-in-out;
+}
+
+.g2_nav_ui > * {
+    animation: nav_slide_in 0.3s ease-in-out forwards;
+}
+.g2_slide_in >* {
+    animation: nav_slide_in 0.3s ease-in-out forwards;
+}
+
+.g2_nav_group {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+.g2_nav_hr {
+    background: white;
+    width: 90%;
+    max-width: 800px;
+    height: 2.7px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+}
+
+.g2_nav_title {
+    text-align: left;
+}
+
+.g2_nav_text {
+    color: white;
+    font-size: min(clamp(1.3em, 2.5vw, 4em), clamp(1.1em, 3.5vh, 3.2em));
+    background: none;
+    font-weight: 400;
+    text-align: left;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    transition: all 0.5s;
+    padding-block: 0;
+    padding-inline: 0;
+}
+
+.g2_text {
+    color: white;
+    font-size: min(clamp(1.1em, 1.8vw, 2.3em), clamp(0.9em, 2.5vh, 2em));
+    font-weight: 300;
+    cursor: pointer;
+    transition: all 0.5s;
+    text-align: left;
+    background: none;
+    padding: 0;
+    margin: 0;
+}
+
+.g2_nav_text.red {
+    color: #FFAAAA;
+}
+
+.g2_text:hover,
+.g2_nav_text:hover {
+    color: aqua;
+    margin-left: 10px;
+}
+
+@media (max-aspect-ratio: 1/1.5) or (max-height: 600px) or (min-aspect-ratio: 3/1) {
+    .g2_modal {
+        flex-direction: column;
+    }
+
+    .g2_nav_title {
+        padding-top: 0px;
+    }
+
+    .g2_nav_hr {
+        width: 100%;
+        max-width: 200px;
+    }
+    .g2_nav_group {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .g2_content {
+        overflow-y: visible;
+        padding-top: 0px;
+    }
+
+    .g2_nav_text {
+        width: 100%;
+    }
+
+    .g2_nav_ui {
+        padding-top: 70px;
+        background: linear-gradient(160deg, var(--gradTopBase)), linear-gradient(180deg, var(--gradBottomBase));
+        width: 100%;
+        padding-right: 7vw;
+        height: auto;
+        gap: 5px;
+    }
+    .map_categories {
+        display: none;
+    }
+}

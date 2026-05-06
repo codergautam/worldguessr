@@ -1,0 +1,543 @@
+/* country-guesser.scss — country/continent guesser flow. */
+
+// gameoption modal
+.countriesContainer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    // padding: 20px;
+    overflow-y: scroll;
+    // max-height: 50vh;
+    // height: 50vh;
+    // green scrollbar
+    // overflow: hidden;
+}
+
+.countryCard {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 200px;
+    background: linear-gradient(135deg, #1a3a28 0%, #0d1117 100%);
+    margin: 0;
+    padding: 0;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    cursor: pointer;
+}
+
+.nmpz {
+    pointer-events: none;
+}
+
+/* .countryCardHeader removed — zero JSX consumers. */
+
+.countryCard:hover {
+    transform: translateY(-3px) scale(1.03);
+}
+
+.countryName {
+    color: white;
+    background: none;
+    border: none;
+    padding: 8px 12px;
+    font-size: 1.05em;
+    font-family: "Lexend", sans-serif;
+    font-weight: 600;
+    text-align: center;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+/* .goBtn (empty rule), .wiki, .play removed — zero JSX consumers. */
+
+.countryGuessrOptions {
+    position: fixed;
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 12px 14px;
+    gap: 8px;
+    /* Container itself ignores pointer events so users can pan/drag the
+       Street View through the empty padding around the buttons. The actual
+       buttons re-enable pointer events below. */
+    pointer-events: none;
+}
+
+.countryGuessrOptions .countryGuessrBtn {
+    pointer-events: auto;
+}
+
+.countryGuessrOptions.shown {
+    display: flex;
+}
+
+.countryGuessrPrompt {
+    color: rgba(255, 255, 255, 0.85);
+    font-family: "Lexend", sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin: 0;
+    padding: 0;
+}
+
+.countryGuessrBtnRow {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: stretch;
+    pointer-events: all;
+}
+
+.countryGuessrBtn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 8px 12px;
+    min-width: 86px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    color: white;
+    opacity: 0;
+    transform: translateY(16px);
+    animation: cardSlideIn 0.35s ease forwards;
+    transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+        transform: translateY(-3px);
+        border-color: #3fb950;
+        background: rgba(63, 185, 80, 0.1);
+        box-shadow: 0 4px 16px rgba(63, 185, 80, 0.15);
+    }
+
+    &:active {
+        transform: scale(0.96);
+        transition: transform 0.1s;
+    }
+}
+
+.countryGuessrBtn__flag {
+    width: 40px;
+    height: 27px;
+    object-fit: contain;
+    border-radius: 3px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+.countryGuessrBtn__emoji {
+    font-size: 1.4rem;
+}
+
+img.countryGuessrBtn__emoji {
+    width: 30px;
+    height: 30px;
+}
+
+.countryGuessrBtn__name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.2;
+    /* One-line names keep country buttons the same height as continent
+       buttons. Long names like "United Kingdom" used to wrap to 2 lines and
+       made the country round visibly taller than the continent round. The
+       button's title attr surfaces the full name on hover. */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.countryGuessrBtn--continent {
+    min-width: 78px;
+    padding: 6px 10px;
+}
+
+.countryGuessrBtn--noHover {
+    pointer-events: none;
+}
+
+@media screen and (min-width: 1200px) {
+    .countryGuessrPrompt {
+        font-size: 1rem;
+    }
+
+    .countryGuessrBtnRow {
+        gap: 12px;
+    }
+
+    .countryGuessrBtn {
+        padding: 11px 18px;
+        min-width: 112px;
+        gap: 7px;
+        border-radius: 14px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 60px;
+        height: 40px;
+        border-radius: 4px;
+    }
+
+    .countryGuessrBtn__emoji {
+        font-size: 1.9rem;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 36px;
+        height: 36px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.85rem;
+    }
+
+    .countryGuessrBtn--continent {
+        min-width: 95px;
+        padding: 10px 14px;
+    }
+
+    .countryGuessrOptions {
+        padding: 16px 18px;
+        gap: 10px;
+        border-radius: 18px;
+    }
+}
+
+/* Continent mode (6 buttons in a 70%-wide container) overflows a single row
+   on narrow viewports. Wrap into a 3+3 layout. Country mode (4 buttons, no
+   fixed container width) doesn't have this issue. Placed before the mobile
+   and landscape-phone blocks so those override with their own flex-basis. */
+@media (max-width: 900px) {
+    .countryGuessrOptions.continentMode .countryGuessrBtnRow {
+        flex-wrap: wrap;
+    }
+
+    .countryGuessrOptions.continentMode .countryGuessrBtn--continent {
+        flex: 1 1 30%;
+        min-width: 0;
+    }
+}
+
+
+@keyframes cardSlideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    .countryGuessrOptions {
+        bottom: 8px;
+        width: calc(100% - 12px);
+        padding: 8px;
+        gap: 5px;
+        border-radius: 12px;
+    }
+
+    .countryGuessrPrompt {
+        font-size: 0.82rem;
+    }
+
+    .countryGuessrBtnRow {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .countryGuessrBtn {
+        flex: 1 1 44%;
+        min-width: 0;
+        padding: 6px 5px;
+        gap: 3px;
+        border-radius: 9px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 38px;
+        height: 26px;
+        border-radius: 3px;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 32px;
+        height: 32px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.72rem;
+    }
+
+    .countryGuessrBtn--continent {
+        flex: 1 1 30%;
+        min-width: 0;
+        padding: 8px 5px;
+    }
+
+    /* Compact mode (singleplayer, non-onboarding) on mobile */
+    .compactMode.countryGuessrOptions {
+        padding: 8px;
+        gap: 5px;
+    }
+
+    .compactMode .countryGuessrBtnRow {
+        gap: 5px;
+    }
+
+    .compactMode .countryGuessrBtn {
+        padding: 8px 6px;
+        gap: 4px;
+        flex: 1 1 30%;
+    }
+
+    .compactMode .countryGuessrBtn__flag {
+        width: 40px;
+        height: 27px;
+    }
+
+    .compactMode img.countryGuessrBtn__emoji {
+        width: 36px;
+        height: 36px;
+    }
+
+    .compactMode .countryGuessrBtn__name {
+        font-size: 0.76rem;
+    }
+
+    .compactMode .countryGuessrBtn--continent {
+        padding: 8px 5px;
+    }
+}
+
+/* Short viewports (landscape phones): collapse 4 country buttons to a single row
+   so the banner + buttons don't eat the full screen. 3/4 buttons fit at ~22-24%;
+   6 continent buttons still wrap nicely at 1 1 14%. */
+@media (max-height: 500px) and (pointer: coarse),
+       (max-height: 500px) and (max-width: 900px) {
+    .countryGuessrOptions {
+        bottom: 4px;
+        padding: 6px 8px;
+        gap: 3px;
+        border-radius: 10px;
+    }
+
+    .countryGuessrPrompt {
+        font-size: 0.72rem;
+    }
+
+    .countryGuessrBtnRow {
+        flex-wrap: nowrap;
+        gap: 4px;
+    }
+
+    .countryGuessrBtn {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 4px 3px;
+        gap: 2px;
+        border-radius: 8px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 30px;
+        height: 20px;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 24px;
+        height: 24px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.65rem;
+        line-height: 1.1;
+    }
+
+    .countryGuessrOptions.continentMode .countryGuessrBtnRow {
+        flex-wrap: wrap;
+    }
+
+    .countryGuessrBtn--continent {
+        flex: 1 1 14%;
+        padding: 4px 3px;
+    }
+}
+
+/* ===== Country Guesser Config ===== */
+.countryGuessr-config {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1000;
+    display: flex;
+    background-color: black;
+    background-size: cover;
+    background-position: center;
+    animation: fadeIn 0.3s ease forwards;
+}
+
+.countryGuessr-config__sidebar {
+    padding-top: 50px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    width: 30vw;
+    gap: 15px;
+    padding-left: 5vw;
+    background: linear-gradient(65deg, var(--gradTopBase)),
+                linear-gradient(90deg, var(--gradBottomBase));
+    animation: nav_slide_in 0.3s ease-in-out forwards;
+}
+
+.countryGuessr-config--selected {
+    color: aqua !important;
+    margin-left: 10px;
+}
+
+.countryGuessr-config__back {
+    margin-top: auto;
+    margin-bottom: 50px;
+}
+
+.countryGuessr-config__content {
+    flex-grow: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 50px 5vw;
+    overflow-y: auto;
+}
+
+.countryGuessr-config__heading {
+    color: white;
+    font-size: min(clamp(1.1em, 1.8vw, 2.3em), clamp(0.9em, 2.5vh, 2em));
+    font-weight: 300;
+    margin-bottom: 20px;
+    font-family: "Lexend", sans-serif;
+}
+
+.countryGuessr-config__regions {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 30px;
+}
+
+.countryGuessr-config__region-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    border-radius: 15px;
+    border: 1.4px solid var(--primaryDark);
+    background: var(--gradLight);
+    backdrop-filter: blur(10px);
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-family: "Lexend", sans-serif;
+    font-size: 0.95rem;
+    transition: all 0.3s;
+
+    &.active {
+        background: var(--gradGreenBtn);
+        color: white;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+        transform: scale(1.03);
+    }
+
+    &:hover {
+        background-color: var(--primaryTransparent);
+        color: white;
+        transform: scale(1.05);
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
+    }
+}
+
+.countryGuessr-config__region-emoji {
+    font-size: 1.3rem;
+}
+
+.countryGuessr-config__warning {
+    color: #f0ad4e;
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    font-family: "Lexend", sans-serif;
+}
+
+.countryGuessr-config__play-btn {
+    width: 100%;
+    max-width: 300px;
+    font-size: min(clamp(1.3em, 2.5vw, 3em), clamp(1.1em, 3.5vh, 2.5em));
+    padding: 12px 0;
+    border-radius: 15px;
+}
+
+/* Country Guesser Config responsive */
+@media (max-aspect-ratio: 1/1.5) or (max-height: 600px) or (min-aspect-ratio: 3/1) {
+    .countryGuessr-config {
+        flex-direction: column;
+    }
+
+    .countryGuessr-config__sidebar {
+        width: 100%;
+        height: auto;
+        padding-top: 70px;
+        padding-right: 7vw;
+        gap: 5px;
+        background: linear-gradient(160deg, var(--gradTopBase)),
+                    linear-gradient(180deg, var(--gradBottomBase));
+    }
+
+    .countryGuessr-config__sidebar .g2_nav_group {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .countryGuessr-config__back {
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+
+    .countryGuessr-config__content {
+        padding: 20px 5vw;
+        justify-content: flex-start;
+    }
+
+    .countryGuessr-config__regions {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        max-width: 100%;
+    }
+
+    .countryGuessr-config__play-btn {
+        max-width: 100%;
+    }
+}
+
+/* ===== Continent Mode Layout ===== */
+.countryGuessrOptions.continentMode {
+    width: 70%;
+    max-width: 750px;
+    gap: 6px;
+}

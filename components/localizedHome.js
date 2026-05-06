@@ -1,4 +1,4 @@
-import Home from "@/components/home";
+import HomeShell from "@/components/homeShell";
 import { useEffect } from "react";
 
 export default function LocalizedHome({ path }) {
@@ -14,7 +14,7 @@ export default function LocalizedHome({ path }) {
     // path === "auto" (index page) — no redirect, useTranslation reads localStorage
   }, []);
 
-  return <Home />;
+  return <HomeShell />;
 }
 
 

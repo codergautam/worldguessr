@@ -1,0 +1,2467 @@
+/* game.scss — in-game UI (street view, minimap, hint/guess buttons, chatbox), end banner, and post-round results screens. */
+
+#miniMapArea {
+    width: 20%;
+    height: 30%;
+    max-height: 100%;
+    z-index: 10;
+    border-radius: 10px;
+    position: absolute;
+    right: 69px;
+    display: flex;
+    flex-flow: column;
+    bottom: 10px;
+    margin-top: auto;
+    margin-left: auto;
+    margin-right: 0px;
+    z-index: 1000;
+    transform: translateY(105%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+/* Google Maps overrides moved to globals.scss */
+
+#miniMapArea.shown {
+    opacity: 50%;
+    transform: translateY(0%);
+    pointer-events: auto;
+}
+
+#miniMapArea.forceHidden {
+    opacity: 0 !important;
+    transform: translateY(105%) !important;
+    pointer-events: none !important;
+    transition: none !important;
+    animation: none !important;
+}
+
+
+#miniMapContent {
+    cursor: crosshair;
+    height: 100%;
+    background-color: #B9D3DC;
+    position: relative;
+}
+
+#miniMapArea.answerNotShown {
+    transition: all 250ms ease;
+}
+
+#miniMapArea.answerNotShown #miniMapContent {
+    border: 5px solid #0F251D;
+    border-radius: 10px;
+}
+
+#miniMapArea.answerShown .ol-zoom {
+    display: none;
+}
+
+#miniMapArea.answerShown .leaflet-control-zoom {
+    display: none;
+}
+
+.mapCornerBtns {
+    position: relative;
+    transform: translateY(-5px);
+}
+
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    #miniMapArea {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+
+    #miniMapArea.miniMap.shown {
+        bottom: 0;
+        right: 0;
+        opacity: 100%;
+        transform: translateY(0%);
+        margin-right: 0;
+        width: 100%;
+    }
+
+    #miniMapArea.miniMap.shown .chatboxBtn {
+        transform: translate(0, 0) !important;
+    }
+    // #miniMapArea.answerShown {
+    //   transform: none;
+    // }
+    #miniMapContent {
+        border: none;
+    }
+}
+
+.miniMap__btns {
+    height: 10%;
+    min-height: 50px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+}
+
+.miniMap__btn {
+    font-family: lexend;
+    height: 100%;
+    width: 100%;
+    color: white;
+    font-size: 1.5em;
+    cursor: pointer;
+    border: none;
+    position: relative;
+    overflow: hidden;
+}
+
+.g2_mobile_guess {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 6px 12px;
+    background: var(--gradGreenBtn);
+    border: 2px solid var(--primaryDark);
+    box-shadow:
+        0 4px 15px rgba(36, 87, 52, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.g2_mobile_guess:hover {
+    transform: scale(1.02);
+    background-color: var(--primary);
+    box-shadow:
+        0 6px 20px rgba(36, 87, 52, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.g2_mobile_guess:active {
+    transform: scale(0.98);
+}
+
+.mobile_minimap__btns {
+    display: none;
+}
+
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    .miniMap__btns {
+        display: none;
+    }
+
+    .mobile_minimap__btns {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        margin-top: 10px;
+        position: absolute;
+        border-radius: 16px;
+        right: 65px;
+        bottom: 30px;
+        animation: fadeIn 1s ease-in-out forwards;
+    }
+
+    .mobile_minimap__btns.miniMapShown {
+        bottom: calc(70% + 8px);
+        width: 100%;
+        right: 0;
+        padding: 0 12px;
+        gap: 10px;
+    }
+
+    /* WsIcon (top:125px, right:15px, 50px wide, 50px tall) collides with the
+       expanded-map button row only when the row's top edge (0.3H - 56px) falls
+       above 175px and its bottom edge (0.3H - 8px) falls below 125px — i.e.
+       portrait viewport heights ~444–770px. Reserve the right column only then
+       and only when the icon is actually mounted. */
+    @media (orientation: portrait) and (min-height: 444px) and (max-height: 770px) {
+        body.ws-icon-shown .mobile_minimap__btns.miniMapShown {
+            padding-right: 75px;
+        }
+    }
+
+    /* Landscape on short viewports: the round-details tile sits in the top-right
+       area and blocks the minimize button even beyond the WsIcon column. Shift
+       the row further left so the minimize clears both. */
+    @media (orientation: landscape) and (max-height: 515px) {
+        .mobile_minimap__btns.miniMapShown {
+            padding-right: 160px;
+        }
+    }
+
+    /* Mobile guess button when map is expanded */
+    .mobile_minimap__btns.miniMapShown .guessBtn {
+        flex: 1;
+        height: 48px;
+        font-size: 1.1em;
+        border-radius: 14px;
+    }
+
+    /* Mobile hint button when map is expanded */
+    .mobile_minimap__btns.miniMapShown .hintBtn {
+        width: auto;
+        min-width: 80px;
+        height: 48px;
+        font-size: 1em;
+        border-radius: 14px;
+        padding: 0 16px;
+    }
+
+    .mobileMiniMapExpandedToggle {
+        width: auto;
+        min-width: 60px;
+        height: 48px;
+        border-radius: 14px !important;
+    }
+}
+// @media screen and (max-width: 460px) {
+//   .mobile_minimap__btns {
+//     bottom: calc(20px + 50px);
+//   }
+
+// }
+
+.chatboxBtn {
+    transform: translate(0px, 5px);
+}
+
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    .chatboxBtn.minimap {
+        transform: translate(5px, 0px);
+    }
+}
+
+// @media screen and (max-width: 580px) {
+//   .chatboxBtn {
+//     transform: translate(60px, -45px);
+//   }
+
+// }
+.chatboxBtn.open {
+    transform: translate(0, 0);
+}
+
+// Z-index layering fix
+// Priority: react-chatbot-kit-chat-container > guessBtn > chatboxBtn
+.chatboxBtn {
+    z-index: 1000;
+    position: relative;
+}
+
+.guessBtn,
+.g2_mobile_guess {
+    z-index: 1500;
+    position: relative;
+}
+
+.react-chatbot-kit-chat-container {
+    z-index: 2500;
+    position: relative;
+}
+
+.answerShownBtns {
+    display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GUESS BUTTON - Primary action with deep blue design
+   ═══════════════════════════════════════════════════════════════════════════ */
+.guessBtn {
+    background: var(--gradBlue);
+    border: 1px solid rgba(29, 29, 91, 0.8);
+    border-radius: 12px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow:
+        0 4px 15px rgba(29, 29, 91, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1), filter 0.35s ease, opacity 0.35s ease;
+    position: relative;
+    overflow: hidden;
+    filter: grayscale(0) brightness(1);
+    opacity: 1;
+}
+
+/* Shimmer effect overlay */
+.guessBtn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.15) 50%,
+        transparent 100%
+    );
+    transition: left 0.5s ease;
+}
+
+.guessBtn:hover::before {
+    left: 100%;
+}
+
+.guessBtn:hover {
+    transform: translateY(-2px);
+    background-color: rgba(30, 62, 156, 1);
+    box-shadow:
+        0 8px 25px rgba(29, 29, 91, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+}
+
+.guessBtn:active {
+    transform: translateY(1px);
+    box-shadow:
+        0 2px 10px rgba(29, 29, 91, 0.5),
+        inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HINT BUTTON - Secondary action matching green theme
+   ═══════════════════════════════════════════════════════════════════════════ */
+.hintBtn {
+    width: auto;
+    padding: 0 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: var(--gradGreenBtn);
+    border: 1px solid var(--primaryDark);
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1.2em;
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    box-shadow:
+        0 3px 12px rgba(36, 87, 52, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+/* Glow pulse animation */
+.hintBtn::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, transparent 70%);
+    transform: translate(-50%, -50%);
+    transition: all 0.4s ease;
+}
+
+.hintBtn:hover::after {
+    width: 200%;
+    height: 200%;
+}
+
+.hintBtn:hover {
+    transform: translateY(-2px) scale(1.02);
+    background-color: var(--primary);
+    box-shadow:
+        0 6px 20px rgba(36, 87, 52, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+        0 0 20px rgba(36, 87, 52, 0.3);
+}
+
+.hintBtn:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow:
+        0 2px 8px rgba(36, 87, 52, 0.4),
+        inset 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.hintBtn.hintShown {
+    display: none;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILITY STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+.cornerBtn {
+    font-size: 1.5em;
+    background: linear-gradient(135deg, #1ea0ac 0%, #17889a 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 5px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+}
+
+.cornerBtn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(30, 160, 172, 0.4);
+}
+
+.ol-viewport {
+    border-radius: 10px;
+}
+
+/* Unavailable/disabled state - smooth transition using filter */
+.miniMap__btn.unavailable {
+    cursor: not-allowed;
+    filter: grayscale(0.7) brightness(0.7);
+    opacity: 0.85;
+    transition: filter 0.35s ease, opacity 0.35s ease;
+}
+
+.miniMap__btn.unavailable::before {
+    display: none;
+}
+
+.miniMap__btn.unavailable:hover {
+    transform: none !important;
+    filter: grayscale(0.7) brightness(0.7);
+}
+
+.streetview,
+#streetview {
+    user-select: none;
+    border: none !important;
+    transition: all 100ms ease;
+    width: 100%;
+    height: 100%;
+    box-sizing: border-box;
+    border: 3px;
+    box-sizing: border-box;
+    opacity: 1;
+    transition: all 0.5s;
+    position: fixed !important;
+    touch-action: none;
+}
+
+/* #googlemaps.hidden / #streetview.hidden moved to globals.scss */
+
+#streetview {
+    transition: opacity 0.2s ease-out;
+    background-color: #1a1a2e; /* Prevent white flash during iframe src change */
+}
+
+// on screens larger than 600px
+@media screen and (min-width: 600px) and (pointer: fine) {
+    #miniMapArea.mapExpanded {
+        /* full screen center not 100% */
+        height: 65%;
+        width: 55%;
+    }
+
+    #miniMapArea.fullscreen {
+        height: 80%;
+        width: 75%;
+    }
+}
+
+// if less than 600px or touch screen
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    #miniMapArea {
+        /* full screen center not 100% */
+        height: 70%;
+        width: 55%;
+    }
+}
+
+
+
+#miniMapArea.answerShown {
+    width: 100%;
+    box-sizing: border-box;
+    height: 100vh;
+    opacity: 100%;
+    right: 0;
+    bottom: 0;
+    border-radius: 0;
+    margin-right: 0;
+    margin-top: 0;
+    // Explicit property list — `all` forces the browser to check transitions
+    // on every property, which adds style-recompute work per frame.
+    // `transform` and `opacity` must be here so the slide-out animation runs
+    // when `.shown` is removed (e.g. toggling map ↔ street view during the
+    // reveal): the base #miniMapArea has translateY(105%) + opacity 0 and we
+    // need to animate back to that, not snap.
+    transition:
+        width 300ms ease,
+        height 300ms ease,
+        top 300ms ease,
+        right 300ms ease,
+        bottom 300ms ease,
+        left 300ms ease,
+        border-radius 300ms ease,
+        margin 300ms ease,
+        transform 300ms ease,
+        opacity 300ms ease;
+}
+
+@media screen and (max-width: 600px) {
+    #miniMapArea.answerShown {
+        top: 0;
+        bottom: auto;
+        transition:
+            transform 600ms ease,
+            opacity 600ms ease;
+    }
+}
+
+#miniMapArea.countryGuessrMapReveal {
+    transform: none;
+    // Country/continent modes mount the map only for the reveal. Snap straight
+    // to fullscreen and let the fade + Leaflet camera animation carry it.
+    transition: none;
+    animation: mapFadeReveal 0.5s ease forwards;
+}
+
+#miniMapArea.countryGuessrMapFadeOut {
+    animation: mapFadeOut 0.3s ease forwards;
+}
+
+@keyframes mapFadeReveal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes mapFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+
+#miniMapArea.gameOver {
+    /* full screen center not 100% */
+    height: 100%;
+    width: 100%;
+    margin-right: 0;
+    opacity: 100%;
+    bottom: 0;
+}
+
+#miniMapArea.gameOver.multiplayer {
+    width: 75vw;
+}
+
+#endBanner {
+    min-height: auto;
+    background: var(--gradLight);
+    background-color: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    left: 50%;
+    padding: 14px 20px 20px;
+    margin-bottom: 10px;
+    z-index: 1001;
+    pointer-events: all;
+}
+
+#endBanner.countryGuessrDelayed {
+    pointer-events: none;
+    animation: bannerFadeIn 0.5s ease 0.8s both;
+}
+
+@keyframes bannerFadeIn {
+    from { opacity: 0; transform: translateY(12px); pointer-events: none; }
+    to { opacity: 1; transform: translateY(0); pointer-events: all; }
+}
+
+
+.topGameInfoButton {
+    align-self: flex-end;
+    transform: translate(10px, -10px);
+    background: none;
+    border: none;
+    color: white;
+    transition: color 0.5s, background 0.5s;
+    border-radius: 5px;
+}
+.topGameInfoButton:hover{
+    color: #BBBBFF;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.endCards {
+    pointer-events: none;
+    display: flex;
+    position: fixed;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    margin-top: 10px;
+    bottom: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box;
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    z-index: 1001;
+    font-family: lexend;
+}
+
+/* iOS landscape: keep the banner buttons away from the screen edges so taps
+   don't hit the home-indicator / edge-swipe zones and summon the pull tab. */
+@media (orientation: landscape) and (max-height: 500px) and (hover: none) {
+    .endCards {
+        padding-left: max(env(safe-area-inset-left), 16px);
+        padding-right: max(env(safe-area-inset-right), 16px);
+        padding-bottom: max(env(safe-area-inset-bottom), 8px);
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .endCards {
+        flex-direction: column;
+        gap: 2px;
+    }
+}
+
+.bannerContent {
+    font-size: min(clamp(1.4em, 2.5vw, 1.6em), clamp(1.2em, 3vh, 1.5em));
+    text-align: center;
+    font-family: lexend;
+    display: flex;
+    gap: 8px;
+    flex-direction: column;
+    align-items: center;
+}
+
+.bannerContent .motivation {
+    margin: 0;
+    padding: 0;
+}
+
+
+
+.endButtonContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+    width: 100%;
+
+    button {
+        font-family: lexend;
+        font-size: 1.1em;
+        font-weight: 500;
+        padding: 12px 24px;
+        background-color: var(--primaryTransparent);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+
+        &:hover {
+            background-color: var(--primary);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        &:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+    }
+
+    button.playAgain {
+        font-size: 1.3em;
+        font-weight: 600;
+        padding: 16px 40px;
+        background: linear-gradient(135deg, var(--primary) 0%, #2e7042 100%);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+
+        &:hover {
+            background: linear-gradient(135deg, #2e7042 0%, #388a51 100%);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+    }
+}
+
+/* Pulsing glow on last onboarding round to draw attention to View Results */
+.lastRoundPulse {
+    animation: lastRoundPulse 1.5s ease-in-out infinite !important;
+    font-size: 1.35em !important;
+    padding: 16px 42px !important;
+}
+
+@keyframes lastRoundPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(36, 87, 52, 0.7); }
+    50% { box-shadow: 0 0 16px 6px rgba(36, 87, 52, 0.4); }
+}
+
+.mainBannerTxt {
+    font-size: 1.2em;
+    font-weight: 500;
+    padding: 0px;
+    animation: bannerPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bannerPop {
+    0% { opacity: 0; transform: scale(0.85) translateY(8px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.streakBadge {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(255, 140, 0, 0.25) 0%, rgba(255, 69, 0, 0.2) 100%);
+    border: 1px solid rgba(255, 140, 0, 0.4);
+    border-radius: 20px;
+    padding: 4px 14px !important;
+    font-weight: 700 !important;
+    font-size: 1em !important;
+    animation: streakPulse 0.5s ease;
+}
+
+@keyframes streakPulse {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.encouragement {
+    font-style: italic;
+    opacity: 0.85;
+    font-size: 0.85em !important;
+}
+
+.quip {
+    font-style: italic;
+    opacity: 0.9;
+    font-size: 0.85em !important;
+    margin-top: 2px !important;
+}
+
+.bannerPoints {
+    font-weight: 100 900;
+    font-size: 0.95em !important;
+}
+
+.locationFact {
+    font-size: 0.8em !important;
+    color: rgba(255, 255, 255, 0.75);
+    max-width: 400px;
+    line-height: 1.4;
+    margin-top: 2px !important;
+}
+
+.smallmainBannerTxt {
+    font-size: 1em;
+    font-weight: 500;
+    padding: 0px;
+}
+
+
+.motivation {
+    font-size: 0.8em;
+    padding: 0px;
+}
+
+@media screen and (max-width: 600px) {
+
+    .bannerContent {
+        font-size: clamp(1rem, 4.5vw, 1.25rem);
+    }
+
+    .motivation {
+        font-size: 0.95em;
+    }
+
+    .quip {
+        font-size: 0.9em !important;
+    }
+
+    .encouragement {
+        font-size: 0.9em !important;
+    }
+
+    .bannerPoints {
+        font-size: 1.05em !important;
+    }
+
+    .locationFact {
+        font-size: 0.9em !important;
+        max-width: 320px;
+    }
+
+    .endButtonContainer button {
+        padding: 10px 20px !important;
+        font-size: 1em !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 14px 28px !important;
+        font-size: 1.15em !important;
+    }
+
+    .mainBannerTxt {
+        font-size: 1.15em;
+    }
+
+    .smallmainBannerTxt {
+        font-size: 0.9em;
+    }
+
+    @media screen and (max-height: 840px) {
+        .mainBannerTxt {
+            font-size: 1.05em;
+        }
+
+        .smallmainBannerTxt {
+            font-size: 0.85em;
+        }
+
+        .motivation {
+            font-size: 0.9em;
+        }
+
+        .quip {
+            font-size: 0.85em !important;
+        }
+
+        .encouragement {
+            font-size: 0.85em !important;
+        }
+
+        .bannerPoints {
+            font-size: 0.95em !important;
+        }
+
+        .locationFact {
+            font-size: 0.8em !important;
+        }
+
+        .endButtonContainer button {
+            padding: 9px 16px !important;
+            font-size: 0.95em !important;
+        }
+        .endButtonContainer button.playAgain {
+            padding: 12px 24px !important;
+            font-size: 1.1em !important;
+        }
+    }
+}
+
+/* Landscape phones: banner was eating too much vertical space. Tighten padding,
+   gaps, and nudge font sizes down. Targets short-height viewports only so portrait
+   phones (height > 500px) keep the comfortable sizes above. */
+@media (orientation: landscape) and (max-height: 500px) {
+    #endBanner {
+        padding: 5px 14px 7px !important;
+        margin-bottom: 3px !important;
+        border-radius: 8px;
+    }
+
+    /* Default rule pushes this button 10px past the banner's right edge via a
+       translate — fine on desktop, but gets clipped on phone landscape where the
+       banner is tight. Keep it inside the padding box here. */
+    .topGameInfoButton {
+        transform: none !important;
+        align-self: flex-end;
+        padding: 2px 8px !important;
+        white-space: nowrap;
+    }
+
+    .bannerContent {
+        font-size: clamp(0.85rem, 3vh, 1.05rem) !important;
+        gap: 2px !important;
+    }
+
+    .mainBannerTxt {
+        font-size: 1em !important;
+    }
+
+    .smallmainBannerTxt {
+        font-size: 0.85em !important;
+    }
+
+    .motivation {
+        font-size: 0.82em !important;
+    }
+
+    .quip {
+        font-size: 0.78em !important;
+    }
+
+    .encouragement {
+        font-size: 0.78em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.9em !important;
+    }
+
+    .locationFact {
+        font-size: 0.72em !important;
+        max-width: 420px;
+    }
+
+    .endButtonContainer {
+        margin-top: 2px !important;
+    }
+
+    .endButtonContainer button {
+        padding: 6px 16px !important;
+        font-size: 0.85em !important;
+        margin: 2px !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px !important;
+        font-size: 1em !important;
+    }
+}
+
+#miniMapArea:hover {
+    transition: all 250ms ease;
+    opacity: 100%;
+}
+
+
+#mapControlsAbove {
+    position: absolute;
+    transform: translateY(-75px) translateX(-15px);
+    width: 100%;
+}
+
+// chatbox
+.chatboxParent {
+    position: fixed;
+    bottom: 20px;
+    left: 20px; /* Default bottom-left position */
+    opacity: 0;
+    transition: all 0.5s;
+    border-radius: 10px;
+    transform: translateY(100%);
+    z-index: 2000;
+}
+
+/* Move chat to bottom-right when round over screen is shown */
+.chatboxParent.roundOverScreen {
+    left: auto;
+    right: 20px;
+}
+
+/* Adjust chat button positioning when on right side */
+.chatboxParent.roundOverScreen .chatboxBtn {
+    transform: translate(0px, 5px); /* Mirror the original transform */
+}
+.chatboxParent.roundOverScreen .chatboxBtn.open {
+    transform: translate(0,0); /* Mirror the original transform */
+}
+
+
+.chatbox {
+    display: none;
+}
+
+.chatbox.open {
+    display: block;
+}
+
+.chatboxParent.enabled {
+    opacity: 0.8;
+    transform: translateY(0%);
+}
+
+.chatboxParent.enabled:hover {
+    opacity: 1;
+}
+
+/* react-chatbot-kit chat styles moved to chatbox.scss */
+
+.authorName {
+    color: blue;
+}
+
+.gameCodeInput {
+    background-color: white;
+    font-size: clamp(1em, 2vw, 3em);
+}
+
+/* .goBtn (empty rule) removed — zero JSX consumers. */
+
+#playerCnt {
+    font-size: 1.5em;
+    margin-top: 5px;
+}
+
+img[alt="Google"] {
+    display: none;
+}
+
+.hintCircle {
+    cursor: crosshair !important;
+}
+.game-summary-map .leaflet-container {
+    height: 100vh !important;
+}
+
+.round-over-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: all 0.5s;
+    opacity: 1;
+    scale: 1;
+}
+
+/* Smooth fade-in when onboarding results screen mounts */
+.onboarding-results-reveal .round-over-screen {
+    animation: onboardingResultsFade 0.5s ease forwards;
+}
+
+@keyframes onboardingResultsFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.round-over-screen.duel {
+}
+
+.round-over-screen.hidden {
+    opacity: 0;
+    scale: 0;
+    pointer-events: none;
+}
+.round-over-screen.fullscreen {
+    background-color: #1a1a1a;
+    align-items: stretch;
+    justify-content: stretch;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1000;
+}
+
+.game-summary-container {
+    display: flex;
+    width: 100%;
+    height: 100vh; /* Changed from 100% to 100vh */
+    position: relative;
+    font-family: lexend;
+}
+
+.game-summary-map {
+    flex: 1;
+    position: fixed;
+    z-index: 1;
+    width: calc(100% - 400px);
+    height: 100vh;
+    top: 0;
+    right: 0;
+}
+
+.round-over-content {
+    padding: 40px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    font-family: lexend;
+}
+
+
+
+
+.game-summary-sidebar {
+    width: 400px;
+    background: linear-gradient(135deg, rgba(20, 65, 25, 0.95) 0%, rgba(20, 65, 25, 0.85) 100%);
+    backdrop-filter: blur(10px);
+    border-left: 2px solid var(--primary);
+    overflow: hidden; /* Remove auto scroll from main sidebar */
+    z-index: 2;
+    position: relative;
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-header {
+    padding: 30px 25px 20px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.summary-header.compact {
+    padding: 10px 25px 8px;
+    padding-top: 15px;
+}
+
+.summary-header.compact .summary-title {
+    font-size: 1.4rem;
+    margin-bottom: 5px;
+}
+
+.summary-header.compact .summary-score {
+    font-size: 1.8rem;
+    margin-bottom: 3px;
+}
+
+.summary-header.compact .summary-total {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.summary-header.compact .star-container {
+    transform: scale(0.7);
+    margin: 2px 0;
+}
+
+.summary-header.compact .summary-actions {
+    gap: 6px;
+}
+
+.summary-header.compact .action-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.summary-title {
+    font-size: 2.2rem;
+    color: white;
+    margin-bottom: 10px;
+    font-weight: 600;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.summary-score {
+    font-size: 3rem;
+    color: #4CAF50;
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.summary-total {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.star-container {
+    transition: all 0.3s ease;
+}
+
+.summary-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    transition: all 0.3s ease;
+}
+
+.action-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-family: lexend;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.action-btn.primary {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+}
+
+.action-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.rounds-container {
+    padding: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+}
+
+.round-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    background: transparent;
+}
+
+.round-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.round-item.active {
+    background: rgba(76, 175, 80, 0.2);
+    border-left: 4px solid #4CAF50;
+}
+
+.round-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.round-number {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+}
+
+.round-points {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4CAF50;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.round-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.detail-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.detail-icon {
+    font-size: 1rem;
+    color: #FFD700;
+}
+
+.distance-value {
+    font-weight: 500;
+    color: white;
+}
+
+.location-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gmaps-link {
+    background: rgba(66, 133, 244, 0.8);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-decoration: none;
+    font-size: 0.7rem;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.gmaps-link:hover {
+    background: rgba(66, 133, 244, 1);
+    transform: scale(1.05);
+}
+
+.round-animation {
+    animation: slideInFromRight 0.5s ease-out forwards;
+    opacity: 0;
+}
+
+@keyframes slideInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.map-marker-popup {
+    max-width: 250px;
+}
+
+.popup-content {
+    text-align: center;
+    font-family: lexend;
+}
+
+.popup-round {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.popup-points {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4CAF50;
+    margin-bottom: 8px;
+}
+
+.popup-distance {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.popup-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.popup-btn {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: none;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.popup-btn.gmaps {
+    background: #4285f4;
+    color: white;
+}
+
+.popup-btn:hover {
+    transform: scale(1.05);
+}
+
+/* Desktop rules - always show rounds container and hide mobile expand button */
+.mobile-expand-btn {
+    display: none;
+}
+
+.rounds-container.mobile-hidden {
+    display: block;
+}
+
+/* Ensure top padding is persistent on desktop to avoid conflicts with logo */
+@media (min-width: 1025px) {
+    .summary-header {
+        padding-top: 60px !important;
+    }
+
+
+}
+
+/* Mobile Responsive - only for portrait screens OR narrow screens (< 800px) */
+/* This prevents landscape tablets/laptops (like 950x600) from getting mobile layout */
+@media (max-width: 799px), (max-width: 1024px) and (orientation: portrait) {
+    .game-summary-container {
+        flex-direction: column;
+        overflow-x: hidden;
+        height: 100vh;
+    }
+
+    .game-summary-map {
+        flex: 1;
+        height: auto;
+        min-height: 0;
+    }
+
+    .game-summary-sidebar {
+        width: 100vw;
+        height: auto;
+        border-left: none;
+        border-top: 2px solid var(--primary);
+        order: 2;
+        display: grid;
+        grid-template-rows: auto 0fr;
+        overflow: hidden;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        transition: grid-template-rows 0.3s ease;
+    }
+
+    /* Override desktop flex layout on mobile */
+    .game-summary-sidebar {
+        flex-direction: initial;
+    }
+
+    .summary-header {
+        position: relative !important; /* Override sticky positioning on mobile */
+    }
+
+    .game-summary-sidebar.mobile-expanded {
+        grid-template-rows: auto 1fr;
+        max-height: 95vh;
+    }
+
+    .mobile-expand-btn {
+        display: block;
+        background: var(--primaryTransparent);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-family: lexend;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .mobile-expand-btn:hover {
+        background: var(--primary);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .rounds-container.mobile-hidden {
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .rounds-container {
+        overflow: hidden;
+        min-height: 0;
+        transition: all 0.3s ease;
+    }
+
+    .game-summary-sidebar.mobile-expanded .rounds-container {
+        overflow-y: auto;
+        padding-bottom: 10px;
+    }
+
+    /* Low height device optimizations when expanded */
+    @media (max-height: 600px) {
+        .game-summary-sidebar.mobile-expanded .summary-header {
+            padding: 8px 10px 5px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .summary-title {
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .summary-score {
+            font-size: 1.8rem;
+            margin-bottom: 4px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .summary-total {
+            font-size: 0.8rem;
+            margin-bottom: 6px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .summary-actions {
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .action-btn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+    }
+
+    .gmaps-link {
+        display: none;
+    }
+
+    .game-summary-map {
+        height: 60vh;
+        width: 100vw;
+        order: 1;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 5;
+    }
+
+    .summary-header {
+        padding: 15px 15px 10px;
+        grid-row: 1;
+    }
+
+    .summary-header:not(.mobile-expanded) {
+        padding-top: 15px;
+    }
+
+    .summary-actions {
+        margin-top: auto;
+    }
+
+    .rounds-container {
+        grid-row: 2;
+        overflow: hidden;
+        min-height: 0;
+    }
+}
+
+/* Landscape screens between 800-1024px - use desktop-style sidebar layout */
+@media (min-width: 800px) and (max-width: 1024px) and (orientation: landscape) {
+    .game-summary-container {
+        flex-direction: row;
+        height: 100vh;
+    }
+
+    .game-summary-sidebar {
+        width: 350px;
+        height: 100vh;
+        position: relative;
+        overflow-y: auto;
+        border-left: 2px solid var(--primary);
+        border-top: none;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 350px);
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+    }
+
+    .summary-header {
+        padding: 15px 20px 12px;
+        padding-top: 40px !important;
+        position: sticky;
+        top: 0;
+    }
+
+    .mobile-expand-btn {
+        display: none;
+    }
+
+    .rounds-container {
+        overflow-y: auto;
+    }
+
+    .rounds-container.mobile-hidden {
+        overflow-y: auto;
+    }
+
+    .summary-title {
+        font-size: 1.2rem;
+    }
+
+    .summary-score {
+        font-size: 2.5rem;
+    }
+
+    .round-item {
+        padding: 10px 15px;
+    }
+
+    .round-details {
+        font-size: 0.85rem;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .summary-header {
+        padding: 15px 10px;
+    }
+
+    .summary-title {
+        font-size: 1.5rem;
+    }
+
+    .summary-score {
+        font-size: 2rem;
+    }
+
+    .round-item {
+        padding: 8px 12px;
+    }
+
+    .summary-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .action-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+
+
+
+/* Ultra-wide screen optimizations */
+@media (min-width: 1600px) and (max-height: 600px) {
+    .game-summary-sidebar {
+        width: 450px; /* Wider sidebar for ultra-wide screens */
+    }
+
+    .game-summary-map {
+        width: calc(100% - 450px);
+    }
+
+    .summary-header {
+        padding: 25px 30px 20px;
+        padding-top: 50px !important;
+    }
+
+    .summary-title {
+        font-size: 2rem;
+    }
+
+    .summary-score {
+        font-size: 2.8rem;
+    }
+
+    .summary-actions {
+        gap: 12px;
+    }
+
+    .action-btn {
+        padding: 10px 20px;
+        font-size: 0.95rem;
+    }
+
+    .round-item {
+        padding: 12px 20px;
+    }
+
+    /* Make elements larger to fill the wider space */
+    #endBanner {
+        max-width: 600px;
+        margin: 0 auto 10px;
+    }
+
+    .round-over-content {
+        max-width: 600px;
+    }
+
+    .join-party-card {
+        max-width: 500px;
+    }
+
+    /* Home page navigation separators constraint */
+    .g2_nav_hr {
+        max-width: 600px !important;
+    }
+}
+
+/* Intermediate screens - wide but not tall enough for full desktop layout */
+@media (min-width: 800px) and (max-width: 1024px) and (min-height: 451px) and (max-height: 600px) {
+    .game-summary-container {
+        flex-direction: row;
+        height: 100vh;
+    }
+
+    .game-summary-sidebar {
+        width: 350px;
+        height: 100vh;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 350px);
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+    }
+
+    .summary-header {
+        padding: 15px 20px 12px;
+        padding-top: 25px !important;
+    }
+
+    .summary-title {
+        font-size: 1.4rem;
+        margin-bottom: 5px;
+    }
+
+    .summary-score {
+        font-size: 2rem;
+        margin-bottom: 4px;
+    }
+
+    .summary-total {
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+
+    .star-container {
+        margin-bottom: 0.5rem;
+    }
+
+    .star {
+        font-size: 1.4rem;
+    }
+
+    .summary-actions {
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+
+    .round-item {
+        padding: 8px 15px;
+    }
+
+    .round-details {
+        font-size: 0.8rem;
+    }
+
+    .elo-value {
+        font-size: 1.4rem;
+    }
+
+    .elo-change {
+        font-size: 0.9rem;
+    }
+
+    .time-elapsed {
+        font-size: 0.9rem;
+    }
+}
+
+/* Extremely low height screens */
+@media (min-width: 800px) and (max-height: 350px) {
+    .game-summary-sidebar {
+        width: 280px !important; /* Even narrower for extreme cases */
+    }
+
+    .game-summary-map {
+        width: calc(100% - 280px) !important;
+    }
+
+    .summary-header {
+        padding: 3px 8px 2px !important;
+        padding-top: 5px !important;
+    }
+
+    .summary-title {
+        font-size: 0.7rem !important;
+        margin-bottom: 1px !important;
+    }
+
+    .summary-score {
+        font-size: 1rem !important;
+        margin-bottom: 1px !important;
+    }
+
+    .summary-total {
+        font-size: 0.6rem !important;
+        margin-bottom: 2px !important;
+    }
+
+    .star-container {
+        margin-bottom: 0.1rem !important;
+    }
+
+    .star {
+        font-size: 0.8rem !important;
+    }
+
+    .summary-actions {
+        gap: 1px !important;
+        margin-bottom: 1px !important;
+    }
+
+    .action-btn {
+        padding: 1px 4px !important;
+        font-size: 0.5rem !important;
+    }
+
+    .round-item {
+        padding: 2px 6px !important;
+    }
+
+    .round-number {
+        font-size: 0.65rem !important;
+    }
+
+    .round-points {
+        font-size: 0.7rem !important;
+    }
+
+    .round-details {
+        font-size: 0.55rem !important;
+        gap: 0px !important;
+    }
+
+    .detail-icon {
+        font-size: 0.6rem !important;
+    }
+
+    /* Hide less critical elements to save space */
+    .elo-container {
+        display: none !important;
+    }
+
+    .time-elapsed {
+        display: none !important;
+    }
+
+    /* Minimap even smaller */
+    // #miniMapArea {
+    //     width: 120px !important;
+    //     height: 80px !important;
+    // }
+
+    #miniMapContent {
+        width: 120px !important;
+        height: 80px !important;
+    }
+
+    .miniMap__btns {
+        bottom: 90px !important;
+    }
+
+    /* End banner minimal — bumped up for iOS landscape readability */
+    #endBanner {
+        min-height: auto !important;
+        padding: 6px 12px !important;
+    }
+
+    .bannerContent {
+        font-size: 0.9em !important;
+        gap: 2px !important;
+    }
+
+    .mainBannerTxt {
+        font-size: 0.8em !important;
+    }
+
+    .motivation {
+        font-size: 0.65em !important;
+    }
+
+    .quip {
+        font-size: 0.6em !important;
+    }
+
+    .encouragement {
+        font-size: 0.6em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.7em !important;
+    }
+
+    .locationFact {
+        font-size: 0.6em !important;
+    }
+
+    .endButtonContainer button {
+        padding: 6px 14px !important;
+        font-size: 0.85em !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px !important;
+        font-size: 1em !important;
+    }
+
+    /* Home page navigation separators constraint */
+    .g2_nav_hr {
+        max-width: 400px !important;
+        height: 1.5px !important;
+    }
+}
+
+/* Very low height optimizations for wide screens */
+@media (min-width: 800px) and (max-height: 450px) and (min-height: 351px) {
+    .game-summary-container {
+        flex-direction: row;
+        height: 100vh;
+    }
+
+    .game-summary-sidebar {
+        width: 320px; /* Narrower sidebar for very low height */
+        height: 100vh;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 320px);
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+    }
+
+    .summary-header {
+        padding: 8px 15px 6px;
+        padding-top: 12px !important;
+    }
+
+    .summary-title {
+        font-size: 1.1rem;
+        margin-bottom: 3px;
+    }
+
+    .summary-score {
+        font-size: 1.6rem;
+        margin-bottom: 2px;
+    }
+
+    .summary-total {
+        font-size: 0.8rem;
+        margin-bottom: 6px;
+    }
+
+    .star-container {
+        margin-bottom: 0.3rem;
+    }
+
+    .star {
+        font-size: 1.2rem;
+    }
+
+    .summary-actions {
+        gap: 4px;
+        margin-bottom: 4px;
+    }
+
+    .action-btn {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+    }
+
+    .round-item {
+        padding: 6px 12px;
+    }
+
+    .round-number {
+        font-size: 0.9rem;
+    }
+
+    .round-points {
+        font-size: 1rem;
+    }
+
+    .round-details {
+        font-size: 0.75rem;
+        gap: 2px;
+    }
+
+    .detail-icon {
+        font-size: 0.8rem;
+    }
+
+    .elo-value {
+        font-size: 1.2rem;
+    }
+
+    .elo-change {
+        font-size: 0.8rem;
+    }
+
+    .time-elapsed {
+        font-size: 0.8rem;
+    }
+
+    /* End banner optimizations for very low height */
+    #endBanner {
+        min-height: 80px;
+        padding: 10px;
+        margin-bottom: 5px;
+    }
+
+    .bannerContent {
+        font-size: 1.2em;
+        gap: 3px;
+    }
+
+    .mainBannerTxt {
+        font-size: 0.9em;
+    }
+
+    .smallmainBannerTxt {
+        font-size: 0.8em;
+    }
+
+    .motivation {
+        font-size: 0.7em;
+    }
+
+    .quip {
+        font-size: 0.7em !important;
+    }
+
+    .encouragement {
+        font-size: 0.7em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.8em !important;
+    }
+
+    .locationFact {
+        font-size: 0.65em !important;
+    }
+
+    .endButtonContainer button {
+        padding: 6px 14px;
+        font-size: 0.85em;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px;
+        font-size: 1em;
+    }
+
+    /* Round over content optimizations */
+    .round-over-content {
+        padding: 20px;
+        max-width: 400px;
+    }
+
+    /* Multipler home optimizations */
+    .multiplayerHome {
+        padding: 10px;
+    }
+
+    /* Join party optimizations */
+    .join-party-card {
+        padding: 20px;
+        max-width: 360px;
+    }
+
+    .join-party-title {
+        font-size: 1.5rem;
+        margin-bottom: 15px;
+    }
+
+    .join-party-input {
+        padding: 10px 15px;
+        font-size: 1rem;
+    }
+
+    .join-party-button {
+        padding: 10px 15px;
+        font-size: 1rem;
+    }
+
+    /* Minimap optimizations for very low height */
+
+
+
+
+    /* Onboarding div optimizations */
+    .onboardingDiv {
+        width: 60%;
+        top: 20px;
+        padding: 15px 25px;
+        font-size: 1.2em;
+    }
+
+    /* Country guesser options optimizations */
+    .countryGuessrOptions {
+        bottom: 20px;
+        width: 80%;
+    }
+
+    .countryGuessrCard {
+        height: 80px;
+    }
+
+    /* Home page navigation separators constraint */
+    .g2_nav_hr {
+        max-width: 500px !important;
+    }
+}
+
+/* Low width/height desktop optimizations */
+@media (min-width: 1025px) and (max-width: 1366px), (min-width: 1025px) and (max-height: 768px) {
+    .summary-header {
+        padding: 20px 20px 15px;
+        padding-top: 40px;
+    }
+
+    .summary-title {
+        font-size: 1.8rem;
+        margin-bottom: 8px;
+    }
+
+    .summary-score {
+        font-size: 2.5rem;
+        margin-bottom: 4px;
+    }
+
+    .summary-total {
+        font-size: 1rem;
+        margin-bottom: 12px;
+    }
+
+    .summary-actions {
+        gap: 8px;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+
+    .star-container {
+        margin-bottom: 0.75rem;
+    }
+
+    .star {
+        font-size: 1.6rem;
+    }
+
+    /* ELO container adjustments */
+    .elo-value {
+        font-size: 1.6rem;
+    }
+
+    .elo-change {
+        font-size: 0.9rem;
+    }
+
+    .time-elapsed {
+        font-size: 0.9rem;
+    }
+}
+
+.elo-container {
+    display: flex;
+    align-items: baseline; /* Align smaller text with larger text */
+    gap: 8px; /* Add some space between Elo value and change */
+}
+
+.elo-value {
+    font-size: 2rem; /* Make Elo value larger */
+    font-weight: bold;
+    color: black;
+}
+
+.elo-change {
+    font-size: 1rem; /* Make Elo change smaller */
+    font-weight: normal;
+    color: green; /* Default color */
+}
+
+.time-elapsed {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 1rem;
+    color: black;
+}
+
+.historyItem {
+    font-family: lexend !important;
+    color: white;
+}
+
+.detail-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.detail-icon {
+    color: #FFD700; /* Gold color */
+    font-size: 1.5rem;
+}
+
+.detail-text {
+    font-size: 1.2rem;
+    color: white;
+    font-family: lexend;
+}
+
+.play-again-btn {
+    padding: 10px 20px;
+    font-size: 1.2rem;
+    color: #fff;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    font-family: lexend;
+}
+
+.play-again-btn:hover {
+    background: #0056b3;
+}
+
+
+.star-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1rem;
+}
+
+.star {
+    font-size: 2rem;
+    color: gold;
+}
+
+.star.empty {
+    color: var(--primary);
+    animation: none;
+    opacity: 1;
+}
+
+.wsIcon {
+    position: fixed;
+    z-index: 1000;
+    top: 60px;
+    left: 20px;
+    width: 50px;
+    height: 50px;
+}
+
+.mapAttr {
+    position: absolute;
+    z-index: 1000;
+    bottom: -10px;
+    left: 5px;
+    pointer-events: none;
+    user-select: none;
+}
+
+.react-responsive-modal-root{
+    overflow: hidden !important;
+}
+
+.react-responsive-modal-closeButton {
+    background-color: white !important;
+}
+
+.mainHomeBtns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100px;
+    margin-bottom: 20px;
+}
+
+.multiplayerPrivBtns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100px;
+}
+
+.clueBanner {
+    max-width: 40vw;
+}
+
+@media screen and (max-width: 600px) {
+    .mainHomeBtns {
+        flex-direction: column;
+        gap: 10px;
+        // height: 200px;
+        height: auto;
+    }
+
+    .multiplayerPrivBtns {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .clueBanner {
+        max-width: 100vw;
+        max-height: 50vh;
+    }
+
+    /* .homeBtn override removed — homeBtn family is dead. */
+}
+
+.react-responsive-modal-modal {
+    max-width: none !important;
+}
+
+/* Hide the elements with specific inline styles */
+[style*="position: absolute;"][style*="pointer-events: none;"][style*="transform: translate(-50%, -50%);"][style*="z-index: 1000;"][style*="top: 50%;"][style*="color: white;"][style*="font-size: 20px;"][style*="left: 50%;"][style*="background-color: rgba(0, 0, 0, 0.3);"][style*="padding: 5px;"][style*="border-radius: 3px;"][style*="text-align: center;"] {
+    display: none !important;
+}
+
+div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans-serif; padding: 15px 25px; box-sizing: border-box; top: 5px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 5px; left: 50%; max-width: 375px; position: absolute; transform: translateX(-50%); width: calc(100% - 10px); z-index: 1;"] {
+    display: none;
+}
+
+.mapSectionWrap{
+    display: flex !important;
+    flex-wrap: wrap;
+}
+
+div[dir="ltr"] {
+    // invert the colors
+    filter: invert(1);
+}
+
+.mapSearch {
+    margin: 0;
+    padding: 0;
+}
+.mapSearch input{
+    width: 90%;
+    margin: 0 !important;
+}
+
+.mapSearchInput {
+    width: 50%;
+    background-color: #e3e3e3 !important;
+    // placehoder color
+    color: #000000 !important;
+    font-size: 1.3em;
+}
+
+.mapSearchInput::placeholder {
+    color: #454545 !important;
+    opacity: 1; /* Firefox */
+}
+
+.noResults {
+    font-size: 1.5em;
+    color: white;
+    text-align: center;
+}
+
+@media screen and (max-width: 900px) {
+    .mapSection {
+        margin-left: 10px;
+        margin-right: 10px;
+    }
+}
+// mobile map section
+@media screen and (max-width: 600px) {
+    .mapSection {
+        margin-left: 0;
+        margin-right: 0;
+    }
+
+    .mapViewTitle {
+        font-size: 30px;
+    }
+
+    .mapViewMake {
+        font-size: 15px;
+    }
+
+    .mapViewClose {
+        font-size: 15px;
+    }
+
+    .mapSearchInput {
+        width: 80%;
+    }
+}
+
+/* .section-recent / .section-spotlight removed — zero JSX consumers. */
+
+.map-tile__delete {
+    cursor: pointer;
+}
+
+.map-tile__edit {
+    background-color: black;
+    cursor: pointer;
+}
+
+.mobile_minimap__btns {
+    z-index: 1200; // Below chatboxParent (2000) and react-chatbot-kit-chat-container (2500)
+}
+
+// (Removed) `.leaflet-zoom-anim .leaflet-zoom-animated { duration: 100ms }`
+// override desynced tile zoom from overlay-pane zoom — Leaflet manages its
+// own zoom-animation timing; overriding it makes polylines/circles visibly
+// lag behind tiles during zoom.
+
+/* ELO badges, league-container, @keyframes shine moved to navbar.scss */
+
+h1, h2, h3, span, label {
+    font-weight: 500;
+    color: white;
+}
+
+.historyContainer h3,
+.historyContainer span {
+    color: white !important;
+    font-family: lexend;
+}

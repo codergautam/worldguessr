@@ -1,0 +1,69 @@
+/* chatbox.scss — react-chatbot-kit visual overrides (extracted from game.scss). */
+
+.react-chatbot-kit-chat-header {
+    display: none !important;
+}
+
+.react-chatbot-kit-chat-inner-container {
+    background-color: rgba(0,0,0,0) !important;
+}
+
+.react-chatbot-kit-chat-message-container {
+    overflow: hidden !important;
+    overflow-y: auto !important;
+    border: 5px solid #0F251D;
+    background-color: #B9D3DC;
+    border-radius: 10px;
+    height: calc(100% - 65px);
+}
+
+input[placeholder="Please login to chat"] {
+    // disable the div
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: rgba(225, 225, 225, 1) !important;
+}
+
+
+.react-chatbot-kit-chat-input-container {
+    border-radius: 10px;
+}
+
+.react-chatbot-kit-chat-input {
+    font-size: 16px !important;
+}
+
+.react-chatbot-kit-user-chat-message,
+.react-chatbot-kit-chat-bot-message {
+    // make it look like a chat bubble overflow on new linw wrap
+    display: inline-block;
+    word-wrap: break-word;
+    max-width: 60%;
+    padding: 10px;
+}
+
+.react-chatbot-kit-chat-bot-message {
+    margin-left: 0 !important;
+}
+
+@media screen and (max-height: 6000px) {
+
+    .react-chatbot-kit-chat-message-container {
+        height: 448px !important;
+    }
+
+    .react-chatbot-kit-chat-inner-container {
+        height: 496px !important;
+    }
+}
+
+@media screen and (max-height: 600px) {
+
+    .react-chatbot-kit-chat-message-container {
+        height: 244px !important;
+    }
+
+    .react-chatbot-kit-chat-inner-container {
+        height: 292px !important;
+    }
+}
