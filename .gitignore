@@ -56,5 +56,4 @@ mobile/
 .codex
 
 android/*
-ios/*
 *.ipa

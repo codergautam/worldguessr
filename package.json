@@ -13,6 +13,7 @@
     "start-ws": "cross-env UWS_HTTP_MAX_HEADERS_SIZE=16384 NODE_ENV=production node ws/ws",
     "start-cron": "cross-env NODE_ENV=production node cron.js",
     "heroku-postbuild": "cross-env  next build",
+    "postbuild": "node scripts/appflowPatchNativeAuth.js",
     "capacitor:sync:after": "node scripts/appflowPatchNativeAuth.js"
   },
   "dependencies": {
