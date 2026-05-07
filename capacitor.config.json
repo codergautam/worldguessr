@@ -1,0 +1,24 @@
+{
+  "appId": "com.codergautamyt.worldguessr",
+  "appName": "WorldGuessr",
+  "webDir": "out",
+  "server": {
+    "androidScheme": "http",
+    "iosScheme": "http",
+    "cleartext": true,
+    "allowNavigation": [
+      "*"
+    ]
+  },
+  "ios": {
+    "contentInset": "always",
+    "limitsNavigationsToAppBoundDomains": false,
+    "backgroundColor": "#000000"
+  },
+  "android": {
+    "backgroundColor": "#000000",
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  }
+}

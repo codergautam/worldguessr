@@ -7,6 +7,7 @@ import '@/styles/daily.scss';
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
+import Head from "next/head";
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
@@ -14,6 +15,8 @@ import installErrorTracking from '@/lib/errorTracking';
 import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvider';
 
 import '@smastrom/react-rating/style.css'
+
+const SAFE_AREA_VAR_FALLBACK = 'env(safe-area-inset-top, 0px)';
 
 // Install before hydration so console.error / window.error patches are live
 // when React replays render errors during initial mount.
@@ -35,6 +38,47 @@ const SUPPORTED_LOCALES = ["es", "fr", "de", "ru"];
 
 function App({ Component, pageProps }) {
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const capacitor = window.Capacitor;
+    const isNative = !!(
+      capacitor?.isNativePlatform?.() ||
+      (capacitor?.getPlatform && capacitor.getPlatform() !== 'web')
+    );
+
+    document.documentElement.style.setProperty('--wg-safe-top', '0px');
+    if (!isNative) return;
+
+    document.body.classList.add('capacitor-native');
+    document.documentElement.style.setProperty('--wg-safe-top', SAFE_AREA_VAR_FALLBACK);
+
+    const safeArea = capacitor?.Plugins?.SafeArea;
+    const applyNativeInsets = (result) => {
+      const top = Number(result?.insets?.top);
+      if (Number.isFinite(top)) {
+        document.documentElement.style.setProperty('--wg-safe-top', `${top}px`);
+      }
+    };
+
+    const refreshNativeInsets = () => {
+      safeArea?.getSafeAreaInsets?.().then(applyNativeInsets).catch(() => {});
+    };
+
+    refreshNativeInsets();
+    window.addEventListener('resize', refreshNativeInsets);
+    window.addEventListener('orientationchange', refreshNativeInsets);
+    window.visualViewport?.addEventListener('resize', refreshNativeInsets);
+
+    return () => {
+      document.body.classList.remove('capacitor-native');
+      document.documentElement.style.setProperty('--wg-safe-top', '0px');
+      window.removeEventListener('resize', refreshNativeInsets);
+      window.removeEventListener('orientationchange', refreshNativeInsets);
+      window.visualViewport?.removeEventListener('resize', refreshNativeInsets);
+    };
+  }, []);
 
   useEffect(() => {
     // Set CSS custom properties for background images that need basePath
@@ -84,15 +128,20 @@ function App({ Component, pageProps }) {
   }, [router]);
 
   return (
-    <MultiplayerProvider>
-      { process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID  ? (
-      <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
-      <Component {...pageProps} />
-      </GoogleOAuthProvider>
-      ) : (
+    <>
+      <Head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+      </Head>
+      <MultiplayerProvider>
+        { process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID  ? (
+        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
         <Component {...pageProps} />
-      )}
-    </MultiplayerProvider>
+        </GoogleOAuthProvider>
+        ) : (
+          <Component {...pageProps} />
+        )}
+      </MultiplayerProvider>
+    </>
   );
 }
 

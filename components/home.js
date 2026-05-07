@@ -27,6 +27,8 @@ import continentFromCode, { ALL_CONTINENTS } from "@/components/utils/continentF
 import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
+import { isCapacitorNative, startNativeAuth } from '@/lib/nativeAuth';
+import { showNativeInterstitial } from '@/lib/nativeAds';
 // Pre-existing dynamic chunks: results screen and daily-challenge screen are
 // big and only render after a round/onboarding completes. AccountModal stays
 // dynamic because it pulls in chart.js (~220 KB) for the XP graph — saving
@@ -81,6 +83,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const { data: mainSession } = useSession();
     const [accountModalOpen, setAccountModalOpen] = useState(false);
     const [screen, setScreen] = useState(initialScreen === "daily" ? "daily" : "home");
+    const previousAdScreenRef = useRef("home");
     const [loading, setLoading] = useState(false);
     const [mapSwitchMaskShown, setMapSwitchMaskShown] = useState(false);
     const [mapSwitchSawLoading, setMapSwitchSawLoading] = useState(false);
@@ -202,6 +205,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     }, [options?.ramUsage])
 
+    const finishLogin = useCallback((data, source = "Google OAuth") => {
+        if (data.secret) {
+            setSession({ token: data })
+            window.localStorage.setItem("wg_secret", data.secret)
+            console.log(`[Auth] ${source} successful for user:`, data.username);
+            return true;
+        }
+
+        console.error(`[Auth] ${source}: no secret received from server`);
+        toast.error("Login error, contact support if this persists")
+        return false;
+    }, []);
+
     let login = null;
     if (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
         // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -222,16 +238,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     'googleAuthLogin',
                     {}
                 ).then((res) => res.json()).then((data) => {
-                    console.log("[Auth] Google OAuth successful");
-
-                    if (data.secret) {
-                        setSession({ token: data })
-                        window.localStorage.setItem("wg_secret", data.secret)
-                        console.log(`[Auth] Login successful for user:`, data.username);
-                    } else {
-                        console.error("[Auth] No secret received from server");
-                        toast.error("Login error, contact support if this persists (2)")
-                    }
+                    finishLogin(data, "Google OAuth");
 
                 }).catch((e) => {
                     console.error("[Auth] Google OAuth failed after all retries:", e.message);
@@ -258,7 +265,32 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             } : {}),
         });
 
-        if (typeof window !== "undefined") window.login = login;
+    }
+
+    if (typeof window !== "undefined") {
+        window.login = async (provider = "google") => {
+            if (isCapacitorNative()) {
+                try {
+                    setLoginQueued(true);
+                    const data = await startNativeAuth(provider);
+                    finishLogin(data, provider === "apple" ? "Apple Sign In" : "Native Google OAuth");
+                } catch (error) {
+                    console.error(`[Auth] Native ${provider} login failed:`, error);
+                    toast.error(error?.message || "Login failed, please try again");
+                } finally {
+                    setLoginQueued(false);
+                }
+                return;
+            }
+
+            if (!login) {
+                toast.error("Google client ID not set");
+                setLoginQueued(false);
+                return;
+            }
+
+            login();
+        };
     }
 
 
@@ -1383,6 +1415,25 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     useEffect(() => { ensureConnected(); }, [ensureConnected]);
     const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
     const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
+    const adSessionReady = session !== false;
+    const adsDisabledForSupporter = !!session?.token?.supporter;
+
+    useEffect(() => {
+        if (!adSessionReady) return;
+
+        const previousScreen = previousAdScreenRef.current;
+        previousAdScreenRef.current = screen;
+        if (previousScreen === screen) return;
+
+        const interstitialScreens = new Set(["singleplayer", "countryGuesser", "daily", "multiplayer"]);
+        if (!interstitialScreens.has(screen)) return;
+        if (inCrazyGames || inCoolMathGames || inGameDistribution) return;
+        if (adsDisabledForSupporter) return;
+
+        showNativeInterstitial(screen).catch((error) => {
+            console.warn(`[AdMob] Interstitial failed (${screen}):`, error?.message || error);
+        });
+    }, [screen, inCrazyGames, inCoolMathGames, inGameDistribution, adSessionReady, adsDisabledForSupporter]);
 
     const updateTimeOffsetFromSync = (serverNow, clientSentAt) => {
         if (!serverNow || !clientSentAt) return;

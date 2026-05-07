@@ -54,7 +54,7 @@ export function signOut() {
   window.location.reload();
 }
 
-export function signIn() {
+export function signIn(provider = 'google') {
   console.log("Signing in");
 
 
@@ -65,12 +65,18 @@ export function signIn() {
     window.open(url, '_blank');
   }
 
-  if(!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
+  const isNative = !!window.Capacitor?.isNativePlatform?.();
+  if(!isNative && !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
     toast.error("Google client ID not set");
     return;
   }
 
-    window.login();
+  if (typeof window.login !== 'function') {
+    toast.error("Login is still loading, please try again");
+    return;
+  }
+
+  window.login(provider);
 
 }
 

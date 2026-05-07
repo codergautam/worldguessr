@@ -5,6 +5,14 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  googleSub: {
+    type: String,
+    default: null,
+  },
+  appleSub: {
+    type: String,
+    default: null,
+  },
   secret: {
     type: String,
     required: true,
@@ -201,6 +209,8 @@ const userSchema = new mongoose.Schema({
 
 // Index for email lookups during Google OAuth login
 userSchema.index({ email: 1 });
+userSchema.index({ googleSub: 1 }, { sparse: true });
+userSchema.index({ appleSub: 1 }, { sparse: true });
 // Index for finding users with expired temp bans
 userSchema.index({ banned: 1, banType: 1, banExpiresAt: 1 });
 // Index for finding users with pending name changes

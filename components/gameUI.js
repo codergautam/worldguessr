@@ -790,7 +790,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 { multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state !== 'end' && (
   <div className={`hbparent ${isStartingDuel ? 'hb-parent' : ''}`}>
     <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
-  <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
+  <div style={{zIndex: 1001, position: "fixed", top: "var(--wg-safe-top-active)", left: 0, pointerEvents: 'none'}}
   className={(multiplayerState && isStartingDuel) ? 'hb-start1' : ''}>
 <HealthBar health={
 // get your points from the game state
@@ -813,7 +813,7 @@ start={isStartingDuel} />
   </p>
 ) }
 
-<div style={{zIndex: 1001, position: "fixed", top: 0, right: 0, pointerEvents: 'none'}}
+<div style={{zIndex: 1001, position: "fixed", top: "var(--wg-safe-top-active)", right: 0, pointerEvents: 'none'}}
 className={isStartingDuel ? 'hb-start2' : ''}>
 <HealthBar health={
 // get your points from the game state

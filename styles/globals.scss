@@ -20,6 +20,14 @@
     --primaryDark: #112b18;
     --primaryTransparent: rgb(36, 87, 52, 0.85);
     --darkTransparent: rgb(0, 0, 0, 0.4);
+    --wg-safe-top: 0px;
+    --wg-safe-top-active: var(--wg-safe-top);
+}
+
+@media screen and (orientation: landscape), screen and (max-height: 500px) {
+    :root {
+        --wg-safe-top-active: 0px;
+    }
 }
 
 
@@ -828,6 +836,130 @@ html {
     }
 }
 
+body.capacitor-native .accountBtn {
+    top: calc(50px + var(--wg-safe-top-active));
+}
+
+body.capacitor-native .accountBtn.loggedIn {
+    top: calc(10px + var(--wg-safe-top-active));
+}
+
+body.capacitor-native .friendBtnFixed {
+    top: calc(10px + var(--wg-safe-top-active));
+}
+
+@media screen and (max-width: 600px) {
+    body.capacitor-native .accountBtn {
+        top: calc(10px + var(--wg-safe-top-active));
+    }
+}
+
+.nativeAuthSheetBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10050;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 18px;
+    padding-bottom: max(18px, env(safe-area-inset-bottom, 18px));
+    background: rgba(0, 0, 0, 0.56);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    pointer-events: all;
+}
+
+.nativeAuthSheet {
+    position: relative;
+    width: min(440px, 100%);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 18px;
+    background:
+        linear-gradient(180deg, rgba(27, 34, 30, 0.98) 0%, rgba(9, 13, 11, 0.98) 100%);
+    box-shadow: 0 22px 60px rgba(0, 0, 0, 0.48);
+    padding: 24px;
+    color: white;
+}
+
+.nativeAuthSheet__close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+}
+
+.nativeAuthSheet__header {
+    padding-right: 30px;
+}
+
+.nativeAuthSheet__header h2 {
+    font-family: lexend;
+    font-size: 1.35rem;
+    line-height: 1.2;
+    margin: 0 0 8px;
+}
+
+.nativeAuthSheet__header p {
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.95rem;
+    line-height: 1.45;
+    margin: 0;
+}
+
+.nativeAuthSheet__actions {
+    display: grid;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.nativeAuthSheet__provider {
+    width: 100%;
+    min-height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-family: lexend;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 160ms ease, filter 160ms ease, box-shadow 160ms ease;
+}
+
+.nativeAuthSheet__provider svg {
+    width: 20px;
+    height: 20px;
+}
+
+.nativeAuthSheet__provider--apple {
+    color: #050505;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(255, 255, 255, 0.08);
+}
+
+.nativeAuthSheet__provider--google {
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: var(--gradGreenBtn);
+}
+
+.nativeAuthSheet__provider:disabled {
+    cursor: wait;
+    filter: grayscale(0.4) brightness(0.75);
+}
+
+.nativeAuthSheet__provider:not(:disabled):active {
+    transform: scale(0.98);
+}
+
 .accountBtn:hover {
     background: var(--primary);
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
@@ -1287,6 +1419,14 @@ h1, h2, h3, span, label {
     transition: all 0.5s;
     height: 50px;
 }
+
+body.capacitor-native .navbar {
+    top: var(--wg-safe-top-active);
+}
+
+body.capacitor-native .navbar.hidden {
+    transform: translateY(calc(-100% - var(--wg-safe-top-active)));
+}
 // .navbarColor {
 //     background: var(--primaryTransparent);
 // }
@@ -1398,6 +1538,14 @@ h1, h2, h3, span, label {
     top: 10px;
 }
 
+body.capacitor-native .timer {
+    top: calc(50px + var(--wg-safe-top-active));
+}
+
+body.capacitor-native .timer.onTop {
+    top: calc(10px + var(--wg-safe-top-active));
+}
+
 .timer--two-line {
     display: flex;
     flex-direction: column;
@@ -1429,6 +1577,10 @@ h1, h2, h3, span, label {
     top: 100px;
 }
 
+body.capacitor-native .timer.duel {
+    top: calc(100px + var(--wg-safe-top-active));
+}
+
 // Timer positioning for mobile to avoid overlap with health bars
 @media screen and (max-width: 830px) {
 
@@ -1449,6 +1601,10 @@ h1, h2, h3, span, label {
         padding: 8px 16px; /* Reduced padding */
         top: 40px;
     }
+
+    body.capacitor-native .timer.duel {
+        top: calc(40px + var(--wg-safe-top-active));
+    }
 }
 @media screen and (max-width: 600px) {
     .timer.duel {
@@ -1460,6 +1616,10 @@ h1, h2, h3, span, label {
     .timer.duel {
         top: 110px;
         font-size: 14px;
+    }
+
+    body.capacitor-native .timer.duel {
+        top: calc(110px + var(--wg-safe-top-active));
     }
 }
 
@@ -5456,6 +5616,10 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
   transform: translateX(-50%);
 }
 
+body.capacitor-native .topAdFixed {
+    top: calc(5px + var(--wg-safe-top-active));
+}
+
 @media screen and (max-width: 700px) {
     .topAdFixed {
         top: 50px;
@@ -5463,6 +5627,14 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
 
     .topAdFixed.moreDown {
         top: 100px;
+    }
+
+    body.capacitor-native .topAdFixed {
+        top: calc(50px + var(--wg-safe-top-active));
+    }
+
+    body.capacitor-native .topAdFixed.moreDown {
+        top: calc(100px + var(--wg-safe-top-active));
     }
 }
 // .topAdFixed {
