@@ -46,12 +46,20 @@ button {
 
 .home {
     background-color: black;
-    width: 100vw;
+    width: 100%;
     box-sizing: border-box;
     height: 100vh;
     height: 100svh; /* Dynamic viewport height for modern browsers */
     display: flex;
     overflow: hidden; /* Prevent unwanted scrolling on iOS */
+}
+
+body.capacitor-native,
+body.capacitor-native #__next,
+body.capacitor-native .home {
+    min-width: 100%;
+    width: 100%;
+    max-width: 100%;
 }
 
 
@@ -63,6 +71,7 @@ html {
     background-color: #000000 !important;
     padding: 0;
     margin: 0;
+    overflow: hidden;
 }
 
 /* Leaflet map optimizations for sharp rendering */
@@ -1093,6 +1102,10 @@ body.capacitor-native .friendBtnFixed {
     align-items: center;
     gap: 6px;
     pointer-events: none;
+}
+
+body.capacitor-native .onboardingTopRightBtns {
+    top: calc(5px + var(--wg-safe-top-active));
 }
 
 .onboardingTopRightBtns > * {
@@ -3106,6 +3119,10 @@ body.capacitor-native .timer.duel {
     box-sizing: border-box;
 }
 
+body.capacitor-native .join-party-container {
+    padding-top: calc(20px + var(--wg-safe-top-active));
+}
+
 .join-party-card {
     background: var(--gradLight);
     backdrop-filter: blur(15px);
@@ -3895,6 +3912,10 @@ img.countryGuessrBtn__emoji {
     min-height: 40px;
     // hidden
     opacity: 0;
+}
+
+body.capacitor-native .onboardingDiv {
+    top: calc(50px + var(--wg-safe-top-active));
 }
 
 .onboardingDiv.shown {
@@ -5160,6 +5181,10 @@ img.countryGuessrBtn__emoji {
         top: 20px;
         padding: 15px 25px;
         font-size: 1.2em;
+    }
+
+    body.capacitor-native .onboardingDiv {
+        top: calc(20px + var(--wg-safe-top-active));
     }
 
     /* Country guesser options optimizations */

@@ -38,6 +38,15 @@ const nextConfig = {
     images: {
         unoptimized: true,
     },
+    allowedDevOrigins: [
+        '*.local',
+        '*.ngrok-free.app',
+        '*.ngrok.app',
+        '*.trycloudflare.com',
+        '*.ts.net',
+        '127.0.0.1',
+        ...(process.env.NEXT_PUBLIC_DEV_ORIGINS?.split(',').map((s) => s.trim()).filter(Boolean) ?? []),
+    ],
     output: 'export',
     async rewrites() {
         return [

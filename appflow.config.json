@@ -1,0 +1,9 @@
+{
+  "apps": [
+    {
+      "appId": "209d0092",
+      "dependencyInstallCommand": "corepack enable && corepack prepare pnpm@10.23.0 --activate && pnpm install --frozen-lockfile",
+      "webBuildCommand": "corepack enable && pnpm run build"
+    }
+  ]
+}

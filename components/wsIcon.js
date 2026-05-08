@@ -110,6 +110,7 @@ export default function WsIcon({ connected, shown, onClick, connecting, loggedOu
   }, [iconVisible]);
 
   if (!iconVisible) return null;
+  const topOffset = loggedOut ? 170 : 125;
 
   const getColor = () => {
     if (connected) return '#22c55e';
@@ -152,7 +153,7 @@ export default function WsIcon({ connected, shown, onClick, connecting, loggedOu
           // When logged out, the bigger Login button + the Maps CTA stacked
           // under it occupy the top-right corner down to ~148px. Drop the
           // WsIcon below them so it stops clipping the buttons.
-          top: loggedOut ? '170px' : '125px',
+          top: `calc(${topOffset}px + var(--wg-safe-top-active, 0px))`,
           right: isSliding ? '-85px' : (isSlideIn ? '-85px' : '15px'),
           zIndex: 10000,
           width: '50px',
