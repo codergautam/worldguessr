@@ -92,12 +92,20 @@
   line-height: 1;
 }
 
+body.capacitor-native .daily-community-maps-btn {
+  top: calc(100px + var(--wg-safe-top-active));
+}
+
 @media (max-width: 1280px) {
   .daily-community-maps-btn {
     top: 90px;
     height: 36px;
     font-size: 1em;
     padding: 0 14px;
+  }
+
+  body.capacitor-native .daily-community-maps-btn {
+    top: calc(90px + var(--wg-safe-top-active));
   }
 }
 
@@ -114,6 +122,10 @@
     width: 16px;
     height: 16px;
   }
+
+  body.capacitor-native .daily-community-maps-btn {
+    top: calc(85px + var(--wg-safe-top-active));
+  }
 }
 
 /* Logged-out variant: pin directly under the (bigger) Login button so the
@@ -125,16 +137,27 @@
   top: 110px;
   right: 50px;
 }
+body.capacitor-native .daily-community-maps-btn--below-login {
+  top: calc(110px + var(--wg-safe-top-active));
+}
 @media (max-width: 1280px) {
   .daily-community-maps-btn--below-login {
     top: 100px;
     right: 50px;
+  }
+
+  body.capacitor-native .daily-community-maps-btn--below-login {
+    top: calc(100px + var(--wg-safe-top-active));
   }
 }
 @media (max-width: 600px) {
   .daily-community-maps-btn--below-login {
     top: 60px;
     right: 20px;
+  }
+
+  body.capacitor-native .daily-community-maps-btn--below-login {
+    top: calc(60px + var(--wg-safe-top-active));
   }
 }
 
@@ -204,6 +227,12 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+
+body.capacitor-native .daily-results-backdrop {
+  padding-top: calc(20px + var(--wg-safe-top-active));
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+}
+
 .daily-results-card {
   width: 100%;
   max-width: 720px;
@@ -220,6 +249,10 @@
   color: white;
   animation: dailyResultsAppear 0.4s cubic-bezier(0.2, 0.7, 0.3, 1.2);
   position: relative;
+}
+
+body.capacitor-native .daily-results-card {
+  max-height: calc(92dvh - var(--wg-safe-top-active) - env(safe-area-inset-bottom, 0px));
 }
 @keyframes dailyResultsAppear {
   from { opacity: 0; transform: scale(0.96) translateY(12px); }
@@ -1618,6 +1651,12 @@
   backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease-out;
 }
+
+body.capacitor-native .daily-share-modal {
+  padding-top: calc(20px + var(--wg-safe-top-active));
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+}
+
 .daily-share-modal-card {
   width: 100%;
   max-width: 420px;
@@ -1652,6 +1691,12 @@
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
 }
+
+body.capacitor-native .daily-confirm-modal {
+  padding-top: calc(20px + var(--wg-safe-top-active));
+  padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+}
+
 .daily-confirm-card {
   width: 100%;
   max-width: 440px;

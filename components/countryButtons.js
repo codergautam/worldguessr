@@ -10,6 +10,7 @@ function countryDiv({country, onPress, index, interactive, lang}) {
     <button
       key={country}
       className={`countryGuessrBtn ${interactive ? '' : 'countryGuessrBtn--noHover'}`}
+      data-haptic="none"
       style={{ animationDelay: `${index * 0.07}s` }}
       onClick={() => interactive && onPress(country)}
       title={fullName}
@@ -30,6 +31,7 @@ function continentDiv({continent, onPress, index, interactive, text}) {
     <button
       key={continent}
       className={`countryGuessrBtn countryGuessrBtn--continent ${interactive ? '' : 'countryGuessrBtn--noHover'}`}
+      data-haptic="none"
       style={{ animationDelay: `${index * 0.06}s` }}
       onClick={() => interactive && onPress(continent)}
       title={fullName}

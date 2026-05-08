@@ -22,6 +22,7 @@ import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
+import { triggerHaptic } from "@/lib/haptics";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
 
@@ -217,6 +218,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   // the answer overlay can fade out without resetting state. Singleplayer
   // gets the three-phase fade → forceHidden window → slide-up choreography.
   function advanceRound(advanceSource) {
+    triggerHaptic("impact-medium");
     setMapCameraCancelKey((prev) => prev + 1);
     const isCountryGuessrMode = countryGuesser || (onboarding?.mode && onboarding.mode !== "classic");
     if (isCountryGuessrMode) {
@@ -629,6 +631,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   function showHint() {
     if (hintLimitReached || hintShown) return;
 
+    triggerHaptic("selection");
     setHintShown(true);
     setHintsUsedThisGame((prev) => prev + 1);
   }
@@ -649,6 +652,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
     if (!latLong || latLong.lat == null || latLong.long == null) return;
     const isCorrect = correctOverride !== undefined ? correctOverride : countryGuesserCorrect;
+    triggerHaptic(correctOverride === undefined ? "impact-medium" : (isCorrect ? "success" : "warning"));
     if (onboarding && !onboarding.completed && onboarding.mode !== "classic") {
       onboardingRevealStartedAt.current = Date.now();
     }
@@ -887,7 +891,7 @@ session={session}/>
 
 {!showAnswerOnMap && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
-          <button className="cornerBtn" onClick={() => {
+          <button className="cornerBtn" data-haptic="selection" onClick={() => {
             setMiniMapFullscreen(!miniMapFullscreen)
             if(!miniMapFullscreen) {
               setMiniMapExpanded(true)
@@ -899,7 +903,7 @@ session={session}/>
           )}</button>
 
           &nbsp;
-          <button className="cornerBtn" onClick={() => {
+          <button className="cornerBtn" data-haptic="selection" onClick={() => {
             setMapPinned(!mapPinned)
           }}>
             <FaThumbtack style={{ transform: mapPinned ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
@@ -910,12 +914,12 @@ session={session}/>
 
 
         <div className={`miniMap__btns ${showAnswerOnMap ? 'answerShownBtns' : ''}`}>
-          <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>
+          <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} data-haptic="impact-medium" disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>
            {multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final ? multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length) > 0 ? `${text("waitingForPlayers", {p:multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length)})}...` : `${text("waiting")}...` : text("guess")}
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} data-haptic="selection" style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
           )}
         </div>
       </div>
@@ -925,17 +929,17 @@ session={session}/>
           <>
             {/* guess and hint  */}
 
-            <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>
+            <button className={`miniMap__btn ${!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final) ? 'unavailable' : ''} guessBtn`} data-haptic="impact-medium" disabled={!pinPoint||(multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final)} onClick={guess}>
            {multiplayerState?.inGame && multiplayerState?.gameData?.players.find(p => p.id === multiplayerState?.gameData?.myId)?.final ? multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length) > 0 ? `${text("waitingForPlayers", {p: multiplayerState?.gameData?.players?.reduce((acc, cur) => {if(cur.final) return acc - 1;return acc;}, multiplayerState?.gameData?.players.length)})}...` :  `${text("waiting")}...` : text("guess")}
             </button>
 
           { !multiplayerState?.inGame && (
-          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
+          <button className={`miniMap__btn hintBtn ${hintShown ? 'hintShown' : ''}`} data-haptic="selection" style={hintLimitReached ? {display:'none'} : {}} onClick={showHint}>{text('hint')}</button>
           )}
           </>
         )}
         {!loading && !welcomeOverlayShown && (
-          <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
+          <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} data-haptic="selection" onClick={() => {
             setMiniMapShown(!miniMapShown)
           }}>
               {!miniMapShown ? (

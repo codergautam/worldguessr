@@ -53,6 +53,7 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
             <button
               key={t.id}
               className={`countryGuessr-config__region-btn ${selected === t.id ? "active" : ""}`}
+              data-haptic="selection"
               onClick={() => setSelected(t.id)}
             >
               {t.emoji
@@ -66,6 +67,7 @@ export default function CountryGuessrConfig({ onStart, onBack }) {
 
         <button
           className="gameBtn g2_green_button countryGuessr-config__play-btn"
+          data-haptic="impact-medium"
           onClick={handlePlay}
         >
           {text("play")}

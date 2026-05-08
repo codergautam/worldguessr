@@ -199,7 +199,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     return (
         <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !mapFadingOut ? '' : 'none' }}>
 
-            <button className="openInMaps topGameInfoButton" onClick={toggleMap}>
+            <button className="openInMaps topGameInfoButton" data-haptic="selection" onClick={toggleMap}>
                 {panoShown ? text("showMap") : text("showPano")}
             </button>
 
@@ -259,7 +259,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
             {!multiplayerState && (
                 <div className="endButtonContainer">
                     {onboarding && !onboarding.completed ? (
-                        <button className={`playAgain${isLastRound ? ' lastRoundPulse' : ''}`} onClick={(event) => {
+                        <button className={`playAgain${isLastRound ? ' lastRoundPulse' : ''}`} data-haptic="impact-medium" onClick={(event) => {
                             clearAutoAdvance();
                             logOnboardingAdvance("manual-click", {
                                 pointerType: event?.nativeEvent?.pointerType,
@@ -273,13 +273,13 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                             {`${isLastRound ? text("viewResults") : text("nextRound")}${autoAdvanceCountdown != null ? ` (${autoAdvanceCountdown})` : ''}`}
                         </button>
                     ) : (
-                        <button className="playAgain" onClick={() => { fullReset(); }}>
+                        <button className="playAgain" data-haptic="impact-medium" onClick={() => { fullReset(); }}>
                             {isLastRound ? text("viewResults") : text("nextRound")}
                         </button>
                     )}
 
                     {session?.token?.canMakeClues && (
-                        <button className="openInMaps" onClick={() => {
+                        <button className="openInMaps" data-haptic="selection" onClick={() => {
                             if (!panoShown) toggleMap();
                             setExplanationModalShown(true);
                         }}>

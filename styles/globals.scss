@@ -293,6 +293,10 @@ html {
     width: 70vw;
     padding-top: 50px;
 }
+
+body.capacitor-native .g2_content {
+    padding-top: calc(50px + var(--wg-safe-top-active));
+}
 .g2_content_margin{
     padding-right: 5vw;
     padding-top: 15vh;
@@ -329,6 +333,10 @@ html {
     background: linear-gradient(65deg, var(--gradTopBase)),
                 linear-gradient(90deg, var(--gradBottomBase));
     transition: opacity 0.3s ease-in-out;
+}
+
+body.capacitor-native .g2_nav_ui {
+    padding-top: calc(50px + var(--wg-safe-top-active));
 }
 
 .g2_slide_out {
@@ -414,6 +422,11 @@ html {
     opacity: 0;
     transition: transform 0.5s ease, opacity 0.5s ease;
 }
+
+body.capacitor-native .home__footer {
+    bottom: max(50px, calc(18px + env(safe-area-inset-bottom, 0px)));
+}
+
 .footer_btns {
     display: flex;
     justify-content: center;
@@ -477,6 +490,10 @@ html {
         padding-top: 0px;
     }
 
+    body.capacitor-native .g2_content {
+        padding-top: var(--wg-safe-top-active);
+    }
+
     .g2_nav_text {
         width: 100%;
     }
@@ -491,6 +508,10 @@ html {
         height: auto;
         gap: 5px;
     }
+
+    body.capacitor-native .g2_nav_ui {
+        padding-top: calc(70px + var(--wg-safe-top-active));
+    }
     .map_categories {
         display: none;
     }
@@ -502,6 +523,11 @@ html {
             position: static;
             align-items: center !important;
         }
+
+        body.capacitor-native .home__footer {
+            padding-bottom: max(0px, calc(env(safe-area-inset-bottom, 0px) - 12px));
+        }
+
         .footer_btns {
             align-items: center !important;
             justify-content: center !important;
@@ -857,6 +883,10 @@ body.capacitor-native .friendBtnFixed {
     top: calc(10px + var(--wg-safe-top-active));
 }
 
+body.capacitor-native .leagueBtn {
+    top: calc(60px + var(--wg-safe-top-active));
+}
+
 @media screen and (max-width: 600px) {
     body.capacitor-native .accountBtn {
         top: calc(10px + var(--wg-safe-top-active));
@@ -876,6 +906,13 @@ body.capacitor-native .friendBtnFixed {
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     pointer-events: all;
+    animation: nativeAuthBackdropIn 220ms ease-out both;
+    will-change: background, backdrop-filter;
+}
+
+.nativeAuthSheetBackdrop--closing {
+    animation: nativeAuthBackdropOut 180ms ease-in both;
+    pointer-events: none;
 }
 
 .nativeAuthSheet {
@@ -888,6 +925,93 @@ body.capacitor-native .friendBtnFixed {
     box-shadow: 0 22px 60px rgba(0, 0, 0, 0.48);
     padding: 24px;
     color: white;
+    transform-origin: bottom center;
+    animation: nativeAuthSheetIn 260ms cubic-bezier(0.2, 0.8, 0.2, 1) 35ms both;
+    will-change: opacity, transform;
+}
+
+.nativeAuthSheet--closing {
+    animation: nativeAuthSheetOut 200ms ease-in both;
+}
+
+@keyframes nativeAuthBackdropIn {
+    from {
+        background: rgba(0, 0, 0, 0);
+        backdrop-filter: blur(0);
+        -webkit-backdrop-filter: blur(0);
+    }
+    to {
+        background: rgba(0, 0, 0, 0.56);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+}
+
+@keyframes nativeAuthBackdropOut {
+    from {
+        background: rgba(0, 0, 0, 0.56);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+    to {
+        background: rgba(0, 0, 0, 0);
+        backdrop-filter: blur(0);
+        -webkit-backdrop-filter: blur(0);
+    }
+}
+
+@keyframes nativeAuthSheetIn {
+    from {
+        opacity: 0;
+        transform: translateY(22px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes nativeAuthSheetOut {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(18px) scale(0.98);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nativeAuthSheet {
+        animation: nativeAuthSheetFadeIn 180ms ease-out 20ms both;
+    }
+
+    .nativeAuthSheet--closing {
+        animation: nativeAuthSheetFadeOut 160ms ease-in both;
+    }
+}
+
+@keyframes nativeAuthSheetFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(0) scale(1);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes nativeAuthSheetFadeOut {
+    from {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(0) scale(1);
+    }
 }
 
 .nativeAuthSheet__close {
@@ -950,8 +1074,15 @@ body.capacitor-native .friendBtnFixed {
 
 .nativeAuthSheet__provider--apple {
     color: #050505;
+    -webkit-text-fill-color: #050505;
     background: #ffffff;
     box-shadow: 0 8px 24px rgba(255, 255, 255, 0.08);
+}
+
+.nativeAuthSheet__provider--apple span,
+.nativeAuthSheet__provider--apple svg {
+    color: #050505;
+    -webkit-text-fill-color: #050505;
 }
 
 .nativeAuthSheet__provider--google {
@@ -3718,10 +3849,17 @@ img[alt="Google"] {
     border-radius: 16px;
     padding: 12px 14px;
     gap: 8px;
+    box-sizing: border-box;
     /* Container itself ignores pointer events so users can pan/drag the
        Street View through the empty padding around the buttons. The actual
        buttons re-enable pointer events below. */
     pointer-events: none;
+}
+
+body.capacitor-native .countryGuessrOptions {
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+    margin-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .countryGuessrOptions .countryGuessrBtn {
@@ -3933,6 +4071,13 @@ body.capacitor-native .onboardingDiv {
         border-radius: 12px;
     }
 
+    body.capacitor-native .countryGuessrOptions {
+        width: 100%;
+        padding-left: max(8px, env(safe-area-inset-left, 0px));
+        padding-right: max(8px, env(safe-area-inset-right, 0px));
+        margin-bottom: env(safe-area-inset-bottom, 0px);
+    }
+
     .countryGuessrPrompt {
         font-size: 0.82rem;
     }
@@ -4017,6 +4162,12 @@ body.capacitor-native .onboardingDiv {
         padding: 6px 8px;
         gap: 3px;
         border-radius: 10px;
+    }
+
+    body.capacitor-native .countryGuessrOptions {
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+        margin-bottom: env(safe-area-inset-bottom, 0px);
     }
 
     .countryGuessrPrompt {
@@ -5521,6 +5672,12 @@ body.capacitor-native .onboardingDiv {
     overflow: hidden !important;
 }
 
+body.capacitor-native .react-responsive-modal-container {
+    box-sizing: border-box;
+    padding-top: var(--wg-safe-top-active) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
+}
+
 .leaflet-control-attribution {
     display: none;
 }
@@ -5532,6 +5689,10 @@ body.capacitor-native .onboardingDiv {
 
 .react-responsive-modal-closeButton {
     background-color: white !important;
+}
+
+body.capacitor-native .react-responsive-modal-closeButton {
+    top: calc(14px + var(--wg-safe-top-active)) !important;
 }
 
 .friend-details {
@@ -5600,6 +5761,10 @@ body.capacitor-native .onboardingDiv {
 
 .react-responsive-modal-modal {
     max-width: none !important;
+}
+
+body.capacitor-native .react-responsive-modal-modal {
+    max-height: calc(100dvh - var(--wg-safe-top-active) - env(safe-area-inset-bottom, 0px)) !important;
 }
 
 /* Hide the elements with specific inline styles */
@@ -5812,6 +5977,10 @@ div[dir="ltr"] {
     .leagueBtn {
         top: 50px;
     }
+
+    body.capacitor-native .leagueBtn {
+        top: calc(50px + var(--wg-safe-top-active));
+    }
 }
 // less than 900px
 @media (max-width: 600px) {
@@ -5819,6 +5988,9 @@ div[dir="ltr"] {
         top: 45px;
     }
 
+    body.capacitor-native .leagueBtn {
+        top: calc(45px + var(--wg-safe-top-active));
+    }
 }
 
 .leagueBtn:hover {
@@ -6575,6 +6747,12 @@ div:hover .elo-badge {
     }
 }
 
+body.capacitor-native .welcome-modal-backdrop {
+    padding-top: var(--wg-safe-top-active);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    box-sizing: border-box;
+}
+
 .welcome-modal {
     max-width: 440px;
     width: 92%;
@@ -6726,6 +6904,11 @@ div:hover .elo-badge {
     box-sizing: border-box;
 }
 
+body.capacitor-native .ob-complete {
+    padding-top: calc(16px + var(--wg-safe-top-active));
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+}
+
 .ob-complete__modal {
     display: flex;
     flex-direction: column;
@@ -6743,6 +6926,10 @@ div:hover .elo-badge {
     filter: drop-shadow(0px 8px 24px rgba(0, 0, 0, 0.5));
     animation: fadeInUp 0.4s ease forwards;
     box-sizing: border-box;
+}
+
+body.capacitor-native .ob-complete__modal {
+    max-height: calc(95dvh - var(--wg-safe-top-active) - env(safe-area-inset-bottom, 0px));
 }
 
 /* Celebration hero */

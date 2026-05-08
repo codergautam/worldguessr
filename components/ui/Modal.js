@@ -89,6 +89,11 @@ export default function Modal({
           animation: fadeIn 0.2s ease-out;
         }
 
+        :global(body.capacitor-native) .modal-backdrop {
+          padding-top: calc(20px + var(--wg-safe-top-active));
+          padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
+        }
+
         .modal-backdrop.closing {
           animation: fadeOut 0.2s ease-out;
         }
@@ -107,6 +112,10 @@ export default function Modal({
           box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
           display: flex;
           flex-direction: column;
+        }
+
+        :global(body.capacitor-native) .modal {
+          max-height: calc(80dvh - var(--wg-safe-top-active) - env(safe-area-inset-bottom, 0px));
         }
 
         .modal.closing {

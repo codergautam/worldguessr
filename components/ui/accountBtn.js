@@ -1,15 +1,19 @@
 import { signIn } from "@/components/auth/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FaApple, FaGoogle, FaTimes } from "react-icons/fa";
 import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "../utils/sendEvent";
 import CountryFlag from '../utils/countryFlag';
+
+const AUTH_SHEET_CLOSE_MS = 220;
 
 export default function AccountBtn({ session, openAccountModal, navbarMode, inCrazyGames, inGameDistribution, loginQueued, setLoginQueued }) {
   const { t: text } = useTranslation("common");
   const hasGoogleClientId = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const [nativePlatform, setNativePlatform] = useState(null);
   const [authSheetOpen, setAuthSheetOpen] = useState(false);
+  const [authSheetClosing, setAuthSheetClosing] = useState(false);
+  const closeTimerRef = useRef(null);
   // Use countryCode from session (now included in googleAuth response)
   const countryCode = session?.token?.countryCode || null;
 
@@ -19,6 +23,14 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
     if (capacitor?.isNativePlatform?.()) {
       setNativePlatform(capacitor.getPlatform?.() || 'native');
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
   }, []);
 
   const startLogin = (provider = 'google') => {
@@ -31,8 +43,25 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
     }
   };
 
+  const closeAuthSheet = (afterClose) => {
+    if (authSheetClosing) return;
+    setAuthSheetClosing(true);
+
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+    }
+
+    closeTimerRef.current = window.setTimeout(() => {
+      setAuthSheetOpen(false);
+      setAuthSheetClosing(false);
+      closeTimerRef.current = null;
+      afterClose?.();
+    }, AUTH_SHEET_CLOSE_MS);
+  };
+
   const openLogin = () => {
     if (nativePlatform) {
+      setAuthSheetClosing(false);
       setAuthSheetOpen(true);
       return;
     }
@@ -81,9 +110,9 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
         )}
         </button>
         {authSheetOpen && (
-          <div className="nativeAuthSheetBackdrop" onClick={() => setAuthSheetOpen(false)}>
-            <div className="nativeAuthSheet" role="dialog" aria-modal="true" aria-label="Sign in" onClick={(event) => event.stopPropagation()}>
-              <button className="nativeAuthSheet__close" aria-label="Close" onClick={() => setAuthSheetOpen(false)}>
+          <div className={`nativeAuthSheetBackdrop${authSheetClosing ? ' nativeAuthSheetBackdrop--closing' : ''}`} onClick={() => closeAuthSheet()}>
+            <div className={`nativeAuthSheet${authSheetClosing ? ' nativeAuthSheet--closing' : ''}`} role="dialog" aria-modal="true" aria-label="Sign in" onClick={(event) => event.stopPropagation()}>
+              <button className="nativeAuthSheet__close" aria-label="Close" onClick={() => closeAuthSheet()}>
                 <FaTimes />
               </button>
               <div className="nativeAuthSheet__header">
@@ -96,8 +125,7 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
                     className="nativeAuthSheet__provider nativeAuthSheet__provider--apple"
                     disabled={loginQueued}
                     onClick={() => {
-                      setAuthSheetOpen(false);
-                      startLogin('apple');
+                      closeAuthSheet(() => startLogin('apple'));
                     }}
                   >
                     <FaApple />
@@ -108,8 +136,7 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
                   className="nativeAuthSheet__provider nativeAuthSheet__provider--google"
                   disabled={loginQueued}
                   onClick={() => {
-                    setAuthSheetOpen(false);
-                    startLogin('google');
+                    closeAuthSheet(() => startLogin('google'));
                   }}
                 >
                   <FaGoogle />

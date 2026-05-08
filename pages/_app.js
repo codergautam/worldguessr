@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import installErrorTracking from '@/lib/errorTracking';
+import { installGlobalHaptics } from '@/lib/haptics';
 import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvider';
 
 import '@smastrom/react-rating/style.css'
@@ -38,6 +39,10 @@ const SUPPORTED_LOCALES = ["es", "fr", "de", "ru"];
 
 function App({ Component, pageProps }) {
   const router = useRouter();
+
+  useEffect(() => {
+    return installGlobalHaptics();
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

@@ -6,6 +6,10 @@
     padding: 0 !important;
 }
 
+body.capacitor-native .account-modal {
+    height: calc(100dvh - var(--wg-safe-top-active) - env(safe-area-inset-bottom, 0px)) !important;
+}
+
 .account-modal-container {
     position: relative;
     width: 100%;
@@ -44,6 +48,11 @@
     margin: 0 auto;
     padding: 20px;
     box-sizing: border-box;
+}
+
+body.capacitor-native .account-modal-content {
+    padding-top: calc(20px + var(--wg-safe-top-active));
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
 }
 
 .account-modal-header {

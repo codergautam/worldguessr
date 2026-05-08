@@ -27,6 +27,7 @@
     "@capacitor/app": "^7.1.2",
     "@capacitor/browser": "^7.0.5",
     "@capacitor/core": "7.6.0",
+    "@capacitor/haptics": "7.0.5",
     "@capacitor/ios": "7.6.0",
     "@googlemaps/js-api-loader": "^1.16.6",
     "@osm_borders/maritime_10m": "^1.1.0",

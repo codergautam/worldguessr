@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
 import { getPinIcons } from '@/lib/markerIcons';
+import { triggerHaptic } from '@/lib/haptics';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
@@ -305,6 +306,7 @@ const ClickHandler = memo(function ClickHandler({
 
       const canonical = L.latLng(e.latlng.lat, canonicalLng);
       setPinPoint(canonical);
+      triggerHaptic("selection");
 
       if (mp?.inGame && mp.gameData?.state === "guess" && socket) {
         socket.send(JSON.stringify({
