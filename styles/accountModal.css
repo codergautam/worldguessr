@@ -1,13 +1,14 @@
 /* Modern Account Modal Styles */
 .account-modal {
     width: 100vw !important;
-    height: 100vh !important;
+    height: 100dvh !important;
     margin: 0 !important;
     padding: 0 !important;
 }
 
 body.capacitor-native .account-modal {
-    height: calc(100dvh - var(--wg-safe-top-active) - env(safe-area-inset-bottom, 0px)) !important;
+    height: 100dvh !important;
+    max-height: none !important;
 }
 
 .account-modal-container {
@@ -51,7 +52,7 @@ body.capacitor-native .account-modal {
 }
 
 body.capacitor-native .account-modal-content {
-    padding-top: calc(20px + var(--wg-safe-top-active));
+    padding-top: calc(12px + var(--wg-safe-top-active));
     padding-bottom: max(20px, env(safe-area-inset-bottom, 20px));
 }
 
@@ -437,5 +438,10 @@ body.capacitor-native .account-modal-content {
 }
 
 .account-modal-p-container {
-    height: auto !important;
+    height: 100dvh !important;
+}
+
+body.capacitor-native .account-modal-p-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
 }
