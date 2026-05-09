@@ -15,6 +15,7 @@ import {
   flagUrl,
   nameFromCode,
 } from '../../shared/data/countryHelpers';
+import localeStrings from '../../shared/locales-en.json';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 
 interface Props {
@@ -38,32 +39,24 @@ interface Props {
    * `onboardingFact1-3` strings from public/locales/en/common.json.
    */
   factText?: string;
+  hideQuip?: boolean;
 }
 
-const CORRECT_LINES = [
-  "Nice one! You're a natural.",
-  'Spot on! Right where it should be.',
-  'Crushed it. Geography brain activated.',
-  'Boom! Right country, right vibe.',
-  'Perfect — the world is your map.',
-];
+const QUIP_KEYS = {
+  correct: Array.from({ length: 24 }, (_, i) => `quipCorrect${i + 1}`),
+  wrongSameContinent: Array.from({ length: 20 }, (_, i) => `quipWrongSame${i + 1}`),
+  wrongDiffContinent: Array.from({ length: 24 }, (_, i) => `quipWrongDiff${i + 1}`),
+} as const;
 
-const WRONG_SAME_LINES = [
-  'So close — same neighborhood at least.',
-  'Right region, wrong flag. Try again next time.',
-  'You were in the area! Common confusion.',
-  'A neighbor — easy mistake to make.',
-];
+type QuipTier = keyof typeof QUIP_KEYS;
 
-const WRONG_DIFF_LINES = [
-  'Way off, but you live to guess another day.',
-  'Different continent entirely — happens to the best of us.',
-  'Plot twist! Not even close.',
-  'A bold guess. We respect the confidence.',
-];
+function text(key: string): string {
+  return (localeStrings as Record<string, string>)[key] || key;
+}
 
-function pickLine(buf: string[]) {
-  return buf[Math.floor(Math.random() * buf.length)];
+function pickQuipKey(tier: QuipTier) {
+  const pool = QUIP_KEYS[tier];
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 export default function CountryEndBanner({
@@ -78,6 +71,7 @@ export default function CountryEndBanner({
   autoAdvanceMs,
   isFinal,
   factText,
+  hideQuip,
 }: Props) {
   const isCorrect = points > 0;
   const isContinent = mode === 'continent';
@@ -87,10 +81,10 @@ export default function CountryEndBanner({
     : nameFromCode(correctCountry);
 
   const message = useMemo(() => {
-    if (isCorrect) return pickLine(CORRECT_LINES);
-    if (!picked || isContinent) return pickLine(WRONG_DIFF_LINES);
+    if (isCorrect) return text(pickQuipKey('correct'));
+    if (!picked || isContinent) return text(pickQuipKey('wrongDiffContinent'));
     const sameContinent = continentFromCode(picked) === continentFromCode(correctCountry);
-    return sameContinent ? pickLine(WRONG_SAME_LINES) : pickLine(WRONG_DIFF_LINES);
+    return text(pickQuipKey(sameContinent ? 'wrongSameContinent' : 'wrongDiffContinent'));
     // re-pick only when the round actually changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round, isCorrect]);
@@ -158,9 +152,11 @@ export default function CountryEndBanner({
           <Text style={styles.title} numberOfLines={1}>
             {correctName}
           </Text>
-          <Text style={styles.message} numberOfLines={2}>
-            {message}
-          </Text>
+          {!hideQuip && (
+            <Text style={styles.message} numberOfLines={2}>
+              {message}
+            </Text>
+          )}
         </View>
         <View style={styles.pointsCol}>
           <Text style={[styles.points, { color: isCorrect ? colors.successGlow : colors.errorGlow }]}>

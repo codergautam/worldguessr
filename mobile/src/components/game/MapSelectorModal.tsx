@@ -21,6 +21,7 @@ import { useAuthStore } from '../../store/authStore';
 import { emitHeartUpdate, onHeartUpdate } from '../../store/heartSync';
 import MapSection, { SECTION_ORDER, SECTION_LABELS } from '../maps/MapSection';
 import MapDetailView from '../maps/MapDetailView';
+import SingleplayerModeTiles, { SingleplayerModeTile } from './SingleplayerModeTiles';
 
 interface MapSelectorModalProps {
   visible: boolean;
@@ -33,6 +34,9 @@ interface MapSelectorModalProps {
   onTimerToggle: (v: boolean) => void;
   timerDuration: number;
   onTimerDurationChange: (s: number) => void;
+  showOptions?: boolean;
+  showSingleplayerModes?: boolean;
+  currentSingleplayerMode?: SingleplayerModeTile;
   /** Optional rounds stepper (for party mode) */
   rounds?: number;
   onRoundsChange?: (r: number) => void;
@@ -55,6 +59,9 @@ export default function MapSelectorModal({
   onTimerToggle,
   timerDuration,
   onTimerDurationChange,
+  showOptions = true,
+  showSingleplayerModes = false,
+  currentSingleplayerMode = 'world',
   rounds,
   onRoundsChange,
 }: MapSelectorModalProps) {
@@ -390,6 +397,7 @@ export default function MapSelectorModal({
               keyboardShouldPersistTaps="handled"
             >
               {/* ── Game Options ── */}
+              {showOptions && (
               <View style={styles.optionsCard}>
                 {/* Rounds (party mode only) */}
                 {onRoundsChange && rounds !== undefined && (
@@ -471,6 +479,7 @@ export default function MapSelectorModal({
                   </View>
                 )}
               </View>
+              )}
 
               {/* ── Map Selection ── */}
               <View style={styles.sectionHeader}>
@@ -478,27 +487,39 @@ export default function MapSelectorModal({
                 <Text style={styles.sectionHeaderText}>Select Map</Text>
               </View>
 
-              {/* World map option */}
-              <Pressable
-                style={({ pressed }) => [
-                  styles.allCountriesTile,
-                  currentMapSlug === 'all' && styles.allCountriesTileActive,
-                  pressed && { opacity: 0.8 },
-                ]}
-                onPress={() => { onSelectMap('all', 'World'); animateClose(); }}
-              >
-                <LinearGradient
-                  colors={['#1a4423', '#245734']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFillObject}
+              {showSingleplayerModes ? (
+                <SingleplayerModeTiles
+                  currentMode={currentSingleplayerMode}
+                  searchQuery={searchQuery}
+                  onSelect={(mode) => {
+                    if (mode === 'world') onSelectMap('all', 'World');
+                    if (mode === 'country') onSelectMap('__countryGuesser', 'Country Guesser');
+                    if (mode === 'continent') onSelectMap('__continentGuesser', 'Continent Guesser');
+                    animateClose();
+                  }}
                 />
-                <Ionicons name="globe-outline" size={24} color="#fff" />
-                <Text style={styles.allCountriesText}>World</Text>
-                {currentMapSlug === 'all' && (
-                  <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-                )}
-              </Pressable>
+              ) : (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.allCountriesTile,
+                    currentMapSlug === 'all' && styles.allCountriesTileActive,
+                    pressed && { opacity: 0.8 },
+                  ]}
+                  onPress={() => { onSelectMap('all', 'World'); animateClose(); }}
+                >
+                  <LinearGradient
+                    colors={['#1a4423', '#245734']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                  <Ionicons name="globe-outline" size={24} color="#fff" />
+                  <Text style={styles.allCountriesText}>World</Text>
+                  {currentMapSlug === 'all' && (
+                    <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                  )}
+                </Pressable>
+              )}
 
               {/* Search */}
               <View style={styles.searchContainer}>

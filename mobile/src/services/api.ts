@@ -270,12 +270,15 @@ export const api = {
     gameData: {
       official: boolean;
       location: string;
+      countryGuesser?: boolean;
+      countryGuessrSubMode?: 'country' | 'continent';
       rounds: Array<{
         lat: number;
         long: number;
         actualLat: number;
         actualLong: number;
         panoId?: string;
+        country?: string;
         usedHint: boolean;
         maxDist: number;
         roundTime: number;

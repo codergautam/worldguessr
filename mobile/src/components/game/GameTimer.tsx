@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Text, StyleSheet, Animated, Platform } from 'react-native';
 import { colors } from '../../shared';
 import { fontSizes } from '../../styles/theme';
+import useAnimatedNumber from '../../hooks/useAnimatedNumber';
 
 interface GameTimerProps {
   timeRemaining: number;
@@ -33,6 +34,7 @@ export default function GameTimer({
   const [timeRemaining, setTimeRemaining] = useState(initialTime);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const isServerDriven = serverEndTime !== undefined && serverEndTime > 0;
+  const { displayed: displayedScore, animating: scoreAnimating } = useAnimatedNumber(totalScore);
 
   // Reset timer when initialTime changes (new round) — local mode only
   useEffect(() => {
@@ -135,7 +137,9 @@ export default function GameTimer({
             <Text style={styles.separator}> · </Text>
           </>
         ) : null}
-        <Text style={styles.points}>{totalScore.toLocaleString()}</Text>
+        <Text style={[styles.points, scoreAnimating && styles.pointsAnimating]}>
+          {displayedScore.toLocaleString()}
+        </Text>
         <Text style={styles.pointsLabel}> pts</Text>
       </Text>
     </Animated.View>
@@ -202,6 +206,12 @@ const styles = StyleSheet.create({
   points: {
     color: colors.white,
     fontFamily: 'Lexend-SemiBold',
+  },
+  pointsAnimating: {
+    color: colors.successGlow,
+    textShadowColor: 'rgba(34, 197, 94, 0.65)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 10,
   },
   pointsLabel: {
     color: 'rgba(255, 255, 255, 0.8)',

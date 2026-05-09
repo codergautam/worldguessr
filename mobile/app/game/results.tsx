@@ -143,7 +143,7 @@ function formatTime(seconds: number): string {
 const SIDEBAR_WIDTH = 340;
 
 export default function GameResultsScreen() {
-  const { totalScore, rounds, extent: extentParam, gameId, fromHistory, multiplayer: mpParam, duelEnd: duelEndParam, players: playersParam } = useLocalSearchParams<{
+  const { totalScore, rounds, extent: extentParam, gameId, fromHistory, multiplayer: mpParam, duelEnd: duelEndParam, players: playersParam, mode } = useLocalSearchParams<{
     totalScore: string;
     rounds: string;
     extent?: string;
@@ -152,6 +152,7 @@ export default function GameResultsScreen() {
     multiplayer?: string;
     duelEnd?: string;
     players?: string;
+    mode?: string;
   }>();
 
   const isHistoryView = fromHistory === 'true';
@@ -328,7 +329,8 @@ export default function GameResultsScreen() {
     [rounds, historyData],
   );
   const score = historyData ? historyData.score : parseInt(totalScore ?? '0', 10);
-  const maxScore = parsedRounds.length * 5000;
+  const isCountryGuesserResult = mode === 'countryGuesser' || mode === 'continentGuesser';
+  const maxScore = parsedRounds.length * (isCountryGuesserResult ? 1000 : 5000);
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
   const stars = useMemo(() => getStars(percentage), [percentage]);
 
@@ -527,7 +529,13 @@ export default function GameResultsScreen() {
     }
     router.replace({
       pathname: '/game/[id]',
-      params: { id: 'singleplayer', map: 'all', rounds: '5', time: '60' },
+      params: {
+        id: 'singleplayer',
+        map: 'all',
+        rounds: isCountryGuesserResult ? '10' : '5',
+        time: '60',
+        mode: mode || 'world',
+      },
     });
   };
 

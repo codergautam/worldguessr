@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   },
   modes: {
     width: '100%',
-    gap: spacing.lg,
+    gap: spacing.sm,
     marginBottom: spacing.lg,
     // Top breathing room so the recommended badge (which sits above the
     // first button at top:-10) has somewhere to live.
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   },
   modesLandscape: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
     marginBottom: spacing.md,
   },
   modeBtnWrap: {

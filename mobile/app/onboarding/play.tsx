@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calcPoints, colors, findDistance } from '../../src/shared';
 import { borderRadius, fontSizes, spacing } from '../../src/styles/theme';
 import GameSurface, { GameSurfaceHandle } from '../../src/components/game/GameSurface';
+import GameTimer from '../../src/components/game/GameTimer';
 import CountryEndBanner from '../../src/components/game/CountryEndBanner';
+import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
+import TopRightActions from '../../src/components/game/TopRightActions';
 import OnboardingComplete from '../../src/components/onboarding/OnboardingComplete';
 import WelcomeOverlay from '../../src/components/onboarding/WelcomeOverlay';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
@@ -17,6 +21,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { wsService } from '../../src/services/websocket';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
+import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
 
 const TOTAL_ROUNDS = 3;
 const COUNTRY_MAX = 3000;
@@ -35,6 +40,29 @@ interface RoundResult {
   guessLng?: number;
 }
 
+const OnboardingRoundHud = memo(function OnboardingRoundHud({
+  round,
+  totalRounds,
+  totalPoints,
+}: {
+  round: number;
+  totalRounds: number;
+  totalPoints: number;
+}) {
+  return (
+    <GameTimer
+      timeRemaining={60}
+      onTimeUp={() => {}}
+      isPaused
+      roundKey={round}
+      currentRound={round}
+      totalRounds={totalRounds}
+      totalScore={totalPoints}
+      showTimer={false}
+    />
+  );
+});
+
 export default function OnboardingPlay() {
   const params = useLocalSearchParams<{ mode?: string }>();
   const router = useRouter();
@@ -52,7 +80,6 @@ export default function OnboardingPlay() {
 
   const markComplete = useOnboardingStore((s) => s.markComplete);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const authUsername = useAuthStore((s) => s.user?.username);
 
   const [round, setRound] = useState(1);
   const [results, setResults] = useState<RoundResult[]>([]);
@@ -63,6 +90,7 @@ export default function OnboardingPlay() {
   const [authSheetVisible, setAuthSheetVisible] = useState(false);
   const pendingAuthAction = useRef<null | (() => void)>(null);
   const surfaceRef = useRef<GameSurfaceHandle>(null);
+  const resultSubmittingRef = useRef(false);
 
   const totalPoints = useMemo(
     () => results.reduce((sum, r) => sum + r.points, 0),
@@ -112,16 +140,18 @@ export default function OnboardingPlay() {
   };
 
   const submitCountryAnswer = (answer: string) => {
-    if (showResult) return;
+    if (showResult || resultSubmittingRef.current) return;
+    resultSubmittingRef.current = true;
     const correct = currentLoc.country;
     const isCorrect = answer === correct;
     const points = isCorrect ? 1000 : 0;
-    setResults((prev) => [...prev, { points, picked: answer, correct }]);
     setShowResult(true);
+    setResults((prev) => [...prev, { points, picked: answer, correct }]);
   };
 
   const submitClassicGuess = () => {
-    if (!guessPosition || showResult) return;
+    if (!guessPosition || showResult || resultSubmittingRef.current) return;
+    resultSubmittingRef.current = true;
     const distance = findDistance(
       currentLoc.lat,
       currentLoc.long,
@@ -135,6 +165,7 @@ export default function OnboardingPlay() {
       guessLon: guessPosition.lng,
       maxDist: ONBOARDING_MAX_DIST,
     });
+    setShowResult(true);
     setResults((prev) => [
       ...prev,
       {
@@ -145,7 +176,6 @@ export default function OnboardingPlay() {
         guessLng: guessPosition.lng,
       },
     ]);
-    setShowResult(true);
   };
 
   const advanceRound = useCallback(() => {
@@ -160,6 +190,7 @@ export default function OnboardingPlay() {
       setRound((r) => r + 1);
       setGuessPosition(null);
       setShowResult(false);
+      resultSubmittingRef.current = false;
     });
   }, [round]);
 
@@ -227,8 +258,12 @@ export default function OnboardingPlay() {
     onboardingAnalytics.continue('countryguesser');
     onboardingAnalytics.end(settledMode, 'countryguesser');
     finish(() => {
+      AsyncStorage.setItem(SINGLEPLAYER_DEFAULT_MODE_KEY, 'countryGuesser').catch(() => {});
       router.dismissAll();
-      router.push('/countryGuesser/config');
+      router.push({
+        pathname: '/game/[id]',
+        params: { id: 'singleplayer', map: 'all', rounds: '10', mode: 'countryGuesser' },
+      });
     });
   };
 
@@ -261,52 +296,19 @@ export default function OnboardingPlay() {
     </Pressable>
   ) : null;
 
-  const topCenterSlot = !isUndecided ? (
-    <View style={styles.roundChip}>
-      <Text style={styles.roundChipText}>
-        Tutorial · Round {round}/{TOTAL_ROUNDS}
-      </Text>
-      <Text style={styles.roundChipSub}>
-        {totalPoints.toLocaleString()} / {maxPoints.toLocaleString()} pts
-      </Text>
-    </View>
+  const roundHud = !isUndecided ? (
+    <OnboardingRoundHud round={round} totalRounds={TOTAL_ROUNDS} totalPoints={totalPoints} />
   ) : null;
 
   const topRightSlot = (
-    <View style={styles.toolbar}>
-      <Pressable
-        onPress={() => {
-          markComplete();
-          router.dismissAll();
-          router.push('/party/join');
-        }}
-        style={({ pressed }) => [styles.toolbarBtn, styles.toolbarBtnBlue, pressed && { opacity: 0.85 }]}
-      >
-        <Ionicons name="enter-outline" size={18} color={colors.white} />
-        <Text style={styles.toolbarBtnText}>Join Party</Text>
-      </Pressable>
-      <Pressable
-        onPress={() => {
-          if (isAuthenticated) {
-            markComplete();
-            router.dismissAll();
-            router.push('/(tabs)/account');
-          } else {
-            setAuthSheetVisible(true);
-          }
-        }}
-        style={({ pressed }) => [styles.toolbarBtn, pressed && { opacity: 0.85 }]}
-      >
-        <Ionicons
-          name={isAuthenticated ? 'person-circle' : 'person-circle-outline'}
-          size={18}
-          color={colors.white}
-        />
-        <Text style={styles.toolbarBtnText} numberOfLines={1}>
-          {isAuthenticated ? authUsername || 'Account' : 'Login'}
-        </Text>
-      </Pressable>
-    </View>
+    <TopRightActions
+      onBeforeNavigate={() => {
+        markComplete();
+        router.dismissAll();
+      }}
+    >
+      {roundHud}
+    </TopRightActions>
   );
 
   // Onboarding rounds get the landmark fact below the message — exact same
@@ -329,50 +331,20 @@ export default function OnboardingPlay() {
             autoAdvanceMs={7000}
             isFinal={isFinalRound}
             factText={factText}
+            hideQuip
           />
         )
         : (
-          <View style={styles.classicBanner}>
-            <Text style={styles.classicBannerRound}>
-              Round {round}/{TOTAL_ROUNDS}
-            </Text>
-            <Text style={styles.classicBannerDistance}>
-              {lastResult.distance && lastResult.distance >= 1
-                ? `Your guess was ${Math.round(lastResult.distance).toLocaleString()} km away`
-                : `Your guess was ${Math.round((lastResult.distance ?? 0) * 1000)} m away`}
-            </Text>
-            <Text
-              style={[
-                styles.classicBannerPoints,
-                {
-                  color:
-                    lastResult.points >= 4000
-                      ? colors.success
-                      : lastResult.points >= 2000
-                        ? colors.warning
-                        : colors.error,
-                },
-              ]}
-            >
-              {lastResult.points.toLocaleString()} points
-            </Text>
-            <Text style={styles.classicBannerFact}>{factText}</Text>
-            <Pressable
-              onPress={advanceRound}
-              style={({ pressed }) => [pressed && { opacity: 0.85 }]}
-            >
-              <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.classicNextBtn}
-              >
-                <Text style={styles.classicNextBtnText}>
-                  {isFinalRound ? 'View Results' : 'Next Round'}
-                </Text>
-              </LinearGradient>
-            </Pressable>
-          </View>
+          <ClassicEndBanner
+            round={round}
+            totalRounds={TOTAL_ROUNDS}
+            points={lastResult.points}
+            distance={lastResult.distance}
+            onNext={advanceRound}
+            isFinal={isFinalRound}
+            factText={factText}
+            compact
+          />
         )
       : null;
 
@@ -390,11 +362,11 @@ export default function OnboardingPlay() {
         countryOptions={otherOptions}
         countryPicked={lastResult?.picked ?? null}
         correctAnswer={showResult ? lastResult?.correct ?? null : null}
+        compactCountryButtons={false}
         onAnswerCountry={submitCountryAnswer}
         isShowingResult={!isUndecided && showResult}
         guessPoints={lastResult?.points}
         topLeftSlot={topLeftSlot}
-        topCenterSlot={topCenterSlot}
         topRightSlot={topRightSlot}
         endBannerContent={endBannerContent}
         loadingMessage="Loading…"
@@ -435,99 +407,5 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.4,
     borderColor: '#85200c',
-  },
-  roundChip: {
-    backgroundColor: 'rgba(8, 22, 12, 0.85)',
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-    alignItems: 'center',
-  },
-  roundChipText: {
-    color: colors.white,
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-Bold',
-  },
-  roundChipSub: {
-    color: 'rgba(255,255,255,0.65)',
-    fontSize: fontSizes.xs,
-    fontFamily: 'Lexend',
-  },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm + 2,
-  },
-  toolbarBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: 'rgba(36, 87, 52, 0.9)',
-    borderColor: 'rgba(255,255,255,0.18)',
-    borderWidth: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: borderRadius.full,
-    maxWidth: 160,
-  },
-  toolbarBtnBlue: {
-    backgroundColor: 'rgba(37, 99, 235, 0.92)',
-    borderColor: 'rgba(147, 197, 253, 0.55)',
-  },
-  toolbarBtnText: {
-    color: colors.white,
-    fontFamily: 'Lexend-SemiBold',
-    fontSize: fontSizes.sm,
-  },
-  classicBanner: {
-    backgroundColor: 'rgba(17, 43, 24, 0.92)',
-    borderRadius: 12,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  classicBannerRound: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-SemiBold',
-    textAlign: 'center',
-  },
-  classicBannerDistance: {
-    color: colors.white,
-    fontSize: fontSizes.lg,
-    fontFamily: 'Lexend-SemiBold',
-    textAlign: 'center',
-  },
-  classicBannerPoints: {
-    fontSize: fontSizes['2xl'],
-    fontFamily: 'Lexend-Bold',
-    textAlign: 'center',
-  },
-  classicBannerFact: {
-    color: 'rgba(255, 230, 170, 0.92)',
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-Medium',
-    textAlign: 'center',
-    lineHeight: 19,
-    marginTop: spacing.xs,
-  },
-  classicNextBtn: {
-    marginTop: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing['3xl'],
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    minWidth: 200,
-  },
-  classicNextBtnText: {
-    color: colors.white,
-    fontSize: fontSizes.lg,
-    fontFamily: 'Lexend-SemiBold',
   },
 });

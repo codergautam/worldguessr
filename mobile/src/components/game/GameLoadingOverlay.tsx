@@ -6,7 +6,7 @@ import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 /**
  * The single loading/error layer used everywhere a game-y screen needs
  * a "panorama isn't ready yet" cover (per-round loads in GameSurface,
- * the initial location fetch in countryGuesser/play, the singleplayer
+ * the initial location fetch in country guesser, the singleplayer
  * cover in game/[id]). Same visuals: street2 background, dimmer,
  * loader.gif spinner, big "Loading…" text.
  *

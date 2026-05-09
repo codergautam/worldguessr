@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, getLeague } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
@@ -26,8 +27,9 @@ import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 import CountryFlag from '../../src/components/CountryFlag';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
+import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
 
-type GameMode = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps' | 'countryGuesser';
+type GameMode = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
 
 interface MenuButtonProps {
   label: string;
@@ -275,7 +277,7 @@ export default function HomeScreen() {
     }
   }, [nextGameQueued, connected, inGame, gameQueued]);
 
-  const handleModePress = (mode: GameMode) => {
+  const handleModePress = async (mode: GameMode) => {
     const needsConnection = mode === 'rankedDuel' || mode === 'unrankedDuel' || mode === 'createGame' || mode === 'joinGame';
     if (needsConnection && !connected) {
       Alert.alert(
@@ -288,9 +290,15 @@ export default function HomeScreen() {
 
     switch (mode) {
       case 'singleplayer':
+        const defaultMode = await AsyncStorage.getItem(SINGLEPLAYER_DEFAULT_MODE_KEY).catch(() => null);
         router.push({
           pathname: '/game/[id]',
-          params: { id: 'singleplayer', map: 'all', rounds: '5' },
+          params: {
+            id: 'singleplayer',
+            map: 'all',
+            rounds: defaultMode === 'countryGuesser' || defaultMode === 'continentGuesser' ? '10' : '5',
+            mode: defaultMode || 'world',
+          },
         });
         break;
       case 'rankedDuel':
@@ -312,9 +320,6 @@ export default function HomeScreen() {
         break;
       case 'communityMaps':
         router.navigate('/(tabs)/maps');
-        break;
-      case 'countryGuesser':
-        router.push('/countryGuesser/config');
         break;
     }
   };
@@ -696,11 +701,6 @@ export default function HomeScreen() {
               <MenuButton
                 label="Singleplayer"
                 onPress={() => handleModePress('singleplayer')}
-                delay={getDelay()}
-              />
-              <MenuButton
-                label="Country Guesser"
-                onPress={() => handleModePress('countryGuesser')}
                 delay={getDelay()}
               />
               {isAuthenticated && (

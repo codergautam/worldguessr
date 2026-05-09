@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  Image,
-  ImageBackground,
   StyleSheet,
   Pressable,
   useWindowDimensions,
@@ -15,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, calcPoints, findDistance } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { api } from '../../src/services/api';
@@ -24,13 +23,24 @@ import { wsService } from '../../src/services/websocket';
 
 import StreetViewWebView from '../../src/components/game/StreetViewWebView';
 import GuessMap from '../../src/components/game/GuessMap';
+import GameSurface, { GameSurfaceHandle } from '../../src/components/game/GameSurface';
 import GameLoadingOverlay from '../../src/components/game/GameLoadingOverlay';
 import GameTimer from '../../src/components/game/GameTimer';
 import MapSelectorModal from '../../src/components/game/MapSelectorModal';
+import CountryEndBanner from '../../src/components/game/CountryEndBanner';
+import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
 import GetReadyOverlay from '../../src/components/multiplayer/GetReadyOverlay';
 import DuelHUD from '../../src/components/multiplayer/DuelHUD';
 import MultiplayerEndBanner from '../../src/components/multiplayer/MultiplayerEndBanner';
 import GameChat from '../../src/components/multiplayer/GameChat';
+import {
+  CountryGuesserSubMode,
+  SINGLEPLAYER_DEFAULT_MODE_KEY,
+  defaultModeValueForSubMode,
+  subModeFromDefaultMode,
+} from '../../src/hooks/useCountryGuesserGame';
+import useCountryGuesserGame from '../../src/hooks/useCountryGuesserGame';
+import { continentFromCode } from '../../src/shared/data/countryHelpers';
 // Fetched at runtime from hosted URL (can't import from public/ in RN)
 let officialCountryMapsCache: any[] | null = null;
 async function getOfficialCountryMaps(): Promise<any[]> {
@@ -104,11 +114,12 @@ const EXPANDED_MAP_HEIGHT_RATIO = 0.5;
 const EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO = 0.6;
 
 export default function GameScreen() {
-  const { id, map, rounds, time } = useLocalSearchParams<{
+  const { id, map, rounds, time, mode } = useLocalSearchParams<{
     id: string;
     map?: string;
     rounds?: string;
     time?: string;
+    mode?: string;
   }>();
   const router = useRouter();
   const { width, height } = useWindowDimensions();
@@ -116,6 +127,7 @@ export default function GameScreen() {
   const isSingleplayer = id === 'singleplayer';
   const isMultiplayer = !isSingleplayer;
   const secret = useAuthStore((s) => s.secret);
+  const initialCountrySubMode = subModeFromDefaultMode(mode);
 
   // Multiplayer state
   const gameData = useMultiplayerStore((s) => s.gameData);
@@ -178,10 +190,19 @@ export default function GameScreen() {
   // Singleplayer game options
   const [currentMapSlug, setCurrentMapSlug] = useState(map || 'all');
   const [currentMapName, setCurrentMapName] = useState('World');
+  const [countryGuesserSubMode, setCountryGuesserSubMode] = useState<CountryGuesserSubMode | null>(
+    initialCountrySubMode,
+  );
   const [nmpzEnabled, setNmpzEnabled] = useState(false);
   const [timerEnabled, setTimerEnabled] = useState(false);
   const [timerDuration, setTimerDuration] = useState(30);
   const [mapModalVisible, setMapModalVisible] = useState(false);
+  const isCountryGuesserMode = isSingleplayer && countryGuesserSubMode !== null;
+  const singleplayerSurfaceRef = useRef<GameSurfaceHandle>(null);
+  const countryGame = useCountryGuesserGame({
+    enabled: isCountryGuesserMode,
+    subMode: countryGuesserSubMode ?? 'country',
+  });
 
   const [gameState, setGameState] = useState<GameState>({
     currentRound: 1,
@@ -386,7 +407,7 @@ export default function GameScreen() {
 
   // Fetch locations from server based on currentMapSlug (singleplayer only)
   useEffect(() => {
-    if (isMultiplayer) return; // Multiplayer locations come from gameData
+    if (isMultiplayer || isCountryGuesserMode) return; // Multiplayer locations come from gameData; country modes use their shared component.
     const MAX_RETRIES = 3;
     const RETRY_DELAY = 2000;
 
@@ -482,7 +503,7 @@ export default function GameScreen() {
     }
 
     fetchLocations();
-  }, [currentMapSlug]);
+  }, [currentMapSlug, isCountryGuesserMode, isMultiplayer]);
 
   const currentLocation = gameState.locations[gameState.currentRound - 1];
 
@@ -649,28 +670,21 @@ export default function GameScreen() {
       return;
     }
 
-    // Mark that we're doing a manual fade-in so the useEffect doesn't snap opacity
-    isManualFadeIn.current = true;
-    setStreetViewLoaded(false);
-
-    // Animate loading banner fade-in OVER the map/end banner
-    Animated.timing(loadingOpacity, {
-      toValue: 1,
-      duration: 400,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start(() => {
-      // Only after the banner fully covers the screen, change game state
-      // (which removes the map/end banner underneath)
+    const advanceRound = () => {
       setGameState((prev) => ({
         ...prev,
         currentRound: prev.currentRound + 1,
         isShowingResult: false,
       }));
       setGuessPosition(null);
-      setMiniMapShown(false);
       roundStartTimeRef.current = Date.now();
-    });
+    };
+
+    if (singleplayerSurfaceRef.current) {
+      singleplayerSurfaceRef.current.beginRoundTransition(advanceRound);
+    } else {
+      advanceRound();
+    }
   }, [gameState, router, secret, isSingleplayer, currentMapSlug, currentMapName]);
 
   const handleQuit = () => {
@@ -682,7 +696,42 @@ export default function GameScreen() {
   };
 
   const handleMapSelect = useCallback((slug: string, name: string) => {
-    if (slug === currentMapSlug) {
+    const wasCountryGuesserMode = countryGuesserSubMode !== null;
+
+    if (slug === '__countryGuesser' || slug === '__continentGuesser') {
+      const nextSubMode = slug === '__continentGuesser' ? 'continent' : 'country';
+      if (countryGuesserSubMode === nextSubMode) {
+        return;
+      }
+      AsyncStorage.setItem(
+        SINGLEPLAYER_DEFAULT_MODE_KEY,
+        slug === '__continentGuesser' ? 'continentGuesser' : 'countryGuesser',
+      ).catch(() => {});
+      setCurrentMapSlug('all');
+      setCurrentMapName(name);
+      setIsLoading(false);
+      setLoadError(null);
+      setGuessPosition(null);
+      setMiniMapShown(false);
+      setStreetViewLoaded(false);
+      setGameState((prev) => ({
+        ...prev,
+        currentRound: 1,
+        totalRounds: 10,
+        guesses: [],
+        totalScore: 0,
+        isShowingResult: false,
+        locations: [],
+        extent: null,
+        maxDist: DEFAULT_GAME_OPTIONS.maxDist,
+      }));
+      setCountryGuesserSubMode(nextSubMode);
+      return;
+    }
+
+    AsyncStorage.setItem(SINGLEPLAYER_DEFAULT_MODE_KEY, 'world').catch(() => {});
+
+    if (slug === currentMapSlug && !wasCountryGuesserMode) {
       setMapModalVisible(false);
       return;
     }
@@ -694,6 +743,7 @@ export default function GameScreen() {
     setGameState((prev) => ({
       ...prev,
       currentRound: 1,
+      totalRounds: rounds ? parseInt(rounds, 10) : DEFAULT_GAME_OPTIONS.totalRounds,
       guesses: [],
       totalScore: 0,
       isShowingResult: false,
@@ -703,34 +753,204 @@ export default function GameScreen() {
     setGuessPosition(null);
     setMiniMapShown(false);
     setStreetViewLoaded(false);
-  }, [currentMapSlug]);
+    setCountryGuesserSubMode(null);
+  }, [countryGuesserSubMode, currentMapSlug, rounds]);
 
-  const getPointsColor = (pts: number) => {
-    if (pts >= 4000) return colors.success;
-    if (pts >= 2000) return colors.warning;
-    return colors.error;
-  };
+  const completeCountryGuesserGame = useCallback(() => {
+    const subMode = countryGuesserSubMode ?? 'country';
 
-  const formatDist = (km: number) => {
-    if (km < 1) return `${Math.round(km * 1000)} m`;
-    if (km < 100) return `${km.toFixed(1)} km`;
-    return `${Math.round(km).toLocaleString()} km`;
-  };
+    if (secret && countryGame.results.length > 0) {
+      api.storeGame(secret, {
+        official: true,
+        location: 'all',
+        countryGuesser: true,
+        countryGuessrSubMode: subMode,
+        rounds: countryGame.results.map((result) => ({
+          lat: result.guessLat,
+          long: result.guessLong,
+          actualLat: result.actualLat,
+          actualLong: result.actualLong,
+          panoId: result.panoId,
+          country: result.country,
+          usedHint: false,
+          maxDist: 20000,
+          roundTime: result.timeTaken,
+          xp: result.points > 0 ? 20 : 0,
+          points: result.points,
+        })),
+      }).catch(() => {});
+    }
 
-  // Error state — only show if loading finished with an error (singleplayer only)
-  if (isSingleplayer && !isLoading && (loadError || !currentLocation)) {
+    router.push({
+      pathname: '/game/results',
+      params: {
+        totalScore: countryGame.totalPoints.toString(),
+        rounds: JSON.stringify(
+          countryGame.results.map((result) => ({
+            guessLat: result.guessLat,
+            guessLong: result.guessLong,
+            actualLat: result.actualLat,
+            actualLong: result.actualLong,
+            panoId: result.panoId,
+            points: result.points,
+            distance: 0,
+            timeTaken: result.timeTaken,
+            country: result.country,
+            picked: result.picked,
+            correct: result.correct,
+          })),
+        ),
+        mode: defaultModeValueForSubMode(subMode),
+      },
+    });
+  }, [countryGame.results, countryGame.totalPoints, countryGuesserSubMode, router, secret]);
+
+  const handleCountryNextRound = useCallback(() => {
+    if (countryGame.isFinal) {
+      completeCountryGuesserGame();
+      return;
+    }
+    singleplayerSurfaceRef.current?.beginRoundTransition(countryGame.advance);
+  }, [completeCountryGuesserGame, countryGame]);
+
+  const lastGuess = gameState.guesses[gameState.guesses.length - 1];
+
+  if (isSingleplayer) {
+    const activeCountryMode = countryGuesserSubMode ?? 'country';
+    const activeLocation = isCountryGuesserMode ? countryGame.currentLoc : currentLocation;
+    const activeRound = isCountryGuesserMode ? countryGame.round : gameState.currentRound;
+    const activeTotalRounds = isCountryGuesserMode ? countryGame.totalRounds : gameState.totalRounds;
+    const activeTotalScore = isCountryGuesserMode ? countryGame.totalPoints : gameState.totalScore;
+    const activeShowingResult = isCountryGuesserMode ? countryGame.showResult : gameState.isShowingResult;
+    const countryCorrectAnswer =
+      countryGame.currentLoc && activeCountryMode === 'continent'
+        ? continentFromCode(countryGame.currentLoc.country)
+        : countryGame.currentLoc?.country ?? null;
+
+    const singleplayerEndBanner = isCountryGuesserMode
+      ? (countryGame.showResult && countryGame.lastResult && countryGame.currentLoc ? (
+          <CountryEndBanner
+            mode={activeCountryMode}
+            correctCountry={countryGame.currentLoc.country}
+            picked={countryGame.picked}
+            points={countryGame.lastResult.points}
+            streak={countryGame.streak}
+            round={countryGame.round}
+            totalRounds={countryGame.totalRounds}
+            onNext={handleCountryNextRound}
+            isFinal={countryGame.isFinal}
+          />
+        ) : null)
+      : (gameState.isShowingResult && lastGuess ? (
+          <ClassicEndBanner
+            round={gameState.currentRound}
+            totalRounds={gameState.totalRounds}
+            points={lastGuess.points}
+            distance={lastGuess.distance}
+            didGuess={!(lastGuess.guessLat === 0 && lastGuess.guessLong === 0)}
+            onNext={handleNextRound}
+            isFinal={gameState.currentRound >= gameState.totalRounds}
+          />
+        ) : null);
+
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <Ionicons name="warning" size={48} color={colors.error} />
-        <Text style={styles.errorText}>{loadError || 'Failed to load game'}</Text>
-        <Pressable style={styles.retryButton} onPress={handleQuit}>
-          <Text style={styles.retryButtonText}>Go Back</Text>
-        </Pressable>
+      <View style={styles.container}>
+        <GameSurface
+          ref={singleplayerSurfaceRef}
+          location={activeLocation ?? null}
+          roundKey={`${isCountryGuesserMode ? activeCountryMode : currentMapSlug}-${activeRound}`}
+          variant={isCountryGuesserMode ? activeCountryMode : 'pin'}
+          extent={isCountryGuesserMode ? null : gameState.extent}
+          guessPoints={isCountryGuesserMode ? undefined : gameState.guesses[gameState.currentRound - 1]?.points}
+          isShowingResult={activeShowingResult}
+          guessPosition={guessPosition}
+          onGuessPositionChange={setGuessPosition}
+          onSubmitPin={handleSubmitGuess}
+          countryOptions={countryGame.otherOptions}
+          countryPicked={countryGame.picked}
+          correctAnswer={countryGame.showResult ? countryCorrectAnswer : null}
+          onAnswerCountry={countryGame.submit}
+          loadingError={isCountryGuesserMode ? countryGame.loadError : loadError}
+          onLoadingRetry={handleQuit}
+          loadingRetryLabel="Go back"
+          hideInputs={
+            isCountryGuesserMode
+              ? countryGame.loading || !!countryGame.loadError || !countryGame.currentLoc
+              : isLoading || !!loadError || !currentLocation
+          }
+          topLeftSlot={
+            <Pressable
+              style={({ pressed }) => [
+                styles.backButton,
+                pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
+              ]}
+              onPress={handleQuit}
+            >
+              <LinearGradient
+                colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)', 'rgba(255,112,112,0.9)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.backButtonGradient}
+              >
+                <Ionicons name="arrow-back" size={22} color={colors.white} />
+              </LinearGradient>
+            </Pressable>
+          }
+          topRightSlot={
+            <View style={styles.singleplayerTopRightSlot}>
+              <Pressable
+                disabled={activeShowingResult}
+                style={({ pressed }) => [
+                  styles.mapSelectorBtn,
+                  activeShowingResult && styles.mapSelectorBtnDisabled,
+                  pressed && !activeShowingResult && { opacity: 0.85 },
+                ]}
+                onPress={() => setMapModalVisible(true)}
+              >
+                <Text style={styles.mapSelectorText} numberOfLines={1}>
+                  {currentMapName}{!isCountryGuesserMode && nmpzEnabled ? ', NMPZ' : ''}
+                </Text>
+                <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+              <GameTimer
+                timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
+                onTimeUp={handleTimeUp}
+                isPaused={activeShowingResult || mapModalVisible || isCountryGuesserMode}
+                roundKey={activeRound}
+                currentRound={activeRound}
+                totalRounds={activeTotalRounds}
+                totalScore={activeTotalScore}
+                showTimer={!isCountryGuesserMode && timerEnabled && !activeShowingResult}
+              />
+            </View>
+          }
+          endBannerContent={singleplayerEndBanner}
+        />
+
+        <MapSelectorModal
+          visible={mapModalVisible}
+          onClose={() => setMapModalVisible(false)}
+          onSelectMap={handleMapSelect}
+          currentMapSlug={currentMapSlug}
+          nmpzEnabled={nmpzEnabled}
+          onNmpzToggle={setNmpzEnabled}
+          timerEnabled={timerEnabled}
+          onTimerToggle={setTimerEnabled}
+          timerDuration={timerDuration}
+          onTimerDurationChange={setTimerDuration}
+          showSingleplayerModes
+          currentSingleplayerMode={
+            countryGuesserSubMode === 'continent'
+              ? 'continent'
+              : countryGuesserSubMode === 'country'
+                ? 'country'
+                : 'world'
+          }
+        />
       </View>
     );
   }
 
-  const lastGuess = gameState.guesses[gameState.guesses.length - 1];
   const mpGetReady = isMultiplayer && gameData?.state === 'getready';
   const showFab = !showLoadingBanner && !miniMapShown && !gameState.isShowingResult && !mpGetReady;
   const scenePointerEvents = showLoadingBanner && !hasCompletedInitialReveal.current ? 'none' : 'box-none';
@@ -755,21 +975,9 @@ export default function GameScreen() {
           )}
         </View>
 
-        {/* Round/score/timer pill + map selector - top right */}
-        {!gameState.isShowingResult && (
+        {/* Multiplayer round/score/timer pill - top right */}
+        {isMultiplayer && !gameState.isShowingResult && (
           <SafeAreaView style={[styles.timerContainer, { paddingRight: Math.max(insets.right, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
-            {/* Map selector button (singleplayer only) */}
-            {isSingleplayer && (
-              <Pressable
-                style={({ pressed }) => [styles.mapSelectorBtn, pressed && { opacity: 0.85 }]}
-                onPress={() => setMapModalVisible(true)}
-              >
-                <Text style={styles.mapSelectorText} numberOfLines={1}>
-                  {currentMapName}{nmpzEnabled ? ', NMPZ' : ''}
-                </Text>
-                <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.7)" />
-              </Pressable>
-            )}
             <GameTimer
               timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
               onTimeUp={handleTimeUp}
@@ -976,56 +1184,6 @@ export default function GameScreen() {
           </View>
         )}
 
-        {/* Singleplayer end banner */}
-        {gameState.isShowingResult && isSingleplayer && lastGuess && (
-          <Animated.View
-            style={[
-              styles.endBanner,
-              {
-                transform: [{ translateY: bannerSlideAnim }],
-                paddingBottom: Math.max(insets.bottom, spacing.lg),
-                paddingLeft: insets.left,
-                paddingRight: insets.right,
-              },
-            ]}
-          >
-            <View style={styles.endBannerContent}>
-              <Text style={styles.endBannerRound}>
-                Round {gameState.currentRound}/{gameState.totalRounds}
-              </Text>
-              <Text style={styles.endBannerDistance}>
-                {lastGuess.guessLat === 0 && lastGuess.guessLong === 0
-                  ? "You didn't guess"
-                  : lastGuess.distance >= 1
-                    ? `Your guess was ${formatDist(lastGuess.distance)} away`
-                    : `Your guess was ${Math.round(lastGuess.distance * 1000)} m away`
-                }
-              </Text>
-              <Text style={[styles.endBannerPoints, { color: getPointsColor(lastGuess.points) }]}>
-                {lastGuess.points.toLocaleString()} points
-              </Text>
-              <Pressable
-                onPress={handleNextRound}
-                style={({ pressed }) => [pressed && { opacity: 0.85 }]}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.primaryDark]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.nextRoundBtn}
-                >
-                  <Text style={styles.nextRoundBtnText}>
-                    {gameState.currentRound >= gameState.totalRounds
-                      ? 'View Results'
-                      : 'Next Round'
-                    }
-                  </Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-          </Animated.View>
-        )}
-
         {/* ═══ GET READY OVERLAY - multiplayer countdown before round ═══ */}
         {isMultiplayer && gameData?.state === 'getready' && (
           <GetReadyOverlay
@@ -1047,21 +1205,6 @@ export default function GameScreen() {
       <GameLoadingOverlay opacity={loadingOpacity} interactive={showLoadingBanner} />
 
 
-      {/* ═══ MAP SELECTOR MODAL (singleplayer) ═══ */}
-      {isSingleplayer && (
-        <MapSelectorModal
-          visible={mapModalVisible}
-          onClose={() => setMapModalVisible(false)}
-          onSelectMap={handleMapSelect}
-          currentMapSlug={currentMapSlug}
-          nmpzEnabled={nmpzEnabled}
-          onNmpzToggle={setNmpzEnabled}
-          timerEnabled={timerEnabled}
-          onTimerToggle={setTimerEnabled}
-          timerDuration={timerDuration}
-          onTimerDurationChange={setTimerDuration}
-        />
-      )}
     </View>
   );
 }
@@ -1071,37 +1214,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing['2xl'],
-  },
-  loadingText: {
-    marginTop: spacing.lg,
-    fontSize: fontSizes.md,
-    color: colors.textSecondary,
-    fontFamily: 'Lexend-Medium',
-  },
-  errorText: {
-    marginTop: spacing.lg,
-    fontSize: fontSizes.md,
-    color: colors.error,
-    textAlign: 'center',
-    fontFamily: 'Lexend-Medium',
-  },
-  retryButton: {
-    marginTop: spacing.xl,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing['2xl'],
-    borderRadius: borderRadius.lg,
-  },
-  retryButtonText: {
-    fontSize: fontSizes.md,
-    fontFamily: 'Lexend-SemiBold',
-    color: colors.white,
-  },
-
   // ── Timer (top right) - matches web .timer.shown ─────────
   timerContainer: {
     position: 'absolute',
@@ -1112,6 +1224,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingRight: spacing.lg,
     paddingTop: spacing.sm,
+  },
+  singleplayerTopRightSlot: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
   },
   mapSelectorBtn: {
     flexDirection: 'row',
@@ -1124,6 +1240,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
     maxWidth: 180,
+  },
+  mapSelectorBtnDisabled: {
+    opacity: 0.65,
   },
   mapSelectorText: {
     color: colors.white,
@@ -1266,100 +1385,4 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-SemiBold',
   },
 
-  // ── End Banner - matches web #endBanner ──────────────────
-  endBanner: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1001,
-  },
-  endBannerContent: {
-    backgroundColor: 'rgba(17, 43, 24, 0.92)',
-    borderRadius: 12,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    padding: spacing.xl,
-    alignItems: 'center',
-    gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.4,
-        shadowRadius: 16,
-      },
-      android: { elevation: 12 },
-    }),
-  },
-  endBannerRound: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-SemiBold',
-    textAlign: 'center',
-  },
-  endBannerDistance: {
-    color: colors.white,
-    fontSize: fontSizes.lg,
-    fontFamily: 'Lexend-SemiBold',
-    textAlign: 'center',
-  },
-  endBannerPoints: {
-    fontSize: fontSizes['2xl'],
-    fontFamily: 'Lexend-Bold',
-    textAlign: 'center',
-  },
-  endBannerTotal: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-Medium',
-    textAlign: 'center',
-  },
-  nextRoundBtn: {
-    marginTop: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing['3xl'],
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    minWidth: 200,
-  },
-  nextRoundBtnText: {
-    color: colors.white,
-    fontSize: fontSizes.lg,
-    fontFamily: 'Lexend-SemiBold',
-  },
-
-  // ── Loading Banner Overlay ─────────────────────────────────
-  loadingBannerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2000,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#08120d',
-  },
-  loadingDarkOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  loadingBannerCenter: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingBannerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingSpinner: {
-    width: 80,
-    height: 80,
-  },
-  loadingBannerText: {
-    color: '#fff',
-    fontSize: 42,
-    fontFamily: 'Lexend-Bold',
-  },
 });

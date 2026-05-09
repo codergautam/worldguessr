@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import ConfettiBurst from './ConfettiBurst';
+import useAnimatedNumber from '../../hooks/useAnimatedNumber';
 
 const NICE_LINES = [
   "You're a natural!",
@@ -93,23 +94,9 @@ export default function OnboardingComplete({
     [visible],
   );
 
-  // Animated count-up
-  const [animatedPoints, setAnimatedPoints] = useState(0);
-  useEffect(() => {
-    if (!visible) return;
-    setAnimatedPoints(0);
-    const startTime = Date.now();
-    const duration = 900;
-    let raf = 0;
-    const tick = () => {
-      const t = Math.min(1, (Date.now() - startTime) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setAnimatedPoints(Math.round(safePoints * eased));
-      if (t < 1) raf = requestAnimationFrame(tick) as unknown as number;
-    };
-    raf = requestAnimationFrame(tick) as unknown as number;
-    return () => cancelAnimationFrame(raf);
-  }, [visible, safePoints]);
+  const { displayed: animatedPoints } = useAnimatedNumber(visible ? safePoints : 0, {
+    duration: 900,
+  });
 
   // Confetti trigger
   const [confettiKey, setConfettiKey] = useState(0);

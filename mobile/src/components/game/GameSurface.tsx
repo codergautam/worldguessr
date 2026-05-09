@@ -106,6 +106,11 @@ interface GameSurfaceProps {
   endBannerContent?: ReactNode;
   /** Defaults to "Loading round…" — override per variant. */
   loadingMessage?: string;
+  loadingError?: string | null;
+  onLoadingRetry?: () => void;
+  loadingRetryLabel?: string;
+  /** Mirrors web CountryBtns compact mode. Regular play uses compact; onboarding does not. */
+  compactCountryButtons?: boolean;
   /**
    * Suppresses the FAB / map / country buttons. Useful when a parent overlay
    * (e.g. onboarding's WelcomeOverlay) is up and we don't want input UI
@@ -137,6 +142,10 @@ function GameSurface(
     topRightSlot,
     endBannerContent,
     loadingMessage,
+    loadingError,
+    onLoadingRetry,
+    loadingRetryLabel,
+    compactCountryButtons = true,
     hideInputs = false,
   }: GameSurfaceProps,
   ref: React.Ref<GameSurfaceHandle>,
@@ -252,10 +261,9 @@ function GameSurface(
   // crossfade its opacity in/out via `mapOpacity`. Round transitions for
   // country mode use the loading-banner cover, so the map's static height
   // never produces a jump.
-  // `mapOpacity` runs 0 → 1 during reveal and drives the scrim's INVERSE
+  // `mapOpacity` runs 0 -> 1 during reveal and drives the scrim's inverse
   // opacity (max 0.55, not 1). Capping the scrim well below 1 means the
-  // map is partially visible from the very first frame — no solid black
-  // flash; the screen just dims briefly as the map paints in beneath.
+  // map is partially visible from the very first frame.
   const mapOpacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (isCountryVariant) {
@@ -449,11 +457,7 @@ function GameSurface(
 
         {/* Map overlay — for pin variant, animates height (slide-up); for
             country/continent, height is snapped and we fade in by
-            crossfading a dark scrim on TOP of the map. (MapView is a
-            native component on iOS — RN `opacity` doesn't affect the
-            underlying MKMapView, so a parent fade is invisible. Inverting
-            opacity on a scrim above the map is the only way to get a real
-            fade-in without flickering.) */}
+            crossfading a dark scrim on top of the map. */}
         <Animated.View
           style={[styles.mapOverlay, { height: mapHeight }]}
           pointerEvents={miniMapShown || isShowingResult ? 'auto' : 'none'}
@@ -490,11 +494,8 @@ function GameSurface(
                 StyleSheet.absoluteFillObject,
                 {
                   backgroundColor: '#08120d',
-                  // Cap the dim at 0.55 so the map is visible THROUGH the
-                  // scrim from frame 1 — no solid black flash. The eye
-                  // perceives this as a brief darken-then-brighten, which
-                  // reads as a fade even though the underlying MapView
-                  // itself can't be opacity-animated on iOS.
+                  // Cap the dim at 0.55 so the map is visible through the
+                  // scrim from frame 1.
                   opacity: mapOpacity.interpolate({
                     inputRange: [0, 1],
                     outputRange: [0.55, 0],
@@ -578,7 +579,10 @@ function GameSurface(
                 opacity: inputsFade,
                 transform: [{ scale: fabScaleAnim }],
                 bottom: Math.max(insets.bottom, 20) + 20,
-                right: Math.max(insets.right, 20),
+                // Match singleplayer's `60` minimum so the FAB clears the
+                // WebView's right-edge Street View controls instead of
+                // overlapping them.
+                right: Math.max(insets.right, 60),
               },
             ]}
           >
@@ -605,7 +609,10 @@ function GameSurface(
           <Animated.View
             style={[
               styles.countryDock,
-              { opacity: inputsFade, paddingBottom: Math.max(insets.bottom, spacing.md) + 4 },
+              {
+                opacity: inputsFade,
+                paddingBottom: compactCountryButtons ? Math.max(insets.bottom, spacing.md) + 4 : 0,
+              },
             ]}
             pointerEvents="box-none"
           >
@@ -615,6 +622,8 @@ function GameSurface(
               shown
               selected={countryPicked}
               correct={correctAnswer}
+              compact={compactCountryButtons}
+              bottomInset={compactCountryButtons ? 0 : Math.max(insets.bottom, spacing.md)}
               onPress={(answer) => onAnswerCountry?.(answer)}
             />
           </Animated.View>
@@ -662,6 +671,9 @@ function GameSurface(
         opacity={loadingOpacity}
         interactive={showLoadingBanner}
         message={loadingMessage}
+        error={loadingError}
+        onRetry={onLoadingRetry}
+        retryLabel={loadingRetryLabel}
       />
     </View>
   );
