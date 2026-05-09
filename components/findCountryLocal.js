@@ -1,17 +1,14 @@
-// Offline country lookup using the bundled GeoJSON in public/genBorders.json.
-// Used as a fallback when /api/country is unreachable (and, long-term, could
-// serve as the primary lookup — it's fast enough and has no network dependency).
-//
-// genBorders.json is already a static import in randomLoc.js, so this adds no
-// extra network weight; we just reuse the parsed data and build a bbox index
-// once on first call.
-import borders from '../public/genBorders.json';
+// Offline country lookup using the GeoJSON in public/genBorders.json. The
+// borders payload is fetched lazily on first call (see loadBorders) so the
+// ~450 KB JSON stays out of the initial bundle. Used as a fallback when the
+// /api/country endpoint is unreachable.
+import { loadBorders, getBordersIfLoaded } from './utils/loadBorders';
 
 // [{ code, ring, minX, maxX, minY, maxY }, ...]
 // `ring` is the outer ring of a single polygon in [lon, lat] pairs.
 let indexed = null;
 
-function buildIndex() {
+function buildIndex(borders) {
   const out = [];
   for (const feature of borders.features) {
     const code = feature.properties?.code;
@@ -46,19 +43,40 @@ function pointInRing(x, y, ring) {
   return inside;
 }
 
-/**
- * Resolve a country code for a lat/lon using bundled border data.
- * Returns the ISO-alpha-2 code ("US", "FR", ...), or "Unknown" if the point
- * doesn't fall inside any country polygon (ocean, Antarctica edge cases, etc.).
- */
-export default function findCountryLocal({ lat, lon }) {
-  if (typeof lat !== 'number' || typeof lon !== 'number') return "Unknown";
-  if (!indexed) indexed = buildIndex();
-  // GeoJSON coords are [lon, lat]; the ray-cast uses x=lon, y=lat.
+function lookup(lat, lon) {
+  if (!indexed) return "Unknown";
   const x = lon, y = lat;
   for (const entry of indexed) {
     if (x < entry.minX || x > entry.maxX || y < entry.minY || y > entry.maxY) continue;
     if (pointInRing(x, y, entry.ring)) return entry.code;
   }
   return "Unknown";
+}
+
+/**
+ * Resolve a country code for a lat/lon using the lazily-loaded border data.
+ * Returns the ISO-alpha-2 code ("US", "FR", ...), or "Unknown" if the point
+ * doesn't fall inside any country polygon (ocean, Antarctica edge cases, etc.).
+ */
+export default async function findCountryLocal({ lat, lon }) {
+  if (typeof lat !== 'number' || typeof lon !== 'number') return "Unknown";
+  if (!indexed) {
+    const borders = await loadBorders();
+    indexed = buildIndex(borders);
+  }
+  return lookup(lat, lon);
+}
+
+// Synchronous variant for render-path callers. Returns null if the borders
+// haven't been loaded yet — callers should treat that as "not enough data,
+// skip the enhancement" and trigger loadBorders() out-of-band so a later
+// render can succeed.
+export function findCountryLocalSync({ lat, lon }) {
+  if (typeof lat !== 'number' || typeof lon !== 'number') return "Unknown";
+  if (!indexed) {
+    const borders = getBordersIfLoaded();
+    if (!borders) return null;
+    indexed = buildIndex(borders);
+  }
+  return lookup(lat, lon);
 }

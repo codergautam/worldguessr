@@ -36,23 +36,22 @@ export default async function searchMaps(req, res) {
 
   // sanitize query: keep alphanumerics + whitespace only. Strips regex
   // metachars so the value is safe to interpolate into a RegExp.
-  query = query.replace(/[^a-zA-Z0-9\s]/g, '');
+  query = query.replace(/[^a-zA-Z0-9\s]/g, '').trim();
   // Escape defensively in case the allowlist above ever expands.
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(escaped, 'i');
+  const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  // Tokenise on whitespace
+  // token must appear (in any order) in name/description/creator.
+  const tokens = query.split(/\s+/).filter(Boolean);
+  const tokenClauses = tokens.map((t) => {
+    const re = new RegExp(escape(t), 'i');
+    return { $or: [{ name: re }, { description_short: re }, { map_creator_name: re }] };
+  });
 
   try {
-    // Substring match across name / description / creator name. $text was
-    // whole-word with stemming, so "penn" never matched "Pennsylvania".
-    // Regex $or does true substring matching; the re-rank below still puts
-    // exact and prefix hits first.
     let maps = await Map.find({
       accepted: true,
-      $or: [
-        { name: re },
-        { description_short: re },
-        { map_creator_name: re },
-      ],
+      ...(tokenClauses.length > 1 ? { $and: tokenClauses } : tokenClauses[0]),
     })
       .select('-data')
       .lean()
@@ -63,6 +62,12 @@ export default async function searchMaps(req, res) {
     // Re-rank results to prioritize exact and substring matches
     const queryLower = query.toLowerCase();
     maps.sort((a, b) => {
+      // 0. Severely penalize maps with fewer than 20 locations — push to bottom.
+      const aSparse = (a.locationsCnt ?? 0) < 20;
+      const bSparse = (b.locationsCnt ?? 0) < 20;
+      if (aSparse && !bSparse) return 1;
+      if (!aSparse && bSparse) return -1;
+
       const aNameLower = a.name.toLowerCase();
       const bNameLower = b.name.toLowerCase();
 

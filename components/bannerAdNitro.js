@@ -64,14 +64,40 @@ export default function Ad({
         .map((t) => [t[0], t[1]]),
     };
 
+    let cancelled = false;
+    let resolvedAds = null; // NitroAd | NitroAd[] | null
+
+    // createAd can return: NitroAd | Promise<NitroAd> | Promise<NitroAd[]> | null
+    const navigateAll = (ads) => {
+      if (!ads) return;
+      const list = Array.isArray(ads) ? ads : [ads];
+      for (const ad of list) {
+        console.log("navigating ad", ad);
+        try {
+          ad?.onNavigate?.();
+        } catch (e) {}
+      }
+    };
+
     try {
-      window.nitroAds.createAd(unit, config);
+      const result = window.nitroAds.createAd(unit, config);
+      if (result && typeof result.then === "function") {
+        result
+          .then((ads) => {
+            if (cancelled) navigateAll(ads);
+            else resolvedAds = ads;
+          })
+          .catch(() => {});
+      } else {
+        resolvedAds = result;
+      }
     } catch (error) {
       console.error("Error creating Nitro ad:", error);
-    } 
+    }
 
     return () => {
-      // window.nitroAds.destroy(unit);
+      cancelled = true;
+      navigateAll(resolvedAds);
     };
   }, [type, isClient, unit]);
 

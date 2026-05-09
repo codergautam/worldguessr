@@ -1,4 +1,4 @@
-import cities from '../public/cities.json' with { type: "json" };
+import cities from '../data/cities.json' with { type: "json" };
 
 export default function cityGen(location) {
   let city = null;

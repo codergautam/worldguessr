@@ -1,4 +1,3 @@
-import { Modal } from "react-responsive-modal";
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from '@/components/useTranslations';
 

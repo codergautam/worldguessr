@@ -13,9 +13,19 @@ function generateLatLong(location, { requireKnownCountry, requireKnownContinent 
   return new Promise((resolve) => {
     const startTime = performance.now();
     console.log("[PERF] Starting generateLatLong");
-    loader.importLibrary("streetView").then(() => {
+    loader.importLibrary("streetView").then(async () => {
       console.log(`[PERF] Street View library loaded in ${(performance.now() - startTime).toFixed(2)}ms`);
-      const data = getRandomPointInCountry((location && location !== "all") ? location.toUpperCase() : true);
+      let data;
+      try {
+        data = await getRandomPointInCountry((location && location !== "all") ? location.toUpperCase() : true);
+      } catch (e) {
+        // Tag the rejection so the outer retry loop can distinguish a borders
+        // fetch failure (terminal — fail fast) from a transient pano miss
+        // (retry indefinitely, which is the legacy contract).
+        console.log("[PERF] getRandomPointInCountry failed", e);
+        return resolve({ __fatal: e });
+      }
+      if (!data) return resolve(null);
       const panorama = new google.maps.StreetViewService();
       console.log("Trying to get panorama for ", data);
       const lat = data[0];
@@ -96,9 +106,15 @@ export default async function findLatLongRandom(gameOptions) {
   while (true) {
     attempts++;
     const data = await generateLatLong(gameOptions.location, { requireKnownCountry, requireKnownContinent });
-    if (data) {
+    if (data && !data.__fatal) {
       console.log(`[PERF] findLatLongRandom completed in ${(performance.now() - totalStartTime).toFixed(2)}ms (${attempts} attempts)`);
       return data;
+    }
+    if (data && data.__fatal) {
+      // Borders data couldn't load — no amount of retrying will fix that;
+      // surface the error so callers can show a real failure state instead of
+      // spinning the loading UI forever.
+      throw data.__fatal;
     }
     console.log(`[PERF] Attempt ${attempts} failed, retrying...`);
   }

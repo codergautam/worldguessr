@@ -249,7 +249,7 @@ async function generateComparisonChart() {
   console.log('\nGenerating comparison chart...');
 
   // Load world-main for comparison
-  const worldMainLocations = JSON.parse(fs.readFileSync(path.join(__dirname, '../public/world-main.json'), 'utf8'));
+  const worldMainLocations = JSON.parse(fs.readFileSync(path.join(__dirname, '../data/world-main.json'), 'utf8'));
   const worldMainByCountry = {};
   for (const loc of worldMainLocations) {
     const c = loc.country;

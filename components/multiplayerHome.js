@@ -3,7 +3,6 @@ import BannerText from "./bannerText"
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa"
 import PlayerList from "./playerList";
 import { useTranslation } from '@/components/useTranslations'
-import MapsModal from "./maps/mapsModal";
 import PartyModal from "./partyModal";
 
 
