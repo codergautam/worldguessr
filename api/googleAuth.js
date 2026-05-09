@@ -2,11 +2,97 @@ import { createUUID } from "../components/createUUID.js";
 import User from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
 import { OAuth2Client } from "google-auth-library";
+import { createPublicKey, createVerify } from "crypto";
 import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
 import { syncedClearCache } from '../serverUtils/cacheBus.js';
 import { getLeague } from '../components/utils/leagues.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
+const DEFAULT_APPLE_AUDIENCE = 'com.codergautamyt.worldguessr';
+let appleKeysCache = { fetchedAt: 0, keys: [] };
+
+function decodeJwtPayload(token) {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(Buffer.from(normalized, 'base64').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function decodeJwtPart(part) {
+  const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+  return JSON.parse(Buffer.from(normalized, 'base64').toString('utf8'));
+}
+
+async function getApplePublicKeys() {
+  if (Date.now() - appleKeysCache.fetchedAt < 60 * 60 * 1000 && appleKeysCache.keys.length) {
+    return appleKeysCache.keys;
+  }
+  const response = await fetch('https://appleid.apple.com/auth/keys');
+  if (!response.ok) throw new Error('Failed to fetch Apple public keys');
+  const data = await response.json();
+  appleKeysCache = { fetchedAt: Date.now(), keys: data.keys || [] };
+  return appleKeysCache.keys;
+}
+
+async function verifyAppleIdentityToken(identityToken) {
+  const [encodedHeader, encodedPayload, encodedSignature] = identityToken.split('.');
+  if (!encodedHeader || !encodedPayload || !encodedSignature) {
+    throw new Error('Malformed Apple identity token');
+  }
+
+  const header = decodeJwtPart(encodedHeader);
+  const payload = decodeJwtPart(encodedPayload);
+  if (header.alg !== 'RS256') throw new Error('Unsupported Apple token algorithm');
+  if (payload.iss !== 'https://appleid.apple.com') throw new Error('Invalid Apple token issuer');
+  if (!payload.exp || payload.exp * 1000 <= Date.now()) throw new Error('Expired Apple token');
+
+  const allowedAudiences = [
+    process.env.APPLE_CLIENT_ID,
+    process.env.EXPO_PUBLIC_APPLE_CLIENT_ID,
+    process.env.IOS_BUNDLE_ID,
+    DEFAULT_APPLE_AUDIENCE,
+  ].filter(Boolean);
+  if (!allowedAudiences.includes(payload.aud)) {
+    throw new Error(`Invalid Apple token audience: ${payload.aud}`);
+  }
+
+  const keys = await getApplePublicKeys();
+  const jwk = keys.find((key) => key.kid === header.kid && key.alg === 'RS256');
+  if (!jwk) throw new Error('Apple public key not found');
+
+  const verifier = createVerify('RSA-SHA256');
+  verifier.update(`${encodedHeader}.${encodedPayload}`);
+  verifier.end();
+  const signature = Buffer.from(encodedSignature.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+  const publicKey = createPublicKey({ key: jwk, format: 'jwk' });
+  if (!verifier.verify(publicKey, signature)) throw new Error('Invalid Apple token signature');
+
+  return payload;
+}
+
+function buildAuthResponse(user, extendedData = {}) {
+  return {
+    secret: user.secret,
+    username: user.username,
+    email: user.email,
+    staff: user.staff,
+    canMakeClues: user.canMakeClues,
+    supporter: user.supporter,
+    accountId: user._id,
+    countryCode: user.countryCode || null,
+    banned: user.banned,
+    banType: user.banType || 'none',
+    banExpiresAt: user.banExpiresAt,
+    banPublicNote: user.banPublicNote || null,
+    pendingNameChange: user.pendingNameChange,
+    pendingNameChangePublicNote: user.pendingNameChangePublicNote || null,
+    ...extendedData,
+  };
+}
 
 /**
  * Check and handle temp ban expiration
@@ -103,19 +189,113 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { code, secret, redirect_uri, id_token } = req.body;
+  const { code, secret, redirect_uri, id_token, apple_identity_token } = req.body;
+
+  if (apple_identity_token && !code && !secret && !id_token) {
+    timings.authType = 'apple_id_token';
+    try {
+      const startTokenVerify = Date.now();
+      const applePayload = await verifyAppleIdentityToken(apple_identity_token);
+      timings.tokenVerify = Date.now() - startTokenVerify;
+      timings.tokenAud = applePayload.aud;
+
+      const appleId = applePayload.sub;
+      const email = applePayload.email;
+      if (!appleId) {
+        timings.total = Date.now() - startTotal;
+        console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
+        return res.status(400).json({ error: 'No Apple user id in token' });
+      }
+
+      const startLookup = Date.now();
+      let existingUser = await User.findOne({ appleId });
+      if (!existingUser && email) {
+        existingUser = await User.findOne({ email });
+        if (existingUser && !existingUser.appleId) {
+          existingUser.appleId = appleId;
+          await existingUser.save();
+          syncedClearCache(`userAuth_${existingUser.secret}`);
+        }
+      }
+      timings.appleLookup = Date.now() - startLookup;
+
+      if (!existingUser) {
+        timings.isNewUser = true;
+        const newSecret = createUUID();
+        const newUser = new User({ email, appleId, secret: newSecret });
+        await newUser.save();
+
+        const startRank = Date.now();
+        const usersAbove = await User.countDocuments({ elo: { $gt: 1000 }, banned: false }).cache(2000);
+        timings.rankQuery = Date.now() - startRank;
+        timings.total = Date.now() - startTotal;
+        console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
+        return res.status(200).json({
+          ...buildAuthResponse(newUser, {
+            totalXp: 0,
+            createdAt: newUser.created_at,
+            gamesLen: 0,
+            lastLogin: newUser.created_at,
+            canChangeUsername: true,
+            daysUntilNameChange: 0,
+            recentChange: false,
+            elo: 1000,
+            rank: usersAbove + 1,
+            league: getLeague(1000),
+            duels_wins: 0,
+            duels_losses: 0,
+            duels_tied: 0,
+            win_rate: 0,
+          }),
+          username: undefined,
+          banned: false,
+          banType: 'none',
+          banExpiresAt: null,
+          banPublicNote: null,
+          pendingNameChange: false,
+          pendingNameChangePublicNote: null,
+        });
+      }
+
+      timings.isNewUser = false;
+      const checkedUser = await checkTempBanExpiration(existingUser);
+      const extendedData = await getExtendedUserData(checkedUser, timings);
+      timings.total = Date.now() - startTotal;
+      console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
+      return res.status(200).json(buildAuthResponse(checkedUser, extendedData));
+    } catch (error) {
+      timings.total = Date.now() - startTotal;
+      timings.error = error.message;
+      console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
+      console.error('Apple token verification error:', error.message);
+      return res.status(400).json({
+        error: process.env.NODE_ENV === 'production' ? 'Invalid Apple token' : `Invalid Apple token: ${error.message}`,
+      });
+    }
+  }
 
   // Mobile flow: verify id_token directly (no code exchange needed)
   if (id_token && !code && !secret) {
     timings.authType = 'id_token';
     try {
+      const tokenPayload = decodeJwtPayload(id_token);
+      if (tokenPayload) {
+        timings.tokenAud = tokenPayload.aud;
+        timings.tokenAzp = tokenPayload.azp;
+        timings.tokenIss = tokenPayload.iss;
+        timings.tokenExp = tokenPayload.exp;
+      }
       const startTokenVerify = Date.now();
-      const ticket = await client.verifyIdToken({
+      const allowedAudiences = [
+        process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_IOS_CLIENT_ID,
+        process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+        process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+      ].filter(Boolean);
+      const tokenClient = new OAuth2Client();
+      const ticket = await tokenClient.verifyIdToken({
         idToken: id_token,
-        audience: [
-          process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
-          process.env.GOOGLE_IOS_CLIENT_ID,
-        ].filter(Boolean),
+        audience: allowedAudiences,
       });
       timings.tokenVerify = Date.now() - startTokenVerify;
 
@@ -213,7 +393,9 @@ export default async function handler(req, res) {
       timings.error = error.message;
       console.log('[googleAuth] Timings (ms):', JSON.stringify(timings));
       console.error('ID token verification error:', error.message);
-      return res.status(400).json({ error: 'Invalid token' });
+      return res.status(400).json({
+        error: process.env.NODE_ENV === 'production' ? 'Invalid token' : `Invalid token: ${error.message}`,
+      });
     }
   }
 

@@ -415,7 +415,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
     fontSize: 15,
-    fontFamily: 'Lexend',
+    lineHeight: 20,
+    letterSpacing: 0,
     color: '#333',
   },
 

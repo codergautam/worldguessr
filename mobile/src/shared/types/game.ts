@@ -3,6 +3,9 @@ export interface Location {
   long: number;
   country?: string;
   panoId?: string;
+  heading?: number;
+  head?: number;
+  pitch?: number;
   placeName?: string;
   maxDist?: number;
 }

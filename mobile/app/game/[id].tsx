@@ -24,6 +24,7 @@ import { wsService } from '../../src/services/websocket';
 
 import StreetViewWebView from '../../src/components/game/StreetViewWebView';
 import GuessMap from '../../src/components/game/GuessMap';
+import GameLoadingOverlay from '../../src/components/game/GameLoadingOverlay';
 import GameTimer from '../../src/components/game/GameTimer';
 import MapSelectorModal from '../../src/components/game/MapSelectorModal';
 import GetReadyOverlay from '../../src/components/multiplayer/GetReadyOverlay';
@@ -60,6 +61,9 @@ interface Location {
   long: number;
   country?: string;
   panoId?: string;
+  heading?: number;
+  head?: number;
+  pitch?: number;
 }
 
 interface RoundResult {
@@ -97,6 +101,7 @@ const DEFAULT_GAME_OPTIONS = {
 
 /** Fraction of screen height the expanded minimap occupies during gameplay (0–1) */
 const EXPANDED_MAP_HEIGHT_RATIO = 0.5;
+const EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO = 0.6;
 
 export default function GameScreen() {
   const { id, map, rounds, time } = useLocalSearchParams<{
@@ -140,6 +145,8 @@ export default function GameScreen() {
       long: loc.long,
       country: loc.country,
       panoId: loc.panoId,
+      heading: loc.heading ?? loc.head,
+      pitch: loc.pitch,
     }));
 
     setGameState((prev) => ({
@@ -369,10 +376,12 @@ export default function GameScreen() {
     }
   }, [isLoading, miniMapShown, gameState.isShowingResult]);
 
-  // Map height interpolation: 0 = hidden (0px), 1 = EXPANDED_MAP_HEIGHT_RATIO of screen (or 100% when answer shown)
+  const expandedMapHeight = height * (width > height ? EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO : EXPANDED_MAP_HEIGHT_RATIO);
+
+  // Map height interpolation: 0 = hidden (0px), 1 = expanded map height (or 100% when answer shown)
   const mapHeight = mapSlideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, gameState.isShowingResult ? height : height * EXPANDED_MAP_HEIGHT_RATIO],
+    outputRange: [0, gameState.isShowingResult ? height : expandedMapHeight],
   });
 
   // Fetch locations from server based on currentMapSlug (singleplayer only)
@@ -414,9 +423,11 @@ export default function GameScreen() {
 
         const normalizedLocations = data.locations.map((loc: any) => ({
           lat: loc.lat,
-          long: loc.long || loc.lng,
+          long: loc.long ?? loc.lng,
           country: loc.country,
           panoId: loc.panoId,
+          heading: loc.heading ?? loc.head,
+          pitch: loc.pitch,
         }));
 
         const shuffled = [...normalizedLocations].sort(() => Math.random() - 0.5);
@@ -736,6 +747,8 @@ export default function GameScreen() {
             <StreetViewWebView
               lat={currentLocation.lat}
               long={currentLocation.long}
+              heading={currentLocation.heading ?? currentLocation.head}
+              pitch={currentLocation.pitch}
               onLoad={handleStreetViewLoad}
               nmpz={isMultiplayer ? (gameData?.nm ?? false) : nmpzEnabled}
             />
@@ -815,10 +828,10 @@ export default function GameScreen() {
         >
           {/* Inner wrapper gives MapView a fixed height so initialRegion works
               even when the animated outer container starts at 0px height.
-              Use EXPANDED_MAP_HEIGHT_RATIO height during gameplay so MKMapView's native gesture recognizers
+              Use expandedMapHeight during gameplay so MKMapView's native gesture recognizers
               don't extend into the Guess button area (iOS ignores overflow:hidden for
               native gesture hit-testing). Full height during results (no buttons). */}
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: gameState.isShowingResult ? height : height * EXPANDED_MAP_HEIGHT_RATIO }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: gameState.isShowingResult ? height : expandedMapHeight }}>
             {mapMounted && (
               <GuessMap
                 guessPosition={guessPosition}
@@ -860,7 +873,7 @@ export default function GameScreen() {
           <Animated.View
             style={[
               styles.mapButtonsRow,
-              { bottom: height * EXPANDED_MAP_HEIGHT_RATIO + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
+              { bottom: expandedMapHeight + 8, paddingHorizontal: Math.max(insets.right, spacing.md) },
               {
                 opacity: mapBtnsAnim,
                 transform: [{
@@ -1030,25 +1043,9 @@ export default function GameScreen() {
         <GameChat />
       )}
 
-      {/* ═══ LOADING BANNER OVERLAY — initial load & between rounds ═══ */}
-      <Animated.View
-        style={[
-          styles.loadingBannerOverlay,
-          { opacity: loadingOpacity },
-        ]}
-        pointerEvents={showLoadingBanner ? 'auto' : 'none'}
-      >
-        <ImageBackground
-          source={require('../../assets/street2.jpg')}
-          style={StyleSheet.absoluteFillObject}
-          resizeMode="cover"
-        />
-        <View style={styles.loadingDarkOverlay} />
-        <View style={styles.loadingBannerContent}>
-          <Image source={require('../../assets/loader.gif')} style={styles.loadingSpinner} />
-          <Text style={styles.loadingBannerText}>Loading...</Text>
-        </View>
-      </Animated.View>
+      {/* ═══ LOADING BANNER OVERLAY — shared with onboarding + country guesser ═══ */}
+      <GameLoadingOverlay opacity={loadingOpacity} interactive={showLoadingBanner} />
+
 
       {/* ═══ MAP SELECTOR MODAL (singleplayer) ═══ */}
       {isSingleplayer && (

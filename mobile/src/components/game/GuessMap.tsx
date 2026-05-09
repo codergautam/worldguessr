@@ -34,6 +34,13 @@ interface GuessMapProps {
   opponentGuesses?: OpponentGuess[];
   /** Points scored for the player's own guess (determines line color) */
   guessPoints?: number;
+  /**
+   * When true, the no-guess result reveal skips the cinematic two-step zoom
+   * and just snaps the map to a sensible region. Used by the country / continent
+   * guesser variants where the map is fading in (not sliding up), so a long
+   * camera pulse on top of an already-static reveal felt heavy.
+   */
+  instantReveal?: boolean;
 }
 
 const TAP_SLOP = 10; // max px movement to count as tap
@@ -69,12 +76,16 @@ export default function GuessMap({
   extent,
   opponentGuesses,
   guessPoints,
+  instantReveal,
 }: GuessMapProps) {
   const mapRef = useRef<MapView>(null);
   const touchStart = useRef({ x: 0, y: 0, time: 0 });
   const lastFastTap = useRef(0);
 
-  // When showing result, fit markers in view (or pan to actual if no guess)
+  // When showing result, fit markers in view (or zoom in to actual if no
+  // guess). The no-guess path uses a longer two-step animation so country-
+  // mode reveals feel as cinematic as the classic-mode "zoom out to fit
+  // both pins" payoff.
   useEffect(() => {
     if (!actualPosition || !mapRef.current) return;
 
@@ -89,18 +100,22 @@ export default function GuessMap({
         animated: true,
       });
     } else {
-      // No guess — just show actual location
+      // No guess (country / continent guesser): a single slow zoom from
+      // wherever the map currently sits down onto the actual location.
+      // We deliberately run this longer than the layer's own fade-in
+      // (1200 ms) so the camera is still gliding when the dim clears,
+      // giving the result a calmer cinematic feel.
       mapRef.current.animateToRegion(
         {
           latitude: actualPosition.lat,
           longitude: actualPosition.lng,
-          latitudeDelta: 5,
-          longitudeDelta: 5,
+          latitudeDelta: 8,
+          longitudeDelta: 8,
         },
-        400,
+        instantReveal ? 1500 : 1100,
       );
     }
-  }, [actualPosition, guessPosition]);
+  }, [actualPosition, guessPosition, instantReveal]);
 
   const defaultRegion = extent ? extentToRegion(extent) : WORLD_REGION;
 

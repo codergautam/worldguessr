@@ -18,14 +18,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, getLeague } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
-import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
 import { wsService } from '../../src/services/websocket';
 import { api } from '../../src/services/api';
 import { spacing, borderRadius } from '../../src/styles/theme';
 import SetUsernameModal from '../../src/components/SetUsernameModal';
+import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 import CountryFlag from '../../src/components/CountryFlag';
+import { useOnboardingStore } from '../../src/store/onboardingStore';
+import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
 
-type GameMode = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
+type GameMode = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps' | 'countryGuesser';
 
 interface MenuButtonProps {
   label: string;
@@ -114,12 +116,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
-  const { promptAsync, isReady: googleReady } = useGoogleAuth();
 
   // ELO data fetching & animation (matches web home.js:298-367)
   const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
   const [animatedElo, setAnimatedElo] = useState(0);
-  const [loginLoading, setLoginLoading] = useState(false);
+  const [accountSheetVisible, setAccountSheetVisible] = useState(false);
   const [dismissedBanBanner, setDismissedBanBanner] = useState(modPopupDismissedBan);
   const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(modPopupDismissedNameChange);
   const [modPopupReady, setModPopupReady] = useState(false);
@@ -218,17 +219,14 @@ export default function HomeScreen() {
     }
   }, [showModPopup]);
 
-  const handleLogin = useCallback(async () => {
-    if (loginLoading || authLoading) return;
-    setLoginLoading(true);
-    try {
-      await promptAsync();
-    } catch (e) {
-      console.error('Google login error:', e);
-    } finally {
-      setLoginLoading(false);
-    }
-  }, [promptAsync, loginLoading, authLoading]);
+  const handleLogin = useCallback(() => {
+    if (authLoading) return;
+    setAccountSheetVisible(true);
+  }, [authLoading]);
+
+  // First-launch routing happens in app/index.tsx — it waits for the
+  // onboarding flag to load and redirects to /onboarding/play directly,
+  // so this screen never has to redirect itself.
 
   // Multiplayer state
   const gameQueued = useMultiplayerStore((s) => s.gameQueued);
@@ -314,6 +312,9 @@ export default function HomeScreen() {
         break;
       case 'communityMaps':
         router.navigate('/(tabs)/maps');
+        break;
+      case 'countryGuesser':
+        router.push('/countryGuesser/config');
         break;
     }
   };
@@ -489,13 +490,13 @@ export default function HomeScreen() {
                       paddingVertical: headerActionMetrics.accountPaddingVertical,
                     },
                     pressed && styles.accountBtnPressed,
-                    (loginLoading || authLoading) && styles.accountBtnDisabled,
+                    authLoading && styles.accountBtnDisabled,
                   ]}
                   onPress={handleLogin}
-                  disabled={loginLoading || authLoading || !googleReady}
+                  disabled={authLoading}
                 >
                   <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
-                    {loginLoading || authLoading ? (
+                    {authLoading ? (
                       <>
                         <Text
                           style={[
@@ -512,7 +513,7 @@ export default function HomeScreen() {
                       </>
                     ) : (
                       <>
-                        <Ionicons name="logo-google" size={14} color={colors.white} />
+                        <Ionicons name="person-circle" size={16} color={colors.white} />
                         <Text
                           style={[
                             styles.accountBtnText,
@@ -547,7 +548,18 @@ export default function HomeScreen() {
                 transform: [{ translateX: titleSlide }, { translateY: 30 }],
               }}
             >
-              <OutlinedTitle>WorldGuessr</OutlinedTitle>
+              <Pressable
+                onLongPress={async () => {
+                  // Hidden replay path so the tutorial can be tested repeatedly
+                  // without reinstalling the app. Long-press lasts ~500ms which
+                  // keeps it out of accidental-tap territory.
+                  await useOnboardingStore.getState().reset();
+                  router.push('/onboarding/play');
+                }}
+                delayLongPress={500}
+              >
+                <OutlinedTitle>WorldGuessr</OutlinedTitle>
+              </Pressable>
             </Animated.View>
 
             {/* Right side: account area */}
@@ -633,13 +645,13 @@ export default function HomeScreen() {
                       paddingVertical: headerActionMetrics.accountPaddingVertical,
                     },
                     pressed && styles.accountBtnPressed,
-                    (loginLoading || authLoading) && styles.accountBtnDisabled,
+                    authLoading && styles.accountBtnDisabled,
                   ]}
                   onPress={handleLogin}
-                  disabled={loginLoading || authLoading || !googleReady}
+                  disabled={authLoading}
                 >
                   <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
-                    {loginLoading || authLoading ? (
+                    {authLoading ? (
                       <>
                         <Text
                           style={[
@@ -656,7 +668,7 @@ export default function HomeScreen() {
                       </>
                     ) : (
                       <>
-                        <Ionicons name="logo-google" size={14} color={colors.white} />
+                        <Ionicons name="person-circle" size={16} color={colors.white} />
                         <Text
                           style={[
                             styles.accountBtnText,
@@ -684,6 +696,11 @@ export default function HomeScreen() {
               <MenuButton
                 label="Singleplayer"
                 onPress={() => handleModePress('singleplayer')}
+                delay={getDelay()}
+              />
+              <MenuButton
+                label="Country Guesser"
+                onPress={() => handleModePress('countryGuesser')}
                 delay={getDelay()}
               />
               {isAuthenticated && (
@@ -869,6 +886,7 @@ export default function HomeScreen() {
 
       {/* Set Username Modal for new signups */}
       <SetUsernameModal />
+      <AccountSelectSheet visible={accountSheetVisible} onClose={() => setAccountSheetVisible(false)} />
 
     </View>
   );

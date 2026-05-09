@@ -1,5 +1,5 @@
 import { GameSettings } from '../shared';
-import { API_URL } from '../constants/config';
+import { API_URL, AUTH_URL } from '../constants/config';
 export interface MapItem {
   id?: string;
   slug: string;
@@ -23,9 +23,10 @@ interface ApiResponse<T> {
 
 async function fetchApi<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  baseUrl = API_URL,
 ): Promise<T> {
-  const url = `${API_URL}${endpoint}`;
+  const url = `${baseUrl}${endpoint}`;
 
   const response = await fetch(url, {
     ...options,
@@ -40,6 +41,7 @@ async function fetchApi<T>(
     try {
       const body = await response.json();
       if (body.message) message = body.message;
+      if (body.error) message = body.error;
     } catch {}
     throw new Error(message);
   }
@@ -74,11 +76,39 @@ export const api = {
     }>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ id_token: idToken }),
-    });
+    }, AUTH_URL);
+  },
+
+  appleAuth: async (identityToken: string) => {
+    return fetchApi<{
+      secret: string;
+      username: string;
+      email?: string;
+      elo?: number;
+      totalXp?: number;
+      totalGamesPlayed?: number;
+      countryCode?: string;
+      staff?: boolean;
+      supporter?: boolean;
+      needsUsername?: boolean;
+      accountId?: string;
+      banned?: boolean;
+      banType?: string;
+      banExpiresAt?: string;
+      banPublicNote?: string;
+      pendingNameChange?: boolean;
+      pendingNameChangePublicNote?: string;
+      canChangeUsername?: boolean;
+      daysUntilNameChange?: number;
+      recentChange?: boolean;
+    }>('/api/googleAuth', {
+      method: 'POST',
+      body: JSON.stringify({ apple_identity_token: identityToken }),
+    }, AUTH_URL);
   },
 
   setName: async (secret: string, username: string) => {
-    const url = `${API_URL}/api/setName`;
+    const url = `${AUTH_URL}/api/setName`;
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -114,7 +144,7 @@ export const api = {
     }>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ secret }),
-    });
+    }, AUTH_URL);
   },
 
   checkNameChangeStatus: async (secret: string) => {
@@ -408,7 +438,12 @@ export const api = {
       locations: Array<{
         lat: number;
         long: number;
+        lng?: number;
         country?: string;
+        panoId?: string;
+        heading?: number;
+        head?: number;
+        pitch?: number;
       }>;
       maxDist?: number;
     }>('/allCountries.json');
@@ -420,7 +455,12 @@ export const api = {
       locations: Array<{
         lat: number;
         long: number;
+        lng?: number;
         country?: string;
+        panoId?: string;
+        heading?: number;
+        head?: number;
+        pitch?: number;
       }>;
       maxDist?: number;
     }>(`/countryLocations/${countryCode}`);
@@ -442,6 +482,10 @@ export const api = {
         long: number;
         lng?: number; // Some use lng instead of long
         country?: string;
+        panoId?: string;
+        heading?: number;
+        head?: number;
+        pitch?: number;
       }>;
       maxDist?: number;
     }>(`/mapLocations/${mapSlug}`);

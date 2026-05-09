@@ -16,6 +16,7 @@ import { Asset } from 'expo-asset';
 import * as SplashScreen from 'expo-splash-screen';
 import { colors } from '../src/shared';
 import { useAuthStore } from '../src/store/authStore';
+import { useOnboardingStore } from '../src/store/onboardingStore';
 import { useWebSocket } from '../src/hooks/useWebSocket';
 import ToastProvider from '../src/components/multiplayer/ToastProvider';
 import WsIndicator from '../src/components/multiplayer/WsIndicator';
@@ -54,6 +55,7 @@ export default function RootLayout() {
   // Load auth session on app start
   useEffect(() => {
     useAuthStore.getState().loadSession();
+    useOnboardingStore.getState().loadFlag();
   }, []);
 
   // Initialize native services (ads, analytics)
@@ -101,11 +103,21 @@ export default function RootLayout() {
           <Stack.Screen name="game/results" options={{ headerShown: false }} />
           <Stack.Screen name="party/create" options={{ headerShown: false, gestureEnabled: false }} />
           <Stack.Screen name="party/join" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="party/[code]" options={{ headerShown: false }} />
           <Stack.Screen name="queue" options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen name="friends" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="history/[gameId]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="user/[username]" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen
+            name="onboarding/play"
+            options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
+          />
+          <Stack.Screen
+            name="countryGuesser/config"
+            options={{ headerShown: false, animation: 'slide_from_right' }}
+          />
+          <Stack.Screen
+            name="countryGuesser/play"
+            options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
+          />
         </Stack>
         <ToastProvider />
         <WsIndicator />

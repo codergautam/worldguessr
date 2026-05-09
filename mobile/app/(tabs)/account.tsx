@@ -1,17 +1,18 @@
+import { useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
-import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
 import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import ProfileView from '../../src/components/account/ProfileView';
+import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 
 export default function AccountScreen() {
   const router = useRouter();
   const { user, secret, logout, isLoading: authLoading, loadSession } = useAuthStore();
-  const { promptAsync, isReady: googleReady } = useGoogleAuth();
+  const [accountSheetVisible, setAccountSheetVisible] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -19,11 +20,8 @@ export default function AccountScreen() {
   };
 
   const handleLogin = async () => {
-    try {
-      await promptAsync();
-    } catch (e) {
-      console.error('Google login error:', e);
-    }
+    if (authLoading) return;
+    setAccountSheetVisible(true);
   };
 
   if (!user) {
@@ -34,20 +32,21 @@ export default function AccountScreen() {
             style={({ pressed }) => [
               styles.loginButton,
               pressed && { opacity: 0.8 },
-              (authLoading || !googleReady) && { opacity: 0.6 },
+              authLoading && { opacity: 0.6 },
             ]}
             onPress={handleLogin}
-            disabled={authLoading || !googleReady}
+            disabled={authLoading}
           >
             {authLoading ? (
               <ActivityIndicator color={colors.white} />
             ) : (
               <View style={styles.loginButtonContent}>
-                <Ionicons name="logo-google" size={18} color={colors.white} />
-                <Text style={styles.loginButtonText}>Sign in with Google</Text>
+                <Ionicons name="person-circle" size={20} color={colors.white} />
+                <Text style={styles.loginButtonText}>Sign in</Text>
               </View>
             )}
           </Pressable>
+          <AccountSelectSheet visible={accountSheetVisible} onClose={() => setAccountSheetVisible(false)} />
         </View>
       </SafeAreaView>
     );

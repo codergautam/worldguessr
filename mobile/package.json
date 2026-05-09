@@ -20,6 +20,7 @@
     "@react-native-firebase/app": "^24.0.0",
     "countries-code": "^1.1.1",
     "expo": "~54.0.33",
+    "expo-apple-authentication": "~8.0.8",
     "expo-auth-session": "~7.0.10",
     "expo-blur": "~15.0.8",
     "expo-build-properties": "~1.0.10",

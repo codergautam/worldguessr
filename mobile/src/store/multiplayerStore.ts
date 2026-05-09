@@ -35,6 +35,7 @@ export interface MPLocation {
   country?: string;
   panoId?: string;
   heading?: number;
+  head?: number;
   pitch?: number;
 }
 

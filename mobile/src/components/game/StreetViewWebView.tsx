@@ -9,6 +9,7 @@ interface StreetViewWebViewProps {
   onLoad?: () => void;
   language?: string;
   fov?: number;
+  heading?: number | null;
   pitch?: number;
   smoothTransitions?: boolean;
   transitionDuration?: number;
@@ -33,11 +34,14 @@ function buildStreetViewHtml(
   long: number,
   language: string,
   fov: number,
+  heading: number | null | undefined,
   pitch: number,
   cropRightPx: number,
   nmpz: boolean,
 ) {
-  const streetViewUrl = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=${GOOGLE_MAPS_API_KEY}&fov=${fov}&pitch=${pitch}&language=${language}`;
+  const headingParam = heading !== null && heading !== undefined ? `&heading=${heading}` : '';
+  const pitchParam = pitch !== null && pitch !== undefined ? `&pitch=${pitch}` : '';
+  const streetViewUrl = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=${GOOGLE_MAPS_API_KEY}&fov=${fov}${headingParam}${pitchParam}&language=${language}`;
 
   return `
     <!DOCTYPE html>
@@ -74,6 +78,7 @@ export default function StreetViewWebView({
   onLoad,
   language = 'en',
   fov = 100,
+  heading,
   pitch = 0,
   smoothTransitions = false,
   transitionDuration = 350,
@@ -112,10 +117,10 @@ export default function StreetViewWebView({
   useEffect(() => {
     if (!isValidCoordinate) return;
 
-    const locationKey = `${lat}-${long}-${language}-${fov}-${pitch}-${cropRightPx}-${nmpz}`;
+    const locationKey = `${lat}-${long}-${language}-${fov}-${heading ?? ''}-${pitch}-${cropRightPx}-${nmpz}`;
     const nextSource = {
       key: locationKey,
-      html: buildStreetViewHtml(lat, long, language, fov, pitch, cropRightPx, nmpz),
+      html: buildStreetViewHtml(lat, long, language, fov, heading, pitch, cropRightPx, nmpz),
     };
 
     const activeSlot = activeSlotRef.current;
@@ -152,7 +157,7 @@ export default function StreetViewWebView({
       ...prev,
       [nextSlot]: nextSource,
     }));
-  }, [lat, long, language, fov, pitch, cropRightPx, nmpz, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
+  }, [lat, long, language, fov, heading, pitch, cropRightPx, nmpz, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
 
   const handleLoadEnd = useCallback((slot: SlotKey) => {
     const pendingSlot = pendingSlotRef.current;

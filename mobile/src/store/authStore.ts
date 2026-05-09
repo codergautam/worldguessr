@@ -14,6 +14,7 @@ interface AuthState {
   // Actions
   loadSession: () => Promise<void>;
   loginWithGoogle: (idToken: string) => Promise<boolean>;
+  loginWithApple: (identityToken: string) => Promise<boolean>;
   loginWithSecret: (secret: string) => Promise<boolean>;
   setUsername: (username: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -80,6 +81,49 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return false;
     } catch (error) {
       console.error('Google auth failed:', error);
+      set({ isLoading: false });
+      return false;
+    }
+  },
+
+  loginWithApple: async (identityToken: string) => {
+    try {
+      set({ isLoading: true });
+      const response = await api.appleAuth(identityToken);
+
+      if (response.secret) {
+        await SecureStore.setItemAsync(SECRET_KEY, response.secret);
+        set({
+          secret: response.secret,
+          user: {
+            accountId: response.accountId,
+            username: response.username || '',
+            email: response.email,
+            elo: response.elo ?? 1000,
+            totalXp: response.totalXp ?? 0,
+            totalGamesPlayed: response.totalGamesPlayed ?? 0,
+            countryCode: response.countryCode,
+            staff: response.staff,
+            supporter: response.supporter,
+            banned: response.banned,
+            banType: response.banType,
+            banExpiresAt: response.banExpiresAt,
+            banPublicNote: response.banPublicNote,
+            pendingNameChange: response.pendingNameChange,
+            pendingNameChangePublicNote: response.pendingNameChangePublicNote,
+            canChangeUsername: response.canChangeUsername,
+            daysUntilNameChange: response.daysUntilNameChange,
+            recentChange: response.recentChange,
+          },
+          isAuthenticated: true,
+          isLoading: false,
+        });
+        return true;
+      }
+      set({ isLoading: false });
+      return false;
+    } catch (error) {
+      console.error('Apple auth failed:', error);
       set({ isLoading: false });
       return false;
     }
