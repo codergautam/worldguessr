@@ -27,24 +27,33 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 zIndex: 100,
                 color: 'white',
                 padding: '0px',
-                borderRadius: '10px',
+                borderRadius: 0,
                 top: "0px",
                 margin: "0",
                 left: "0px",
-                maxWidth: '500px',
+                maxWidth: 'none',
+                width: '100vw',
+                height: '100dvh',
                 textAlign: 'center',
-                position: "absolute",
+                position: "fixed",
                 background: `linear-gradient(0deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 30, 15, 0.5) 100%), url("${asset('/street2.webp')}")`,
                 objectFit: "cover",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
+            },
+            modalContainer: {
+                height: '100dvh',
+            },
+            overlay: {
+                overflow: 'hidden',
             },
             closeButton: {
                 backgroundColor: 'white'
             }
         }} classNames={
             {
-                modal: 'g2_modal'
+                modal: 'g2_modal settingsModalFullscreen',
+                modalContainer: 'settingsModalContainer'
             }
         }
             open={shown} center onClose={onClose} showCloseIcon={false} animationDuration={0}>
@@ -87,10 +96,6 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                             <option value="de">Deutsch</option>
                             <option value="ru">Русский</option>
                         </select>
-                    </div>
-                    <div className="settingsModalInner">
-                        <label htmlFor="ramUsage">Show RAM Usage</label>
-                        <input className="g2_input" type="checkbox" id="ramUsage" checked={options.ramUsage} onChange={() => setOptions((prevOptions) => ({ ...prevOptions, ramUsage: !prevOptions.ramUsage }))} />
                     </div>
                 </>
                 )}

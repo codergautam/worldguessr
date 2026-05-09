@@ -12,8 +12,10 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import installErrorTracking from '@/lib/errorTracking';
+import installReloadDiagnostics from '@/lib/reloadDiagnostics';
 import { installGlobalHaptics } from '@/lib/haptics';
 import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvider';
+import NativeAuthSheet from '@/components/auth/NativeAuthSheet';
 
 import '@smastrom/react-rating/style.css'
 
@@ -22,13 +24,16 @@ const SAFE_AREA_VAR_FALLBACK = 'env(safe-area-inset-top, 0px)';
 // Install before hydration so console.error / window.error patches are live
 // when React replays render errors during initial mount.
 let __errorTrackingCleanup = null;
+let __reloadDiagnosticsCleanup = null;
 if (typeof window !== 'undefined') {
+  __reloadDiagnosticsCleanup = installReloadDiagnostics();
   __errorTrackingCleanup = installErrorTracking();
   // Fast Refresh / HMR: tear down so edits to errorTracking.js take effect
   // without a full page reload, and so we don't leak listeners across reloads.
   if (typeof module !== 'undefined' && module.hot) {
     module.hot.dispose(() => {
       try {
+        __reloadDiagnosticsCleanup?.();
         __errorTrackingCleanup?.();
       } catch (_) { /* noop */ }
     });
@@ -39,6 +44,32 @@ const SUPPORTED_LOCALES = ["es", "fr", "de", "ru"];
 
 function App({ Component, pageProps }) {
   const router = useRouter();
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const log = window.__wgReloadDiagnostics?.log;
+    if (!log || !router?.events) return;
+
+    const handleStart = (url, meta) => log('routeChangeStart', { url, shallow: meta?.shallow });
+    const handleComplete = (url, meta) => log('routeChangeComplete', { url, shallow: meta?.shallow });
+    const handleError = (error, url, meta) => {
+      log('routeChangeError', {
+        url,
+        shallow: meta?.shallow,
+        cancelled: !!error?.cancelled,
+        message: error?.message,
+      });
+    };
+
+    router.events.on('routeChangeStart', handleStart);
+    router.events.on('routeChangeComplete', handleComplete);
+    router.events.on('routeChangeError', handleError);
+    return () => {
+      router.events.off('routeChangeStart', handleStart);
+      router.events.off('routeChangeComplete', handleComplete);
+      router.events.off('routeChangeError', handleError);
+    };
+  }, [router]);
 
   useEffect(() => {
     return installGlobalHaptics();
@@ -140,10 +171,14 @@ function App({ Component, pageProps }) {
       <MultiplayerProvider>
         { process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID  ? (
         <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}>
+        <NativeAuthSheet />
         <Component {...pageProps} />
         </GoogleOAuthProvider>
         ) : (
-          <Component {...pageProps} />
+          <>
+            <NativeAuthSheet />
+            <Component {...pageProps} />
+          </>
         )}
       </MultiplayerProvider>
     </>

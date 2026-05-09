@@ -28,7 +28,7 @@ import { useRouter } from 'next/router';
 import { asset, navigate, stripBase } from '@/lib/basePath';
 import { preloadPinImages } from '@/lib/markerIcons';
 import { isCapacitorNative, startNativeAuth } from '@/lib/nativeAuth';
-import { showNativeInterstitial } from '@/lib/nativeAds';
+import { preloadNativeInterstitial, showNativeInterstitial } from '@/lib/nativeAds';
 // Pre-existing dynamic chunks: results screen and daily-challenge screen are
 // big and only render after a round/onboarding completes. AccountModal stays
 // dynamic because it pulls in chart.js (~220 KB) for the XP graph — saving
@@ -77,13 +77,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const { width, height } = useWindowDimensions();
     const router = useRouter();
     const langInitRef = useRef(true);
-    const statsRef = useRef();
 
     const [session, setSession] = useState(false);
     const { data: mainSession } = useSession();
     const [accountModalOpen, setAccountModalOpen] = useState(false);
     const [screen, setScreen] = useState(initialScreen === "daily" ? "daily" : "home");
-    const previousAdScreenRef = useRef("home");
     const [loading, setLoading] = useState(false);
     const [mapSwitchMaskShown, setMapSwitchMaskShown] = useState(false);
     const [mapSwitchSawLoading, setMapSwitchSawLoading] = useState(false);
@@ -161,49 +159,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         return () => clearInterval(hideInt);
     }, [])
-
-    useEffect(() => {
-        const { ramUsage } = options;
-        if (ramUsage) {
-            if (!statsRef.current) {
-                // Lazy-load stats.js — only debug users with the toggle on need it.
-                import('stats.js').then(({ default: Stats }) => {
-                    if (statsRef.current) return;
-                    var stats = new Stats();
-                    stats.showPanel(2); // 0: fps, 1: ms, 2: mb, 3+: custom
-                    stats.dom.style.transform = "translate(10px, 150px)";
-                    stats.dom.style.pointerEvents = "none";
-                    document.body.appendChild(stats.dom);
-                    statsRef.current = stats;
-                });
-            } else {
-                statsRef.current.dom.style.display = "";
-            }
-        } else {
-            if (statsRef.current) {
-                statsRef.current.dom.style.display = "none";
-            }
-        }
-
-        let id = null;
-
-        function animate() {
-            statsRef.current.begin();
-            // monitored code goes here
-            statsRef.current.end();
-
-            id = requestAnimationFrame(animate);
-        }
-        if (statsRef.current)
-            animate();
-
-        return () => {
-
-            cancelAnimationFrame(id);
-        }
-
-
-    }, [options?.ramUsage])
 
     const finishLogin = useCallback((data, source = "Google OAuth") => {
         if (data.secret) {
@@ -623,11 +578,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const screenRef = useRef('home');
     useEffect(() => { screenRef.current = screen; }, [screen]);
     const isDailyPath = useCallback((p) => /^\/(?:(?:es|fr|de|ru|en)\/)?daily$/.test(p || ''), []);
-    const enterDailyMode = useCallback(() => {
+    const enterDailyMode = useCallback(({ skipTransition = false } = {}) => {
         if (typeof window !== 'undefined' && !isDailyPath(window.location.pathname)) {
             const lang = (typeof window !== 'undefined' && window.language) || 'en';
             const dailyPath = lang === 'en' ? '/daily' : `/${lang}/daily`;
             window.history.pushState({ wgDaily: true }, '', dailyPath);
+        }
+        if (skipTransition) {
+            setScreen('daily');
+            return;
         }
         setNavSlideOut(true);
         setTimeout(() => {
@@ -1382,7 +1341,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 setOptions({
                     units: system,
-                    ramUsage: false,
                     mapType: "m", //m for normal
                     language: detectedLang
                 })
@@ -1420,20 +1378,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     useEffect(() => {
         if (!adSessionReady) return;
-
-        const previousScreen = previousAdScreenRef.current;
-        previousAdScreenRef.current = screen;
-        if (previousScreen === screen) return;
-
-        const interstitialScreens = new Set(["singleplayer", "countryGuesser", "daily", "multiplayer"]);
-        if (!interstitialScreens.has(screen)) return;
         if (inCrazyGames || inCoolMathGames || inGameDistribution) return;
         if (adsDisabledForSupporter) return;
 
-        showNativeInterstitial(screen).catch((error) => {
-            console.warn(`[AdMob] Interstitial failed (${screen}):`, error?.message || error);
+        preloadNativeInterstitial("app_ready").catch((error) => {
+            console.warn("[AdMob] Interstitial preload failed (app_ready):", error?.message || error);
         });
-    }, [screen, inCrazyGames, inCoolMathGames, inGameDistribution, adSessionReady, adsDisabledForSupporter]);
+    }, [inCrazyGames, inCoolMathGames, inGameDistribution, adSessionReady, adsDisabledForSupporter]);
 
     const updateTimeOffsetFromSync = (serverNow, clientSentAt) => {
         if (!serverNow || !clientSentAt) return;
@@ -1534,6 +1485,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (multiplayerState.gameQueued || multiplayerState.connecting) return;
 
         if (action === "publicDuel") {
+            preloadNativeInterstitial("multiplayer_queue").catch(() => {});
             crazyMidgame(() => {
             setScreen("multiplayer")
             setMultiplayerState((prev) => ({
@@ -1548,6 +1500,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
 
         if (action === "unrankedDuel") {
+            preloadNativeInterstitial("multiplayer_queue").catch(() => {});
             crazyMidgame(() => {
             setScreen("multiplayer")
             setMultiplayerState((prev) => ({
@@ -1563,6 +1516,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
 
         if (action === "joinPrivateGame") {
+            preloadNativeInterstitial("multiplayer_private").catch(() => {});
 
             if (args[0]) {
                 setScreen("multiplayer")
@@ -1595,6 +1549,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
 
         if (action === "createPrivateGame") {
+            preloadNativeInterstitial("multiplayer_private").catch(() => {});
 
             // const maxDist = args[0].location === "all" ? 20000 : countryMaxDists[args[0].location];
             // setMultiplayerState((prev) => ({
@@ -2378,7 +2333,18 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }
 
     function crazyMidgame(adFinished = () => { }) {
-        if (window.inCrazyGames && window.CrazyGames.SDK.environment !== "disabled") {
+        if (
+            isCapacitorNative() &&
+            !inCrazyGames &&
+            !inCoolMathGames &&
+            !inGameDistribution &&
+            adSessionReady &&
+            !adsDisabledForSupporter
+        ) {
+            showNativeInterstitial("midgame").finally(() => {
+                adFinished();
+            });
+        } else if (window.inCrazyGames && window.CrazyGames.SDK.environment !== "disabled") {
             try {
                 const callbacks = {
                     adFinished: () => adFinished(),
@@ -3279,27 +3245,29 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                                                     onClick={() => {
                                                         if (loading) return;
-                                                        setNavSlideOut(true);
                                                         setMiniMapShown(false);
-                                                        setTimeout(() => {
-                                                            crazyMidgame(() => {
+                                                        crazyMidgame(() => {
+                                                            setNavSlideOut(true);
+                                                            setTimeout(() => {
                                                                 // First entry this session: check localStorage preference
                                                                 if (!hasEnteredSingleplayer.current) {
                                                                     hasEnteredSingleplayer.current = true;
                                                                     const pref = gameStorage.getItem("singleplayerDefaultMode");
                                                                     if (pref === "countryGuesser") {
+                                                                        setNavSlideOut(false);
                                                                         enterCountryGuessrMode("country");
                                                                         return;
                                                                     } else if (pref === "continentGuesser") {
+                                                                        setNavSlideOut(false);
                                                                         enterCountryGuessrMode("continent");
                                                                         return;
                                                                     }
                                                                 }
                                                                 // Subsequent entries: restore last screen used this session
                                                                 setScreen(lastSingleplayerScreen.current || "singleplayer");
-                                                            });
-                                                            setNavSlideOut(false); // Reset for next use
-                                                        }, 300);
+                                                                setNavSlideOut(false); // Reset for next use
+                                                            }, 300);
+                                                        });
                                                     }}>
                                                     {text("singleplayer")}
                                                 </button>
@@ -3325,23 +3293,27 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                         return;
                                                     }
 
-                                                    setNavSlideOut(true);
-                                                    setAwaitingCreatePartyScreen(true);
-                                                    setTimeout(() => {
-                                                        handleMultiplayerAction("createPrivateGame")
-                                                    }, 300);
+                                                    crazyMidgame(() => {
+                                                        setNavSlideOut(true);
+                                                        setAwaitingCreatePartyScreen(true);
+                                                        setTimeout(() => {
+                                                            handleMultiplayerAction("createPrivateGame")
+                                                        }, 300);
+                                                    });
                                                 }}>{text("createGame")}</button>
                                                 <button className="g2_nav_text" disabled={maintenance} onClick={() => {
                                                     if (!ws || !multiplayerState?.connected) {
                                                         setConnectionErrorModalShown(true);
                                                         return;
                                                     }
-                                                    setNavSlideOut(true);
-                                                    setTimeout(() => {
-                                                        setNavSlideOut(false); // Reset for next use
-                                                        handleMultiplayerAction("joinPrivateGame")
+                                                    crazyMidgame(() => {
+                                                        setNavSlideOut(true);
+                                                        setTimeout(() => {
+                                                            setNavSlideOut(false); // Reset for next use
+                                                            handleMultiplayerAction("joinPrivateGame")
 
-                                                    }, 300);
+                                                        }, 300);
+                                                    });
 
                                                 }}>{text("joinGame")}</button>
                                             </div>
@@ -3349,7 +3321,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                             <div className="g2_nav_hr"></div>
 
                                             <div className="g2_nav_group">
-                                                <DailyMenuItem session={session} onClick={() => enterDailyMode()} />
+                                                <DailyMenuItem session={session} onClick={() => {
+                                                    crazyMidgame(() => {
+                                                        setNavSlideOut(true);
+                                                        setTimeout(() => {
+                                                            setNavSlideOut(false);
+                                                            enterDailyMode({ skipTransition: true });
+                                                        }, 300);
+                                                    });
+                                                }} />
 
                                                 {/* Twitch Streamer Link */}
                                                 {/* <a
@@ -3365,11 +3345,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                                                 {inCrazyGames && (
                                                     <button className="g2_nav_text" aria-label="MapGuessr" onClick={() => {
-                                                        setNavSlideOut(true);
-                                                        setTimeout(() => {
-                                                            setNavSlideOut(false); // Reset for next use
-                                                            setMapGuessrModal(true);
-                                                        }, 300);
+                                                        crazyMidgame(() => {
+                                                            setNavSlideOut(true);
+                                                            setTimeout(() => {
+                                                                setNavSlideOut(false); // Reset for next use
+                                                                setMapGuessrModal(true);
+                                                            }, 300);
+                                                        });
                                                     }}>MapGuessr</button>
                                                 )}
 

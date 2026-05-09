@@ -74,6 +74,7 @@ body.capacitor-native .account-modal-content {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .account-modal-close {
@@ -249,6 +250,25 @@ body.capacitor-native .account-modal-content {
         margin-bottom: 15px;
     }
 
+    .account-modal-title {
+        flex: 1 1 auto;
+        max-width: calc(100vw - 105px);
+        font-size: clamp(1.25rem, 6vw, 1.8rem);
+        line-height: 1.15;
+        white-space: nowrap;
+        gap: 6px !important;
+    }
+
+    .account-modal-title button {
+        margin-left: 2px !important;
+        padding: 5px 7px !important;
+        flex: 0 0 auto;
+    }
+
+    .account-modal-title span {
+        flex: 0 0 auto;
+    }
+
     .account-modal-close {
         width: 45px;
         height: 45px;
@@ -294,6 +314,21 @@ body.capacitor-native .account-modal-content {
     .account-modal-header {
         padding: 12px 0;
         margin-bottom: 12px;
+    }
+
+    .account-modal-title {
+        max-width: calc(100vw - 88px);
+        font-size: clamp(1.05rem, 5.4vw, 1.45rem);
+        gap: 4px !important;
+    }
+
+    .account-modal-title button {
+        padding: 4px 6px !important;
+        font-size: 0.7rem !important;
+    }
+
+    .account-modal-title > span[style*="supporter"] {
+        display: none !important;
     }
 
     .account-modal-close {

@@ -227,6 +227,19 @@ html {
     background-position: center;
 }
 
+.settingsModalFullscreen {
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    overflow: hidden;
+}
+
+.settingsModalContainer {
+    height: 100dvh !important;
+}
+
 .home__content.g2_modal {
     height: 100svh; // match .home's svh so scroll area isn't clipped on iOS
 }
@@ -5678,6 +5691,11 @@ body.capacitor-native .react-responsive-modal-container {
     padding-bottom: env(safe-area-inset-bottom, 0) !important;
 }
 
+body.capacitor-native .settingsModalContainer {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+}
+
 .leaflet-control-attribution {
     display: none;
 }
@@ -5765,6 +5783,11 @@ body.capacitor-native .react-responsive-modal-closeButton {
 
 body.capacitor-native .react-responsive-modal-modal {
     max-height: calc(100dvh - var(--wg-safe-top-active) - env(safe-area-inset-bottom, 0px)) !important;
+}
+
+body.capacitor-native .settingsModalFullscreen {
+    height: 100dvh !important;
+    max-height: none !important;
 }
 
 /* Hide the elements with specific inline styles */

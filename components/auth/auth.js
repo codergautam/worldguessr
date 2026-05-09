@@ -15,6 +15,16 @@ function notifySessionChange() {
   sessionListeners.forEach(listener => listener(session));
 }
 
+export const NATIVE_AUTH_SHEET_EVENT = 'wg:native-auth-sheet';
+
+export function requestNativeAuthSheet() {
+  if (typeof window === 'undefined') return false;
+
+  const event = new CustomEvent(NATIVE_AUTH_SHEET_EVENT, { cancelable: true });
+  window.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+
 export function signOut() {
   window.localStorage.removeItem("wg_secret");
   // Guest id is cleared alongside the secret so a different account signing
@@ -54,7 +64,7 @@ export function signOut() {
   window.location.reload();
 }
 
-export function signIn(provider = 'google') {
+export function signIn(provider = 'google', options = {}) {
   console.log("Signing in");
 
 
@@ -66,6 +76,10 @@ export function signIn(provider = 'google') {
   }
 
   const isNative = !!window.Capacitor?.isNativePlatform?.();
+  if (isNative && !options.forceProvider && requestNativeAuthSheet()) {
+    return;
+  }
+
   if(!isNative && !process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID) {
     toast.error("Google client ID not set");
     return;
@@ -76,7 +90,7 @@ export function signIn(provider = 'google') {
     return;
   }
 
-  window.login(provider);
+  return window.login(provider);
 
 }
 

@@ -12,7 +12,7 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) 
   };
 
   const handleGoogleLogin = () => {
-    signIn('google');
+    signIn();
   };
 
   const handleNeverAgain = () => {

@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { Filter } from 'bad-words';
 import Game from './classes/Game.js';
 import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
+import { getActivePlayerCount, getPlatformDistribution } from '../serverUtils/playerCounts.js';
 
 import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
@@ -270,20 +271,14 @@ app.get('/playercnt', (res) => {
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'text/plain');
   res.writeStatus('200 OK');
-  res.end(String(players.size - disconnectedPlayers.size));
+  res.end(String(getActivePlayerCount()));
 });
 
 app.get('/platformdist', (res) => {
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'application/json');
   res.writeStatus('200 OK');
-  const dist = {};
-  for (const player of players.values()) {
-    if (!player.verified || player.disconnected) continue;
-    const p = player.platform || 'empty';
-    dist[p] = (dist[p] || 0) + 1;
-  }
-  res.end(JSON.stringify(dist));
+  res.end(JSON.stringify(getPlatformDistribution()));
 });
 
 // maintenance mode
@@ -1350,12 +1345,13 @@ try {
 
   // update player count
   setInterval(() => {
+    const activePlayerCount = getActivePlayerCount();
 
     for (const player of players.values()) {
       if (player.verified && !player.gameId) {
         player.send({
           type: 'cnt',
-          c: players.size-disconnectedPlayers.size
+          c: activePlayerCount
         });
       }
       player.send({
@@ -1460,7 +1456,7 @@ try {
 
     // Dynamically adjust join threshold based on online player count
     // When fewer players online, allow joining later rounds to speed up matchmaking
-    const minRoundsRemaining = players.size >= 3000 ? 4 : 3;
+    const minRoundsRemaining = getActivePlayerCount() >= 3000 ? 4 : 3;
     for (const game of games.values()) {
 
       const playerCnt = Object.keys(game.players).length;
@@ -1731,7 +1727,7 @@ try {
 
       const memUsage = process.memoryUsage().heapUsed;
       const gameCnt = games.size;
-      const playerCnt = players.size;
+      const playerCnt = getActivePlayerCount();
 
       // store in mongodb
       // memsave
@@ -1750,7 +1746,7 @@ try {
     // log player count, game count, memory usage
     let memUsage = process.memoryUsage().heapUsed;
     const gameCnt = games.size;
-    const playerCnt = players.size;
+    const playerCnt = getActivePlayerCount();
 
      memUsage = (memUsage / 1024 / 1024).toFixed(2) + ' MB';
     console.log('Players:', playerCnt, 'Games:', gameCnt, 'Memory:', memUsage);

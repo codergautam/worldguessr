@@ -1,71 +1,24 @@
 import { signIn } from "@/components/auth/auth";
-import { useEffect, useRef, useState } from "react";
-import { FaApple, FaGoogle, FaTimes } from "react-icons/fa";
+import { FaGoogle } from "react-icons/fa";
 import { useTranslation } from '@/components/useTranslations'
 import sendEvent from "../utils/sendEvent";
 import CountryFlag from '../utils/countryFlag';
 
-const AUTH_SHEET_CLOSE_MS = 220;
-
 export default function AccountBtn({ session, openAccountModal, navbarMode, inCrazyGames, inGameDistribution, loginQueued, setLoginQueued }) {
   const { t: text } = useTranslation("common");
   const hasGoogleClientId = !!process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const [nativePlatform, setNativePlatform] = useState(null);
-  const [authSheetOpen, setAuthSheetOpen] = useState(false);
-  const [authSheetClosing, setAuthSheetClosing] = useState(false);
-  const closeTimerRef = useRef(null);
   // Use countryCode from session (now included in googleAuth response)
   const countryCode = session?.token?.countryCode || null;
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const capacitor = window.Capacitor;
-    if (capacitor?.isNativePlatform?.()) {
-      setNativePlatform(capacitor.getPlatform?.() || 'native');
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (closeTimerRef.current) {
-        clearTimeout(closeTimerRef.current);
-      }
-    };
-  }, []);
-
-  const startLogin = (provider = 'google') => {
+  const startLogin = () => {
     if (session === null && !loginQueued) {
-      if (hasGoogleClientId || nativePlatform) {
+      const isNative = !!window.Capacitor?.isNativePlatform?.();
+      if (hasGoogleClientId && !isNative) {
         setLoginQueued?.(true);
+        sendEvent("login_attempt");
       }
-      sendEvent("login_attempt")
-      signIn(provider)
+      signIn();
     }
-  };
-
-  const closeAuthSheet = (afterClose) => {
-    if (authSheetClosing) return;
-    setAuthSheetClosing(true);
-
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-    }
-
-    closeTimerRef.current = window.setTimeout(() => {
-      setAuthSheetOpen(false);
-      setAuthSheetClosing(false);
-      closeTimerRef.current = null;
-      afterClose?.();
-    }, AUTH_SHEET_CLOSE_MS);
-  };
-
-  const openLogin = () => {
-    if (nativePlatform) {
-      setAuthSheetClosing(false);
-      setAuthSheetOpen(true);
-      return;
-    }
-    startLogin('google');
   };
 
   if((inCrazyGames || inGameDistribution) && (!session || !session?.token?.secret)) {
@@ -76,7 +29,7 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
     <>
     {!session || !session?.token?.secret ? (
         <>
-        <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn'}`} disabled={inCrazyGames || loginQueued} onClick={openLogin}>
+        <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn'}`} disabled={inCrazyGames || loginQueued} onClick={startLogin}>
 
         { loginQueued ? (
           <div style={{ marginRight: '10px', marginLeft: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -109,43 +62,6 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
           </div>
         )}
         </button>
-        {authSheetOpen && (
-          <div className={`nativeAuthSheetBackdrop${authSheetClosing ? ' nativeAuthSheetBackdrop--closing' : ''}`} onClick={() => closeAuthSheet()}>
-            <div className={`nativeAuthSheet${authSheetClosing ? ' nativeAuthSheet--closing' : ''}`} role="dialog" aria-modal="true" aria-label="Sign in" onClick={(event) => event.stopPropagation()}>
-              <button className="nativeAuthSheet__close" aria-label="Close" onClick={() => closeAuthSheet()}>
-                <FaTimes />
-              </button>
-              <div className="nativeAuthSheet__header">
-                <h2>Sign in to WorldGuessr</h2>
-                <p>Sync progress, duels, friends, maps, and daily results.</p>
-              </div>
-              <div className="nativeAuthSheet__actions">
-                {nativePlatform === 'ios' && (
-                  <button
-                    className="nativeAuthSheet__provider nativeAuthSheet__provider--apple"
-                    disabled={loginQueued}
-                    onClick={() => {
-                      closeAuthSheet(() => startLogin('apple'));
-                    }}
-                  >
-                    <FaApple />
-                    <span>Continue with Apple</span>
-                  </button>
-                )}
-                <button
-                  className="nativeAuthSheet__provider nativeAuthSheet__provider--google"
-                  disabled={loginQueued}
-                  onClick={() => {
-                    closeAuthSheet(() => startLogin('google'));
-                  }}
-                >
-                  <FaGoogle />
-                  <span>Continue with Google</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
         </>
     ) : (
         <button className={`gameBtn ${navbarMode ? 'navBtn' : 'accountBtn loggedIn'} ${session?.token?.supporter ? 'supporterBtn' : ''}`} onClick={() => {

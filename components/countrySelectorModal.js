@@ -77,17 +77,20 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
         overlay: {
           background: 'rgba(0, 0, 0, 0.8)',
           backdropFilter: 'blur(10px)',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          touchAction: 'pan-y'
         }
       }}
     >
       <div className="join-party-card" style={{
         maxWidth: '600px',
         width: '90vw',
+        height: 'min(80dvh, 720px)',
         maxHeight: '80vh',
         display: 'flex',
         flexDirection: 'column',
-        animation: 'slideInUp 0.6s ease-out'
+        animation: 'slideInUp 0.6s ease-out',
+        overflow: 'hidden'
       }}>
         <h2 style={{ textAlign: 'center', marginBottom: '15px', flexShrink: 0 }}>
           {text('selectCountryFlag') || 'Select Your Country Flag'}
@@ -110,6 +113,9 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
           minHeight: 0,
           overflowY: 'auto',
           overflowX: 'hidden',
+          WebkitOverflowScrolling: 'touch',
+          touchAction: 'pan-y',
+          overscrollBehavior: 'contain',
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(min(160px, 100%), 1fr))',
           gap: '8px',
