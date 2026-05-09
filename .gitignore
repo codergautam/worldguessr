@@ -57,8 +57,10 @@ mobile/.expo/
 mobile/dist/
 mobile/ios/
 mobile/android/
-mobile/
 .codex
 
 android/*
 ios/*
+
+mobile/GoogleService-Info.plist
+mobile/google-services.json
