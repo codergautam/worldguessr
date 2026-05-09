@@ -13,6 +13,7 @@
   "dependencies": {
     "@expo-google-fonts/jockey-one": "^0.4.1",
     "@expo-google-fonts/lexend": "^0.4.1",
+    "@expo/config-plugins": "~54.0.4",
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-firebase/analytics": "^24.0.0",

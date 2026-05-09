@@ -66,7 +66,8 @@
             "useFrameworks": "static"
           }
         }
-      ]
+      ],
+      "./plugins/withMapsModularHeaders"
     ],
     "experiments": {
       "typedRoutes": true
