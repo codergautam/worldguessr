@@ -10,7 +10,7 @@ import Game from './classes/Game.js';
 import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
 
 import lookup from "coordinate_to_country"
-import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
+import { players, games, disconnectedPlayers, getOnlinePlayerCount } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
 import { getLeagueRange, leagues } from '../components/utils/leagues.js';
@@ -270,7 +270,7 @@ app.get('/playercnt', (res) => {
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'text/plain');
   res.writeStatus('200 OK');
-  res.end(String(players.size - disconnectedPlayers.size));
+  res.end(String(getOnlinePlayerCount()));
 });
 
 app.get('/platformdist', (res) => {
@@ -1351,11 +1351,12 @@ try {
   // update player count
   setInterval(() => {
 
+    const onlineCnt = getOnlinePlayerCount();
     for (const player of players.values()) {
       if (player.verified && !player.gameId) {
         player.send({
           type: 'cnt',
-          c: players.size-disconnectedPlayers.size
+          c: onlineCnt
         });
       }
       player.send({
