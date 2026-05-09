@@ -19,6 +19,8 @@ import { useAuthStore } from '../src/store/authStore';
 import { useWebSocket } from '../src/hooks/useWebSocket';
 import ToastProvider from '../src/components/multiplayer/ToastProvider';
 import WsIndicator from '../src/components/multiplayer/WsIndicator';
+import { initAds, preloadInterstitial } from '../src/services/ads';
+import { initAnalytics } from '../src/services/analytics';
 
 // Keep splash screen visible while fonts + assets load
 SplashScreen.preventAutoHideAsync();
@@ -52,6 +54,12 @@ export default function RootLayout() {
   // Load auth session on app start
   useEffect(() => {
     useAuthStore.getState().loadSession();
+  }, []);
+
+  // Initialize native services (ads, analytics)
+  useEffect(() => {
+    initAnalytics();
+    initAds().then(() => preloadInterstitial());
   }, []);
 
   useEffect(() => {
