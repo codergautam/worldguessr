@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "471080734176",
+    "project_id": "promptfinder-395613",
+    "storage_bucket": "promptfinder-395613.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:471080734176:android:b00aecb0ae87e340626f85",
+        "android_client_info": {
+          "package_name": "com.codergautamyt.worldguessr"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "471080734176-nojc7m1g9tbughb3n31dqnkr4300fp81.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDy1wCAycuCMSwlh5Goai03DKckvpePmnI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "471080734176-nojc7m1g9tbughb3n31dqnkr4300fp81.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "471080734176-ildnge1km92lstdu11q07ov8r67sqj65.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.codergautamyt.worldguessr"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

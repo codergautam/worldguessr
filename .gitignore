@@ -61,6 +61,3 @@ mobile/android/
 
 android/*
 ios/*
-
-mobile/GoogleService-Info.plist
-mobile/google-services.json
