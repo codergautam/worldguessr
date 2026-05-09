@@ -20,18 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-// react-native-maps removed for build testing — local stubs preserve JSX shape.
-const MapView = React.forwardRef<any, any>(function MapViewStub(props: any, _ref) {
-  return (
-    <View style={[{ backgroundColor: '#1a1a2e', alignItems: 'center', justifyContent: 'center' }, props.style]}>
-      <Text style={{ color: '#888' }}>Map disabled (build test)</Text>
-      {props.children}
-    </View>
-  );
-});
-const Polyline = (_props: any) => null;
-const Callout = ({ children }: any) => <>{children}</>;
-const PROVIDER_GOOGLE: any = undefined;
+import MapView, { Polyline, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { colors } from '../../src/shared';
 import { findDistance } from '../../src/shared/game/calcPoints';
 import { api } from '../../src/services/api';
