@@ -53,7 +53,13 @@ function pick5RandomArb() {
   while(rand.size < 5) {
     rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
   }
-  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: r.country || 'unknown' }));
+  return [...rand].map((r) => {
+    const loc = { lat: r.lat, long: r.lng, country: r.country || 'unknown' };
+    if (r.heading !== undefined && r.heading !== null) loc.heading = r.heading;
+    if (r.pitch !== undefined && r.pitch !== null) loc.pitch = r.pitch;
+    if (r.panoId) loc.panoId = r.panoId;
+    return loc;
+  });
 }
 
 

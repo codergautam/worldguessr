@@ -69,6 +69,8 @@ import StreetView from "./streetview/streetView";
 import Ad from "./bannerAdNitro";
 import GameDistributionBanner from "./bannerAdGameDistribution";
 
+const ROUND_OVER_FADE_MS = 500;
+
 
 export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
@@ -116,6 +118,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     });
     const [multiplayerError, setMultiplayerError] = useState(null);
     const [miniMapShown, setMiniMapShown] = useState(false)
+    const [multiplayerEndAnswerHoldExpired, setMultiplayerEndAnswerHoldExpired] = useState(false);
+    const multiplayerEndAnswerHoldTimerRef = useRef(null);
     const [accountModalPage, setAccountModalPage] = useState("profile");
     const [mapModalClosing, setMapModalClosing] = useState(false);
     const loadLocationRequestRef = useRef(0);
@@ -1759,6 +1763,31 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [multiplayerState?.gameData?.state])
 
+    useEffect(() => {
+        if (multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
+            setMultiplayerEndAnswerHoldExpired(false);
+            if (multiplayerEndAnswerHoldTimerRef.current) {
+                clearTimeout(multiplayerEndAnswerHoldTimerRef.current);
+            }
+            multiplayerEndAnswerHoldTimerRef.current = setTimeout(() => {
+                setMultiplayerEndAnswerHoldExpired(true);
+                multiplayerEndAnswerHoldTimerRef.current = null;
+            }, ROUND_OVER_FADE_MS);
+            return () => {
+                if (multiplayerEndAnswerHoldTimerRef.current) {
+                    clearTimeout(multiplayerEndAnswerHoldTimerRef.current);
+                    multiplayerEndAnswerHoldTimerRef.current = null;
+                }
+            };
+        }
+
+        setMultiplayerEndAnswerHoldExpired(false);
+        if (multiplayerEndAnswerHoldTimerRef.current) {
+            clearTimeout(multiplayerEndAnswerHoldTimerRef.current);
+            multiplayerEndAnswerHoldTimerRef.current = null;
+        }
+    }, [multiplayerState?.inGame, multiplayerState?.gameData?.state])
+
 
     useEffect(() => {
         if (!multiplayerState?.inGame && multiplayerState?.gameData?.duel) {
@@ -2899,6 +2928,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // They just can't do multiplayer - the check is done in the websocket server
     // Banned users are also excluded from leaderboards (handled in api/leaderboard.js)
 
+    const multiplayerGameState = multiplayerState?.gameData?.state;
+    const multiplayerEndAnswerHoldActive = multiplayerGameState === 'end' && !multiplayerEndAnswerHoldExpired;
+    const multiplayerShowAnswer = multiplayerEndAnswerHoldActive || (
+        multiplayerState?.gameData?.curRound !== 1 && multiplayerGameState === 'getready'
+    );
+
     return (
         <>
             <HeadContent
@@ -3634,7 +3669,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             nm: multiplayerState?.gameData?.nm,
                             npz: multiplayerState?.gameData?.npz,
                             showRoadName: multiplayerState?.gameData?.showRoadName
-                        }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+                        }} setGameOptions={() => { }} showAnswer={multiplayerShowAnswer} setShowAnswer={guessMultiplayer} />
                 )}
 
 
