@@ -27,6 +27,7 @@ function getPointsColor(points: number): string {
 
 interface GuessMapProps {
   guessPosition: { lat: number; lng: number } | null;
+  countryGuessPosition?: { lat: number; lng: number } | null;
   actualPosition?: { lat: number; lng: number };
   onMapPress: (lat: number, lng: number) => void;
   isExpanded?: boolean;
@@ -70,6 +71,7 @@ function extentToRegion(extent: [number, number, number, number]) {
 
 export default function GuessMap({
   guessPosition,
+  countryGuessPosition,
   actualPosition,
   onMapPress,
   isExpanded,
@@ -89,9 +91,12 @@ export default function GuessMap({
   useEffect(() => {
     if (!actualPosition || !mapRef.current) return;
 
-    if (guessPosition) {
+    if (guessPosition || countryGuessPosition) {
       const coords = [
-        { latitude: guessPosition.lat, longitude: guessPosition.lng },
+        ...(guessPosition ? [{ latitude: guessPosition.lat, longitude: guessPosition.lng }] : []),
+        ...(countryGuessPosition
+          ? [{ latitude: countryGuessPosition.lat, longitude: countryGuessPosition.lng }]
+          : []),
         { latitude: actualPosition.lat, longitude: actualPosition.lng },
         ...(opponentGuesses ?? []).map((o) => ({ latitude: o.lat, longitude: o.lng })),
       ];
@@ -115,7 +120,7 @@ export default function GuessMap({
         instantReveal ? 1500 : 1100,
       );
     }
-  }, [actualPosition, guessPosition, instantReveal]);
+  }, [actualPosition, guessPosition, countryGuessPosition, instantReveal]);
 
   const defaultRegion = extent ? extentToRegion(extent) : WORLD_REGION;
 
@@ -194,6 +199,9 @@ export default function GuessMap({
   const actualCoord = actualPosition
     ? { latitude: actualPosition.lat, longitude: actualPosition.lng }
     : { latitude: 0, longitude: 0 };
+  const countryGuessCoord = countryGuessPosition
+    ? { latitude: countryGuessPosition.lat, longitude: countryGuessPosition.lng }
+    : { latitude: 0, longitude: 0 };
 
   return (
     <View
@@ -230,6 +238,13 @@ export default function GuessMap({
           scale={MARKER_SCALE}
           opacity={actualPosition ? 1 : 0}
         />
+        <PinMarker
+          key="country-guess"
+          coordinate={countryGuessCoord}
+          imageSource={guessPinModule}
+          scale={MARKER_SCALE}
+          opacity={countryGuessPosition ? 1 : 0}
+        />
 
         {/* Opponent markers + lines to actual */}
         {actualPosition && opponentGuesses?.map((opp, i) => (
@@ -251,7 +266,6 @@ export default function GuessMap({
           </React.Fragment>
         ))}
 
-        {/* Line between guess and actual */}
         {guessPosition && actualPosition && (
           <Polyline
             coordinates={[
@@ -260,6 +274,17 @@ export default function GuessMap({
             ]}
             strokeColor={getPointsColor(guessPoints ?? 0)}
             strokeWidth={3}
+          />
+        )}
+        {countryGuessPosition && actualPosition && (
+          <Polyline
+            coordinates={[
+              { latitude: countryGuessPosition.lat, longitude: countryGuessPosition.lng },
+              { latitude: actualPosition.lat, longitude: actualPosition.lng },
+            ]}
+            strokeColor="#F44336"
+            strokeWidth={3}
+            lineDashPattern={[8, 8]}
           />
         )}
       </MapView>

@@ -162,6 +162,7 @@ export default function GameResultsScreen() {
   const [historyLoading, setHistoryLoading] = useState(!!gameId && !rounds);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyData, setHistoryData] = useState<{ score: number; rounds: RoundResult[] } | null>(null);
+  const [historyMode, setHistoryMode] = useState<string | null>(null);
   const [multiplayerInfo, setMultiplayerInfo] = useState<MultiplayerInfo | null>(null);
 
   useEffect(() => {
@@ -175,6 +176,15 @@ export default function GameResultsScreen() {
         const myId: string = game.currentUserId;
         const isDuel = game.gameType === 'ranked_duel';
         const myPlayer = game.players.find((p: any) => p.accountId === myId);
+        if (game.settings?.countryGuesser) {
+          setHistoryMode(
+            game.settings.countryGuessrSubMode === 'continent'
+              ? 'continentGuesser'
+              : 'countryGuesser',
+          );
+        } else {
+          setHistoryMode(null);
+        }
 
         const transformedRounds: RoundResult[] = game.rounds
           .map((round: any) => {
@@ -329,7 +339,8 @@ export default function GameResultsScreen() {
     [rounds, historyData],
   );
   const score = historyData ? historyData.score : parseInt(totalScore ?? '0', 10);
-  const isCountryGuesserResult = mode === 'countryGuesser' || mode === 'continentGuesser';
+  const resultMode = mode ?? historyMode;
+  const isCountryGuesserResult = resultMode === 'countryGuesser' || resultMode === 'continentGuesser';
   const maxScore = parsedRounds.length * (isCountryGuesserResult ? 1000 : 5000);
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
   const stars = useMemo(() => getStars(percentage), [percentage]);
@@ -430,12 +441,14 @@ export default function GameResultsScreen() {
       if (r.actualLat != null && r.actualLong != null) {
         coords.push({ latitude: r.actualLat, longitude: r.actualLong });
       }
-      if (r.guessLat != null && r.guessLong != null) {
+      if (!isCountryGuesserResult && r.guessLat != null && r.guessLong != null) {
         coords.push({ latitude: r.guessLat, longitude: r.guessLong });
       }
-      r.opponents?.forEach((opp) => {
-        coords.push({ latitude: opp.guessLat, longitude: opp.guessLong });
-      });
+      if (!isCountryGuesserResult) {
+        r.opponents?.forEach((opp) => {
+          coords.push({ latitude: opp.guessLat, longitude: opp.guessLong });
+        });
+      }
     });
 
     // Include extent corners so the map shows the full playable area
@@ -451,7 +464,7 @@ export default function GameResultsScreen() {
         animated: true,
       });
     }
-  }, [parsedRounds, getMapPadding, extent]);
+  }, [parsedRounds, getMapPadding, extent, isCountryGuesserResult]);
 
   const didInitialFit = useRef(false);
   useEffect(() => {
@@ -472,12 +485,14 @@ export default function GameResultsScreen() {
       if (round.actualLat != null && round.actualLong != null) {
         coords.push({ latitude: round.actualLat, longitude: round.actualLong });
       }
-      if (round.guessLat != null && round.guessLong != null) {
+      if (!isCountryGuesserResult && round.guessLat != null && round.guessLong != null) {
         coords.push({ latitude: round.guessLat, longitude: round.guessLong });
       }
-      round.opponents?.forEach((opp) => {
-        coords.push({ latitude: opp.guessLat, longitude: opp.guessLong });
-      });
+      if (!isCountryGuesserResult) {
+        round.opponents?.forEach((opp) => {
+          coords.push({ latitude: opp.guessLat, longitude: opp.guessLong });
+        });
+      }
 
       if (coords.length > 0) {
         mapRef.current.fitToCoordinates(coords, {
@@ -486,7 +501,7 @@ export default function GameResultsScreen() {
         });
       }
     },
-    [parsedRounds, getMapPadding],
+    [parsedRounds, getMapPadding, isCountryGuesserResult],
   );
 
   const handleRoundPress = useCallback(
@@ -628,7 +643,8 @@ export default function GameResultsScreen() {
   const renderMapMarkers = () =>
     parsedRounds.map((round, index) => {
       const hasActual = round.actualLat != null && round.actualLong != null;
-      const hasGuess = round.guessLat != null && round.guessLong != null;
+      const hasGuess =
+        !isCountryGuesserResult && round.guessLat != null && round.guessLong != null;
 
       if (activeRound !== null && activeRound !== index) return null;
 
@@ -693,7 +709,7 @@ export default function GameResultsScreen() {
             />
           )}
           {/* Opponent guesses */}
-          {hasActual && round.opponents?.map((opp) => (
+          {!isCountryGuesserResult && hasActual && round.opponents?.map((opp) => (
             <React.Fragment key={`opp-${index}-${opp.playerId}`}>
               <PinMarker
                 identifier={`opp-${index}-${opp.playerId}`}

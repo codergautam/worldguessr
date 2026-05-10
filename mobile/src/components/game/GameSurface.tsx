@@ -96,6 +96,8 @@ interface GameSurfaceProps {
   countryPicked?: string | null;
   /** ISO-2 (country) or continent name — the answer we'll mark as correct. */
   correctAnswer?: string | null;
+  /** Center point for a wrong country guess. Country mode only. */
+  countryGuessPosition?: { lat: number; lng: number } | null;
   onAnswerCountry?: (answer: string) => void;
 
   // ── slot props ──────────────────────────────────────────────────────────
@@ -136,6 +138,7 @@ function GameSurface(
     countryOptions = [],
     countryPicked = null,
     correctAnswer = null,
+    countryGuessPosition = null,
     onAnswerCountry,
     topLeftSlot,
     topCenterSlot,
@@ -474,6 +477,7 @@ function GameSurface(
             {mapMounted && (
               <GuessMap
                 guessPosition={computedGuessPosition}
+                countryGuessPosition={countryGuessPosition}
                 actualPosition={actualPosition}
                 onMapPress={(lat, lng) => {
                   if (isShowingResult) return;

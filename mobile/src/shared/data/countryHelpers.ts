@@ -1,9 +1,11 @@
 import countryNames from './countryNames.json';
 import continentMapping from './continentMapping.json';
 import countryList from './countries.json';
+import countryCoordinates from './countryCoordinates.json';
 
 const NAMES = countryNames as Record<string, string>;
 const CONTINENTS = continentMapping as Record<string, string>;
+const COUNTRY_COORDINATES = countryCoordinates as Record<string, { lat: number; lng: number }>;
 
 export const ALL_CONTINENTS = [
   'Africa',
@@ -26,6 +28,11 @@ export function nameFromCode(code?: string | null): string {
 export function continentFromCode(code?: string | null): string {
   if (!code) return 'Unknown';
   return CONTINENTS[code.toUpperCase()] || 'Unknown';
+}
+
+export function countryCenterFromCode(code?: string | null): { lat: number; lng: number } | null {
+  if (!code) return null;
+  return COUNTRY_COORDINATES[code.toUpperCase()] ?? null;
 }
 
 export function flagUrl(code: string, size: 'w40' | 'w80' | 'w160' | 'w320' = 'w160'): string {

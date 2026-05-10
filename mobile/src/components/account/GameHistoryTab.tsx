@@ -19,7 +19,11 @@ interface GameHistoryTabProps {
 interface Game {
   gameId: string;
   gameType: string;
-  settings: { location: string };
+  settings: {
+    location: string;
+    countryGuesser?: boolean;
+    countryGuessrSubMode?: 'country' | 'continent' | null;
+  };
   endedAt: string;
   userStats: {
     totalPoints: number;
@@ -83,7 +87,14 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
   const getGameType = (gameType: string) =>
     GAME_TYPES[gameType] || { label: gameType, icon: '🎮', color: '#757575' };
 
-  const getLocationDisplay = (location: string) => {
+  const getLocationDisplay = (settings: Game['settings']) => {
+    if (settings.countryGuesser) {
+      return settings.countryGuessrSubMode === 'continent'
+        ? 'Continent Guesser'
+        : 'Country Guesser';
+    }
+
+    const location = settings.location;
     if (location === 'all') return 'Worldwide';
     if (location && location.length === 2 && location === location.toUpperCase()) return location;
     return location || 'Unknown';
@@ -216,7 +227,7 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
               <View style={{ flexDirection: 'row', gap: 16, flex: 1 }}>
                 <View style={styles.gameDetail}>
                   <Text style={styles.gameDetailLabel}>Map</Text>
-                  <Text style={styles.gameDetailValue}>{getLocationDisplay(game.settings.location)}</Text>
+                  <Text style={styles.gameDetailValue}>{getLocationDisplay(game.settings)}</Text>
                 </View>
                 <View style={styles.gameDetail}>
                   <Text style={styles.gameDetailLabel}>Rounds</Text>

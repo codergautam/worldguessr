@@ -35,12 +35,13 @@ import MultiplayerEndBanner from '../../src/components/multiplayer/MultiplayerEn
 import GameChat from '../../src/components/multiplayer/GameChat';
 import {
   CountryGuesserSubMode,
+  COUNTRY_GUESSER_TOTAL_ROUNDS,
   SINGLEPLAYER_DEFAULT_MODE_KEY,
   defaultModeValueForSubMode,
   subModeFromDefaultMode,
 } from '../../src/hooks/useCountryGuesserGame';
 import useCountryGuesserGame from '../../src/hooks/useCountryGuesserGame';
-import { continentFromCode } from '../../src/shared/data/countryHelpers';
+import { continentFromCode, countryCenterFromCode } from '../../src/shared/data/countryHelpers';
 // Fetched at runtime from hosted URL (can't import from public/ in RN)
 let officialCountryMapsCache: any[] | null = null;
 async function getOfficialCountryMaps(): Promise<any[]> {
@@ -189,7 +190,13 @@ export default function GameScreen() {
 
   // Singleplayer game options
   const [currentMapSlug, setCurrentMapSlug] = useState(map || 'all');
-  const [currentMapName, setCurrentMapName] = useState('World');
+  const [currentMapName, setCurrentMapName] = useState(
+    initialCountrySubMode === 'continent'
+      ? 'Continent Guesser'
+      : initialCountrySubMode === 'country'
+        ? 'Country Guesser'
+        : 'World',
+  );
   const [countryGuesserSubMode, setCountryGuesserSubMode] = useState<CountryGuesserSubMode | null>(
     initialCountrySubMode,
   );
@@ -206,7 +213,9 @@ export default function GameScreen() {
 
   const [gameState, setGameState] = useState<GameState>({
     currentRound: 1,
-    totalRounds: rounds ? parseInt(rounds, 10) : DEFAULT_GAME_OPTIONS.totalRounds,
+    totalRounds: isSingleplayer
+      ? DEFAULT_GAME_OPTIONS.totalRounds
+      : (rounds ? parseInt(rounds, 10) : DEFAULT_GAME_OPTIONS.totalRounds),
     locations: [],
     guesses: [],
     totalScore: 0,
@@ -717,7 +726,7 @@ export default function GameScreen() {
       setGameState((prev) => ({
         ...prev,
         currentRound: 1,
-        totalRounds: 10,
+        totalRounds: COUNTRY_GUESSER_TOTAL_ROUNDS,
         guesses: [],
         totalScore: 0,
         isShowingResult: false,
@@ -743,7 +752,7 @@ export default function GameScreen() {
     setGameState((prev) => ({
       ...prev,
       currentRound: 1,
-      totalRounds: rounds ? parseInt(rounds, 10) : DEFAULT_GAME_OPTIONS.totalRounds,
+      totalRounds: DEFAULT_GAME_OPTIONS.totalRounds,
       guesses: [],
       totalScore: 0,
       isShowingResult: false,
@@ -754,7 +763,7 @@ export default function GameScreen() {
     setMiniMapShown(false);
     setStreetViewLoaded(false);
     setCountryGuesserSubMode(null);
-  }, [countryGuesserSubMode, currentMapSlug, rounds]);
+  }, [countryGuesserSubMode, currentMapSlug]);
 
   const completeCountryGuesserGame = useCallback(() => {
     const subMode = countryGuesserSubMode ?? 'country';
@@ -826,6 +835,13 @@ export default function GameScreen() {
       countryGame.currentLoc && activeCountryMode === 'continent'
         ? continentFromCode(countryGame.currentLoc.country)
         : countryGame.currentLoc?.country ?? null;
+    const countryGuessPosition =
+      isCountryGuesserMode &&
+      activeCountryMode === 'country' &&
+      countryGame.showResult &&
+      countryGame.lastResult?.points === 0
+        ? countryCenterFromCode(countryGame.picked)
+        : null;
 
     const singleplayerEndBanner = isCountryGuesserMode
       ? (countryGame.showResult && countryGame.lastResult && countryGame.currentLoc ? (
@@ -869,6 +885,7 @@ export default function GameScreen() {
           countryOptions={countryGame.otherOptions}
           countryPicked={countryGame.picked}
           correctAnswer={countryGame.showResult ? countryCorrectAnswer : null}
+          countryGuessPosition={countryGuessPosition}
           onAnswerCountry={countryGame.submit}
           loadingError={isCountryGuesserMode ? countryGame.loadError : loadError}
           onLoadingRetry={handleQuit}

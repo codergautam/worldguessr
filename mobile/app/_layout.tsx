@@ -110,14 +110,6 @@ export default function RootLayout() {
             name="onboarding/play"
             options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
           />
-          <Stack.Screen
-            name="countryGuesser/config"
-            options={{ headerShown: false, animation: 'slide_from_right' }}
-          />
-          <Stack.Screen
-            name="countryGuesser/play"
-            options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
-          />
         </Stack>
         <ToastProvider />
         <WsIndicator />
