@@ -2,7 +2,6 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState, memo } fr
 import dynamic from "next/dynamic";
 import { Circle, Marker, Polyline, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import { useTranslation } from '@/components/useTranslations';
-import { asset } from '@/lib/basePath';
 import { getPinIcons } from '@/lib/markerIcons';
 import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
@@ -769,6 +768,34 @@ const HintCircle = memo(function HintCircle({ location, gameOptions, round }) {
   return <Circle center={offsetCenter} radius={radiusMeters} className="hintCircle" />;
 });
 
+function copyLocation(location) {
+  if (!location || location.lat == null || location.long == null) return null;
+  return { ...location };
+}
+
+function copyCountryGuessPin(countryGuessPin) {
+  if (!countryGuessPin || countryGuessPin.lat == null || countryGuessPin.lng == null) return null;
+  return { lat: countryGuessPin.lat, lng: countryGuessPin.lng };
+}
+
+function copyMultiplayerAnswerPlayers(multiplayerState) {
+  return (multiplayerState?.gameData?.players || []).map((player) => ({
+    id: player.id,
+    username: player.username,
+    countryCode: player.countryCode,
+    guess: player.guess ? [player.guess[0], player.guess[1]] : null,
+  }));
+}
+
+function createAnswerSnapshot({ location, pinPoint, countryGuessPin, multiplayerState }) {
+  return {
+    location: copyLocation(location),
+    pinPoint,
+    countryGuessPin: copyCountryGuessPin(countryGuessPin),
+    players: copyMultiplayerAnswerPlayers(multiplayerState),
+  };
+}
+
 /* ===========================================================================
  *  Public component
  * ======================================================================== */
@@ -788,16 +815,37 @@ const MapComponent = ({
   round,
   gameOptions,
   countryGuessPin,
-  hidePins,
   stopCameraAnimations,
   resetKey,
   cameraCancelKey,
 }) => {
   const { t: text } = useTranslation("common");
-  const plopSound = useRef(null);
   // Single source of truth for "the reveal animation owns invalidateSize".
   // Lives on a ref so toggling it doesn't trigger renders.
   const resizingRef = useRef(false);
+  const answerSnapshotRef = useRef(null);
+
+  // The answer map can remain mounted while multiplayer has already advanced
+  // live props to the next round. Freeze every answer overlay input at reveal
+  // start so fade-out cannot expose the upcoming destination or clear old guesses.
+  if (answerShown && !answerSnapshotRef.current && location) {
+    answerSnapshotRef.current = createAnswerSnapshot({
+      location,
+      pinPoint,
+      countryGuessPin,
+      multiplayerState,
+    });
+  } else if (!answerShown && answerSnapshotRef.current) {
+    answerSnapshotRef.current = null;
+  }
+
+  const answerSnapshot = answerSnapshotRef.current;
+  const answerLocation = answerShown ? (answerSnapshot?.location || location) : location;
+  const renderedPinPoint = answerShown ? (answerSnapshot?.pinPoint || pinPoint) : pinPoint;
+  const answerCountryGuessPin = answerShown ? (answerSnapshot?.countryGuessPin || countryGuessPin) : countryGuessPin;
+  const answerPlayers = answerShown
+    ? (answerSnapshot?.players || multiplayerState?.gameData?.players || [])
+    : (multiplayerState?.gameData?.players || []);
 
   // Single canvas renderer reused across all polylines. Canvas avoids the SVG
   // overlay-pane desync during pan/zoom (one shared transform pipeline with
@@ -825,10 +873,13 @@ const MapComponent = ({
 
   // Distance reporting: when reveal lands and we have both points, compute km.
   useEffect(() => {
-    if (!(answerShown && pinPoint && location)) return;
-    const meters = pinPoint.distanceTo({ lat: location.lat, lng: location.long });
+    if (!(answerShown && renderedPinPoint && answerLocation)) return;
+    const guessLatLng = typeof renderedPinPoint.distanceTo === "function"
+      ? renderedPinPoint
+      : L.latLng(renderedPinPoint.lat, renderedPinPoint.lng);
+    const meters = guessLatLng.distanceTo({ lat: answerLocation.lat, lng: answerLocation.long });
     setKm(formatKm(meters));
-  }, [answerShown, pinPoint, location, setKm]);
+  }, [answerShown, renderedPinPoint, answerLocation, setKm]);
 
   // Tooltip strings — captured once per language change so we don't churn
   // memoized layers.
@@ -871,45 +922,43 @@ const MapComponent = ({
       <ExtentFitter extent={gameOptions?.extent} answerShown={answerShown} shown={shown} resetKey={resetKey} />
       <RevealController
         answerShown={answerShown}
-        dest={location}
-        pinPoint={pinPoint}
-        countryGuessPin={countryGuessPin}
+        dest={answerLocation}
+        pinPoint={renderedPinPoint}
+        countryGuessPin={answerCountryGuessPin}
         resizingRef={resizingRef}
         stopCameraAnimations={stopCameraAnimations}
         cameraCancelKey={cameraCancelKey}
       />
       <ContainerResizeBridge resizingRef={resizingRef} />
 
-      {answerShown && !hidePins && (
-        <DestMarker location={location} icon={icons.dest} />
+      {answerShown && (
+        <DestMarker location={answerLocation} icon={icons.dest} />
       )}
 
-      {!hidePins && (
-        <YourGuessLayer
-          pinPoint={pinPoint}
-          location={location}
-          icon={myIcon}
-          polylineRenderer={canvasRenderer}
-          showLine={Boolean(answerShown && location)}
-          tooltipText={yourGuessText}
-        />
-      )}
+      <YourGuessLayer
+        pinPoint={renderedPinPoint}
+        location={answerLocation}
+        icon={myIcon}
+        polylineRenderer={canvasRenderer}
+        showLine={Boolean(answerShown && answerLocation)}
+        tooltipText={yourGuessText}
+      />
 
-      {answerShown && !hidePins && (
+      {answerShown && (
         <CountryGuessLayer
-          countryGuessPin={countryGuessPin}
-          location={location}
+          countryGuessPin={answerCountryGuessPin}
+          location={answerLocation}
           icon={myIcon}
           polylineRenderer={canvasRenderer}
           tooltipText={yourGuessText}
         />
       )}
 
-      {answerShown && multiplayerState?.inGame && location && (
+      {answerShown && multiplayerState?.inGame && answerLocation && (
         <MultiplayerLayer
-          players={multiplayerState?.gameData?.players}
+          players={answerPlayers}
           myId={multiplayerState?.gameData?.myId}
-          dest={location}
+          dest={answerLocation}
           srcIcon={icons.src2}
           polandballIcon={icons.polandball}
           polylineRenderer={canvasRenderer}
@@ -938,8 +987,6 @@ const MapComponent = ({
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}
       />
-
-      <audio ref={plopSound} src={asset("/plop.mp3")} preload="auto" />
     </MapContainer>
   );
 };

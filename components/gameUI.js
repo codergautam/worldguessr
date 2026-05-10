@@ -906,7 +906,7 @@ session={session}/>
           </button>
         </div>
 )}
-        <MapWidget shown={mapReadyForCameraReset} focused={miniMapExpanded} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} guessed={false} guessing={false} location={mapLocationForRender} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} hidePins={false} stopCameraAnimations={mapFadingOutForRender || forceHideMiniMap} resetKey={mapCameraResetKey} cameraCancelKey={mapCameraCancelKey} />
+        <MapWidget shown={mapReadyForCameraReset} options={options} ws={ws} gameOptions={gameOptions} answerShown={showAnswerOnMap} session={session} showHint={hintShown} pinPoint={pinPoint} setPinPoint={setPinPoint} location={mapLocationForRender} setKm={setKm} multiplayerState={multiplayerState} countryGuessPin={guessedCountryCode && !countryGuesserCorrect && countryCoordinates[guessedCountryCode] ? countryCoordinates[guessedCountryCode] : null} stopCameraAnimations={mapFadingOutForRender || forceHideMiniMap} resetKey={mapCameraResetKey} cameraCancelKey={mapCameraCancelKey} />
 
 
         <div className={`miniMap__btns ${showAnswerOnMap ? 'answerShownBtns' : ''}`}>
