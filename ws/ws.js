@@ -8,6 +8,7 @@ import mongoose from 'mongoose';
 import { Filter } from 'bad-words';
 import Game from './classes/Game.js';
 import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
+import { getActivePlayerCount, getPlatformDistribution } from '../serverUtils/playerCounts.js';
 
 import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
@@ -270,20 +271,14 @@ app.get('/playercnt', (res) => {
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'text/plain');
   res.writeStatus('200 OK');
-  res.end(String(players.size - disconnectedPlayers.size));
+  res.end(String(getActivePlayerCount()));
 });
 
 app.get('/platformdist', (res) => {
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'application/json');
   res.writeStatus('200 OK');
-  const dist = {};
-  for (const player of players.values()) {
-    if (!player.verified || player.disconnected) continue;
-    const p = player.platform || 'empty';
-    dist[p] = (dist[p] || 0) + 1;
-  }
-  res.end(JSON.stringify(dist));
+  res.end(JSON.stringify(getPlatformDistribution()));
 });
 
 // maintenance mode
@@ -1351,11 +1346,12 @@ try {
   // update player count
   setInterval(() => {
 
+    const activePlayerCount = getActivePlayerCount();
     for (const player of players.values()) {
       if (player.verified && !player.gameId) {
         player.send({
           type: 'cnt',
-          c: players.size-disconnectedPlayers.size
+          c: activePlayerCount
         });
       }
       player.send({
