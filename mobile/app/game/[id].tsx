@@ -115,9 +115,10 @@ const EXPANDED_MAP_HEIGHT_RATIO = 0.5;
 const EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO = 0.6;
 
 export default function GameScreen() {
-  const { id, map, rounds, time, mode } = useLocalSearchParams<{
+  const { id, map, mapName, rounds, time, mode } = useLocalSearchParams<{
     id: string;
     map?: string;
+    mapName?: string;
     rounds?: string;
     time?: string;
     mode?: string;
@@ -195,7 +196,9 @@ export default function GameScreen() {
       ? 'Continent Guesser'
       : initialCountrySubMode === 'country'
         ? 'Country Guesser'
-        : 'World',
+        : map === 'all' || !map
+          ? 'World'
+          : mapName || map,
   );
   const [countryGuesserSubMode, setCountryGuesserSubMode] = useState<CountryGuesserSubMode | null>(
     initialCountrySubMode,
@@ -242,6 +245,7 @@ export default function GameScreen() {
   const mapBtnsAnim = useRef(new Animated.Value(0)).current; // 0 = hidden, 1 = shown
   const bannerSlideAnim = useRef(new Animated.Value(300)).current;
   const fabScaleAnim = useRef(new Animated.Value(1)).current;
+  const singleplayerTopRightAnim = useRef(new Animated.Value(1)).current;
   const hasCompletedInitialReveal = useRef(false);
 
   // Mount map eagerly once game loads — prevents first-touch being swallowed
@@ -253,6 +257,15 @@ export default function GameScreen() {
       return () => clearTimeout(timer);
     }
   }, [isLoading, mapMounted]);
+
+  useEffect(() => {
+    Animated.timing(singleplayerTopRightAnim, {
+      toValue: mapModalVisible ? 0 : 1,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [mapModalVisible, singleplayerTopRightAnim]);
 
   // Ref to prevent the useEffect from snapping opacity when handleNextRound
   // is already running a manual fade-in animation
@@ -672,7 +685,12 @@ export default function GameScreen() {
         pathname: '/game/results',
         params: {
           totalScore: gameState.totalScore.toString(),
-          rounds: JSON.stringify(gameState.guesses),
+          rounds: JSON.stringify(gameState.guesses.map((g) => ({
+            ...g,
+            xpEarned: secret && (currentMapSlug === 'all' || (currentMapSlug.length === 2 && currentMapSlug === currentMapSlug.toUpperCase()))
+              ? Math.round(g.points / 50)
+              : 0,
+          }))),
           extent: gameState.extent ? JSON.stringify(gameState.extent) : '',
         },
       });
@@ -802,6 +820,7 @@ export default function GameScreen() {
             actualLong: result.actualLong,
             panoId: result.panoId,
             points: result.points,
+            xpEarned: secret && result.points > 0 ? 20 : 0,
             distance: 0,
             timeTaken: result.timeTaken,
             country: result.country,
@@ -862,6 +881,9 @@ export default function GameScreen() {
             round={gameState.currentRound}
             totalRounds={gameState.totalRounds}
             points={lastGuess.points}
+            xpEarned={secret && (currentMapSlug === 'all' || (currentMapSlug.length === 2 && currentMapSlug === currentMapSlug.toUpperCase()))
+              ? Math.round(lastGuess.points / 50)
+              : 0}
             distance={lastGuess.distance}
             didGuess={!(lastGuess.guessLat === 0 && lastGuess.guessLong === 0)}
             onNext={handleNextRound}
@@ -914,7 +936,21 @@ export default function GameScreen() {
             </Pressable>
           }
           topRightSlot={
-            <View style={styles.singleplayerTopRightSlot}>
+            <Animated.View
+              pointerEvents={mapModalVisible ? 'none' : 'auto'}
+              style={[
+                styles.singleplayerTopRightSlot,
+                {
+                  opacity: singleplayerTopRightAnim,
+                  transform: [{
+                    translateX: singleplayerTopRightAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [80, 0],
+                    }),
+                  }],
+                },
+              ]}
+            >
               <Pressable
                 disabled={activeShowingResult}
                 style={({ pressed }) => [
@@ -939,7 +975,7 @@ export default function GameScreen() {
                 totalScore={activeTotalScore}
                 showTimer={!isCountryGuesserMode && timerEnabled && !activeShowingResult}
               />
-            </View>
+            </Animated.View>
           }
           endBannerContent={singleplayerEndBanner}
         />
@@ -961,7 +997,9 @@ export default function GameScreen() {
               ? 'continent'
               : countryGuesserSubMode === 'country'
                 ? 'country'
-                : 'world'
+                : currentMapSlug === 'all'
+                  ? 'world'
+                  : null
           }
         />
       </View>

@@ -157,6 +157,7 @@ export default function GameResultsScreen() {
 
   const isHistoryView = fromHistory === 'true';
   const isLiveMultiplayer = mpParam === 'true';
+  const secret = useAuthStore((s) => s.secret);
 
   // History mode: fetch game details and transform into RoundResult[]
   const [historyLoading, setHistoryLoading] = useState(!!gameId && !rounds);
@@ -344,6 +345,11 @@ export default function GameResultsScreen() {
   const maxScore = parsedRounds.length * (isCountryGuesserResult ? 1000 : 5000);
   const percentage = maxScore > 0 ? (score / maxScore) * 100 : 0;
   const stars = useMemo(() => getStars(percentage), [percentage]);
+  const totalXpEarned = useMemo(
+    () => parsedRounds.reduce((sum, round) => sum + (round.xpEarned ?? 0), 0),
+    [parsedRounds],
+  );
+  const showXpEarned = !!secret && totalXpEarned > 0 && !multiplayerInfo?.isDuel;
 
   const [activeRound, setActiveRound] = useState<number | null>(null);
   const [detailsExpanded, setDetailsExpanded] = useState(false);
@@ -367,6 +373,8 @@ export default function GameResultsScreen() {
   // Animated score counter
   const animatedValue = useRef(new Animated.Value(0)).current;
   const [displayScore, setDisplayScore] = useState(0);
+  const animatedXpValue = useRef(new Animated.Value(0)).current;
+  const [displayXp, setDisplayXp] = useState(0);
 
   useEffect(() => {
     animatedValue.setValue(0);
@@ -385,6 +393,24 @@ export default function GameResultsScreen() {
       animatedValue.removeListener(listener);
     };
   }, [score]);
+
+  useEffect(() => {
+    animatedXpValue.setValue(0);
+    const listener = animatedXpValue.addListener(({ value }) => {
+      setDisplayXp(Math.round(value));
+    });
+
+    Animated.timing(animatedXpValue, {
+      toValue: totalXpEarned,
+      duration: 1200,
+      easing: (t: number) => 1 - Math.pow(1 - t, 3),
+      useNativeDriver: false,
+    }).start();
+
+    return () => {
+      animatedXpValue.removeListener(listener);
+    };
+  }, [totalXpEarned]);
 
   // Star entrance animations
   const starAnims = useRef(stars.map(() => new Animated.Value(0))).current;
@@ -561,6 +587,13 @@ export default function GameResultsScreen() {
     }
     router.dismissAll();
   };
+  const handleBackPress = () => {
+    if (isHistoryView) {
+      router.back();
+      return;
+    }
+    handleGoHome();
+  };
 
   // ── Helper: find my ELO data for duel header ─────────────
   const myEloData = useMemo(() => {
@@ -659,7 +692,7 @@ export default function GameResultsScreen() {
             >
               <Callout onPress={() => openInGoogleMaps(round.actualLat!, round.actualLong!, round.panoId)}>
                 <View style={styles.calloutContainer}>
-                  <Text style={styles.calloutTitle}>Round {index + 1} — Actual Location</Text>
+                  <Text style={styles.calloutTitle}>Round {index + 1} - Actual Location</Text>
                   <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
                     {round.points.toLocaleString()} points
                   </Text>
@@ -684,7 +717,7 @@ export default function GameResultsScreen() {
             >
               <Callout>
                 <View style={styles.calloutContainer}>
-                  <Text style={styles.calloutTitle}>Round {index + 1} — Your Guess</Text>
+                  <Text style={styles.calloutTitle}>Round {index + 1} - Your Guess</Text>
                   <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
                     {round.points.toLocaleString()} points
                   </Text>
@@ -811,6 +844,11 @@ export default function GameResultsScreen() {
               </Animated.View>
             ))}
           </View>
+          {showXpEarned && (
+            <View style={[styles.headerXpBadge, compact && styles.headerXpBadgeCompact]}>
+              <Text style={styles.totalXpBadgeText}>+{displayXp} XP</Text>
+            </View>
+          )}
           {/* Multiplayer rank */}
           {myRank && (
             <Text style={[styles.rankText, compact && { fontSize: 14 }]}>
@@ -1075,6 +1113,24 @@ export default function GameResultsScreen() {
       </Modal>
     );
   };
+  const renderBackButton = () => (
+    <Pressable
+      style={({ pressed }) => [
+        styles.backButton,
+        pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
+      ]}
+      onPress={handleBackPress}
+    >
+      <LinearGradient
+        colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)', 'rgba(255,112,112,0.9)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.backButtonGradient}
+      >
+        <Ionicons name="arrow-back" size={22} color={colors.white} />
+      </LinearGradient>
+    </Pressable>
+  );
 
   // ── Rounds list ────────────────────────────────────────────
   const renderRoundsList = () => (
@@ -1117,11 +1173,9 @@ export default function GameResultsScreen() {
               {/* Round header row */}
               <View style={styles.roundItemHeader}>
                 <Text style={styles.roundNumber}>Round {index + 1}</Text>
-                {round.timeTaken != null && round.timeTaken > 0 && (
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontFamily: 'Lexend' }}>
-                    {formatTime(round.timeTaken)}
-                  </Text>
-                )}
+                <Text style={[styles.roundPts, { color: getPointsColor(round.points) }]}>
+                  {round.points.toLocaleString()} pts
+                </Text>
               </View>
 
               {/* Duel: side-by-side comparison */}
@@ -1174,14 +1228,7 @@ export default function GameResultsScreen() {
                   </View>
                 </View>
               ) : (
-                <>
-                  {/* Standard: points + details */}
-                  <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 }}>
-                    <Text style={[styles.roundPts, { color: getPointsColor(round.points) }]}>
-                      {round.points.toLocaleString()} pts
-                    </Text>
-                  </View>
-                </>
+                null
               )}
 
               {/* Detail rows — shown for non-duel types only */}
@@ -1276,6 +1323,9 @@ export default function GameResultsScreen() {
             </LinearGradient>
           </View>
         </View>
+        <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>
+          {renderBackButton()}
+        </View>
         {renderReportModal()}
       </View>
     );
@@ -1318,6 +1368,9 @@ export default function GameResultsScreen() {
       >
         {renderMapMarkers()}
       </MapView>
+      <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>
+        {renderBackButton()}
+      </View>
 
       {/* Bottom panel — matches web .game-summary-sidebar on mobile */}
       <Animated.View
@@ -1432,9 +1485,31 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 2,
   },
+  backButtonContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    zIndex: 2000,
+    paddingLeft: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  backButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  backButtonGradient: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.4,
+    borderColor: '#85200c',
+  },
 
   // ── Header section (stars, score, buttons) ─────────────────
   header: {
+    position: 'relative',
     alignItems: 'center',
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
@@ -1466,6 +1541,21 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 2,
     marginBottom: spacing.md,
+  },
+  headerXpBadge: {
+    position: 'absolute',
+    top: spacing.lg,
+    right: spacing.lg,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 193, 7, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 193, 7, 0.35)',
+  },
+  headerXpBadgeCompact: {
+    top: spacing.sm,
+    right: spacing.md,
   },
 
   // Buttons row inside header
@@ -1529,6 +1619,11 @@ const styles = StyleSheet.create({
   roundsHeaderText: {
     color: colors.white,
     fontSize: fontSizes.md,
+    fontFamily: 'Lexend-Bold',
+  },
+  totalXpBadgeText: {
+    color: '#FFC107',
+    fontSize: fontSizes.xs,
     fontFamily: 'Lexend-Bold',
   },
   roundItem: {

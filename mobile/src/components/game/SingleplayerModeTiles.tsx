@@ -7,7 +7,7 @@ import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 export type SingleplayerModeTile = 'world' | 'country' | 'continent';
 
 interface Props {
-  currentMode: SingleplayerModeTile;
+  currentMode?: SingleplayerModeTile | null;
   searchQuery?: string;
   onSelect: (mode: SingleplayerModeTile) => void;
 }

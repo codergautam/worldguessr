@@ -10,8 +10,15 @@ export default function MapDetailScreen() {
   const slug = params.slug;
   const router = useRouter();
 
-  const handlePlay = useCallback((mapSlug: string) => {
-    router.push(`/game/singleplayer?map=${mapSlug}` as any);
+  const handlePlay = useCallback((mapSlug: string, name: string) => {
+    router.push({
+      pathname: '/game/[id]',
+      params: {
+        id: 'singleplayer',
+        map: mapSlug,
+        mapName: name,
+      },
+    });
   }, [router]);
 
   const handleBack = useCallback(() => {

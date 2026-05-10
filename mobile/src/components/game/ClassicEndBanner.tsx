@@ -7,6 +7,7 @@ interface Props {
   round: number;
   totalRounds: number;
   points: number;
+  xpEarned?: number;
   distance?: number | null;
   didGuess?: boolean;
   onNext: () => void;
@@ -32,6 +33,7 @@ export default function ClassicEndBanner({
   round,
   totalRounds,
   points,
+  xpEarned = 0,
   distance,
   didGuess = true,
   onNext,
@@ -54,6 +56,11 @@ export default function ClassicEndBanner({
       <Text style={[styles.points, { color: getPointsColor(points) }]}>
         {points.toLocaleString()} points
       </Text>
+      {xpEarned > 0 ? (
+        <View style={styles.xpChip}>
+          <Text style={styles.xpChipText}>+{xpEarned} XP</Text>
+        </View>
+      ) : null}
       {factText ? <Text style={styles.fact}>{factText}</Text> : null}
       <Pressable onPress={onNext} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
         <LinearGradient
@@ -98,6 +105,19 @@ const styles = StyleSheet.create({
   points: {
     fontFamily: 'Lexend-Bold',
     fontSize: fontSizes['2xl'],
+  },
+  xpChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 193, 7, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 193, 7, 0.35)',
+  },
+  xpChipText: {
+    color: colors.warning,
+    fontFamily: 'Lexend-Bold',
+    fontSize: fontSizes.xs,
   },
   fact: {
     color: 'rgba(255,255,255,0.75)',

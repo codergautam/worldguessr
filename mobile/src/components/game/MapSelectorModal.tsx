@@ -36,7 +36,7 @@ interface MapSelectorModalProps {
   onTimerDurationChange: (s: number) => void;
   showOptions?: boolean;
   showSingleplayerModes?: boolean;
-  currentSingleplayerMode?: SingleplayerModeTile;
+  currentSingleplayerMode?: SingleplayerModeTile | null;
   /** Optional rounds stepper (for party mode) */
   rounds?: number;
   onRoundsChange?: (r: number) => void;
@@ -61,7 +61,7 @@ export default function MapSelectorModal({
   onTimerDurationChange,
   showOptions = true,
   showSingleplayerModes = false,
-  currentSingleplayerMode = 'world',
+  currentSingleplayerMode = null,
   rounds,
   onRoundsChange,
 }: MapSelectorModalProps) {
@@ -350,7 +350,7 @@ export default function MapSelectorModal({
       <Animated.View
         style={[styles.backdrop, { opacity: backdropAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }) }]}
       >
-        <Pressable style={StyleSheet.absoluteFillObject} onPress={animateClose} />
+        <Pressable style={StyleSheet.absoluteFillObject} onPress={() => animateClose()} />
       </Animated.View>
 
       {/* Sheet */}
@@ -383,7 +383,7 @@ export default function MapSelectorModal({
               <Text style={styles.headerTitle}>Game Options</Text>
               <Pressable
                 style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
-                onPress={animateClose}
+                onPress={() => animateClose()}
               >
                 <Ionicons name="checkmark" size={24} color="#fff" />
               </Pressable>
