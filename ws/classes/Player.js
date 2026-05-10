@@ -2,11 +2,12 @@ import validateSecret from "../../serverUtils/validateSecret.js";
 import make6DigitCode from "../../serverUtils/make6DigitCode.js";
 import isValidTimezone from "../../serverUtils/isValidTimezone.js";
 import moment from "moment";
-import { disconnectedPlayers, games, players, getOnlinePlayerCount } from "../../serverUtils/states.js";
+import { disconnectedPlayers, games, players } from "../../serverUtils/states.js";
 import User from "../../models/User.js";
 import { getLeague } from "../../components/utils/leagues.js";
 import { setElo } from "../../api/eloRank.js";
 import { createUUID } from "../../components/createUUID.js";
+import { getActivePlayerCount } from "../../serverUtils/playerCounts.js";
 export default class Player {
   constructor(ws, id, ip, username=null, accountId=null, gameId=null) {
     this.id = id;
@@ -146,7 +147,7 @@ export default class Player {
       });
       dcPlayer.send({
         type: 'cnt',
-        c: getOnlinePlayerCount()
+        c: getActivePlayerCount()
       });
 
 
@@ -198,7 +199,7 @@ export default class Player {
           });
           this.send({
             type: 'cnt',
-            c: getOnlinePlayerCount()
+            c: getActivePlayerCount()
           })
         }
 
@@ -287,7 +288,7 @@ export default class Player {
           });
           this.send({
             type: 'cnt',
-            c: getOnlinePlayerCount()
+            c: getActivePlayerCount()
           })
 
           // Always update lastLogin on verify

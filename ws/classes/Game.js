@@ -19,7 +19,7 @@ import shuffle from "../../utils/shuffle.js";
 import continentMapping from '../../public/continentMapping.json' with {type: "json"};
 
 export default class Game {
-  constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
+  constructor(id, publicLobby, location="all", rounds=2, allLocations, isDuel=false) {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};

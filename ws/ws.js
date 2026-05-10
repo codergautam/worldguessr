@@ -8,9 +8,10 @@ import mongoose from 'mongoose';
 import { Filter } from 'bad-words';
 import Game from './classes/Game.js';
 import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
+import { getActivePlayerCount, getPlatformDistribution } from '../serverUtils/playerCounts.js';
 
 import lookup from "coordinate_to_country"
-import { players, games, disconnectedPlayers, getOnlinePlayerCount } from '../serverUtils/states.js';
+import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
 import { getLeagueRange, leagues } from '../components/utils/leagues.js';
@@ -52,7 +53,13 @@ function pick5RandomArb() {
   while(rand.size < 5) {
     rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
   }
-  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: r.country || 'unknown' }));
+  return [...rand].map((r) => {
+    const loc = { lat: r.lat, long: r.lng, country: r.country || 'unknown' };
+    if (r.heading !== undefined && r.heading !== null) loc.heading = r.heading;
+    if (r.pitch !== undefined && r.pitch !== null) loc.pitch = r.pitch;
+    if (r.panoId) loc.panoId = r.panoId;
+    return loc;
+  });
 }
 
 
@@ -270,20 +277,14 @@ app.get('/playercnt', (res) => {
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'text/plain');
   res.writeStatus('200 OK');
-  res.end(String(getOnlinePlayerCount()));
+  res.end(String(getActivePlayerCount()));
 });
 
 app.get('/platformdist', (res) => {
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'application/json');
   res.writeStatus('200 OK');
-  const dist = {};
-  for (const player of players.values()) {
-    if (!player.verified || player.disconnected) continue;
-    const p = player.platform || 'empty';
-    dist[p] = (dist[p] || 0) + 1;
-  }
-  res.end(JSON.stringify(dist));
+  res.end(JSON.stringify(getPlatformDistribution()));
 });
 
 // maintenance mode
@@ -1351,12 +1352,12 @@ try {
   // update player count
   setInterval(() => {
 
-    const onlineCnt = getOnlinePlayerCount();
+    const activePlayerCount = getActivePlayerCount();
     for (const player of players.values()) {
       if (player.verified && !player.gameId) {
         player.send({
           type: 'cnt',
-          c: onlineCnt
+          c: activePlayerCount
         });
       }
       player.send({
