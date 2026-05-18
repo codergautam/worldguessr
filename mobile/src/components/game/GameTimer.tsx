@@ -1,5 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { Text, StyleSheet, Animated, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Text, StyleSheet, Platform } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 import { colors } from '../../shared';
 import { fontSizes } from '../../styles/theme';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
@@ -17,6 +25,7 @@ interface GameTimerProps {
   serverEndTime?: number;
   /** Time offset between client and server clocks (from wsService.timeOffset) */
   timeOffset?: number;
+  criticalEnabled?: boolean;
 }
 
 export default function GameTimer({
@@ -30,9 +39,10 @@ export default function GameTimer({
   showTimer = true,
   serverEndTime,
   timeOffset = 0,
+  criticalEnabled = true,
 }: GameTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState(initialTime);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseScale = useSharedValue(1);
   const isServerDriven = serverEndTime !== undefined && serverEndTime > 0;
   const { displayed: displayedScore, animating: scoreAnimating } = useAnimatedNumber(totalScore);
 
@@ -85,28 +95,28 @@ export default function GameTimer({
   }, [isServerDriven, showTimer, isPaused, timeRemaining <= 0, onTimeUp]);
 
   // Pulse animation when critical (<=5s)
-  const isCritical = showTimer && timeRemaining <= 5 && timeRemaining > 0 && !isPaused;
+  const isInfiniteRound = initialTime === 86400000 && timeRemaining > 120;
+  const shouldShowCountdown = showTimer && !isInfiniteRound && timeRemaining > 0;
+  const isCritical = criticalEnabled && shouldShowCountdown && timeRemaining <= 5 && !isPaused;
   useEffect(() => {
     if (isCritical) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.05,
-            duration: 500,
-            useNativeDriver: false,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: false,
-          }),
-        ]),
-      ).start();
+      pulseScale.value = withRepeat(
+        withSequence(
+          withTiming(1.05, { duration: 500 }),
+          withTiming(1, { duration: 500 }),
+        ),
+        -1,
+        false,
+      );
     } else {
-      pulseAnim.stopAnimation();
-      pulseAnim.setValue(1);
+      cancelAnimation(pulseScale);
+      pulseScale.value = withTiming(1, { duration: 150 });
     }
-  }, [isCritical]);
+  }, [isCritical, pulseScale]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseScale.value }],
+  }));
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -122,14 +132,14 @@ export default function GameTimer({
       style={[
         styles.pill,
         isCritical && styles.pillCritical,
-        { transform: [{ scale: pulseAnim }] },
+        pulseStyle,
       ]}
     >
       <Text style={styles.roundLabel}>
-        Round {currentRound} of {totalRounds}
+        {isInfiniteRound ? `Round ${currentRound}/${totalRounds}` : `Round ${currentRound} of ${totalRounds}`}
       </Text>
       <Text style={styles.mainRow}>
-        {showTimer && timeRemaining > 0 ? (
+        {shouldShowCountdown ? (
           <>
             <Text style={[styles.countdown, isCritical && styles.countdownCritical]}>
               {formatTime(timeRemaining)}s
@@ -198,7 +208,7 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   countdownCritical: {
-    color: '#fff',
+    color: '#fecaca',
   },
   separator: {
     color: 'rgba(255, 255, 255, 0.6)',

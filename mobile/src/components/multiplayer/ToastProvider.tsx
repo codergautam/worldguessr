@@ -1,34 +1,39 @@
 /**
- * Simple toast notification system for multiplayer events.
- * Subscribes to multiplayerStore.latestToast and shows animated banners.
- * Uses locale strings from public/locales/en/common.json for messages.
+ * Toast notification surface for server-driven multiplayer events.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ComponentProps } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  Animated,
-  Easing,
   Platform,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { colors } from '../../shared';
 import { spacing, fontSizes } from '../../styles/theme';
 import { useMultiplayerStore, ToastData } from '../../store/multiplayerStore';
 import localeStrings from '../../shared/locales-en.json';
 
-const TOAST_DURATION = 3000;
+const TOAST_DURATION = 4000;
+const HIDDEN_Y = -120;
+type IoniconName = ComponentProps<typeof Ionicons>['name'];
 
-/** Look up a toast key in locale strings and interpolate {{var}} placeholders */
-function resolveToastMessage(key: string, vars?: Record<string, string | number>): string {
-  const template = (localeStrings as Record<string, string>)[key];
+function resolveToastMessage(key: string, vars?: Record<string, string | number>, fallback?: string): string {
+  const template = (localeStrings as Record<string, string>)[key] ?? fallback;
   if (!template) return key;
   if (!vars) return template;
-  return template.replace(/\{\{(\w+)\}\}/g, (_, varName) =>
-    vars[varName] !== undefined ? String(vars[varName]) : `{{${varName}}}`
+  return template.replace(/\{\{(\w+)\}\}/g, (_, varName: string) =>
+    vars[varName] !== undefined ? String(vars[varName]) : `{{${varName}}}`,
   );
 }
 
@@ -37,63 +42,67 @@ export default function ToastProvider() {
   const latestToast = useMultiplayerStore((s) => s.latestToast);
   const [visible, setVisible] = useState(false);
   const [currentToast, setCurrentToast] = useState<ToastData | null>(null);
-  const slideAnim = useRef(new Animated.Value(-100)).current;
+  const translateY = useSharedValue(HIDDEN_Y);
+  const opacity = useSharedValue(0);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const finishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    // Clear previous timer on any change
+  const clearTimers = useCallback(() => {
     if (hideTimer.current) {
       clearTimeout(hideTimer.current);
       hideTimer.current = null;
     }
+    if (finishTimer.current) {
+      clearTimeout(finishTimer.current);
+      finishTimer.current = null;
+    }
+  }, []);
+
+  const dismiss = useCallback(() => {
+    clearTimers();
+    translateY.value = withTiming(HIDDEN_Y, {
+      duration: 250,
+      easing: Easing.in(Easing.cubic),
+    });
+    opacity.value = withTiming(0, { duration: 200 });
+    finishTimer.current = setTimeout(() => {
+      setVisible(false);
+      setCurrentToast(null);
+    }, 260);
+  }, [clearTimers, opacity, translateY]);
+
+  useEffect(() => {
+    clearTimers();
 
     if (!latestToast) {
-      // Store was reset — dismiss any visible toast immediately
-      if (visible) {
-        Animated.timing(slideAnim, {
-          toValue: -100,
-          duration: 150,
-          easing: Easing.in(Easing.ease),
-          useNativeDriver: true,
-        }).start(() => {
-          setVisible(false);
-          setCurrentToast(null);
-        });
-      }
+      dismiss();
       return;
     }
 
     setCurrentToast(latestToast);
     setVisible(true);
-
-    // Slide in
-    slideAnim.setValue(-100);
-    Animated.timing(slideAnim, {
-      toValue: 0,
+    translateY.value = HIDDEN_Y;
+    opacity.value = 0;
+    translateY.value = withTiming(0, {
       duration: 300,
       easing: Easing.out(Easing.back(1.2)),
-      useNativeDriver: true,
-    }).start();
+    });
+    opacity.value = withTiming(1, { duration: 180 });
+    hideTimer.current = setTimeout(dismiss, TOAST_DURATION);
+  }, [clearTimers, dismiss, latestToast, opacity, translateY]);
 
-    // Auto-hide
-    hideTimer.current = setTimeout(() => {
-      Animated.timing(slideAnim, {
-        toValue: -100,
-        duration: 250,
-        easing: Easing.in(Easing.ease),
-        useNativeDriver: true,
-      }).start(() => {
-        setVisible(false);
-        setCurrentToast(null);
-      });
-    }, TOAST_DURATION);
-  }, [latestToast]);
+  useEffect(() => clearTimers, [clearTimers]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   if (!visible || !currentToast) return null;
 
-  const message = resolveToastMessage(currentToast.key, currentToast.vars);
+  const message = resolveToastMessage(currentToast.key, currentToast.vars, currentToast.message);
 
-  const iconName =
+  const iconName: IoniconName =
     currentToast.toastType === 'success'
       ? 'checkmark-circle'
       : currentToast.toastType === 'error'
@@ -105,7 +114,7 @@ export default function ToastProvider() {
       ? colors.success
       : currentToast.toastType === 'error'
         ? colors.error
-        : colors.primary;
+        : '#60a5fa';
 
   return (
     <Animated.View
@@ -113,17 +122,20 @@ export default function ToastProvider() {
         styles.container,
         {
           top: insets.top + spacing.sm,
-          transform: [{ translateY: slideAnim }],
         },
+        animatedStyle,
       ]}
-      pointerEvents="none"
+      pointerEvents="box-none"
     >
-      <View style={[styles.toast, { borderLeftColor: iconColor }]}>
-        <Ionicons name={iconName as any} size={20} color={iconColor} />
+      <Pressable
+        onPress={dismiss}
+        style={({ pressed }) => [styles.toast, { borderLeftColor: iconColor }, pressed && styles.toastPressed]}
+      >
+        <Ionicons name={iconName} size={20} color={iconColor} />
         <Text style={styles.text} numberOfLines={2}>
           {message}
         </Text>
-      </View>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -157,6 +169,9 @@ const styles = StyleSheet.create({
       },
       android: { elevation: 6 },
     }),
+  },
+  toastPressed: {
+    opacity: 0.85,
   },
   text: {
     color: colors.white,

@@ -32,6 +32,11 @@ export default function WsIndicator() {
   const connectingStartTime = useRef<number | null>(null);
   const connectingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track whether we've ever reached a connected state. Until then, the
+  // (connected=false, connecting=false) state is just the pre-bootstrap
+  // limbo before useWebSocket sets connecting:true — NOT a real disconnect,
+  // so we mustn't flash the red indicator on every cold start.
+  const hasEverConnected = useRef(false);
 
   // Pulse animation loop
   useEffect(() => {
@@ -78,54 +83,53 @@ export default function WsIndicator() {
         connectingStartTime.current = Date.now();
         connectingTimer.current = setTimeout(() => {
           setShowIcon(true);
-          Animated.timing(slideAnim, {
-            toValue: 0,
-            duration: 300,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }).start();
         }, 3000);
       }
     } else if (!connected) {
-      // Disconnected — show red immediately
-      setShowIcon(true);
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
+      // Real disconnect — show red immediately, but ONLY if we've previously
+      // been connected. On the very first render we're in (false,false) limbo
+      // before useWebSocket flips connecting:true; flashing red there is just
+      // noise.
+      if (hasEverConnected.current) {
+        setShowIcon(true);
+      }
     } else if (connected && !wasConnected) {
+      hasEverConnected.current = true;
       // Just reconnected
       const timeSinceConnecting = connectingStartTime.current
         ? Date.now() - connectingStartTime.current
         : 0;
 
       if (timeSinceConnecting >= 3000 && showIcon) {
-        // Was showing indicator — show green briefly then slide out
+        // Was showing indicator — keep visible (green) briefly then hide
         hideTimer.current = setTimeout(() => {
-          Animated.timing(slideAnim, {
-            toValue: 80,
-            duration: 300,
-            easing: Easing.in(Easing.cubic),
-            useNativeDriver: true,
-          }).start(() => setShowIcon(false));
+          setShowIcon(false);
         }, 1500);
       } else {
         // Fast connect — stay hidden
         setShowIcon(false);
-        slideAnim.setValue(80);
       }
       connectingStartTime.current = null;
     } else if (connected) {
       // Already connected — hide
       setShowIcon(false);
-      slideAnim.setValue(80);
     }
 
     prevConnected.current = connected;
     prevConnecting.current = connecting;
   }, [connected, connecting]);
+
+  // Drive slide animation after React commits the new showIcon state.
+  // Starting animations inline above could fire before the View is mounted,
+  // making the icon pop in (or never slide) instead of gliding from off-screen.
+  useEffect(() => {
+    Animated.timing(slideAnim, {
+      toValue: showIcon ? 0 : 80,
+      duration: 350,
+      easing: showIcon ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [showIcon, slideAnim]);
 
   // Cleanup timers
   useEffect(() => {
@@ -135,7 +139,9 @@ export default function WsIndicator() {
     };
   }, []);
 
-  if (!showIcon) return null;
+  // NOTE: do NOT return null when hidden — that would unmount the View and
+  // cancel the slide-out animation. We keep it mounted and let `slideAnim`
+  // translate it off-screen (translateX: 80).
 
   const color = connected
     ? COLOR_CONNECTED

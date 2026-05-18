@@ -47,6 +47,7 @@ export default function PartyCreateScreen() {
   const serverTimePerRound = useMultiplayerStore((s) => s.gameData?.timePerRound);
   const serverDisplayLocation = useMultiplayerStore((s) => s.gameData?.displayLocation);
   const serverNm = useMultiplayerStore((s) => s.gameData?.nm);
+  const serverGenerated = useMultiplayerStore((s) => s.gameData?.generated);
   const [codeCopied, setCodeCopied] = useState(false);
   const copyIconScale = useRef(new Animated.Value(1)).current;
   const sentRef = useRef(false);
@@ -112,7 +113,16 @@ export default function PartyCreateScreen() {
     }
   }, [rounds, timePerRound, nmpz, mapSlug, mapName, isHost]);
 
+  const playerCount = players?.length ?? 0;
+  const generatingTotal = serverRounds ?? rounds;
+  const generatedCount = Math.min(serverGenerated ?? generatingTotal, generatingTotal);
+  const isGenerating = generatedCount < generatingTotal;
+
   const handleStart = () => {
+    if (isGenerating) {
+      Alert.alert('Generating Locations', 'Please wait for all locations to finish generating.');
+      return;
+    }
     if (!players || players.length < 2) {
       Alert.alert('Need Players', 'You need at least 2 players to start.');
       return;
@@ -151,8 +161,6 @@ export default function PartyCreateScreen() {
     useMultiplayerStore.getState().reset();
     router.dismissAll();
   };
-
-  const playerCount = players?.length ?? 0;
 
   if (!inGame || !gameCode) {
     return (
@@ -228,6 +236,24 @@ export default function PartyCreateScreen() {
             />
           </View>
 
+          {isGenerating && (
+            <View style={styles.generatingBox}>
+              <View style={styles.generatingHeader}>
+                <Text style={styles.generatingText}>
+                  Generating locations: {generatedCount}/{generatingTotal}
+                </Text>
+              </View>
+              <View style={styles.progressTrack}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${generatingTotal > 0 ? (generatedCount / generatingTotal) * 100 : 0}%` },
+                  ]}
+                />
+              </View>
+            </View>
+          )}
+
           {!isHost && (
             <Text style={styles.waitingText}>
               Waiting for host to start...
@@ -270,14 +296,16 @@ export default function PartyCreateScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.startBtn,
-                playerCount < 2 && styles.startBtnDisabled,
-                pressed && playerCount >= 2 && { opacity: 0.85 },
+                (playerCount < 2 || isGenerating) && styles.startBtnDisabled,
+                pressed && playerCount >= 2 && !isGenerating && { opacity: 0.85 },
               ]}
               onPress={handleStart}
-              disabled={playerCount < 2}
+              disabled={playerCount < 2 || isGenerating}
             >
               <Text style={styles.startBtnText}>
-          {isHost && playerCount < 2 ? (
+          {isGenerating ? (
+                'Generating locations...'
+              ) : isHost && playerCount < 2 ? (
                 'Waiting for players...'
               ) : (
                 'Start Game'
@@ -412,6 +440,35 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     fontFamily: 'Lexend',
     textAlign: 'center',
+  },
+  generatingBox: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  generatingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  generatingText: {
+    color: colors.white,
+    fontSize: fontSizes.sm,
+    fontFamily: 'Lexend-SemiBold',
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: colors.success,
   },
   footer: {
     padding: spacing.lg,

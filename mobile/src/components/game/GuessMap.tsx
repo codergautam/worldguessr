@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, Platform, GestureResponderEvent } from 'react-native';
-import MapView, { Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import { View, Text, StyleSheet, Platform, GestureResponderEvent } from 'react-native';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import PinMarker from './PinMarker';
 
 // Pre-create Asset objects (doesn't download yet)
@@ -13,6 +13,16 @@ interface OpponentGuess {
   lng: number;
   username: string;
   points?: number;
+  color?: string;
+}
+
+interface PlayerGuess {
+  id: string;
+  lat: number;
+  lng: number;
+  username: string;
+  points?: number;
+  color: string;
 }
 
 // extent = [west, south, east, north] i.e. [minLng, minLat, maxLng, maxLat]
@@ -33,6 +43,7 @@ interface GuessMapProps {
   isExpanded?: boolean;
   extent?: Extent;
   opponentGuesses?: OpponentGuess[];
+  playerGuesses?: PlayerGuess[];
   /** Points scored for the player's own guess (determines line color) */
   guessPoints?: number;
   /**
@@ -77,6 +88,7 @@ export default function GuessMap({
   isExpanded,
   extent,
   opponentGuesses,
+  playerGuesses,
   guessPoints,
   instantReveal,
 }: GuessMapProps) {
@@ -99,6 +111,7 @@ export default function GuessMap({
           : []),
         { latitude: actualPosition.lat, longitude: actualPosition.lng },
         ...(opponentGuesses ?? []).map((o) => ({ latitude: o.lat, longitude: o.lng })),
+        ...(playerGuesses ?? []).map((p) => ({ latitude: p.lat, longitude: p.lng })),
       ];
       mapRef.current.fitToCoordinates(coords, {
         edgePadding: { top: 120, right: 120, bottom: 300, left: 120 },
@@ -120,7 +133,7 @@ export default function GuessMap({
         instantReveal ? 1500 : 1100,
       );
     }
-  }, [actualPosition, guessPosition, countryGuessPosition, instantReveal]);
+  }, [actualPosition, guessPosition, countryGuessPosition, opponentGuesses, playerGuesses, instantReveal]);
 
   const defaultRegion = extent ? extentToRegion(extent) : WORLD_REGION;
 
@@ -246,21 +259,48 @@ export default function GuessMap({
           opacity={countryGuessPosition ? 1 : 0}
         />
 
+        {/* Player-colored markers for multiplayer reveals. */}
+        {actualPosition && playerGuesses?.map((playerGuess) => (
+          <React.Fragment key={`player-${playerGuess.id}`}>
+            <ColoredPlayerMarker
+              coordinate={{ latitude: playerGuess.lat, longitude: playerGuess.lng }}
+              color={playerGuess.color}
+              username={playerGuess.username}
+            />
+            <Polyline
+              coordinates={[
+                { latitude: playerGuess.lat, longitude: playerGuess.lng },
+                { latitude: actualPosition.lat, longitude: actualPosition.lng },
+              ]}
+              strokeColor={playerGuess.color}
+              strokeWidth={2}
+            />
+          </React.Fragment>
+        ))}
+
         {/* Opponent markers + lines to actual */}
         {actualPosition && opponentGuesses?.map((opp, i) => (
           <React.Fragment key={`opp-${i}`}>
-            <PinMarker
-              coordinate={{ latitude: opp.lat, longitude: opp.lng }}
-              imageSource={opponentPinModule}
-              scale={MARKER_SCALE}
-              opacity={1}
-            />
+            {opp.color ? (
+              <ColoredPlayerMarker
+                coordinate={{ latitude: opp.lat, longitude: opp.lng }}
+                color={opp.color}
+                username={opp.username}
+              />
+            ) : (
+              <PinMarker
+                coordinate={{ latitude: opp.lat, longitude: opp.lng }}
+                imageSource={opponentPinModule}
+                scale={MARKER_SCALE}
+                opacity={1}
+              />
+            )}
             <Polyline
               coordinates={[
                 { latitude: opp.lat, longitude: opp.lng },
                 { latitude: actualPosition.lat, longitude: actualPosition.lng },
               ]}
-              strokeColor={getPointsColor(opp.points ?? 0)}
+              strokeColor={opp.color ?? getPointsColor(opp.points ?? 0)}
               strokeWidth={2}
             />
           </React.Fragment>
@@ -292,11 +332,71 @@ export default function GuessMap({
   );
 }
 
+function ColoredPlayerMarker({
+  coordinate,
+  color,
+  username,
+}: {
+  coordinate: { latitude: number; longitude: number };
+  color: string;
+  username: string;
+}) {
+  const initial = username.trim().charAt(0).toUpperCase() || '?';
+
+  return (
+    <Marker
+      coordinate={coordinate}
+      anchor={{ x: 0.5, y: 1 }}
+      centerOffset={Platform.OS === 'ios' ? { x: 0, y: -17 } : undefined}
+      tracksViewChanges={false}
+    >
+      <View style={styles.coloredPin}>
+        <View style={[styles.coloredPinHead, { backgroundColor: color }]}>
+          <Text style={styles.coloredPinText}>{initial}</Text>
+        </View>
+        <View style={[styles.coloredPinStem, { borderTopColor: color }]} />
+      </View>
+    </Marker>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   map: {
     flex: 1,
+  },
+  coloredPin: {
+    alignItems: 'center',
+  },
+  coloredPinHead: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  coloredPinText: {
+    color: '#fff',
+    fontSize: 12,
+    fontFamily: 'Lexend-Bold',
+  },
+  coloredPinStem: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderTopWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    marginTop: -2,
   },
 });

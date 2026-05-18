@@ -14,8 +14,8 @@ import {
   TextInput,
   Alert,
   KeyboardAvoidingView,
-  Share,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,6 +42,16 @@ interface OpponentGuess {
   guessLong: number;
   points: number;
   timeTaken: number;
+}
+
+interface PlayerMapGuess {
+  playerId: string;
+  username: string;
+  countryCode?: string;
+  guessLat: number;
+  guessLong: number;
+  points: number;
+  timeTaken?: number;
 }
 
 interface PlayerRoundData {
@@ -89,7 +99,26 @@ interface RoundResult {
   xpEarned?: number;
   didGuess: boolean;
   opponents?: OpponentGuess[];
+  allPlayerGuesses?: PlayerMapGuess[];
   duelOpponent?: DuelOpponent;
+}
+
+interface LiveRoundHistoryEntry {
+  round: number;
+  location: {
+    lat: number;
+    long: number;
+    panoId?: string;
+  };
+  players: Record<string, {
+    username: string;
+    countryCode?: string;
+    lat: number | null;
+    long: number | null;
+    points: number;
+    final: boolean;
+    timeTaken?: number;
+  }>;
 }
 
 // Star tier colors matching web exactly
@@ -139,11 +168,111 @@ function formatTime(seconds: number): string {
   return `${m}m ${s}s`;
 }
 
+function parseLiveRoundHistory(roundsParam?: string): LiveRoundHistoryEntry[] {
+  if (!roundsParam) return [];
+  try {
+    const parsed = JSON.parse(roundsParam) as LiveRoundHistoryEntry[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function transformLiveRounds(history: LiveRoundHistoryEntry[], myId: string): RoundResult[] {
+  return history.map((round) => {
+    const effectiveMyId = myId || Object.keys(round.players)[0] || '';
+    const mine = round.players[effectiveMyId];
+    const didGuess = mine?.lat != null && mine.long != null;
+    const opponents: OpponentGuess[] = Object.entries(round.players)
+      .filter(([playerId, player]) => playerId !== effectiveMyId && player.lat != null && player.long != null)
+      .map(([playerId, player]) => ({
+        playerId,
+        username: player.username,
+        countryCode: player.countryCode,
+        guessLat: player.lat!,
+        guessLong: player.long!,
+        points: player.points ?? 0,
+        timeTaken: player.timeTaken ?? 0,
+      }));
+    const allPlayerGuesses: PlayerMapGuess[] = Object.entries(round.players)
+      .filter(([, player]) => player.lat != null && player.long != null)
+      .map(([playerId, player]) => ({
+        playerId,
+        username: player.username,
+        countryCode: player.countryCode,
+        guessLat: player.lat!,
+        guessLong: player.long!,
+        points: player.points ?? 0,
+        timeTaken: player.timeTaken,
+      }));
+    const duelOpponentEntry = Object.entries(round.players).find(([playerId]) => playerId !== effectiveMyId);
+    const duelOpponent = duelOpponentEntry
+      ? {
+          username: duelOpponentEntry[1].username,
+          countryCode: duelOpponentEntry[1].countryCode,
+          points: duelOpponentEntry[1].points ?? 0,
+          didGuess: duelOpponentEntry[1].lat != null && duelOpponentEntry[1].long != null,
+        }
+      : undefined;
+    const guessLat = didGuess ? mine?.lat ?? null : null;
+    const guessLong = didGuess ? mine?.long ?? null : null;
+    const distance = guessLat != null && guessLong != null
+      ? findDistance(round.location.lat, round.location.long, guessLat, guessLong)
+      : 0;
+
+    return {
+      guessLat,
+      guessLong,
+      actualLat: round.location.lat,
+      actualLong: round.location.long,
+      panoId: round.location.panoId,
+      points: mine?.points ?? 0,
+      distance,
+      timeTaken: mine?.timeTaken,
+      didGuess,
+      opponents: opponents.length > 0 ? opponents : undefined,
+      allPlayerGuesses: allPlayerGuesses.length > 0 ? allPlayerGuesses : undefined,
+      duelOpponent,
+    };
+  });
+}
+
+function buildLiveRoundData(history: LiveRoundHistoryEntry[]): Record<string, PlayerRoundData[]> {
+  const roundData: Record<string, PlayerRoundData[]> = {};
+  history.forEach((round, index) => {
+    Object.entries(round.players).forEach(([playerId, player]) => {
+      if (!roundData[playerId]) roundData[playerId] = [];
+      const distance = player.lat != null && player.long != null
+        ? findDistance(round.location.lat, round.location.long, player.lat, player.long)
+        : undefined;
+      roundData[playerId].push({
+        roundNumber: index + 1,
+        points: player.points ?? 0,
+        distance,
+        timeTaken: player.timeTaken,
+      });
+    });
+  });
+  return roundData;
+}
+
 // Sidebar width in landscape (matches web's 400px sidebar proportionally)
 const SIDEBAR_WIDTH = 340;
 
 export default function GameResultsScreen() {
-  const { totalScore, rounds, extent: extentParam, gameId, fromHistory, multiplayer: mpParam, duelEnd: duelEndParam, players: playersParam, mode } = useLocalSearchParams<{
+  const {
+    totalScore,
+    rounds,
+    extent: extentParam,
+    gameId,
+    fromHistory,
+    multiplayer: mpParam,
+    duelEnd: duelEndParam,
+    players: playersParam,
+    mode,
+    myId: liveMyIdParam,
+    duel: duelParam,
+  } = useLocalSearchParams<{
     totalScore: string;
     rounds: string;
     extent?: string;
@@ -153,6 +282,8 @@ export default function GameResultsScreen() {
     duelEnd?: string;
     players?: string;
     mode?: string;
+    myId?: string;
+    duel?: string;
   }>();
 
   const isHistoryView = fromHistory === 'true';
@@ -207,6 +338,17 @@ export default function GameResultsScreen() {
                 points: g.points,
                 timeTaken: g.timeTaken,
               }));
+            const allPlayerGuesses: PlayerMapGuess[] = (round.allGuesses || [])
+              .filter((g: any) => g.guessLat != null && g.guessLong != null)
+              .map((g: any) => ({
+                playerId: g.playerId,
+                username: g.username,
+                countryCode: g.countryCode,
+                guessLat: g.guessLat,
+                guessLong: g.guessLong,
+                points: g.points,
+                timeTaken: g.timeTaken,
+              }));
 
             // For duel UI: get primary opponent info even if they didn't guess
             const oppAllGuess = (round.allGuesses || []).find((g: any) => g.playerId !== myId);
@@ -231,6 +373,7 @@ export default function GameResultsScreen() {
               xpEarned: guess?.xpEarned,
               didGuess: userDidGuess,
               opponents: opponents.length > 0 ? opponents : undefined,
+              allPlayerGuesses: allPlayerGuesses.length > 0 ? allPlayerGuesses : undefined,
               duelOpponent,
             };
           });
@@ -290,10 +433,12 @@ export default function GameResultsScreen() {
     try {
       const players = JSON.parse(playersParam);
       const duelEnd = duelEndParam ? JSON.parse(duelEndParam) : null;
-      const myId = players.find((p: any) => p.id)?.id ?? '';
+      const liveHistory = parseLiveRoundHistory(rounds);
+      const myId = liveMyIdParam ?? players.find((p: any) => p.id)?.id ?? '';
+      const roundData = buildLiveRoundData(liveHistory);
 
       setMultiplayerInfo({
-        gameType: duelEnd ? 'ranked_duel' : 'party',
+        gameType: duelEnd ? 'ranked_duel' : (duelParam === 'true' ? 'ranked_duel' : 'party'),
         players: players.map((p: any) => ({
           playerId: p.id,
           username: p.username,
@@ -307,10 +452,10 @@ export default function GameResultsScreen() {
         isDuel: !!duelEnd,
         isWinner: duelEnd?.winner ?? false,
         isDraw: duelEnd?.draw ?? false,
-        roundData: {},
+        roundData,
       });
     } catch {}
-  }, [isLiveMultiplayer, playersParam, duelEndParam]);
+  }, [isLiveMultiplayer, playersParam, duelEndParam, rounds, liveMyIdParam, duelParam]);
 
   // Parse extent [west, south, east, north] if provided
   const extent: [number, number, number, number] | null = useMemo(() => {
@@ -335,10 +480,19 @@ export default function GameResultsScreen() {
     Linking.openURL(url);
   }, []);
 
-  const parsedRounds: RoundResult[] = useMemo(
-    () => historyData ? historyData.rounds : (rounds ? JSON.parse(rounds) : []),
-    [rounds, historyData],
-  );
+  const parsedRounds: RoundResult[] = useMemo(() => {
+    if (historyData) return historyData.rounds;
+    if (!rounds) return [];
+    if (isLiveMultiplayer) {
+      return transformLiveRounds(parseLiveRoundHistory(rounds), liveMyIdParam ?? '');
+    }
+    try {
+      const parsed = JSON.parse(rounds) as RoundResult[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }, [rounds, historyData, isLiveMultiplayer, liveMyIdParam]);
   const score = historyData ? historyData.score : parseInt(totalScore ?? '0', 10);
   const resultMode = mode ?? historyMode;
   const isCountryGuesserResult = resultMode === 'countryGuesser' || resultMode === 'continentGuesser';
@@ -355,6 +509,8 @@ export default function GameResultsScreen() {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [collapsedContentHeight, setCollapsedContentHeight] = useState(0);
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [gameIdCopied, setGameIdCopied] = useState(false);
+  const gameIdCopiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Report modal state
   const [reportModalVisible, setReportModalVisible] = useState(false);
@@ -362,10 +518,6 @@ export default function GameResultsScreen() {
   const [reportDescription, setReportDescription] = useState('');
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportTarget, setReportTarget] = useState<string | null>(null);
-
-  // ELO animation
-  const [animatedElo, setAnimatedElo] = useState<number | null>(null);
-  const eloAnimComplete = useRef(false);
 
   // Animated panel height for smooth expand/collapse
   const panelAnim = useRef(new Animated.Value(0)).current; // 0 = collapsed, 1 = expanded
@@ -459,6 +611,72 @@ export default function GameResultsScreen() {
     return { top: 40 + insets.top, right: 30, bottom: panelH + 20, left: 30 };
   }, [isLandscape, detailsExpanded, height, insets.top]);
 
+  // Safely fit the map to a coord list. Two failure modes we have to handle
+  // that bare fitToCoordinates can't:
+  //   (1) Single coord (country-guesser round focus has no guess pin, only
+  //       the actual location) — fitToCoordinates zooms to the maximum and
+  //       feels like a punch to the face. We use a sensible regional zoom
+  //       (~8° delta, same as GuessMap's no-guess reveal) instead.
+  //   (2) Coordinates that span > 180° of longitude (e.g., a worldwide game
+  //       where rounds are scattered across continents) — Google Maps'
+  //       LatLngBounds takes the shortest east-west arc, which can fling
+  //       the camera off to one side and hide half the pins. We detect a
+  //       wide span and use animateToRegion with explicit deltas centered
+  //       on the actual coordinate centroid instead.
+  const fitToCoordsSafely = useCallback(
+    (coords: { latitude: number; longitude: number }[]) => {
+      if (!mapRef.current || coords.length === 0) return;
+
+      if (coords.length === 1) {
+        mapRef.current.animateToRegion(
+          {
+            latitude: coords[0].latitude,
+            longitude: coords[0].longitude,
+            latitudeDelta: 8,
+            longitudeDelta: 8,
+          },
+          500,
+        );
+        return;
+      }
+
+      let minLat = Infinity;
+      let maxLat = -Infinity;
+      let minLng = Infinity;
+      let maxLng = -Infinity;
+      for (const c of coords) {
+        if (c.latitude < minLat) minLat = c.latitude;
+        if (c.latitude > maxLat) maxLat = c.latitude;
+        if (c.longitude < minLng) minLng = c.longitude;
+        if (c.longitude > maxLng) maxLng = c.longitude;
+      }
+      const latSpan = maxLat - minLat;
+      const lngSpan = maxLng - minLng;
+
+      if (lngSpan > 180 || latSpan > 120) {
+        // Too wide for fitToCoordinates to handle reliably — show the full
+        // span explicitly via animateToRegion. Pad deltas by 1.4x so the
+        // outermost pins aren't flush with the map edge.
+        mapRef.current.animateToRegion(
+          {
+            latitude: (minLat + maxLat) / 2,
+            longitude: (minLng + maxLng) / 2,
+            latitudeDelta: Math.min(180, Math.max(latSpan * 1.4, 40)),
+            longitudeDelta: Math.min(360, Math.max(lngSpan * 1.4, 60)),
+          },
+          500,
+        );
+        return;
+      }
+
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: getMapPadding(),
+        animated: true,
+      });
+    },
+    [getMapPadding],
+  );
+
   const fitMapToAllRounds = useCallback(() => {
     if (!mapRef.current || parsedRounds.length === 0) return;
 
@@ -484,13 +702,8 @@ export default function GameResultsScreen() {
       coords.push({ latitude: north, longitude: east });
     }
 
-    if (coords.length > 0) {
-      mapRef.current.fitToCoordinates(coords, {
-        edgePadding: getMapPadding(),
-        animated: true,
-      });
-    }
-  }, [parsedRounds, getMapPadding, extent, isCountryGuesserResult]);
+    fitToCoordsSafely(coords);
+  }, [parsedRounds, extent, isCountryGuesserResult, fitToCoordsSafely]);
 
   const didInitialFit = useRef(false);
   useEffect(() => {
@@ -520,14 +733,9 @@ export default function GameResultsScreen() {
         });
       }
 
-      if (coords.length > 0) {
-        mapRef.current.fitToCoordinates(coords, {
-          edgePadding: getMapPadding(),
-          animated: true,
-        });
-      }
+      fitToCoordsSafely(coords);
     },
-    [parsedRounds, getMapPadding, isCountryGuesserResult],
+    [parsedRounds, isCountryGuesserResult, fitToCoordsSafely],
   );
 
   const handleRoundPress = useCallback(
@@ -595,6 +803,23 @@ export default function GameResultsScreen() {
     handleGoHome();
   };
 
+  const handleCopyGameId = useCallback(async () => {
+    if (!gameId) return;
+    await Clipboard.setStringAsync(gameId);
+    setGameIdCopied(true);
+    if (gameIdCopiedTimer.current) clearTimeout(gameIdCopiedTimer.current);
+    gameIdCopiedTimer.current = setTimeout(() => {
+      setGameIdCopied(false);
+      gameIdCopiedTimer.current = null;
+    }, 1600);
+  }, [gameId]);
+
+  useEffect(() => {
+    return () => {
+      if (gameIdCopiedTimer.current) clearTimeout(gameIdCopiedTimer.current);
+    };
+  }, []);
+
   // ── Helper: find my ELO data for duel header ─────────────
   const myEloData = useMemo(() => {
     if (!multiplayerInfo?.isDuel) return null;
@@ -610,21 +835,28 @@ export default function GameResultsScreen() {
     return idx >= 0 ? { rank: idx + 1, total: sorted.length } : null;
   }, [multiplayerInfo]);
 
-  // ── ELO animation effect ────────────────────────────────
-  useEffect(() => {
-    if (!myEloData?.before || !myEloData?.after || eloAnimComplete.current) return;
-    const { before, after } = myEloData;
-    const steps = Math.abs(after - before);
-    if (steps === 0) { setAnimatedElo(after); eloAnimComplete.current = true; return; }
-    const stepTime = Math.max(10, 1500 / steps);
-    let current = before;
-    const interval = setInterval(() => {
-      current += current < after ? 1 : -1;
-      setAnimatedElo(current);
-      if (current === after) { clearInterval(interval); eloAnimComplete.current = true; }
-    }, stepTime);
-    return () => clearInterval(interval);
-  }, [myEloData]);
+  const playerStreaks = useMemo(() => {
+    const streaks: Record<string, number> = {};
+    if (!multiplayerInfo) return streaks;
+
+    multiplayerInfo.players.forEach((player) => {
+      const roundsForPlayer = multiplayerInfo.roundData[player.playerId] ?? [];
+      let best = 0;
+      let current = 0;
+      roundsForPlayer.forEach((round) => {
+        if (round.points > 0) {
+          current += 1;
+          best = Math.max(best, current);
+        } else {
+          current = 0;
+        }
+      });
+      streaks[player.playerId] = best;
+    });
+
+    return streaks;
+  }, [multiplayerInfo]);
+
 
   // ── Report submit handler ─────────────────────────────
   const handleSubmitReport = async () => {
@@ -678,8 +910,7 @@ export default function GameResultsScreen() {
       const hasActual = round.actualLat != null && round.actualLong != null;
       const hasGuess =
         !isCountryGuesserResult && round.guessLat != null && round.guessLong != null;
-
-      if (activeRound !== null && activeRound !== index) return null;
+      const hideRound = activeRound !== null && activeRound !== index;
 
       return (
         <React.Fragment key={index}>
@@ -688,6 +919,7 @@ export default function GameResultsScreen() {
               identifier={`actual-${index}`}
               coordinate={{ latitude: round.actualLat!, longitude: round.actualLong! }}
               imageSource={actualPinImage}
+              opacity={hideRound ? 0 : 1}
               stopPropagation
             >
               <Callout onPress={() => openInGoogleMaps(round.actualLat!, round.actualLong!, round.panoId)}>
@@ -713,6 +945,7 @@ export default function GameResultsScreen() {
               identifier={`guess-${index}`}
               coordinate={{ latitude: round.guessLat!, longitude: round.guessLong! }}
               imageSource={guessPinImage}
+              opacity={hideRound ? 0 : 1}
               stopPropagation
             >
               <Callout>
@@ -730,7 +963,7 @@ export default function GameResultsScreen() {
               </Callout>
             </PinMarker>
           )}
-          {hasActual && hasGuess && (
+          {!hideRound && hasActual && hasGuess && (
             <Polyline
               coordinates={[
                 { latitude: round.actualLat!, longitude: round.actualLong! },
@@ -748,6 +981,7 @@ export default function GameResultsScreen() {
                 identifier={`opp-${index}-${opp.playerId}`}
                 coordinate={{ latitude: opp.guessLat, longitude: opp.guessLong }}
                 imageSource={oppPinImage}
+                opacity={hideRound ? 0 : 1}
                 stopPropagation
               >
                 <Callout>
@@ -759,15 +993,17 @@ export default function GameResultsScreen() {
                   </View>
                 </Callout>
               </PinMarker>
-              <Polyline
-                coordinates={[
-                  { latitude: round.actualLat!, longitude: round.actualLong! },
-                  { latitude: opp.guessLat, longitude: opp.guessLong },
-                ]}
-                strokeColor={getPolylineColor(opp.points)}
-                strokeWidth={2}
-                lineDashPattern={[6, 4]}
-              />
+              {!hideRound && (
+                <Polyline
+                  coordinates={[
+                    { latitude: round.actualLat!, longitude: round.actualLong! },
+                    { latitude: opp.guessLat, longitude: opp.guessLong },
+                  ]}
+                  strokeColor={getPolylineColor(opp.points)}
+                  strokeWidth={2}
+                  lineDashPattern={[6, 4]}
+                />
+              )}
             </React.Fragment>
           ))}
         </React.Fragment>
@@ -788,18 +1024,12 @@ export default function GameResultsScreen() {
             {multiplayerInfo.isDraw ? 'Draw' : multiplayerInfo.isWinner ? 'Victory' : 'Defeat'}
           </Text>
           {myEloData && typeof myEloData.before === 'number' && typeof myEloData.after === 'number' && (
-            <View style={styles.eloContainer}>
-              <Text style={styles.eloLabel}>ELO</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.eloValue}>{animatedElo ?? myEloData.after}</Text>
-                <Text style={[
-                  styles.eloChange,
-                  { color: (myEloData.change ?? 0) >= 0 ? '#4CAF50' : '#F44336' },
-                ]}>
-                  {(myEloData.change ?? 0) > 0 ? '+' : ''}{myEloData.change ?? 0}
-                </Text>
-              </View>
-            </View>
+            <EloChangeDisplay
+              oldElo={myEloData.before}
+              newElo={myEloData.after}
+              winner={multiplayerInfo.isWinner}
+              draw={multiplayerInfo.isDraw}
+            />
           )}
         </>
       ) : (
@@ -917,7 +1147,7 @@ export default function GameResultsScreen() {
                 <Text style={styles.actionBtnPrimaryText}>Play Again</Text>
               </LinearGradient>
             </Pressable>
-            <Pressable
+            {/* <Pressable
               onPress={handleGoHome}
               style={({ pressed }) => [
                 styles.actionBtnSecondary,
@@ -925,20 +1155,25 @@ export default function GameResultsScreen() {
               ]}
             >
               <Text style={styles.actionBtnSecondaryText}>Home</Text>
-            </Pressable>
+            </Pressable> */}
           </>
         )}
+
       </View>
 
       {/* Game ID + Report row */}
       {gameId && isHistoryView && (
         <View style={styles.gameMetaRow}>
           <Pressable
-            onPress={() => { Share.share({ message: gameId }); }}
+            onPress={handleCopyGameId}
             style={styles.gameIdBtn}
           >
             <Text style={styles.gameIdText}>ID: {gameId.slice(0, 8)}...</Text>
-            <Ionicons name="copy-outline" size={12} color="rgba(255,255,255,0.5)" />
+            <Ionicons
+              name={gameIdCopied ? 'checkmark' : 'copy-outline'}
+              size={12}
+              color={gameIdCopied ? '#4CAF50' : 'rgba(255,255,255,0.5)'}
+            />
           </Pressable>
           {multiplayerInfo && (
             <Pressable

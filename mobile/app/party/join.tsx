@@ -101,6 +101,10 @@ export default function PartyJoinScreen() {
 
   // If we've joined a game, show the lobby
   if (inGame && gameData) {
+    const generatingTotal = gameData.rounds;
+    const generatedCount = Math.min(gameData.generated ?? generatingTotal, generatingTotal);
+    const isGenerating = generatedCount < generatingTotal;
+
     return (
       <View style={styles.container}>
         <ImageBackground
@@ -139,6 +143,21 @@ export default function PartyJoinScreen() {
                 myId={gameData.myId}
               />
             </View>
+            {isGenerating && (
+              <View style={styles.generatingBox}>
+                <Text style={styles.generatingText}>
+                  Generating locations: {generatedCount}/{generatingTotal}
+                </Text>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${generatingTotal > 0 ? (generatedCount / generatingTotal) * 100 : 0}%` },
+                    ]}
+                  />
+                </View>
+              </View>
+            )}
             <Text style={styles.waitingText}>
               Waiting for host to start...
             </Text>
@@ -330,5 +349,29 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.sm,
     fontFamily: 'Lexend',
     textAlign: 'center',
+  },
+  generatingBox: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+  },
+  generatingText: {
+    color: colors.white,
+    fontSize: fontSizes.sm,
+    fontFamily: 'Lexend-SemiBold',
+  },
+  progressTrack: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: colors.success,
   },
 });

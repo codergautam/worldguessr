@@ -60,6 +60,10 @@ class WebSocketService {
     return this._timeOffset;
   }
 
+  getTimeOffset(): number {
+    return this._timeOffset;
+  }
+
   get currentRetry(): number {
     return this._currentRetry;
   }

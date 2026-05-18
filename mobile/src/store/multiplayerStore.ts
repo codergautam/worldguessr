@@ -47,8 +47,8 @@ export interface RoundHistoryEntry {
     {
       username: string;
       countryCode?: string;
-      lat: number;
-      long: number;
+      lat: number | null;
+      long: number | null;
       points: number;
       final: boolean;
       timeTaken?: number;

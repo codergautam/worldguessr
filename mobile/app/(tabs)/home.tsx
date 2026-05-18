@@ -711,7 +711,7 @@ export default function HomeScreen() {
                 />
               )}
               <MenuButton
-                label={isAuthenticated ? 'Unranked Duel' : 'Find Duel'}
+                label="Public Match"
                 onPress={() => handleModePress('unrankedDuel')}
                 delay={getDelay()}
               />

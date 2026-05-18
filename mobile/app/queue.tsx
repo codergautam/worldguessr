@@ -74,6 +74,11 @@ export default function QueueScreen() {
   };
 
   const isRanked = gameQueued === 'publicDuel';
+  const title = gameQueued === 'unrankedDuel'
+    ? 'Finding Public Match'
+    : isRanked
+      ? 'Finding Ranked Duel'
+      : 'Finding a game';
 
   return (
     <View style={styles.container}>
@@ -86,7 +91,7 @@ export default function QueueScreen() {
       <View style={styles.center}>
         <View style={styles.row}>
           <Text style={[styles.title, { fontSize: titleSize }]} numberOfLines={1} adjustsFontSizeToFit>
-            Finding a game
+            {title}
           </Text>
           <Image
             source={require('../assets/loader.gif')}

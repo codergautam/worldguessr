@@ -8,7 +8,6 @@ export type SingleplayerModeTile = 'world' | 'country' | 'continent';
 
 interface Props {
   currentMode?: SingleplayerModeTile | null;
-  searchQuery?: string;
   onSelect: (mode: SingleplayerModeTile) => void;
 }
 
@@ -36,19 +35,11 @@ const TILES: Array<{
 
 export default function SingleplayerModeTiles({
   currentMode,
-  searchQuery = '',
   onSelect,
 }: Props) {
-  const query = searchQuery.trim().toLowerCase();
-  const tiles = query
-    ? TILES.filter((tile) => tile.title.toLowerCase().includes(query))
-    : TILES;
-
-  if (tiles.length === 0) return null;
-
   return (
     <View style={styles.wrap}>
-      {tiles.map((tile) => {
+      {TILES.map((tile) => {
         const active = tile.mode === currentMode;
         return (
           <Pressable

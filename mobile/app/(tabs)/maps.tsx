@@ -12,7 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/shared';
@@ -25,7 +25,8 @@ import MapSection, { SECTION_ORDER, SECTION_LABELS } from '../../src/components/
 export default function MapsScreen() {
   const router = useRouter();
   const { width } = useWindowDimensions();
-  const { secret } = useAuthStore();
+  const secret = useAuthStore((s) => s.secret);
+  const authLoading = useAuthStore((s) => s.isLoading);
   const [mapHome, setMapHome] = useState<Record<string, MapItem[]>>({});
   const [searchResults, setSearchResults] = useState<MapItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,25 +42,47 @@ export default function MapsScreen() {
   const numCols = isLandscape ? 3 : 2;
   const countryNumCols = isLandscape ? 4 : 3;
 
+  // Read auth via getState() at call-time so we never use a stale
+  // closure-captured secret. AND guard with a fetchToken to discard stale
+  // in-flight responses — the previous bug was a race where the first fetch
+  // (with secret=null because auth was still loading) resolved AFTER the
+  // second fetch (with the real secret), and the anon response overwrote
+  // the personalized one. Token guard ensures only the LATEST fetch's
+  // response is applied.
+  const fetchTokenRef = useRef(0);
   const fetchMapHome = useCallback(async (showSpinner = false) => {
+    const myToken = ++fetchTokenRef.current;
+    const { secret: currentSecret, isLoading: currentLoading } = useAuthStore.getState();
+    if (currentLoading) {
+      if (showSpinner) setLoading(true);
+      setRefreshing(false);
+      return;
+    }
     setError(false);
     if (showSpinner) setLoading(true);
     try {
-      const data = await api.mapHome(secret || undefined);
+      const data = await api.mapHome(currentSecret || undefined);
+      if (myToken !== fetchTokenRef.current) return; // stale, newer fetch in flight
       setMapHome(data as Record<string, MapItem[]>);
     } catch (e) {
+      if (myToken !== fetchTokenRef.current) return;
       console.error('Failed to fetch maps:', e);
       if (showSpinner) setError(true);
     } finally {
+      if (myToken !== fetchTokenRef.current) return;
       setLoading(false);
       setRefreshing(false);
     }
-  }, [secret]);
+  }, []);
 
-  // Initial load
-  useEffect(() => {
-    fetchMapHome(true);
-  }, [fetchMapHome]);
+  // Re-fetch when the screen gains focus AND whenever auth state changes
+  // while focused. secret/authLoading are in the deps so a fresh login or
+  // logout while the user is sitting on this page also triggers a refetch.
+  useFocusEffect(
+    useCallback(() => {
+      fetchMapHome(true);
+    }, [fetchMapHome, secret, authLoading]),
+  );
 
   // Listen for heart updates from detail page
   useEffect(() => {
@@ -106,6 +129,7 @@ export default function MapsScreen() {
   }, []);
 
   const onRefresh = useCallback(() => {
+    if (authLoading) return;
     setRefreshing(true);
     if (searchQuery.trim().length >= 3) {
       handleSearch(searchQuery);
@@ -113,7 +137,7 @@ export default function MapsScreen() {
     } else {
       fetchMapHome(false);
     }
-  }, [searchQuery, fetchMapHome, handleSearch]);
+  }, [authLoading, searchQuery, fetchMapHome, handleSearch]);
 
   const handleMapPress = (map: MapItem) => {
     const slug = map.slug || map.countryMap;

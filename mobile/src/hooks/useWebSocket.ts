@@ -44,7 +44,7 @@ export function useWebSocket() {
       useMultiplayerStore.setState({
         connected: false,
         verified: false,
-        connecting: true,
+        connecting: false,
         inGame: false,
         gameData: null,
         gameQueued: false,

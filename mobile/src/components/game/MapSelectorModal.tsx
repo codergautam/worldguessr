@@ -207,14 +207,30 @@ export default function MapSelectorModal({
     });
   }, [slideAnim]);
 
-  // Fetch map home data when modal opens
+  // Fetch map home data when modal opens. Read secret via getState() at the
+  // moment of fetch so we never use a stale closure value, AND guard with a
+  // fetchToken so a stale in-flight anon fetch can't overwrite a fresh
+  // authenticated fetch (the race that was making myMaps/likedMaps not show).
+  const fetchTokenRef = useRef(0);
   useEffect(() => {
     if (!visible) return;
+    const myToken = ++fetchTokenRef.current;
     setLoading(true);
-    api.mapHome(secret || undefined)
-      .then((data) => setMapHome(data as Record<string, MapItem[]>))
-      .catch((e) => console.error('Failed to fetch maps:', e))
-      .finally(() => setLoading(false));
+    const currentSecret = useAuthStore.getState().secret;
+    console.log('[MapSelectorModal] fetchMapHome — secret present:', !!currentSecret);
+    api.mapHome(currentSecret || undefined)
+      .then((data) => {
+        if (myToken !== fetchTokenRef.current) return;
+        setMapHome(data as Record<string, MapItem[]>);
+      })
+      .catch((e) => {
+        if (myToken !== fetchTokenRef.current) return;
+        console.error('Failed to fetch maps:', e);
+      })
+      .finally(() => {
+        if (myToken !== fetchTokenRef.current) return;
+        setLoading(false);
+      });
   }, [visible, secret]);
 
   const handleSearch = useCallback((text: string) => {
@@ -487,41 +503,9 @@ export default function MapSelectorModal({
                 <Text style={styles.sectionHeaderText}>Select Map</Text>
               </View>
 
-              {showSingleplayerModes ? (
-                <SingleplayerModeTiles
-                  currentMode={currentSingleplayerMode}
-                  searchQuery={searchQuery}
-                  onSelect={(mode) => {
-                    if (mode === 'world') onSelectMap('all', 'World');
-                    if (mode === 'country') onSelectMap('__countryGuesser', 'Country Guesser');
-                    if (mode === 'continent') onSelectMap('__continentGuesser', 'Continent Guesser');
-                    animateClose();
-                  }}
-                />
-              ) : (
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.allCountriesTile,
-                    currentMapSlug === 'all' && styles.allCountriesTileActive,
-                    pressed && { opacity: 0.8 },
-                  ]}
-                  onPress={() => { onSelectMap('all', 'World'); animateClose(); }}
-                >
-                  <LinearGradient
-                    colors={['#1a4423', '#245734']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={StyleSheet.absoluteFillObject}
-                  />
-                  <Ionicons name="globe-outline" size={24} color="#fff" />
-                  <Text style={styles.allCountriesText}>World</Text>
-                  {currentMapSlug === 'all' && (
-                    <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-                  )}
-                </Pressable>
-              )}
-
-              {/* Search */}
+              {/* Search — ABOVE the mode tiles. Mode tiles (World / Country
+                  Guesser / Continent Guesser) are not part of search; they
+                  disappear entirely the moment any text is typed. */}
               <View style={styles.searchContainer}>
                 <Ionicons name="search" size={18} color="#666" />
                 <TextInput
@@ -539,6 +523,41 @@ export default function MapSelectorModal({
                   </Pressable>
                 )}
               </View>
+
+              {searchQuery.trim().length === 0 && (
+                showSingleplayerModes ? (
+                  <SingleplayerModeTiles
+                    currentMode={currentSingleplayerMode}
+                    onSelect={(mode) => {
+                      if (mode === 'world') onSelectMap('all', 'World');
+                      if (mode === 'country') onSelectMap('__countryGuesser', 'Country Guesser');
+                      if (mode === 'continent') onSelectMap('__continentGuesser', 'Continent Guesser');
+                      animateClose();
+                    }}
+                  />
+                ) : (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.allCountriesTile,
+                      currentMapSlug === 'all' && styles.allCountriesTileActive,
+                      pressed && { opacity: 0.8 },
+                    ]}
+                    onPress={() => { onSelectMap('all', 'World'); animateClose(); }}
+                  >
+                    <LinearGradient
+                      colors={['#1a4423', '#245734']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={StyleSheet.absoluteFillObject}
+                    />
+                    <Ionicons name="globe-outline" size={24} color="#fff" />
+                    <Text style={styles.allCountriesText}>World</Text>
+                    {currentMapSlug === 'all' && (
+                      <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
+                    )}
+                  </Pressable>
+                )
+              )}
 
               {/* Map Sections */}
               {loading ? (
