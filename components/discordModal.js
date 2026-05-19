@@ -15,15 +15,15 @@ export default function DiscordModal({ shown, setOpen }) {
       id="signUpModal"
       styles={{
         modal: {
-          background: 'linear-gradient(135deg, rgba(35, 45, 120, 0.97) 0%, rgba(15, 20, 60, 0.99) 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'linear-gradient(160deg, rgba(28, 44, 78, 0.65) 0%, rgba(13, 18, 30, 0.95) 60%), rgba(5, 8, 16, 0.95)',
+          border: '1px solid rgba(96, 165, 250, 0.32)',
           borderRadius: '16px',
           padding: '30px',
           maxWidth: '440px',
           textAlign: 'center',
           color: 'white',
           fontFamily: 'Lexend, sans-serif',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
         }
       }}
       open={shown}
@@ -72,15 +72,12 @@ export default function DiscordModal({ shown, setOpen }) {
       </button>
 
       <h2 style={{
-        fontSize: '1.8rem',
+        fontFamily: '"GmarketSans", "Lexend", sans-serif',
+        fontSize: '1.9rem',
         marginBottom: '12px',
         fontWeight: '700',
         color: 'white',
-        textShadow: '2px 2px 4px rgba(0, 0, 0, 0.4)',
-        background: 'linear-gradient(135deg, #ffffff 0%, #e8e8e8 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text'
+        letterSpacing: '0.3px',
       }}>
         {text("joinDiscord")}
       </h2>
@@ -88,9 +85,8 @@ export default function DiscordModal({ shown, setOpen }) {
       <p style={{
         fontSize: '1rem',
         marginBottom: '24px',
-        color: 'rgba(255, 255, 255, 0.9)',
+        color: 'rgba(255, 255, 255, 0.85)',
         lineHeight: '1.6',
-        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)'
       }}>
         {text("joinDiscordDesc")}
       </p>

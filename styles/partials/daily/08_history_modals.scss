@@ -117,7 +117,6 @@
   .daily-history-bar { min-width: 10px; }
 }
 
-/* Share modal */
 .daily-share-modal {
   position: fixed;
   inset: 0;
@@ -152,7 +151,6 @@
   user-select: text;
 }
 
-/* Confirm-start modal */
 .daily-confirm-modal {
   position: fixed;
   inset: 0;
@@ -195,7 +193,6 @@
 .daily-confirm-card p { color: rgba(255, 255, 255, 0.85); margin-bottom: 18px; }
 .daily-confirm-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
-/* Start-confirm modal — bigger card, prominent CTA, low-emphasis cancel */
 .daily-confirm-card--start {
   max-width: 480px;
   padding: 30px 28px 22px;
@@ -335,7 +332,6 @@
   .daily-confirm-primary { padding: 13px 20px; font-size: 1rem; }
 }
 
-/* Already-played overlay */
 .daily-already-played-inline {
   margin: 12px 0 18px;
   padding: 10px 12px;
@@ -347,7 +343,6 @@
   font-size: 0.95rem;
 }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .daily-page-backdrop--opening,
   .daily-landing--opening .daily-landing-hero,

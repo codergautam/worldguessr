@@ -2,19 +2,19 @@ import { useEffect, useState } from 'react';
 import { FaXmark } from 'react-icons/fa6';
 import { useTranslation } from '@/components/useTranslations';
 
-const NORMAL_TILE = 'https://tile.openstreetmap.org/4/8/5.png';
-const SATELLITE_TILE =
+const normalTile = 'https://tile.openstreetmap.org/4/8/5.png';
+const satelliteTile =
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/4/5/8';
-const TERRAIN_TILE = 'https://a.tile.opentopomap.org/4/8/5.png';
+const terrainTile = 'https://a.tile.opentopomap.org/4/8/5.png';
 
-const HYBRID_OVERLAY =
+const hybridOverlay =
   'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/4/5/8';
 
-const MAP_TYPES = [
-  { v: 'm', bg: `url("${NORMAL_TILE}")` },
-  { v: 's', bg: `url("${SATELLITE_TILE}")` },
-  { v: 'p', bg: `url("${TERRAIN_TILE}")` },
-  { v: 'y', bg: `url("${SATELLITE_TILE}")`, overlay: `url("${HYBRID_OVERLAY}")` },
+const mapTypes = [
+  { v: 'm', bg: `url("${normalTile}")` },
+  { v: 's', bg: `url("${satelliteTile}")` },
+  { v: 'p', bg: `url("${terrainTile}")` },
+  { v: 'y', bg: `url("${satelliteTile}")`, overlay: `url("${hybridOverlay}")` },
 ];
 
 export default function HomeSettingsPanel({
@@ -115,7 +115,7 @@ export default function HomeSettingsPanel({
 
           <SettingBlock title={text('mapType') || 'Map Type'}>
             <div className="wg-settings__mapGrid">
-              {MAP_TYPES.map((opt) => (
+              {mapTypes.map((opt) => (
                 <button
                   key={opt.v}
                   type="button"

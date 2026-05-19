@@ -65,8 +65,8 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
         }}>
           {session?.token?.username ? (
             <p style={{ color:'white', paddingRight: '-13px',marginLeft: '0px', fontSize: "1.4em", fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {session?.token?.username}
               {countryCode && <CountryFlag countryCode={countryCode} style={{ fontSize: '1em' }} marginRight="0px" />}
+              {session?.token?.username}
             </p>
           ) : null}
 

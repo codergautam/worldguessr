@@ -51,13 +51,14 @@
 .wg-bgWrap {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.45s ease;
+  transition: opacity 0.2s ease;
 }
 .wg-bgWrap--shown {
   opacity: 1;
+  transition: opacity 0s;
 }
 
 .wg-loading {
@@ -65,7 +66,17 @@
   inset: 0;
   z-index: 950;
   pointer-events: none;
+}
 
+.wg-loading--overlay {
+  background: rgba(4, 6, 12, 0.65);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+.wg-loading--overlay.wg-loading--shown {
+  opacity: 1;
 }
 
 .wg-loading__topLeft {
@@ -92,6 +103,12 @@
   cursor: default;
 }
 
+@media (max-width: 720px) and (orientation: portrait) {
+  .wg-loading__topLeft .wg-nav__brand--loading {
+    display: none !important;
+  }
+}
+
 .wg-loading--shown .wg-loading__topLeft {
   opacity: 1;
   transform: translateY(0);
@@ -102,15 +119,87 @@ body.wg-loading-active {
   .navbar .navbar__right,
   .wg-mapSwitcher,
   .wg-reloadBtn,
-  .timer {
-    opacity: 0 !important;
-    pointer-events: none !important;
-    transition: opacity 0.22s ease;
+  .timer,
+  #miniMapArea {
+    display: none !important;
   }
+}
+
+body.wg-loading-active.wg-ingame-active .timer,
+body.wg-loading-active.wg-ingame-active .wg-mapSwitcher,
+body.wg-loading-active.wg-ingame-active .wg-reloadBtn,
+body.wg-loading-active.wg-ingame-active .wg-backBtn--nav,
+body.wg-loading-active.wg-ingame-active .mobile_minimap__btns {
+  display: none !important;
 }
 
 .wg-backBtn--nav {
   transition: filter 0.12s ease, opacity 0.22s ease;
+}
+
+.wg-findGameCounter {
+  position: fixed;
+  bottom: 14px;
+  right: 14px;
+  top: auto;
+  left: auto;
+  z-index: 1000;
+  padding: 10px 18px;
+  border-radius: 14px;
+  background: rgba(5, 8, 16, 0.82);
+  border: 1px solid rgba(96, 165, 250, 0.32);
+  color: white;
+  font-family: 'GmarketSans', 'Lexend', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.2px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  animation: wg-fadeIn 0.35s ease-out both;
+}
+
+body.wg-findgame-active {
+  .navbar #playerCnt,
+  .navbar .wsIcon,
+  .navbar .friendBtn,
+  .navbar #g2_playerCount {
+    display: none !important;
+  }
+  .navbar .navbar__right .wg-mapSwitcher,
+  .navbar .navbar__right .friendBtn,
+  .navbar .navbar__right .wg-reloadBtn {
+    display: none !important;
+  }
+  .navbar .navbar__right .gameBtn.navBtn,
+  .navbar .navbar__right .accountBtn {
+    position: fixed !important;
+    top: 8px !important;
+    right: 8px !important;
+    left: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    padding: 8px 16px !important;
+    background: rgba(5, 8, 16, 0.82) !important;
+    background-image: none !important;
+    border: 1px solid rgba(96, 165, 250, 0.32) !important;
+    border-radius: 12px !important;
+    color: white !important;
+    font-family: 'GmarketSans', 'Lexend', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    box-shadow: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+    z-index: 1130 !important;
+    transition: filter 0.16s ease !important;
+
+    &:hover { filter: brightness(1.08); }
+    &:active { filter: brightness(0.94); }
+  }
 }
 
 body.wg-home-active,

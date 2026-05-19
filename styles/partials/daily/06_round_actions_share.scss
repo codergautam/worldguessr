@@ -106,8 +106,6 @@
   .daily-round-bar-avg-label { display: none; }
 }
 
-
-/* Action buttons */
 .daily-actions {
   display: flex;
   gap: 12px;
@@ -126,10 +124,6 @@
   transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
 }
 
-/* Share button — primary CTA on the results screen.
-   Bigger, brighter, gradient + soft pulsing glow draws the eye without
-   being gaudy. A periodic shine sweep adds life. The back button is
-   intentionally quieter so the visual hierarchy points at "Share". */
 .daily-actions > .daily-share-btn {
   flex: 1 1 0;
   min-width: 160px;
@@ -176,9 +170,6 @@
   z-index: 1;
 }
 
-/* Diagonal shine sweep — kicked off every cycle by the keyframe schedule
-   so it doesn't compete with the idle pulse. Pure transform/opacity keeps
-   it cheap on the GPU. */
 .daily-share-btn__shine {
   position: absolute;
   top: 0;
@@ -226,8 +217,6 @@
     0 6px 18px rgba(46, 204, 113, 0.35);
 }
 
-/* Copied confirmation — swap to a calmer green and stop drawing attention,
-   the action is done. */
 .daily-actions > .daily-share-btn.is-copied {
   background: linear-gradient(135deg, #1f9d55 0%, #15703a 100%);
   animation: none;
@@ -258,7 +247,6 @@
   100% { transform: translateX(380%) skewX(-18deg); opacity: 0; }
 }
 
-/* Back button — secondary, glassy, restrained. */
 .daily-actions > .daily-back-btn {
   flex: 1 1 0;
   min-width: 160px;
@@ -296,8 +284,6 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-/* Landing — uses fixed positioning so the flex-row `.home` parent can't squeeze it.
-   Background comes from home.js's street2.webp (fixed, always rendered). */
 .daily-page-backdrop {
   position: fixed;
   inset: 0;

@@ -65,19 +65,15 @@
     animation: nav_slide_out_right 0.3s ease-in-out forwards;
 }
 
-/* Hide content during navigation transitions to prevent flash */
 .home__content.nav-transitioning {
     opacity: 0;
     pointer-events: none;
 }
 
-/* Fade out footer during slide-out animation */
 .home__content:has(.g2_slide_out) .home__footer {
     opacity: 0;
     transition: opacity 0.3s ease-in-out;
 }
-
-
 
 .g2_nav_group {
     display: flex;
@@ -89,14 +85,14 @@
 .g2_nav_hr {
     background: white;
     width: 90%;
-    max-width: 800px; /* Prevent stretching too wide */
+    max-width: 800px;
     height: 2.7px;
     margin-top: 3px;
     margin-bottom: 3px;
 }
 
 .g2_nav_title {
-    //font-family: "Jockey One";
+
     text-align: left;
 }
 .g2_flex{
@@ -145,8 +141,7 @@
     pointer-events: all;
 
     button {
-        //height: clamp(1.3em, 3vw, 5em);
-        //width: clamp(1.3em, 3vw, 5em);
+
         height: 3vw;
         width: 3vw;
         font-size: max(3vw, 40px);
@@ -184,7 +179,7 @@
 
     .g2_nav_hr {
         width: 100%;
-        max-width: 200px; /* Prevent stretching too wide on mobile landscape */
+        max-width: 200px;
     }
     .g2_nav_group {
         flex-direction: row;
@@ -193,7 +188,7 @@
 
     .g2_content {
         overflow-y: visible;
-        // width: 100%;
+
         padding-top: 0px;
     }
 
@@ -202,8 +197,7 @@
     }
 
     .g2_nav_ui {
-        //flex-direction: row;
-        //flex-wrap: wrap;
+
         padding-top: 70px;
         background: linear-gradient(160deg, var(--gradTopBase)), linear-gradient(180deg, var(--gradBottomBase));
         width: 100%;
@@ -215,7 +209,6 @@
         display: none;
     }
 
-    // if height less than 500px
     @media screen and (max-height: 500px) {
         .home__footer {
             bottom: 10px;
@@ -278,11 +271,6 @@
     justify-content: center;
 }
 
-
-
-
-
-
 .forum {
     background-color: #f5c542 !important;
 }
@@ -306,7 +294,6 @@
 .youtube:hover {
     background-color: darkred !important;
 }
-
 
 .home__title {
     font-size: min(clamp(1.8em, 4vw, 13em), clamp(1.5em, 6vh, 8em));
@@ -370,10 +357,8 @@
     gap: 10px;
 }
 
-
 .home__squarebtnicon {
-    // transform: translateY(15%);
-    // padding-left: 10px;
+
 }
 
 .home__squarebtn {
@@ -383,30 +368,15 @@
     padding: 10px;
     padding-left: 20px;
     padding-right: 20px;
-    //border: solid 1.4px var(--primary);
+
 }
 
-// @for $i from 1 through 6 {
-//   .home__btns button:nth-child(#{$i}n) {
-//       animation-delay: #{$i * 0.1}s;
-//   }
-// }
-
-/* media query if height larger than width */
 @media (max-aspect-ratio: 1/1) {
 
     .home__content {
-        //left: 50%;
+
     }
 }
-
-// if width 2x height
-// @media (min-aspect-ratio: 2/1) {
-//   .home__content {
-//     justify-content: flex-start !important;
-//   }
-// }
-
 
 .home__singleplayer {
     z-index: 101;
@@ -419,16 +389,14 @@
     cursor: pointer;
     width: 100%;
     transition: background-color 0.3s;
-    //box-shadow: 0px 3px 4px 0px rgb(0 0 0 / 35%);
-    //-webkit-text-stroke: 1px black;
-    //text-shadow: 2px 2px black;
+
     border-radius: 15px;
 }
 
 .gameBtn:hover {
     background-color: var(--primaryTransparent);
 }
-// disabled gamebtn
+
 .gameBtn[disabled] {
     background-color: rgba(40, 40, 40, 0.3);
     cursor: not-allowed;

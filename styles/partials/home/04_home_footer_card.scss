@@ -73,6 +73,7 @@ button.wg-home__footerBtn {
 }
 
 .wg-locCard {
+  position: relative;
   display: flex;
   align-items: stretch;
   gap: 14px;
@@ -84,6 +85,7 @@ button.wg-home__footerBtn {
   backdrop-filter: blur($wg-blur);
   -webkit-backdrop-filter: blur($wg-blur);
   border: 1px solid $wg-card-border;
+  overflow: visible;
   transition: opacity 0.28s ease;
 
   &--fading { opacity: 0; }
@@ -134,20 +136,26 @@ button.wg-home__footerBtn {
   flex: 0 0 auto;
   width: 86px;
   height: 64px;
-  border-radius: 10px;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.35);
+  overflow: visible;
+  background: transparent;
   border: none;
   padding: 0;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 
-  isolation: isolate;
-
   &:hover {
     transform: scale(1.04);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
   }
+}
+
+.wg-locCard__zoomInner {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+  isolation: isolate;
 }
 
 .wg-locCard__zoomImg {
@@ -178,13 +186,15 @@ button.wg-home__footerBtn {
 
 .wg-locCard__zoomFlag {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 18px;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  width: 22px;
   height: auto;
-  border-radius: 2px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45);
-  z-index: 2;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  pointer-events: none;
 }
 
 .wg-onlineBtn {

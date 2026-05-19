@@ -45,17 +45,18 @@ export default function LocationCard({ location, onSearchClick }) {
         onClick={onSearchClick}
         aria-label="More info about this location"
       >
-
-        <span
-          className="wg-locCard__zoomImg"
-          style={{
-            backgroundImage: shown.currentImage
-              ? `url(${asset(shown.currentImage)})`
-              : 'none',
-          }}
-        />
-        <span className="wg-locCard__zoomIcon">
-          <FaMagnifyingGlass />
+        <span className="wg-locCard__zoomInner">
+          <span
+            className="wg-locCard__zoomImg"
+            style={{
+              backgroundImage: shown.currentImage
+                ? `url(${asset(shown.currentImage)})`
+                : 'none',
+            }}
+          />
+          <span className="wg-locCard__zoomIcon">
+            <FaMagnifyingGlass />
+          </span>
         </span>
         {flagUrl && (
           <img className="wg-locCard__zoomFlag" src={flagUrl} alt="" />

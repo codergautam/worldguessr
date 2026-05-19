@@ -55,6 +55,8 @@
   "back": "Back",
   "menu": "Menu",
   "onlineCnt": "🟢 {{cnt}} online",
+  "inRankedCnt": "🟢 {{cnt}} in ranked",
+  "inCasualCnt": "🟢 {{cnt}} in casual",
   "online": "🟢 Online",
   "offline": "🔴 Offline",
   "allCountries": "World",

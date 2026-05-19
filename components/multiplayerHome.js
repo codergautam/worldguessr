@@ -4,6 +4,7 @@ import { FaArrowLeft, FaArrowRight } from "react-icons/fa"
 import PlayerList from "./playerList";
 import { useTranslation } from '@/components/useTranslations'
 import PartyModal from "./partyModal";
+import { getLeague } from "./utils/leagues";
 
 
 export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, partyModalShown, setPartyModalShown, selectCountryModalShown, setSelectCountryModalShown, inCrazyGames }) {
@@ -109,9 +110,31 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
             )}
 
 
-            <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued} position={"auto"} subText={
-                multiplayerState?.publicDuelRange ? `${text("eloRange")}: ${multiplayerState?.publicDuelRange[0]} - ${multiplayerState?.publicDuelRange[1]}` : undefined
-            } />
+            <BannerText
+                text={text("findingGame")}
+                shown={multiplayerState.gameQueued}
+                position={"auto"}
+                subText={
+                    multiplayerState?.publicDuelRange ? (() => {
+                        const colourForElo = (e) => {
+                            if (e < 2000) return 'white';
+                            return getLeague(e)?.color || 'white';
+                        };
+                        return (
+                            <>
+                                {text("eloRange")}:{' '}
+                                <span style={{ color: colourForElo(multiplayerState.publicDuelRange[0]) }}>
+                                    {multiplayerState.publicDuelRange[0]}
+                                </span>
+                                {' - '}
+                                <span style={{ color: colourForElo(multiplayerState.publicDuelRange[1]) }}>
+                                    {multiplayerState.publicDuelRange[1]}
+                                </span>
+                            </>
+                        );
+                    })() : undefined
+                }
+            />
 
             {!multiplayerState.gameQueued && (
                 <BannerText  position={"auto"} text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />

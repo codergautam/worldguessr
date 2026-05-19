@@ -1,5 +1,4 @@
 
-/* Distribution chart */
 .daily-distribution-chart-wrap {
   position: relative;
   width: 100%;
@@ -108,7 +107,6 @@
   color: rgba(255, 255, 255, 0.7);
 }
 
-/* Leaderboard */
 .daily-leaderboard {
   display: flex;
   flex-direction: column;
@@ -192,7 +190,6 @@
   gap: 8px;
 }
 
-/* Round breakdown — bar graph */
 .daily-round-bars {
   display: flex;
   justify-content: center;

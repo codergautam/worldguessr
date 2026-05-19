@@ -29,10 +29,6 @@
   letter-spacing: 0.05em;
 }
 
-/* Streak flame burst — full-viewport celebratory overlay. Fires once on
-   streak start/extend, self-unmounts after ~3s. Pointer-events: none so
-   the results UI underneath stays interactive. */
-/* Streak flame burst */
 .daily-flame-burst {
   position: fixed;
   inset: 0;
@@ -188,7 +184,6 @@
   }
 }
 
-/* Personal records card — unique to results, replaces redundant top10 */
 .daily-records-card {
   background: linear-gradient(135deg, rgba(255, 215, 0, 0.08) 0%, rgba(255, 122, 26, 0.06) 100%);
   border-color: rgba(255, 215, 0, 0.22);

@@ -1,5 +1,4 @@
 
-/* Very low height optimizations for wide screens */
 @media (min-width: 800px) and (max-height: 450px) and (min-height: 351px) {
     .game-summary-container {
         flex-direction: row;
@@ -7,7 +6,7 @@
     }
 
     .game-summary-sidebar {
-        width: 320px; /* Narrower sidebar for very low height */
+        width: 320px;
         height: 100vh;
         position: relative;
         overflow-y: auto;
@@ -92,7 +91,6 @@
         font-size: 0.8rem;
     }
 
-    /* End banner optimizations for very low height */
     #endBanner {
         min-height: 80px;
         padding: 10px;
@@ -141,18 +139,15 @@
         font-size: 1em;
     }
 
-    /* Round over content optimizations */
     .round-over-content {
         padding: 20px;
         max-width: 400px;
     }
 
-    /* Multipler home optimizations */
     .multiplayerHome {
         padding: 10px;
     }
 
-    /* Join party optimizations */
     .join-party-card {
         padding: 20px;
         max-width: 360px;
@@ -173,12 +168,6 @@
         font-size: 1rem;
     }
 
-    /* Minimap optimizations for very low height */
-
-
-
-
-    /* Onboarding div optimizations */
     .onboardingDiv {
         width: 60%;
         top: 20px;
@@ -186,7 +175,6 @@
         font-size: 1.2em;
     }
 
-    /* Country guesser options optimizations */
     .countryGuessrOptions {
         bottom: 20px;
         width: 80%;
@@ -196,13 +184,11 @@
         height: 80px;
     }
 
-    /* Home page navigation separators constraint */
     .g2_nav_hr {
         max-width: 500px !important;
     }
 }
 
-/* Low width/height desktop optimizations */
 @media (min-width: 1025px) and (max-width: 1366px), (min-width: 1025px) and (max-height: 768px) {
     .summary-header {
         padding: 20px 20px 15px;
@@ -241,7 +227,6 @@
         font-size: 1.6rem;
     }
 
-    /* ELO container adjustments */
     .elo-value {
         font-size: 1.6rem;
     }
@@ -257,20 +242,20 @@
 
 .elo-container {
     display: flex;
-    align-items: baseline; /* Align smaller text with larger text */
-    gap: 8px; /* Add some space between Elo value and change */
+    align-items: baseline;
+    gap: 8px;
 }
 
 .elo-value {
-    font-size: 2rem; /* Make Elo value larger */
+    font-size: 2rem;
     font-weight: bold;
     color: black;
 }
 
 .elo-change {
-    font-size: 1rem; /* Make Elo change smaller */
+    font-size: 1rem;
     font-weight: normal;
-    color: green; /* Default color */
+    color: green;
 }
 
 .time-elapsed {
@@ -293,7 +278,7 @@
 }
 
 .detail-icon {
-    color: #FFD700; /* Gold color */
+    color: #FFD700;
     font-size: 1.5rem;
 }
 
@@ -316,7 +301,6 @@
 .play-again-btn:hover {
     background: #0056b3;
 }
-
 
 .star-container {
     display: flex;
@@ -350,8 +334,6 @@
     height: 50px;
 }
 
-
-
 .input-group {
     display: flex;
     margin-bottom: 20px;
@@ -377,7 +359,7 @@
     border-radius: 5px;
     background-color: #4CAF50;
     color: white;
-    // height: fit-content;
+
     cursor: pointer;
 }
 
@@ -497,7 +479,6 @@
     justify-content: flex-start;
 }
 
-
 @media screen and (max-width: 680px) {
     .friendsModal {
         width: 100% !important;
@@ -578,7 +559,7 @@
     .mainHomeBtns {
         flex-direction: column;
         gap: 10px;
-        // height: 200px;
+
         height: auto;
     }
 
@@ -601,7 +582,6 @@
     max-width: none !important;
 }
 
-/* Hide the elements with specific inline styles */
 [style*="position: absolute;"][style*="pointer-events: none;"][style*="transform: translate(-50%, -50%);"][style*="z-index: 1000;"][style*="top: 50%;"][style*="color: white;"][style*="font-size: 20px;"][style*="left: 50%;"][style*="background-color: rgba(0, 0, 0, 0.3);"][style*="padding: 5px;"][style*="border-radius: 3px;"][style*="text-align: center;"] {
     display: none !important;
 }
@@ -615,7 +595,6 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
     flex-wrap: wrap;
 }
 
-
 .privacyPolicyLink {
     color: white;
     text-decoration: underline;
@@ -625,7 +604,6 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
     right: 10px;
     z-index: 1000;
 }
-
 
 .privacyPolicyLink a {
     color: white;
@@ -649,15 +627,9 @@ div[style*="background-color: white; font-weight: 500; font-family: Roboto, sans
         top: 100px;
     }
 }
-// .topAdFixed {
-//     position: fixed;
-//   bottom: 5px;
-//   z-index: 100;
-//   left: 50%;
-//   transform: translateX(-50%);
-// }
+
 div[dir="ltr"] {
-    // invert the colors
+
     filter: invert(1);
 }
 
@@ -679,7 +651,7 @@ div[dir="ltr"] {
 .mapSearchInput {
     width: 50%;
     background-color: #e3e3e3 !important;
-    // placehoder color
+
     color: #000000 !important;
     font-size: 1.3em;
 }

@@ -15,6 +15,7 @@ import {
   FaComments,
   FaAngleRight,
   FaMap,
+  FaExpand,
 } from 'react-icons/fa6';
 import { FaRegCalendar } from 'react-icons/fa';
 import { LuSwords } from 'react-icons/lu';
@@ -34,7 +35,7 @@ import HomeSettingsPanel from './HomeSettingsPanel';
 import HomeLeaderboardPanel from './HomeLeaderboardPanel';
 import ExternalLinkConfirm, { shouldSkipConfirm } from './ExternalLinkConfirm';
 
-const EXTERNAL_LINKS = {
+const externalLinks = {
   discord: {
     key: 'discord',
     title: 'Join the Discord?',
@@ -147,7 +148,7 @@ export default function HomeScreen({
 
   const openExternal = (key) => (e) => {
     e?.preventDefault?.();
-    const link = EXTERNAL_LINKS[key];
+    const link = externalLinks[key];
     if (!link) return;
     if (shouldSkipConfirm(key)) {
       window.open(link.url, '_blank', 'noopener,noreferrer');
@@ -174,6 +175,25 @@ export default function HomeScreen({
     <div className={`wg-home ${exiting ? 'wg-home--exiting' : ''}`}>
 
       <div className="wg-home__sideFade" aria-hidden="true" />
+
+      <img
+        src={asset('/assets/logos/title.png')}
+        alt="WorldGuessr"
+        className="wg-home__titleFixed"
+        draggable={false}
+        aria-hidden="true"
+      />
+
+      {typeof window !== 'undefined' && (('ontouchstart' in window) || (navigator?.maxTouchPoints > 0)) && (
+        <button
+          type="button"
+          className="wg-home__fsBtn"
+          aria-label="Toggle fullscreen"
+          onClick={() => window.wgFullscreen && window.wgFullscreen()}
+        >
+          <FaExpand />
+        </button>
+      )}
 
       <div className="wg-home__topRight">
         <HomeAccountBtn
@@ -265,17 +285,17 @@ export default function HomeScreen({
 
       <div className="wg-home__footer">
         {!inCoolMath && !inGameDistribution && (
-          <a href={EXTERNAL_LINKS.discord.url} aria-label="Discord" onClick={openExternal('discord')}>
+          <a href={externalLinks.discord.url} aria-label="Discord" onClick={openExternal('discord')}>
             <FooterBtn tint="discord"><FaDiscord /></FooterBtn>
           </a>
         )}
         {!inCoolMath && !inCrazyGames && !inGameDistribution && (
-          <a href={EXTERNAL_LINKS.youtube.url} aria-label="YouTube" onClick={openExternal('youtube')}>
+          <a href={externalLinks.youtube.url} aria-label="YouTube" onClick={openExternal('youtube')}>
             <FooterBtn tint="youtube"><FaYoutube /></FooterBtn>
           </a>
         )}
         {!inCoolMath && !inGameDistribution && (
-          <a href={EXTERNAL_LINKS.forum.url} aria-label="Forum" onClick={openExternal('forum')}>
+          <a href={externalLinks.forum.url} aria-label="Forum" onClick={openExternal('forum')}>
             <FooterBtn tint="forum"><FaComments /></FooterBtn>
           </a>
         )}

@@ -4,13 +4,11 @@
     opacity: 100%;
 }
 
-
 #mapControlsAbove {
     position: absolute;
     transform: translateY(-75px) translateX(-15px);
     width: 100%;
 }
-
 
 .multiplayerHome {
     height: 100%;
@@ -26,7 +24,7 @@
     bottom: 0;
     z-index: 101;
     pointer-events: all;
-    //animation: fadeIn 1s ease-in-out forwards;
+
 }
 
 .multiplayerHome.inGame {
@@ -42,7 +40,6 @@
     padding-right: 20px;
 }
 
-// Join Party Screen Styles
 .join-party-container {
     position: fixed;
     top: 0;
@@ -209,11 +206,10 @@
     background-color: #265226;
 }
 
-// chatbox
 .chatboxParent {
     position: fixed;
     bottom: 20px;
-    left: 20px; /* Default bottom-left position */
+    left: 20px;
     opacity: 0;
     transition: all 0.5s;
     border-radius: 10px;
@@ -221,20 +217,17 @@
     z-index: 2000;
 }
 
-/* Move chat to bottom-right when round over screen is shown */
 .chatboxParent.roundOverScreen {
     left: auto;
     right: 20px;
 }
 
-/* Adjust chat button positioning when on right side */
 .chatboxParent.roundOverScreen .chatboxBtn {
-    transform: translate(0px, 5px); /* Mirror the original transform */
+    transform: translate(0px, 5px);
 }
 .chatboxParent.roundOverScreen .chatboxBtn.open {
-    transform: translate(0,0); /* Mirror the original transform */
+    transform: translate(0,0);
 }
-
 
 .chatbox {
     display: none;
@@ -271,12 +264,11 @@
 }
 
 input[placeholder="Please login to chat"] {
-    // disable the div
+
     cursor: not-allowed;
     pointer-events: none;
     background-color: rgba(225, 225, 225, 1) !important;
 }
-
 
 .react-chatbot-kit-chat-input-container {
     border-radius: 10px;
@@ -288,7 +280,7 @@ input[placeholder="Please login to chat"] {
 
 .react-chatbot-kit-user-chat-message,
 .react-chatbot-kit-chat-bot-message {
-    // make it look like a chat bubble overflow on new linw wrap
+
     display: inline-block;
     word-wrap: break-word;
     max-width: 60%;
@@ -451,7 +443,6 @@ input[placeholder="Please login to chat"] {
     background-color: #2ebd4e;
 }
 
-/* Mobile responsive adjustments for leaderboard */
 @media screen and (max-width: 600px), screen and (pointer: coarse) {
     .multiplayerLeaderboard {
         padding: 20px 12px 30px;
@@ -496,7 +487,6 @@ input[placeholder="Please login to chat"] {
     }
 }
 
-/* Short screen height adjustments for leaderboard */
 @media screen and (max-height: 700px) {
     .multiplayerLeaderboard {
         padding: 15px 12px 25px;

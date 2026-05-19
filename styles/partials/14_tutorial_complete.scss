@@ -53,7 +53,6 @@
     }
 }
 
-/* ===== Welcome Modal ===== */
 .welcome-modal-backdrop {
     position: fixed;
     top: 0;
@@ -79,8 +78,12 @@
 .welcome-modal {
     max-width: 440px;
     width: 92%;
-    background: linear-gradient(160deg, #1a2e23 0%, #0d1117 100%);
-    border: 1px solid rgba(63, 185, 80, 0.2);
+    background:
+        linear-gradient(160deg, rgba(28, 44, 78, 0.5) 0%, rgba(13, 18, 30, 0.85) 60%),
+        rgba(5, 8, 16, 0.92);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid rgba(96, 165, 250, 0.32);
     border-radius: 18px;
     padding: 36px 28px 28px;
     text-align: center;
@@ -97,6 +100,136 @@
     }
 }
 
+.wg-tutorialBtn {
+    font-family: "GmarketSans", "Lexend", sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    font-size: 1rem;
+    color: white;
+    padding: 14px 28px;
+    border-radius: 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+    transition: transform 0.16s ease-out, filter 0.16s ease-out, box-shadow 0.16s ease-out;
+    transform: translateY(0);
+
+    &:hover { transform: translateY(-1px); filter: brightness(1.06); }
+    &:active:hover { transform: translateY(1px); filter: brightness(0.95); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; transform: none; filter: grayscale(0.3); }
+}
+
+.wg-tutorialBtn--primary {
+    background: #2c63d8;
+    border: 1px solid rgba(155, 195, 255, 0.45);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+
+    &:active:hover {
+        box-shadow:
+            inset 0 1px 0 rgba(0, 0, 0, 0.32),
+            inset 0 -1px 0 rgba(255, 255, 255, 0.14);
+    }
+}
+
+.wg-tutorialBtn--ghost {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+
+    &:hover { background: rgba(255, 255, 255, 0.12); }
+}
+
+.wg-ingame-active .onboardingTopRightBtns {
+    right: 212px;
+    top: 8px;
+}
+
+@media (max-width: 720px) {
+    .wg-ingame-active .onboardingTopRightBtns {
+        top: 56px;
+        right: 8px;
+    }
+}
+
+.wg-ingame-active .onboardingJoinPartyBtn,
+.onboardingJoinPartyBtn {
+    background: rgba(5, 8, 16, 0.92) !important;
+    background-image: none !important;
+    border: 1px solid rgba(96, 165, 250, 0.45) !important;
+    color: white !important;
+    font-family: 'GmarketSans', 'Lexend', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    border-radius: 12px !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.32) !important;
+    transition: transform 0.16s ease-out, filter 0.16s ease-out !important;
+    text-shadow: none !important;
+
+    &:hover { transform: translateY(-1px); filter: brightness(1.06); }
+    &:active:hover { transform: translateY(1px); filter: brightness(0.95); }
+}
+
+.wg-ingame-active .onboardingLoginBtn .navBtn:not(.backBtn),
+.onboardingLoginBtn .navBtn:not(.backBtn) {
+    background: #2c63d8 !important;
+    background-image: none !important;
+    border: 1px solid rgba(155, 195, 255, 0.45) !important;
+    color: white !important;
+    font-family: 'GmarketSans', 'Lexend', sans-serif;
+    font-weight: 700;
+    border-radius: 12px !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.3) !important;
+    transition: transform 0.16s ease-out, filter 0.16s ease-out !important;
+    text-shadow: none !important;
+
+    &:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.06);
+        background-color: #2c63d8 !important;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.28),
+            inset 0 -2px 0 rgba(0, 0, 0, 0.3) !important;
+    }
+    &:active:hover { transform: translateY(1px); filter: brightness(0.95); }
+}
+
+.wg-backBtn--nav.wg-backBtn--menu {
+    background: #2c63d8 !important;
+    background-image: none !important;
+    border: 1px solid rgba(155, 195, 255, 0.45) !important;
+    color: white !important;
+    font-family: 'GmarketSans', 'Lexend', sans-serif !important;
+    font-weight: 700 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.3) !important;
+    text-shadow: none !important;
+
+    &:hover { filter: brightness(1.06); }
+    &:active:hover { filter: brightness(0.95); }
+}
+
+.welcome-modal__heroImg {
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 4px;
+    object-fit: contain;
+    animation: welcomePulse 2.5s ease-in-out infinite;
+    filter: drop-shadow(0 4px 12px rgba(60, 120, 230, 0.4));
+}
+
 .welcome-modal__hero {
     font-size: 3rem;
     margin-bottom: 4px;
@@ -109,9 +242,11 @@
 }
 
 .welcome-modal__title {
-    font-size: 1.8rem;
+    font-family: "GmarketSans", "Lexend", sans-serif;
+    font-size: 1.9rem;
     font-weight: 700;
-    color: #3fb950;
+    color: white;
+    letter-spacing: 0.2px;
     margin-bottom: 6px;
 }
 
@@ -209,7 +344,6 @@
     }
 }
 
-/* ===== Onboarding Complete (Celebration + Keep Playing) ===== */
 .ob-complete {
     position: fixed;
     top: 0;
@@ -231,22 +365,24 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 24px 20px;
+    padding: 28px 22px;
     gap: 14px;
-    max-width: 420px;
+    max-width: 440px;
     width: 100%;
     max-height: 95vh;
     overflow-y: auto;
     border-radius: 20px;
-    border: 1.4px solid var(--primaryDark);
-    background: var(--gradFull);
-    backdrop-filter: blur(16px);
+    border: 1px solid rgba(96, 165, 250, 0.32);
+    background:
+        linear-gradient(160deg, rgba(28, 44, 78, 0.5) 0%, rgba(13, 18, 30, 0.85) 60%),
+        rgba(5, 8, 16, 0.92);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
     filter: drop-shadow(0px 8px 24px rgba(0, 0, 0, 0.5));
     animation: fadeInUp 0.4s ease forwards;
     box-sizing: border-box;
 }
 
-/* Celebration hero */
 .ob-complete__celebration {
     display: flex;
     flex-direction: column;
@@ -265,12 +401,12 @@
 }
 
 .ob-complete__title {
-    font-family: "Lexend", sans-serif;
-    font-size: 1.6rem;
+    font-family: "GmarketSans", "Lexend", sans-serif;
+    font-size: 2rem;
     font-weight: 700;
     color: white;
     margin: 0;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    letter-spacing: 0.3px;
 }
 
 .ob-complete__score-row {
@@ -282,12 +418,11 @@
 }
 
 .ob-complete__score-value {
-    font-family: "Lexend", sans-serif;
-    font-size: 2.4rem;
+    font-family: "GmarketSans", "Lexend", sans-serif;
+    font-size: 2.8rem;
     font-weight: 700;
     color: white;
     line-height: 1;
-    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     font-variant-numeric: tabular-nums;
 }
 
@@ -315,7 +450,6 @@
     text-align: center;
 }
 
-/* Mode cards */
 .ob-complete__grid {
     display: flex;
     flex-direction: column;
@@ -388,7 +522,6 @@
     line-height: 1.35;
 }
 
-/* Home link */
 .ob-complete__home {
     background: none;
     border: none;
@@ -408,7 +541,6 @@
     50%      { transform: translateY(-5px); }
 }
 
-/* Tablet / wide: 2-col grid with last odd card spanning both */
 @media (min-width: 520px) {
     .ob-complete__modal {
         padding: 28px 26px;
@@ -428,7 +560,6 @@
     }
 }
 
-/* Short viewports (landscape phones): compact */
 @media (max-height: 600px) {
     .ob-complete__trophy { font-size: 28px; }
     .ob-complete__title { font-size: 1.3rem; }
@@ -448,7 +579,6 @@
     }
 }
 
-/* ===== Country Guesser Config ===== */
 .countryGuessr-config {
     position: fixed;
     top: 0;
@@ -568,7 +698,6 @@
     border-radius: 15px;
 }
 
-/* Country Guesser Config responsive */
 @media (max-aspect-ratio: 1/1.5) or (max-height: 600px) or (min-aspect-ratio: 3/1) {
     .countryGuessr-config {
         flex-direction: column;
@@ -609,14 +738,12 @@
     }
 }
 
-/* ===== Continent Mode Layout ===== */
 .countryGuessrOptions.continentMode {
     width: 70%;
     max-width: 750px;
     gap: 6px;
 }
 
-/* ===== Post-Tutorial Screen ===== */
 .post-tutorial {
     position: relative;
     z-index: 2;
@@ -671,7 +798,6 @@
     }
 }
 
-/* ===== Tutorial Pill ===== */
 .tutorial-pill {
     position: fixed;
     top: 10px;

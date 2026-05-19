@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from '@/components/useTranslations';
+import { asset } from '@/lib/basePath';
 import sendEvent from './utils/sendEvent';
 
 export default function WelcomeOverlay({ onModeSelected, onSkip }) {
@@ -30,7 +31,12 @@ export default function WelcomeOverlay({ onModeSelected, onSkip }) {
   return (
     <div className={`welcome-modal-backdrop ${visible ? 'visible' : ''}`}>
       <div className={`welcome-modal ${visible ? 'visible' : ''}`}>
-        <div className="welcome-modal__hero">🌍</div>
+        <img
+          src={asset('/assets/logos/globe.png')}
+          alt=""
+          className="welcome-modal__heroImg"
+          draggable={false}
+        />
         <h1 className="welcome-modal__title">{text("welcomeTitle")}</h1>
         <p className="welcome-modal__desc">
           {text("welcomeDesc")}

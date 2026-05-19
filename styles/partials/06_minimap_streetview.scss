@@ -3,7 +3,7 @@
     right: auto !important;
     left: 0 !important;
 }
-// obnly on ios
+
 @supports (-webkit-touch-callout: none) {
     .gm-bundled-control-on-bottom {
         transform: translateY(-100px) !important;
@@ -13,16 +13,6 @@
 .gm-style-cc {
     display: none;
 }
-// less than 460px
-// @media screen and (max-width: 460px) {
-//   .gm-bundled-control-on-bottom {
-//     bottom: calc(161px + 100px) !important;
-//   }
-
-
-// }
-
-
 
 #miniMapArea.shown {
     opacity: 50%;
@@ -37,7 +27,6 @@
     transition: none !important;
     animation: none !important;
 }
-
 
 #miniMapContent {
     cursor: crosshair;
@@ -86,9 +75,7 @@
     #miniMapArea.miniMap.shown .chatboxBtn {
         transform: translate(0, 0) !important;
     }
-    // #miniMapArea.answerShown {
-    //   transform: none;
-    // }
+
     #miniMapContent {
         border: none;
     }
@@ -172,27 +159,18 @@
         gap: 10px;
     }
 
-    /* WsIcon (top:125px, right:15px, 50px wide, 50px tall) collides with the
-       expanded-map button row only when the row's top edge (0.3H - 56px) falls
-       above 175px and its bottom edge (0.3H - 8px) falls below 125px — i.e.
-       portrait viewport heights ~444–770px. Reserve the right column only then
-       and only when the icon is actually mounted. */
     @media (orientation: portrait) and (min-height: 444px) and (max-height: 770px) {
         body.ws-icon-shown .mobile_minimap__btns.miniMapShown {
             padding-right: 75px;
         }
     }
 
-    /* Landscape on short viewports: the round-details tile sits in the top-right
-       area and blocks the minimize button even beyond the WsIcon column. Shift
-       the row further left so the minimize clears both. */
     @media (orientation: landscape) and (max-height: 515px) {
         .mobile_minimap__btns.miniMapShown {
             padding-right: 160px;
         }
     }
 
-    /* Mobile guess button when map is expanded */
     .mobile_minimap__btns.miniMapShown .guessBtn {
         flex: 1;
         height: 48px;
@@ -200,7 +178,6 @@
         border-radius: 14px;
     }
 
-    /* Mobile hint button when map is expanded */
     .mobile_minimap__btns.miniMapShown .hintBtn {
         width: auto;
         min-width: 80px;
@@ -217,12 +194,6 @@
         border-radius: 14px !important;
     }
 }
-// @media screen and (max-width: 460px) {
-//   .mobile_minimap__btns {
-//     bottom: calc(20px + 50px);
-//   }
-
-// }
 
 .chatboxBtn {
     transform: translate(0px, 5px);
@@ -234,18 +205,10 @@
     }
 }
 
-// @media screen and (max-width: 580px) {
-//   .chatboxBtn {
-//     transform: translate(60px, -45px);
-//   }
-
-// }
 .chatboxBtn.open {
     transform: translate(0, 0);
 }
 
-// Z-index layering fix
-// Priority: react-chatbot-kit-chat-container > guessBtn > chatboxBtn
 .chatboxBtn {
     z-index: 1000;
     position: relative;
@@ -266,9 +229,6 @@
     display: none;
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   GUESS BUTTON - Primary action with deep blue design
-   ═══════════════════════════════════════════════════════════════════════════ */
 .guessBtn {
     background: var(--gradBlue);
     border: 1px solid rgba(29, 29, 91, 0.8);
@@ -287,7 +247,6 @@
     opacity: 1;
 }
 
-/* Shimmer effect overlay */
 .guessBtn::before {
     content: '';
     position: absolute;
@@ -324,9 +283,6 @@
         inset 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   HINT BUTTON - Secondary action matching green theme
-   ═══════════════════════════════════════════════════════════════════════════ */
 .hintBtn {
     width: auto;
     padding: 0 12px;
@@ -351,7 +307,6 @@
     white-space: nowrap;
 }
 
-/* Glow pulse animation */
 .hintBtn::after {
     content: '';
     position: absolute;
@@ -395,9 +350,6 @@
     100% { transform: rotate(360deg); }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   UTILITY STYLES
-   ═══════════════════════════════════════════════════════════════════════════ */
 .cornerBtn {
     font-size: 1.5em;
     background: linear-gradient(135deg, #1ea0ac 0%, #17889a 100%);
@@ -418,7 +370,6 @@
     border-radius: 10px;
 }
 
-/* Unavailable/disabled state - smooth transition using filter */
 .miniMap__btn.unavailable {
     cursor: not-allowed;
     filter: grayscale(0.7) brightness(0.7);
@@ -466,19 +417,19 @@
 
 #googlemaps.hidden,
 #streetview.hidden {
-    // transform: translateY(-105%);
+
     opacity: 0;
+    transition: opacity 0s !important;
 }
 
 #streetview {
     transition: opacity 0.2s ease-out;
-    background-color: #1a1a2e; /* Prevent white flash during iframe src change */
+    background-color: #1a1a2e;
 }
 
-// on screens larger than 600px
 @media screen and (min-width: 600px) and (pointer: fine) {
     #miniMapArea.mapExpanded {
-        /* full screen center not 100% */
+
         height: 65%;
         width: 55%;
     }
@@ -489,18 +440,15 @@
     }
 }
 
-// if less than 600px or touch screen
 @media screen and (max-width: 600px), screen and (pointer:coarse) {
     #miniMapArea {
-        /* full screen center not 100% */
+
         height: 70%;
         width: 100%;
         right: 0;
         bottom: 0;
     }
 }
-
-
 
 #miniMapArea.answerShown {
     width: 100%;
@@ -512,12 +460,7 @@
     border-radius: 0;
     margin-right: 0;
     margin-top: 0;
-    // Explicit property list — `all` forces the browser to check transitions
-    // on every property, which adds style-recompute work per frame.
-    // `transform` and `opacity` must be here so the slide-out animation runs
-    // when `.shown` is removed (e.g. toggling map ↔ street view during the
-    // reveal): the base #miniMapArea has translateY(105%) + opacity 0 and we
-    // need to animate back to that, not snap.
+
     transition:
         width 300ms ease,
         height 300ms ease,

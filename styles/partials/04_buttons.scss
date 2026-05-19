@@ -19,14 +19,14 @@
 .homeBtn.singleplayer {
     background-color: #547a32;
 }
-// mobile homebtn has smaller font size and is less bold
+
 @media screen and (max-width: 600px) {
     .homeBtn {
         font-size: 1.2em;
         font-weight: 200;
     }
 }
-// disabled homebtn
+
 .homeBtn[disabled] {
     background-color: #373737;
     cursor: not-allowed;
@@ -91,7 +91,7 @@
         width: 40px;
         height: 40px;
     }
-//less than 1280px
+
 @media screen and (max-width: 1280px) {
     .accountBtn {
         font-size: 1.2em;
@@ -107,7 +107,7 @@
         height: 35px;
     }
 }
-//less than 600px
+
 @media screen and (max-width: 600px) {
 .accountBtn {
         font-size: 1.0em;
@@ -131,7 +131,6 @@
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
 }
 
-// Green styling for account button during onboarding
 .navbar.onboarding .accountBtn:not(.backBtn),
 .navbar.onboarding .navBtn:not(.backBtn) {
     border: 1.4px solid var(--primaryDark);
@@ -146,12 +145,6 @@
     transform: scale(1.05);
 }
 
-/* Logged-out "Login" button on the home screen.
-   Sized + styled to match the daily-landing CTA: solid `--primary` green,
-   `--primaryDark` border, 14px border-radius (less rounded than the old
-   50px pill), modest drop shadow, gentle hover lift + brighten. Bigger
-   padding + font so first-time visitors actually notice it.
-   Scoped to `.accountBtn:not(.loggedIn)` so the logged-in pill is untouched. */
 .accountBtn:not(.loggedIn) {
     background: var(--primary);
     border: 1.4px solid var(--primaryDark);
@@ -185,8 +178,6 @@
         0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
-/* Subtle pop on the Google glyph on hover — same idea as the daily CTA's
-   icon nudge, just enough to feel responsive without overdoing it. */
 .accountBtn:not(.loggedIn) .home__squarebtnicon {
     transition: transform 0.2s ease;
 }
@@ -200,12 +191,6 @@
     }
 }
 
-/* Logged-in pill (the username + flag chip in the top-right).
-   The "glitched" hover came from the generic `.accountBtn:hover` swapping
-   the gradient `var(--gradGreenBtn)` for the flat color `var(--primary)`,
-   which read as a brief flash. Match the FriendBtn's green palette for
-   consistency: solid `--primaryTransparent` base (no gradient → no swap
-   glitch) and `--primary` on hover, just like .friendBtn. */
 .accountBtn.loggedIn {
     background: var(--primaryTransparent);
     border: 1.4px solid var(--primaryDark);
@@ -265,7 +250,6 @@
     pointer-events: all;
 }
 
-/* Keep toasts above onboarding top-right controls */
 .Toastify__toast-container {
     z-index: 10020 !important;
 }
@@ -351,7 +335,6 @@
     }
 }
 
-
 @media screen and (max-width: 600px) {
     .navBtn {
         font-size: 1.2em;
@@ -361,8 +344,6 @@
 .g2_lexend {
     font-family: lexend;
 }
-
-
 
 .g2_green_button {
     border: 1.4px solid var(--primaryDark);
@@ -403,7 +384,6 @@
     transform: scale(1.05);
 }
 
-/* Fix for game options button overflow in navbar */
 .gameBtn.navBtn.g2_green_button.g2_lexend {
     white-space: nowrap;
     overflow: hidden;
@@ -415,12 +395,12 @@
 }
 
 .gameBtn.navBtn.g2_green_button.g2_lexend svg {
-    flex-shrink: 0; /* Prevent the pencil icon from shrinking */
+    flex-shrink: 0;
 }
 
 @media screen and (max-width: 600px) {
     .gameBtn.navBtn.g2_green_button.g2_lexend {
-        max-width: 200px; /* Smaller max-width on mobile */
+        max-width: 200px;
     }
 }
 
@@ -441,7 +421,6 @@
     transform: scale(1.05);
 }
 
-
 .g2_blue_button {
     border: 1.4px solid #004684;
     background: var(--gradBlue);
@@ -460,7 +439,6 @@
 .g2_shadow {
     filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
 }
-
 
 .g2_input {
     border-radius: 8px;
@@ -487,7 +465,6 @@
     background-color: rgba(0, 0, 0, 0.25) !important;
 }
 
-/* Mobile responsive party modal */
 @media (max-width: 768px) {
     .party-modal-responsive {
         width: 95vw !important;
@@ -523,8 +500,7 @@
 }
 
 .backBtn {
-    //background-color: #AE4141;
-    // width: 100px;
+
     font-family: lexend;
     margin-left: 10px;
     pointer-events: all;

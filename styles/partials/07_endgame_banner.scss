@@ -11,8 +11,7 @@
 
 #miniMapArea.countryGuessrMapReveal {
     transform: none;
-    // Country/continent modes mount the map only for the reveal. Snap straight
-    // to fullscreen and let the fade + Leaflet camera animation carry it.
+
     transition: none;
     animation: mapFadeReveal 0.5s ease forwards;
 }
@@ -31,9 +30,8 @@
     to { opacity: 0; }
 }
 
-
 #miniMapArea.gameOver {
-    /* full screen center not 100% */
+
     height: 100%;
     width: 100%;
     margin-right: 0;
@@ -45,18 +43,13 @@
     width: 75vw;
 }
 
-
-// gameoption modal
 .countriesContainer {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-around;
-    // padding: 20px;
+
     overflow-y: scroll;
-    // max-height: 50vh;
-    // height: 50vh;
-    // green scrollbar
-    // overflow: hidden;
+
 }
 
 .countryCard {
@@ -130,7 +123,6 @@
     to { opacity: 1; transform: translateY(0); pointer-events: all; }
 }
 
-
 .topGameInfoButton {
     align-self: flex-end;
     transform: translate(10px, -10px);
@@ -167,8 +159,6 @@
     font-family: lexend;
 }
 
-/* iOS landscape: keep the banner buttons away from the screen edges so taps
-   don't hit the home-indicator / edge-swipe zones and summon the pull tab. */
 @media (orientation: landscape) and (max-height: 500px) and (hover: none) {
     .endCards {
         padding-left: max(env(safe-area-inset-left), 16px);
@@ -198,8 +188,6 @@
     margin: 0;
     padding: 0;
 }
-
-
 
 .endButtonContainer {
     display: flex;
@@ -254,7 +242,6 @@
     }
 }
 
-/* Pulsing glow on last onboarding round to draw attention to View Results */
 .lastRoundPulse {
     animation: lastRoundPulse 1.5s ease-in-out infinite !important;
     font-size: 1.35em !important;
@@ -326,7 +313,6 @@
     font-weight: 500;
     padding: 0px;
 }
-
 
 .motivation {
     font-size: 0.8em;
@@ -417,9 +403,6 @@
     }
 }
 
-/* Landscape phones: banner was eating too much vertical space. Tighten padding,
-   gaps, and nudge font sizes down. Targets short-height viewports only so portrait
-   phones (height > 500px) keep the comfortable sizes above. */
 @media (orientation: landscape) and (max-height: 500px) {
     #endBanner {
         padding: 5px 14px 7px !important;
@@ -427,9 +410,6 @@
         border-radius: 8px;
     }
 
-    /* Default rule pushes this button 10px past the banner's right edge via a
-       translate — fine on desktop, but gets clipped on phone landscape where the
-       banner is tight. Keep it inside the padding box here. */
     .topGameInfoButton {
         transform: none !important;
         align-self: flex-end;

@@ -1,6 +1,6 @@
 
 
-const LOCATIONS = [
+const locations = [
   {
     id: 'vikbeach',
     name: 'Vík í Mýrdal',
@@ -357,40 +357,40 @@ const LOCATIONS = [
   },
 ];
 
-const RECENT_LIMIT = Math.max(4, Math.floor(LOCATIONS.length / 2));
+const recentLimit = Math.max(4, Math.floor(locations.length / 2));
 const recent = [];
 
 function rememberPick(id, imageIndex) {
   recent.push(`${id}#${imageIndex}`);
-  while (recent.length > RECENT_LIMIT) recent.shift();
+  while (recent.length > recentLimit) recent.shift();
 }
 
 function recentlyShownLocationIds() {
 
-  const window = Math.max(2, Math.floor(LOCATIONS.length * 0.6));
+  const window = Math.max(2, Math.floor(locations.length * 0.6));
   return new Set(
     recent.slice(-window).map((k) => k.split('#')[0])
   );
 }
 
 export function pickDefaultLocation() {
-  const idx = LOCATIONS.findIndex((l) => l.id === 'vikbeach');
+  const idx = locations.findIndex((l) => l.id === 'vikbeach');
   const i = idx === -1 ? 0 : idx;
-  const loc = LOCATIONS[i];
+  const loc = locations[i];
   rememberPick(loc.id, 0);
   return { ...loc, _imageIndex: 0, currentImage: loc.images[0] };
 }
 
 export function pickRandomLocation() {
-  if (LOCATIONS.length === 0) return null;
-  if (LOCATIONS.length === 1) return { ...LOCATIONS[0], _imageIndex: 0, currentImage: LOCATIONS[0].images[0] };
+  if (locations.length === 0) return null;
+  if (locations.length === 1) return { ...locations[0], _imageIndex: 0, currentImage: locations[0].images[0] };
 
   const recentIds = recentlyShownLocationIds();
-  const fresh = LOCATIONS.filter((l) => !recentIds.has(l.id));
+  const fresh = locations.filter((l) => !recentIds.has(l.id));
 
   const pool = fresh.length > 0
     ? fresh
-    : LOCATIONS.filter((l) => l.id !== recent[recent.length - 1]?.split('#')[0]);
+    : locations.filter((l) => l.id !== recent[recent.length - 1]?.split('#')[0]);
   const loc = pool[Math.floor(Math.random() * pool.length)];
 
   const recentKeys = new Set(recent);
@@ -437,7 +437,7 @@ export function preloadCandidates(currentLocation, count = 3) {
     }
   }
   const recentIds = recentlyShownLocationIds();
-  const others = LOCATIONS.filter((l) => l.id !== currentLocation?.id && !recentIds.has(l.id));
+  const others = locations.filter((l) => l.id !== currentLocation?.id && !recentIds.has(l.id));
 
   for (let i = others.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -449,4 +449,4 @@ export function preloadCandidates(currentLocation, count = 3) {
   return out;
 }
 
-export default LOCATIONS;
+export default locations;

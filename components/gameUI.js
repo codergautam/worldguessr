@@ -7,7 +7,7 @@ import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
-import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown } from "react-icons/fa6";
+import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown, FaXmark } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
 import continentFromCode from "./utils/continentFromCode";
@@ -683,6 +683,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         return {
           ...prev,
           locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, panoId: latLong.panoId || null, guessLat: pinPoint?.lat || null, guessLong: pinPoint?.lng || null,
+            country: latLong.country || null,
             points: roundPoints,
             timeTaken: Math.round((Date.now() - roundStartTime) / 1000),
             xpEarned: roundXp
@@ -863,7 +864,7 @@ start={true || isStartingDuel} isOpponent={true} />
 
 } maxPoints={countryGuesser ? singlePlayerRound.totalRounds * 1000 : singlePlayerRound.totalRounds * 5000}
 history={singlePlayerRound.locations}
-button1Text={"🎮 "+text("playAgain")}
+button1Text={text("playAgain")}
 button1Press={() =>{
   window.crazyMidgame(() =>
 
@@ -935,17 +936,21 @@ session={session}/>
           </>
         )}
         {!loading && !welcomeOverlayShown && (
-          <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
-            setMiniMapShown(!miniMapShown)
-          }}>
+          <button
+            className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`}
+            onClick={() => { setMiniMapShown(!miniMapShown) }}
+            aria-label={miniMapShown ? (text("close") || 'Close') : text("guess")}
+          >
               {!miniMapShown ? (
                 <>
-            <FaMap size={miniMapShown ? 30 : 50} /> {!miniMapShown ? text("guess") : ''}
-            </>
-            ) : (
-              <FaArrowDown size={30} />
-            ) }
-
+                  <FaMap size={50} className="g2_mobile_guess__icon" />
+                  <span className="g2_mobile_guess__label">{text("guess")}</span>
+                </>
+              ) : (
+                <>
+                  <FaXmark size={28} className="g2_mobile_guess__closeIcon" />
+                </>
+              )}
             </button>
         )}
       </div>
@@ -1038,7 +1043,7 @@ session={session}/>
                   ? <><span className="timer__countdown">{singlePlayerTimeLeft.toFixed(1)}s</span> &middot; </>
                   : null
                 }
-                <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} showIncrement={false} /> {text("points")}
+                <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} showIncrement={true} duration={900} incrementColor="#22c55e" /> {text("points")}
               </span>
             </span>
           )

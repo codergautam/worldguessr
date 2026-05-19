@@ -4,7 +4,7 @@ import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
 import { asset } from '@/lib/basePath';
 import { getPinIcons } from '@/lib/markerIcons';
-import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag } from "react-icons/fa";
+import { FaTrophy, FaClock, FaStar, FaRuler, FaMapMarkerAlt, FaExternalLinkAlt, FaFlag, FaSearchPlus, FaTimes } from "react-icons/fa";
 import msToTime from "./msToTime";
 import formatTime from "../utils/formatTime";
 import { toast } from "react-toastify";
@@ -12,6 +12,7 @@ import 'leaflet/dist/leaflet.css';
 import ReportModal from './reportModal';
 import UsernameWithFlag from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
+import nameFromCode from './utils/nameFromCode';
 import generateShareText from './utils/generateShareText';
 import sendEvent from './utils/sendEvent';
 
@@ -82,6 +83,7 @@ const GameSummary = ({
 }) => {
   const { t: text } = useTranslation("common");
   const [activeRound, setActiveRound] = useState(null); // null = no round selected
+  const [viewingRound, setViewingRound] = useState(null);
   const [mapReady, setMapReady] = useState(false);
   const [leafletReady, setLeafletReady] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState(false);
@@ -1304,12 +1306,18 @@ const GameSummary = ({
               ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)
               : null;
 
+            const tagRound = (e) => {
+              const el = e.target?.getElement?.();
+              if (el) el.setAttribute('data-round', String(index + 1));
+            };
+
             return (
               <React.Fragment key={index}>
                 {/* Actual location marker */}
                 <Marker
                   position={[round.lat, round.long]}
                   icon={destIconRef.current}
+                  eventHandlers={{ add: tagRound }}
                 >
                   <Popup className="map-marker-popup">
                     <div className="popup-content">
@@ -1344,6 +1352,7 @@ const GameSummary = ({
                     <Marker
                       position={[round.guessLat, round.guessLong]}
                       icon={srcIconRef.current}
+                      eventHandlers={{ add: tagRound }}
                     >
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
@@ -1366,6 +1375,7 @@ const GameSummary = ({
                       color={getPointsColor(round.points)}
                       weight={3}
                       opacity={activeRound === index ? 1 : 0.6}
+                      eventHandlers={{ add: tagRound }}
                     />
                   </>
                 )}
@@ -1621,45 +1631,50 @@ const GameSummary = ({
                     key={index}
                     className={`round-item round-animation ${activeRound === index ? 'active' : ''}`}
                     style={{ animationDelay: `${index * 0.1}s` }}
+                    data-round={index + 1}
                     onClick={handleTileClick}
+                    onMouseEnter={() => {
+                      const m = document.querySelector('.game-summary-map');
+                      if (m) m.setAttribute('data-hover-round', String(index + 1));
+                    }}
+                    onMouseLeave={() => {
+                      const m = document.querySelector('.game-summary-map');
+                      if (m) m.removeAttribute('data-hover-round');
+                    }}
                   >
                     <div className="round-header">
-                      <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span
-                          className="round-points"
-                          style={{ color: 'white' }}
-                        >
+                      <span className="round-number">
+                        {round.country && (
+                          <span className="round-number__flag" title={nameFromCode(round.country, text._lang) || round.country}>
+                            <CountryFlag countryCode={round.country} size={0.9} marginRight="0" />
+                          </span>
+                        )}
+                        {text("roundNo", { r: index + 1 })}
+                      </span>
+                      <div className="round-header-actions">
+                        <span className="round-points">
                           {round.points} {text("pts")}
                         </span>
+                        <button
+                          className="round-action-btn round-action-btn--sv"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingRound(index);
+                          }}
+                          title={text("showPano") || "View street view"}
+                        >
+                          <FaSearchPlus />
+                        </button>
                         {!isMobile && (
                           <button
-                            className="gmaps-icon"
+                            className="round-action-btn round-action-btn--pin"
                             onClick={(e) => {
                               e.stopPropagation();
                               openInGoogleMaps(round.lat, round.long, round.panoId);
                             }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontSize: '12px',
-                              padding: '2px',
-                              borderRadius: '3px',
-                              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                              color: 'white',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '20px',
-                              height: '20px',
-                              transition: 'background-color 0.2s'
-                            }}
-                            onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
-                            onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
                             title={text("openInMaps")}
                           >
-                            📍
+                            <FaMapMarkerAlt />
                           </button>
                         )}
                       </div>
@@ -1669,7 +1684,7 @@ const GameSummary = ({
                       {distance && distance > 0 && (
                         <div className="detail-row">
                           <span className="detail-label">
-                            <span className="detail-icon">📏</span>
+                            <FaRuler className="detail-icon detail-icon--distance" />
                             {text("distance")}
                           </span>
                           <span className="distance-value">{formatDistance(distance)}</span>
@@ -1678,7 +1693,7 @@ const GameSummary = ({
                       {round.timeTaken && round.timeTaken > 0 && (
                         <div className="detail-row">
                           <span className="detail-label">
-                            <span className="detail-icon">⏱️</span>
+                            <FaClock className="detail-icon detail-icon--time" />
                             {text("timeTaken")}
                           </span>
                           <span className="time-value">{formatTime(round.timeTaken)}</span>
@@ -1689,7 +1704,7 @@ const GameSummary = ({
                         return (
                           <div className="detail-row">
                             <span className="detail-label">
-                              <span className="detail-icon">⭐</span>
+                              <FaStar className="detail-icon detail-icon--xp" />
                               XP
                             </span>
                             <span className="xp-value">+{round.xpEarned}</span>
@@ -1705,6 +1720,46 @@ const GameSummary = ({
         </div>
       </div>
     </div>
+
+    {viewingRound != null && history[viewingRound] && (
+      <div
+        className="round-sv-overlay"
+        onClick={() => setViewingRound(null)}
+      >
+        <div className="round-sv-overlay__card" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className="round-sv-overlay__close"
+            onClick={() => setViewingRound(null)}
+            aria-label="Close street view"
+          >
+            <FaTimes />
+          </button>
+          <div className="round-sv-overlay__title">
+            {text("roundNo", { r: viewingRound + 1 })}
+            {history[viewingRound].country && (
+              <>
+                {' · '}
+                <CountryFlag countryCode={history[viewingRound].country} size={0.85} marginRight="0" />
+                <span style={{ marginLeft: 6 }}>
+                  {nameFromCode(history[viewingRound].country, text._lang) || history[viewingRound].country}
+                </span>
+              </>
+            )}
+          </div>
+          <iframe
+            className="round-sv-overlay__iframe"
+            src={
+              history[viewingRound].panoId
+                ? `https://www.google.com/maps/embed/v1/streetview?pano=${history[viewingRound].panoId}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en`
+                : `https://www.google.com/maps/embed/v1/streetview?location=${history[viewingRound].lat},${history[viewingRound].long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en`
+            }
+            referrerPolicy="no-referrer-when-downgrade"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
+          />
+        </div>
+      </div>
+    )}
     </div>
   );
 };

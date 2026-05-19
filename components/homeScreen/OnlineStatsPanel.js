@@ -9,7 +9,7 @@ import {
 } from 'react-icons/fa6';
 import { LuSwords } from 'react-icons/lu';
 
-const STAT_DEFS = [
+const statDefs = [
   { key: 'singleplayer', icon: <FaEarthAmericas />, label: 'Singleplayer' },
   { key: 'multiplayer', icon: <FaUsers />,         label: 'Multiplayer' },
   { key: 'ranked',      icon: <LuSwords />,        label: 'Ranked Duels' },
@@ -63,7 +63,7 @@ export default function OnlineStatsPanel({ open, onClose, total, breakdown }) {
       </div>
 
       <div className="wg-onlinePanel__grid">
-        {STAT_DEFS.map((s) => {
+        {statDefs.map((s) => {
           const val = breakdown?.[s.key];
           return (
             <div className="wg-onlinePanel__stat" key={s.key}>

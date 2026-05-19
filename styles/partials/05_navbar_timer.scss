@@ -14,40 +14,32 @@ h1, h2, h3, span, label {
     font-family: lexend;
 }
 
-
-
 .navbar {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    // height: 83px;
+
     display: flex;
     align-items: center;
-    // background-color: #0d0d32;
-    // backdrop-filter: blur(10px);
+
     z-index: 1120;
     padding-left: 10px;
     padding-right: 10px;
     overflow-x: hidden;
     pointer-events: none;
-    // enter from top
 
     transition: all 0.5s;
     height: 50px;
 }
-// .navbarColor {
-//     background: var(--primaryTransparent);
-// }
 
 .navbar.hidden {
     transform: translateY(-100%);
     opacity: 0;
 }
 
-
 .navbar__title {
-    // font-size: 2.5em;
+
     font-weight: 500;
     color: white;
     user-select: none;
@@ -55,13 +47,12 @@ h1, h2, h3, span, label {
     transition: all 250ms ease;
     font-size: 1.8em;
     font-family: "Jockey One" !important;
-    // text border
+
     -webkit-text-stroke: 1px black;
 }
 .wg_font {
     font-family: "Jockey One" !important;
 }
-
 
 .navbar__title:hover {
     transition: all 250ms ease;
@@ -81,21 +72,20 @@ h1, h2, h3, span, label {
 .nonHome.shown {
     display: flex;
     animation: fadeInNonHome 0.5s ease-in-out forwards;
-    pointer-events: all;
+    pointer-events: none;
 }
 
 @keyframes fadeInNonHome {
     0% {
         opacity: 0;
-        //transform: scale(0)
+
     }
 
     100% {
         opacity: 1;
-        //transform: scale(1)
+
     }
 }
-
 
 .navbar__right {
     margin-left: auto;
@@ -178,24 +168,21 @@ h1, h2, h3, span, label {
     top: 100px;
 }
 
-// Timer positioning for mobile to avoid overlap with health bars
 @media screen and (max-width: 830px) {
 
-
-    /* Make health bars more compact on mobile */
     .player-info-modern {
-        margin-top: 6px; /* Reduced from 12px */
+        margin-top: 6px;
     }
 
     .health-bar-container.modern {
-        margin: 10px; /* Reduced overall container margin */
+        margin: 10px;
     }
 }
 
 @media screen and (max-width: 830px) {
     .timer.duel {
-        font-size: 18px; /* Slightly smaller font */
-        padding: 8px 16px; /* Reduced padding */
+        font-size: 18px;
+        padding: 8px 16px;
         top: 40px;
     }
 }
@@ -212,9 +199,6 @@ h1, h2, h3, span, label {
     }
 }
 
-
-
-// Critical timer states for under 5 seconds - softer red
 .timer.critical {
     background: linear-gradient(135deg, rgba(220, 100, 100, 0.9) 0%, rgba(200, 80, 80, 0.9) 100%);
     border-color: rgba(255, 200, 200, 0.5);
@@ -230,20 +214,6 @@ h1, h2, h3, span, label {
 .timer.duel.critical {
     transform: translateX(50%) scale(1.05);
 }
-
-// Screen edge warning effect - disabled for performance
-// body:has(.timer.critical)::before {
-//     content: '';
-//     position: fixed;
-//     top: 0;
-//     left: 0;
-//     right: 0;
-//     bottom: 0;
-//     pointer-events: none;
-//     z-index: 999;
-//     animation: screenPulse 1s ease-in-out infinite;
-//     border: 8px solid transparent;
-// }
 
 @keyframes timerPulse {
     0% {
@@ -273,50 +243,6 @@ h1, h2, h3, span, label {
     }
 }
 
-// @keyframes screenPulse {
-//     0% {
-//         border-color: rgba(200, 80, 80, 0);
-//         box-shadow:
-//             inset 0 0 0 rgba(200, 80, 80, 0),
-//             inset 30px 0 100px rgba(200, 80, 80, 0),
-//             inset -30px 0 100px rgba(200, 80, 80, 0),
-//             inset 0 30px 100px rgba(200, 80, 80, 0),
-//             inset 0 -30px 100px rgba(200, 80, 80, 0);
-//     }
-//     50% {
-//         border-color: rgba(200, 80, 80, 0.6);
-//         box-shadow:
-//             inset 0 0 120px rgba(200, 80, 80, 0.1),
-//             inset 30px 0 100px rgba(200, 80, 80, 0.25),
-//             inset -30px 0 100px rgba(200, 80, 80, 0.25),
-//             inset 0 30px 100px rgba(200, 80, 80, 0.25),
-//             inset 0 -30px 100px rgba(200, 80, 80, 0.25);
-//     }
-//     100% {
-//         border-color: rgba(200, 80, 80, 0);
-//         box-shadow:
-//             inset 0 0 0 rgba(200, 80, 80, 0),
-//             inset 30px 0 100px rgba(200, 80, 80, 0),
-//             inset -30px 0 100px rgba(200, 80, 80, 0),
-//             inset 0 30px 100px rgba(200, 80, 80, 0),
-//             inset 0 -30px 100px rgba(200, 80, 80, 0);
-//     }
-// }
-
-// Fallback for browsers that don't support :has() - disabled for performance
-// .screen-critical-warning {
-//     position: fixed;
-//     top: 0;
-//     left: 0;
-//     right: 0;
-//     bottom: 0;
-//     pointer-events: none;
-//     z-index: 999;
-//     animation: screenPulse 1s ease-in-out infinite;
-//     border: 8px solid transparent;
-// }
-
-// Animated Counter Styles
 .animated-counter {
     position: relative;
     display: inline-block;
@@ -379,7 +305,6 @@ h1, h2, h3, span, label {
     }
 }
 
-// Enhanced styling for round over screen point animations
 .points-display.animating {
     color: #22c55e !important;
     text-shadow: 0 0 15px rgba(34, 197, 94, 0.6);
@@ -403,198 +328,6 @@ h1, h2, h3, span, label {
         filter: brightness(1);
     }
 }
-
-
-
-// .top {
-//   width: 100%;
-//   height: 83px;
-//   position: absolute;
-//   z-index: 14;
-//   top: 0px;
-//   left: 0;
-//   display: flex;
-//   justify-content: space-between;
-//   align-items: top;
-//   user-select: none;
-// }
-
-// button {
-//   user-select: none;
-// }
-
-// #timerDiv {
-//   display: fixed;
-//   position: absolute;
-//   top: 10px;
-//   right: 50%;
-//   transform: translateX(50%);
-//   padding: 10px;
-//   z-index: 100;
-//   background-color: rgba(42, 44, 71, 0.9);
-//   backdrop-filter: blur(10px);
-//   color: white;
-//   font-size: 1.5em;
-//   font-weight: 500;
-//   border:  1px solid #555;
-//   border-radius: 10px;
-//   user-select: none;
-// }
-
-//  /*  on pc */
-// @media screen and (min-width: 600px) {
-//   #timerDiv {
-//     top: 80px;
-//   }
-
-// }
-
-
-// #leaderBoard {
-//   width: 25vw;
-//   height: calc(100vh - 83px);
-//   position: fixed;
-//   left: 0;
-//   bottom: 0;
-//   background-color: rgba(42, 44, 71, 0.9);
-//   backdrop-filter: blur(10px);
-//   text-align: center;
-//   overflow-y: auto;
-// }
-
-// @media screen and (max-width: 600px) {
-//   #leaderBoard {
-//     display: none;
-//   }
-//   #leaderBoard.mobileOpen {
-//     display: block;
-//     width: 100vw;
-//     height: calc(100vh - 83px - 90px);
-//     bottom: 90px;
-//     z-index: 100;
-//   }
-// }
-
-// #leaderBoard h1 {
-//   font-size: 1.5em;
-//   font-weight: 500;
-//   padding: 10px;
-//   color: white;
-// }
-
-// #leaderBoard h2 {
-//   font-size: 1.2em;
-//   font-weight: 500;
-//   padding: 10px;
-//   color: white;
-// }
-
-// #leaderBoard ul {
-//   list-style-type: none;
-//   padding: 0;
-//   margin-top: 10px;
-// }
-
-// #leaderBoard li {
-//   margin: 10px;
-//   padding: 10px;
-//   border: 1px solid rgba(255, 255, 255, 0.5);
-//   background-color: rgba(255, 255, 255, 0.1);
-//   color: white;
-//   cursor: pointer;
-//   transition: transform 0.2s ease-in-out;
-// }
-
-// #leaderBoard.gameEnded {
-//   width: 100vw;
-// }
-
-
-
-// .topItem {
-//   backdrop-filter: blur(10px);
-//   background-color: rgba(42, 44, 71, 0.9);
-//   -webkit-backdrop-filter: blur(10px);
-//   height: 75px;
-//   user-select: none;
-// }
-
-// #logo img {
-//   height: 40px;
-//   width: auto;
-// }
-
-// .navButton, .iconButton {
-//   background-color: #555;
-//   color: white;
-//   border: none;
-//   padding: 10px 20px;
-//   margin-left: 10px;
-//   border-radius: 5px;
-//   cursor: pointer;
-//   transition: background-color 0.3s;
-// }
-
-// .navButton:hover, .iconButton:hover {
-//   background-color: #777;
-// }
-
-// .iconButton {
-//   display: flex;
-//   align-items: center;
-//   justify-content: center;
-//   font-size: 20px;
-// }
-
-// #icon {
-//   margin-top: 6px;
-//   margin-left: 10px;
-//   width: 18em;
-//   transition: all 250ms ease;
-// }
-
-// #icon:hover {
-//   transition: all 250ms ease;
-//   transform: scale(1.1);
-// }
-
-// #icon:active {
-//   transition: all 250ms ease;
-//   transform: scale(0.8);
-// }
-
-// #innerMainDiv {
-//   width: 100%;
-//   height: 100%;
-//   display: flex;
-//   align-items: flex-end;
-//   flex-direction: row-reverse;
-
-
-//   background-color: rgba(15, 16, 22, 0.9);
-
-// }
-
-// @media screen and (max-width: 600px) {
-//   #innerMainDiv {
-//     flex-direction: column;
-//   }
-
-// }
-
-// #mapControls {
-//   /* display: flex;
-//   justify-content: space-between;
-//   width: 100%;
-//   padding: 10px;
-//   margin-bottom: 10px; */
-//   user-select: none;
-// }
-
-// img {
-//   user-select: none;
-// }
-
 
 #miniMapArea {
     width: 20%;

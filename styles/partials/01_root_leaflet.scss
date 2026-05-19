@@ -22,7 +22,6 @@
     --darkTransparent: rgb(0, 0, 0, 0.4);
 }
 
-
 html * {
     margin: 0;
     font-family: "Lexend", sans-serif;
@@ -31,7 +30,7 @@ html * {
 
 .button,
 button {
-    //box-shadow: 0 0.275rem 1.125rem rgba(0,0,0,.25), inset 0 0.0625rem 0 hsla(0,0%,100%,.2), inset 0 -0.125rem 0 rgba(0,0,0,.3);
+
     border: none;
     padding: 0;
 }
@@ -41,13 +40,10 @@ button {
     width: 100vw;
     box-sizing: border-box;
     height: 100vh;
-    height: 100svh; /* Dynamic viewport height for modern browsers */
+    height: 100svh;
     display: flex;
-    overflow: hidden; /* Prevent unwanted scrolling on iOS */
+    overflow: hidden;
 }
-
-
-
 
 body,
 html {
@@ -57,20 +53,11 @@ html {
     margin: 0;
 }
 
-/* Leaflet map optimizations for sharp rendering */
-// Leaflet manages its own GPU compositing on .leaflet-map-pane via
-// translate3d. Do NOT add additional transforms to the container, tile
-// containers, or individual tiles — extra GPU layers desynchronize the
-// tilePane from the overlayPane (where polylines/circles live), producing
-// visible lag of vector overlays behind tiles during pan/zoom.
 .leaflet-container {
     touch-action: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    // Match Google Maps' empty-tile color. When the click handler shifts
-    // the camera through a 360° lng wrap, Leaflet briefly rebuilds the tile
-    // pane; this background fills the sub-frame gap with map-water blue
-    // instead of the bare-container gray.
+
     background-color: #aadaff;
 }
 
@@ -93,24 +80,12 @@ html {
 }
 
 .home__content {
-    //position: fixed;
+
     z-index: 100;
-    //left: 50%;
-    //height: 100vh;
-    //display: flex;
-    //flex-direction: column;
-    //justify-content: center;
-    //align-items: center;
-    //height: 100vh;
-    //padding: 0 20px;
-    //transform: translate(-50%);
-    // slowly move to right while fading out when is hidden
-    //transition: left 0.5s, opacity 0.5s;
+
     overflow-y: auto;
     box-sizing: border-box;
 }
-
-/// ccar
 
 .home__content.hidden {
     left: 100vw !important;

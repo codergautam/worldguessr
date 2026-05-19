@@ -55,12 +55,6 @@
   font-size: 1.1rem;
 }
 
-/* Post-game submitting overlay — covers the lingering Street View while we
-   await /submit + /results. Uses the same warm-green gradient family as the
-   results card so the transition feels like a natural step in the daily
-   flow, not a hard cut to black. The fade is slow + eased so it never
-   reads as a "flash". A small frosted card holds the spinner + text so the
-   eye lands somewhere instead of on a flat overlay. */
 .daily-submitting {
   position: fixed;
   inset: 0;
@@ -194,9 +188,6 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-// Grace-day notice — appears under the CTA when the user's streak is alive
-// today only because of the unused-grace branch (server flag userData.graceDay).
-// Pulses to draw the eye since missing today drops the streak at midnight.
 .daily-landing-grace-banner {
   display: inline-block;
   margin-top: 12px;
@@ -256,9 +247,6 @@
 .daily-landing-step svg { font-size: 1.5rem; color: #ffd700; }
 .daily-landing-step-text { color: rgba(255, 255, 255, 0.85); font-size: 0.95rem; }
 
-/* 14-day history bar chart — replaces the old binary streak calendar. Each
-   bar height ∝ score, tier-colored, with today pulsing. Stubs mark missed
-   days so gaps are visible without being loud. */
 .daily-history-bars14 {
   position: relative;
   margin-top: 14px;

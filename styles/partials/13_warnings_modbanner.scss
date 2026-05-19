@@ -6,7 +6,6 @@
     margin-top: 10px;
 }
 
-/* Responsive layout for mobile devices */
 @media (max-width: 600px) {
     .league-container {
         flex-direction: column;
@@ -14,7 +13,6 @@
     }
 }
 
-/* Duel Anti-Cheat Warning */
 .duel-warning-container {
     position: fixed;
     bottom: 20px;
@@ -82,7 +80,6 @@
     }
 }
 
-/* Mobile responsive */
 @media (max-width: 768px) {
     .duel-warning-container {
         bottom: 15px;
@@ -95,7 +92,7 @@
     .duel-warning-content {
         padding: 12px 20px;
         gap: 12px;
-        // center horiz
+
         margin: 0 auto;
         width: 60%;
     }
@@ -138,7 +135,6 @@
     z-index: 999;
 }
 
-// under 600px, center the home_ad horiz
 @media (max-width: 600px) {
     .home_ad {
         right: 50%;
@@ -146,14 +142,13 @@
     }
 }
 
-// Moderation banners (name change required, account suspended)
 .modBanner {
     position: fixed;
     top: 60px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 9999;
-    padding: 12px 40px 12px 20px; // extra right padding for close button
+    padding: 12px 40px 12px 20px;
     border-radius: 8px;
     display: flex;
     flex-direction: column;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
-const EXIT_MS = 320;
-const ENTER_DELAY_MS = 30;
+const exitMs = 320;
+const enterDelayMs = 30;
 
 export default function ExternalLinkConfirm({ open, link, onCancel }) {
   const [mounted, setMounted] = useState(false);
@@ -28,7 +28,7 @@ export default function ExternalLinkConfirm({ open, link, onCancel }) {
     const t = window.setTimeout(() => {
       setMounted(false);
       stashedLinkRef.current = null;
-    }, EXIT_MS);
+    }, exitMs);
     return () => window.clearTimeout(t);
 
   }, [open]);

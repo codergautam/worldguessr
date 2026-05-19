@@ -19,12 +19,11 @@
     }
 
     .home__footer {
-        // center it
+
         bottom: 10px;
         left: calc(50% - 150px);
     }
 }
-
 
 .gameCodeInput {
     background-color: white;
@@ -78,10 +77,6 @@ img[alt="Google"] {
     transform: translateX(0px);
 }
 
-// .onlineText.notHome {
-//     transform: translateX(210px);
-// }
-
 .onlineText.hide {
     transform: translateX(250px);
 }
@@ -100,7 +95,7 @@ img[alt="Google"] {
     width: fit-content;
     padding-left: 10px;
     padding-right: 10px;
-    // italic
+
 }
 
 .countryGuessrOptions {
@@ -117,9 +112,7 @@ img[alt="Google"] {
     border-radius: 16px;
     padding: 12px 14px;
     gap: 8px;
-    /* Container itself ignores pointer events so users can pan/drag the
-       Street View through the empty padding around the buttons. The actual
-       buttons re-enable pointer events below. */
+
     pointer-events: none;
 }
 
@@ -202,10 +195,7 @@ img.countryGuessrBtn__emoji {
     font-weight: 600;
     text-align: center;
     line-height: 1.2;
-    /* One-line names keep country buttons the same height as continent
-       buttons. Long names like "United Kingdom" used to wrap to 2 lines and
-       made the country round visibly taller than the continent round. The
-       button's title attr surfaces the full name on hover. */
+
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -268,10 +258,6 @@ img.countryGuessrBtn__emoji {
     }
 }
 
-/* Continent mode (6 buttons in a 70%-wide container) overflows a single row
-   on narrow viewports. Wrap into a 3+3 layout. Country mode (4 buttons, no
-   fixed container width) doesn't have this issue. Placed before the mobile
-   and landscape-phone blocks so those override with their own flex-basis. */
 @media (max-width: 900px) {
     .countryGuessrOptions.continentMode .countryGuessrBtnRow {
         flex-wrap: wrap;

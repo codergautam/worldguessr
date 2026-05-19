@@ -39,7 +39,14 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                         </span>
                     )}
                     {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) && (
-                        <button className="wg-backBtn wg-backBtn--nav" onClick={backBtnPressed}>{screen === 'onboarding' ? text("menu") : text("back")}</button>
+                        <button
+                            className={`wg-backBtn wg-backBtn--nav ${screen === 'onboarding' ? 'wg-backBtn--menu' : ''}`}
+                            onClick={backBtnPressed}
+                            aria-label={screen === 'onboarding' ? text("menu") : text("back")}
+                        >
+                            <FaArrowLeft className="wg-backBtn__icon" />
+                            <span className="wg-backBtn__label">{screen === 'onboarding' ? text("menu") : text("back")}</span>
+                        </button>
                     )}
                 </div>
                 {reloadBtn && !accountModalOpen && !gameOptionsModalShown && (
@@ -71,23 +78,22 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 )}
                 <div className="navbar__right">
 
-                    {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && (
+                    {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && !mapModalOpen && !gameOptionsModalShown && (
                         <button className="wg-mapSwitcher g2_lexend" disabled={loading} onClick={() => setGameOptionsModalShown(true)}>
-                            {screen === 'countryGuesser'
-                                ? (countryGuessrMode?.subMode === "continent" ? text("continentGuesser") : text("countryGuesser"))
-                                : <>
-                                    {((gameOptions.location === "all") || !gameOptions.location) ? text("allCountries") : gameOptions?.countryMap ? nameFromCode(gameOptions.location, lang) : gameOptions?.communityMapName}
-                                    {gameOptions.nm && gameOptions.npz ?
-                                        ', NMPZ' :
-                                        gameOptions.nm ? ', NM' :
-                                            gameOptions.npz ? ', NPZ' :
-                                                ''}
-                                </>
-                            }
-
-                            &nbsp;
-
-                            <FaPencil size={14} />
+                            <span className="wg-mapSwitcher__label">
+                                {screen === 'countryGuesser'
+                                    ? (countryGuessrMode?.subMode === "continent" ? text("continentGuesser") : text("countryGuesser"))
+                                    : <>
+                                        {((gameOptions.location === "all") || !gameOptions.location) ? text("allCountries") : gameOptions?.countryMap ? nameFromCode(gameOptions.location, lang) : gameOptions?.communityMapName}
+                                        {gameOptions.nm && gameOptions.npz ?
+                                            ', NMPZ' :
+                                            gameOptions.nm ? ', NM' :
+                                                gameOptions.npz ? ', NPZ' :
+                                                    ''}
+                                    </>
+                                }
+                            </span>
+                            <FaPencil size={14} className="wg-mapSwitcher__pencil" />
                         </button>
                     )}
 
