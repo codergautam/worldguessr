@@ -2,11 +2,7 @@ name: CoolMath Games Build
 
 on:
   push:
-    branches-ignore:
-      - 'gh-pages'
-      - 'gh-pages-dev'
-      - 'coolmath-build'
-      - 'coolmath-build-*'
+    branches: [ "master" ]
   workflow_dispatch:
 
 jobs:

@@ -79,6 +79,7 @@ const ActionProvider = ({ createChatBotMessage, setState, children, ws, myId, in
 
   function sendMsg(msg) {
     if (!ws) return;
+    if (process.env.NEXT_PUBLIC_SCHOOLGUESSR) return;
     ws.send(JSON.stringify({ type: 'chat', message: msg }));
   }
 

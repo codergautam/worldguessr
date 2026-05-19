@@ -2,13 +2,7 @@ name: GameDistribution Build
 
 on:
   push:
-    branches-ignore:
-      - 'gh-pages'
-      - 'gh-pages-dev'
-      - 'coolmath-build'
-      - 'coolmath-build-*'
-      - 'gamedistribution-build'
-      - 'gamedistribution-build-*'
+    branches: [ "master" ]
   workflow_dispatch:
 
 jobs:

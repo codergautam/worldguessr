@@ -2848,7 +2848,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         ws={ws}
         open={multiplayerChatOpen}
         onToggle={handleChatToggle}
-        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION}
+        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
         isGuest={session?.token?.secret ? false : true}
         publicGame={multiplayerState?.gameData?.public}
         myId={multiplayerState?.gameData?.myId}
@@ -2959,7 +2959,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
-            {ChatboxMemo}
+            {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
             {welcomeOverlayShown && screen === "onboarding" && (
