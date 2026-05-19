@@ -3444,9 +3444,10 @@ input[placeholder="Please login to chat"] {
     }
 
     .home__footer {
-        // center it
+        // center it — width-agnostic so 3/4/5 buttons all center cleanly
         bottom: 10px;
-        left: calc(50% - 150px);
+        left: 0;
+        right: 0;
     }
 }
 
