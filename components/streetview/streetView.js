@@ -24,7 +24,7 @@ const StreetView = ({
   useEffect(() => {
     if (iframeRef.current && (lat && long || panoId)) {
       const headingParam = (heading !== null && heading !== undefined) ? `&heading=${heading}` : '';
-      const pitchParam = (pitch !== null && pitch !== undefined) ? `&pitch=${pitch}` : '';
+      const pitchParam = (false && pitch !== null && pitch !== undefined) ? `&pitch=${pitch}` : '';
       const newSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en${headingParam}${pitchParam}`;
 
       const locationKey = `${lat}-${long}-${panoId}`;

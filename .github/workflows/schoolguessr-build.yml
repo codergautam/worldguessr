@@ -1,0 +1,38 @@
+name: SchoolGuessr Build
+
+on:
+  push:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      CI: false
+      NEXT_PUBLIC_SCHOOLGUESSR: true
+      NEXT_PUBLIC_API_URL: api.schoolguessr.com
+      NEXT_PUBLIC_WS_HOST: server.schoolguessr.com
+      NEXT_PUBLIC_AUTH_URL: gauth.schoolguessr.com
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: 471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Install and Build
+      run: |
+        npm i
+        npm run build
+
+    - name: Deploy to SchoolGuessr Pages branch
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./out
+        publish_branch: schoolguessr-build
+        commit_message: "SchoolGuessr build from ${{ github.sha }}"

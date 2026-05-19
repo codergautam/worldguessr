@@ -1,7 +1,6 @@
 import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
 import { asset, navigate } from '@/lib/basePath';
-import { FaGithub } from "react-icons/fa";
 import NextImage from "next/image";
 
 export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution }) {
@@ -105,9 +104,6 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
             </div>
             {!inCrazyGames && !inGameDistribution && !process.env.NEXT_PUBLIC_COOLMATH && (
                 <div className="g2_slide_in" style={{ position: 'absolute', bottom: '25px', left: '25px', display: 'flex', gap: '8px', zIndex: 10 }}>
-                    <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">
-                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github" style={{ width: '50px', height: '50px', padding: '0', color: 'white' }}><FaGithub size={24} /></button>
-                    </a>
                     <a href="https://www.coolmathgames.com/0-worldguessr" target="_blank" rel="noreferrer">
                         <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames" style={{ width: '50px', height: '50px', padding: '0', position: 'relative', overflow: 'hidden' }}>
                             <NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" style={{ objectFit: 'contain', padding: '4px' }} />

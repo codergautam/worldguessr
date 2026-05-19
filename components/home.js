@@ -1,5 +1,5 @@
 import HeadContent from "@/components/headContent";
-import { FaDiscord, FaBook } from "react-icons/fa";
+import { FaDiscord, FaBook, FaGithub } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
@@ -2848,7 +2848,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         ws={ws}
         open={multiplayerChatOpen}
         onToggle={handleChatToggle}
-        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION}
+        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
         isGuest={session?.token?.secret ? false : true}
         publicGame={multiplayerState?.gameData?.public}
         myId={multiplayerState?.gameData?.myId}
@@ -2959,7 +2959,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
-            {ChatboxMemo}
+            {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && ChatboxMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
             {welcomeOverlayShown && screen === "onboarding" && (
@@ -3372,13 +3372,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             <div className="footer_btns">
                                 {!isApp && !inCoolMathGames && !inGameDistribution && (
                                     <>
-                                        <Link target="_blank" href={"https://forum.worldguessr.com/"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container forum" aria-label="Forum"><FaBook className="home__squarebtnicon" /></button></Link>
-                                        <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                                        {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
+                                            <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                                        )}
 
-                                        {!inCrazyGames && (
-                                            <>
-                                                <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                                            </>
+                                        <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
+                                        {!inCrazyGames && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
+                                            <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container github" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                                         )}
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
 
