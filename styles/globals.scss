@@ -243,8 +243,7 @@ html {
 .loading-overlay--visible {
   opacity: 1;
   visibility: visible;
-  /* Smooth fade-in matches the fade-out, so transitions between SP rounds
-     (regular / onboarding-classic / daily) crossfade instead of cutting. */
+  transition: none; /* Instant show - no transition when appearing */
 }
 
 .banner-text {
