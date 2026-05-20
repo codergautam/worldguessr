@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
 import { FaCalendarDay, FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
@@ -192,8 +192,12 @@ export default function DailyChallengeScreen({
 
   // Drive home's latLong from singlePlayerRound.round (source of truth).
   // Also resets per-round UI state (showAnswer, pin, hint, loading).
+  // useLayoutEffect (not useEffect): runs before paint so the loading overlay
+  // covers the iframe in the same frame the round bumps. With useEffect, the
+  // browser paints once with showAnswer cleared but loading still false and
+  // latLong still pointing at the old round — flashing the old StreetView.
   const currentRound = singlePlayerRound?.round || 1;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (phase !== 'game' || !locationData?.locations) return;
     const loc = locationData.locations[currentRound - 1];
     if (!loc) return;

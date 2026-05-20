@@ -4,7 +4,7 @@ import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
@@ -997,7 +997,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         return () => clearTimeout(recoveryTimeout);
     }, [screen, loading, showAnswer, countryGuessrMode.subMode, gameOptions.location])
 
-    useEffect(() => {
+    // useLayoutEffect (not useEffect): this is the single path that loads the
+    // next onboarding location. Running after paint leaves one frame where
+    // showAnswer is cleared, the round bumped, but loading is still false and
+    // latLong is still the old round — the old StreetView flashes uncovered.
+    // useLayoutEffect runs before paint so the iframe is covered cleanly.
+    useLayoutEffect(() => {
         if (onboarding?.round > 1) {
             loadLocation({ keepAnswer: !!window._countryGuessrKeepAnswer })
         }
