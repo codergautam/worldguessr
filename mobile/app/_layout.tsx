@@ -19,6 +19,7 @@ import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import { useWebSocket } from '../src/hooks/useWebSocket';
 import ToastProvider from '../src/components/multiplayer/ToastProvider';
+import ActionableNotifications from '../src/components/multiplayer/ActionableNotifications';
 import WsIndicator from '../src/components/multiplayer/WsIndicator';
 import { initAds, preloadInterstitial } from '../src/services/ads';
 import { initAnalytics } from '../src/services/analytics';
@@ -104,7 +105,7 @@ export default function RootLayout() {
           <Stack.Screen name="party/create" options={{ headerShown: false, gestureEnabled: false }} />
           <Stack.Screen name="party/join" options={{ headerShown: false, gestureEnabled: false }} />
           <Stack.Screen name="queue" options={{ headerShown: false, animation: 'fade' }} />
-          <Stack.Screen name="friends" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="daily/index" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
           <Stack.Screen name="user/[username]" options={{ headerShown: false, animation: 'fade' }} />
           <Stack.Screen
             name="onboarding/play"
@@ -112,6 +113,7 @@ export default function RootLayout() {
           />
         </Stack>
         <ToastProvider />
+        <ActionableNotifications />
         <WsIndicator />
       </SafeAreaProvider>
     </GestureHandlerRootView>

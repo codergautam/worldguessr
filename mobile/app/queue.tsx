@@ -18,67 +18,57 @@ export default function QueueScreen() {
   const publicDuelRange = useMultiplayerStore((s) => s.publicDuelRange);
   const inGame = useMultiplayerStore((s) => s.inGame);
   const gameState = useMultiplayerStore((s) => s.gameData?.state);
-  const hasNavigated = useRef(false);
-  const leftRef = useRef(false);
+  const exitedRef = useRef(false);
 
   // Scale font based on screen width (clamp between 24 and 44)
   const titleSize = Math.min(44, Math.max(24, width * 0.09));
   const compassSize = titleSize * 1.8;
   const subTextSize = Math.min(24, Math.max(16, width * 0.05));
 
-  const goBack = () => {
-    navigation.setOptions({ animation: 'none' });
-    router.dismissAll();
+  // Single exit path. Idempotent — caller can race state updates without double-popping.
+  const exitBack = () => {
+    if (exitedRef.current) return;
+    exitedRef.current = true;
+    router.back();
   };
 
-  const leaveQueue = () => {
-    if (leftRef.current) return;
-    leftRef.current = true;
-    wsService.send({ type: 'leaveQueue' });
-    useMultiplayerStore.setState({ gameQueued: false, publicDuelRange: null });
-  };
-
-  // Navigate to game when match is found
+  // Match found → go to game
   useEffect(() => {
-    if (inGame && gameState && !hasNavigated.current) {
-      hasNavigated.current = true;
-      leftRef.current = true; // prevent leaveQueue on unmount
-      router.replace({
-        pathname: '/game/[id]',
-        params: { id: 'multiplayer' },
-      });
+    if (inGame && gameState) {
+      if (exitedRef.current) return;
+      exitedRef.current = true;
+      router.replace({ pathname: '/game/[id]', params: { id: 'multiplayer' } });
     }
   }, [inGame, gameState]);
 
-  // If queue was cancelled externally (e.g. gameCancelled), go back
+  // Server-side cancellation (gameCancelled etc.) → pop
   useEffect(() => {
-    if (!gameQueued && !inGame && !hasNavigated.current) {
-      leftRef.current = true; // already cancelled server-side
-      goBack();
+    if (!gameQueued && !inGame) {
+      exitBack();
     }
   }, [gameQueued, inGame]);
 
-  // Send leaveQueue if user swipes back / presses back
+  // Swipe / hardware back → tell server, then let nav unwind naturally
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
-      if (!hasNavigated.current) {
-        leaveQueue();
+      if (!exitedRef.current) {
+        exitedRef.current = true;
+        wsService.send({ type: 'leaveQueue' });
+        useMultiplayerStore.setState({ gameQueued: false, publicDuelRange: null });
       }
     });
     return unsubscribe;
   }, [navigation]);
 
   const handleCancel = () => {
-    leaveQueue();
-    goBack();
+    if (exitedRef.current) return;
+    wsService.send({ type: 'leaveQueue' });
+    useMultiplayerStore.setState({ gameQueued: false, publicDuelRange: null });
+    exitBack();
   };
 
   const isRanked = gameQueued === 'publicDuel';
-  const title = gameQueued === 'unrankedDuel'
-    ? 'Finding Public Match'
-    : isRanked
-      ? 'Finding Ranked Duel'
-      : 'Finding a game';
+  const title = 'Finding a game';
 
   return (
     <View style={styles.container}>

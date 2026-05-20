@@ -32,6 +32,7 @@ import { wsService } from '../../src/services/websocket';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
 import MapSelectorModal from '../../src/components/game/MapSelectorModal';
+import InviteFriendsModal from '../../src/components/multiplayer/InviteFriendsModal';
 
 export default function PartyCreateScreen() {
   const router = useRouter();
@@ -59,6 +60,7 @@ export default function PartyCreateScreen() {
   const [mapSlug, setMapSlug] = useState('all');
   const [mapName, setMapName] = useState('World');
   const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
   // Auto-open options modal only when freshly creating a game (not reconnecting)
   const autoOpenedRef = useRef(false);
@@ -295,6 +297,19 @@ export default function PartyCreateScreen() {
           {isHost && (
             <Pressable
               style={({ pressed }) => [
+                styles.optionsBtn,
+                pressed && { opacity: 0.85 },
+              ]}
+              onPress={() => setInviteModalVisible(true)}
+            >
+              <Ionicons name="people" size={18} color={colors.white} />
+              <Text style={styles.optionsBtnText}>Invite Friends</Text>
+            </Pressable>
+          )}
+
+          {isHost && (
+            <Pressable
+              style={({ pressed }) => [
                 styles.startBtn,
                 (playerCount < 2 || isGenerating) && styles.startBtnDisabled,
                 pressed && playerCount >= 2 && !isGenerating && { opacity: 0.85 },
@@ -316,6 +331,11 @@ export default function PartyCreateScreen() {
 
         </View>
       </SafeAreaView>
+
+      <InviteFriendsModal
+        visible={inviteModalVisible}
+        onClose={() => setInviteModalVisible(false)}
+      />
 
       <MapSelectorModal
         visible={mapModalVisible}

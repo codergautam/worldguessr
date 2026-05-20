@@ -99,17 +99,49 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+/** Notification queued when an opponent sends us a friend request. */
 export interface FriendRequest {
   id: string;
   name: string;
+  timestamp: number;
 }
 
+/** Notification queued when a friend invites us to their private game. */
 export interface GameInvite {
   code: string;
   invitedByName: string;
   invitedById: string;
   timestamp: number;
 }
+
+/** Confirmed friend (from server's friends list — online flag computed server-side). */
+export interface Friend {
+  id: string;
+  name: string;
+  online: boolean;
+  socketId?: string;
+  supporter?: boolean;
+}
+
+/** Outgoing or incoming friend request entry in the friends modal. */
+export interface FriendRequestEntry {
+  id: string;
+  name: string;
+  supporter?: boolean;
+}
+
+/**
+ * `friendReqState` codes mirror web's `ws.js` validation responses (sendFriendRequest handler).
+ *   0 = invalid (guest / bad name)
+ *   1 = success
+ *   2 = recipient not accepting friend requests
+ *   3 = user not found
+ *   4 = already sent
+ *   5 = already received (reverse request pending)
+ *   6 = already friends
+ *   7+ = quota / self / generic error
+ */
+export type FriendReqState = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export interface ToastData {
   key: string;
@@ -150,6 +182,15 @@ interface MultiplayerState {
   friendRequests: FriendRequest[];
   gameInvites: GameInvite[];
 
+  // Friends list state (full sync from server `friends` message)
+  friends: Friend[];
+  sentRequests: FriendRequestEntry[];
+  receivedRequests: FriendRequestEntry[];
+  allowFriendReq: boolean;
+  /** Last `friendReqState` code we received (and the moment we received it, for auto-clear). */
+  friendReqState: FriendReqState | null;
+  friendReqStateAt: number;
+
   // Toasts
   latestToast: ToastData | null;
 
@@ -162,6 +203,18 @@ interface MultiplayerState {
   setEnteringGameCode: (value: boolean) => void;
   addChatMessage: (msg: ChatMessage) => void;
   clearGameInvite: (code: string) => void;
+  clearFriendRequest: (id: string) => void;
+  clearFriendReqState: () => void;
+  // Friend WS actions — direct ports of ws.js handlers
+  requestFriends: () => void;
+  sendFriendRequest: (name: string) => void;
+  acceptFriend: (id: string) => void;
+  declineFriend: (id: string) => void;
+  cancelFriendRequest: (id: string) => void;
+  removeFriend: (id: string) => void;
+  setAllowFriendReqOnServer: (allow: boolean) => void;
+  inviteFriendToGame: (friendSocketId: string) => void;
+  acceptGameInvite: (code: string, invitedById: string) => void;
   reset: () => void;
 }
 
@@ -186,6 +239,12 @@ const initialState = {
   chatEnabled: false,
   friendRequests: [] as FriendRequest[],
   gameInvites: [] as GameInvite[],
+  friends: [] as Friend[],
+  sentRequests: [] as FriendRequestEntry[],
+  receivedRequests: [] as FriendRequestEntry[],
+  allowFriendReq: true,
+  friendReqState: null as FriendReqState | null,
+  friendReqStateAt: 0,
   latestToast: null as ToastData | null,
   maintenance: false,
 };
@@ -208,6 +267,45 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     set((s) => ({
       gameInvites: s.gameInvites.filter((inv) => inv.code !== code),
     })),
+
+  clearFriendRequest: (id) =>
+    set((s) => ({
+      friendRequests: s.friendRequests.filter((req) => req.id !== id),
+    })),
+
+  clearFriendReqState: () => set({ friendReqState: null, friendReqStateAt: 0 }),
+
+  // ── Friend WS actions (1:1 with web ws.js) ────────────────
+  requestFriends: () => wsService.send({ type: 'getFriends' }),
+  sendFriendRequest: (name) => {
+    wsService.send({ type: 'sendFriendRequest', name });
+  },
+  acceptFriend: (id) => {
+    wsService.send({ type: 'acceptFriend', id });
+    // Optimistically drop the toast notification for this requester
+    set((s) => ({
+      friendRequests: s.friendRequests.filter((r) => r.id !== id),
+    }));
+  },
+  declineFriend: (id) => {
+    wsService.send({ type: 'declineFriend', id });
+    set((s) => ({
+      friendRequests: s.friendRequests.filter((r) => r.id !== id),
+    }));
+  },
+  cancelFriendRequest: (id) => wsService.send({ type: 'cancelRequest', id }),
+  removeFriend: (id) => wsService.send({ type: 'removeFriend', id }),
+  setAllowFriendReqOnServer: (allow) =>
+    wsService.send({ type: 'setAllowFriendReq', allow }),
+  inviteFriendToGame: (friendSocketId) =>
+    wsService.send({ type: 'inviteFriend', friendId: friendSocketId }),
+  acceptGameInvite: (code, invitedById) => {
+    wsService.send({ type: 'acceptInvite', code, invitedById });
+    // Drop the invite from the queue locally — server will deliver gameJoin events.
+    set((s) => ({
+      gameInvites: s.gameInvites.filter((inv) => inv.code !== code),
+    }));
+  },
 
   reset: () =>
     set((s) => ({
@@ -452,11 +550,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     }
 
     // ── friendReq (home.js:1816-1839) ─────────────────────
+    // Server pushes this when an *online* user receives a new friend request
+    // from another online user. Surfaces as an actionable toast (Accept/Decline)
+    // until the user responds or the toast auto-dismisses.
     if (data.type === 'friendReq') {
       set({
         friendRequests: [
-          ...state.friendRequests,
-          { id: data.id, name: data.name },
+          ...state.friendRequests.filter((r) => r.id !== data.id),
+          { id: data.id, name: data.name, timestamp: Date.now() },
         ],
       });
       return;
@@ -528,16 +629,25 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       return;
     }
 
-    // ── friends list response ─────────────────────────────
+    // ── friends — full sync (ws/classes/Player.js:414-440 sendFriendData) ──
+    // Server pushes whenever the friend list changes (accept/decline/cancel/remove,
+    // setAllowFriendReq toggle) and in response to client's `getFriends` polls.
     if (data.type === 'friends') {
-      // Store in state for friends screen to consume
-      set({ _friendsData: data } as any);
+      set({
+        friends: Array.isArray(data.friends) ? data.friends : [],
+        sentRequests: Array.isArray(data.sentRequests) ? data.sentRequests : [],
+        receivedRequests: Array.isArray(data.receivedRequests) ? data.receivedRequests : [],
+        allowFriendReq: !!data.allowFriendReq,
+      });
       return;
     }
 
-    // ── friendReqState ────────────────────────────────────
+    // ── friendReqState — sendFriendRequest validation result (codes 0-7) ──
     if (data.type === 'friendReqState') {
-      set({ _friendReqState: data.state } as any);
+      set({
+        friendReqState: data.state as FriendReqState,
+        friendReqStateAt: Date.now(),
+      });
       return;
     }
   },

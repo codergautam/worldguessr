@@ -10,10 +10,13 @@ interface Props {
   xpEarned?: number;
   distance?: number | null;
   didGuess?: boolean;
-  onNext: () => void;
+  /** Tap-to-advance callback. Omit for auto-transitioning flows (multiplayer). */
+  onNext?: () => void;
   isFinal?: boolean;
   factText?: string;
   compact?: boolean;
+  /** Replaces the next-button when set. Used by multiplayer for the "Next round starting..." hint. */
+  footerSlot?: React.ReactNode;
 }
 
 function formatDistance(km?: number | null) {
@@ -40,6 +43,7 @@ export default function ClassicEndBanner({
   isFinal,
   factText,
   compact,
+  footerSlot,
 }: Props) {
   const distanceText = !didGuess
     ? "You didn't guess"
@@ -62,16 +66,19 @@ export default function ClassicEndBanner({
         </View>
       ) : null}
       {factText ? <Text style={styles.fact}>{factText}</Text> : null}
-      <Pressable onPress={onNext} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.nextBtn}
-        >
-          <Text style={styles.nextBtnText}>{isFinal ? 'View Results' : 'Next Round'}</Text>
-        </LinearGradient>
-      </Pressable>
+      {footerSlot}
+      {onNext ? (
+        <Pressable onPress={onNext} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+          <LinearGradient
+            colors={[colors.primary, colors.primaryDark]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.nextBtn}
+          >
+            <Text style={styles.nextBtnText}>{isFinal ? 'View Results' : 'Next Round'}</Text>
+          </LinearGradient>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

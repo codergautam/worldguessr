@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -41,7 +41,7 @@ import DuelHUD from '../../src/components/multiplayer/DuelHUD';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
 import MultiplayerEndBanner from '../../src/components/multiplayer/MultiplayerEndBanner';
 import GameChat from '../../src/components/multiplayer/GameChat';
-import localeStrings from '../../src/shared/locales-en.json';
+import { localeString, t } from '../../src/shared';
 import {
   CountryGuesserSubMode,
   COUNTRY_GUESSER_TOTAL_ROUNDS,
@@ -184,33 +184,21 @@ function buildCurrentPlayerGuesses(players: MPPlayer[], actualLocation: Location
     }));
 }
 
-function GameStartingBanner({
-  nextEvtTime,
-  timeOffset,
-  topOffset,
-}: {
-  nextEvtTime: number;
-  timeOffset: number;
-  topOffset: number;
-}) {
+function useGameStartingCountdown(nextEvtTime: number | undefined, timeOffset: number, enabled: boolean): number {
   const [countdown, setCountdown] = useState(0);
-
   useEffect(() => {
+    if (!enabled || nextEvtTime == null) {
+      setCountdown(0);
+      return;
+    }
     const update = () => {
       setCountdown(Math.max(0, Math.ceil((nextEvtTime - Date.now() - timeOffset) / 1000)));
     };
     update();
     const interval = setInterval(update, 100);
     return () => clearInterval(interval);
-  }, [nextEvtTime, timeOffset]);
-
-  return (
-    <View style={[styles.gameStartingBanner, { top: topOffset }]} pointerEvents="none">
-      <Text style={styles.gameStartingBannerText}>
-        {(localeStrings as Record<string, string>).gameStartingIn.replace('{{t}}', String(countdown))}
-      </Text>
-    </View>
-  );
+  }, [nextEvtTime, timeOffset, enabled]);
+  return countdown;
 }
 
 function BetweenRoundsLeaderboard({
@@ -300,7 +288,7 @@ function DuelWarningModal({
           <Ionicons name="warning" size={26} color={colors.warning} />
           <Text style={styles.warningModalTitle}>Fair Play Warning</Text>
           <Text style={styles.warningModalText}>
-            {(localeStrings as Record<string, string>).duelWarningText}
+            {localeString('duelWarningText')}
           </Text>
         </View>
       </Pressable>
@@ -365,7 +353,7 @@ export default function GameScreen() {
   useEffect(() => {
     if (!isMultiplayer || !gameData) return;
 
-    const mpLocations = gameData.locations.map((loc) => ({
+    const mpLocations = (gameData.locations ?? []).map((loc) => ({
       lat: loc.lat,
       long: loc.long,
       country: loc.country,
@@ -448,13 +436,23 @@ export default function GameScreen() {
 
   // Street view loading state — true = panorama not yet ready
   const [streetViewLoaded, setStreetViewLoaded] = useState(false);
-  const showLoadingBanner = (isLoading || !streetViewLoaded) && !(isMultiplayer && gameData?.state === 'getready');
+  const mpInitialGetReady = !!(isMultiplayer
+    && gameData?.state === 'getready'
+    && gameData.curRound === 1
+    && !gameData.duel);
+  const showLoadingBanner = mpInitialGetReady
+    || ((isLoading || !streetViewLoaded) && !(isMultiplayer && gameData?.state === 'getready'));
   const showBetweenRoundMap = isMultiplayer
     && gameData?.state === 'getready'
     && gameData.curRound > 1
-    && (gameData.roundHistory?.length > 0 || gameData.locations.length >= gameData.curRound - 1);
+    && ((gameData.roundHistory?.length ?? 0) > 0 || (gameData.locations?.length ?? 0) >= gameData.curRound - 1);
   const showMapResult = gameState.isShowingResult || showBetweenRoundMap;
   const timeOffset = wsService.getTimeOffset();
+  const gameStartingCountdown = useGameStartingCountdown(
+    gameData?.nextEvtTime,
+    timeOffset,
+    mpInitialGetReady,
+  );
 
   // Animation values
   const loadingOpacity = useRef(new Animated.Value(1)).current;
@@ -745,13 +743,16 @@ export default function GameScreen() {
     fetchLocations();
   }, [currentMapSlug, isCountryGuesserMode, isMultiplayer]);
 
-  const currentLocation = gameState.locations[gameState.currentRound - 1];
+  // Multiplayer state='end' arrives with curRound = rounds + 1 (see ws.js:1509-1519),
+  // so clamp to the last real round before indexing locations.
+  const effectiveRoundIndex = Math.min(gameState.currentRound, gameState.totalRounds) - 1;
+  const currentLocation = gameState.locations[Math.max(0, effectiveRoundIndex)];
   const completedRoundNumber = isMultiplayer && gameData ? gameData.curRound - 1 : 0;
   const betweenRoundHistory = showBetweenRoundMap && gameData
     ? findRoundHistory(gameData.roundHistory, completedRoundNumber)
     : undefined;
   const betweenRoundLocation = betweenRoundHistory?.location
-    ?? (showBetweenRoundMap && gameData ? gameData.locations[completedRoundNumber - 1] : undefined);
+    ?? (showBetweenRoundMap && gameData ? gameData.locations?.[completedRoundNumber - 1] : undefined);
   const mapActualLocation = showBetweenRoundMap ? betweenRoundLocation : currentLocation;
   const betweenRoundPlayerGuesses = showBetweenRoundMap && gameData
     ? (betweenRoundHistory
@@ -761,6 +762,28 @@ export default function GameScreen() {
   const currentRoundPlayerGuesses = isMultiplayer && gameData && gameState.isShowingResult
     ? buildCurrentPlayerGuesses(gameData.players, currentLocation, gameState.maxDist)
     : [];
+
+  // Synthesize MPPlayer-like objects from a history entry so MultiplayerEndBanner can
+  // render the just-finished round's results between rounds (matches web's endBanner
+  // showing during getready state, components/gameUI.js).
+  const betweenRoundBannerPlayers: MPPlayer[] = useMemo(() => {
+    if (!showBetweenRoundMap || !betweenRoundHistory || !gameData) return [];
+    return Object.entries(betweenRoundHistory.players).map(([id, p]) => {
+      const currentPlayer = gameData.players.find((cp) => cp.id === id);
+      return {
+        id,
+        username: p.username,
+        score: currentPlayer?.score ?? 0,
+        accountId: currentPlayer?.accountId,
+        countryCode: p.countryCode ?? currentPlayer?.countryCode,
+        elo: currentPlayer?.elo,
+        host: currentPlayer?.host,
+        supporter: currentPlayer?.supporter,
+        final: p.final,
+        latLong: p.lat != null && p.long != null ? [p.lat, p.long] : null,
+      } as MPPlayer;
+    });
+  }, [showBetweenRoundMap, betweenRoundHistory, gameData?.players]);
 
   const handleMapPress = useCallback((lat: number, lng: number) => {
     if (gameState.isShowingResult) return;
@@ -775,6 +798,22 @@ export default function GameScreen() {
       if (mpGuessSentRef.current) return;
       mpGuessSentRef.current = true;
       setMpGuessLocked(true);
+      // Match web (home.js:2315) — optimistically mark my player as final so the
+      // "Waiting for N players..." count drops instantly instead of waiting for
+      // the server's broadcast to ack our own guess.
+      useMultiplayerStore.setState((s) => {
+        if (!s.gameData) return s;
+        return {
+          gameData: {
+            ...s.gameData,
+            players: s.gameData.players.map((p) =>
+              p.id === s.gameData!.myId
+                ? { ...p, final: true, latLong: [guessPosition.lat, guessPosition.lng] }
+                : p,
+            ),
+          },
+        };
+      });
       wsService.send({
         type: 'place',
         latLong: [guessPosition.lat, guessPosition.lng],
@@ -829,6 +868,20 @@ export default function GameScreen() {
     if (isMultiplayer) {
       if (guessPosition && !mpGuessSentRef.current) {
         mpGuessSentRef.current = true;
+        setMpGuessLocked(true);
+        useMultiplayerStore.setState((s) => {
+          if (!s.gameData) return s;
+          return {
+            gameData: {
+              ...s.gameData,
+              players: s.gameData.players.map((p) =>
+                p.id === s.gameData!.myId
+                  ? { ...p, final: true, latLong: [guessPosition.lat, guessPosition.lng] }
+                  : p,
+              ),
+            },
+          };
+        });
         wsService.send({
           type: 'place',
           latLong: [guessPosition.lat, guessPosition.lng],
@@ -864,31 +917,42 @@ export default function GameScreen() {
     }
   }, [guessPosition, currentLocation, gameState.isShowingResult, handleSubmitGuess, isMultiplayer]);
 
-  // Multiplayer: navigate to results when duelEnd arrives or final round ends
+  // Multiplayer: navigate to results when duelEnd arrives or final round ends.
+  // Match web: brief answer hold then fade-out before nav so the cut isn't jarring.
   const mpResultsNavigated = useRef(false);
   useEffect(() => {
     if (!isMultiplayer || !gameData) return;
     if (mpResultsNavigated.current) return;
-    if (gameData.duelEnd || (gameData.state === 'end' && gameData.curRound >= gameData.rounds)) {
-      mpResultsNavigated.current = true;
-      // Small delay so user sees the end banner
-      const timer = setTimeout(() => {
-        router.push({
-          pathname: '/game/results',
-          params: {
-            totalScore: (gameData.players.find((p) => p.id === gameData.myId)?.score ?? 0).toString(),
-            rounds: JSON.stringify(gameData.roundHistory ?? []),
-            multiplayer: 'true',
-            duelEnd: gameData.duelEnd ? JSON.stringify(gameData.duelEnd) : '',
-            players: JSON.stringify(gameData.players),
-            myId: gameData.myId,
-            gameId: gameData.code ?? '',
-            duel: gameData.duel ? 'true' : 'false',
-          },
-        });
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
+    if (!(gameData.duelEnd || (gameData.state === 'end' && gameData.curRound >= gameData.rounds))) return;
+
+    mpResultsNavigated.current = true;
+    const snapshot = {
+      totalScore: (gameData.players.find((p) => p.id === gameData.myId)?.score ?? 0).toString(),
+      rounds: JSON.stringify(gameData.roundHistory ?? []),
+      multiplayer: 'true',
+      duelEnd: gameData.duelEnd ? JSON.stringify(gameData.duelEnd) : '',
+      players: JSON.stringify(gameData.players),
+      myId: gameData.myId,
+      gameId: gameData.code ?? '',
+      duel: gameData.duel ? 'true' : 'false',
+    };
+
+    // Show answer banner ~2s, then 400ms fade-to-black, then navigate.
+    const HOLD_MS = 2000;
+    const FADE_MS = 400;
+    const holdTimer = setTimeout(() => {
+      Animated.timing(sceneOpacity, {
+        toValue: 0,
+        duration: FADE_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          router.push({ pathname: '/game/results', params: snapshot });
+        }
+      });
+    }, HOLD_MS);
+    return () => clearTimeout(holdTimer);
   }, [isMultiplayer, gameData?.duelEnd, gameData?.state, gameData?.curRound]);
 
   const spResultsNavigated = useRef(false);
@@ -1307,8 +1371,9 @@ export default function GameScreen() {
           </Pressable>
         </SafeAreaView>
 
-        {/* ═══ DUEL HUD - shown during duel games ═══ */}
-        {isMultiplayer && gameData?.duel && !gameState.isShowingResult && gameData.state === 'guess' && (
+        {/* ═══ DUEL HUD - health bars persistent through guess + between-rounds (matches web's .hb-parent) ═══ */}
+        {isMultiplayer && gameData?.duel && !gameState.isShowingResult
+          && (gameData.state === 'guess' || (gameData.state === 'getready' && gameData.curRound > 1)) && (
           <SafeAreaView
             style={[styles.duelHudContainer, { paddingLeft: Math.max(insets.left, spacing.md), paddingRight: Math.max(insets.right, spacing.md) }]}
             edges={['top']}
@@ -1470,7 +1535,7 @@ export default function GameScreen() {
             : 0;
           const fabText = locked
             ? (waitingCount > 0
-                ? `Waiting for ${waitingCount}...`
+                ? `Waiting for ${waitingCount} player${waitingCount === 1 ? '' : 's'}...`
                 : 'Waiting...')
             : 'Guess';
           return (
@@ -1503,11 +1568,11 @@ export default function GameScreen() {
           );
         })()}
 
-        {/* ═══ END BANNER - shown after guessing ═══ */}
+        {/* ═══ END BANNER - shown after guessing (final round) ═══ */}
         {gameState.isShowingResult && isMultiplayer && gameData && currentLocation && (
           <View style={{ paddingBottom: Math.max(insets.bottom, spacing.lg) }}>
             <MultiplayerEndBanner
-              round={gameState.currentRound}
+              round={Math.min(gameState.currentRound, gameState.totalRounds)}
               totalRounds={gameState.totalRounds}
               players={gameData.players}
               myId={gameData.myId}
@@ -1519,23 +1584,40 @@ export default function GameScreen() {
           </View>
         )}
 
-        {/* ═══ GET READY OVERLAY - multiplayer countdown before round ═══ */}
-        {isMultiplayer && gameData?.state === 'getready' && !gameData.duel && gameData.curRound === 1 && (
-          <GameStartingBanner
-            nextEvtTime={gameData.nextEvtTime}
-            timeOffset={timeOffset}
-            topOffset={insets.top + 62}
-          />
+        {/* ═══ BETWEEN-ROUNDS END BANNER - shown during getready of round 2+ ═══
+            Matches web (components/endBanner.js) showing points + distance during getready. */}
+        {showBetweenRoundMap && gameData && betweenRoundLocation && (
+          <View style={{ paddingBottom: Math.max(insets.bottom, spacing.lg) }} pointerEvents="none">
+            <MultiplayerEndBanner
+              round={completedRoundNumber}
+              totalRounds={gameData.rounds}
+              players={betweenRoundBannerPlayers.length > 0
+                ? betweenRoundBannerPlayers
+                : gameData.players}
+              myId={gameData.myId}
+              location={betweenRoundLocation}
+              maxDist={gameState.maxDist}
+              duel={gameData.duel}
+              isAutoTransition={true}
+            />
+          </View>
         )}
 
-        {isMultiplayer && gameData?.state === 'getready' && !gameData.duel && gameData.curRound > 1 && (
+        {/* ═══ GET READY OVERLAY - multiplayer countdown before round ═══ */}
+        {/* Skip post-final-round getready: server briefly stays in getready with
+            curRound = rounds + 1 before flipping to 'end'. Web suppresses this via
+            `curRound <= rounds` (gameUI.js:298). The results screen is more detailed. */}
+        {isMultiplayer && gameData?.state === 'getready' && !gameData.duel
+          && gameData.curRound > 1 && gameData.curRound <= gameData.rounds && (
           <BetweenRoundsLeaderboard
             gameData={gameData}
             timeOffset={timeOffset}
           />
         )}
 
-        {isMultiplayer && gameData?.state === 'getready' && gameData.duel && (
+        {/* Duel round 1 only — between-round duel getready shows the answer map underneath,
+            matching web (components/gameUI.js where health bars stay visible across all states). */}
+        {isMultiplayer && gameData?.state === 'getready' && gameData.duel && gameData.curRound === 1 && (
           <GetReadyOverlay
             round={gameData.curRound}
             totalRounds={gameData.rounds}
@@ -1557,9 +1639,13 @@ export default function GameScreen() {
       )}
 
       {/* ═══ LOADING BANNER OVERLAY — shared with onboarding + country guesser ═══ */}
-      <GameLoadingOverlay opacity={loadingOpacity} interactive={showLoadingBanner} />
-
-
+      <GameLoadingOverlay
+        opacity={loadingOpacity}
+        interactive={showLoadingBanner}
+        message={mpInitialGetReady
+          ? t('gameStartingIn', { t: gameStartingCountdown })
+          : undefined}
+      />
     </View>
   );
 }
@@ -1583,24 +1669,6 @@ const styles = StyleSheet.create({
   singleplayerTopRightSlot: {
     alignItems: 'flex-end',
     gap: spacing.xs,
-  },
-  gameStartingBanner: {
-    position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    zIndex: 100,
-    alignItems: 'center',
-  },
-  gameStartingBannerText: {
-    color: colors.white,
-    fontSize: fontSizes.lg,
-    fontFamily: 'Lexend-Bold',
-    textAlign: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    backgroundColor: Platform.OS === 'android' ? 'rgba(0,0,0,0.72)' : 'rgba(0,0,0,0.56)',
   },
   betweenRoundsOverlay: {
     position: 'absolute',

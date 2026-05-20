@@ -107,6 +107,8 @@ interface ProfileViewProps {
   // Navigation
   onBack?: () => void;
   onNavigateToUser?: (username: string) => void;
+  /** Optional initial tab to preselect (e.g. via a route param). Falls back to 'profile'. */
+  initialTab?: TabKey;
 }
 
 export default function ProfileView({
@@ -118,12 +120,28 @@ export default function ProfileView({
   username: publicUsername,
   onBack,
   onNavigateToUser,
+  initialTab,
 }: ProfileViewProps) {
   const resolvedUsername = isOwnProfile ? user?.username : publicUsername;
   const accountId = isOwnProfile ? user?.accountId : undefined;
   const tabs = isOwnProfile ? OWN_TABS : PUBLIC_TABS;
 
-  const [activeTab, setActiveTab] = useState<TabKey>('profile');
+  // Honor an `initialTab` request only if it's actually offered by the current tab set.
+  const safeInitialTab: TabKey = initialTab && tabs.some((tab) => tab.key === initialTab)
+    ? initialTab
+    : 'profile';
+  const [activeTab, setActiveTab] = useState<TabKey>(safeInitialTab);
+
+  // If the caller swaps `initialTab` while mounted (deep link from a different screen),
+  // honor that and switch tabs — but don't loop on every render.
+  const lastInitialTabRef = useRef<TabKey | undefined>(initialTab);
+  useEffect(() => {
+    if (initialTab && initialTab !== lastInitialTabRef.current
+      && tabs.some((tab) => tab.key === initialTab)) {
+      lastInitialTabRef.current = initialTab;
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, tabs]);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [eloData, setEloData] = useState<EloData | null>(null);
   const [progression, setProgression] = useState<ProgressionEntry[]>([]);
@@ -306,7 +324,7 @@ export default function ProfileView({
           />
         );
       case 'friends':
-        return <FriendsTab secret={secret!} />;
+        return <FriendsTab />;
       case 'moderation':
         return (
           <ModerationTab

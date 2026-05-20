@@ -15,7 +15,7 @@ import {
   flagUrl,
   nameFromCode,
 } from '../../shared/data/countryHelpers';
-import localeStrings from '../../shared/locales-en.json';
+import { localeString } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 
 interface Props {
@@ -50,10 +50,6 @@ const QUIP_KEYS = {
 
 type QuipTier = keyof typeof QUIP_KEYS;
 
-function text(key: string): string {
-  return (localeStrings as Record<string, string>)[key] || key;
-}
-
 function pickQuipKey(tier: QuipTier) {
   const pool = QUIP_KEYS[tier];
   return pool[Math.floor(Math.random() * pool.length)];
@@ -81,10 +77,10 @@ export default function CountryEndBanner({
     : nameFromCode(correctCountry);
 
   const message = useMemo(() => {
-    if (isCorrect) return text(pickQuipKey('correct'));
-    if (!picked || isContinent) return text(pickQuipKey('wrongDiffContinent'));
+    if (isCorrect) return localeString(pickQuipKey('correct'));
+    if (!picked || isContinent) return localeString(pickQuipKey('wrongDiffContinent'));
     const sameContinent = continentFromCode(picked) === continentFromCode(correctCountry);
-    return text(pickQuipKey(sameContinent ? 'wrongSameContinent' : 'wrongDiffContinent'));
+    return localeString(pickQuipKey(sameContinent ? 'wrongSameContinent' : 'wrongDiffContinent'));
     // re-pick only when the round actually changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [round, isCorrect]);

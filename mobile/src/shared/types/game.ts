@@ -37,7 +37,7 @@ export interface GameSettings {
   mapType?: 'm' | 's' | 'p' | 'y';
 }
 
-export type GameType = 'singleplayer' | 'ranked_duel' | 'unranked_multiplayer' | 'private_multiplayer';
+export type GameType = 'singleplayer' | 'ranked_duel' | 'unranked_multiplayer' | 'private_multiplayer' | 'dailyChallenge';
 
 export type GameState = 'waiting' | 'getready' | 'guess' | 'end';
 

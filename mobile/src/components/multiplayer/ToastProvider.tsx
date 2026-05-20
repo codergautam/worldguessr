@@ -19,23 +19,13 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { spacing, fontSizes } from '../../styles/theme';
 import { useMultiplayerStore, ToastData } from '../../store/multiplayerStore';
-import localeStrings from '../../shared/locales-en.json';
 
 const TOAST_DURATION = 4000;
 const HIDDEN_Y = -120;
 type IoniconName = ComponentProps<typeof Ionicons>['name'];
-
-function resolveToastMessage(key: string, vars?: Record<string, string | number>, fallback?: string): string {
-  const template = (localeStrings as Record<string, string>)[key] ?? fallback;
-  if (!template) return key;
-  if (!vars) return template;
-  return template.replace(/\{\{(\w+)\}\}/g, (_, varName: string) =>
-    vars[varName] !== undefined ? String(vars[varName]) : `{{${varName}}}`,
-  );
-}
 
 export default function ToastProvider() {
   const insets = useSafeAreaInsets();
@@ -100,7 +90,7 @@ export default function ToastProvider() {
 
   if (!visible || !currentToast) return null;
 
-  const message = resolveToastMessage(currentToast.key, currentToast.vars, currentToast.message);
+  const message = t(currentToast.key, currentToast.vars, currentToast.message);
 
   const iconName: IoniconName =
     currentToast.toastType === 'success'

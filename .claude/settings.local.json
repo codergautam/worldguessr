@@ -26,7 +26,10 @@
       "Bash(npx acorn:*)",
       "WebSearch",
       "Bash(npx next:*)",
-      "WebFetch(domain:restcountries.com)"
+      "WebFetch(domain:restcountries.com)",
+      "Bash(git *)",
+      "Bash(git diff *)",
+      "Read(//tmp/**)"
     ],
     "deny": [
       "Bash(git push:*)"

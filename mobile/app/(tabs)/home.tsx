@@ -29,7 +29,7 @@ import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
 import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
 
-type GameMode = 'singleplayer' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
+type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
 
 interface MenuButtonProps {
   label: string;
@@ -321,6 +321,10 @@ export default function HomeScreen() {
       case 'communityMaps':
         router.navigate('/(tabs)/maps');
         break;
+      case 'dailyChallenge':
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        router.push('/daily' as any);
+        break;
     }
   };
 
@@ -460,7 +464,9 @@ export default function HomeScreen() {
                         },
                         pressed && styles.friendBtnPressed,
                       ]}
-                      onPress={() => router.push('/friends')}
+                      onPress={() =>
+                        router.push({ pathname: '/(tabs)/account', params: { tab: 'friends' } })
+                      }
                     >
                       <Ionicons name="people" size={headerActionMetrics.friendIconSize} color={colors.white} />
                     </Pressable>
@@ -615,7 +621,9 @@ export default function HomeScreen() {
                         },
                         pressed && styles.friendBtnPressed,
                       ]}
-                      onPress={() => router.push('/friends')}
+                      onPress={() =>
+                        router.push({ pathname: '/(tabs)/account', params: { tab: 'friends' } })
+                      }
                     >
                       <Ionicons name="people" size={headerActionMetrics.friendIconSize} color={colors.white} />
                     </Pressable>
@@ -703,6 +711,11 @@ export default function HomeScreen() {
                 onPress={() => handleModePress('singleplayer')}
                 delay={getDelay()}
               />
+              <MenuButton
+                label="Daily Challenge"
+                onPress={() => handleModePress('dailyChallenge')}
+                delay={getDelay()}
+              />
               {isAuthenticated && (
                 <MenuButton
                   label="Ranked Duel"
@@ -711,7 +724,7 @@ export default function HomeScreen() {
                 />
               )}
               <MenuButton
-                label="Public Match"
+                label={isAuthenticated ? 'Unranked Match' : 'Find a Match'}
                 onPress={() => handleModePress('unrankedDuel')}
                 delay={getDelay()}
               />

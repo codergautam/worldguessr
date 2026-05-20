@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
@@ -9,10 +9,17 @@ import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles
 import ProfileView from '../../src/components/account/ProfileView';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 
+type AccountTabParam = 'profile' | 'history' | 'elo' | 'friends' | 'moderation';
+const VALID_ACCOUNT_TABS: AccountTabParam[] = ['profile', 'history', 'elo', 'friends', 'moderation'];
+
 export default function AccountScreen() {
   const router = useRouter();
   const { user, secret, logout, isLoading: authLoading, loadSession } = useAuthStore();
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const initialTab = tab && (VALID_ACCOUNT_TABS as string[]).includes(tab)
+    ? (tab as AccountTabParam)
+    : undefined;
 
   const handleLogout = async () => {
     await logout();
@@ -61,6 +68,7 @@ export default function AccountScreen() {
       onBack={() => router.navigate('/(tabs)/home')}
       onRefreshUser={loadSession}
       onNavigateToUser={(username) => router.push(`/user/${username}`)}
+      initialTab={initialTab}
     />
   );
 }

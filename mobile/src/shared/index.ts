@@ -10,6 +10,9 @@ export * from './utils';
 // Theme/styling
 export * from './theme';
 
+// i18n helper
+export * from './locale';
+
 // Types
 export * from './types';
 

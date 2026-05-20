@@ -475,6 +475,105 @@ export const api = {
     } catch {}
   },
 
+  // Daily Challenge
+  dailyChallenge: {
+    locations: async (date: string, secret?: string) => {
+      const q = new URLSearchParams({ date });
+      if (secret) q.set('secret', secret);
+      return fetchApi<{
+        date: string;
+        challengeNumber: number;
+        sessionToken: string;
+        timePerRound: number;
+        totalRounds: number;
+        locations: Array<{ lat: number; long: number; heading?: number; country?: string; panoId?: string }>;
+      }>(`/api/dailyChallenge/locations?${q.toString()}`);
+    },
+
+    results: async (date: string, secret?: string, guestId?: string) => {
+      const q = new URLSearchParams({ date });
+      if (secret) q.set('secret', secret);
+      else if (guestId) q.set('guestId', guestId);
+      return fetchApi<{
+        date: string;
+        distribution?: {
+          totalPlays: number;
+          avgScore: number;
+          buckets: number[];
+          roundAverages: number[];
+        };
+        top10?: Array<{ rank: number; username: string; score: number }>;
+        user?: {
+          username?: string;
+          streak?: number;
+          streakBest?: number;
+          graceDay?: boolean;
+          playedToday?: boolean;
+          disqualifiedToday?: boolean;
+          ownScore?: number;
+          ownRank?: number;
+          ownRounds?: Array<{
+            score: number;
+            distance?: number;
+            timeMs?: number;
+            guessLat?: number;
+            guessLng?: number;
+            country?: string;
+          }>;
+          ownTotalTime?: number;
+          history?: Array<{ date: string; score: number; rank?: number }>;
+          personalBest?: number;
+        };
+      }>(`/api/dailyChallenge/results?${q.toString()}`);
+    },
+
+    submit: async (body: {
+      date: string;
+      score: number;
+      totalTime: number;
+      rounds: Array<{
+        score: number;
+        timeMs: number | null;
+        guessLat: number | null;
+        guessLng: number | null;
+        country: string | null;
+      }>;
+      sessionToken?: string;
+      disqualified?: boolean;
+      secret?: string;
+      guestId?: string;
+    }) => {
+      return fetchApi<{
+        score: number;
+        rank?: number;
+        totalPlays: number;
+        percentile?: number;
+        streak?: number;
+        streakBest?: number;
+        graceUsed?: boolean;
+        newPersonalBest?: boolean;
+        disqualified?: boolean;
+        alreadySubmitted?: boolean;
+        guest?: boolean;
+      }>('/api/dailyChallenge/submit', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    },
+
+    claimGuestProgress: async (secret: string, guestId: string) => {
+      return fetchApi<{
+        ok?: boolean;
+        mergedDays?: number;
+        streak?: number;
+        code?: string;
+      }>('/api/dailyChallenge/claimGuestProgress', {
+        method: 'POST',
+        body: JSON.stringify({ secret, guestId }),
+      });
+    },
+  },
+
   fetchMapLocations: async (mapSlug: string) => {
     return fetchApi<{
       ready: boolean;
