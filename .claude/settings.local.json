@@ -29,10 +29,9 @@
       "WebFetch(domain:restcountries.com)",
       "Bash(git *)",
       "Bash(git diff *)",
+      "Bash(git push:*)",
       "Read(//tmp/**)"
     ],
-    "deny": [
-      "Bash(git push:*)"
-    ]
+    "deny": []
   }
 }
