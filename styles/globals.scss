@@ -3234,12 +3234,9 @@ h1, h2, h3, span, label {
     .emoteReactionsParent {
         bottom: 12px;
         left: 12px;
-    }
-    // When user taps Guess to expand the map on mobile, hide the emote UI
-    // entirely (both toggle button and floating feed) so it doesn't sit on
-    // top of the now-fullscreen guess map.
-    body:has(#miniMapArea.mapExpanded) .emoteReactionsParent {
-        display: none;
+        // Above streetview, below the minimap (#miniMapArea z-index 1000).
+        // Lets emotes float over the pano without blocking the guess map.
+        z-index: 500;
     }
     .emoteReactionsParent.rightSide {
         left: auto;
