@@ -50,9 +50,9 @@ export default function Ad({
       renderVisibleOnly: true,
       "report": {
         "enabled": true,
-        "icon": true,
+        "icon": false,
         "wording": "Report Ad",
-        "position": "top-right",
+        "position": "bottom-right",
         "load": () => {
           sendEvent(`ad_request_${types[type][0]}x${types[type][1]}_${unit}`);
         },

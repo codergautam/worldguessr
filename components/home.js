@@ -38,7 +38,7 @@ const AccountModal = dynamic(() => import('@/components/accountModal'), { ssr: f
 const MapGuessrModal = dynamic(() => import('@/components/mapGuessrModal'), { ssr: false });
 import MultiplayerHome from "@/components/multiplayerHome";
 import SetUsernameModal from "@/components/setUsernameModal";
-import ChatBox from "@/components/chatBox";
+import EmoteReactions from "@/components/emoteReactions";
 import SettingsModal from "@/components/settingsModal";
 import WelcomeOverlay from "@/components/welcomeOverlay";
 import OnboardingComplete from "@/components/onboardingComplete";
@@ -1390,8 +1390,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // so non-Home pages (/banned, /leaderboard, /maps, /mod, /learn, /user,
     // /svEmbed, /privacy-*) don't open a socket they'll never use.
     useEffect(() => { ensureConnected(); }, [ensureConnected]);
-    const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
-    const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
+    const [multiplayerEmotesEnabled, setMultiplayerEmotesEnabled] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        try { return gameStorage.getItem('multiplayerEmotesEnabled') !== 'false'; } catch { return true; }
+    });
 
     const updateTimeOffsetFromSync = (serverNow, clientSentAt) => {
         if (!serverNow || !clientSentAt) return;
@@ -1795,12 +1797,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
     useEffect(() => {
-        if (!multiplayerState?.inGame && multiplayerState?.gameData?.duel) {
-
-            setMultiplayerChatEnabled(false)
-            setMultiplayerChatOpen(false)
-        }
-
         // Subscribe to WS messages via the provider. The provider owns the
         // connection lifecycle (so onmessage/onclose/onerror live there too)
         // and forwards every parsed message to subscribers like this one.
@@ -1912,10 +1908,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 setScreen("multiplayer")
                 setMultiplayerState((prev) => {
 
-                    if (!data.duel) {
-                        setMultiplayerChatEnabled(true)
-                    }
-
                     // console.log('got game options', data)
                     setGameOptions((prev) => ({
                         ...prev,
@@ -1927,8 +1919,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
                     if (data.state === "getready") {
-                        setMultiplayerChatEnabled(true)
-
                         // calculate extent on client
                         // if(data.map !== "all" && !countries.map((c) => c?.toLowerCase()).includes(data.map?.toLowerCase())  && !gameOptions?.extent) {
                         //   // calculate extent
@@ -1948,14 +1938,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         //     }
                         //   })
                         // }
-
-                    } else if (data.state === "guess") {
-                        const didIguess = (data.players ?? prev.gameData?.players)?.find((p) => p.id === prev.gameData?.myId)?.final;
-                        if (didIguess) {
-                            setMultiplayerChatEnabled(true)
-                        } else {
-                            // if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
-                        }
                     }
 
                     if ((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") {
@@ -2057,10 +2039,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }
             } else if (data.type === "place") {
                 const id = data.id;
-                if (id === multiplayerState?.gameData?.myId) {
-                    setMultiplayerChatEnabled(true)
-                }
-
                 const player = multiplayerState?.gameData?.players?.find((p) => p.id === id);
                 if (player) {
                     player.final = data.final;
@@ -2074,8 +2052,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }))
 
             } else if (data.type === "gameShutdown") {
-                setMultiplayerChatEnabled(false)
-
                 // gameShutdown only needs to force-reset the client when the
                 // user is still in a game client-side (e.g. party host left
                 // mid-round — the server is telling them the game is gone).
@@ -2128,7 +2104,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 toast.info(text("opponentLeftBeforeStart") || "Opponent left before the game started. Returning to queue...");
 
                 setScreen("home")
-                setMultiplayerChatEnabled(false)
 
                 setMultiplayerState((prev) => {
                     return {
@@ -2259,8 +2234,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const prevWsForCloseRef = useRef(null);
     useEffect(() => {
         if (prevWsForCloseRef.current && !ws) {
-            setMultiplayerChatEnabled(false);
-            setMultiplayerChatOpen(false);
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "daily") {
                 setMultiplayerError(true);
                 setLoading(false);
@@ -2320,7 +2293,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             me.final = true;
             me.latLong = pinpointLatLong;
         }
-        setMultiplayerChatEnabled(true);
 
         ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true, round: multiplayerState.gameData?.curRound }))
     }
@@ -2525,7 +2497,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     joinOptions: prev.joinOptions,
                 }))
                 setScreen("home")
-                setMultiplayerChatEnabled(false)
                 // gameShutdown used to clear this; now that we own the
                 // teardown, do it here so a stale community-map extent
                 // doesn't leak into the next singleplayer / multiplayer game.
@@ -2566,8 +2537,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setScreen("home")
 
         } else {
-            setMultiplayerChatEnabled(false)
-
             const afterBack = () => {
                 setScreen("home");
                 setGameOptions((prev) => ({
@@ -2841,25 +2810,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }
 
-    // Stable callback for chat toggle to prevent ChatBox re-renders
-    const handleChatToggle = React.useCallback(() => {
-        setMultiplayerChatOpen(prev => !prev);
-    }, []);
-
-    // Memoized ChatBox - uses stable function references (handleChatToggle) and
-    // internal useCallback hooks to prevent chat input from resetting between rounds
-    const ChatboxMemo = React.useMemo(() => <ChatBox
-        miniMapShown={miniMapShown}
+    const EmoteReactionsMemo = React.useMemo(() => <EmoteReactions
         ws={ws}
-        open={multiplayerChatOpen}
-        onToggle={handleChatToggle}
-        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
-        isGuest={session?.token?.secret ? false : true}
-        publicGame={multiplayerState?.gameData?.public}
-        myId={multiplayerState?.gameData?.myId}
+        enabled={multiplayerEmotesEnabled && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
         inGame={multiplayerState?.inGame}
-        roundOverScreenShown={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
-    />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, session?.token?.secret, handleChatToggle, miniMapShown, multiplayerState?.gameData?.state])
+        myId={multiplayerState?.gameData?.myId}
+        hideName={multiplayerState?.gameData?.duel}
+    />, [ws, multiplayerEmotesEnabled, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel])
 
     // Send pong every 10 seconds if websocket is connected
     useEffect(() => {
@@ -2964,7 +2921,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
-            {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && ChatboxMemo}
+            {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && EmoteReactionsMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
             {welcomeOverlayShown && screen === "onboarding" && (
@@ -3521,7 +3478,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     showTimerOption={screen === "singleplayer"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
-                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} shown={true} onClose={() => setSettingsModal(false)} />}
+                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} />}
 
                 {connectionErrorModalShown && <AlertModal
                     isOpen={true}
@@ -3669,7 +3626,7 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} latLong={latLong} loadLocation={() => { }} gameOptions={{
+                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerState={multiplayerState} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} latLong={latLong} loadLocation={() => { }} gameOptions={{
                             location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent,
                             nm: multiplayerState?.gameData?.nm,
                             npz: multiplayerState?.gameData?.npz,

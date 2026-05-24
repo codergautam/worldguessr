@@ -3,7 +3,7 @@ import { useTranslation } from '@/components/useTranslations';
 import { asset, navigate } from '@/lib/basePath';
 import NextImage from "next/image";
 
-export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution }) {
+export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled }) {
     const { t: text } = useTranslation("common");
 
     const handleUnitsChange = (event) => {
@@ -91,6 +91,12 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                         <label htmlFor="ramUsage">Show RAM Usage</label>
                         <input className="g2_input" type="checkbox" id="ramUsage" checked={options.ramUsage} onChange={() => setOptions((prevOptions) => ({ ...prevOptions, ramUsage: !prevOptions.ramUsage }))} />
                     </div>
+                    {typeof setMultiplayerEmotesEnabled === 'function' && (
+                        <div className="settingsModalInner">
+                            <label htmlFor="mpEmotes">Multiplayer emote reactions</label>
+                            <input className="g2_input" type="checkbox" id="mpEmotes" checked={!!multiplayerEmotesEnabled} onChange={() => setMultiplayerEmotesEnabled(!multiplayerEmotesEnabled)} />
+                        </div>
+                    )}
                 </>
                 )}
 
