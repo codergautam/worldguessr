@@ -2816,7 +2816,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         inGame={multiplayerState?.inGame}
         myId={multiplayerState?.gameData?.myId}
         hideName={multiplayerState?.gameData?.duel}
-    />, [ws, multiplayerEmotesEnabled, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel])
+        rightSide={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
+    />, [ws, multiplayerEmotesEnabled, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.state])
 
     // Send pong every 10 seconds if websocket is connected
     useEffect(() => {

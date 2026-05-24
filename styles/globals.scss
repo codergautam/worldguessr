@@ -3078,6 +3078,24 @@ h1, h2, h3, span, label {
     pointer-events: auto;
 }
 
+// Round-over screen: flip to right side (left side is busy with leaderboard/results UI).
+.emoteReactionsParent.rightSide {
+    left: auto;
+    right: 20px;
+    align-items: flex-end;
+}
+
+.emoteReactionsParent.rightSide .emoteFloatItem {
+    left: auto;
+    right: 8px;
+}
+
+.emoteReactionsParent.rightSide .emoteBar {
+    left: auto;
+    right: 0;
+    transform-origin: bottom right;
+}
+
 .emoteFloatStack {
     position: relative;
     width: 260px;
@@ -3216,9 +3234,16 @@ h1, h2, h3, span, label {
     .emoteReactionsParent {
         bottom: 12px;
         left: 12px;
-        // Sit behind the guess map (z 1000) so the picker never blocks the
-        // tap target for placing a pin on small screens.
-        z-index: 5;
+    }
+    // When user taps Guess to expand the map on mobile, hide the emote UI
+    // entirely (both toggle button and floating feed) so it doesn't sit on
+    // top of the now-fullscreen guess map.
+    body:has(#miniMapArea.mapExpanded) .emoteReactionsParent {
+        display: none;
+    }
+    .emoteReactionsParent.rightSide {
+        left: auto;
+        right: 12px;
     }
     .emoteFloatStack {
         width: 220px;

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import CountryFlag from '@/components/utils/countryFlag';
 
 export const EMOTES = ['👋', '👍', '😂', '😮', '🤔', '🎯', '😡', 'GG'];
 const REACTION_TTL = 3200;
@@ -7,7 +8,7 @@ const SEND_COOLDOWN = 1500;
 let lastLocalSend = 0;
 let nextReactionId = 1;
 
-function EmoteReactions({ ws, enabled, inGame, myId, hideName }) {
+function EmoteReactions({ ws, enabled, inGame, myId, hideName, rightSide }) {
   const [open, setOpen] = useState(false);
   const [reactions, setReactions] = useState([]);
   const [cooldownUntil, setCooldownUntil] = useState(0);
@@ -29,6 +30,7 @@ function EmoteReactions({ ws, enabled, inGame, myId, hideName }) {
         id,
         emote: EMOTES[data.emote],
         name: data.name || '',
+        countryCode: data.countryCode || null,
         isSelf: data.id === myIdRef.current,
       }]);
       setTimeout(() => {
@@ -59,12 +61,17 @@ function EmoteReactions({ ws, enabled, inGame, myId, hideName }) {
   const inCooldown = Date.now() < cooldownUntil;
 
   return (
-    <div className="emoteReactionsParent">
+    <div className={`emoteReactionsParent ${rightSide ? 'rightSide' : ''}`}>
       <div className="emoteFloatStack" aria-hidden="true">
         {reactions.map(r => (
           <div key={r.id} className={`emoteFloatItem ${r.isSelf ? 'self' : ''} ${hideName ? 'noName' : ''}`}>
             <span className="emoteFloatGlyph">{r.emote}</span>
-            {!hideName && r.name && <span className="emoteFloatName">{r.name}</span>}
+            {!hideName && r.name && (
+              <span className="emoteFloatName">
+                {r.countryCode && <CountryFlag countryCode={r.countryCode} style={{ fontSize: '0.9em', marginRight: '4px' }} />}
+                {r.name}
+              </span>
+            )}
           </div>
         ))}
       </div>

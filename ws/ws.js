@@ -771,6 +771,7 @@ app.ws('/wg', {
           type: 'emote',
           id: player.id,
           name: player.username,
+          countryCode: player.countryCode || null,
           emote
         });
       }
