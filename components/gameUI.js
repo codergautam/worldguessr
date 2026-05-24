@@ -789,6 +789,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
       unit={"worldguessr_gameui_ad"}
+      position="top-right-side"
     inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={width >= 820 && width < 1500 ? [[320,50]] : [[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}

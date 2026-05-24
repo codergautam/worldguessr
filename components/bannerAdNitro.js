@@ -25,6 +25,7 @@ export default function Ad({
   screenW,
   screenH,
   showAdvertisementText = true,
+  position = "top-right"
 }) {
   const [type, setType] = useState(
     findAdType(screenW, screenH, types, vertThresh)
@@ -42,8 +43,15 @@ export default function Ad({
   }, [screenW, screenH, JSON.stringify(types), vertThresh]);
 
   // NitroPay ad management
+  // Dep on the actual chosen size (w,h) — not just `type` index — so a resize
+  // that swaps types (e.g. [[728,90]] → [[320,50]]) still tears down and
+  // recreates the ad even when the index stays 0. Without this, NitroPay
+  // keeps the old creative loaded inside a div that's now sized differently.
+  const chosenW = type === -1 ? null : types[type]?.[0];
+  const chosenH = type === -1 ? null : types[type]?.[1];
   useEffect(() => {
     if (type === -1 || !isClient || isClient === "debug") return;
+    if (chosenW == null || chosenH == null) return;
 
     const config = {
       refreshTime: AD_REFRESH_SEC,
@@ -52,15 +60,14 @@ export default function Ad({
         "enabled": true,
         "icon": false,
         "wording": "Report Ad",
-        "position": "bottom-right",
+        "position": position,
         "load": () => {
-          sendEvent(`ad_request_${types[type][0]}x${types[type][1]}_${unit}`);
+          sendEvent(`ad_request_${chosenW}x${chosenH}_${unit}`);
         },
       },
       // demo: isClient === "debug",
-      // sizes: [[types[type][0], types[type][1]]], update: instead of only choosing the best size, include the sizes that are smaller than the best (both width and height)
       sizes: types
-        .filter((t) => t[0] <= types[type][0] && t[1] <= types[type][1])
+        .filter((t) => t[0] <= chosenW && t[1] <= chosenH)
         .map((t) => [t[0], t[1]]),
     };
 
@@ -68,14 +75,11 @@ export default function Ad({
     let resolvedAds = null; // NitroAd | NitroAd[] | null
 
     // createAd can return: NitroAd | Promise<NitroAd> | Promise<NitroAd[]> | null
-    const navigateAll = (ads) => {
+    const destroyAll = (ads) => {
       if (!ads) return;
       const list = Array.isArray(ads) ? ads : [ads];
       for (const ad of list) {
-        console.log("navigating ad", ad);
-        try {
-          ad?.onNavigate?.();
-        } catch (e) {}
+        try { ad?.onNavigate?.(); } catch (e) {}
       }
     };
 
@@ -84,7 +88,7 @@ export default function Ad({
       if (result && typeof result.then === "function") {
         result
           .then((ads) => {
-            if (cancelled) navigateAll(ads);
+            if (cancelled) destroyAll(ads);
             else resolvedAds = ads;
           })
           .catch(() => {});
@@ -97,9 +101,14 @@ export default function Ad({
 
     return () => {
       cancelled = true;
-      navigateAll(resolvedAds);
+      destroyAll(resolvedAds);
+      // Clear the slot's DOM so NitroPay's next createAd paints into a clean
+      // container and doesn't stack iframes from the previous size.
+      if (adDivRef.current) {
+        try { adDivRef.current.innerHTML = ""; } catch (e) {}
+      }
     };
-  }, [type, isClient, unit]);
+  }, [chosenW, chosenH, isClient, unit]);
 
   if (type === -1 || !types[type]) return null;
   if (!isClient) return null;
