@@ -3234,9 +3234,15 @@ h1, h2, h3, span, label {
     .emoteReactionsParent {
         bottom: 12px;
         left: 12px;
-        // Above streetview, below the minimap (#miniMapArea z-index 1000).
-        // Lets emotes float over the pano without blocking the guess map.
-        z-index: 500;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    // On mobile, tapping Guess toggles `miniMapShown` which adds `.shown`
+    // to the minimap (covering bottom 70% of the screen). Fade the emote
+    // UI out smoothly; it reappears when the map collapses between rounds.
+    body:has(#miniMapArea.shown.answerNotShown) .emoteReactionsParent {
+        opacity: 0;
+        transform: translateX(-20px);
+        pointer-events: none;
     }
     .emoteReactionsParent.rightSide {
         left: auto;
