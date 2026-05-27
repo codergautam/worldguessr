@@ -790,7 +790,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       <Ad
       unit={"worldguessr_gameui_ad"}
       position="bottom-right"
-    inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={width >= 820 && width < 1500 ? [[320,50]] : [[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
+    inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
 
