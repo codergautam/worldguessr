@@ -11,13 +11,20 @@ function medal(rank) {
 
 function ProfileNameLink({ username, className }) {
   if (!username) return null;
+  const openPanel = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof window !== 'undefined' && window.wgOpenProfile) {
+      window.wgOpenProfile(username);
+    } else {
+      window.location.href = `/user?u=${encodeURIComponent(username)}`;
+    }
+  };
   return (
     <Link
-      href={`/user?u=${encodeURIComponent(username)}`}
-      target="_blank"
-      rel="noopener noreferrer"
+      href={`/?profile=${encodeURIComponent(username)}`}
       className={className}
-      onClick={(e) => e.stopPropagation()}
+      onClick={openPanel}
     >
       {username}
     </Link>

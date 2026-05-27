@@ -32,8 +32,8 @@ import OnlineCounter from './OnlineCounter';
 import OnlineStatsPanel from './OnlineStatsPanel';
 import HomeAccountBtn from './HomeAccountBtn';
 import HomeSettingsPanel from './HomeSettingsPanel';
-import HomeLeaderboardPanel from './HomeLeaderboardPanel';
 import ExternalLinkConfirm, { shouldSkipConfirm } from './ExternalLinkConfirm';
+import playSound from '@/components/utils/playSound';
 
 const externalLinks = {
   discord: {
@@ -88,13 +88,15 @@ export default function HomeScreen({
   onCommunityMaps,
   onOpenAccountModal,
   onConnectionError,
+  onOpenProfilePanel,
+  leaderboardOpen,
+  setLeaderboardOpen,
 }) {
   const { t: text } = useTranslation('common');
 
   const [locPanelOpen, setLocPanelOpen] = useState(false);
   const [onlinePanelOpen, setOnlinePanelOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [extLink, setExtLink] = useState(null);
 
@@ -139,6 +141,7 @@ export default function HomeScreen({
       onConnectionError?.();
       return;
     }
+    playSound('interfaceClick');
     setExiting(true);
     setTimeout(() => {
       fn();
@@ -219,6 +222,7 @@ export default function HomeScreen({
         <button
           className="wg-home__cta"
           onClick={guard(onPlaySingleplayer)}
+          onMouseEnter={() => { if (!loading) playSound('interfaceClickHover'); }}
           disabled={loading}
         >
           <img
@@ -350,12 +354,6 @@ export default function HomeScreen({
         inGameDistribution={inGameDistribution}
       />
 
-      <HomeLeaderboardPanel
-        open={leaderboardOpen}
-        onClose={() => setLeaderboardOpen(false)}
-        session={session}
-      />
-
       <ExternalLinkConfirm
         open={!!extLink}
         link={extLink}
@@ -383,6 +381,7 @@ function MenuItem({ icon, label, onClick, disabled }) {
       type="button"
       className="wg-home__menuItem"
       onClick={onClick}
+      onMouseEnter={() => { if (!disabled) playSound('interfaceClickHover'); }}
       disabled={disabled}
     >
       <span className="wg-home__menuItemIcon">{icon}</span>

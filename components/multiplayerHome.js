@@ -112,7 +112,7 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
 
             <BannerText
                 text={text("findingGame")}
-                shown={multiplayerState.gameQueued}
+                shown={multiplayerState.gameQueued || (multiplayerState.inGame && multiplayerState.gameData?.state === 'waiting' && multiplayerState.gameData?.public)}
                 position={"auto"}
                 subText={
                     multiplayerState?.publicDuelRange ? (() => {
@@ -135,10 +135,6 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
                     })() : undefined
                 }
             />
-
-            {!multiplayerState.gameQueued && (
-                <BannerText  position={"auto"} text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />
-            )}
 
             {multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && !multiplayerState.gameData?.public && (
                 <PlayerList multiplayerState={multiplayerState} startGameHost={() => handleAction("startGameHost")} onEditClick={() => setPartyModalShown(true)} inCrazyGames={inCrazyGames} />

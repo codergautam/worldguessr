@@ -1,6 +1,7 @@
 import {Modal} from "react-responsive-modal";
 import { useState, useEffect } from "react";
 import { useTranslation } from '@/components/useTranslations'
+import { asset } from '@/lib/basePath';
 import sendEvent from "./utils/sendEvent";
 import { fetchWithFallback } from "./utils/retryFetch";
 
@@ -60,11 +61,9 @@ export default function SetUsernameModal({ shown, onClose, session }) {
     return (
         <Modal
             id="setUsernameModal"
+            classNames={{ modal: 'wg-setUsername__modal' }}
             styles={{
-
-                root: {
-                    zIndex: 20000,
-                },
+                root: { zIndex: 20000 },
                 modal: {
                     background: 'transparent',
                     padding: 0,
@@ -72,19 +71,17 @@ export default function SetUsernameModal({ shown, onClose, session }) {
                     boxShadow: 'none',
                     maxWidth: '100%',
                     width: 'auto',
-                    overflow: 'visible'
+                    overflow: 'visible',
                 },
-                closeButton: {
-                    display: 'none'
-                },
+                closeButton: { display: 'none' },
                 overlay: {
-                    background: 'rgba(0, 0, 0, 0.8)',
-                    backdropFilter: 'blur(10px)',
+                    background: 'rgba(0, 0, 0, 0.7)',
+                    backdropFilter: 'blur(14px)',
                     overflow: 'hidden',
                     // Must sit above the Daily results backdrop (z-index 10000
                     // in styles/daily.scss) so the first-time username prompt
                     // isn't trapped behind an open results modal.
-                }
+                },
             }}
             open={shown}
             center
@@ -92,88 +89,56 @@ export default function SetUsernameModal({ shown, onClose, session }) {
             closeOnOverlayClick={false}
             closeOnEsc={false}
         >
-            <div className="join-party-card" style={{
-                minWidth: '400px',
-                animation: 'slideInUp 0.6s ease-out'
-            }}>
-                <h2 className="join-party-title" style={{
-                    marginBottom: '20px'
-                }}>
-                    {text("welcomeToWorldguessr")}
-                </h2>
+            <div className="wg-setUsername">
+                <div className="wg-setUsername__hero">
+                    <span className="wg-setUsername__heroPrefix">
+                        {text("welcomeToPrefix")}
+                    </span>
+                    <img
+                        className="wg-setUsername__heroBrand"
+                        src={asset('/assets/logos/title.png')}
+                        alt="WorldGuessr"
+                        draggable={false}
+                    />
+                </div>
 
-                <p style={{
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: 'min(clamp(1rem, 2vw, 1.1rem), clamp(0.9rem, 2.5vh, 1rem))',
-                    marginBottom: '25px',
-                    lineHeight: '1.4'
-                }}>
+                <p className="wg-setUsername__desc">
                     {text("enterUsername")}
                 </p>
 
-                <div className="join-party-form">
-                    <div className="join-party-input-group">
-                        <input
-                            type="text"
-                            className="join-party-input"
-                            placeholder={text("enterUsernameBox")}
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            onKeyPress={handleKeyPress}
-                            disabled={isLoading}
-                            maxLength={30}
-                            style={{
-                                opacity: isLoading ? 0.7 : 1,
-                                cursor: isLoading ? 'not-allowed' : 'text'
-                            }}
-                        />
+                <div className="wg-setUsername__form">
+                    <input
+                        type="text"
+                        className="wg-setUsername__input"
+                        placeholder={text("enterUsernameBox")}
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        disabled={isLoading}
+                        maxLength={30}
+                        autoFocus
+                    />
 
-                        <button
-                            className="join-party-button"
-                            onClick={handleSave}
-                            disabled={!username.trim() || isLoading}
-                            style={{
-                                position: 'relative',
-                                overflow: 'hidden'
-                            }}
-                        >
-                            {isLoading ? (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px'
-                                }}>
-                                    <div style={{
-                                        width: '16px',
-                                        height: '16px',
-                                        border: '2px solid rgba(255, 255, 255, 0.3)',
-                                        borderTop: '2px solid white',
-                                        borderRadius: '50%',
-                                        animation: 'spin 1s linear infinite'
-                                    }}></div>
-                                </div>
-                            ) : (
-                                text("save")
-                            )}
-                        </button>
-                    </div>
-
-                    {error && (
-                        <div className="join-party-error" style={{
-                            animation: 'errorSlideIn 0.3s ease-out'
-                        }}>
-                            {error}
-                        </div>
-                    )}
+                    <button
+                        type="button"
+                        className="wg-setUsername__save"
+                        onClick={handleSave}
+                        disabled={!username.trim() || isLoading}
+                    >
+                        {isLoading ? (
+                            <span className="wg-setUsername__spinner" aria-hidden="true" />
+                        ) : (
+                            text("save")
+                        )}
+                    </button>
                 </div>
-            </div>
 
-            <style jsx>{`
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            `}</style>
+                {error && (
+                    <div className="wg-setUsername__error" role="alert">
+                        {error}
+                    </div>
+                )}
+            </div>
         </Modal>
-    )
+    );
 }

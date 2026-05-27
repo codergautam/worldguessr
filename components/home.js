@@ -1,5 +1,7 @@
 import HeadContent from "@/components/headContent";
-import { FaDiscord, FaBook } from "react-icons/fa";
+import ProfilePanel from "@/components/homeScreen/ProfilePanel";
+import HomeLeaderboardPanel from "@/components/homeScreen/HomeLeaderboardPanel";
+import { FaDiscord, FaBook, FaSignal } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
@@ -92,6 +94,60 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [wgCardLocation, setWgCardLocation] = useState(null);
     const [wgBgMounted, setWgBgMounted] = useState(false);
     const [wgInGame, setWgInGame] = useState(false);
+    const profilePanelUser = (router?.isReady && router.query?.profile)
+        ? (Array.isArray(router.query.profile) ? router.query.profile[0] : String(router.query.profile))
+        : null;
+
+    const openProfilePanel = useCallback((username) => {
+        if (!username || !router) return;
+        const nextQuery = { ...(router.query || {}), profile: String(username) };
+        router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+    }, [router]);
+
+    const closeProfilePanel = useCallback(() => {
+        if (!router) return;
+        const nextQuery = { ...(router.query || {}) };
+        delete nextQuery.profile;
+        router.replace({ pathname: router.pathname, query: nextQuery }, undefined, { shallow: true });
+    }, [router]);
+
+    const [wgLeaderboardOpen, setWgLeaderboardOpen] = useState(false);
+    const closeAllSidebars = useCallback(() => {
+        setWgLeaderboardOpen(false);
+        closeProfilePanel();
+    }, [closeProfilePanel]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        window.wgOpenProfile = (username) => openProfilePanel(username);
+        return () => { try { delete window.wgOpenProfile; } catch (e) { window.wgOpenProfile = undefined; } };
+    }, [openProfilePanel]);
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        const root = document.documentElement;
+        const measure = () => {
+            const candidates = document.querySelectorAll(
+                '#nitro-ad-banner, #gd-banner-game, #gd-banner-home, #cg-banner-ad, [id^="worldguessr-com_"], [id^="cg-banner"], [id^="nitro-"]'
+            );
+            let h = 0;
+            for (const el of candidates) {
+                const rect = el.getBoundingClientRect();
+                if (rect.height > 10 && rect.width > 10) {
+                    h = Math.max(h, Math.round(rect.height));
+                }
+            }
+            const current = parseInt(root.style.getPropertyValue('--wg-ad-h') || '0', 10);
+            if (current !== h) {
+                root.style.setProperty('--wg-ad-h', `${h}px`);
+                document.body.classList.toggle('wg-has-ad', h > 0);
+            }
+        };
+        measure();
+        const id = window.setInterval(measure, 700);
+        return () => window.clearInterval(id);
+    }, []);
+
     // game state
     const [latLong, setLatLong] = useState({ lat: 0, long: 0 })
     const [latLongKey, setLatLongKey] = useState(0) // Increment to force refresh even with same coords
@@ -145,9 +201,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
     useEffect(() => {
         if (typeof window === 'undefined') return undefined;
-        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-        const isSmall = window.innerWidth <= 1024 || window.innerHeight <= 700;
-        if (!isTouch && !isSmall) return undefined;
+        const ua = navigator.userAgent || '';
+        const uaHint = navigator.userAgentData?.mobile;
+        const isMobileUA = /iPhone|iPad|iPod|Android.*Mobile|Mobile Safari|Phone/i.test(ua);
+        const isMobileOS = uaHint === true || isMobileUA;
+        const isCoarseTouch = (typeof window.matchMedia === 'function'
+            && window.matchMedia('(pointer: coarse) and (hover: none)').matches);
+        if (!isMobileOS && !isCoarseTouch) return undefined;
         let fired = false;
         const go = () => {
             if (fired) return;
@@ -198,7 +258,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const wgLoadingOverlay = wgEffectiveLoading && wgInGame;
     const wgLoadingActive = wgLoadingTakeover || wgLoadingOverlay;
     const [wgFindGameActive, setWgFindGameActive] = useState(false);
-    const wgShowBg = screen === 'home' || wgLoadingTakeover || wgLoadingOverlay || wgFindGameActive;
+    const [wgMpBgActive, setWgMpBgActive] = useState(false);
+    const wgShowBg = screen === 'home' || wgLoadingTakeover || wgLoadingOverlay || wgFindGameActive || wgMpBgActive;
     useEffect(() => {
         if (!loading) return undefined;
         const startedAt = Date.now();
@@ -251,7 +312,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         wgPrevOverlayRef.current = wgLoadingOverlay;
     }, [wgLoadingOverlay]);
     useEffect(() => {
-        if (!loading && latLong && latLong.lat && latLong.long && (screen === 'singleplayer' || screen === 'countryGuesser' || screen === 'onboarding')) {
+        if (!loading && latLong && latLong.lat && latLong.long && (
+            screen === 'singleplayer' || screen === 'countryGuesser' || screen === 'onboarding' || screen === 'multiplayer'
+        )) {
             setWgInGame(true);
         }
     }, [loading, latLong, screen]);
@@ -1576,16 +1639,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [options])
 
-    // multiplayer stuff — connection lives in MultiplayerProvider (mounted in
-    // _app.js) so it survives Next.js route changes and can't be opened twice.
     const { ws, setWs, multiplayerState, setMultiplayerState, subscribeMessages, ensureConnected } = useMultiplayer();
-    // Tell the provider to actually open the WS. Provider is lazy by default
-    // so non-Home pages (/banned, /leaderboard, /maps, /mod, /learn, /user,
-    // /svEmbed, /privacy-*) don't open a socket they'll never use.
     useEffect(() => { ensureConnected(); }, [ensureConnected]);
     useEffect(() => {
         setWgFindGameActive(!!(screen === 'multiplayer' && multiplayerState?.gameQueued));
     }, [screen, multiplayerState?.gameQueued]);
+    useEffect(() => {
+        const inMp = screen === 'multiplayer';
+        const state = multiplayerState?.gameData?.state;
+        const inLobby = inMp && multiplayerState?.inGame && state === 'waiting';
+        const inIntermission = inMp && multiplayerState?.inGame && state === 'getready';
+        const inMatch = inMp && multiplayerState?.inGame && state === 'guess';
+        setWgMpBgActive(!!(inLobby || inIntermission || (inMatch && (!latLong?.lat))));
+    }, [screen, multiplayerState?.inGame, multiplayerState?.gameData?.state, latLong?.lat]);
     useEffect(() => {
         if (typeof document === 'undefined') return;
         if (wgFindGameActive) {
@@ -1593,6 +1659,37 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             return () => document.body.classList.remove('wg-findgame-active');
         }
     }, [wgFindGameActive]);
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+        const inMp = screen === 'multiplayer';
+        const isDuel = !!multiplayerState?.gameData?.duel;
+        const isPublic = !!multiplayerState?.gameData?.public;
+        const isQueued = !!multiplayerState?.gameQueued;
+        const inActive = inMp && (multiplayerState?.inGame || isQueued);
+        const state = multiplayerState?.gameData?.state;
+        const curRound = multiplayerState?.gameData?.curRound;
+        document.body.classList.toggle('wg-mp-active', inActive);
+        document.body.classList.toggle('wg-mp-ranked', inActive && isDuel && isPublic);
+        document.body.classList.toggle('wg-mp-casual', inActive && isDuel && !isPublic);
+        document.body.classList.toggle('wg-mp-queued', inActive && isQueued);
+        document.body.classList.toggle('wg-mp-intermission', inActive && state === 'getready' && curRound === 1);
+        return () => {
+            document.body.classList.remove('wg-mp-active');
+            document.body.classList.remove('wg-mp-ranked');
+            document.body.classList.remove('wg-mp-casual');
+            document.body.classList.remove('wg-mp-queued');
+            document.body.classList.remove('wg-mp-intermission');
+        };
+    }, [
+        screen,
+        multiplayerState?.gameData?.duel,
+        multiplayerState?.gameData?.public,
+        multiplayerState?.gameQueued,
+        multiplayerState?.inGame,
+        multiplayerState?.gameData?.state,
+        multiplayerState?.gameData?.curRound,
+    ]);
+
     const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
     const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
 
@@ -3207,6 +3304,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     overlay={wgLoadingOverlay}
                     onBack={() => backBtnPressed()}
                     text={text}
+                    hideChrome={screen === 'multiplayer' && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public}
                 />
 
 
@@ -3338,26 +3436,19 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 {screen === 'multiplayer' && multiplayerState?.gameQueued && (
                     <div className="wg-findGameCounter">
-                        {(() => {
-                            const breakdown = multiplayerState?.playerBreakdown || {};
-                            const isRanked = multiplayerState.gameQueued === 'publicDuel';
-                            const cnt = (isRanked ? breakdown.ranked : breakdown.casual)
-                                ?? multiplayerState?.playerCount
-                                ?? 0;
-                            return text(isRanked ? 'inRankedCnt' : 'inCasualCnt', { cnt });
-                        })()}
+                        <FaSignal className="wg-findGameCounter__icon" aria-hidden="true" />
+                        <span>
+                            {(() => {
+                                const breakdown = multiplayerState?.playerBreakdown || {};
+                                const isRanked = multiplayerState.gameQueued === 'publicDuel';
+                                const cnt = (isRanked ? breakdown.ranked : breakdown.casual)
+                                    ?? multiplayerState?.playerCount
+                                    ?? 0;
+                                return text(isRanked ? 'inRankedCnt' : 'inCasualCnt', { cnt });
+                            })()}
+                        </span>
                     </div>
                 )}
-
-                {/* reload button for public game */}
-                {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "guess" && (
-                    <div className="gameBtnContainer" style={{ position: 'fixed', top: width > 830 ? '90px' : '90px', left: width > 830 ? '10px' : '7px', zIndex: 1000000 }}>
-
-                        <button className="gameBtn navBtn backBtn reloadBtn" onClick={() => reloadBtnPressed()}><img src={asset("/return.png")} alt="reload" height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} /></button>
-                    </div>
-                )}
-
-
 
                 {/* ELO/League button */}
                 <div>
@@ -3668,6 +3759,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         onCommunityMaps={() => setMapModal(true)}
                         onOpenAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
                         onConnectionError={() => setConnectionErrorModalShown(true)}
+                        onOpenProfilePanel={openProfilePanel}
+                        leaderboardOpen={wgLeaderboardOpen}
+                        setLeaderboardOpen={setWgLeaderboardOpen}
                     />
                 )}
                 {(mapModal || gameOptionsModalShown) && <MapsModal shown={true} session={session} onClose={() => {
@@ -3956,6 +4050,25 @@ document.addEventListener(
                 </Script>
 
                 <WhatsNewModal changelog={changelog} text={text} />
+
+                <div
+                    className={`wg-panelScrim ${(profilePanelUser || wgLeaderboardOpen) ? 'wg-panelScrim--shown' : ''}`}
+                    onClick={closeAllSidebars}
+                />
+
+                <HomeLeaderboardPanel
+                    open={wgLeaderboardOpen}
+                    onClose={() => setWgLeaderboardOpen(false)}
+                    session={session}
+                    onOpenProfile={openProfilePanel}
+                />
+
+                <ProfilePanel
+                    open={!!profilePanelUser}
+                    onClose={closeProfilePanel}
+                    username={profilePanelUser}
+                    session={session}
+                />
             </main>
         </>
     )

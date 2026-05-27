@@ -22,6 +22,7 @@ import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
+import playSound from "./utils/playSound";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
 
@@ -629,6 +630,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   function showHint() {
     if (hintLimitReached || hintShown) return;
 
+    playSound('interfaceClickTone');
     setHintShown(true);
     setHintsUsedThisGame((prev) => prev + 1);
   }
@@ -648,6 +650,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     // Guard against being called before a location has been loaded. Every branch
     // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
     if (!latLong || latLong.lat == null || latLong.long == null) return;
+    playSound('interfaceClick');
     const isCorrect = correctOverride !== undefined ? correctOverride : countryGuesserCorrect;
     if (onboarding && !onboarding.completed && onboarding.mode !== "classic") {
       onboardingRevealStartedAt.current = Date.now();
@@ -889,6 +892,7 @@ session={session}/>
 {!showAnswerOnMap && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
           <button className="cornerBtn" onClick={() => {
+            playSound('interfaceClick');
             setMiniMapFullscreen(!miniMapFullscreen)
             if(!miniMapFullscreen) {
               setMiniMapExpanded(true)
@@ -901,6 +905,7 @@ session={session}/>
 
           &nbsp;
           <button className="cornerBtn" onClick={() => {
+            playSound('interfaceClick');
             setMapPinned(!mapPinned)
           }}>
             <FaThumbtack style={{ transform: mapPinned ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
@@ -938,7 +943,7 @@ session={session}/>
         {!loading && !welcomeOverlayShown && (
           <button
             className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`}
-            onClick={() => { setMiniMapShown(!miniMapShown) }}
+            onClick={() => { playSound('interfaceClick'); setMiniMapShown(!miniMapShown) }}
             aria-label={miniMapShown ? (text("close") || 'Close') : text("guess")}
           >
               {!miniMapShown ? (
@@ -1001,27 +1006,28 @@ session={session}/>
          }}/>
       )}
 
-      {/* Duel timer — single line, old style */}
-      {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && (
-      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
-        {multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120
-          ? text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})
-          : text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
-      </span>
-      )}
-
-      {/* Non-duel multiplayer timer — two line style */}
-      {!(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && (
-      <span className={`timer timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
-        <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
-        <span className="timer__main-row">
-          {!(multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120)
-            ? <><span className="timer__countdown">{timeToNextMultiplayerEvt.toFixed(1)}s</span></>
-            : null
-          }
-        </span>
-      </span>
-      )}
+      {multiplayerState?.inGame && (() => {
+        const t = timeToNextMultiplayerEvt;
+        const inGuess = !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess';
+        let tier = '';
+        if (inGuess && t > 0) {
+          if (t <= 5) tier = 'critical';
+          else if (t <= 15) tier = 'timer--alert';
+          else if (t <= 30) tier = 'timer--warn';
+          else tier = 'timer--ok';
+        }
+        return (
+          <span className={`timer timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${tier}`}>
+            <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
+            <span className="timer__main-row">
+              {!(multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120)
+                ? <><span className="timer__countdown">{timeToNextMultiplayerEvt.toFixed(1)}s</span></>
+                : null
+              }
+            </span>
+          </span>
+        );
+      })()}
 
       <span className={`timer timer--two-line ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 && !showAnswer && !pinPoint && onboarding ? 'critical' : ''}`}>
         <span className="timer__round-label">{onboarding ? text("tutorialRound", {round: onboarding.round, total: onboarding.locations?.length || 3}) : text("round", {r:onboarding?.round, mr: 5})}</span>

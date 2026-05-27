@@ -203,6 +203,15 @@
   text-decoration-color: $wg-blue-soft;
 }
 
+.wg-lb__nameBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
 .wg-lb__score {
   font-weight: 700;
   font-size: 14px;

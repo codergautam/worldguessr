@@ -3,7 +3,7 @@ import { FaArrowLeft } from 'react-icons/fa';
 import { asset } from '@/lib/basePath';
 import BannerText from '@/components/bannerText';
 
-export default function WgLoadingScreen({ shown, overlay = false, onBack, text }) {
+export default function WgLoadingScreen({ shown, overlay = false, onBack, text, hideChrome = false }) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
 
@@ -25,7 +25,7 @@ export default function WgLoadingScreen({ shown, overlay = false, onBack, text }
       className={`wg-loading ${visible ? 'wg-loading--shown' : ''} ${overlay ? 'wg-loading--overlay' : ''}`}
       aria-hidden={!visible}
     >
-      {!overlay && (
+      {!overlay && !hideChrome && (
         <div className="wg-loading__topLeft">
           <span className="wg-nav__brand wg-nav__brand--loading" aria-label="WorldGuessr">
             <img

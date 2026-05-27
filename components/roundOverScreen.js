@@ -15,6 +15,7 @@ import CountryFlag from './utils/countryFlag';
 import nameFromCode from './utils/nameFromCode';
 import generateShareText from './utils/generateShareText';
 import sendEvent from './utils/sendEvent';
+import playSound from './utils/playSound';
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((module) => module.MapContainer),
@@ -317,7 +318,14 @@ const GameSummary = ({
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <span style={{ color: 'white', fontSize: '0.9rem' }}>
+              <span style={{ color: 'white', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                {round.country && (
+                  <CountryFlag
+                    countryCode={round.country}
+                    size={0.85}
+                    marginRight="0"
+                  />
+                )}
                 {text("roundNo", {r: index + 1})}
               </span>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1074,12 +1082,12 @@ const GameSummary = ({
                 </button>
 
                 {button1Text && (
-                  <button className="action-btn primary" onClick={button1Press}>
+                  <button className="action-btn primary" onClick={() => { playSound('interfaceClick'); button1Press?.(); }}>
                     {button1Text}
                   </button>
                 )}
                 {button2Text && (
-                  <button className="action-btn secondary" onClick={button2Press}>
+                  <button className="action-btn secondary" onClick={() => { playSound('interfaceClick'); button2Press?.(); }}>
                     {button2Text}
                   </button>
                 )}
@@ -1111,7 +1119,7 @@ const GameSummary = ({
               {/* For ranked duels with 2 players */}
               {multiplayerState?.gameData?.duel && finalHistory.length > 0 && (
                 <>
-                  <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("roundDetails")}</h3>
+                  <h3 className="game-summary-section-title">{text("roundDetails")}</h3>
                   {finalHistory.map((round, index) => {
                     const myId = multiplayerState?.gameData?.myId;
                     const myData = round.players?.[myId];
@@ -1144,7 +1152,14 @@ const GameSummary = ({
                         onClick={() => handleRoundClick(index)}
                       >
                         <div className="round-header">
-                          <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
+                          <span className="round-number">
+                            {round.country && (
+                              <span className="round-number__flag" title={nameFromCode(round.country, text._lang) || round.country}>
+                                <CountryFlag countryCode={round.country} size={0.9} marginRight="0" />
+                              </span>
+                            )}
+                            {text("roundNo", { r: index + 1 })}
+                          </span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             {round.timeTaken && (myData?.timeTaken || round.timeTaken) > 0 && (
                               <span className="round-points" style={{ color: 'white' }}>
@@ -1153,32 +1168,14 @@ const GameSummary = ({
                             )}
                             {typeof window !== 'undefined' && window.innerWidth > 1024 && round.lat && round.long && (
                               <button
-                                className="gmaps-icon"
+                                className="round-action-btn round-action-btn--pin"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   openInGoogleMaps(round.lat, round.long, round.panoId);
                                 }}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  cursor: 'pointer',
-                                  fontSize: '12px',
-                                  padding: '2px',
-                                  borderRadius: '3px',
-                                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                  color: 'white',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  width: '20px',
-                                  height: '20px',
-                                  transition: 'background-color 0.2s'
-                                }}
-                                onMouseEnter={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
-                                onMouseLeave={(e) => e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
                                 title={text("openInMaps")}
                               >
-                                📍
+                                <FaMapMarkerAlt />
                               </button>
                             )}
                           </div>
@@ -1260,13 +1257,52 @@ const GameSummary = ({
               {/* For private games and unranked multiplayer (including 10 player games) */}
               {(!multiplayerState?.gameData?.duel || finalHistory.length > 0) && (
                 <>
-                  <h3>{text("finalScores")}</h3>
+                  <h3 className="game-summary-section-title">{text("finalScores")}</h3>
                   {renderLeaderboard(true)}
                 </>
               )}
             </div>
           </div>
         </div>
+
+        {viewingRound != null && history[viewingRound] && (
+          <div
+            className="round-sv-overlay"
+            onClick={() => setViewingRound(null)}
+          >
+            <div className="round-sv-overlay__card" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                className="round-sv-overlay__close"
+                onClick={() => setViewingRound(null)}
+                aria-label="Close street view"
+              >
+                <FaTimes />
+              </button>
+              <div className="round-sv-overlay__header">
+                {text("roundNo", { r: viewingRound + 1 })}
+                {history[viewingRound].country && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginLeft: '8px' }}>
+                    <CountryFlag countryCode={history[viewingRound].country} size={0.85} marginRight="0" />
+                    <span style={{ fontSize: '0.85em', opacity: 0.85 }}>
+                      {nameFromCode(history[viewingRound].country, text._lang) || history[viewingRound].country}
+                    </span>
+                  </span>
+                )}
+              </div>
+              <iframe
+                className="round-sv-overlay__iframe"
+                src={
+                  history[viewingRound].panoId
+                    ? `https://www.google.com/maps/embed/v1/streetview?pano=${history[viewingRound].panoId}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en`
+                    : `https://www.google.com/maps/embed/v1/streetview?location=${history[viewingRound].lat},${history[viewingRound].long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en`
+                }
+                title={`Round ${viewingRound + 1} street view`}
+                allowFullScreen
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1590,12 +1626,12 @@ const GameSummary = ({
             </button>
 
             {button1Text && (
-            <button className="action-btn primary" onClick={button1Press}>
+            <button className="action-btn primary" onClick={() => { playSound('interfaceClick'); button1Press?.(); }}>
                 {button1Text || 'Play Again'}
             </button>
             )}
             {button2Text && (
-            <button className="action-btn secondary" onClick={button2Press}>
+            <button className="action-btn secondary" onClick={() => { playSound('interfaceClick'); button2Press?.(); }}>
                 {button2Text || 'Close'}
             </button>
             )}
@@ -1606,14 +1642,14 @@ const GameSummary = ({
           {/* Show leaderboard for multiplayer games */}
           {multiplayerState?.gameData && finalHistory[0]?.players && Object.keys(finalHistory[0].players).length > 1 && (
             <>
-              <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("finalScores")}</h3>
+              <h3 className="game-summary-section-title">{text("finalScores")}</h3>
               {renderLeaderboard(true)}
             </>
           )}
 
           {!multiplayerState?.gameData && finalHistory && finalHistory.length > 0 && (
             <>
-              <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("roundDetails")}</h3>
+              <h3 className="game-summary-section-title">{text("roundDetails")}</h3>
               {finalHistory.map((round, index) => {
                 const distance = round.guessLat && round.guessLong
                   ? calculateDistance(round.lat, round.long, round.guessLat, round.guessLong)

@@ -3,9 +3,8 @@ import { FaXmark } from 'react-icons/fa6';
 import { useTranslation } from '@/components/useTranslations';
 import clientConfig from '@/clientConfig';
 import CountryFlag from '@/components/utils/countryFlag';
-import { navigate } from '@/lib/basePath';
 
-export default function HomeLeaderboardPanel({ open, onClose, session }) {
+export default function HomeLeaderboardPanel({ open, onClose, session, onOpenProfile }) {
   const { t: text } = useTranslation('common');
   const [mounted, setMounted] = useState(false);
   const [shown, setShown] = useState(false);
@@ -63,10 +62,6 @@ export default function HomeLeaderboardPanel({ open, onClose, session }) {
 
   return (
     <>
-      <div
-        className={`wg-settings__scrim ${shown ? 'wg-settings__scrim--shown' : ''}`}
-        onClick={onClose}
-      />
       <aside
         className={`wg-settings ${shown ? 'wg-settings--shown' : ''}`}
         role="dialog"
@@ -114,7 +109,20 @@ export default function HomeLeaderboardPanel({ open, onClose, session }) {
         </div>
 
         {session?.token?.username && myRank && (
-          <div className="wg-lb__me">
+          <div
+            className="wg-lb__me"
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenProfile?.(session.token.username)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onOpenProfile?.(session.token.username);
+              }
+            }}
+            aria-label={`Open your profile (${session.token.username})`}
+            title={text('viewProfile') || 'View profile'}
+          >
             <div className="wg-lb__meRank">#{myRank}</div>
             <div className="wg-lb__meText">
               <div className="wg-lb__meName">
@@ -123,7 +131,7 @@ export default function HomeLeaderboardPanel({ open, onClose, session }) {
                   <CountryFlag countryCode={data.myCountryCode} size={0.95} marginRight="0" />
                 )}
               </div>
-              <div className="wg-lb__meLabel">{text('yourRank') || 'Your rank'}</div>
+              <div className="wg-lb__meLabel">{text('viewProfile') || 'View profile'}</div>
             </div>
             <div className="wg-lb__meScore">
               {formatScore(myScore)}
@@ -167,15 +175,15 @@ export default function HomeLeaderboardPanel({ open, onClose, session }) {
                         <>#{rank}</>
                       )}
                     </span>
-                    <a
-                      href={`${navigate('/user')}?u=${encodeURIComponent(u.username)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="wg-lb__name"
+                    <button
+                      type="button"
+                      className="wg-lb__name wg-lb__nameBtn"
+                      onClick={() => onOpenProfile?.(u.username)}
+                      title={text('viewProfile') || 'View profile'}
                     >
                       <span className="wg-lb__nameText">{u.username}</span>
                       {u.countryCode && <CountryFlag countryCode={u.countryCode} size={0.9} marginRight="0" />}
-                    </a>
+                    </button>
                     <span className="wg-lb__score">
                       {formatScore(score)}
                       <span className="wg-lb__scoreLbl">{useElo ? 'ELO' : 'XP'}</span>

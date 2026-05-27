@@ -852,3 +852,183 @@
         max-width: 280px;
     }
 }
+
+.wg-setUsername {
+  width: min(480px, 92vw);
+
+  padding: 42px 32px 32px;
+  background:
+    linear-gradient(160deg, rgba(28, 44, 78, 0.55) 0%, rgba(13, 18, 30, 0.92) 60%),
+    rgba(5, 8, 16, 0.95);
+  border: 1px solid rgba(96, 165, 250, 0.32);
+  border-radius: 18px;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  color: white;
+  font-family: 'Lexend', sans-serif;
+  text-align: center;
+  animation: wg-setUsername-pop 0.35s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+}
+
+@keyframes wg-setUsername-pop {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.wg-setUsername__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.wg-setUsername__heroPrefix {
+  font-family: 'GmarketSans', 'Lexend', sans-serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.4px;
+  line-height: 1;
+}
+
+.wg-setUsername__heroBrand {
+  display: block;
+  width: auto;
+  height: 60px;
+  max-width: 85%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 4px 14px rgba(60, 120, 230, 0.35));
+}
+
+.wg-setUsername__desc {
+  margin: 0 0 22px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+$wg-setUsername-h: 48px;
+
+.wg-setUsername__form {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.wg-setUsername__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: $wg-setUsername-h;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  color: white;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  outline: none;
+  line-height: 1;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+
+  &::placeholder { color: rgba(255, 255, 255, 0.42); }
+  &:focus {
+    border-color: rgba(96, 165, 250, 0.6);
+    background: rgba(255, 255, 255, 0.09);
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.22);
+  }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.wg-setUsername__save {
+  flex: 0 0 auto;
+  min-width: 96px;
+  height: $wg-setUsername-h;
+  padding: 0 22px;
+  background: #2c63d8;
+  background-image: none;
+  border: 1px solid rgba(155, 195, 255, 0.45);
+  border-radius: 12px;
+  color: white;
+  font-family: 'GmarketSans', 'Lexend', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  line-height: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+  transform: translateY(0);
+  transition: transform 0.16s ease-out, filter 0.16s ease-out, box-shadow 0.16s ease-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+  &:active:hover:not(:disabled) {
+    transform: translateY(1px);
+    filter: brightness(0.95);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 0, 0, 0.32),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.14);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.4);
+  }
+}
+
+.wg-setUsername__spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, 0.32);
+  border-top-color: white;
+  animation: wg-setUsername-spin 0.85s linear infinite;
+}
+@keyframes wg-setUsername-spin {
+  to { transform: rotate(360deg); }
+}
+
+.wg-setUsername__error {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 10px;
+  color: #fecaca;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  animation: wg-setUsername-pop 0.25s ease-out both;
+}
+
+.wg-setUsername__modal {
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+@media (max-width: 420px) {
+  .wg-setUsername {
+    padding: 30px 22px 24px;
+  }
+  .wg-setUsername__heroPrefix { font-size: 1.2rem; }
+  .wg-setUsername__heroBrand { height: 48px; }
+
+  .wg-setUsername__form {
+    flex-direction: column !important;
+  }
+  .wg-setUsername__save { width: 100%; }
+}

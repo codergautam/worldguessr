@@ -7,6 +7,7 @@ import { asset } from '@/lib/basePath';
 import Image from 'next/image';
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
+import playSound from "../utils/playSound";
 
 export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, showAnswer }) {
     const { t: text, lang } = useTranslation("common");
@@ -26,7 +27,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
         <>
             <div className={`navbar ${shown ? "" : "hidden"} ${screen == "home" ? "": "navbarColor"} ${screen === "onboarding" ? "onboarding" : ""}`}>
                 <div className={`nonHome ${screen === 'home' ? '' : 'shown'}`}>
-                    {!mapModalOpen && (
+                    {!mapModalOpen && !(screen === 'multiplayer' && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && (
                         <span className="wg-nav__brand" aria-label="WorldGuessr">
                             <Image.default
                                 src={asset('/assets/logos/title.png')}
@@ -38,10 +39,10 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                             />
                         </span>
                     )}
-                    {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) && (
+                    {!(screen === 'multiplayer' && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && !gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) && (
                         <button
                             className={`wg-backBtn wg-backBtn--nav ${screen === 'onboarding' ? 'wg-backBtn--menu' : ''}`}
-                            onClick={backBtnPressed}
+                            onClick={(e) => { playSound('interfaceClick'); backBtnPressed?.(e); }}
                             aria-label={screen === 'onboarding' ? text("menu") : text("back")}
                         >
                             <FaArrowLeft className="wg-backBtn__icon" />
@@ -73,13 +74,14 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
 
                 {screen === 'multiplayer' && multiplayerState?.inGame && multiplayerState?.gameData?.players.length > 0 && (
                     <span id="playerCnt" className="bigSpan">
-                        &nbsp; <FaUser /> {multiplayerState.gameData.players.length}
+                        <FaUser className="playerCnt__icon" />
+                        <span className="playerCnt__count">{multiplayerState.gameData.players.length}</span>
                     </span>
                 )}
                 <div className="navbar__right">
 
                     {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && !mapModalOpen && !gameOptionsModalShown && (
-                        <button className="wg-mapSwitcher g2_lexend" disabled={loading} onClick={() => setGameOptionsModalShown(true)}>
+                        <button className="wg-mapSwitcher g2_lexend" disabled={loading} onClick={() => { playSound('interfaceClick'); setGameOptionsModalShown(true); }}>
                             <span className="wg-mapSwitcher__label">
                                 {screen === 'countryGuesser'
                                     ? (countryGuessrMode?.subMode === "continent" ? text("continentGuesser") : text("countryGuesser"))
@@ -107,12 +109,6 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                             loginQueued={loginQueued}
                             setLoginQueued={setLoginQueued}
                         />
-                    )}
-
-                    {session?.token?.secret && !accountModalOpen && screen !== "onboarding" && !gameOptionsModalShown && !mapModalOpen && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
-                        <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
-                            <FaUserFriends size={40} className={`friendBtnIcon ${screen === "home" ? "friendBtnIconFixed" : ""}`} />
-                        </button>
                     )}
                 </div>
             </div>

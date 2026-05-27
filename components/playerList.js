@@ -2,6 +2,7 @@ import { useTranslation } from '@/components/useTranslations'
 import { FaCopy, FaLink } from 'react-icons/fa6';
 import { toast } from 'react-toastify';
 import UsernameWithFlag from './utils/usernameWithFlag';
+import playSound from './utils/playSound';
 
 function getPartyLink(code, inCrazyGames) {
   if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
@@ -162,8 +163,48 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
       )}
 
       {players.slice(0, N).map((player, i) => {
+        let lastRoundPoints = null;
+        if (!waitingForStart) {
+          if (multiplayerState?.gameData?.history?.length > 0) {
+            const lastRound = multiplayerState.gameData.history[multiplayerState.gameData.history.length - 1];
+            const playerRound = lastRound?.players?.[player.id];
+            if (playerRound && typeof playerRound.points === 'number') {
+              lastRoundPoints = playerRound.points;
+            }
+          }
+          if (lastRoundPoints == null && typeof player.lastPoints === 'number') {
+            lastRoundPoints = player.lastPoints;
+          }
+        }
+        let scoreColor = null;
+        if (!waitingForStart) {
+          const completed = (multiplayerState?.gameData?.history?.length)
+            || Math.max(1, (multiplayerState?.gameData?.curRound || 1) - 1);
+          const max = 5000 * Math.max(1, completed);
+          const pct = (player.score || 0) / max;
+          if (pct >= 0.9) scoreColor = '#22d3ee';
+          else if (pct >= 0.7) scoreColor = '#7dd3fc';
+          else if (pct >= 0.45) scoreColor = '#ffffff';
+          else scoreColor = '#cbd5e1';
+        }
+        const openProfile = (e) => {
+          if (!player.username || player.username.startsWith('Guest #')) return;
+          e?.stopPropagation?.();
+          if (typeof window !== 'undefined' && window.wgOpenProfile) {
+            window.wgOpenProfile(player.username);
+          }
+        };
+        const isClickable = player.username && !player.username.startsWith('Guest #');
         return (
-          <div key={i} className={`multiplayerLeaderboard__player ${player.id === myId ? 'me' : ''}`}>
+          <div
+            key={i}
+            className={`multiplayerLeaderboard__player ${player.id === myId ? 'me' : ''} ${isClickable ? 'multiplayerLeaderboard__player--clickable' : ''}`}
+            onClick={isClickable ? openProfile : undefined}
+            role={isClickable ? 'button' : undefined}
+            tabIndex={isClickable ? 0 : undefined}
+            onKeyDown={isClickable ? ((e) => { if (e.key === 'Enter') openProfile(e); }) : undefined}
+            title={isClickable ? `View ${player.username}'s profile` : undefined}
+          >
             { waitingForStart ? (
 
               <div className="multiplayerLeaderboard__player__username">
@@ -221,7 +262,19 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
             }}>{text("supporter")}</span>}
 
             </div>
-            <div className="multiplayerLeaderboard__player__score">{player.score}</div>
+            <div
+              className="multiplayerLeaderboard__player__score"
+              style={{
+                color: scoreColor || '#ffffff',
+              }}
+            >
+              {player.score}
+              {lastRoundPoints != null && (
+                <span className="multiplayerLeaderboard__player__delta">
+                  +{lastRoundPoints}
+                </span>
+              )}
+            </div>
             </>
             )}
           </div>
@@ -253,11 +306,11 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
           <div className="multiplayerFinalBtns">
 
           { multiplayerState.gameData?.public && (
-            <button className="gameBtn" onClick={playAgain}>{text("playAgain")}</button>
+            <button className="gameBtn" onClick={() => { playSound('interfaceClick'); playAgain?.(); }}>{text("playAgain")}</button>
           )}
           { multiplayerState.gameData?.public || host && (
 
-            <button className="gameBtn" onClick={backBtn}>{text("back")}</button>
+            <button className="gameBtn" onClick={() => { playSound('interfaceClick'); backBtn?.(); }}>{text("back")}</button>
           )}
             </div>
 

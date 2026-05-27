@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
+import playSound from './utils/playSound';
 
 /* ---------------------------------------------------------------------------
  *  Constants
@@ -305,6 +306,7 @@ const ClickHandler = memo(function ClickHandler({
 
       const canonical = L.latLng(e.latlng.lat, canonicalLng);
       setPinPoint(canonical);
+      playSound('pop');
 
       if (mp?.inGame && mp.gameData?.state === "guess" && socket) {
         socket.send(JSON.stringify({
