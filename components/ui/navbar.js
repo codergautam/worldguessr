@@ -13,6 +13,14 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
     const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer') || (screen === 'countryGuesser') || (screen === 'daily' && dailyPhase === 'game'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
 
     const [showAccBtn, setShowAccBtn] = useState(true);
+    // Custom tooltip for the blue reload button. Rendered position:fixed (not as a
+    // child) so it isn't clipped by the navbar's overflow. null = hidden.
+    const [reloadTip, setReloadTip] = useState(null);
+    const showReloadTip = (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        setReloadTip({ top: r.bottom + 8, right: Math.max(4, window.innerWidth - r.right) });
+    };
+    const hideReloadTip = () => setReloadTip(null);
     useEffect(() => {
         if (window.location.search.includes("app=true")) {
             setShowAccBtn(false);
@@ -33,10 +41,23 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                     }
                 </div>
                 {reloadBtn && !accountModalOpen && !gameOptionsModalShown && (
-                    <button className="gameBtn navBtn backBtn reloadBtn g2_blue_button" onClick={reloadBtnPressed}>
+                    <button
+                        className="gameBtn navBtn backBtn reloadBtn g2_blue_button"
+                        onClick={() => { hideReloadTip(); reloadBtnPressed(); }}
+                        onMouseEnter={showReloadTip}
+                        onMouseLeave={hideReloadTip}
+                        onFocus={showReloadTip}
+                        onBlur={hideReloadTip}
+                        aria-label={text("resetStreetView")}
+                    >
                         {/* use svg /arrow-turn-down-left-svgrepo-com.svg white color */}
                         <img src={asset("/return.png")} alt="reload"  height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} />
                     </button>
+                )}
+                {reloadTip && (
+                    <div className="reloadBtnTooltip" role="tooltip" style={{ top: reloadTip.top, right: reloadTip.right }}>
+                        {text("resetStreetView")}
+                    </div>
                 )}
 
 

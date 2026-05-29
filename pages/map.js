@@ -8,6 +8,7 @@ import config from '@/clientConfig';
 import { getHeaders } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
 import { asset, navigate, stripBase, localePath } from '@/lib/basePath';
+import { buildStreetViewEmbed } from '@/components/utils/buildStreetViewEmbed';
 
 export default function MapPage({ }) {
   const router = useRouter();
@@ -60,7 +61,7 @@ export default function MapPage({ }) {
     if (!mapData.data) return;
 
     const urls = mapData.data.map(location =>
-      `//www.google.com/maps/embed/v1/streetview?key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&location=${location.lat},${location.lng}&fov=60`
+      buildStreetViewEmbed({ lat: location.lat, lng: location.lng })
     );
     setLocationUrls(urls);
 

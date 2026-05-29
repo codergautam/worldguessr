@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { buildStreetViewEmbed } from "../utils/buildStreetViewEmbed";
 
 const StreetView = ({
   nm = false,
@@ -23,9 +24,14 @@ const StreetView = ({
   // DON'T reset hasLoaded - keep showing old content until new loads
   useEffect(() => {
     if (iframeRef.current && (lat && long || panoId)) {
-      const headingParam = (heading !== null && heading !== undefined) ? `&heading=${heading}` : '';
-      const pitchParam = (false && pitch !== null && pitch !== undefined) ? `&pitch=${pitch}` : '';
-      const newSrc = `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA_t5gb2Mn37dZjhsaJ4F-OPp1PWDxqZyI&fov=100&language=en${headingParam}${pitchParam}`;
+      // Keyless pb= embed: resolves from lat/lng, no API key/quota. fov is not
+      // passed through (different unit); see buildStreetViewEmbed.
+      const newSrc = buildStreetViewEmbed({
+        lat,
+        lng: long,
+        heading: heading ?? 0,
+        pitch: pitch ?? 0,
+      });
 
       const locationKey = `${lat}-${long}-${panoId}`;
       const locationChanged = prevLocationRef.current !== null && prevLocationRef.current !== locationKey;
@@ -54,11 +60,7 @@ const StreetView = ({
     return null;
   }
 
-  // const iframeSrc = panoId ?
-  //   `https://www.google.com/maps/embed/v1/streetview?pano=${panoId}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}` :
-  //   `https://www.google.com/maps/embed/v1/streetview?location=${lat},${long}&key=AIzaSyA2fHNuyc768n9ZJLTrfbkWLNK3sLOK-iQ&fov=100&language=iw${heading !== null ? `&heading=${heading}` : ''}${pitch !== null ? `&pitch=${pitch}` : ''}`;
-
-  // disable panoId
+  // panoId path intentionally disabled — game resolves panoramas by lat/lng.
   return (
     <iframe
       ref={iframeRef}
