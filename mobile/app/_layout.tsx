@@ -87,7 +87,13 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: colors.background },
-            animation: 'slide_from_right',
+            // iOS-style slide-in on Android, native push on iOS.
+            // Slides keep the outgoing screen opaque underneath, so there's no
+            // cross-fade "dip to black" flicker (background is #000000).
+            animation: 'ios_from_right',
+            animationDuration: 200,
+            // Make router.replace (queue→game, party→game) slide forward, not back.
+            animationTypeForReplace: 'push',
             freezeOnBlur: false,
           }}
         >
@@ -95,21 +101,20 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen
             name="game/[id]"
-            options={{
-              headerShown: false,
-              gestureEnabled: false,
-              animation: 'fade',
-            }}
+            options={{ headerShown: false, gestureEnabled: false }}
           />
           <Stack.Screen name="game/results" options={{ headerShown: false }} />
           <Stack.Screen name="party/create" options={{ headerShown: false, gestureEnabled: false }} />
           <Stack.Screen name="party/join" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="queue" options={{ headerShown: false, animation: 'fade' }} />
-          <Stack.Screen name="daily/index" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-          <Stack.Screen name="user/[username]" options={{ headerShown: false, animation: 'fade' }} />
+          <Stack.Screen name="queue" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="daily/index"
+            options={{ headerShown: false, animation: 'slide_from_bottom', animationDuration: 280 }}
+          />
+          <Stack.Screen name="user/[username]" options={{ headerShown: false }} />
           <Stack.Screen
             name="onboarding/play"
-            options={{ headerShown: false, gestureEnabled: false, animation: 'fade' }}
+            options={{ headerShown: false, gestureEnabled: false }}
           />
         </Stack>
         <ToastProvider />

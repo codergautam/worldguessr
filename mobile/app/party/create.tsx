@@ -85,9 +85,13 @@ export default function PartyCreateScreen() {
     }
   }, [verified]);
 
-  // Navigate to game screen when game starts
+  // Navigate to game screen when game starts. Set startingRef so the
+  // beforeRemove listener below does NOT treat this transition as leaving
+  // the game (which would send leaveGame and shut the game down).
+  const startingRef = useRef(false);
   useEffect(() => {
     if (gameState === 'getready' || gameState === 'guess') {
+      startingRef.current = true;
       router.replace({
         pathname: '/game/[id]',
         params: { id: 'multiplayer' },
@@ -148,6 +152,8 @@ export default function PartyCreateScreen() {
   const leftRef = useRef(false);
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
+      // Skip when navigating into the game screen (game starting), not leaving.
+      if (startingRef.current) return;
       if (!leftRef.current && useMultiplayerStore.getState().inGame) {
         leftRef.current = true;
         wsService.send({ type: 'leaveGame' });
@@ -238,24 +244,6 @@ export default function PartyCreateScreen() {
             />
           </View>
 
-          {isGenerating && (
-            <View style={styles.generatingBox}>
-              <View style={styles.generatingHeader}>
-                <Text style={styles.generatingText}>
-                  Generating locations: {generatedCount}/{generatingTotal}
-                </Text>
-              </View>
-              <View style={styles.progressTrack}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${generatingTotal > 0 ? (generatedCount / generatingTotal) * 100 : 0}%` },
-                  ]}
-                />
-              </View>
-            </View>
-          )}
-
           {!isHost && (
             <Text style={styles.waitingText}>
               Waiting for host to start...
@@ -311,20 +299,14 @@ export default function PartyCreateScreen() {
             <Pressable
               style={({ pressed }) => [
                 styles.startBtn,
-                (playerCount < 2 || isGenerating) && styles.startBtnDisabled,
-                pressed && playerCount >= 2 && !isGenerating && { opacity: 0.85 },
+                playerCount < 2 && styles.startBtnDisabled,
+                pressed && playerCount >= 2 && { opacity: 0.85 },
               ]}
               onPress={handleStart}
-              disabled={playerCount < 2 || isGenerating}
+              disabled={playerCount < 2}
             >
               <Text style={styles.startBtnText}>
-          {isGenerating ? (
-                'Generating locations...'
-              ) : isHost && playerCount < 2 ? (
-                'Waiting for players...'
-              ) : (
-                'Start Game'
-              )}
+                {playerCount < 2 ? 'Waiting for players...' : 'Start Game'}
               </Text>
             </Pressable>
           )}

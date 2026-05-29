@@ -29,6 +29,7 @@ class WebSocketService {
   private ws: WebSocket | null = null;
   private messageHandlers: Set<MessageHandler> = new Set();
   private disconnectHandlers: Set<DisconnectHandler> = new Set();
+  private reconnectFailedHandlers: Set<DisconnectHandler> = new Set();
   private pongInterval: ReturnType<typeof setInterval> | null = null;
   private timeSyncInterval: ReturnType<typeof setInterval> | null = null;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -54,6 +55,16 @@ class WebSocketService {
 
   get isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * True if we're already connected using exactly this secret — i.e. a
+   * connect() call with this secret would short-circuit (no new socket, no
+   * fresh verify). Callers use this to avoid flagging `connecting` for a
+   * connect that will never actually run.
+   */
+  isConnectedWith(secret: string | null): boolean {
+    return this.isConnected && this._secret === secret;
   }
 
   get timeOffset(): number {
@@ -190,6 +201,18 @@ class WebSocketService {
     this.disconnectHandlers.add(handler);
     return () => {
       this.disconnectHandlers.delete(handler);
+    };
+  }
+
+  /**
+   * Register a handler fired when auto-reconnection gives up after exhausting
+   * all retries. Lets the UI fall back from "connecting" (yellow) to a real
+   * "disconnected" (red) state. Returns an unsubscribe function.
+   */
+  onReconnectFailed(handler: DisconnectHandler): () => void {
+    this.reconnectFailedHandlers.add(handler);
+    return () => {
+      this.reconnectFailedHandlers.delete(handler);
     };
   }
 
@@ -451,13 +474,24 @@ class WebSocketService {
         }
       }
 
-      // Auto-reconnect — same flow as web
+      // Auto-reconnect — same flow as web. The disconnect handlers above flip
+      // the store to `connecting` (yellow) so the indicator pulses while we
+      // retry, instead of showing a hard red disconnect.
       console.log('[WS] Attempting reconnection...');
       const gen = ++this._generation;
       this.initWebsocket(WS_URL, WS_TIMEOUT_MS, WS_MAX_RETRIES, gen).catch(
         (err) => {
-          if (gen === this._generation) {
+          // Only the still-active generation should report failure — a newer
+          // connect() supersedes us and owns the connection state.
+          if (gen === this._generation && !this._dontReconnect) {
             console.error('[WS] Reconnection failed:', err);
+            for (const handler of this.reconnectFailedHandlers) {
+              try {
+                handler();
+              } catch (e) {
+                console.error('[WS] Reconnect-failed handler error:', e);
+              }
+            }
           }
         },
       );

@@ -9,7 +9,13 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: { display: 'none' },
-        animation: 'fade',
+        // 'shift' translates scenes horizontally instead of cross-fading,
+        // which avoids the opacity-dip flicker a fade has over a black bg.
+        animation: 'shift',
+        transitionSpec: {
+          animation: 'timing',
+          config: { duration: 200 },
+        },
         freezeOnBlur: false,
         sceneStyle: { backgroundColor: colors.background },
       }}

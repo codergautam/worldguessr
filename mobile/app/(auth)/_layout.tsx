@@ -7,6 +7,8 @@ export default function AuthLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
+        animation: 'ios_from_right',
+        animationDuration: 200,
       }}
     >
       <Stack.Screen name="set-username" />

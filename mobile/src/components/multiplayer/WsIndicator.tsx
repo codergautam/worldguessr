@@ -47,7 +47,7 @@ export default function WsIndicator() {
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.1,
+          toValue: 1.05,
           duration: 600,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
@@ -79,8 +79,10 @@ export default function WsIndicator() {
 
     if (connecting) {
       if (!wasConnecting) {
-        // Just started connecting — wait 3s before showing
+        // Just started connecting — hide, then re-show (yellow) after 3s so a
+        // fast (re)connect never flashes the icon. Matches web's wsIcon.js.
         connectingStartTime.current = Date.now();
+        setShowIcon(false);
         connectingTimer.current = setTimeout(() => {
           setShowIcon(true);
         }, 3000);
@@ -174,9 +176,9 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   icon: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 15,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
     justifyContent: 'center',
     alignItems: 'center',

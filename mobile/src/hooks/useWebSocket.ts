@@ -34,17 +34,21 @@ export function useWebSocket() {
     return unsub;
   }, [handleMessage]);
 
-  // Handle WS disconnect — ported from home.js:1882-1927
-  // Reset multiplayer state, navigate home if in multiplayer screen, show toast
+  // Handle WS disconnect — ported from home.js:1882-1927 / MultiplayerProvider.
+  // Reset multiplayer state, navigate home if in multiplayer screen, show toast.
   useEffect(() => {
     const unsub = wsService.onDisconnect(() => {
       const state = useMultiplayerStore.getState();
 
-      // Reset multiplayer state (like web's onclose handler)
+      // Reset multiplayer state (like web's onclose handler), but mark
+      // `connecting: true` — onDisconnect only fires when the service is about
+      // to auto-reconnect, so the WsIndicator should pulse yellow (connecting),
+      // not show a hard red disconnect. This mirrors the web, where onclose
+      // resets state and the reconnect loop immediately sets connecting:true.
       useMultiplayerStore.setState({
         connected: false,
         verified: false,
-        connecting: false,
+        connecting: true,
         inGame: false,
         gameData: null,
         gameQueued: false,
@@ -71,6 +75,15 @@ export function useWebSocket() {
     return unsub;
   }, [router]);
 
+  // When auto-reconnection finally gives up, drop from "connecting" (yellow)
+  // to a real disconnected state (red).
+  useEffect(() => {
+    const unsub = wsService.onReconnectFailed(() => {
+      useMultiplayerStore.setState({ connected: false, connecting: false });
+    });
+    return unsub;
+  }, []);
+
   // Connect / reconnect when auth state changes
   useEffect(() => {
     // Wait for auth to finish loading before connecting
@@ -90,14 +103,22 @@ export function useWebSocket() {
     };
   }, [secret, isLoading]);
 
-  // Update multiplayerStore connection status based on wsService
-  // We set connecting=true while the WS is establishing
+  // Update multiplayerStore connection status based on wsService.
+  // Only flag `connecting` when connect() will actually (re)establish a
+  // socket. If we're already connected with this secret, connect() skips and
+  // no fresh `verify` arrives to clear the flag — leaving it stuck true. With
+  // `connected` also true the WsIndicator would render a permanent green icon.
   useEffect(() => {
     if (isLoading) return;
 
-    useMultiplayerStore.setState({ connecting: true });
-
-    // The verify message handler in the store will set connected=true
-    // and connecting=false once the server responds.
+    if (wsService.isConnectedWith(secret)) {
+      // Already connected with this secret — connect() is a no-op. Make sure
+      // we're not stuck showing "connecting".
+      useMultiplayerStore.setState({ connecting: false });
+    } else {
+      useMultiplayerStore.setState({ connecting: true });
+      // The verify message handler in the store will set connected=true
+      // and connecting=false once the server responds.
+    }
   }, [secret, isLoading]);
 }
