@@ -45,6 +45,7 @@
   "connecting": "Подключение",
   "back": "Назад",
   "menu": "Меню",
+  "resetStreetView": "Обновить Street View",
   "onlineCnt": "🟢 {{cnt}} в сети",
   "online": "🟢 В сети",
   "offline": "🔴 Не в сети",

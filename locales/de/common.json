@@ -45,6 +45,7 @@
   "connecting": "Verbinden",
   "back": "Zurück",
   "menu": "Menü",
+  "resetStreetView": "Street View aktualisieren",
   "onlineCnt": "🟢 {{cnt}} online",
   "online": "🟢 Online",
   "offline": "🔴 Offline",
