@@ -1154,6 +1154,36 @@ html {
     box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.3);
     transform: scale(1.05);
 }
+
+/* Custom hover tooltip for the blue reload button (position:fixed so the
+   navbar's overflow doesn't clip it; coords set inline from the button rect). */
+.reloadBtnTooltip {
+    position: fixed;
+    background: rgba(0, 0, 0, 0.85);
+    color: #fff;
+    padding: 5px 9px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 100000;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.35);
+    animation: reloadBtnTooltipIn 120ms ease-out;
+}
+.reloadBtnTooltip::after {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    right: 14px;
+    border: 5px solid transparent;
+    border-bottom-color: rgba(0, 0, 0, 0.85);
+}
+@keyframes reloadBtnTooltipIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
 .g2_button_style {
     padding: 10px;
     border-radius: 16px;
@@ -1952,9 +1982,6 @@ h1, h2, h3, span, label {
         width: 100%;
     }
 
-    #miniMapArea.miniMap.shown .chatboxBtn {
-        transform: translate(0, 0) !important;
-    }
     // #miniMapArea.answerShown {
     //   transform: none;
     // }
@@ -2093,41 +2120,9 @@ h1, h2, h3, span, label {
 
 // }
 
-.chatboxBtn {
-    transform: translate(0px, 5px);
-}
-
-@media screen and (max-width: 600px), screen and (pointer:coarse) {
-    .chatboxBtn.minimap {
-        transform: translate(5px, 0px);
-    }
-}
-
-// @media screen and (max-width: 580px) {
-//   .chatboxBtn {
-//     transform: translate(60px, -45px);
-//   }
-
-// }
-.chatboxBtn.open {
-    transform: translate(0, 0);
-}
-
-// Z-index layering fix
-// Priority: react-chatbot-kit-chat-container > guessBtn > chatboxBtn
-.chatboxBtn {
-    z-index: 1000;
-    position: relative;
-}
-
 .guessBtn,
 .g2_mobile_guess {
     z-index: 1500;
-    position: relative;
-}
-
-.react-chatbot-kit-chat-container {
-    z-index: 2500;
     position: relative;
 }
 
@@ -3097,120 +3092,217 @@ h1, h2, h3, span, label {
     background-color: #265226;
 }
 
-// chatbox
-.chatboxParent {
+// emote reactions (YouTube-livestream-style floating reactions for public MP)
+.emoteReactionsParent {
     position: fixed;
     bottom: 20px;
-    left: 20px; /* Default bottom-left position */
-    opacity: 0;
-    transition: all 0.5s;
-    border-radius: 10px;
-    transform: translateY(100%);
+    left: 20px;
     z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    pointer-events: none;
 }
 
-/* Move chat to bottom-right when round over screen is shown */
-.chatboxParent.roundOverScreen {
+.emoteReactionsParent > * {
+    pointer-events: auto;
+}
+
+// Round-over screen: flip to right side (left side is busy with leaderboard/results UI).
+.emoteReactionsParent.rightSide {
     left: auto;
     right: 20px;
+    align-items: flex-end;
 }
 
-/* Adjust chat button positioning when on right side */
-.chatboxParent.roundOverScreen .chatboxBtn {
-    transform: translate(0px, 5px); /* Mirror the original transform */
-}
-.chatboxParent.roundOverScreen .chatboxBtn.open {
-    transform: translate(0,0); /* Mirror the original transform */
+.emoteReactionsParent.rightSide .emoteFloatItem {
+    left: auto;
+    right: 8px;
 }
 
-
-.chatbox {
-    display: none;
+.emoteReactionsParent.rightSide .emoteBar {
+    left: auto;
+    right: 0;
+    transform-origin: bottom right;
 }
 
-.chatbox.open {
-    display: block;
-}
-
-.chatboxParent.enabled {
-    opacity: 0.8;
-    transform: translateY(0%);
-}
-
-.chatboxParent.enabled:hover {
-    opacity: 1;
-}
-
-.react-chatbot-kit-chat-header {
-    display: none !important;
-}
-
-.react-chatbot-kit-chat-inner-container {
-    background-color: rgba(0,0,0,0) !important;
-}
-
-.react-chatbot-kit-chat-message-container {
-    overflow: hidden !important;
-    overflow-y: auto !important;
-    border: 5px solid #0F251D;
-    background-color: #B9D3DC;
-    border-radius: 10px;
-    height: calc(100% - 65px);
-}
-
-input[placeholder="Please login to chat"] {
-    // disable the div
-    cursor: not-allowed;
+.emoteFloatStack {
+    position: relative;
+    width: 260px;
+    height: 280px;
     pointer-events: none;
-    background-color: rgba(225, 225, 225, 1) !important;
+    overflow: hidden;
 }
 
-
-.react-chatbot-kit-chat-input-container {
-    border-radius: 10px;
+.emoteFloatItem {
+    position: absolute;
+    bottom: 0;
+    left: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px 8px 10px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 999px;
+    color: white;
+    font-size: 16px;
+    white-space: nowrap;
+    animation: emoteFloatRise 3.2s ease-out forwards;
+    backdrop-filter: blur(4px);
 }
 
-.react-chatbot-kit-chat-input {
-    font-size: 16px !important;
+.emoteFloatItem.self {
+    background: rgba(34, 139, 34, 0.7);
 }
 
-.react-chatbot-kit-user-chat-message,
-.react-chatbot-kit-chat-bot-message {
-    // make it look like a chat bubble overflow on new linw wrap
-    display: inline-block;
-    word-wrap: break-word;
-    max-width: 60%;
+.emoteFloatItem.noName {
+    padding: 6px 10px;
+    background: transparent;
+    backdrop-filter: none;
+}
+
+.emoteFloatGlyph {
+    font-size: 48px;
+    line-height: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+
+.emoteFloatItem.noName .emoteFloatGlyph {
+    font-size: 72px;
+}
+
+.emoteFloatName {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.9;
+}
+
+@keyframes emoteFloatRise {
+    0%   { transform: translateY(20px) scale(0.6); opacity: 0; }
+    15%  { transform: translateY(0)    scale(1.05); opacity: 1; }
+    25%  { transform: translateY(-10px) scale(1); opacity: 1; }
+    80%  { transform: translateY(-180px) scale(1); opacity: 0.9; }
+    100% { transform: translateY(-220px) scale(0.85); opacity: 0; }
+}
+
+.emoteToggleBtn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.65);
+    color: white;
+    font-size: 34px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    transition: background 0.2s, transform 0.2s;
+}
+
+.emoteToggleBtn:hover {
+    background: rgba(0, 0, 0, 0.85);
+    transform: scale(1.05);
+}
+
+.emoteToggleBtn.open {
+    background: rgba(180, 40, 40, 0.85);
+}
+
+.emoteBar {
+    position: absolute;
+    bottom: 76px; // sits above the 64px toggle button + 12px gap
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
     padding: 10px;
+    background: rgba(0, 0, 0, 0.65);
+    border-radius: 24px;
+    backdrop-filter: blur(6px);
+    transform: translateY(8px) scale(0.95);
+    transform-origin: bottom left;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
 }
 
-.react-chatbot-kit-chat-bot-message {
-    margin-left: 0 !important;
+.emoteBar.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
 }
 
-@media screen and (max-height: 6000px) {
-
-    .react-chatbot-kit-chat-message-container {
-        height: 448px !important;
-    }
-
-    .react-chatbot-kit-chat-inner-container {
-        height: 496px !important;
-    }
+.emoteBtn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    font-size: 26px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, transform 0.15s;
 }
 
-@media screen and (max-height: 600px) {
-
-    .react-chatbot-kit-chat-message-container {
-        height: 244px !important;
-    }
-
-    .react-chatbot-kit-chat-inner-container {
-        height: 292px !important;
-    }
+.emoteBtn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.22);
+    transform: scale(1.15);
 }
 
-.authorName {
-    color: blue;
+.emoteBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .emoteReactionsParent {
+        bottom: 12px;
+        left: 12px;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+    // On mobile, tapping Guess toggles `miniMapShown` which adds `.shown`
+    // to the minimap (covering bottom 70% of the screen). Fade the emote
+    // UI out smoothly; it reappears when the map collapses between rounds.
+    body:has(#miniMapArea.shown.answerNotShown) .emoteReactionsParent {
+        opacity: 0;
+        transform: translateX(-20px);
+        pointer-events: none;
+    }
+    .emoteReactionsParent.rightSide {
+        left: auto;
+        right: 12px;
+    }
+    .emoteFloatStack {
+        width: 220px;
+        height: 240px;
+    }
+    .emoteFloatGlyph {
+        font-size: 40px;
+    }
+    .emoteFloatItem.noName .emoteFloatGlyph {
+        font-size: 60px;
+    }
+    .emoteToggleBtn {
+        width: 60px;
+        height: 60px;
+        font-size: 32px;
+    }
+    .emoteBar {
+        bottom: 72px; // 60px toggle + 12px gap
+        padding: 10px;
+        gap: 8px;
+    }
+    .emoteBtn {
+        width: 44px;
+        height: 44px;
+        font-size: 24px;
+    }
 }
 
 .multiplayerLeaderboard {
@@ -5581,7 +5673,7 @@ div[dir="ltr"] {
 }
 
 .mobile_minimap__btns {
-    z-index: 1200; // Below chatboxParent (2000) and react-chatbot-kit-chat-container (2500)
+    z-index: 1200;
 }
 
 .leagueBtn {

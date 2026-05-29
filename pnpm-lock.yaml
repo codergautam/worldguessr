@@ -107,9 +107,6 @@ importers:
       react-chartjs-2:
         specifier: ^5.3.0
         version: 5.3.1(chart.js@4.5.1)(react@19.1.0)
-      react-chatbot-kit:
-        specifier: ^2.2.2
-        version: 2.2.2
       react-dom:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
@@ -5334,12 +5331,6 @@ packages:
     peerDependencies:
       chart.js: ^4.1.1
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
-
-  react-chatbot-kit@2.2.2:
-    resolution: {integrity: sha512-8p/i0KkzkhoyG2XsL6Pb6f72k9j7GYNAc5SOa4f9OZwbCD3Q34uEruNPc06qa1wZHKfT6aFna19PA2plFuO2NA==}
-
-  react-conditionally-render@1.0.2:
-    resolution: {integrity: sha512-CtjIgaLHVDSgHis3gv/PT/8EnD6GPUL8PrhUjh7DP6S5Y3p56dGu7y2nVg6pYv1kv+fGznRhRmX3assr/vRw3A==}
 
   react-devtools-core@6.1.5:
     resolution: {integrity: sha512-ePrwPfxAnB+7hgnEr8vpKxL9cmnp7F322t8oqcPshbIQQhDKgFDW4tjhF2wjVbdXF9O/nyuy3sQWd9JGpiLPvA==}
@@ -12494,12 +12485,6 @@ snapshots:
     dependencies:
       chart.js: 4.5.1
       react: 19.1.0
-
-  react-chatbot-kit@2.2.2:
-    dependencies:
-      react-conditionally-render: 1.0.2
-
-  react-conditionally-render@1.0.2: {}
 
   react-devtools-core@6.1.5:
     dependencies:
