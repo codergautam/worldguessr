@@ -45,6 +45,7 @@
   "connecting": "Conectando",
   "back": "Atrás",
   "menu": "Menú",
+  "resetStreetView": "Actualizar Street View",
   "onlineCnt": "🟢 {{cnt}} en línea",
   "online": "🟢 En línea",
   "offline": "🔴 Desconectado",
