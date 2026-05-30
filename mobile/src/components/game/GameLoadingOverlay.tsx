@@ -42,7 +42,7 @@ export default function GameLoadingOverlay({
       style={[styles.overlay, { opacity }]}
       pointerEvents={interactive ? 'auto' : 'none'}
     >
-      <ImageBackground source={STREET2} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+      <ImageBackground source={STREET2} style={StyleSheet.absoluteFillObject} resizeMode="cover" fadeDuration={0} />
       <View style={styles.dim} />
       <View style={styles.center}>
         {error ? (
@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 2000,
-    backgroundColor: '#08120d',
+    backgroundColor: colors.background,
   },
   dim: {
     ...StyleSheet.absoluteFillObject,

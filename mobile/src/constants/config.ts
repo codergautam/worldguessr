@@ -5,6 +5,9 @@ export const API_URL = process.env.EXPO_PUBLIC_API_URL || (__DEV__ ? `http://${D
 export const AUTH_URL = process.env.EXPO_PUBLIC_AUTH_URL || (__DEV__ ? `http://${DEV_SERVER_HOST}:3004` : 'https://api.worldguessr.com');
 export const WS_URL = process.env.EXPO_PUBLIC_WS_URL || (__DEV__ ? `ws://${DEV_SERVER_HOST}:3002/wg` : 'wss://server.worldguessr.com/wg');
 
+// Public website (used for shareable party invite links — mirrors web NEXT_PUBLIC_DOMAIN).
+export const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || 'https://worldguessr.com';
+
 // Game Configuration
 export const DEFAULT_ROUNDS = 5;
 export const DEFAULT_TIME_PER_ROUND = 30; // seconds

@@ -42,12 +42,13 @@ export default function PlayerList({
             style={[
               styles.playerRow,
               dense && styles.playerRowDense,
-              player.id === myId && styles.playerRowSelf,
+              dense && styles.playerRowBetween,
+              player.id === myId && (dense ? styles.playerRowSelfBetween : styles.playerRowSelf),
             ]}
           >
             <View style={styles.playerLeft}>
               {mode !== 'lobby' && (
-                <Text style={styles.rankText}>#{index + 1}</Text>
+                <Text style={[styles.rankText, dense && styles.rankTextBetween]}>#{index + 1}</Text>
               )}
               {player.countryCode && (
                 <CountryFlag countryCode={player.countryCode} size={dense ? 16 : 18} />
@@ -57,6 +58,7 @@ export default function PlayerList({
                   styles.playerName,
                   dense && styles.playerNameDense,
                   player.id === myId && styles.playerNameSelf,
+                  dense && styles.playerNameBetween,
                 ]}
                 numberOfLines={1}
               >
@@ -72,13 +74,14 @@ export default function PlayerList({
             {shouldShowScores && (
               <View style={styles.playerRight}>
                 {player.elo !== undefined && player.elo > 0 && (
-                  <Text style={styles.eloText}>{player.elo}</Text>
+                  <Text style={[styles.eloText, dense && styles.eloTextBetween]}>{player.elo}</Text>
                 )}
-                <Text style={styles.scoreText}>{(player.score ?? 0).toLocaleString()}</Text>
+                <Text style={[styles.scoreText, dense && styles.scoreTextBetween]}>{(player.score ?? 0).toLocaleString()}</Text>
                 {roundDeltas && (
                   <Text
                     style={[
                       styles.deltaText,
+                      dense && styles.deltaTextBetween,
                       roundDelta > 0 && styles.deltaTextPositive,
                     ]}
                   >
@@ -119,6 +122,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(74, 222, 128, 0.65)',
   },
+  // Between-rounds leaderboard — white cards w/ dark text (matches web).
+  playerRowBetween: {
+    backgroundColor: '#ffffff',
+    paddingVertical: spacing.sm,
+    ...{
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      elevation: 3,
+    },
+  },
+  playerRowSelfBetween: {
+    backgroundColor: '#d4edda',
+    borderLeftWidth: 4,
+    borderLeftColor: '#28a745',
+  },
   playerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -132,6 +152,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-Bold',
     width: 28,
   },
+  rankTextBetween: { color: 'rgba(0, 0, 0, 0.45)' },
   playerName: {
     color: colors.white,
     fontSize: fontSizes.md,
@@ -144,6 +165,7 @@ const styles = StyleSheet.create({
   playerNameSelf: {
     color: colors.white,
   },
+  playerNameBetween: { color: '#15202b' },
   hostText: {
     color: '#dc3545',
     fontSize: fontSizes.xs,
@@ -160,6 +182,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontFamily: 'Lexend',
   },
+  eloTextBetween: { color: 'rgba(0, 0, 0, 0.4)' },
   scoreText: {
     color: colors.white,
     fontSize: fontSizes.sm,
@@ -167,6 +190,7 @@ const styles = StyleSheet.create({
     minWidth: 46,
     textAlign: 'right',
   },
+  scoreTextBetween: { color: '#15202b' },
   deltaText: {
     color: 'rgba(255, 255, 255, 0.45)',
     fontSize: fontSizes.xs,
@@ -174,6 +198,7 @@ const styles = StyleSheet.create({
     minWidth: 38,
     textAlign: 'right',
   },
+  deltaTextBetween: { color: 'rgba(0, 0, 0, 0.4)' },
   deltaTextPositive: {
     color: colors.success,
   },

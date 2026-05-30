@@ -6,6 +6,8 @@ import {
   StyleSheet,
   ScrollView,
   Share,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -18,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { t } from '../../shared/locale';
@@ -28,9 +31,7 @@ import RoundBadges from './RoundBadges';
 import ScoreDistributionChart from './ScoreDistributionChart';
 import StreakFlameBurst from './StreakFlameBurst';
 import { dailyColors } from './styles';
-
-const MAX_PER_ROUND = 5000;
-const TOTAL_MAX = 3 * MAX_PER_ROUND;
+import { MAX_PER_ROUND, TOTAL_MAX } from '@shared/daily/constants';
 
 interface Round {
   score: number;
@@ -97,6 +98,8 @@ export default function DailyResultsScreen({
   onClose,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const stackActions = width < 380;
   const displayScore = useAnimatedNumber(totalScore);
 
   const rank = submitResponse?.rank ?? results?.user?.ownRank ?? null;
@@ -149,6 +152,16 @@ export default function DailyResultsScreen({
   const graceUsed = submitResponse?.graceUsed;
   const quip = t(quipKey(totalScore, date));
   const distribution = results?.distribution;
+
+  // Backdrop crossfade — fades the blurred translucent backdrop in over the
+  // still-mounted final-round Street View (mirrors web's
+  // dailyResultsBackdropFadeIn), so results appear smoothly instead of
+  // snapping to black.
+  const backdropOpacity = useSharedValue(0);
+  useEffect(() => {
+    backdropOpacity.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.ease) });
+  }, []);
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }));
 
   // Card entrance.
   const cardScale = useSharedValue(0.96);
@@ -213,9 +226,18 @@ export default function DailyResultsScreen({
   };
 
   return (
-    <View style={styles.backdrop}>
+    <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents="auto">
+      <BlurView
+        intensity={Platform.OS === 'android' ? 24 : 40}
+        tint="dark"
+        experimentalBlurMethod="dimezisBlurView"
+        style={StyleSheet.absoluteFill}
+      />
+      {/* Translucent tint over the blur — keeps the design legible even if
+          Android blur degrades, matching web's rgba(0,0,0,0.45) backdrop. */}
+      <View style={styles.tintScrim} pointerEvents="none" />
       {showFlame && <StreakFlameBurst streak={streak} onDone={() => setShowFlame(false)} />}
-      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
         <Animated.View style={[styles.card, cardStyle]}>
           <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={12}>
             <Ionicons name="close" size={22} color="#fff" />
@@ -301,8 +323,10 @@ export default function DailyResultsScreen({
             )}
           </View>
 
-          <View style={styles.actions}>
-            <Animated.View style={[styles.shareWrap, !shareCopied && sharePulseStyle]}>
+          <View style={[styles.actions, stackActions && styles.actionsStacked]}>
+            <Animated.View
+              style={[stackActions ? styles.shareWrapStacked : styles.shareWrap, !shareCopied && sharePulseStyle]}
+            >
               <Pressable onPress={handleShare} style={styles.shareBtn}>
                 <LinearGradient
                   colors={shareCopied ? ['#347a37', '#1f4f25'] : ['#2ecc71', '#16864a']}
@@ -315,7 +339,7 @@ export default function DailyResultsScreen({
                 </LinearGradient>
               </Pressable>
             </Animated.View>
-            <Pressable onPress={onClose} style={styles.backBtn}>
+            <Pressable onPress={onClose} style={[styles.backBtn, stackActions && styles.backBtnStacked]}>
               <Ionicons name="arrow-back" size={16} color="#fff" />
               <Text style={styles.backBtnText}>{t('backToHome')}</Text>
             </Pressable>
@@ -332,15 +356,22 @@ export default function DailyResultsScreen({
           )}
         </Animated.View>
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.85)',
+  tintScrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
+  scroll: { flex: 1 },
+  // Top-aligned (not centered): the results card is tall and must stay fully
+  // scrollable — centering a card taller than the viewport clips its top.
   scrollContent: { paddingHorizontal: 16 },
   card: {
     backgroundColor: 'rgba(12,32,20,0.95)',
@@ -348,8 +379,9 @@ const styles = StyleSheet.create({
     padding: 22,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+    width: '100%',
     maxWidth: 720,
-    alignSelf: 'stretch',
+    alignSelf: 'center',
   },
   closeBtn: {
     position: 'absolute',
@@ -445,7 +477,9 @@ const styles = StyleSheet.create({
   distStandingPct: { color: dailyColors.gold, fontFamily: 'Lexend-Bold', fontSize: 16 },
   distStandingRank: { color: 'rgba(255,255,255,0.7)', fontFamily: 'Lexend', fontSize: 12 },
   actions: { flexDirection: 'row', gap: 10, marginTop: 18, alignItems: 'center' },
+  actionsStacked: { flexDirection: 'column', alignItems: 'stretch' },
   shareWrap: { flex: 1 },
+  shareWrapStacked: { alignSelf: 'stretch' },
   shareBtn: { borderRadius: 12, overflow: 'hidden' },
   shareBtnInner: {
     flexDirection: 'row',
@@ -466,6 +500,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
   },
+  backBtnStacked: { justifyContent: 'center' },
   backBtnText: { color: '#fff', fontFamily: 'Lexend-SemiBold', fontSize: 13 },
   countdown: {
     color: 'rgba(255,255,255,0.55)',

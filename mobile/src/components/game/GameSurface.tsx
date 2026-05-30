@@ -10,6 +10,7 @@ import {
 import {
   Animated,
   Easing,
+  InteractionManager,
   Platform,
   Pressable,
   StyleSheet,
@@ -163,6 +164,20 @@ function GameSurface(
   const [streetViewLoaded, setStreetViewLoaded] = useState(false);
   const [miniMapShown, setMiniMapShown] = useState(false);
   const [mapMounted, setMapMounted] = useState(false);
+
+  // Defer the StreetView WebView mount until the screen-transition animation
+  // settles. Mounting a WebView is heavy enough to block the incoming screen's
+  // first paint — that's what left the black/blank gap during the slide into a
+  // game mode, before the street2 loading overlay (zIndex 2000) could show.
+  // Holding the WebView back one tick lets the preloaded overlay paint instantly;
+  // the WebView then mounts behind it and the overlay fades out once it loads.
+  const [canMountStreetView, setCanMountStreetView] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setCanMountStreetView(true);
+    });
+    return () => handle.cancel();
+  }, []);
 
   // Reset only when the panorama actually changes — not on every roundKey
   // bump. Mode switches (country ↔ classic during onboarding) re-key the
@@ -435,7 +450,7 @@ function GameSurface(
       >
         {/* Street view */}
         <View style={StyleSheet.absoluteFillObject}>
-          {location && (
+          {location && canMountStreetView && (
             <StreetViewWebView
               lat={location.lat}
               long={location.long}
@@ -686,7 +701,7 @@ function GameSurface(
 export default forwardRef<GameSurfaceHandle, GameSurfaceProps>(GameSurface);
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#08120d' },
+  root: { flex: 1, backgroundColor: colors.background },
   topLeft: {
     position: 'absolute',
     top: 0,

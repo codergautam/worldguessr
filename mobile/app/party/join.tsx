@@ -1,11 +1,9 @@
 /**
  * Join a private game by entering a 6-digit code.
  *
- * Flow:
- * 1. User enters code → send joinPrivateGame
- * 2. On success (inGame=true) → show lobby (same as create screen, non-host)
- * 3. On error → show error message
- * 4. When game starts → navigate to game screen
+ * Thin entry screen: it only collects the code and calls joinPrivateGame. It
+ * does NOT render a lobby or navigate to the game — home.tsx pushes the unified
+ * /game/multiplayer screen (which renders the lobby) as soon as `inGame` flips.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -21,29 +19,26 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useNavigation } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
-import { wsService } from '../../src/services/websocket';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
-import PlayerList from '../../src/components/multiplayer/PlayerList';
 
 export default function PartyJoinScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
   const inputRef = useRef<TextInput>(null);
   const [code, setCode] = useState('');
   const [joining, setJoining] = useState(false);
 
-  const inGame = useMultiplayerStore((s) => s.inGame);
-  const gameData = useMultiplayerStore((s) => s.gameData);
+  const joinPrivateGame = useMultiplayerStore((s) => s.joinPrivateGame);
   const joinError = useMultiplayerStore((s) => s.joinError);
 
   // Auto-focus input
   useEffect(() => {
-    setTimeout(() => inputRef.current?.focus(), 300);
+    const timer = setTimeout(() => inputRef.current?.focus(), 300);
+    return () => clearTimeout(timer);
   }, []);
 
   // Clear error when code changes
@@ -53,114 +48,24 @@ export default function PartyJoinScreen() {
     }
   }, [code]);
 
-  // Handle join error
+  // A join error means the attempt failed — re-enable the button
   useEffect(() => {
-    if (joinError) {
-      setJoining(false);
-    }
+    if (joinError) setJoining(false);
   }, [joinError]);
-
-  // Navigate to game screen when game starts. Set startingRef so the
-  // beforeRemove listener below does NOT treat this transition as leaving
-  // the game (which would send leaveGame and shut the game down).
-  const startingRef = useRef(false);
-  useEffect(() => {
-    if (gameData?.state === 'getready' || gameData?.state === 'guess') {
-      startingRef.current = true;
-      router.replace({
-        pathname: '/game/[id]',
-        params: { id: 'multiplayer' },
-      });
-    }
-  }, [gameData?.state]);
 
   const handleJoin = () => {
     if (code.length !== 6) return;
     setJoining(true);
-    useMultiplayerStore.setState({ joinError: null, enteringGameCode: true });
-    wsService.send({ type: 'joinPrivateGame', gameCode: code });
+    joinPrivateGame(code);
   };
 
-  // Send leaveGame when screen is removed (back button or programmatic navigation)
-  const leftRef = useRef(false);
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', () => {
-      // Skip when navigating into the game screen (game starting), not leaving.
-      if (startingRef.current) return;
-      if (!leftRef.current && useMultiplayerStore.getState().inGame) {
-        leftRef.current = true;
-        wsService.send({ type: 'leaveGame' });
-        useMultiplayerStore.getState().reset();
-      }
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  const handleLeave = () => {
-    leftRef.current = true;
-    if (inGame) {
-      wsService.send({ type: 'leaveGame' });
-      useMultiplayerStore.getState().reset();
-    }
-    router.dismissAll();
-  };
-
-  // If we've joined a game, show the lobby
-  if (inGame && gameData) {
-    return (
-      <View style={styles.container}>
-        <ImageBackground
-          source={require('../../assets/street2.jpg')}
-          style={StyleSheet.absoluteFillObject}
-          resizeMode="cover"
-        />
-        <View style={styles.darkOverlay} />
-        <LinearGradient
-          colors={[
-            'rgba(20, 65, 25, 0.85)',
-            'rgba(20, 65, 25, 0.6)',
-            'rgba(0, 0, 0, 0.7)',
-          ]}
-          style={StyleSheet.absoluteFillObject}
-        />
-        <SafeAreaView style={styles.flex} edges={['top', 'bottom', 'left', 'right']}>
-          <View style={styles.header}>
-            <Pressable onPress={handleLeave} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={24} color={colors.white} />
-            </Pressable>
-            <Text style={styles.headerTitle}>Game Lobby</Text>
-            <View style={{ width: 40 }} />
-          </View>
-          <View style={styles.lobbyContent}>
-            <View style={styles.codeSection}>
-              <Text style={styles.codeLabel}>GAME CODE</Text>
-              <Text style={styles.codeText}>{gameData.code}</Text>
-            </View>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                Players ({gameData.players?.length ?? 0})
-              </Text>
-              <PlayerList
-                players={gameData.players ?? []}
-                myId={gameData.myId}
-              />
-            </View>
-            <Text style={styles.waitingText}>
-              Waiting for host to start...
-            </Text>
-          </View>
-        </SafeAreaView>
-      </View>
-    );
-  }
-
-  // Code entry screen
   return (
     <View style={styles.container}>
       <ImageBackground
         source={require('../../assets/street2.jpg')}
         style={StyleSheet.absoluteFillObject}
         resizeMode="cover"
+        fadeDuration={0}
       />
       <View style={styles.darkOverlay} />
       <LinearGradient
@@ -198,9 +103,7 @@ export default function PartyJoinScreen() {
             autoFocus
           />
 
-          {joinError && (
-            <Text style={styles.errorText}>{joinError}</Text>
-          )}
+          {joinError && <Text style={styles.errorText}>{joinError}</Text>}
 
           <Pressable
             style={({ pressed }) => [
@@ -224,17 +127,9 @@ export default function PartyJoinScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a1a0c',
-  },
-  darkOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  flex: {
-    flex: 1,
-  },
+  container: { flex: 1, backgroundColor: '#0a1a0c' },
+  darkOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0, 0, 0, 0.6)' },
+  flex: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -242,23 +137,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    color: colors.white,
-    fontSize: fontSizes.lg,
-    fontFamily: 'Lexend-Bold',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-  },
+  backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { color: colors.white, fontSize: fontSizes.lg, fontFamily: 'Lexend-Bold' },
+  content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
   codeLabel: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: fontSizes.xs,
@@ -298,67 +179,6 @@ const styles = StyleSheet.create({
     minWidth: 160,
     alignItems: 'center',
   },
-  joinBtnDisabled: {
-    opacity: 0.5,
-  },
-  joinBtnText: {
-    color: colors.white,
-    fontSize: fontSizes.md,
-    fontFamily: 'Lexend-Bold',
-  },
-  lobbyContent: {
-    flex: 1,
-    padding: spacing.lg,
-    gap: spacing.xl,
-  },
-  codeSection: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderRadius: 16,
-    padding: spacing.xl,
-  },
-  codeText: {
-    color: colors.white,
-    fontSize: 36,
-    fontFamily: 'Lexend-Bold',
-    letterSpacing: 8,
-  },
-  section: {
-    gap: spacing.md,
-  },
-  sectionTitle: {
-    color: colors.white,
-    fontSize: fontSizes.md,
-    fontFamily: 'Lexend-Bold',
-  },
-  waitingText: {
-    color: colors.textSecondary,
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend',
-    textAlign: 'center',
-  },
-  generatingBox: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: borderRadius.md,
-    backgroundColor: 'rgba(255, 255, 255, 0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.12)',
-  },
-  generatingText: {
-    color: colors.white,
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-SemiBold',
-  },
-  progressTrack: {
-    height: 4,
-    borderRadius: 2,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(255, 255, 255, 0.14)',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 2,
-    backgroundColor: colors.success,
-  },
+  joinBtnDisabled: { opacity: 0.5 },
+  joinBtnText: { color: colors.white, fontSize: fontSizes.md, fontFamily: 'Lexend-Bold' },
 });

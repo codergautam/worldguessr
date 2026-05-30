@@ -30,7 +30,8 @@
       "Bash(git *)",
       "Bash(git diff *)",
       "Bash(git push:*)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(npx tsc *)"
     ],
     "deny": []
   }

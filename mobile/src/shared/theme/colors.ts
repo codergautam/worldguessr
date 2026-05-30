@@ -41,7 +41,10 @@ export const colors = {
   textMuted: 'rgba(255, 255, 255, 0.6)',
 
   // Background colors
-  background: '#000000',
+  // Brand dark green — same as the splash/adaptive-icon background (app.json).
+  // Used as the nav transition backdrop AND every screen's root bg, so a screen
+  // sliding in never flashes black before its content (panorama/map/images) paints.
+  background: '#112b18',
   card: 'rgba(36, 87, 52, 0.7)',
   cardBorder: 'rgba(255, 255, 255, 0.1)',
   overlay: 'rgba(0, 0, 0, 0.7)',

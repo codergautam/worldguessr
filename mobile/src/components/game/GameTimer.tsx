@@ -58,9 +58,11 @@ export default function GameTimer({
     if (!isServerDriven || !showTimer) return;
 
     const update = () => {
+      // Match web (gameUI.js): floor to tenths so the displayed value never
+      // rounds UP past the true remaining time (off-by-one at phase start).
       const remaining = Math.max(
         0,
-        Math.round((serverEndTime - Date.now() - timeOffset) / 100) / 10,
+        Math.floor((serverEndTime - Date.now() - timeOffset) / 100) / 10,
       );
       setTimeRemaining(remaining);
       if (remaining <= 0) {

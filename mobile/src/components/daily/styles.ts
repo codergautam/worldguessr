@@ -36,6 +36,13 @@ export const dailyColors = {
   tierPlatinumFrom: '#f5faff',
   tierPlatinumTo: '#b9f2ff',
 
+  // Backdrop gradient family (mirrors styles/daily.scss .daily-submitting)
+  glowGreen: '#245734', // rgb(36,87,52) — radial glow, paired with low stopOpacity
+  bgTop: '#0a1a10',
+  bgBottom: '#06120b',
+  bgOverlayTop: 'rgba(8,22,14,0.78)',
+  bgOverlayBottom: 'rgba(3,12,7,0.88)',
+
   // Surfaces
   cardBg: 'rgba(0,0,0,0.6)',
   cardBgSolid: '#0c1f12',

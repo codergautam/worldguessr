@@ -18,7 +18,7 @@ export default function Index() {
   // route. Without this, a returning user would see the home screen flash
   // before being yanked into the tutorial; or vice-versa.
   if (!onboardingLoaded) {
-    return <View style={{ flex: 1, backgroundColor: '#000' }} />;
+    return <View style={{ flex: 1, backgroundColor: '#112b18' }} />;
   }
 
   if (!onboardingCompleted) {

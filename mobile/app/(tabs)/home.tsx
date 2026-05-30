@@ -28,6 +28,7 @@ import CountryFlag from '../../src/components/CountryFlag';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
 import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
+import { prefetchDailyStatus } from '../../src/components/daily/prefetchDailyStatus';
 
 type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
 
@@ -117,7 +118,7 @@ let modPopupDismissedNameChange = false;
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuthStore();
+  const { user, isAuthenticated, isLoading: authLoading, secret } = useAuthStore();
 
   // ELO data fetching & animation (matches web home.js:298-367)
   const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
@@ -145,6 +146,15 @@ export default function HomeScreen() {
       }),
     ]).start();
   }, []);
+
+  // Warm the Daily Challenge cache once the session resolves, so opening
+  // /daily has no layout shift (mirrors web's home-rendered DailyMenuItem).
+  // Gated on !authLoading so a logged-in user prefetches with their secret,
+  // not as a guest; re-runs if the secret changes (login/logout).
+  useEffect(() => {
+    if (authLoading) return;
+    prefetchDailyStatus(secret);
+  }, [authLoading, secret]);
 
   // Fetch fresh ELO data when authenticated
   useEffect(() => {
@@ -239,27 +249,17 @@ export default function HomeScreen() {
   const nextGameQueued = useMultiplayerStore((s) => s.nextGameQueued);
   const nextGameType = useMultiplayerStore((s) => s.nextGameType);
 
-  // Navigate when matched into an active game (duel queue, game start, reconnect)
+  // Single owner of "enter the unified multiplayer screen". Fires for ANY
+  // in-game state (waiting lobby, duel match, game start, reconnect, accepted
+  // invite). The entry screens (create/join/queue) no longer navigate to the
+  // game themselves, so there's no double-push race.
   const hasAutoNavigated = useRef(false);
-  const createdByButton = useRef(false);
   useEffect(() => {
     if (!inGame || !gameState) {
       hasAutoNavigated.current = false;
       return;
     }
     if (hasAutoNavigated.current) return;
-    if (gameState === 'waiting') {
-      // If user pressed "Create Game", they already navigated — skip
-      if (createdByButton.current) {
-        createdByButton.current = false;
-        hasAutoNavigated.current = true;
-        return;
-      }
-      // Reconnect restored a waiting lobby — auto-open party screen
-      hasAutoNavigated.current = true;
-      router.push('/party/create');
-      return;
-    }
     hasAutoNavigated.current = true;
     router.push({
       pathname: '/game/[id]',
@@ -312,7 +312,6 @@ export default function HomeScreen() {
         router.push('/queue');
         break;
       case 'createGame':
-        createdByButton.current = true;
         router.push('/party/create');
         break;
       case 'joinGame':

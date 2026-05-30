@@ -32,12 +32,12 @@ export default function QueueScreen() {
     router.back();
   };
 
-  // Match found → go to game
+  // Match found → home.tsx owns navigating into /game/multiplayer. Mark this
+  // screen exited so the beforeRemove cleanup below won't send leaveQueue when
+  // the queue screen is later torn down underneath the game.
   useEffect(() => {
     if (inGame && gameState) {
-      if (exitedRef.current) return;
       exitedRef.current = true;
-      router.replace({ pathname: '/game/[id]', params: { id: 'multiplayer' } });
     }
   }, [inGame, gameState]);
 
@@ -76,6 +76,7 @@ export default function QueueScreen() {
         source={require('../assets/street2.jpg')}
         style={StyleSheet.absoluteFillObject}
         resizeMode="cover"
+        fadeDuration={0}
       />
       <View style={styles.darkOverlay} />
       <View style={styles.center}>

@@ -9,6 +9,8 @@ import {
   Easing,
   Platform,
   Modal,
+  Alert,
+  InteractionManager,
 } from 'react-native';
 import Reanimated, {
   Easing as ReanimatedEasing,
@@ -17,7 +19,7 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -41,6 +43,7 @@ import DuelHUD from '../../src/components/multiplayer/DuelHUD';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
 import MultiplayerEndBanner from '../../src/components/multiplayer/MultiplayerEndBanner';
 import GameChat from '../../src/components/multiplayer/GameChat';
+import MultiplayerLobby from '../../src/components/multiplayer/MultiplayerLobby';
 import { localeString, t } from '../../src/shared';
 import {
   CountryGuesserSubMode,
@@ -192,7 +195,9 @@ function useGameStartingCountdown(nextEvtTime: number | undefined, timeOffset: n
       return;
     }
     const update = () => {
-      setCountdown(Math.max(0, Math.ceil((nextEvtTime - Date.now() - timeOffset) / 1000)));
+      // Match web (gameUI.js): floor to tenths so the value never rounds up
+      // past the true remaining time, and show 0.1s markers.
+      setCountdown(Math.max(0, Math.floor((nextEvtTime - Date.now() - timeOffset) / 100) / 10));
     };
     update();
     const interval = setInterval(update, 100);
@@ -209,6 +214,8 @@ function BetweenRoundsLeaderboard({
   timeOffset: number;
 }) {
   const opacity = useSharedValue(0);
+  const translateY = useSharedValue(28);
+  const scale = useSharedValue(0.95);
   const [countdown, setCountdown] = useState(0);
   const [shouldRender, setShouldRender] = useState(false);
   const completedRound = gameData.curRound - 1;
@@ -218,51 +225,57 @@ function BetweenRoundsLeaderboard({
   useEffect(() => {
     const tick = () => {
       const msLeft = gameData.nextEvtTime - Date.now() - timeOffset;
-      const secLeft = Math.max(0, Math.ceil(msLeft / 1000));
+      // Tenths + floor to match web's 0.1s markers.
+      const secLeft = Math.max(0, Math.floor(msLeft / 100) / 10);
       setCountdown(secLeft);
       const shouldShow = msLeft > 0 && msLeft < 5000;
       if (shouldShow) {
         if (!shouldRender) {
           setShouldRender(true);
-          opacity.value = withTiming(1, {
-            duration: 500,
-            easing: ReanimatedEasing.out(ReanimatedEasing.cubic),
-          });
+          const ease = ReanimatedEasing.out(ReanimatedEasing.cubic);
+          opacity.value = withTiming(1, { duration: 420, easing: ease });
+          translateY.value = withTiming(0, { duration: 460, easing: ease });
+          scale.value = withTiming(1, { duration: 460, easing: ease });
         }
       } else if (shouldRender && msLeft <= 0) {
-        opacity.value = withTiming(0, {
-          duration: 400,
-          easing: ReanimatedEasing.out(ReanimatedEasing.cubic),
-        });
-        setTimeout(() => setShouldRender(false), 450);
+        const ease = ReanimatedEasing.out(ReanimatedEasing.cubic);
+        opacity.value = withTiming(0, { duration: 320, easing: ease });
+        translateY.value = withTiming(20, { duration: 320, easing: ease });
+        scale.value = withTiming(0.97, { duration: 320, easing: ease });
+        setTimeout(() => setShouldRender(false), 360);
       }
     };
     tick();
     const interval = setInterval(tick, 100);
     return () => clearInterval(interval);
-  }, [gameData.nextEvtTime, timeOffset, opacity, shouldRender]);
+  }, [gameData.nextEvtTime, timeOffset, opacity, translateY, scale, shouldRender]);
 
-  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const overlayStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+  const contentStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }, { scale: scale.value }],
+  }));
 
   if (!shouldRender) return null;
 
   return (
     <Reanimated.View
-      style={[styles.betweenRoundsOverlay, animatedStyle]}
+      style={[styles.betweenRoundsOverlay, overlayStyle]}
       pointerEvents="none"
     >
       <SafeAreaView style={styles.betweenRoundsInner} edges={['top', 'bottom']}>
-        <Text style={styles.betweenRoundsEyebrow}>Round {completedRound} results</Text>
-        <Text style={styles.betweenRoundsTitle}>Leaderboard</Text>
-        <View style={styles.betweenRoundsListWrap}>
-          <PlayerList
-            players={gameData.players}
-            myId={gameData.myId}
-            mode="betweenRounds"
-            roundDeltas={roundDeltas}
-          />
-        </View>
-        <Text style={styles.betweenRoundsCountdown}>Next round in {countdown}s</Text>
+        <Reanimated.View style={[styles.betweenRoundsContent, contentStyle]}>
+          <Text style={styles.betweenRoundsEyebrow}>Round {completedRound} results</Text>
+          <Text style={styles.betweenRoundsTitle}>Leaderboard</Text>
+          <View style={styles.betweenRoundsListWrap}>
+            <PlayerList
+              players={gameData.players}
+              myId={gameData.myId}
+              mode="betweenRounds"
+              roundDeltas={roundDeltas}
+            />
+          </View>
+          <Text style={styles.betweenRoundsCountdown}>Next round in {countdown.toFixed(1)}s</Text>
+        </Reanimated.View>
       </SafeAreaView>
     </Reanimated.View>
   );
@@ -306,6 +319,7 @@ export default function GameScreen() {
     mode?: string;
   }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const isSingleplayer = id === 'singleplayer';
@@ -436,6 +450,17 @@ export default function GameScreen() {
 
   // Street view loading state — true = panorama not yet ready
   const [streetViewLoaded, setStreetViewLoaded] = useState(false);
+
+  // Defer the StreetView WebView mount until the screen-transition settles, so
+  // the preloaded street2 loading overlay paints instantly instead of leaving a
+  // black/blank gap during the slide into the game. (Mirrors GameSurface.)
+  const [canMountStreetView, setCanMountStreetView] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setCanMountStreetView(true);
+    });
+    return () => handle.cancel();
+  }, []);
   const mpInitialGetReady = !!(isMultiplayer
     && gameData?.state === 'getready'
     && gameData.curRound === 1
@@ -1022,6 +1047,64 @@ export default function GameScreen() {
     router.dismissAll();
   };
 
+  // Multiplayer leave — direct port of web backBtnPressed (home.js:2453-2513):
+  //   • ranked duel in progress → forfeit confirm
+  //   • host of a non-waiting private game → resetGame (back to the lobby, stays)
+  //   • everyone else → leaveGame + reset + exit home
+  // This is the single source of truth for leaving; the visible back button and
+  // the Android hardware-back listener both route through it.
+  const leftRef = useRef(false);
+  const handleLeave = useCallback(() => {
+    if (!isMultiplayer) {
+      router.dismissAll();
+      return;
+    }
+    const gd = useMultiplayerStore.getState().gameData;
+    const doLeave = () => {
+      if (gd && gd.host && gd.state !== 'waiting') {
+        // Host backing out of an in-progress/finished private game: reset to the
+        // lobby instead of ending it. The server flips state→'waiting' and this
+        // screen re-renders <MultiplayerLobby/> (no navigation).
+        wsService.send({ type: 'resetGame' });
+        return;
+      }
+      if (leftRef.current) return;
+      leftRef.current = true;
+      wsService.send({ type: 'leaveGame' });
+      useMultiplayerStore.getState().reset();
+      router.dismissAll();
+    };
+    const isRankedDuel = !!gd?.duel && !gd?.public && gd?.state !== 'end';
+    if (isRankedDuel) {
+      Alert.alert(
+        'Forfeit game?',
+        'Leaving now will count as a loss.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Forfeit', style: 'destructive', onPress: doLeave },
+        ],
+      );
+      return;
+    }
+    doLeave();
+  }, [isMultiplayer, router]);
+
+  // Route Android hardware-back / swipe through handleLeave (multiplayer only).
+  // Always preventDefault and delegate: handleLeave decides whether to navigate
+  // (leave → dismissAll) or stay (host → resetGame → lobby re-render).
+  useEffect(() => {
+    if (!isMultiplayer) return;
+    const sub = navigation.addListener('beforeRemove', (e: any) => {
+      if (leftRef.current) return; // we already initiated dismissAll — allow it
+      // If the server already tore the game down (gameShutdown → inGame false),
+      // let the removal proceed; only intercept while still in a game.
+      if (!useMultiplayerStore.getState().inGame) return;
+      e.preventDefault();
+      handleLeave();
+    });
+    return sub;
+  }, [isMultiplayer, navigation, handleLeave]);
+
   const handleMapSelect = useCallback((slug: string, name: string) => {
     const wasCountryGuesserMode = countryGuesserSubMode !== null;
 
@@ -1306,6 +1389,14 @@ export default function GameScreen() {
     );
   }
 
+  // Multiplayer lobby (waiting state) — unified into this screen so the party
+  // lobby and the game live on ONE route. Lobby→game and game→lobby (host reset)
+  // are pure re-renders, eliminating the router.replace leave/back races. When a
+  // private game finishes, the server resets it to 'waiting' and this re-renders.
+  if (isMultiplayer && gameData?.state === 'waiting') {
+    return <MultiplayerLobby onLeave={handleLeave} />;
+  }
+
   const mpGetReady = isMultiplayer && gameData?.state === 'getready';
   const showFab = !showLoadingBanner && !miniMapShown && !gameState.isShowingResult && !mpGetReady;
   const scenePointerEvents = showLoadingBanner && !hasCompletedInitialReveal.current ? 'none' : 'box-none';
@@ -1318,7 +1409,7 @@ export default function GameScreen() {
       >
         {/* Street View - FULLSCREEN */}
         <View style={StyleSheet.absoluteFillObject}>
-          {currentLocation && (
+          {currentLocation && canMountStreetView && (
             <StreetViewWebView
               lat={currentLocation.lat}
               long={currentLocation.long}
@@ -1358,7 +1449,7 @@ export default function GameScreen() {
               styles.backButton,
               pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
             ]}
-            onPress={handleQuit}
+            onPress={handleLeave}
           >
             <LinearGradient
               colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)', 'rgba(255,112,112,0.9)']}
@@ -1643,7 +1734,7 @@ export default function GameScreen() {
         opacity={loadingOpacity}
         interactive={showLoadingBanner}
         message={mpInitialGetReady
-          ? t('gameStartingIn', { t: gameStartingCountdown })
+          ? t('gameStartingIn', { t: gameStartingCountdown.toFixed(1) })
           : undefined}
       />
     </View>
@@ -1677,7 +1768,9 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 1200,
-    backgroundColor: '#06100d',
+    // Semi-transparent so the revealed answer map shows faintly behind, and the
+    // white player cards carry the contrast (matches web .multiplayerLeaderboard).
+    backgroundColor: 'rgba(6, 16, 13, 0.9)',
   },
   betweenRoundsInner: {
     flex: 1,
@@ -1685,7 +1778,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
     alignItems: 'stretch',
-    justifyContent: 'flex-start',
+    justifyContent: 'center', // vertically centered (web: justify-content: safe center)
+    gap: spacing.sm,
+  },
+  betweenRoundsContent: {
+    width: '100%',
+    alignItems: 'stretch',
     gap: spacing.sm,
   },
   betweenRoundsListWrap: {

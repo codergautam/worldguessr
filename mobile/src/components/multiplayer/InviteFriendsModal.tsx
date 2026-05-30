@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
 import { colors } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
+import { getPartyLink } from '../../shared/utils/partyLink';
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -39,7 +40,7 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
     if (!gameCode) return;
     try {
       await Share.share({
-        message: `Join my WorldGuessr party — game code: ${gameCode}`,
+        message: `Join my WorldGuessr party: ${getPartyLink(gameCode)}`,
         title: 'WorldGuessr Party Invite',
       });
     } catch {
@@ -80,9 +81,7 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
             style={({ pressed }) => [styles.shareBtn, pressed && { opacity: 0.85 }]}
           >
             <Ionicons name="share-outline" size={18} color={colors.white} />
-            <Text style={styles.shareBtnText}>
-              {Platform.OS === 'ios' ? 'Share code via iMessage' : 'Share code'}
-            </Text>
+            <Text style={styles.shareBtnText}>Share invite link</Text>
           </Pressable>
 
           <ScrollView style={styles.list} contentContainerStyle={{ paddingBottom: spacing.lg }}>

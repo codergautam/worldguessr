@@ -18,6 +18,7 @@ import { colors } from '../src/shared';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import { useWebSocket } from '../src/hooks/useWebSocket';
+import { useDeepLinkInvite } from '../src/hooks/useDeepLinkInvite';
 import ToastProvider from '../src/components/multiplayer/ToastProvider';
 import ActionableNotifications from '../src/components/multiplayer/ActionableNotifications';
 import WsIndicator from '../src/components/multiplayer/WsIndicator';
@@ -48,6 +49,9 @@ export default function RootLayout() {
 
   // Establish WebSocket connection (persists across all screens)
   useWebSocket();
+
+  // Handle party invite deep links (?party=CODE / worldguessr://?party=CODE)
+  useDeepLinkInvite();
 
   useEffect(() => {
     Asset.loadAsync(imageAssets).then(() => setAssetsLoaded(true));
@@ -88,8 +92,9 @@ export default function RootLayout() {
             headerShown: false,
             contentStyle: { backgroundColor: colors.background },
             // iOS-style slide-in on Android, native push on iOS.
-            // Slides keep the outgoing screen opaque underneath, so there's no
-            // cross-fade "dip to black" flicker (background is #000000).
+            // Slides keep the outgoing screen opaque underneath. The card bg is
+            // colors.background (brand dark green = splash bg), so the incoming
+            // screen never flashes black before its content paints.
             animation: 'ios_from_right',
             animationDuration: 200,
             // Make router.replace (queue→game, party→game) slide forward, not back.

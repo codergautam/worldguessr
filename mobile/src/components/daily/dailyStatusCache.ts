@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { DAILY_CACHE_TTL_MS as TTL_MS } from '@shared/daily/constants';
 
 const KEY_PREFIX = 'wg_daily_status_';
 const TOP10_KEY_PREFIX = 'wg_daily_top10_';
-const TTL_MS = 60 * 1000;
 
 export interface DailyUserCache {
   username?: string;

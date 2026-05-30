@@ -215,6 +215,7 @@ interface MultiplayerState {
   setAllowFriendReqOnServer: (allow: boolean) => void;
   inviteFriendToGame: (friendSocketId: string) => void;
   acceptGameInvite: (code: string, invitedById: string) => void;
+  joinPrivateGame: (code: string) => void;
   reset: () => void;
 }
 
@@ -305,6 +306,12 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     set((s) => ({
       gameInvites: s.gameInvites.filter((inv) => inv.code !== code),
     }));
+  },
+  // Join a private game by 6-digit code. Shared by the join-code form and the
+  // deep-link handler so there's one path (matches join.tsx handleJoin).
+  joinPrivateGame: (code) => {
+    set({ joinError: null, enteringGameCode: true });
+    wsService.send({ type: 'joinPrivateGame', gameCode: code });
   },
 
   reset: () =>
@@ -406,6 +413,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       // Enable chat for non-duel games
       const chatEnabled = !data.duel;
 
+      // When a private game is reset back to the lobby (server resetGame), it
+      // clears locations/roundHistory/duelEnd. Force-drop any stale values from
+      // the previous game on this transition so the shallow merge below can't
+      // leak a finished game's data into the fresh lobby (bug E). Only on the
+      // edge into 'waiting' — steady-state waiting accumulates generated data.
+      const enteringWaiting =
+        data.state === 'waiting' && !!prevGameData && prevGameData.state !== 'waiting';
+
       console.log('[Store] game message received — state:', data.state, 'code:', data.code, 'host:', data.host, 'players:', data.players?.length);
       set({
         gameQueued: false,
@@ -417,6 +432,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           ...(prevGameData ?? {}),
           ...data,
           type: undefined, // Remove the message type field
+          ...(enteringWaiting ? { locations: [], roundHistory: [], duelEnd: undefined } : {}),
         } as GameData,
       });
       return;

@@ -16,6 +16,7 @@ import DailyStreakBadge from './DailyStreakBadge';
 import DailyLeaderboardPanel from './DailyLeaderboardPanel';
 import PersonalRecordsCard from './PersonalRecordsCard';
 import DailyHistoryBars14 from './DailyHistoryBars14';
+import DailyBackground from './DailyBackground';
 import { dailyColors, dailyTimings } from './styles';
 
 interface Props {
@@ -65,7 +66,9 @@ export default function DailyLanding({
   const graceDay = !!userData?.graceDay && !playedToday && (userData?.streak || 0) > 0;
 
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
+    <View style={styles.root}>
+      <DailyBackground style={StyleSheet.absoluteFill} />
+      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
       <View style={styles.headerBar}>
         <Pressable onPress={onClose} hitSlop={12} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
@@ -171,7 +174,8 @@ export default function DailyLanding({
           )}
         </View>
       </StaggerSection>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -187,7 +191,8 @@ function Step({ icon, text }: { icon: any; text: string }) {
 }
 
 const styles = StyleSheet.create({
-  scroll: { flex: 1, backgroundColor: '#08120d' },
+  root: { flex: 1, backgroundColor: dailyColors.bgBottom },
+  scroll: { flex: 1, backgroundColor: 'transparent' },
   content: { paddingHorizontal: 18, paddingBottom: 40 },
   headerBar: { flexDirection: 'row', justifyContent: 'flex-start', marginBottom: 8 },
   backBtn: {
