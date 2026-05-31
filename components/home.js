@@ -1,10 +1,10 @@
 import HeadContent from "@/components/headContent";
-import { FaDiscord, FaBook } from "react-icons/fa";
+import { FaDiscord, FaBook, FaGithub } from "react-icons/fa";
 import { FaGear, FaRankingStar, FaYoutube } from "react-icons/fa6";
 import { signOut, useSession } from "@/components/auth/auth";
 import { fetchWithFallback } from "@/components/utils/retryFetch";
 import 'react-responsive-modal/styles.css';
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useLayoutEffect, useState, useRef, useCallback } from "react";
 import Navbar from "@/components/ui/navbar";
 import GameUI from "@/components/gameUI";
 import BannerText from "@/components/bannerText";
@@ -40,7 +40,7 @@ const AccountModal = dynamic(() => import('@/components/accountModal'), { ssr: f
 const MapGuessrModal = dynamic(() => import('@/components/mapGuessrModal'), { ssr: false });
 import MultiplayerHome from "@/components/multiplayerHome";
 import SetUsernameModal from "@/components/setUsernameModal";
-import ChatBox from "@/components/chatBox";
+import EmoteReactions from "@/components/emoteReactions";
 import SettingsModal from "@/components/settingsModal";
 import WelcomeOverlay from "@/components/welcomeOverlay";
 import OnboardingComplete from "@/components/onboardingComplete";
@@ -70,6 +70,8 @@ import StreetView from "./streetview/streetView";
 // import MaintenanceBanner from "./MaintenanceBanner";
 import Ad from "./bannerAdNitro";
 import GameDistributionBanner from "./bannerAdGameDistribution";
+
+const ROUND_OVER_FADE_MS = 500;
 
 
 export default function Home({ initialScreen, dailyBootstrap } = {}) {
@@ -117,6 +119,8 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     });
     const [multiplayerError, setMultiplayerError] = useState(null);
     const [miniMapShown, setMiniMapShown] = useState(false)
+    const [multiplayerEndAnswerHoldExpired, setMultiplayerEndAnswerHoldExpired] = useState(false);
+    const multiplayerEndAnswerHoldTimerRef = useRef(null);
     const [accountModalPage, setAccountModalPage] = useState("profile");
     const [mapModalClosing, setMapModalClosing] = useState(false);
     const loadLocationRequestRef = useRef(0);
@@ -984,7 +988,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         return () => clearTimeout(recoveryTimeout);
     }, [screen, loading, showAnswer, countryGuessrMode.subMode, gameOptions.location])
 
-    useEffect(() => {
+    // useLayoutEffect (not useEffect): this is the single path that loads the
+    // next onboarding location. Running after paint leaves one frame where
+    // showAnswer is cleared, the round bumped, but loading is still false and
+    // latLong is still the old round — the old StreetView flashes uncovered.
+    // useLayoutEffect runs before paint so the iframe is covered cleanly.
+    useLayoutEffect(() => {
         if (onboarding?.round > 1) {
             loadLocation({ keepAnswer: !!window._countryGuessrKeepAnswer })
         }
@@ -1371,8 +1380,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // so non-Home pages (/banned, /leaderboard, /maps, /mod, /learn, /user,
     // /svEmbed, /privacy-*) don't open a socket they'll never use.
     useEffect(() => { ensureConnected(); }, [ensureConnected]);
-    const [multiplayerChatOpen, setMultiplayerChatOpen] = useState(false);
-    const [multiplayerChatEnabled, setMultiplayerChatEnabled] = useState(false);
+    const [multiplayerEmotesEnabled, setMultiplayerEmotesEnabled] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        try { return gameStorage.getItem('multiplayerEmotesEnabled') !== 'false'; } catch { return true; }
+    });
     const adSessionReady = session !== false;
     const adsDisabledForSupporter = !!session?.token?.supporter;
 
@@ -1765,14 +1776,33 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [multiplayerState?.gameData?.state])
 
-
     useEffect(() => {
-        if (!multiplayerState?.inGame && multiplayerState?.gameData?.duel) {
-
-            setMultiplayerChatEnabled(false)
-            setMultiplayerChatOpen(false)
+        if (multiplayerState?.inGame && multiplayerState?.gameData?.state === "end") {
+            setMultiplayerEndAnswerHoldExpired(false);
+            if (multiplayerEndAnswerHoldTimerRef.current) {
+                clearTimeout(multiplayerEndAnswerHoldTimerRef.current);
+            }
+            multiplayerEndAnswerHoldTimerRef.current = setTimeout(() => {
+                setMultiplayerEndAnswerHoldExpired(true);
+                multiplayerEndAnswerHoldTimerRef.current = null;
+            }, ROUND_OVER_FADE_MS);
+            return () => {
+                if (multiplayerEndAnswerHoldTimerRef.current) {
+                    clearTimeout(multiplayerEndAnswerHoldTimerRef.current);
+                    multiplayerEndAnswerHoldTimerRef.current = null;
+                }
+            };
         }
 
+        setMultiplayerEndAnswerHoldExpired(false);
+        if (multiplayerEndAnswerHoldTimerRef.current) {
+            clearTimeout(multiplayerEndAnswerHoldTimerRef.current);
+            multiplayerEndAnswerHoldTimerRef.current = null;
+        }
+    }, [multiplayerState?.inGame, multiplayerState?.gameData?.state])
+
+
+    useEffect(() => {
         // Subscribe to WS messages via the provider. The provider owns the
         // connection lifecycle (so onmessage/onclose/onerror live there too)
         // and forwards every parsed message to subscribers like this one.
@@ -1884,10 +1914,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 setScreen("multiplayer")
                 setMultiplayerState((prev) => {
 
-                    if (!data.duel) {
-                        setMultiplayerChatEnabled(true)
-                    }
-
                     // console.log('got game options', data)
                     setGameOptions((prev) => ({
                         ...prev,
@@ -1899,8 +1925,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
                     if (data.state === "getready") {
-                        setMultiplayerChatEnabled(true)
-
                         // calculate extent on client
                         // if(data.map !== "all" && !countries.map((c) => c?.toLowerCase()).includes(data.map?.toLowerCase())  && !gameOptions?.extent) {
                         //   // calculate extent
@@ -1920,14 +1944,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         //     }
                         //   })
                         // }
-
-                    } else if (data.state === "guess") {
-                        const didIguess = (data.players ?? prev.gameData?.players)?.find((p) => p.id === prev.gameData?.myId)?.final;
-                        if (didIguess) {
-                            setMultiplayerChatEnabled(true)
-                        } else {
-                            // if(multiplayerState?.gameData?.public) setMultiplayerChatEnabled(false)
-                        }
                     }
 
                     if ((!prev.gameData || (prev?.gameData?.state === "getready")) && data.state === "guess") {
@@ -2029,10 +2045,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }
             } else if (data.type === "place") {
                 const id = data.id;
-                if (id === multiplayerState?.gameData?.myId) {
-                    setMultiplayerChatEnabled(true)
-                }
-
                 const player = multiplayerState?.gameData?.players?.find((p) => p.id === id);
                 if (player) {
                     player.final = data.final;
@@ -2046,8 +2058,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }))
 
             } else if (data.type === "gameShutdown") {
-                setMultiplayerChatEnabled(false)
-
                 // gameShutdown only needs to force-reset the client when the
                 // user is still in a game client-side (e.g. party host left
                 // mid-round — the server is telling them the game is gone).
@@ -2100,7 +2110,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 toast.info(text("opponentLeftBeforeStart") || "Opponent left before the game started. Returning to queue...");
 
                 setScreen("home")
-                setMultiplayerChatEnabled(false)
 
                 setMultiplayerState((prev) => {
                     return {
@@ -2231,8 +2240,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const prevWsForCloseRef = useRef(null);
     useEffect(() => {
         if (prevWsForCloseRef.current && !ws) {
-            setMultiplayerChatEnabled(false);
-            setMultiplayerChatOpen(false);
             if (window.screen !== "home" && window.screen !== "singleplayer" && window.screen !== "onboarding" && window.screen !== "countryGuesser" && window.screen !== "daily") {
                 setMultiplayerError(true);
                 setLoading(false);
@@ -2292,7 +2299,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             me.final = true;
             me.latLong = pinpointLatLong;
         }
-        setMultiplayerChatEnabled(true);
 
         ws.send(JSON.stringify({ type: "place", latLong: pinpointLatLong, final: true, round: multiplayerState.gameData?.curRound }))
     }
@@ -2508,7 +2514,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     joinOptions: prev.joinOptions,
                 }))
                 setScreen("home")
-                setMultiplayerChatEnabled(false)
                 // gameShutdown used to clear this; now that we own the
                 // teardown, do it here so a stale community-map extent
                 // doesn't leak into the next singleplayer / multiplayer game.
@@ -2549,8 +2554,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setScreen("home")
 
         } else {
-            setMultiplayerChatEnabled(false)
-
             const afterBack = () => {
                 setScreen("home");
                 setGameOptions((prev) => ({
@@ -2824,25 +2827,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }
 
-    // Stable callback for chat toggle to prevent ChatBox re-renders
-    const handleChatToggle = React.useCallback(() => {
-        setMultiplayerChatOpen(prev => !prev);
-    }, []);
-
-    // Memoized ChatBox - uses stable function references (handleChatToggle) and
-    // internal useCallback hooks to prevent chat input from resetting between rounds
-    const ChatboxMemo = React.useMemo(() => <ChatBox
-        miniMapShown={miniMapShown}
+    const EmoteReactionsMemo = React.useMemo(() => <EmoteReactions
         ws={ws}
-        open={multiplayerChatOpen}
-        onToggle={handleChatToggle}
-        enabled={session?.token?.secret && multiplayerChatEnabled && !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION}
-        isGuest={session?.token?.secret ? false : true}
-        publicGame={multiplayerState?.gameData?.public}
-        myId={multiplayerState?.gameData?.myId}
+        enabled={multiplayerEmotesEnabled && !process.env.NEXT_PUBLIC_SCHOOLGUESSR}
         inGame={multiplayerState?.inGame}
-        roundOverScreenShown={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
-    />, [multiplayerChatOpen, multiplayerChatEnabled, ws, multiplayerState?.gameData?.myId, multiplayerState?.inGame, multiplayerState?.gameData?.public, session?.token?.secret, handleChatToggle, miniMapShown, multiplayerState?.gameData?.state])
+        myId={multiplayerState?.gameData?.myId}
+        hideName={multiplayerState?.gameData?.duel}
+        rightSide={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
+    />, [ws, multiplayerEmotesEnabled, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.state])
 
     // Send pong every 10 seconds if websocket is connected
     useEffect(() => {
@@ -2916,6 +2908,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // They just can't do multiplayer - the check is done in the websocket server
     // Banned users are also excluded from leaderboards (handled in api/leaderboard.js)
 
+    const multiplayerGameState = multiplayerState?.gameData?.state;
+    const multiplayerEndAnswerHoldActive = multiplayerGameState === 'end' && !multiplayerEndAnswerHoldExpired;
+    const multiplayerShowAnswer = multiplayerEndAnswerHoldActive || (
+        multiplayerState?.gameData?.curRound !== 1 && multiplayerGameState === 'getready'
+    );
+
     return (
         <>
             <HeadContent
@@ -2941,7 +2939,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
-            {ChatboxMemo}
+            {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && EmoteReactionsMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
             {welcomeOverlayShown && screen === "onboarding" && (
@@ -3370,13 +3368,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             <div className="footer_btns">
                                 {!isApp && !inCoolMathGames && !inGameDistribution && (
                                     <>
-                                        <Link target="_blank" href={"https://forum.worldguessr.com/"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container forum" aria-label="Forum"><FaBook className="home__squarebtnicon" /></button></Link>
-                                        <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                                        {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
+                                            <Link target="_blank" href={"https://discord.gg/ADw47GAyS5"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container discord" aria-label="Discord"><FaDiscord className="home__squarebtnicon" /></button></Link>
+                                        )}
 
-                                        {!inCrazyGames && (
-                                            <>
-                                                <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
-                                            </>
+                                        <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
+                                        {!inCrazyGames && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
+                                            <Link target="_blank" href={"https://github.com/codergautam/worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container github" aria-label="Github"><FaGithub className="home__squarebtnicon" /></button></Link>
                                         )}
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
 
@@ -3514,7 +3512,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     showTimerOption={screen === "singleplayer"}
                     gameOptions={gameOptions} setGameOptions={setGameOptions} />}
 
-                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} shown={true} onClose={() => setSettingsModal(false)} />}
+                {settingsModal && <SettingsModal inCrazyGames={inCrazyGames} inGameDistribution={inGameDistribution} options={options} setOptions={setOptions} multiplayerEmotesEnabled={multiplayerEmotesEnabled} setMultiplayerEmotesEnabled={(v) => { setMultiplayerEmotesEnabled(v); try { gameStorage.setItem('multiplayerEmotesEnabled', v ? 'true' : 'false'); } catch {} }} shown={true} onClose={() => setSettingsModal(false)} />}
 
                 {connectionErrorModalShown && <AlertModal
                     isOpen={true}
@@ -3662,12 +3660,12 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
                         miniMapShown={miniMapShown} setMiniMapShown={setMiniMapShown}
-                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerChatOpen={multiplayerChatOpen} setMultiplayerChatOpen={setMultiplayerChatOpen} multiplayerState={multiplayerState} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} latLong={latLong} loadLocation={() => { }} gameOptions={{
+                        inCrazyGames={inCrazyGames} showPanoOnResult={showPanoOnResult} setShowPanoOnResult={setShowPanoOnResult} options={options} timeOffset={timeOffset} ws={ws} backBtnPressed={backBtnPressed} multiplayerState={multiplayerState} pinPoint={pinPoint} setPinPoint={setPinPoint} loading={loading} setLoading={setLoading} session={session} latLong={latLong} loadLocation={() => { }} gameOptions={{
                             location: "all", maxDist: 20000, extent: gameOptions?.extent ?? multiplayerState?.gameData?.extent,
                             nm: multiplayerState?.gameData?.nm,
                             npz: multiplayerState?.gameData?.npz,
                             showRoadName: multiplayerState?.gameData?.showRoadName
-                        }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
+                        }} setGameOptions={() => { }} showAnswer={multiplayerShowAnswer} setShowAnswer={guessMultiplayer} />
                 )}
 
 

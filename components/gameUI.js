@@ -277,6 +277,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   const [timeToNextMultiplayerEvt, setTimeToNextMultiplayerEvt] = useState(0);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboardVisible, setLeaderboardVisible] = useState(false);
+  const leaderboardFadeInFrameRef = useRef(null);
   const [timeToNextRound, setTimeToNextRound] = useState(0); //only for onboarding
   const [singlePlayerTimeLeft, setSinglePlayerTimeLeft] = useState(0);
   const [mapPinned, setMapPinned] = useState(false);
@@ -303,19 +304,38 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   useEffect(() => {
     if (inGetready && timeToNextMultiplayerEvt > 0 && timeToNextMultiplayerEvt < 5 && !showLeaderboard) {
       // Delayed appearance: only show in last 5s of getready
+      if (leaderboardFadeInFrameRef.current) {
+        cancelAnimationFrame(leaderboardFadeInFrameRef.current);
+      }
+      setLeaderboardVisible(false);
       setShowLeaderboard(true);
-      setLeaderboardVisible(true);
+      leaderboardFadeInFrameRef.current = requestAnimationFrame(() => {
+        setLeaderboardVisible(true);
+        leaderboardFadeInFrameRef.current = null;
+      });
     }
   }, [inGetready, timeToNextMultiplayerEvt, showLeaderboard]);
 
   useEffect(() => {
     if (!inGetready && showLeaderboard) {
       // State left getready — start fade-out, unmount after transition
+      if (leaderboardFadeInFrameRef.current) {
+        cancelAnimationFrame(leaderboardFadeInFrameRef.current);
+        leaderboardFadeInFrameRef.current = null;
+      }
       setLeaderboardVisible(false);
       const timer = setTimeout(() => setShowLeaderboard(false), 500);
       return () => clearTimeout(timer);
     }
   }, [inGetready, showLeaderboard]);
+
+  useEffect(() => {
+    return () => {
+      if (leaderboardFadeInFrameRef.current) {
+        cancelAnimationFrame(leaderboardFadeInFrameRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!inCoolMathGames) return;
@@ -737,6 +757,17 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   );
   const mapFadingOutForRender = mapFadingOut || multiplayerAnswerRevealLeaving;
   const showAnswerOnMap = showAnswer || mapFadingOutForRender;
+  const multiplayerRoundOverShowingAnswer = !!(
+    multiplayerState?.inGame &&
+    multiplayerState?.gameData?.state === "end" &&
+    showAnswerOnMap
+  );
+  const multiplayerMapStateAllowsRender = !multiplayerState || (
+    multiplayerState.inGame && (
+      ['guess', 'getready'].includes(multiplayerState.gameData?.state) ||
+      multiplayerRoundOverShowingAnswer
+    )
+  );
   const shouldShowMiniMap = !welcomeOverlayShown &&
     (miniMapShown || showAnswerOnMap) &&
     (!singlePlayerRound?.done && !onboarding?.completed &&
@@ -762,6 +793,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     <div className={`topAdFixed ${(multiplayerTimerShown || onboardingTimerShown || singlePlayerRound)?'moreDown':''}`}>
       <Ad
       unit={"worldguessr_gameui_ad"}
+      position="bottom-right"
     inCrazyGames={inCrazyGames} showAdvertisementText={false} screenH={height} types={[[728,90]]} centerOnOverflow={600} screenW={Math.max(400, width-450)} vertThresh={0.3} />
     </div>
 )}
@@ -878,7 +910,7 @@ session={session}/>
 )}
 
 
-      {(!countryGuesser || (countryGuesser && showAnswer)) && (!multiplayerState || (multiplayerState.inGame && ['guess', 'getready'].includes(multiplayerState.gameData?.state))) && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? multiplayerState?.gameData?.state === "guess" : true ) && (
+      {(!countryGuesser || (countryGuesser && showAnswer)) && multiplayerMapStateAllowsRender && ((multiplayerState?.inGame && multiplayerState?.gameData?.curRound === 1) ? (multiplayerState?.gameData?.state === "guess" || multiplayerRoundOverShowingAnswer) : true ) && (
         <>
 
 

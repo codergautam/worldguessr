@@ -1313,7 +1313,7 @@ const GameSummary = ({
                 >
                   <Popup className="map-marker-popup">
                     <div className="popup-content">
-                      <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("actualLocation")}</div>
+                      <div className="popup-round">{text("roundNumber", {round: index + 1})} - {text("actualLocation")}</div>
                       {/* Only show points in single player games */}
                       {(!multiplayerState?.gameData || !finalHistory[0]?.players || Object.keys(finalHistory[0].players).length <= 1) && (
                         <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
@@ -1347,7 +1347,7 @@ const GameSummary = ({
                     >
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
-                          <div className="popup-round">{text("roundNumber", {number: index + 1})} - {options?.isModView ? (multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.username || text("player")) : text("yourGuess")}</div>
+                          <div className="popup-round">{text("roundNumber", {round: index + 1})} - {options?.isModView ? (multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.username || text("player")) : text("yourGuess")}</div>
                           <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
                             {round.points} {text("points")}
                           </div>

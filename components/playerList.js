@@ -61,8 +61,14 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
   const host = multiplayerState.gameData?.host;
   const N = waitingForStart ? 200 : 5; // Number of top players to show
 
+  const leaderboardClasses = [
+    'multiplayerLeaderboard',
+    waitingForStart ? 'leaderboardWaiting g2_container' : 'leaderboardInRound',
+    fadingOut ? 'leaderboardFadingOut' : 'leaderboardShown'
+  ].join(' ');
+
   return (
-    <div className={`multiplayerLeaderboard g2_container ${fadingOut ? 'leaderboardFadingOut' : ''}`}>
+    <div className={leaderboardClasses}>
       <span className="bigSpan">
         {gameOver?text("gameOver"):waitingForStart?host?text("yourPrivateGame"):text("privateGame"):text("leaderboard")}
         {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})}

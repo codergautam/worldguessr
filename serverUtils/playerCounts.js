@@ -1,18 +1,25 @@
 import { players } from './states.js';
 
-export function getActivePlayers() {
-  return [...players.values()].filter((player) => player.verified && !player.disconnected);
+function isActivePlayer(player) {
+  return !!player && player.verified && !player.disconnected;
 }
 
-export function getActivePlayerCount() {
-  return getActivePlayers().length;
+function getActivePlayerCount() {
+  let count = 0;
+  for (const player of players.values()) {
+    if (isActivePlayer(player)) count++;
+  }
+  return count;
 }
 
-export function getPlatformDistribution() {
+function getPlatformDistribution() {
   const dist = {};
-  for (const player of getActivePlayers()) {
+  for (const player of players.values()) {
+    if (!isActivePlayer(player)) continue;
     const platform = player.platform || 'empty';
     dist[platform] = (dist[platform] || 0) + 1;
   }
   return dist;
 }
+
+export { getActivePlayerCount, getPlatformDistribution, isActivePlayer };

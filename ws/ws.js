@@ -5,7 +5,6 @@ import Player from './classes/Player.js';
 import { v4 as uuidv4 } from 'uuid';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import mongoose from 'mongoose';
-import { Filter } from 'bad-words';
 import Game from './classes/Game.js';
 import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
 import { getActivePlayerCount, getPlatformDistribution } from '../serverUtils/playerCounts.js';
@@ -53,17 +52,15 @@ function pick5RandomArb() {
   while(rand.size < 5) {
     rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
   }
-  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: r.country || 'unknown' }));
+  return [...rand].map((r) => {
+    const loc = { lat: r.lat, long: r.lng, country: r.country || 'unknown' };
+    if (r.heading !== undefined && r.heading !== null) loc.heading = r.heading;
+    if (r.pitch !== undefined && r.pitch !== null) loc.pitch = r.pitch;
+    if (r.panoId) loc.panoId = r.panoId;
+    return loc;
+  });
 }
 
-
-// Load the profanity filter
-const filter = new Filter();
-filter.removeWords('damn')
-
-fs.readFileSync('public/Crazygames_profanity_filter.txt', 'utf8').split('\n').forEach((word) => {
-  filter.addWords(word);
-});
 
 // init state vars
 const dev = process.env.NODE_ENV !== 'production'
@@ -763,21 +760,19 @@ app.ws('/wg', {
         game.setGuess(player.id, latLong, final, round);
       }
 
-      if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {
-
-        let message = json.message;
-        const lastMessage = player.lastMessage || 0;
-        if (typeof message !== 'string' || message.length < 1 || message.length > 200 || Date.now() - lastMessage < 500) {
-          return;
-        }
+      if (json.type === 'emote' && player.gameId && games.has(player.gameId)) {
+        const emote = json.emote;
+        if (!Number.isInteger(emote) || emote < 0 || emote > 9) return;
+        const lastEmote = player.lastEmote || 0;
+        if (Date.now() - lastEmote < 1500) return;
         const game = games.get(player.gameId);
-        message = filter.clean(message);
-        player.lastMessage = Date.now();
+        player.lastEmote = Date.now();
         game.sendAllPlayers({
-          type: 'chat',
+          type: 'emote',
           id: player.id,
           name: player.username,
-          message
+          countryCode: player.countryCode || null,
+          emote
         });
       }
 
@@ -1347,6 +1342,7 @@ try {
   setInterval(() => {
     const activePlayerCount = getActivePlayerCount();
 
+    const activePlayerCount = getActivePlayerCount();
     for (const player of players.values()) {
       if (player.verified && !player.gameId) {
         player.send({

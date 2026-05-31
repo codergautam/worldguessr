@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
 import { FaCalendarDay, FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
@@ -145,6 +145,11 @@ export default function DailyChallengeScreen({
   const [showPanoOnResult, setShowPanoOnResult] = useState(false);
   const [finalRounds, setFinalRounds] = useState(null);
   const [submitResponse, setSubmitResponse] = useState(null);
+  // Background-submit handle, populated while the user reads the final
+  // round's answer screen so that clicking "View Results" can transition
+  // straight to results with no submitting interstitial.
+  // Shape: { promise, response: T | null, rounds, totalScore, atDisqualified }
+  const prefetchRef = useRef(null);
   // If user tab-switches / blurs window during the game, the score is
   // submitted as disqualified — counted in anon distribution only, no
   // leaderboard entry, no streak, no XP, no game history.
@@ -192,8 +197,12 @@ export default function DailyChallengeScreen({
 
   // Drive home's latLong from singlePlayerRound.round (source of truth).
   // Also resets per-round UI state (showAnswer, pin, hint, loading).
+  // useLayoutEffect (not useEffect): runs before paint so the loading overlay
+  // covers the iframe in the same frame the round bumps. With useEffect, the
+  // browser paints once with showAnswer cleared but loading still false and
+  // latLong still pointing at the old round — flashing the old StreetView.
   const currentRound = singlePlayerRound?.round || 1;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (phase !== 'game' || !locationData?.locations) return;
     const loc = locationData.locations[currentRound - 1];
     if (!loc) return;
@@ -210,9 +219,13 @@ export default function DailyChallengeScreen({
     setLatLongKey(k => k + 1);
   }, [phase, currentRound, locationData, setLatLong, setLatLongKey, setLoading]);
 
-  // Clean up home's StreetView when not actively in-game
+  // Clean up home's StreetView when not actively in-game. We deliberately do
+  // NOT clear it on 'results': the modal's blurred backdrop sits over the
+  // final round's StreetView, so the game-to-results transition is a smooth
+  // crossfade (results fades in over a blurred SV) instead of a snap to
+  // black. onExit / screen change clears the SV when leaving daily entirely.
   useEffect(() => {
-    if (phase === 'landing' || phase === 'confirming' || phase === 'results' || phase === 'submitting') {
+    if (phase === 'landing' || phase === 'confirming' || phase === 'submitting') {
       setLatLong(null);
     }
   }, [phase, setLatLong]);
@@ -236,6 +249,53 @@ export default function DailyChallengeScreen({
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [phase, disqualified]);
 
+  // Prefetch the submit + results-refresh while the user is still reading
+  // the final round's answer screen. By the time they hit "View Results", the
+  // network round-trip is usually already done, so we can flip straight to
+  // the results phase with no submitting interstitial.
+  // Gated on !disqualified: a DQ flip changes the payload, so we don't want
+  // to commit a stale (non-DQ) submit. The slow path in handleRoundsComplete
+  // still covers that case.
+  useEffect(() => {
+    if (phase !== 'game') return;
+    if (!singlePlayerRound) return;
+    if (!showAnswer) return;
+    const locs = singlePlayerRound.locations;
+    if (!locs || locs.length !== singlePlayerRound.totalRounds) return;
+    if (disqualified) return;
+    if (prefetchRef.current) return;
+
+    const rounds = locs.map(l => ({
+      score: Math.round(l.points ?? 0),
+      timeMs: typeof l.timeTaken === 'number' ? l.timeTaken * 1000 : null,
+      guessLat: typeof l.guessLat === 'number' ? l.guessLat : null,
+      guessLng: typeof l.guessLong === 'number' ? l.guessLong : null,
+      country: typeof l.country === 'string' ? l.country : null,
+    }));
+    const totalScore = rounds.reduce((s, r) => s + (r.score || 0), 0);
+    const totalTime = rounds.reduce((s, r) => s + (r.timeMs || 0), 0);
+
+    const entry = { promise: null, response: null, rounds, totalScore, atDisqualified: false };
+    entry.promise = submit({
+      rounds,
+      totalScore,
+      totalTime,
+      sessionToken: locationData?.sessionToken,
+      disqualified: false,
+    })
+      .then((response) => { entry.response = response; return response; })
+      .catch((err) => {
+        console.error('[daily prefetch submit]', err);
+        const fallback = { error: true, score: totalScore, disqualified: false };
+        entry.response = fallback;
+        return fallback;
+      });
+    prefetchRef.current = entry;
+    // Warm the leaderboard/distribution data too so the results screen has
+    // everything it needs the moment we transition into it.
+    fetchResults();
+  }, [phase, singlePlayerRound, showAnswer, disqualified, submit, locationData, fetchResults]);
+
   // gameUI.js calls this on its mount and after each round; with the derivation
   // effect above driving latLong, nothing for us to do here.
   const loadLocation = useCallback(() => {}, []);
@@ -255,6 +315,9 @@ export default function DailyChallengeScreen({
   }, [results]);
 
   const handleConfirmStart = useCallback(() => {
+    // Defensive reset — if this component instance somehow plays again, we
+    // don't want yesterday's prefetched submit shorting out today's results.
+    prefetchRef.current = null;
     // If the prefetch already landed, skip the 'loading' screen and jump
     // straight into the game to avoid a brief flicker.
     if (locationData?.locations?.length) {
@@ -273,8 +336,31 @@ export default function DailyChallengeScreen({
   }, [locationData]);
 
   const handleRoundsComplete = useCallback(async (completedLocations) => {
-    // Distance is derived on the server from the canonical daily locations;
-    // the client just reports the guess coords.
+    // Fast path: the background prefetch already submitted with the matching
+    // DQ state, and (usually) has the response in hand. Jump straight to the
+    // results screen so streak animations etc. play instantly.
+    const prefetch = prefetchRef.current;
+    if (prefetch && prefetch.atDisqualified === disqualified) {
+      setFinalRounds(prefetch.rounds);
+      if (prefetch.response) {
+        setSubmitResponse(prefetch.response);
+        setPhase('results');
+        fetchResults();
+        return;
+      }
+      // Rare: user clicked View Results before the prefetch resolved. Show
+      // the submitting overlay only for this short remaining window.
+      setPhase('submitting');
+      const response = await prefetch.promise;
+      setSubmitResponse(response);
+      setPhase('results');
+      fetchResults();
+      return;
+    }
+
+    // Slow path: DQ happened (so payload diverged from prefetch) or no
+    // prefetch exists. Distance is derived on the server from the canonical
+    // daily locations; the client just reports the guess coords.
     const rounds = (completedLocations || []).map(l => ({
       score: Math.round(l.points ?? 0),
       timeMs: typeof l.timeTaken === 'number' ? l.timeTaken * 1000 : null,
@@ -285,9 +371,6 @@ export default function DailyChallengeScreen({
     const totalScore = rounds.reduce((s, r) => s + (r.score || 0), 0);
     const totalTime = rounds.reduce((s, r) => s + (r.timeMs || 0), 0);
     setFinalRounds(rounds);
-    // Immediately swap to a dedicated 'submitting' phase so the user sees
-    // a clear loading state instead of a stale Street View while the
-    // submit + results round-trips happen.
     setPhase('submitting');
     try {
       const response = await submit({
@@ -302,10 +385,6 @@ export default function DailyChallengeScreen({
       console.error('[daily submit]', err);
       setSubmitResponse({ error: true, score: totalScore, disqualified });
     }
-    // Reveal the results screen as soon as submit returns — fetchResults
-    // (distribution + top10) runs in the background and the results card
-    // already gracefully handles the loadingResults state. This roughly
-    // halves the wait the user perceives between last round and modal.
     setPhase('results');
     fetchResults();
   }, [submit, locationData, fetchResults, disqualified]);
