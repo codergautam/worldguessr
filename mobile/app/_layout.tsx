@@ -17,6 +17,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { colors } from '../src/shared';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
+import { useSettingsStore } from '../src/store/settingsStore';
 import { useWebSocket } from '../src/hooks/useWebSocket';
 import { useDeepLinkInvite } from '../src/hooks/useDeepLinkInvite';
 import ToastProvider from '../src/components/multiplayer/ToastProvider';
@@ -46,6 +47,10 @@ export default function RootLayout() {
   });
 
   const [assetsLoaded, setAssetsLoaded] = useState(false);
+  // User preferences (units / map type / language / emotes). Gating the splash
+  // on this means the i18n table is primed before the first screen renders, so
+  // the (tabs) navigator mounts in the right language with no remount flash.
+  const settingsLoaded = useSettingsStore((s) => s.loaded);
 
   // Establish WebSocket connection (persists across all screens)
   useWebSocket();
@@ -57,10 +62,11 @@ export default function RootLayout() {
     Asset.loadAsync(imageAssets).then(() => setAssetsLoaded(true));
   }, []);
 
-  // Load auth session on app start
+  // Load auth session + user preferences on app start
   useEffect(() => {
     useAuthStore.getState().loadSession();
     useOnboardingStore.getState().loadFlag();
+    useSettingsStore.getState().loadSettings();
   }, []);
 
   // Initialize native services (ads, analytics)
@@ -70,12 +76,12 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (fontsLoaded && assetsLoaded) {
+    if (fontsLoaded && assetsLoaded && settingsLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, assetsLoaded]);
+  }, [fontsLoaded, assetsLoaded, settingsLoaded]);
 
-  if (!fontsLoaded || !assetsLoaded) {
+  if (!fontsLoaded || !assetsLoaded || !settingsLoaded) {
     return (
       <View style={[styles.container, styles.loading]}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -117,6 +123,7 @@ export default function RootLayout() {
             options={{ headerShown: false, animation: 'slide_from_bottom', animationDuration: 280 }}
           />
           <Stack.Screen name="user/[username]" options={{ headerShown: false }} />
+          <Stack.Screen name="settings" options={{ headerShown: false }} />
           <Stack.Screen
             name="onboarding/play"
             options={{ headerShown: false, gestureEnabled: false }}

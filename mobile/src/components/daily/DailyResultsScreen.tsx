@@ -8,16 +8,14 @@ import {
   Share,
   Platform,
   useWindowDimensions,
+  Animated as RNAnimated,
 } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withTiming,
-  withRepeat,
-  withSequence,
-  withSpring,
   Easing,
 } from 'react-native-reanimated';
+import { withTiming, withRepeat, withSequence } from './anims';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -27,6 +25,7 @@ import { t } from '../../shared/locale';
 import { formatCountdown, msUntilLocalMidnight, challengeNumber as computeChallengeNumber } from './dailyDate';
 import { quipKey } from './motivationalQuips';
 import Stars from './Stars';
+import Shine from './Shine';
 import RoundBadges from './RoundBadges';
 import ScoreDistributionChart from './ScoreDistributionChart';
 import StreakFlameBurst from './StreakFlameBurst';
@@ -55,17 +54,21 @@ interface Props {
   onClose: () => void;
 }
 
-function useAnimatedNumber(target: number, duration = 1200) {
+function useAnimatedNumber(target: number, duration = 1200): [number, boolean] {
   const [display, setDisplay] = useState(0);
+  const [animating, setAnimating] = useState(false);
   const rafRef = useRef<number | null>(null);
+  const settleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startRef = useRef<number | null>(null);
   const fromRef = useRef(0);
 
   useEffect(() => {
     if (typeof target !== 'number' || !Number.isFinite(target)) return;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (settleRef.current) clearTimeout(settleRef.current);
     startRef.current = null;
     fromRef.current = display;
+    setAnimating(true);
 
     const step = (t: number) => {
       if (!startRef.current) startRef.current = t;
@@ -74,15 +77,21 @@ function useAnimatedNumber(target: number, duration = 1200) {
       const eased = 1 - Math.pow(1 - progress, 3);
       const value = fromRef.current + (target - fromRef.current) * eased;
       setDisplay(value);
-      if (progress < 1) rafRef.current = requestAnimationFrame(step);
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        // Keep the glow for a beat after the count lands (web parity).
+        settleRef.current = setTimeout(() => setAnimating(false), 300);
+      }
     };
     rafRef.current = requestAnimationFrame(step);
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (settleRef.current) clearTimeout(settleRef.current);
     };
   }, [target]);
 
-  return display;
+  return [display, animating];
 }
 
 export default function DailyResultsScreen({
@@ -100,7 +109,7 @@ export default function DailyResultsScreen({
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const stackActions = width < 380;
-  const displayScore = useAnimatedNumber(totalScore);
+  const [displayScore, scoreAnimating] = useAnimatedNumber(totalScore);
 
   const rank = submitResponse?.rank ?? results?.user?.ownRank ?? null;
   const totalPlays = submitResponse?.totalPlays ?? results?.distribution?.totalPlays ?? 0;
@@ -110,7 +119,7 @@ export default function DailyResultsScreen({
       : typeof rank === 'number' && totalPlays > 1
       ? Math.round(Math.max(0, Math.min(100, ((totalPlays - rank) / (totalPlays - 1)) * 100)))
       : null;
-  const displayPercentile = useAnimatedNumber(percentile ?? 0);
+  const [displayPercentile] = useAnimatedNumber(percentile ?? 0);
 
   const [shareCopied, setShareCopied] = useState(false);
   const [countdown, setCountdown] = useState(() => msUntilLocalMidnight());
@@ -157,23 +166,21 @@ export default function DailyResultsScreen({
   // still-mounted final-round Street View (mirrors web's
   // dailyResultsBackdropFadeIn), so results appear smoothly instead of
   // snapping to black.
-  const backdropOpacity = useSharedValue(0);
+  // Core Animated (not Reanimated) so the entrance ALWAYS plays — Reanimated
+  // honours OS "Reduce Motion" and was snapping the modal in with no transition.
+  // Snappy (~160ms) to match the app's screen transitions.
+  const backdropOpacity = useRef(new RNAnimated.Value(0)).current;
+  const cardScale = useRef(new RNAnimated.Value(0.96)).current;
+  const cardOpacity = useRef(new RNAnimated.Value(0)).current;
   useEffect(() => {
-    backdropOpacity.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.ease) });
+    RNAnimated.parallel([
+      RNAnimated.timing(backdropOpacity, { toValue: 1, duration: 160, useNativeDriver: true }),
+      RNAnimated.timing(cardOpacity, { toValue: 1, duration: 160, useNativeDriver: true }),
+      RNAnimated.spring(cardScale, { toValue: 1, friction: 8, tension: 180, useNativeDriver: true }),
+    ]).start();
   }, []);
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }));
-
-  // Card entrance.
-  const cardScale = useSharedValue(0.96);
-  const cardOpacity = useSharedValue(0);
-  useEffect(() => {
-    cardOpacity.value = withTiming(1, { duration: 400 });
-    cardScale.value = withSpring(1, { damping: 14, stiffness: 110 });
-  }, []);
-  const cardStyle = useAnimatedStyle(() => ({
-    opacity: cardOpacity.value,
-    transform: [{ scale: cardScale.value }],
-  }));
+  const backdropStyle = { opacity: backdropOpacity };
+  const cardStyle = { opacity: cardOpacity, transform: [{ scale: cardScale }] };
 
   // Share button idle pulse.
   const sharePulse = useSharedValue(1);
@@ -226,7 +233,7 @@ export default function DailyResultsScreen({
   };
 
   return (
-    <Animated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents="auto">
+    <RNAnimated.View style={[StyleSheet.absoluteFill, backdropStyle]} pointerEvents="auto">
       <BlurView
         intensity={Platform.OS === 'android' ? 24 : 40}
         tint="dark"
@@ -238,7 +245,14 @@ export default function DailyResultsScreen({
       <View style={styles.tintScrim} pointerEvents="none" />
       {showFlame && <StreakFlameBurst streak={streak} onDone={() => setShowFlame(false)} />}
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
-        <Animated.View style={[styles.card, cardStyle]}>
+        <RNAnimated.View style={[styles.card, cardStyle]}>
+          <LinearGradient
+            colors={['rgba(36,87,52,0.20)', 'rgba(36,87,52,0)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
           <Pressable style={styles.closeBtn} onPress={onClose} hitSlop={12}>
             <Ionicons name="close" size={22} color="#fff" />
           </Pressable>
@@ -256,11 +270,18 @@ export default function DailyResultsScreen({
 
             {!disqualified && newPB && (
               <View style={styles.pbRibbon}>
+                <LinearGradient
+                  colors={['#ffd700', '#ffb300', '#ffd700']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <Shine duration={2500} intensity={0.7} />
                 <Text style={styles.pbRibbonText}>{t('newPersonalBest')}</Text>
               </View>
             )}
 
-            <Text style={styles.headerScore}>
+            <Text style={[styles.headerScore, scoreAnimating && styles.headerScoreGlow]}>
               {Math.round(displayScore).toLocaleString()}
               <Text style={styles.headerScoreMax}> / {TOTAL_MAX.toLocaleString()}</Text>
             </Text>
@@ -329,7 +350,8 @@ export default function DailyResultsScreen({
             >
               <Pressable onPress={handleShare} style={styles.shareBtn}>
                 <LinearGradient
-                  colors={shareCopied ? ['#347a37', '#1f4f25'] : ['#2ecc71', '#16864a']}
+                  colors={shareCopied ? ['#1f9d55', '#15703a'] : ['#2ecc71', '#1f9d55', '#16864a']}
+                  locations={shareCopied ? [0, 1] : [0, 0.55, 1]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.shareBtnInner}
@@ -337,6 +359,7 @@ export default function DailyResultsScreen({
                   <Ionicons name={shareCopied ? 'checkmark' : 'share-social'} size={18} color="#fff" />
                   <Text style={styles.shareBtnText}>{shareCopied ? t('shareCopied') : t('share')}</Text>
                 </LinearGradient>
+                {!shareCopied && <Shine duration={3400} intensity={0.4} />}
               </Pressable>
             </Animated.View>
             <Pressable onPress={onClose} style={[styles.backBtn, stackActions && styles.backBtnStacked]}>
@@ -354,9 +377,9 @@ export default function DailyResultsScreen({
           {loadingResults && (
             <Text style={styles.loadingDots}>…</Text>
           )}
-        </Animated.View>
+        </RNAnimated.View>
       </ScrollView>
-    </Animated.View>
+    </RNAnimated.View>
   );
 }
 
@@ -374,7 +397,7 @@ const styles = StyleSheet.create({
   // scrollable — centering a card taller than the viewport clips its top.
   scrollContent: { paddingHorizontal: 16 },
   card: {
-    backgroundColor: 'rgba(12,32,20,0.95)',
+    backgroundColor: 'rgba(8,20,13,0.90)',
     borderRadius: 20,
     padding: 22,
     borderWidth: 1,
@@ -382,6 +405,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 720,
     alignSelf: 'center',
+    overflow: 'hidden',
   },
   closeBtn: {
     position: 'absolute',
@@ -414,21 +438,34 @@ const styles = StyleSheet.create({
   },
   dqRibbonText: { color: '#ff7b7b', fontFamily: 'Lexend-SemiBold', fontSize: 12 },
   pbRibbon: {
-    backgroundColor: 'rgba(255,215,0,0.18)',
-    borderColor: 'rgba(255,215,0,0.4)',
-    borderWidth: 1,
-    paddingHorizontal: 10,
+    overflow: 'hidden',
+    paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 8,
     marginVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  pbRibbonText: { color: '#ffd700', fontFamily: 'Lexend-Bold', fontSize: 12 },
+  pbRibbonText: {
+    color: '#1a0a00',
+    fontFamily: 'Lexend-Bold',
+    fontSize: 12,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(255,255,255,0.4)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 0,
+  },
   headerScore: {
     color: dailyColors.green,
     fontFamily: 'JockeyOne',
     fontSize: 56,
     lineHeight: 60,
     marginTop: 4,
+  },
+  headerScoreGlow: {
+    textShadowColor: 'rgba(76,175,80,0.7)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 14,
   },
   headerScoreMax: {
     color: 'rgba(255,255,255,0.4)',

@@ -3,10 +3,9 @@ import { View, Text, Pressable, StyleSheet, Modal } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withTiming,
-  withSpring,
   Easing,
 } from 'react-native-reanimated';
+import { withTiming, withSpring } from './anims';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { t } from '../../shared/locale';
@@ -49,14 +48,17 @@ export default function DailyConfirmStartModal({ visible, onConfirm, onCancel }:
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <Pressable style={styles.overlay} onPress={onCancel}>
         <Animated.View style={[styles.card, cardStyle]}>
-          <Pressable onPress={() => {}}>
+          {/* Inner wrapper swallows taps so pressing the card doesn't close the
+              modal. It must fill the card width so the content + buttons center
+              (was shrink-wrapping → left-aligned buttons). */}
+          <Pressable onPress={() => {}} style={styles.inner}>
             <Animated.View style={[styles.iconWrap, iconStyle]}>
               <Ionicons name="calendar" size={32} color="#ffe27a" />
             </Animated.View>
             <Text style={styles.title}>{t('dailyChallenge')}</Text>
             <Text style={styles.tagline}>{t('confirmStartDaily')}</Text>
             <View style={styles.warning}>
-              <Ionicons name="warning" size={16} color={dailyColors.warningText} />
+              <Ionicons name="warning" size={16} color="#ffc107" style={styles.warningIcon} />
               <Text style={styles.warningText}>{t('confirmStartDailyWarning')}</Text>
             </View>
             <Pressable onPress={onConfirm} style={styles.primaryBtn}>
@@ -91,11 +93,17 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: 'rgba(12,32,20,0.95)',
     borderRadius: 22,
-    padding: 28,
+    paddingTop: 30,
+    paddingHorizontal: 26,
+    paddingBottom: 22,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     width: '100%',
-    maxWidth: 380,
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  inner: {
+    width: '100%',
     alignItems: 'center',
   },
   iconWrap: {
@@ -126,20 +134,23 @@ const styles = StyleSheet.create({
   },
   warning: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'flex-start',
+    alignSelf: 'stretch',
+    gap: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     backgroundColor: dailyColors.warningBg,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: dailyColors.warningBorder,
-    marginBottom: 18,
+    marginBottom: 22,
   },
+  warningIcon: { marginTop: 1 },
   warningText: {
     color: dailyColors.warningText,
     fontFamily: 'Lexend',
     fontSize: 12,
+    lineHeight: 17,
     flex: 1,
   },
   primaryBtn: { width: '100%', borderRadius: 12, overflow: 'hidden' },
@@ -147,10 +158,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
+    gap: 10,
+    paddingVertical: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(76,175,80,0.7)',
   },
-  primaryBtnText: { color: '#fff', fontFamily: 'Lexend-Bold', fontSize: 16 },
-  cancelBtn: { paddingVertical: 12, marginTop: 4 },
-  cancelBtnText: { color: 'rgba(255,255,255,0.6)', fontFamily: 'Lexend', fontSize: 14 },
+  primaryBtnText: { color: '#fff', fontFamily: 'Lexend-Bold', fontSize: 16, letterSpacing: 0.3 },
+  cancelBtn: { alignSelf: 'stretch', paddingVertical: 12, marginTop: 4 },
+  cancelBtnText: { color: 'rgba(255,255,255,0.6)', fontFamily: 'Lexend', fontSize: 14, textAlign: 'center' },
 });

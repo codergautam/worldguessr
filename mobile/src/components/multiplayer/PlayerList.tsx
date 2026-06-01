@@ -73,15 +73,16 @@ export default function PlayerList({
             </View>
             {shouldShowScores && (
               <View style={styles.playerRight}>
-                {player.elo !== undefined && player.elo > 0 && (
-                  <Text style={[styles.eloText, dense && styles.eloTextBetween]}>{player.elo}</Text>
+                {/* Web in-round leaderboard shows the total score only — no ELO,
+                    no per-round delta (those clutter; keep them for end-game). */}
+                {!dense && player.elo !== undefined && player.elo > 0 && (
+                  <Text style={styles.eloText}>{player.elo}</Text>
                 )}
                 <Text style={[styles.scoreText, dense && styles.scoreTextBetween]}>{(player.score ?? 0).toLocaleString()}</Text>
-                {roundDeltas && (
+                {!dense && roundDeltas && (
                   <Text
                     style={[
                       styles.deltaText,
-                      dense && styles.deltaTextBetween,
                       roundDelta > 0 && styles.deltaTextPositive,
                     ]}
                   >
@@ -182,7 +183,6 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontFamily: 'Lexend',
   },
-  eloTextBetween: { color: 'rgba(0, 0, 0, 0.4)' },
   scoreText: {
     color: colors.white,
     fontSize: fontSizes.sm,
@@ -198,7 +198,6 @@ const styles = StyleSheet.create({
     minWidth: 38,
     textAlign: 'right',
   },
-  deltaTextBetween: { color: 'rgba(0, 0, 0, 0.4)' },
   deltaTextPositive: {
     color: colors.success,
   },

@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+node_modules/
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -61,3 +62,9 @@ mobile/android/
 
 android/*
 ios/*
+
+# iOS crash / diagnostic logs
+ios-crashes/
+
+# generated build artifacts
+mobile/src/generated/

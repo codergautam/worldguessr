@@ -1,0 +1,21 @@
+{
+  "about": "About",
+  "adDismissed": "Ad was dismissed",
+  "emoteReactions": "Emote reactions",
+  "emoteReactionsDesc": "Show emoji reactions from other players during multiplayer games.",
+  "termsAndPrivacy": "Terms & Privacy",
+  "confirmStartDailyWarning": "Don't leave the app or background the game. Leaving disqualifies your run.",
+  "dailyAlreadyDisqualifiedDesc": "Today's run was disqualified because you backgrounded the app during the game. You can try again with tomorrow's challenge.",
+  "dailyDisqualifiedDesc": "You left the app during the challenge. Keep playing - you'll still see your score and how you compare, but this run can't be added to the leaderboard or your streak.",
+  "dailyDisqualifiedRibbon": "⚠️ This run was disqualified - app backgrounded during the game",
+  "disableVideoAds": "Disable Video Ads",
+  "enjoyGameplay": "Enjoy 30 minutes of uninterrupted gameplay after this ad break",
+  "restoreYourStreak": "Restore your {{streak}} country streak?",
+  "streakExtendedBig": "STREAK EXTENDED",
+  "streakRestored": "Your streak has been restored!",
+  "streakStarted": "You have a 1 day login streak! Log in daily to grow your streak!",
+  "streakStartedBig": "STREAK STARTED",
+  "videoAdThanks": "Thanks for helping us keep WorldGuessr free by watching video ads!",
+  "watchAd": "Watch Ad",
+  "watchAnAdToRestore": "Watch a short ad to restore your streak."
+}

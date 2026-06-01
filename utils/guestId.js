@@ -1,5 +1,5 @@
 import gameStorage from '../components/utils/localStorage.js';
-import { generateUuid, GUEST_ID_STORAGE_KEY as KEY } from '@/shared/daily/ids';
+import { generateUuid, GUEST_ID_STORAGE_KEY as KEY } from '../shared/daily/ids.js';
 
 export function getGuestId() {
   if (typeof window === 'undefined') return null;

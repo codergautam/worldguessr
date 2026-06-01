@@ -106,7 +106,7 @@ export default function ScoreDistributionChart({ buckets = [], userScore }: Prop
         )}
       </Svg>
       {userX !== null && typeof userScore === 'number' && (
-        <Text style={styles.userLabel}>
+        <Text style={[styles.userLabel, { left: `${(userX / WIDTH) * 100}%` }]} numberOfLines={1}>
           {t('yourScore')}: {Math.round(userScore).toLocaleString()}
         </Text>
       )}
@@ -121,12 +121,16 @@ export default function ScoreDistributionChart({ buckets = [], userScore }: Prop
 const styles = StyleSheet.create({
   wrap: { width: '100%' },
   svg: { width: '100%', height: 180 },
+  // Positioned under the user's marker (matches web), not centered.
   userLabel: {
+    position: 'absolute',
+    top: 0,
+    width: 130,
+    marginLeft: -65,
     color: '#ffd700',
     fontFamily: 'Lexend-SemiBold',
-    fontSize: 12,
+    fontSize: 11,
     textAlign: 'center',
-    marginTop: 4,
   },
   axis: {
     flexDirection: 'row',

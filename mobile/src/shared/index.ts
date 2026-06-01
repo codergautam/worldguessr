@@ -13,6 +13,9 @@ export * from './theme';
 // i18n helper
 export * from './locale';
 
+// Distance units (metric / imperial)
+export * from './units';
+
 // Types
 export * from './types';
 

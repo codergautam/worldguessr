@@ -8,6 +8,14 @@ export const WS_URL = process.env.EXPO_PUBLIC_WS_URL || (__DEV__ ? `ws://${DEV_S
 // Public website (used for shareable party invite links — mirrors web NEXT_PUBLIC_DOMAIN).
 export const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || 'https://worldguessr.com';
 
+// Base URL for the chrome-less /embed/* Leaflet map pages loaded in the map
+// WebView. In dev these are served by your local `next dev` (default :3000 on
+// the dev host). Override with EXPO_PUBLIC_EMBED_URL if your web port differs.
+// Once the embed pages are deployed, prod uses worldguessr.com.
+export const EMBED_BASE_URL =
+  process.env.EXPO_PUBLIC_EMBED_URL ||
+  (__DEV__ ? `http://${DEV_SERVER_HOST}:3000` : 'https://worldguessr.com');
+
 // Game Configuration
 export const DEFAULT_ROUNDS = 5;
 export const DEFAULT_TIME_PER_ROUND = 30; // seconds

@@ -52,8 +52,7 @@ export function useWebSocket() {
         inGame: false,
         gameData: null,
         gameQueued: false,
-        chatEnabled: false,
-        chatMessages: [],
+        emotes: [],
       });
 
       // If was in a multiplayer game/lobby, navigate home and show toast

@@ -1,16 +1,15 @@
-import { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withDelay,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import { useEffect, useRef } from 'react';
+import { View, Image, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { dailyColors } from './styles';
 
+// Uses React Native's CORE Animated (not Reanimated) on purpose: it ignores the
+// OS "Reduce Motion" setting, so the star pop ALWAYS plays — matching web and
+// the in-game animations, which the user confirmed work with Reduce Motion on.
+
 const TOTAL_MAX = 15000;
+const ENTER_DELAY = 220; // let the modal settle, THEN pop the stars in (so it's seen)
+const STAGGER = 180;
 
 type Tier = 'bronze' | 'silver' | 'gold' | 'platinum';
 
@@ -24,29 +23,56 @@ function starsFromPercent(percent: number): Tier[] {
 }
 
 const COLORS: Record<Tier, string> = {
-  bronze: dailyColors.bronze,
-  silver: dailyColors.silver,
-  gold: dailyColors.gold,
+  bronze: dailyColors.bronze, // #b6b2b2
+  silver: dailyColors.silver, // #CD7F32
+  gold: dailyColors.gold, // 'gold'
   platinum: '#b9f2ff',
 };
 
+// Per-tier glow — mirrors web's drop-shadow on .daily-header-star. Tight so the
+// stars read crisp, not fuzzy.
+const GLOW: Record<Tier, { color: string; radius: number } | null> = {
+  bronze: null,
+  silver: { color: 'rgba(205,127,50,0.5)', radius: 4 },
+  gold: { color: 'rgba(255,215,0,0.6)', radius: 5 },
+  platinum: { color: 'rgba(185,242,255,0.7)', radius: 6 },
+};
+
+const STAR_SIZE = 30; // web 1.8rem
+
 function StarItem({ tier, delay }: { tier: Tier; delay: number }) {
-  const scale = useSharedValue(0);
-  const opacity = useSharedValue(0);
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    scale.value = withDelay(delay, withSpring(1, { damping: 8, stiffness: 110 }));
-    opacity.value = withDelay(delay, withTiming(1, { duration: 400 }));
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, delay, friction: 5, tension: 130, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, delay, duration: 180, useNativeDriver: true }),
+    ]).start();
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  const glow = GLOW[tier];
 
   return (
-    <Animated.View style={[styles.star, animatedStyle]}>
-      <Ionicons name="star" size={32} color={COLORS[tier]} />
+    <Animated.View style={[styles.star, { opacity, transform: [{ scale }] }]}>
+      {tier === 'platinum' ? (
+        <Image
+          source={require('../../../assets/platinum_star.png')}
+          style={styles.platImg}
+          resizeMode="contain"
+        />
+      ) : (
+        <Ionicons
+          name="star"
+          size={STAR_SIZE}
+          color={COLORS[tier]}
+          style={
+            glow
+              ? { textShadowColor: glow.color, textShadowRadius: glow.radius, textShadowOffset: { width: 0, height: 0 } }
+              : undefined
+          }
+        />
+      )}
     </Animated.View>
   );
 }
@@ -57,7 +83,7 @@ export default function Stars({ score }: { score: number }) {
   return (
     <View style={styles.row}>
       {tiers.map((tier, i) => (
-        <StarItem key={i} tier={tier} delay={i * 500} />
+        <StarItem key={`${tier}-${i}`} tier={tier} delay={ENTER_DELAY + i * STAGGER} />
       ))}
     </View>
   );
@@ -72,5 +98,13 @@ const styles = StyleSheet.create({
   },
   star: {
     padding: 2,
+  },
+  platImg: {
+    width: STAR_SIZE,
+    height: STAR_SIZE,
+    shadowColor: '#b9f2ff',
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
 });

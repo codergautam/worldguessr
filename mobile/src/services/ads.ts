@@ -79,3 +79,47 @@ export function showInterstitial(): boolean {
     return false;
   }
 }
+
+// ── Frequency-capped game interstitials ──────────────────────────────────────
+// Policy (intentionally minimal & non-intrusive):
+//  • NEVER on first app load — the app-open timestamp seeds `lastInterstitialAt`,
+//    so the first eligible ad can only fire 5 minutes into the session.
+//  • Only shown when *opening* or *replaying* singleplayer / ranked duel /
+//    unranked duel (NOT parties, daily challenge, or community maps).
+//  • At most one interstitial per AD_INTERVAL_MS (5 min), measured from the last
+//    ad shown — or from app open if none has been shown yet.
+const AD_INTERVAL_MS = 5 * 60 * 1000;
+
+// Seeded to app-open time: guarantees no ad within the first 5 minutes.
+let lastInterstitialAt = Date.now();
+
+/** Game modes that are eligible for interstitials. */
+export type AdGameContext = 'singleplayer' | 'rankedDuel' | 'unrankedDuel';
+
+const AD_ELIGIBLE_CONTEXTS: ReadonlySet<AdGameContext> = new Set([
+  'singleplayer',
+  'rankedDuel',
+  'unrankedDuel',
+]);
+
+/**
+ * Show an interstitial when opening / replaying an eligible game, subject to the
+ * 5-minute frequency cap. Safe to call on every game start — gating is internal.
+ * Returns true only if an ad was actually displayed.
+ */
+export function maybeShowGameInterstitial(context: AdGameContext): boolean {
+  if (!AD_ELIGIBLE_CONTEXTS.has(context)) return false;
+
+  const now = Date.now();
+  if (now - lastInterstitialAt < AD_INTERVAL_MS) {
+    // Within cap window — keep one warm for the next eligible moment.
+    preloadInterstitial();
+    return false;
+  }
+
+  const shown = showInterstitial();
+  if (shown) {
+    lastInterstitialAt = now;
+  }
+  return shown;
+}

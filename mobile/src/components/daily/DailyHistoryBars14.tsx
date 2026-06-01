@@ -1,5 +1,11 @@
-import { useMemo, useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { View, Text, Pressable, StyleSheet, type ViewStyle } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  Easing,
+} from 'react-native-reanimated';
+import { withRepeat, withTiming } from './anims';
 import { LinearGradient } from 'expo-linear-gradient';
 import { t } from '../../shared/locale';
 import { dailyColors } from './styles';
@@ -7,6 +13,47 @@ import { dailyColors } from './styles';
 const MAX_SCORE = 15000;
 
 type Tier = 'low' | 'mid' | 'high' | 'gold' | 'platinum';
+
+// Colored glow for the premium tiers (iOS shadow; harmless on Android).
+const TIER_GLOW: Partial<Record<Tier, ViewStyle>> = {
+  gold: { shadowColor: '#ffc850', shadowOpacity: 0.6, shadowRadius: 6, shadowOffset: { width: 0, height: 0 } },
+  platinum: { shadowColor: '#b9f2ff', shadowOpacity: 0.75, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
+};
+
+function HistoryBar({
+  heightPct,
+  colors,
+  tier,
+  isToday,
+  played,
+  unplayed,
+}: {
+  heightPct: number;
+  colors: [string, string];
+  tier: Tier | null;
+  isToday: boolean;
+  played: boolean;
+  unplayed: boolean;
+}) {
+  // Today's played bar "breathes" (web dailyHistoryTodayPulse, 2s loop).
+  const pulse = useSharedValue(1);
+  useEffect(() => {
+    if (isToday && played) {
+      pulse.value = withRepeat(withTiming(0.82, { duration: 1100, easing: Easing.inOut(Easing.ease) }), -1, true);
+    }
+  }, [isToday, played]);
+  const animStyle = useAnimatedStyle(() => ({ opacity: isToday && played ? pulse.value : 1 }));
+
+  if (unplayed) {
+    return <View style={[styles.bar, styles.barTodayUnplayed, { height: `${heightPct}%` }]} />;
+  }
+  const glow = tier ? TIER_GLOW[tier] : undefined;
+  return (
+    <Animated.View style={[styles.barWrap, { height: `${heightPct}%` }, animStyle]}>
+      <LinearGradient colors={colors} style={[styles.bar, styles.barFill, glow]} />
+    </Animated.View>
+  );
+}
 
 function tierForScore(score: number): Tier {
   const pct = score / MAX_SCORE;
@@ -101,14 +148,13 @@ export default function DailyHistoryBars14({ history = [], today }: Props) {
               onPress={() => setHoveredIdx(i === hoveredIdx ? null : i)}
             >
               <View style={styles.barColInner}>
-                <LinearGradient
+                <HistoryBar
+                  heightPct={h}
                   colors={tierColors}
-                  style={[
-                    styles.bar,
-                    { height: `${h}%` },
-                    b.isToday && b.played && styles.barTodayGlow,
-                    b.isToday && !b.played && styles.barTodayUnplayed,
-                  ]}
+                  tier={b.tier}
+                  isToday={b.isToday}
+                  played={b.played}
+                  unplayed={b.isToday && !b.played}
                 />
               </View>
             </Pressable>
@@ -157,13 +203,10 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 4,
   },
-  barTodayGlow: {
-    shadowColor: '#fff',
-    shadowOpacity: 0.7,
-    shadowRadius: 6,
-    elevation: 6,
-  },
+  barWrap: { width: '100%' },
+  barFill: { flex: 1, borderRadius: 4 },
   barTodayUnplayed: {
+    height: '100%',
     borderWidth: 2,
     borderColor: dailyColors.gold,
     borderStyle: 'dashed',

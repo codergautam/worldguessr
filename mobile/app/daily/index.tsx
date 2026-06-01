@@ -12,15 +12,21 @@ import SubmittingOverlay from '../../src/components/daily/SubmittingOverlay';
 import DailyBackground from '../../src/components/daily/DailyBackground';
 import GameSurface, { type GameSurfaceHandle } from '../../src/components/game/GameSurface';
 import GameTimer from '../../src/components/game/GameTimer';
+import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
 import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
 import calcPoints from '../../src/shared/game/calcPoints';
 import { findDistance } from '../../src/shared/game/calcPoints';
+import { preloadBorders } from '../../src/shared/game/findCountry';
+import { hintCircle } from '@shared/game/hint';
 import { dailyColors } from '../../src/components/daily/styles';
 
 type Phase = 'landing' | 'confirming' | 'loading' | 'game' | 'submitting' | 'results';
 
 const DAILY_MAX_DIST = 20000;
 const TIME_PER_ROUND = 60;
+// Cap the hint circle so react-native-maps renders it (web's ~5870km is too
+// large for a Mercator circle). 2500km is still a broad, region-level hint.
+const HINT_MAX_RADIUS_M = 2_500_000;
 const COLD_MOUNT_GUARD_MS = 1500;
 
 interface RoundResult {
@@ -87,14 +93,29 @@ export default function DailyScreen() {
   const [showDqModal, setShowDqModal] = useState(false);
   const [submitResponse, setSubmitResponse] = useState<any>(null);
   const [finalRounds, setFinalRounds] = useState<RoundResult[]>([]);
+  // Show Street View ↔ Map toggle on the round-end banner (web parity).
+  const [showPano, setShowPano] = useState(false);
+  // Hint: 2 per game; using one halves that round's points (web parity).
+  const [hintShown, setHintShown] = useState(false);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  // Confetti on a near-perfect round (web fires at >= 4850).
+  const [confettiKey, setConfettiKey] = useState(0);
+
+  const handleHint = useCallback(() => {
+    if (hintShown || hintsUsed >= 2) return;
+    setHintShown(true);
+    setHintsUsed((n) => n + 1);
+  }, [hintShown, hintsUsed]);
 
   const roundStartedAtRef = useRef<number>(Date.now());
   const gameSurfaceRef = useRef<GameSurfaceHandle>(null);
   const prefetchRef = useRef<PrefetchEntry | null>(null);
 
-  // Fetch user results on mount (drives landing UI).
+  // Fetch user results on mount (drives landing UI); warm the borders cache so
+  // the post-guess "It was {country}!" reveal is instant.
   useEffect(() => {
     fetchResults();
+    preloadBorders();
   }, []);
 
   // Prefetch locations once we enter confirming/loading, mirroring web.
@@ -120,6 +141,8 @@ export default function DailyScreen() {
       setPinPoint(null);
       setShowAnswer(false);
       setRoundResults([]);
+      setHintShown(false);
+      setHintsUsed(0);
       roundStartedAtRef.current = Date.now();
       setPhase('game');
     }
@@ -180,6 +203,8 @@ export default function DailyScreen() {
       setPinPoint(null);
       setShowAnswer(false);
       setRoundResults([]);
+      setHintShown(false);
+      setHintsUsed(0);
       roundStartedAtRef.current = Date.now();
       setPhase('game');
     } else {
@@ -201,6 +226,7 @@ export default function DailyScreen() {
           guessLat: guess.lat,
           guessLon: guess.lng,
           maxDist: DAILY_MAX_DIST,
+          usedHint: hintShown,
         });
       }
       const rr: RoundResult = {
@@ -213,8 +239,10 @@ export default function DailyScreen() {
       };
       setRoundResults((prev) => [...prev, rr]);
       setShowAnswer(true);
+      setShowPano(false); // each result starts on the map (web default)
+      if (score >= 4850) setConfettiKey((k) => k + 1);
     },
-    [currentLocation],
+    [currentLocation, hintShown],
   );
 
   const handleSubmitPin = useCallback(() => {
@@ -323,6 +351,8 @@ export default function DailyScreen() {
       setCurrentRound(nextRound);
       setPinPoint(null);
       setShowAnswer(false);
+      setShowPano(false);
+      setHintShown(false); // hint is per-round; the 2/game count persists
       roundStartedAtRef.current = Date.now();
     });
   }, [currentRound, totalRounds, roundResults, submit, locationData, disqualified, fetchResults]);
@@ -395,6 +425,10 @@ export default function DailyScreen() {
   // a smooth blurred crossfade instead of a snap to black (mirrors web keeping
   // the StreetView mounted on phase === 'results').
   const isResultsLike = phase === 'results' || phase === 'submitting';
+  const hintCircleData =
+    hintShown && currentLocation
+      ? hintCircle({ lat: currentLocation.lat, long: currentLocation.long }, DAILY_MAX_DIST, currentRound, HINT_MAX_RADIUS_M)
+      : null;
   const currentRoundScore = roundResults[currentRound - 1]?.score ?? 0;
   const currentDistance = roundResults[currentRound - 1]?.distance ?? null;
   const isFinal = currentRound >= totalRounds;
@@ -433,6 +467,13 @@ export default function DailyScreen() {
         variant="pin"
         roundKey={currentRound}
         isShowingResult={showAnswer || isResultsLike}
+        showPanoOnResult={showPano}
+        onHint={phase === 'game' ? handleHint : undefined}
+        hintShown={hintShown}
+        hintDisabled={hintsUsed >= 2}
+        hintCircleData={hintCircleData}
+        maxDist={DAILY_MAX_DIST}
+        round={currentRound}
         guessPosition={pinPoint}
         onGuessPositionChange={isResultsLike ? undefined : setPinPoint}
         onSubmitPin={handleSubmitPin}
@@ -453,11 +494,14 @@ export default function DailyScreen() {
         endBannerContent={
           phase === 'game' ? (
             <ClassicEndBanner
-              round={currentRound}
-              totalRounds={totalRounds}
               points={currentRoundScore}
               distance={currentDistance ?? undefined}
               didGuess={!!roundResults[currentRound - 1]?.guessLat}
+              answerCountry={currentLocation?.country ?? null}
+              guessLat={roundResults[currentRound - 1]?.guessLat ?? null}
+              guessLng={roundResults[currentRound - 1]?.guessLng ?? null}
+              panoShown={showPano}
+              onTogglePano={() => setShowPano((v) => !v)}
               onNext={advance}
               isFinal={isFinal}
             />
@@ -487,6 +531,8 @@ export default function DailyScreen() {
           />
         </View>
       )}
+
+      {confettiKey > 0 && <ConfettiBurst trigger={confettiKey} />}
     </View>
   );
 }

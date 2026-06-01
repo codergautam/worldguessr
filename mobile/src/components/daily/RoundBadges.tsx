@@ -1,14 +1,10 @@
-import { useEffect } from 'react';
-import { View, Text, StyleSheet, Linking, Pressable } from 'react-native';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withDelay,
-  withSpring,
-  withTiming,
-} from 'react-native-reanimated';
+import { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Linking, Pressable, Animated } from 'react-native';
 import { t } from '../../shared/locale';
 import { dailyColors } from './styles';
+
+// Core Animated (not Reanimated) so the pop plays even with OS Reduce Motion on.
+const ENTER_DELAY = 240;
 
 interface Round {
   score: number;
@@ -47,19 +43,18 @@ function Badge({
   const perfect = score >= 4850;
   const color = barColor(score);
 
-  const scale = useSharedValue(0);
-  const opacity = useSharedValue(0);
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const delay = index * 100;
-    scale.value = withDelay(delay, withSpring(1, { damping: 10, stiffness: 180 }));
-    opacity.value = withDelay(delay, withTiming(1, { duration: 300 }));
+    const delay = ENTER_DELAY + index * 90;
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, delay, friction: 6, tension: 150, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, delay, duration: 200, useNativeDriver: true }),
+    ]).start();
   }, []);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: opacity.value,
-  }));
+  const animatedStyle = { transform: [{ scale }], opacity };
 
   let diffLabel: string | null = null;
   if (avg !== null && avg > 0 && score > 0) {
@@ -76,7 +71,7 @@ function Badge({
 
   const content = (
     <>
-      <Text style={styles.num}>#{index + 1}</Text>
+      <Text style={styles.num}>{t('roundNumber', { round: `#${index + 1}` })}</Text>
       <Text style={styles.score}>{Math.round(score).toLocaleString()}</Text>
       {diffLabel && <Text style={styles.diff}>{diffLabel}</Text>}
       {perfect && <Text style={styles.star}>★</Text>}

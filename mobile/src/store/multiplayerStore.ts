@@ -12,6 +12,11 @@
 import { create } from 'zustand';
 import { wsService } from '../services/websocket';
 import { useAuthStore } from './authStore';
+import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../shared/emotes';
+
+// Module-level emote send throttle + id counter (mirrors web emoteReactions.js).
+let lastEmoteSend = 0;
+let nextEmoteId = 1;
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -92,11 +97,13 @@ export interface GameData {
   map?: string;
 }
 
-export interface ChatMessage {
-  id: string;
+/** A floating in-game emote reaction (replaces chat). */
+export interface EmoteReaction {
+  id: number;
+  emote: string; // the glyph (from EMOTES)
   name: string;
-  message: string;
-  timestamp: number;
+  countryCode: string | null;
+  isSelf: boolean;
 }
 
 /** Notification queued when an opponent sends us a friend request. */
@@ -174,9 +181,8 @@ interface MultiplayerState {
   inGame: boolean;
   gameData: GameData | null;
 
-  // Chat
-  chatMessages: ChatMessage[];
-  chatEnabled: boolean;
+  // In-game emote reactions (replaces chat)
+  emotes: EmoteReaction[];
 
   // Friends / invites
   friendRequests: FriendRequest[];
@@ -201,7 +207,8 @@ interface MultiplayerState {
   handleMessage: (data: any) => void;
   setGameQueued: (type: false | 'publicDuel' | 'unrankedDuel') => void;
   setEnteringGameCode: (value: boolean) => void;
-  addChatMessage: (msg: ChatMessage) => void;
+  sendEmote: (index: number) => void;
+  clearEmote: (id: number) => void;
   clearGameInvite: (code: string) => void;
   clearFriendRequest: (id: string) => void;
   clearFriendReqState: () => void;
@@ -236,8 +243,7 @@ const initialState = {
   joinError: null as string | null,
   inGame: false,
   gameData: null as GameData | null,
-  chatMessages: [] as ChatMessage[],
-  chatEnabled: false,
+  emotes: [] as EmoteReaction[],
   friendRequests: [] as FriendRequest[],
   gameInvites: [] as GameInvite[],
   friends: [] as Friend[],
@@ -259,10 +265,16 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
   setEnteringGameCode: (value) => set({ enteringGameCode: value }),
 
-  addChatMessage: (msg) =>
-    set((s) => ({
-      chatMessages: [...s.chatMessages.slice(-99), msg],
-    })),
+  // Send an emote reaction (client-side throttle; server also enforces 1.5s).
+  sendEmote: (index) => {
+    if (index < 0 || index >= EMOTES.length) return;
+    const now = Date.now();
+    if (now - lastEmoteSend < EMOTE_COOLDOWN_MS) return;
+    lastEmoteSend = now;
+    wsService.send({ type: 'emote', emote: index });
+  },
+
+  clearEmote: (id) => set((s) => ({ emotes: s.emotes.filter((e) => e.id !== id) })),
 
   clearGameInvite: (code) =>
     set((s) => ({
@@ -410,9 +422,6 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     if (data.type === 'game') {
       const prevGameData = state.gameData;
 
-      // Enable chat for non-duel games
-      const chatEnabled = !data.duel;
-
       // When a private game is reset back to the lobby (server resetGame), it
       // clears locations/roundHistory/duelEnd. Force-drop any stale values from
       // the previous game on this transition so the shallow merge below can't
@@ -421,18 +430,35 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       const enteringWaiting =
         data.state === 'waiting' && !!prevGameData && prevGameData.state !== 'waiting';
 
+      // Map each player's guess to `latLong`, exactly like web (it reads
+      // `player.guess`). The server keeps `player.guess` populated through the
+      // between-rounds 'getready' state — saveRoundToHistory() does NOT clear it;
+      // clearGuesses() only runs when the NEXT round's guess phase starts — and
+      // includes it in every `game` message. Mobile previously read `latLong`
+      // (set only by `place` broadcasts and then overwritten by this merge),
+      // which is why the answer reveal showed no guess pins until a reconnect.
+      const incomingPlayers: MPPlayer[] = data.players ?? prevGameData?.players ?? [];
+      const mergedPlayers: MPPlayer[] = incomingPlayers.map((p) => {
+        const guess = (p as { guess?: unknown }).guess;
+        return {
+          ...p,
+          latLong: Array.isArray(guess) ? (guess as [number, number]) : null,
+          final: !!p.final,
+        };
+      });
+
       console.log('[Store] game message received — state:', data.state, 'code:', data.code, 'host:', data.host, 'players:', data.players?.length);
       set({
         gameQueued: false,
         inGame: true,
         enteringGameCode: false,
         joinError: null,
-        chatEnabled,
         gameData: {
           ...(prevGameData ?? {}),
           ...data,
           type: undefined, // Remove the message type field
           ...(enteringWaiting ? { locations: [], roundHistory: [], duelEnd: undefined } : {}),
+          players: mergedPlayers,
         } as GameData,
       });
       return;
@@ -610,19 +636,26 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       return;
     }
 
-    // ── chat ──────────────────────────────────────────────
-    if (data.type === 'chat') {
-      set({
-        chatMessages: [
-          ...state.chatMessages.slice(-99),
+    // ── emote — in-game reaction broadcast (ws.js:770; replaces chat) ──
+    if (data.type === 'emote') {
+      if (!Number.isInteger(data.emote) || data.emote < 0 || data.emote >= EMOTES.length) return;
+      const id = nextEmoteId++;
+      set((s) => ({
+        emotes: [
+          ...s.emotes,
           {
-            id: data.id,
-            name: data.name,
-            message: data.message,
-            timestamp: Date.now(),
+            id,
+            emote: EMOTES[data.emote],
+            name: data.name || '',
+            countryCode: data.countryCode || null,
+            isSelf: data.id === state.gameData?.myId,
           },
         ],
-      });
+      }));
+      // Auto-expire so the component stays a pure renderer (no per-item timers).
+      setTimeout(() => {
+        set((s) => ({ emotes: s.emotes.filter((e) => e.id !== id) }));
+      }, EMOTE_TTL_MS);
       return;
     }
 

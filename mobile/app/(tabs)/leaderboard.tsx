@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../src/shared';
 import { api } from '../../src/services/api';
 import CountryFlag from '../../src/components/CountryFlag';
+import { useAuthStore } from '../../src/store/authStore';
 
 interface LeaderboardEntry {
   rank: number;
@@ -54,8 +55,9 @@ export default function LeaderboardScreen() {
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // TODO: Replace with real session when auth is implemented
-  const session = null as { username: string } | null;
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const session = isAuthenticated && user?.username ? { username: user.username } : null;
 
   const fetchLeaderboard = useCallback(async () => {
     setError(false);
@@ -78,7 +80,7 @@ export default function LeaderboardScreen() {
   useEffect(() => {
     setLoading(true);
     fetchLeaderboard();
-  }, [mode, timePeriod]);
+  }, [mode, timePeriod, session?.username]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);

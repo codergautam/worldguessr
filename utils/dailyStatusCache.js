@@ -1,7 +1,7 @@
 // Tiny localStorage shim for instant rendering of daily-challenge UI state.
 // We seed React state from this on mount and overwrite it when the real
 // /api/dailyChallenge/results response lands.
-import { DAILY_CACHE_TTL_MS as TTL_MS } from '@/shared/daily/constants';
+import { DAILY_CACHE_TTL_MS as TTL_MS } from '../shared/daily/constants.js';
 
 const KEY_PREFIX = 'wg_daily_status_';
 const TOP10_KEY_PREFIX = 'wg_daily_top10_';

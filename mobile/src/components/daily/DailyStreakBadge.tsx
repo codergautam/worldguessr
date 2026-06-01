@@ -3,12 +3,10 @@ import { Text, View, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withRepeat,
-  withSequence,
-  withTiming,
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
+import { withRepeat, withSequence, withTiming } from './anims';
 import { LinearGradient } from 'expo-linear-gradient';
 import { t } from '../../shared/locale';
 import { dailyColors, dailyTimings } from './styles';
@@ -64,15 +62,18 @@ export default function DailyStreakBadge({ streak, variant = 'default', size = '
   if (!streak || streak <= 0) return null;
 
   const diamond = streak >= 30;
-  const colors: [string, string, string] =
+  // Gradient stops mirror web .daily-streak-pill variants exactly.
+  const colors: readonly [string, string, ...string[]] =
     variant === 'done'
-      ? ['#5cba60', '#3da041', '#2a7a30']
+      ? ['#8be0a0', '#3ea35a']
       : variant === 'at-risk'
-      ? [dailyColors.streakRed, '#a02030', '#7a1820']
+      ? ['#ff8a4c', '#dc3545']
       : diamond
-      ? [dailyColors.diamondLight, dailyColors.diamondDark, '#3aa4b8']
+      ? ['#e4f9ff', '#b9f2ff', '#5ed0e6']
       : [dailyColors.streakOrangeLight, dailyColors.streakOrange, dailyColors.streakOrangeDark];
 
+  const textColor =
+    variant === 'at-risk' ? '#fff' : variant === 'done' ? '#072814' : diamond ? '#083644' : '#1a0a00';
   const fontSize = size === 'lg' ? 16 : 13;
 
   return (
@@ -86,7 +87,7 @@ export default function DailyStreakBadge({ streak, variant = 'default', size = '
         <Text style={[styles.icon, { fontSize: fontSize + 2 }]} accessibilityElementsHidden>
           {variant === 'done' ? '✓' : '🔥'}
         </Text>
-        <Text style={[styles.label, { fontSize, color: diamond || variant === 'at-risk' ? '#fff' : '#1a0a00' }]}>
+        <Text style={[styles.label, { fontSize, color: textColor }]}>
           {streak === 1 ? t('streakOne') : t('streakDays', { count: streak })}
         </Text>
       </LinearGradient>

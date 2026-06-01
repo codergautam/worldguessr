@@ -22,9 +22,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../shared';
+import { t } from '../../shared/locale';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import StreetViewWebView from './StreetViewWebView';
-import GuessMap from './GuessMap';
+import EmbeddedMap from './EmbeddedMap';
+import { useSettingsStore } from '../../store/settingsStore';
 import CountryButtons from './CountryButtons';
 import GameLoadingOverlay from './GameLoadingOverlay';
 
@@ -120,6 +122,18 @@ interface GameSurfaceProps {
    * peeking through the dim backdrop.
    */
   hideInputs?: boolean;
+  /** When showing the result, collapse the map to reveal the answer's pano. */
+  showPanoOnResult?: boolean;
+  // ── hint (pin variant) ───────────────────────────────────────────────────
+  onHint?: () => void;
+  hintShown?: boolean;
+  /** True when the 2-per-game hint limit is reached. */
+  hintDisabled?: boolean;
+  hintCircleData?: { center: { lat: number; lng: number }; radiusMeters: number } | null;
+  /** Map mode max distance (km) — scales the embed hint circle radius. */
+  maxDist?: number;
+  /** Current round number — seeds the embed hint circle offset (matches web). */
+  round?: number;
 }
 
 const EXPANDED_MAP_HEIGHT_RATIO = 0.5;
@@ -151,14 +165,26 @@ function GameSurface(
     loadingRetryLabel,
     compactCountryButtons = true,
     hideInputs = false,
+    showPanoOnResult = false,
+    onHint,
+    hintShown = false,
+    hintDisabled = false,
+    hintCircleData = null,
+    maxDist,
+    round,
   }: GameSurfaceProps,
   ref: React.Ref<GameSurfaceHandle>,
 ) {
   const insets = useSafeAreaInsets();
+  const mapType = useSettingsStore((s) => s.mapType);
   const { width, height } = useWindowDimensions();
 
   const expandedMapHeight =
     height * (width > height ? EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO : EXPANDED_MAP_HEIGHT_RATIO);
+  // mapSlideAnim value for the open mini-map. Because mapHeight interpolates to a
+  // CONSTANT full-height range, the mini state is this fraction — so reveal can
+  // animate the height smoothly from mini → full instead of jumping.
+  const miniFraction = height > 0 ? expandedMapHeight / height : 0.5;
 
   // ── State ──────────────────────────────────────────────────────────────
   const [streetViewLoaded, setStreetViewLoaded] = useState(false);
@@ -282,6 +308,23 @@ function GameSurface(
   // `mapOpacity` runs 0 -> 1 during reveal and drives the scrim's inverse
   // opacity (max 0.55, not 1). Capping the scrim well below 1 means the
   // map is partially visible from the very first frame.
+  // The pin-variant map keeps its WebView full-screen and only resizes an in-page
+  // band on reveal. We hold the clip at its current size until the embed signals —
+  // PRECISELY, not on a guessed timer — that the in-page resize is finished, then
+  // snap to full. The timeout is only a safety net (e.g. the inline fallback map,
+  // which never signals).
+  const [mapRevealReady, setMapRevealReady] = useState(false);
+  const handleRevealReady = useCallback(() => setMapRevealReady(true), []);
+  useEffect(() => {
+    if (isCountryVariant) return; // country reveals crossfade a full-size map; no gate
+    if (!isShowingResult) {
+      setMapRevealReady(false);
+      return;
+    }
+    const t = setTimeout(() => setMapRevealReady(true), 700);
+    return () => clearTimeout(t);
+  }, [isShowingResult, isCountryVariant]);
+
   const mapOpacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (isCountryVariant) {
@@ -295,18 +338,37 @@ function GameSurface(
       return;
     }
 
-    // Pin variant — keep the polished slide-up.
+    // Pin variant. The map WebView is kept FULL-SCREEN at all times (see the map
+    // overlay JSX) and merely clipped to a bottom band while guessing — so the
+    // result reveal is a pure clip change with NO WebView resize. That's what
+    // lets us snap straight to a full-screen map in ONE frame: instant, with no
+    // reflow glitch and no flash. Leaflet then flies to the answer underneath.
     mapOpacity.setValue(1);
-    if (isShowingResult) {
+    if (isShowingResult && !showPanoOnResult) {
+      // Slide the clip up to full ONLY once the embed says its in-page resize is
+      // done (so an un-resized map is never revealed). The embed has pinned the
+      // guessing content in place (no re-center jump), so this is a clean slide
+      // that just reveals more map above — and since the WebView is already
+      // full-size, the height animation does no per-frame re-fit, staying smooth.
+      if (mapRevealReady) {
+        Animated.timing(mapSlideAnim, {
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (isShowingResult && showPanoOnResult) {
+      // "Show Street View" toggle — collapse the map to reveal the answer pano.
       Animated.timing(mapSlideAnim, {
-        toValue: 1,
-        duration: 650,
+        toValue: 0,
+        duration: 300,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
       }).start();
     } else if (miniMapShown) {
       Animated.spring(mapSlideAnim, {
-        toValue: 1,
+        toValue: miniFraction,
         friction: 10,
         tension: 80,
         useNativeDriver: false,
@@ -319,7 +381,7 @@ function GameSurface(
         useNativeDriver: false,
       }).start();
     }
-  }, [miniMapShown, isShowingResult, isCountryVariant]);
+  }, [miniMapShown, isShowingResult, isCountryVariant, showPanoOnResult, mapRevealReady]);
 
   // Map button row spring
   useEffect(() => {
@@ -379,7 +441,9 @@ function GameSurface(
   // ── Derived ────────────────────────────────────────────────────────────
   const mapHeight = mapSlideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, isShowingResult ? height : expandedMapHeight],
+    // CONSTANT range (not swapped on result) so reveal animates mini→full
+    // smoothly (mapSlideAnim miniFraction → 1) instead of jumping.
+    outputRange: [0, height],
   });
 
   const showFab =
@@ -483,25 +547,46 @@ function GameSurface(
           <View
             style={{
               position: 'absolute',
-              top: 0,
+              bottom: 0,
               left: 0,
               right: 0,
-              height: isShowingResult ? height : expandedMapHeight,
+              // The WebView's native frame is kept FULL-SCREEN and bottom-anchored
+              // at ALL times; the outer clip above reveals only its bottom band
+              // while guessing and snaps to full on result. Because the native
+              // frame never resizes, the result reveal can't produce the WebView's
+              // "content snaps to top:0 then reflows" flicker. The map is drawn into
+              // a bottom band INSIDE the page (mapBandFraction) so the guessing fit
+              // is identical to the old mini-map, and the reveal is just a CSS
+              // expand of an already-full WebView.
+              height,
             }}
           >
             {mapMounted && (
-              <GuessMap
-                guessPosition={computedGuessPosition}
-                countryGuessPosition={countryGuessPosition}
-                actualPosition={actualPosition}
-                onMapPress={(lat, lng) => {
-                  if (isShowingResult) return;
-                  if (variant === 'pin') onGuessPositionChange?.({ lat, lng });
-                }}
-                isExpanded
+              // All variants render the web Leaflet map via the embed WebView.
+              // Country/continent place guesses via buttons → interactive=false.
+              <EmbeddedMap
+                route="map"
+                mapType={mapType}
+                location={location}
+                guessPosition={isCountryVariant ? null : computedGuessPosition}
+                onGuessPositionChange={
+                  isCountryVariant
+                    ? undefined
+                    : (p) => {
+                        if (!isShowingResult) onGuessPositionChange?.(p);
+                      }
+                }
+                isShowingResult={isShowingResult}
+                interactive={!isCountryVariant}
                 extent={extent}
+                maxDist={maxDist}
+                round={round}
+                showHint={hintShown}
+                countryGuessPosition={isCountryVariant ? countryGuessPosition : null}
                 guessPoints={guessPoints}
-                instantReveal={isCountryVariant}
+                hintCircle={hintCircleData}
+                mapBandFraction={isCountryVariant ? undefined : miniFraction}
+                onRevealReady={handleRevealReady}
               />
             )}
           </View>
@@ -547,6 +632,24 @@ function GameSurface(
               },
             ]}
           >
+            {onHint && (
+              <Pressable
+                onPress={onHint}
+                disabled={hintShown || hintDisabled}
+                style={({ pressed }) => [
+                  styles.hintBtn,
+                  (hintShown || hintDisabled) && styles.hintBtnDisabled,
+                  pressed && !(hintShown || hintDisabled) && { opacity: 0.85 },
+                ]}
+              >
+                <Ionicons
+                  name="bulb"
+                  size={18}
+                  color={hintShown || hintDisabled ? 'rgba(255,255,255,0.4)' : '#FFC107'}
+                />
+                <Text style={styles.hintBtnText}>{t('hint')}</Text>
+              </Pressable>
+            )}
             <Pressable
               onPress={handleSubmitPin}
               disabled={!guessPosition}
@@ -752,6 +855,26 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 14,
     overflow: 'hidden',
+  },
+  hintBtn: {
+    height: 48,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderWidth: 2,
+    borderColor: 'rgba(255,193,7,0.6)',
+  },
+  hintBtnDisabled: {
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  hintBtnText: {
+    color: colors.white,
+    fontSize: fontSizes.md,
+    fontFamily: 'Lexend-SemiBold',
   },
   guessSubmitBtnGradient: {
     flex: 1,

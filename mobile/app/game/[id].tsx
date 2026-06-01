@@ -28,11 +28,14 @@ import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { api } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore, type GameData, type MPPlayer, type RoundHistoryEntry } from '../../src/store/multiplayerStore';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import { wsService } from '../../src/services/websocket';
 
 import StreetViewWebView from '../../src/components/game/StreetViewWebView';
-import GuessMap from '../../src/components/game/GuessMap';
+import EmbeddedMap from '../../src/components/game/EmbeddedMap';
 import GameSurface, { GameSurfaceHandle } from '../../src/components/game/GameSurface';
+import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
+import { hintCircle } from '@shared/game/hint';
 import GameLoadingOverlay from '../../src/components/game/GameLoadingOverlay';
 import GameTimer from '../../src/components/game/GameTimer';
 import MapSelectorModal from '../../src/components/game/MapSelectorModal';
@@ -42,7 +45,7 @@ import GetReadyOverlay from '../../src/components/multiplayer/GetReadyOverlay';
 import DuelHUD from '../../src/components/multiplayer/DuelHUD';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
 import MultiplayerEndBanner from '../../src/components/multiplayer/MultiplayerEndBanner';
-import GameChat from '../../src/components/multiplayer/GameChat';
+import EmoteReactions from '../../src/components/multiplayer/EmoteReactions';
 import MultiplayerLobby from '../../src/components/multiplayer/MultiplayerLobby';
 import { localeString, t } from '../../src/shared';
 import {
@@ -142,15 +145,6 @@ function findRoundHistory(roundHistory: RoundHistoryEntry[] | undefined, roundNu
     ?? roundHistory[roundHistory.length - 1];
 }
 
-function getRoundDeltas(roundHistory: RoundHistoryEntry[] | undefined, roundNumber: number): Record<string, number> {
-  const history = findRoundHistory(roundHistory, roundNumber);
-  if (!history) return {};
-
-  return Object.fromEntries(
-    Object.entries(history.players).map(([playerId, player]) => [playerId, player.points ?? 0]),
-  );
-}
-
 function buildHistoryPlayerGuesses(history: RoundHistoryEntry | undefined): PlayerGuessMarker[] {
   if (!history) return [];
 
@@ -214,46 +208,34 @@ function BetweenRoundsLeaderboard({
   timeOffset: number;
 }) {
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(28);
-  const scale = useSharedValue(0.95);
-  const [countdown, setCountdown] = useState(0);
   const [shouldRender, setShouldRender] = useState(false);
-  const completedRound = gameData.curRound - 1;
-  const roundDeltas = getRoundDeltas(gameData.roundHistory, completedRound);
+  const shownRef = useRef(false);
 
-  // Mirror web: only show in the last 5 seconds of getready; fade in/out 500ms.
+  // Mirror web exactly: the leaderboard appears only in the last 5s of getready
+  // and is a pure opacity fade (0 → 0.92, 500ms). The ticker only flips
+  // shouldRender at the 5s/0s boundaries — it never stores the countdown, so
+  // the player list does NOT re-render every 100ms (that was the jank).
   useEffect(() => {
+    const ease = ReanimatedEasing.out(ReanimatedEasing.cubic);
     const tick = () => {
       const msLeft = gameData.nextEvtTime - Date.now() - timeOffset;
-      // Tenths + floor to match web's 0.1s markers.
-      const secLeft = Math.max(0, Math.floor(msLeft / 100) / 10);
-      setCountdown(secLeft);
-      const shouldShow = msLeft > 0 && msLeft < 5000;
-      if (shouldShow) {
-        if (!shouldRender) {
-          setShouldRender(true);
-          const ease = ReanimatedEasing.out(ReanimatedEasing.cubic);
-          opacity.value = withTiming(1, { duration: 420, easing: ease });
-          translateY.value = withTiming(0, { duration: 460, easing: ease });
-          scale.value = withTiming(1, { duration: 460, easing: ease });
-        }
-      } else if (shouldRender && msLeft <= 0) {
-        const ease = ReanimatedEasing.out(ReanimatedEasing.cubic);
-        opacity.value = withTiming(0, { duration: 320, easing: ease });
-        translateY.value = withTiming(20, { duration: 320, easing: ease });
-        scale.value = withTiming(0.97, { duration: 320, easing: ease });
-        setTimeout(() => setShouldRender(false), 360);
+      const show = msLeft > 0 && msLeft < 5000;
+      if (show && !shownRef.current) {
+        shownRef.current = true;
+        setShouldRender(true);
+        opacity.value = withTiming(0.92, { duration: 500, easing: ease });
+      } else if (!show && shownRef.current && msLeft <= 0) {
+        shownRef.current = false;
+        opacity.value = withTiming(0, { duration: 500, easing: ease });
+        setTimeout(() => setShouldRender(false), 520);
       }
     };
     tick();
     const interval = setInterval(tick, 100);
     return () => clearInterval(interval);
-  }, [gameData.nextEvtTime, timeOffset, opacity, translateY, scale, shouldRender]);
+  }, [gameData.nextEvtTime, timeOffset, opacity]);
 
   const overlayStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  const contentStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }, { scale: scale.value }],
-  }));
 
   if (!shouldRender) return null;
 
@@ -263,19 +245,14 @@ function BetweenRoundsLeaderboard({
       pointerEvents="none"
     >
       <SafeAreaView style={styles.betweenRoundsInner} edges={['top', 'bottom']}>
-        <Reanimated.View style={[styles.betweenRoundsContent, contentStyle]}>
-          <Text style={styles.betweenRoundsEyebrow}>Round {completedRound} results</Text>
-          <Text style={styles.betweenRoundsTitle}>Leaderboard</Text>
-          <View style={styles.betweenRoundsListWrap}>
-            <PlayerList
-              players={gameData.players}
-              myId={gameData.myId}
-              mode="betweenRounds"
-              roundDeltas={roundDeltas}
-            />
-          </View>
-          <Text style={styles.betweenRoundsCountdown}>Next round in {countdown.toFixed(1)}s</Text>
-        </Reanimated.View>
+        <Text style={styles.betweenRoundsTitle}>Leaderboard</Text>
+        <View style={styles.betweenRoundsListWrap}>
+          <PlayerList
+            players={gameData.players}
+            myId={gameData.myId}
+            mode="betweenRounds"
+          />
+        </View>
       </SafeAreaView>
     </Reanimated.View>
   );
@@ -325,6 +302,8 @@ export default function GameScreen() {
   const isSingleplayer = id === 'singleplayer';
   const isMultiplayer = !isSingleplayer;
   const secret = useAuthStore((s) => s.secret);
+  const mapType = useSettingsStore((s) => s.mapType);
+  const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
   const initialCountrySubMode = subModeFromDefaultMode(mode);
 
   // Multiplayer state
@@ -405,6 +384,18 @@ export default function GameScreen() {
 
   // Singleplayer game options
   const [currentMapSlug, setCurrentMapSlug] = useState(map || 'all');
+  // Show Street View ↔ Map toggle on the round-end banner (web parity).
+  const [showPano, setShowPano] = useState(false);
+  // Hint: 2 per game; using one halves that round's points (web parity).
+  const [hintShown, setHintShown] = useState(false);
+  const [hintsUsed, setHintsUsed] = useState(0);
+  const [confettiKey, setConfettiKey] = useState(0);
+
+  const handleHint = useCallback(() => {
+    if (hintShown || hintsUsed >= 2) return;
+    setHintShown(true);
+    setHintsUsed((n) => n + 1);
+  }, [hintShown, hintsUsed]);
   const [currentMapName, setCurrentMapName] = useState(
     initialCountrySubMode === 'continent'
       ? 'Continent Guesser'
@@ -578,19 +569,41 @@ export default function GameScreen() {
     setStreetViewLoaded(true);
   }, []);
 
-  // Animate map slide in/out
+  // The result map keeps its WebView full-screen and only resizes an in-page band
+  // on reveal. Hold the clip where it is until the embed signals — PRECISELY, not
+  // on a guessed timer — that the in-page resize is finished, then snap to full so
+  // the un-resized map is never shown. The timeout is only a safety net.
+  const [mapRevealReady, setMapRevealReady] = useState(false);
+  const handleRevealReady = useCallback(() => setMapRevealReady(true), []);
+  useEffect(() => {
+    if (!showMapResult) {
+      setMapRevealReady(false);
+      return;
+    }
+    const t = setTimeout(() => setMapRevealReady(true), 700);
+    return () => clearTimeout(t);
+  }, [showMapResult]);
+
+  // Animate map slide in/out. The map WebView's native frame is kept FULL-SCREEN
+  // at all times and only clipped to a bottom band while guessing; the in-page map
+  // resizes on reveal and we snap the clip to full only once it's done (above).
   useEffect(() => {
     if (showMapResult) {
-      // Answer shown: map goes fullscreen
-      Animated.spring(mapSlideAnim, {
-        toValue: 1,
-        friction: 10,
-        tension: 80,
-        useNativeDriver: false,
-      }).start();
+      // Slide the clip up to full once the embed signals its in-page resize is
+      // done. The embed pins the guessing content in place (no re-center jump),
+      // so this is a clean slide that reveals more map above; the WebView is
+      // already full-size, so the height animation does no per-frame re-fit.
+      if (mapRevealReady) {
+        Animated.timing(mapSlideAnim, {
+          toValue: 1,
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start();
+      }
     } else if (miniMapShown) {
       Animated.spring(mapSlideAnim, {
-        toValue: 1,
+        toValue: miniFraction,
         friction: 10,
         tension: 80,
         useNativeDriver: false,
@@ -603,7 +616,7 @@ export default function GameScreen() {
         useNativeDriver: false,
       }).start();
     }
-  }, [miniMapShown, showMapResult]);
+  }, [miniMapShown, showMapResult, mapRevealReady]);
 
   // Map buttons (Guess + collapse) slide up with map
   useEffect(() => {
@@ -661,11 +674,15 @@ export default function GameScreen() {
   }, [isLoading, miniMapShown, gameState.isShowingResult]);
 
   const expandedMapHeight = height * (width > height ? EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO : EXPANDED_MAP_HEIGHT_RATIO);
+  // mapSlideAnim value for the open mini-map (mapHeight uses a constant full-range
+  // so reveal animates mini→full smoothly instead of jumping).
+  const miniFraction = height > 0 ? expandedMapHeight / height : 0.5;
 
   // Map height interpolation: 0 = hidden (0px), 1 = expanded map height (or 100% when answer shown)
   const mapHeight = mapSlideAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, showMapResult ? height : expandedMapHeight],
+    // CONSTANT range so reveal animates mini→full smoothly instead of jumping.
+    outputRange: [0, height],
   });
 
   // Fetch locations from server based on currentMapSlug (singleplayer only)
@@ -746,6 +763,8 @@ export default function GameScreen() {
           maxDist: data.maxDist ?? DEFAULT_GAME_OPTIONS.maxDist,
           extent,
         }));
+        setHintShown(false);
+        setHintsUsed(0);
         setIsLoading(false);
         roundStartTimeRef.current = Date.now();
 
@@ -863,6 +882,7 @@ export default function GameScreen() {
       guessLat: guessPosition.lat,
       guessLon: guessPosition.lng,
       maxDist: gameState.maxDist,
+      usedHint: hintShown,
     });
 
     setGameState((prev) => ({
@@ -884,7 +904,9 @@ export default function GameScreen() {
       isShowingResult: true,
     }));
     setMiniMapShown(false);
-  }, [guessPosition, currentLocation, gameState.maxDist, isMultiplayer]);
+    setShowPano(false);
+    if (points >= 4850) setConfettiKey((k) => k + 1);
+  }, [guessPosition, currentLocation, gameState.maxDist, isMultiplayer, hintShown]);
 
   const handleTimeUp = useCallback(() => {
     if (gameState.isShowingResult) return;
@@ -982,6 +1004,7 @@ export default function GameScreen() {
 
   const spResultsNavigated = useRef(false);
   const handleNextRound = useCallback(() => {
+    setShowPano(false); // each round's result starts on the map (web parity)
     if (gameState.currentRound >= gameState.totalRounds) {
       if (spResultsNavigated.current) return;
       spResultsNavigated.current = true;
@@ -1029,6 +1052,7 @@ export default function GameScreen() {
         isShowingResult: false,
       }));
       setGuessPosition(null);
+      setHintShown(false); // hint is per-round; the 2/game count persists
       roundStartTimeRef.current = Date.now();
     };
 
@@ -1233,6 +1257,15 @@ export default function GameScreen() {
     const activeTotalRounds = isCountryGuesserMode ? countryGame.totalRounds : gameState.totalRounds;
     const activeTotalScore = isCountryGuesserMode ? countryGame.totalPoints : gameState.totalScore;
     const activeShowingResult = isCountryGuesserMode ? countryGame.showResult : gameState.isShowingResult;
+    const hintCircleData =
+      !isCountryGuesserMode && hintShown && currentLocation
+        ? hintCircle(
+            { lat: currentLocation.lat, long: currentLocation.long },
+            gameState.maxDist,
+            gameState.currentRound,
+            2_500_000, // cap so react-native-maps renders the circle (see daily HINT_MAX_RADIUS_M)
+          )
+        : null;
     const countryCorrectAnswer =
       countryGame.currentLoc && activeCountryMode === 'continent'
         ? continentFromCode(countryGame.currentLoc.country)
@@ -1261,14 +1294,14 @@ export default function GameScreen() {
         ) : null)
       : (gameState.isShowingResult && lastGuess ? (
           <ClassicEndBanner
-            round={gameState.currentRound}
-            totalRounds={gameState.totalRounds}
             points={lastGuess.points}
-            xpEarned={secret && (currentMapSlug === 'all' || (currentMapSlug.length === 2 && currentMapSlug === currentMapSlug.toUpperCase()))
-              ? Math.round(lastGuess.points / 50)
-              : 0}
             distance={lastGuess.distance}
             didGuess={!(lastGuess.guessLat === 0 && lastGuess.guessLong === 0)}
+            answerCountry={currentMapSlug === 'all' ? currentLocation?.country ?? null : null}
+            guessLat={lastGuess.guessLat}
+            guessLng={lastGuess.guessLong}
+            panoShown={showPano}
+            onTogglePano={() => setShowPano((v) => !v)}
             onNext={handleNextRound}
             isFinal={gameState.currentRound >= gameState.totalRounds}
           />
@@ -1284,6 +1317,13 @@ export default function GameScreen() {
           extent={isCountryGuesserMode ? null : gameState.extent}
           guessPoints={isCountryGuesserMode ? undefined : gameState.guesses[gameState.currentRound - 1]?.points}
           isShowingResult={activeShowingResult}
+          showPanoOnResult={!isCountryGuesserMode && showPano}
+          onHint={isCountryGuesserMode ? undefined : handleHint}
+          hintShown={hintShown}
+          hintDisabled={hintsUsed >= 2}
+          hintCircleData={hintCircleData}
+          maxDist={isCountryGuesserMode ? undefined : gameState.maxDist}
+          round={gameState.currentRound}
           guessPosition={guessPosition}
           onGuessPositionChange={setGuessPosition}
           onSubmitPin={handleSubmitGuess}
@@ -1385,6 +1425,8 @@ export default function GameScreen() {
                   : null
           }
         />
+
+        {confettiKey > 0 && <ConfettiBurst trigger={confettiKey} />}
       </View>
     );
   }
@@ -1476,49 +1518,53 @@ export default function GameScreen() {
 
         {/* ═══ MAP OVERLAY - slides up from bottom ═══ */}
         <Animated.View
-          style={[
-            styles.mapOverlay,
-            { height: mapHeight },
-          ]}
+          style={[styles.mapOverlay, { height: mapHeight }]}
           pointerEvents={miniMapShown || showMapResult ? 'auto' : 'none'}
         >
-          {/* Inner wrapper gives MapView a fixed height so initialRegion works
-              even when the animated outer container starts at 0px height.
-              Use expandedMapHeight during gameplay so MKMapView's native gesture recognizers
-              don't extend into the Guess button area (iOS ignores overflow:hidden for
-              native gesture hit-testing). Full height during results (no buttons). */}
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: showMapResult ? height : expandedMapHeight }}>
+          {/* The WebView's native frame is kept FULL-SCREEN and bottom-anchored at
+              all times; the outer clip reveals only its bottom band while guessing
+              and snaps to full on result. The native frame never resizes, so the
+              reveal can't produce the WebView's "content snaps to top:0" flicker.
+              The map draws into a bottom band INSIDE the page (mapBandFraction) so
+              the guessing fit matches the old mini-map. */}
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height }}>
             {mapMounted && (
-              <GuessMap
+              <EmbeddedMap
+                route="map"
+                mapType={mapType}
+                mapBandFraction={miniFraction}
+                onRevealReady={handleRevealReady}
+                location={
+                  mapActualLocation
+                    ? { lat: mapActualLocation.lat, long: mapActualLocation.long }
+                    : null
+                }
                 guessPosition={showBetweenRoundMap ? null : guessPosition}
-                actualPosition={
-                  showMapResult && mapActualLocation
-                    ? { lat: mapActualLocation.lat, lng: mapActualLocation.long }
-                    : undefined
-                }
-                onMapPress={showBetweenRoundMap ? () => {} : handleMapPress}
-                isExpanded={true}
+                onGuessPositionChange={(p) => handleMapPress(p.lat, p.lng)}
+                isShowingResult={showMapResult}
+                interactive={!showMapResult}
                 extent={gameState.extent}
-                guessPoints={showBetweenRoundMap ? undefined : gameState.guesses[gameState.currentRound - 1]?.points}
-                playerGuesses={showBetweenRoundMap ? betweenRoundPlayerGuesses : currentRoundPlayerGuesses}
-                opponentGuesses={
-                  isMultiplayer && gameState.isShowingResult && gameData && currentLocation && currentRoundPlayerGuesses.length === 0
-                    ? gameData.players
-                        .filter((p) => p.id !== gameData.myId && p.latLong && p.latLong[0] !== 0)
-                        .map((p) => ({
-                          lat: p.latLong![0],
-                          lng: p.latLong![1],
-                          username: p.username,
-                          points: calcPoints({
-                            lat: currentLocation.lat,
-                            lon: currentLocation.long,
-                            guessLat: p.latLong![0],
-                            guessLon: p.latLong![1],
-                            maxDist: gameState.maxDist,
-                          }),
-                        }))
-                    : undefined
-                }
+                maxDist={gameState.maxDist}
+                round={gameState.currentRound}
+                // All players (self + opponents) → Map.js multiplayerState; its
+                // MultiplayerLayer renders opponents and freezes the reveal.
+                multiplayerState={{
+                  inGame: true,
+                  gameData: {
+                    myId: gameData?.myId,
+                    state: showMapResult ? 'end' : 'guess',
+                    curRound: gameState.currentRound,
+                    players: (showBetweenRoundMap
+                      ? betweenRoundPlayerGuesses
+                      : currentRoundPlayerGuesses
+                    ).map((p) => ({
+                      id: p.id,
+                      username: p.username,
+                      guess: [p.lat, p.lng],
+                      final: true,
+                    })),
+                  },
+                }}
               />
             )}
           </View>
@@ -1659,34 +1705,22 @@ export default function GameScreen() {
           );
         })()}
 
-        {/* ═══ END BANNER - shown after guessing (final round) ═══ */}
-        {gameState.isShowingResult && isMultiplayer && gameData && currentLocation && (
-          <View style={{ paddingBottom: Math.max(insets.bottom, spacing.lg) }}>
-            <MultiplayerEndBanner
-              round={Math.min(gameState.currentRound, gameState.totalRounds)}
-              totalRounds={gameState.totalRounds}
-              players={gameData.players}
-              myId={gameData.myId}
-              location={currentLocation}
-              maxDist={gameState.maxDist}
-              duel={gameData.duel}
-              isAutoTransition={true}
-            />
-          </View>
-        )}
-
-        {/* ═══ BETWEEN-ROUNDS END BANNER - shown during getready of round 2+ ═══
-            Matches web (components/endBanner.js) showing points + distance during getready. */}
-        {showBetweenRoundMap && gameData && betweenRoundLocation && (
+        {/* ═══ RESULT BANNER — your distance/points during the answer reveal ═══
+            One render for both the final-round 'end' reveal and the between-rounds
+            'getready' reveal (mutually-exclusive states). Matches web endBanner.js
+            (content shows in MP; only the Next-Round button is hidden). */}
+        {isMultiplayer && gameData && (gameState.isShowingResult || showBetweenRoundMap) && mapActualLocation && (
           <View style={{ paddingBottom: Math.max(insets.bottom, spacing.lg) }} pointerEvents="none">
             <MultiplayerEndBanner
-              round={completedRoundNumber}
+              round={showBetweenRoundMap
+                ? completedRoundNumber
+                : Math.min(gameState.currentRound, gameState.totalRounds)}
               totalRounds={gameData.rounds}
-              players={betweenRoundBannerPlayers.length > 0
+              players={showBetweenRoundMap && betweenRoundBannerPlayers.length > 0
                 ? betweenRoundBannerPlayers
                 : gameData.players}
               myId={gameData.myId}
-              location={betweenRoundLocation}
+              location={mapActualLocation}
               maxDist={gameState.maxDist}
               duel={gameData.duel}
               isAutoTransition={true}
@@ -1724,9 +1758,11 @@ export default function GameScreen() {
         onDismiss={() => setDuelWarningVisible(false)}
       />
 
-      {/* ═══ GAME CHAT - multiplayer non-duel games ═══ */}
-      {isMultiplayer && !gameData?.duel && gameData?.state === 'guess' && (
-        <GameChat />
+      {/* ═══ EMOTE REACTIONS — multiplayer, during active play (replaces chat) ═══ */}
+      {/* Gated by the settings toggle (mirrors web's multiplayerEmotesEnabled). */}
+      {emotesEnabled && isMultiplayer && gameData
+        && (gameData.state === 'guess' || gameData.state === 'getready' || gameData.state === 'end') && (
+        <EmoteReactions />
       )}
 
       {/* ═══ LOADING BANNER OVERLAY — shared with onboarding + country guesser ═══ */}
@@ -1768,9 +1804,10 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 1200,
-    // Semi-transparent so the revealed answer map shows faintly behind, and the
-    // white player cards carry the contrast (matches web .multiplayerLeaderboard).
-    backgroundColor: 'rgba(6, 16, 13, 0.9)',
+    // Solid #06100d; the view's animated opacity settles at 0.92 (matches web
+    // .leaderboardInRound + .leaderboardShown) so the answer map shows faintly
+    // behind and the white player cards carry the contrast.
+    backgroundColor: '#06100d',
   },
   betweenRoundsInner: {
     flex: 1,
@@ -1781,24 +1818,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center', // vertically centered (web: justify-content: safe center)
     gap: spacing.sm,
   },
-  betweenRoundsContent: {
-    width: '100%',
-    alignItems: 'stretch',
-    gap: spacing.sm,
-  },
   betweenRoundsListWrap: {
     width: '100%',
     maxWidth: 560,
     alignSelf: 'center',
     marginTop: spacing.md,
-  },
-  betweenRoundsEyebrow: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: fontSizes.xs,
-    fontFamily: 'Lexend-SemiBold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    textAlign: 'center',
   },
   betweenRoundsTitle: {
     color: colors.white,
@@ -1808,13 +1832,6 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     marginBottom: spacing.xs,
-  },
-  betweenRoundsCountdown: {
-    color: 'rgba(255,255,255,0.66)',
-    fontSize: fontSizes.xs,
-    fontFamily: 'Lexend-SemiBold',
-    textAlign: 'center',
-    marginTop: spacing.xs,
   },
   mapSelectorBtn: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import { View, Text, ActivityIndicator, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import Animated, { FadeIn, ReduceMotion } from 'react-native-reanimated';
 import { t } from '../../shared/locale';
 import { dailyColors } from './styles';
 import DailyBackground from './DailyBackground';
@@ -11,7 +11,7 @@ interface Props {
 
 export default function SubmittingOverlay({ style }: Props) {
   return (
-    <Animated.View entering={FadeIn.duration(320)} style={[styles.container, style]} pointerEvents="auto">
+    <Animated.View entering={FadeIn.duration(320).reduceMotion(ReduceMotion.Never)} style={[styles.container, style]} pointerEvents="auto">
       {/* Translucent warm-green wash over the live Street View — mirrors web's
           .daily-submitting (a soft crossfade, never a hard cut to black). */}
       <DailyBackground variant="overlay" style={StyleSheet.absoluteFill} />

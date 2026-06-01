@@ -5,10 +5,11 @@
  */
 
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, findDistance, calcPoints } from '../../shared';
+import { colors, findDistance, calcPoints, formatDistance } from '../../shared';
 import { spacing, fontSizes } from '../../styles/theme';
 import ClassicEndBanner from '../game/ClassicEndBanner';
 import { MPPlayer, MPLocation } from '../../store/multiplayerStore';
+import { useSettingsStore } from '../../store/settingsStore';
 
 interface MultiplayerEndBannerProps {
   round: number;
@@ -20,12 +21,6 @@ interface MultiplayerEndBannerProps {
   duel: boolean;
   /** Whether the game is waiting for next round (show "Waiting..." vs "Next Round") */
   isAutoTransition?: boolean;
-}
-
-function formatDist(km: number) {
-  if (km < 1) return `${Math.round(km * 1000)} m`;
-  if (km < 100) return `${km.toFixed(1)} km`;
-  return `${Math.round(km).toLocaleString()} km`;
 }
 
 function getPointsColor(pts: number) {
@@ -44,6 +39,7 @@ export default function MultiplayerEndBanner({
   duel,
   isAutoTransition = true,
 }: MultiplayerEndBannerProps) {
+  const units = useSettingsStore((s) => s.units);
   const me = players.find((p) => p.id === myId);
 
   const playerResults = players
@@ -81,7 +77,7 @@ export default function MultiplayerEndBanner({
               <Text style={styles.opponentName} numberOfLines={1}>
                 {p.username}
               </Text>
-              <Text style={styles.opponentDist}>{formatDist(p.distance)}</Text>
+              <Text style={styles.opponentDist}>{formatDistance(p.distance, units)}</Text>
               <Text style={[styles.opponentPoints, { color: getPointsColor(p.points) }]}>
                 {p.points.toLocaleString()} pts
               </Text>

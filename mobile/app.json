@@ -19,7 +19,7 @@
       "buildNumber": "2",
       "bundleIdentifier": "com.codergautamyt.worldguessr",
       "config": {
-        "googleMapsApiKey": "YOUR_IOS_API_KEY"
+        "googleMapsApiKey": "AIzaSyCi1DtoToWaVOV77VPCyYO9mzncnLS5Kk0"
       },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,

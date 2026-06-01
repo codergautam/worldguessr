@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, Platform, GestureResponderEvent } from 'react-native';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, Circle, PROVIDER_GOOGLE } from 'react-native-maps';
 import PinMarker from './PinMarker';
 
 // Pre-create Asset objects (doesn't download yet)
@@ -53,6 +53,8 @@ interface GuessMapProps {
    * camera pulse on top of an already-static reveal felt heavy.
    */
   instantReveal?: boolean;
+  /** Hint circle to draw while guessing (offset center + radius in meters). */
+  hintCircle?: { center: { lat: number; lng: number }; radiusMeters: number } | null;
 }
 
 const TAP_SLOP = 10; // max px movement to count as tap
@@ -80,6 +82,30 @@ function extentToRegion(extent: [number, number, number, number]) {
   };
 }
 
+type Region = { latitude: number; longitude: number; latitudeDelta: number; longitudeDelta: number };
+
+// MapKit's setRegion throws (SIGABRT) on NaN / out-of-range regions. Clamp to
+// valid bounds and drop anything non-finite — valid regions pass through
+// unchanged, so normal camera behavior is untouched.
+function safeRegion(r: Region | null | undefined): Region | null {
+  if (!r) return null;
+  const { latitude, longitude, latitudeDelta, longitudeDelta } = r;
+  if (![latitude, longitude, latitudeDelta, longitudeDelta].every((n) => typeof n === 'number' && Number.isFinite(n))) {
+    return null;
+  }
+  return {
+    latitude: Math.max(-90, Math.min(90, latitude)),
+    longitude: Math.max(-180, Math.min(180, longitude)),
+    latitudeDelta: Math.max(0.002, Math.min(180, latitudeDelta)),
+    longitudeDelta: Math.max(0.002, Math.min(360, longitudeDelta)),
+  };
+}
+
+function animateRegionSafe(map: MapView | null, r: Region | null | undefined, duration: number) {
+  const safe = safeRegion(r);
+  if (map && safe) map.animateToRegion(safe, duration);
+}
+
 export default function GuessMap({
   guessPosition,
   countryGuessPosition,
@@ -91,6 +117,7 @@ export default function GuessMap({
   playerGuesses,
   guessPoints,
   instantReveal,
+  hintCircle,
 }: GuessMapProps) {
   const mapRef = useRef<MapView>(null);
   const touchStart = useRef({ x: 0, y: 0, time: 0 });
@@ -112,18 +139,21 @@ export default function GuessMap({
         { latitude: actualPosition.lat, longitude: actualPosition.lng },
         ...(opponentGuesses ?? []).map((o) => ({ latitude: o.lat, longitude: o.lng })),
         ...(playerGuesses ?? []).map((p) => ({ latitude: p.lat, longitude: p.lng })),
-      ];
-      mapRef.current.fitToCoordinates(coords, {
-        edgePadding: { top: 120, right: 120, bottom: 300, left: 120 },
-        animated: true,
-      });
+      ].filter((c) => Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
+      if (coords.length > 0) {
+        mapRef.current.fitToCoordinates(coords, {
+          edgePadding: { top: 120, right: 120, bottom: 300, left: 120 },
+          animated: true,
+        });
+      }
     } else {
       // No guess (country / continent guesser): a single slow zoom from
       // wherever the map currently sits down onto the actual location.
       // We deliberately run this longer than the layer's own fade-in
       // (1200 ms) so the camera is still gliding when the dim clears,
       // giving the result a calmer cinematic feel.
-      mapRef.current.animateToRegion(
+      animateRegionSafe(
+        mapRef.current,
         {
           latitude: actualPosition.lat,
           longitude: actualPosition.lng,
@@ -135,13 +165,39 @@ export default function GuessMap({
     }
   }, [actualPosition, guessPosition, countryGuessPosition, opponentGuesses, playerGuesses, instantReveal]);
 
+  // Pan to the hint circle when it first appears (during guessing). Deduped by
+  // center so re-renders don't keep re-panning; reset when the hint clears.
+  const pannedHintKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hintCircle) {
+      pannedHintKey.current = null;
+      return;
+    }
+    if (actualPosition || !mapRef.current) return; // result reveal owns the camera
+    const key = `${hintCircle.center.lat},${hintCircle.center.lng}`;
+    if (pannedHintKey.current === key) return;
+    pannedHintKey.current = key;
+    const radiusDeg = hintCircle.radiusMeters / 111000;
+    const delta = Math.min(150, radiusDeg * 2.6);
+    animateRegionSafe(
+      mapRef.current,
+      {
+        latitude: hintCircle.center.lat,
+        longitude: hintCircle.center.lng,
+        latitudeDelta: delta,
+        longitudeDelta: delta,
+      },
+      600,
+    );
+  }, [hintCircle, actualPosition]);
+
   const defaultRegion = extent ? extentToRegion(extent) : WORLD_REGION;
 
   // Reset map to extent/world view when a new round starts (actualPosition cleared)
   const prevActualPosition = useRef(actualPosition);
   useEffect(() => {
     if (prevActualPosition.current && !actualPosition && mapRef.current) {
-      mapRef.current.animateToRegion(defaultRegion, 0);
+      animateRegionSafe(mapRef.current, defaultRegion, 0);
     }
     prevActualPosition.current = actualPosition;
   }, [actualPosition]);
@@ -150,7 +206,7 @@ export default function GuessMap({
   const prevExtent = useRef(extent);
   useEffect(() => {
     if (prevExtent.current !== extent && mapRef.current && !actualPosition) {
-      mapRef.current.animateToRegion(defaultRegion, 300);
+      animateRegionSafe(mapRef.current, defaultRegion, 300);
     }
     prevExtent.current = extent;
   }, [extent]);
@@ -225,7 +281,7 @@ export default function GuessMap({
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+        provider={PROVIDER_GOOGLE}
         initialRegion={defaultRegion}
         onPress={handleMapPress}
         onMapReady={handleMapReady}
@@ -237,6 +293,22 @@ export default function GuessMap({
         rotateEnabled={false}
         pitchEnabled={false}
       >
+        {/* ALWAYS mounted — react-native-maps on the New Architecture crashes
+            (-[AIRMap insertReactSubview:atIndex:] → NSArray insertObject out of
+            bounds, SIGABRT) when map children are added/removed dynamically.
+            Like the markers, we keep it mounted and toggle visibility via props. */}
+        <Circle
+          center={
+            hintCircle
+              ? { latitude: hintCircle.center.lat, longitude: hintCircle.center.lng }
+              : { latitude: 0, longitude: 0 }
+          }
+          radius={hintCircle ? hintCircle.radiusMeters : 1}
+          strokeColor={hintCircle ? 'rgba(255,193,7,0.95)' : 'transparent'}
+          strokeWidth={hintCircle ? 3 : 0}
+          fillColor={hintCircle ? 'rgba(255,193,7,0.22)' : 'transparent'}
+          zIndex={50}
+        />
         <PinMarker
           key="guess"
           coordinate={guessCoord}

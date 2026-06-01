@@ -24,11 +24,13 @@ import { api } from '../../src/services/api';
 import { spacing, borderRadius } from '../../src/styles/theme';
 import SetUsernameModal from '../../src/components/SetUsernameModal';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
+import WhatsNewModal from '../../src/components/WhatsNewModal';
 import CountryFlag from '../../src/components/CountryFlag';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
 import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
 import { prefetchDailyStatus } from '../../src/components/daily/prefetchDailyStatus';
+import { maybeShowGameInterstitial } from '../../src/services/ads';
 
 type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
 
@@ -36,13 +38,20 @@ interface MenuButtonProps {
   label: string;
   onPress: () => void;
   delay: number;
+  /** Start the entrance only once auth is settled, so conditional items (e.g.
+   * Ranked Duel) that mount when login resolves still animate IN SEQUENCE with
+   * the rest instead of a beat later. */
+  ready: boolean;
 }
 
-function MenuButton({ label, onPress, delay }: MenuButtonProps) {
+function MenuButton({ label, onPress, delay, ready }: MenuButtonProps) {
   const slideAnim = useRef(new Animated.Value(-80)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
+  const hasAnimated = useRef(false);
 
   useEffect(() => {
+    if (!ready || hasAnimated.current) return;
+    hasAnimated.current = true;
     Animated.parallel([
       Animated.timing(slideAnim, {
         toValue: 0,
@@ -57,7 +66,7 @@ function MenuButton({ label, onPress, delay }: MenuButtonProps) {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [ready, delay, slideAnim, opacityAnim]);
 
   return (
     <Animated.View
@@ -124,6 +133,7 @@ export default function HomeScreen() {
   const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
   const [animatedElo, setAnimatedElo] = useState(0);
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
+  const [whatsNewDemo, setWhatsNewDemo] = useState(false);
   const [dismissedBanBanner, setDismissedBanBanner] = useState(modPopupDismissedBan);
   const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(modPopupDismissedNameChange);
   const [modPopupReady, setModPopupReady] = useState(false);
@@ -290,6 +300,7 @@ export default function HomeScreen() {
 
     switch (mode) {
       case 'singleplayer':
+        maybeShowGameInterstitial('singleplayer');
         const defaultMode = await AsyncStorage.getItem(SINGLEPLAYER_DEFAULT_MODE_KEY).catch(() => null);
         router.push({
           pathname: '/game/[id]',
@@ -302,11 +313,13 @@ export default function HomeScreen() {
         });
         break;
       case 'rankedDuel':
+        maybeShowGameInterstitial('rankedDuel');
         wsService.send({ type: 'publicDuel' });
         useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
         router.push('/queue');
         break;
       case 'unrankedDuel':
+        maybeShowGameInterstitial('unrankedDuel');
         wsService.send({ type: 'unrankedDuel' });
         useMultiplayerStore.setState({ gameQueued: 'unrankedDuel' });
         router.push('/queue');
@@ -709,23 +722,27 @@ export default function HomeScreen() {
                 label="Singleplayer"
                 onPress={() => handleModePress('singleplayer')}
                 delay={getDelay()}
+                ready={!authLoading}
               />
               <MenuButton
                 label="Daily Challenge"
                 onPress={() => handleModePress('dailyChallenge')}
                 delay={getDelay()}
+                ready={!authLoading}
               />
               {isAuthenticated && (
                 <MenuButton
                   label="Ranked Duel"
                   onPress={() => handleModePress('rankedDuel')}
                   delay={getDelay()}
+                  ready={!authLoading}
                 />
               )}
               <MenuButton
                 label={isAuthenticated ? 'Unranked Match' : 'Find a Match'}
                 onPress={() => handleModePress('unrankedDuel')}
                 delay={getDelay()}
+                ready={!authLoading}
               />
             </View>
 
@@ -736,11 +753,13 @@ export default function HomeScreen() {
                 label="Create Game"
                 onPress={() => handleModePress('createGame')}
                 delay={getDelay()}
+                ready={!authLoading}
               />
               <MenuButton
                 label="Join Game"
                 onPress={() => handleModePress('joinGame')}
                 delay={getDelay()}
+                ready={!authLoading}
               />
             </View>
 
@@ -751,6 +770,7 @@ export default function HomeScreen() {
                 label="Community Maps"
                 onPress={() => handleModePress('communityMaps')}
                 delay={getDelay()}
+                ready={!authLoading}
               />
             </View>
           </View>
@@ -765,7 +785,9 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
-              onPress={() => {}}
+              onPress={() => router.push('/settings')}
+              onLongPress={() => setWhatsNewDemo(true)}
+              delayLongPress={500}
             >
               <Ionicons name="settings-outline" size={24} color="rgba(255,255,255,0.85)" />
             </Pressable>
@@ -899,6 +921,10 @@ export default function HomeScreen() {
       {/* Set Username Modal for new signups */}
       <SetUsernameModal />
       <AccountSelectSheet visible={accountSheetVisible} onClose={() => setAccountSheetVisible(false)} />
+
+      {/* What's New — auto-shows for logged-in users on version bump.
+          Long-press the settings gear to preview it on demand (demo). */}
+      <WhatsNewModal forceOpen={whatsNewDemo} onForceClose={() => setWhatsNewDemo(false)} />
 
     </View>
   );

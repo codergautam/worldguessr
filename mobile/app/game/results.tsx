@@ -21,10 +21,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Polyline, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
-import { colors } from '../../src/shared';
+import EmbeddedMap from '../../src/components/game/EmbeddedMap';
+import { colors, formatDistance } from '../../src/shared';
+import { useSettingsStore } from '../../src/store/settingsStore';
 import { findDistance } from '../../src/shared/game/calcPoints';
 import { api } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
+import { maybeShowGameInterstitial } from '../../src/services/ads';
 import PinMarker from '../../src/components/game/PinMarker';
 import CountryFlag from '../../src/components/CountryFlag';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
@@ -153,12 +156,6 @@ function getPointsColor(points: number): string {
   if (points >= 4000) return '#4CAF50';
   if (points >= 2000) return '#FFC107';
   return '#F44336';
-}
-
-function formatDistance(km: number): string {
-  if (km < 1) return `${Math.round(km * 1000)} m`;
-  if (km < 10) return `${km.toFixed(1)} km`;
-  return `${Math.round(km).toLocaleString()} km`;
 }
 
 function formatTime(seconds: number): string {
@@ -470,6 +467,7 @@ export default function GameResultsScreen() {
   const mapRef = useRef<MapView>(null);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const units = useSettingsStore((s) => s.units);
 
   const isLandscape = width > height;
 
@@ -493,6 +491,37 @@ export default function GameResultsScreen() {
       return [];
     }
   }, [rounds, historyData, isLiveMultiplayer, liveMyIdParam]);
+
+  // Web finalHistory shape for the results embed (components/ResultsMap.js): my
+  // guess = guessLat/guessLong; players = opponents (which already exclude me).
+  const resultsRounds = useMemo(
+    () =>
+      parsedRounds.map((r) => ({
+        lat: r.actualLat,
+        long: r.actualLong,
+        guessLat: r.guessLat,
+        guessLong: r.guessLong,
+        points: r.points,
+        panoId: r.panoId,
+        players: (r.opponents ?? []).reduce(
+          (acc, o) => {
+            acc[o.playerId] = {
+              lat: o.guessLat,
+              long: o.guessLong,
+              points: o.points,
+              username: o.username,
+              countryCode: o.countryCode,
+            };
+            return acc;
+          },
+          {} as Record<
+            string,
+            { lat: number; long: number; points: number; username: string; countryCode?: string }
+          >,
+        ),
+      })),
+    [parsedRounds],
+  );
   const score = historyData ? historyData.score : parseInt(totalScore ?? '0', 10);
   const resultMode = mode ?? historyMode;
   const isCountryGuesserResult = resultMode === 'countryGuesser' || resultMode === 'continentGuesser';
@@ -770,12 +799,16 @@ export default function GameResultsScreen() {
       mpStore.getState().reset();
       // Auto re-queue for duels
       if (multiplayerInfo?.isDuel) {
+        maybeShowGameInterstitial('rankedDuel');
         ws.send({ type: 'publicDuel' });
         mpStore.setState({ gameQueued: 'publicDuel' as const });
       }
       router.dismissAll();
       return;
     }
+    // Play Again always restarts a world singleplayer game (map: 'all'),
+    // never a community map — so it's always ad-eligible.
+    maybeShowGameInterstitial('singleplayer');
     router.replace({
       pathname: '/game/[id]',
       params: {
@@ -930,7 +963,7 @@ export default function GameResultsScreen() {
                   </Text>
                   {round.distance != null && (
                     <Text style={styles.calloutDistance}>
-                      Distance: {formatDistance(round.distance)}
+                      Distance: {formatDistance(round.distance, units)}
                     </Text>
                   )}
                   <View style={styles.calloutActionBtn}>
@@ -956,7 +989,7 @@ export default function GameResultsScreen() {
                   </Text>
                   {round.distance != null && (
                     <Text style={styles.calloutDistance}>
-                      Distance: {formatDistance(round.distance)}
+                      Distance: {formatDistance(round.distance, units)}
                     </Text>
                   )}
                 </View>
@@ -1249,7 +1282,7 @@ export default function GameResultsScreen() {
                       <Text style={styles.playerDrillDownLabel}>Round {pr.roundNumber}</Text>
                       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                         {pr.distance != null && (
-                          <Text style={styles.playerDrillDownDetail}>{formatDistance(pr.distance)}</Text>
+                          <Text style={styles.playerDrillDownDetail}>{formatDistance(pr.distance, units)}</Text>
                         )}
                         <Text style={[styles.playerDrillDownPts, { color: getPointsColor(pr.points) }]}>
                           {pr.points.toLocaleString()} pts
@@ -1475,7 +1508,7 @@ export default function GameResultsScreen() {
                         <Text style={styles.detailIcon}>📏</Text>
                         <Text style={styles.detailText}>Distance</Text>
                       </View>
-                      <Text style={styles.detailValue}>{formatDistance(round.distance)}</Text>
+                      <Text style={styles.detailValue}>{formatDistance(round.distance, units)}</Text>
                     </View>
                   )}
                   {round.timeTaken != null && round.timeTaken > 0 && (
@@ -1514,26 +1547,13 @@ export default function GameResultsScreen() {
         <View style={{ flex: 1, flexDirection: 'row' }}>
           {/* Map area */}
           <View style={{ flex: 1 }}>
-            <MapView
-              ref={mapRef}
+            <EmbeddedMap
+              route="results"
               style={StyleSheet.absoluteFillObject}
-              provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-              initialRegion={{
-                latitude: 20,
-                longitude: 0,
-                latitudeDelta: 120,
-                longitudeDelta: 120,
-              }}
-              mapType="standard"
-              showsUserLocation={false}
-              showsMyLocationButton={false}
-              toolbarEnabled={false}
-              rotateEnabled={false}
-              pitchEnabled={false}
-              moveOnMarkerPress={false}
-            >
-              {renderMapMarkers()}
-            </MapView>
+              rounds={resultsRounds}
+              activeRound={activeRound}
+              isDuel={!!multiplayerInfo?.isDuel}
+            />
           </View>
 
           {/* Sidebar — matches web .game-summary-sidebar */}
@@ -1584,25 +1604,13 @@ export default function GameResultsScreen() {
   return (
     <View style={styles.root}>
       {/* Full-screen map */}
-      <MapView
-        ref={mapRef}
+      <EmbeddedMap
+        route="results"
         style={StyleSheet.absoluteFillObject}
-        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-        initialRegion={{
-          latitude: 20,
-          longitude: 0,
-          latitudeDelta: 120,
-          longitudeDelta: 120,
-        }}
-        mapType="standard"
-        showsUserLocation={false}
-        showsMyLocationButton={false}
-        toolbarEnabled={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
-      >
-        {renderMapMarkers()}
-      </MapView>
+        rounds={resultsRounds}
+        activeRound={activeRound}
+        isDuel={!!multiplayerInfo?.isDuel}
+      />
       <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>
         {renderBackButton()}
       </View>

@@ -3,11 +3,9 @@ import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  withTiming,
-  withDelay,
-  withSequence,
   Easing,
 } from 'react-native-reanimated';
+import { withTiming, withDelay, withSequence } from './anims';
 import { t } from '../../shared/locale';
 import { dailyTimings } from './styles';
 
