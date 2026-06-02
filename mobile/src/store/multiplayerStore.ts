@@ -171,7 +171,7 @@ interface MultiplayerState {
   gameQueued: false | 'publicDuel' | 'unrankedDuel';
   publicDuelRange: [number, number] | null;
   nextGameQueued: boolean;
-  nextGameType: string | null;
+  nextGameType: 'ranked' | 'unranked' | null;
 
   // Private game join
   enteringGameCode: boolean;
@@ -238,7 +238,7 @@ const initialState = {
   gameQueued: false as false | 'publicDuel' | 'unrankedDuel',
   publicDuelRange: null as [number, number] | null,
   nextGameQueued: false,
-  nextGameType: null as string | null,
+  nextGameType: null as 'ranked' | 'unranked' | null,
   enteringGameCode: false,
   joinError: null as string | null,
   inGame: false,
@@ -554,12 +554,16 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     // ── gameCancelled (home.js:1772-1793) ──────────────────
     if (data.type === 'gameCancelled') {
+      // Preserve the ORIGINAL queue type so an unranked player whose opponent
+      // quits before start re-queues back into unranked (not ranked). The
+      // original type is still readable from `state.gameQueued` here because
+      // `state` was captured at the top of handleMessage before this reset.
       set({
         ...initialState,
         connected: true,
         verified: state.verified,
         nextGameQueued: true, // Auto re-queue
-        nextGameType: 'ranked',
+        nextGameType: state.gameQueued === 'unrankedDuel' ? 'unranked' : 'ranked',
         playerCount: state.playerCount,
         guestName: state.guestName,
         latestToast: {

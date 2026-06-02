@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { wsService } from '../../services/websocket';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
@@ -79,7 +79,7 @@ export default function QueueOverlay({ onCancel }: QueueOverlayProps) {
         </Animated.View>
 
         <Text style={styles.title}>
-          {isRanked ? 'Finding Ranked Duel...' : 'Finding Game...'}
+          {isRanked ? t('findingRankedDuel', undefined, 'Finding Ranked Duel...') : t('findingGame')}
         </Text>
 
         <ActivityIndicator
@@ -90,13 +90,15 @@ export default function QueueOverlay({ onCancel }: QueueOverlayProps) {
 
         {isRanked && publicDuelRange && (
           <Text style={styles.eloRange}>
-            ELO Range: {publicDuelRange[0]} - {publicDuelRange[1]}
+            {t('eloRangeValue', { min: publicDuelRange[0], max: publicDuelRange[1] }, 'ELO Range: {{min}} - {{max}}')}
           </Text>
         )}
 
         {playerCount > 0 && (
           <Text style={styles.playerCount}>
-            {playerCount} player{playerCount !== 1 ? 's' : ''} online
+            {playerCount === 1
+              ? t('playerOnlineCount', { cnt: playerCount }, '{{cnt}} player online')
+              : t('playersOnlineCount', { cnt: playerCount }, '{{cnt}} players online')}
           </Text>
         )}
 
@@ -107,7 +109,7 @@ export default function QueueOverlay({ onCancel }: QueueOverlayProps) {
           ]}
           onPress={handleCancel}
         >
-          <Text style={styles.cancelBtnText}>Cancel</Text>
+          <Text style={styles.cancelBtnText}>{t('cancel')}</Text>
         </Pressable>
       </View>
     </Animated.View>

@@ -86,6 +86,12 @@ const js = result.outputFiles.map((f) => f.text).join('\n');
 const html =
   '<!DOCTYPE html><html><head><meta charset="utf-8"/>' +
   '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>' +
+  // App main font (Lexend) for Leaflet tooltips/controls — see the .leaflet-container
+  // rule in embed/entry.jsx. Network-loaded (the map needs network for tiles anyway);
+  // falls back to system sans-serif offline.
+  '<link rel="preconnect" href="https://fonts.googleapis.com"/>' +
+  '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>' +
+  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap"/>' +
   '</head><body><div id="root"></div><script>' +
   js +
   '</script></body></html>';

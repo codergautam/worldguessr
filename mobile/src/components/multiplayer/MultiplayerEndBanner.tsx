@@ -5,7 +5,7 @@
  */
 
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, findDistance, calcPoints, formatDistance } from '../../shared';
+import { colors, findDistance, calcPoints, formatDistance, t } from '../../shared';
 import { spacing, fontSizes } from '../../styles/theme';
 import ClassicEndBanner from '../game/ClassicEndBanner';
 import { MPPlayer, MPLocation } from '../../store/multiplayerStore';
@@ -79,7 +79,7 @@ export default function MultiplayerEndBanner({
               </Text>
               <Text style={styles.opponentDist}>{formatDistance(p.distance, units)}</Text>
               <Text style={[styles.opponentPoints, { color: getPointsColor(p.points) }]}>
-                {p.points.toLocaleString()} pts
+                {p.points.toLocaleString()} {t('pts')}
               </Text>
             </View>
           ))}
@@ -95,7 +95,7 @@ export default function MultiplayerEndBanner({
           {duelInfo.text}
         </Text>
       )}
-      {isAutoTransition && <Text style={styles.waitingText}>Next round starting...</Text>}
+      {isAutoTransition && <Text style={styles.waitingText}>{t('nextRoundStarting', undefined, 'Next round starting...')}</Text>}
     </View>
   );
 
@@ -116,12 +116,14 @@ export default function MultiplayerEndBanner({
 
 function buildDuelHpLine(myPoints: number, oppPoints: number): { text: string; color?: string } {
   if (myPoints === oppPoints) {
-    return { text: 'Draw — no HP change' };
+    return { text: t('duelDrawNoHpChange', undefined, 'Draw — no HP change') };
   }
   const diff = Math.abs(myPoints - oppPoints);
   const iWon = myPoints > oppPoints;
   return {
-    text: `${iWon ? 'Opponent' : 'You'} lost ${diff} HP`,
+    text: iWon
+      ? t('opponentLostHp', { diff }, 'Opponent lost {{diff}} HP')
+      : t('youLostHp', { diff }, 'You lost {{diff}} HP'),
     color: iWon ? colors.success : colors.error,
   };
 }

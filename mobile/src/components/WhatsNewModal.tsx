@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isVersionHigher } from '../utils/versionCompare';
 import { useAuthStore } from '../store/authStore';
+import { t } from '../shared';
 import changelogData from '../data/changelog.json';
 
 const LAST_VERSION_KEY = 'wg_last_version';
@@ -200,10 +201,10 @@ export default function WhatsNewModal({ forceOpen, onForceClose }: Props) {
       <Pressable style={styles.overlay} onPress={handleClose}>
         <Animated.View style={[styles.card, cardStyle]}>
           <Pressable onPress={() => {}} style={styles.inner}>
-            <Text style={styles.title}>What&apos;s New!</Text>
+            <Text style={styles.title}>{t('whatsNew', undefined, "What's New!")}</Text>
             {!!latestEntry.date && (
               <Text style={styles.releaseLine}>
-                {latestEntry.version} released on {latestEntry.date}
+                {t('versionReleasedOn', { version: latestEntry.version, date: latestEntry.date }, '{{version}} released on {{date}}')}
               </Text>
             )}
 
@@ -226,7 +227,7 @@ export default function WhatsNewModal({ forceOpen, onForceClose }: Props) {
                 start={{ x: 0, y: 0 }}
                 end={{ x: 0, y: 1 }}
               >
-                <Text style={styles.primaryBtnText}>OK</Text>
+                <Text style={styles.primaryBtnText}>{t('ok')}</Text>
               </LinearGradient>
             </Pressable>
           </Pressable>

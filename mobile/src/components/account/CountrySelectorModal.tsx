@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { api } from '../../services/api';
 import * as countryCodes from 'countries-code';
+import { t } from '../../shared';
 
 const VALID_COUNTRY_CODES = [
   'AD', 'AE', 'AF', 'AG', 'AI', 'AL', 'AM', 'AO', 'AQ', 'AR', 'AS', 'AT', 'AU', 'AW', 'AX', 'AZ',
@@ -82,11 +83,11 @@ export default function CountrySelectorModal({
         onSelect(code);
         onClose();
       } else {
-        Alert.alert('Error', 'Failed to update country');
+        Alert.alert(t('error'), t('failedToUpdateCountry', undefined, 'Failed to update country'));
       }
     } catch (error) {
       console.error('Failed to update country:', error);
-      Alert.alert('Error', 'An error occurred while updating your flag');
+      Alert.alert(t('error'), t('errorUpdatingFlag', undefined, 'An error occurred while updating your flag'));
     } finally {
       setSaving(false);
     }
@@ -126,11 +127,11 @@ export default function CountrySelectorModal({
     >
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <View style={styles.card}>
-          <Text style={styles.title}>Select Your Country Flag</Text>
+          <Text style={styles.title}>{t('selectCountryFlag')}</Text>
 
           <TextInput
             style={styles.searchInput}
-            placeholder="Search country..."
+            placeholder={t('searchCountry')}
             placeholderTextColor="rgba(255,255,255,0.4)"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -159,12 +160,12 @@ export default function CountrySelectorModal({
                 {saving ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.removeButtonText}>Remove Flag</Text>
+                  <Text style={styles.removeButtonText}>{t('removeFlag')}</Text>
                 )}
               </Pressable>
             )}
             <Pressable style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('cancel')}</Text>
             </Pressable>
           </View>
         </View>

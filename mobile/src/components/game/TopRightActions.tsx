@@ -2,7 +2,7 @@ import { ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import { useAuthStore } from '../../store/authStore';
 import AccountSelectSheet from '../auth/AccountSelectSheet';
@@ -33,7 +33,7 @@ export default function TopRightActions({ children, onBeforeNavigate }: TopRight
           style={({ pressed }) => [styles.toolbarBtn, styles.toolbarBtnBlue, pressed && { opacity: 0.85 }]}
         >
           <Ionicons name="enter-outline" size={18} color={colors.white} />
-          <Text style={styles.toolbarBtnText}>Join Party</Text>
+          <Text style={styles.toolbarBtnText}>{t('joinGame')}</Text>
         </Pressable>
         <Pressable
           onPress={() => {
@@ -52,7 +52,7 @@ export default function TopRightActions({ children, onBeforeNavigate }: TopRight
             color={colors.white}
           />
           <Text style={styles.toolbarBtnText} numberOfLines={1}>
-            {isAuthenticated ? username || 'Account' : 'Login'}
+            {isAuthenticated ? username || t('account') : t('login')}
           </Text>
         </Pressable>
       </View>

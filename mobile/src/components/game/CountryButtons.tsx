@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import {
   ALL_CONTINENTS,
   flagUrl,
@@ -203,7 +203,7 @@ export default function CountryButtons({
     >
       <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} pointerEvents="none" />
       <Text style={[styles.prompt, { fontSize: buttonMetrics.promptFont }]}>
-        {isContinent ? 'Which continent?' : 'Which country?'}
+        {t(isContinent ? 'whichContinent' : 'whichCountry')}
       </Text>
       <View
         style={[

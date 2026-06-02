@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { getLeague, leagues } from '../../shared/user/leagues';
+import { t } from '../../shared';
 import {
   GlassCard,
   StatItem,
@@ -43,7 +44,7 @@ export default function EloTab({
     <View style={{ gap: 20 }}>
       {/* Leagues Card */}
       <GlassCard>
-        <Text style={sharedStyles.cardTitle}>Leagues</Text>
+        <Text style={sharedStyles.cardTitle}>{t('leagues')}</Text>
         <View style={sharedStyles.leagueContainer}>
           {leagueList.map((league) => {
             const isCurrent = userLeague.name === league.name;
@@ -56,7 +57,7 @@ export default function EloTab({
               >
                 {showBadge && (
                   <View style={[localStyles.eloBadge, { backgroundColor: league.color }]}>
-                    <Text style={localStyles.eloBadgeText}>{league.min} ELO</Text>
+                    <Text style={localStyles.eloBadgeText}>{league.min} {t('elo')}</Text>
                   </View>
                 )}
                 <View
@@ -84,18 +85,18 @@ export default function EloTab({
 
       {/* Statistics Card */}
       <GlassCard>
-        <Text style={sharedStyles.cardTitle}>Statistics</Text>
+        <Text style={sharedStyles.cardTitle}>{t('statistics')}</Text>
         <View style={sharedStyles.statsGrid}>
-          <StatItem label="ELO" value={String(eloData.elo)} />
-          <StatItem label="Global Rank" value={`#${eloData.rank}`} />
-          <StatItem label="Duels Won" value={String(eloData.duels_wins)} />
-          <StatItem label="Duels Lost" value={String(eloData.duels_losses)} />
+          <StatItem label={t('elo')} value={String(eloData.elo)} />
+          <StatItem label={t('globalRank')} value={`#${eloData.rank}`} />
+          <StatItem label={t('duels_won')} value={String(eloData.duels_wins)} />
+          <StatItem label={t('duels_lost')} value={String(eloData.duels_losses)} />
           {eloData.duels_tied > 0 && (
-            <StatItem label="Duels Tied" value={String(eloData.duels_tied)} />
+            <StatItem label={t('duels_tied')} value={String(eloData.duels_tied)} />
           )}
           {eloData.win_rate > 0 && (
             <StatItem
-              label="Win Rate"
+              label={t('win_rate')}
               value={`${(eloData.win_rate * 100).toFixed(2)}%`}
             />
           )}

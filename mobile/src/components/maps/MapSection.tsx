@@ -10,16 +10,20 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MapItem } from '../../services/api';
+import { t } from '../../shared';
 import MapTile from './MapTile';
 
 export const SECTION_ORDER = ['myMaps', 'likedMaps', 'countryMaps', 'spotlight', 'popular', 'recent'] as const;
+// Maps each section id to its locale KEY. Do NOT call t() here at module scope —
+// t() captures English at module-load time and won't update on language switch.
+// Resolve to a translated label via t(SECTION_LABELS[key]) at render time.
 export const SECTION_LABELS: Record<string, string> = {
-  myMaps: 'My Maps',
-  likedMaps: 'Liked Maps',
-  countryMaps: 'Country Maps',
-  spotlight: 'Spotlight',
-  popular: 'Popular',
-  recent: 'Recent',
+  myMaps: 'myMaps',
+  likedMaps: 'likedMaps',
+  countryMaps: 'countryMaps',
+  spotlight: 'spotlight',
+  popular: 'popular',
+  recent: 'recent',
 };
 
 export default function MapSection({
@@ -182,7 +186,7 @@ export default function MapSection({
                 color="white"
               />
               <Text style={styles.showMoreText}>
-                {expanded ? 'Show Less' : 'Show All'}
+                {t(expanded ? 'showLess' : 'showAll')}
               </Text>
             </Pressable>
           </>

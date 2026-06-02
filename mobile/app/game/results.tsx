@@ -22,7 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import MapView, { Polyline, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import EmbeddedMap from '../../src/components/game/EmbeddedMap';
-import { colors, formatDistance } from '../../src/shared';
+import { colors, formatDistance, t } from '../../src/shared';
 import { useSettingsStore } from '../../src/store/settingsStore';
 import { findDistance } from '../../src/shared/game/calcPoints';
 import { api } from '../../src/services/api';
@@ -299,7 +299,7 @@ export default function GameResultsScreen() {
     const fetchHistory = async () => {
       try {
         const secret = useAuthStore.getState().secret;
-        if (!secret) { setHistoryError('Not authenticated'); setHistoryLoading(false); return; }
+        if (!secret) { setHistoryError(t('notAuthenticated', undefined, 'Not authenticated')); setHistoryLoading(false); return; }
         const data = await api.gameDetails(secret, gameId);
         const game = data.game as any;
         const myId: string = game.currentUserId;
@@ -416,7 +416,7 @@ export default function GameResultsScreen() {
         }
       } catch (err) {
         console.error('Error fetching game details:', err);
-        setHistoryError('Failed to load game details');
+        setHistoryError(t('errorLoadingGame'));
       } finally {
         setHistoryLoading(false);
       }
@@ -468,6 +468,8 @@ export default function GameResultsScreen() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const units = useSettingsStore((s) => s.units);
+  const mapType = useSettingsStore((s) => s.mapType);
+  const language = useSettingsStore((s) => s.language);
 
   const isLandscape = width > height;
 
@@ -895,21 +897,21 @@ export default function GameResultsScreen() {
   const handleSubmitReport = async () => {
     if (!reportReason || !reportTarget) return;
     const words = reportDescription.trim().split(/\s+/).filter(Boolean);
-    if (words.length < 5) { Alert.alert('Error', 'Description must be at least 5 words.'); return; }
-    if (words.length > 100) { Alert.alert('Error', 'Description must be 100 words or less.'); return; }
+    if (words.length < 5) { Alert.alert(t('error'), t('reportDescriptionMinWords', undefined, 'Description must be at least 5 words.')); return; }
+    if (words.length > 100) { Alert.alert(t('error'), t('reportDescriptionMaxWords', undefined, 'Description must be 100 words or less.')); return; }
     const secret = useAuthStore.getState().secret;
     if (!secret) return;
     setReportSubmitting(true);
     try {
       await api.submitReport(secret, reportReason as any, reportDescription.trim(), gameId!, multiplayerInfo!.gameType, reportTarget);
-      Alert.alert('Report Submitted', 'Thank you for your report. Our team will review it.');
+      Alert.alert(t('reportSubmittedTitle', undefined, 'Report Submitted'), t('reportSubmittedMessage', undefined, 'Thank you for your report. Our team will review it.'));
       setReportModalVisible(false);
       setReportReason('');
       setReportDescription('');
       setReportTarget(null);
     } catch (err: any) {
       console.log('Error submitting report:', err);
-      Alert.alert('Error', err?.message || 'Failed to submit report. Please try again.');
+      Alert.alert(t('error'), err?.message || t('reportSubmitFailed', undefined, 'Failed to submit report. Please try again.'));
     } finally {
       setReportSubmitting(false);
     }
@@ -921,7 +923,7 @@ export default function GameResultsScreen() {
       <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color="#4CAF50" />
         <Text style={{ color: 'rgba(255,255,255,0.7)', marginTop: 16, fontFamily: 'Lexend' }}>
-          Loading game details...
+          {t('loadingGameDetails')}
         </Text>
       </View>
     );
@@ -931,7 +933,7 @@ export default function GameResultsScreen() {
       <View style={[styles.root, { justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={{ color: '#F44336', fontSize: 16, fontFamily: 'Lexend' }}>{historyError}</Text>
         <Pressable onPress={() => router.back()} style={{ marginTop: 16 }}>
-          <Text style={{ color: '#4CAF50', fontFamily: 'Lexend-SemiBold' }}>Go Back</Text>
+          <Text style={{ color: '#4CAF50', fontFamily: 'Lexend-SemiBold' }}>{t('back')}</Text>
         </Pressable>
       </View>
     );
@@ -957,17 +959,17 @@ export default function GameResultsScreen() {
             >
               <Callout onPress={() => openInGoogleMaps(round.actualLat!, round.actualLong!, round.panoId)}>
                 <View style={styles.calloutContainer}>
-                  <Text style={styles.calloutTitle}>Round {index + 1} - Actual Location</Text>
+                  <Text style={styles.calloutTitle}>{t('roundActualLocation', { round: index + 1 })}</Text>
                   <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
-                    {round.points.toLocaleString()} points
+                    {t('pointsCount', { points: round.points.toLocaleString() })}
                   </Text>
                   {round.distance != null && (
                     <Text style={styles.calloutDistance}>
-                      Distance: {formatDistance(round.distance, units)}
+                      {t('distanceWithValue', { distance: formatDistance(round.distance, units) })}
                     </Text>
                   )}
                   <View style={styles.calloutActionBtn}>
-                    <Text style={styles.calloutActionText}>📍 Open in Maps</Text>
+                    <Text style={styles.calloutActionText}>{t('openInMapsButton', undefined, '📍 Open in Maps')}</Text>
                   </View>
                 </View>
               </Callout>
@@ -983,13 +985,13 @@ export default function GameResultsScreen() {
             >
               <Callout>
                 <View style={styles.calloutContainer}>
-                  <Text style={styles.calloutTitle}>Round {index + 1} - Your Guess</Text>
+                  <Text style={styles.calloutTitle}>{t('roundYourGuess', { round: index + 1 })}</Text>
                   <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
-                    {round.points.toLocaleString()} points
+                    {t('pointsCount', { points: round.points.toLocaleString() })}
                   </Text>
                   {round.distance != null && (
                     <Text style={styles.calloutDistance}>
-                      Distance: {formatDistance(round.distance, units)}
+                      {t('distanceWithValue', { distance: formatDistance(round.distance, units) })}
                     </Text>
                   )}
                 </View>
@@ -1021,7 +1023,7 @@ export default function GameResultsScreen() {
                   <View style={styles.calloutContainer}>
                     <Text style={styles.calloutTitle}>{opp.username}</Text>
                     <Text style={[styles.calloutPoints, { color: getPointsColor(opp.points) }]}>
-                      {opp.points.toLocaleString()} points
+                      {t('pointsCount', { points: opp.points.toLocaleString() })}
                     </Text>
                   </View>
                 </Callout>
@@ -1054,7 +1056,7 @@ export default function GameResultsScreen() {
             compact && { fontSize: 24 },
             { color: multiplayerInfo.isDraw ? '#FFC107' : multiplayerInfo.isWinner ? '#4CAF50' : '#F44336' },
           ]}>
-            {multiplayerInfo.isDraw ? 'Draw' : multiplayerInfo.isWinner ? 'Victory' : 'Defeat'}
+            {t(multiplayerInfo.isDraw ? 'draw' : multiplayerInfo.isWinner ? 'victory' : 'defeat')}
           </Text>
           {myEloData && typeof myEloData.before === 'number' && typeof myEloData.after === 'number' && (
             <EloChangeDisplay
@@ -1109,13 +1111,13 @@ export default function GameResultsScreen() {
           </View>
           {showXpEarned && (
             <View style={[styles.headerXpBadge, compact && styles.headerXpBadgeCompact]}>
-              <Text style={styles.totalXpBadgeText}>+{displayXp} XP</Text>
+              <Text style={styles.totalXpBadgeText}>{t('xpEarnedBadge', { xp: displayXp })}</Text>
             </View>
           )}
           {/* Multiplayer rank */}
           {myRank && (
             <Text style={[styles.rankText, compact && { fontSize: 14 }]}>
-              Rank {myRank.rank}/{myRank.total}
+              {t('rankOfTotalSlash', { rank: myRank.rank, total: myRank.total })}
             </Text>
           )}
         </>
@@ -1126,7 +1128,7 @@ export default function GameResultsScreen() {
         {displayScore.toLocaleString()}
       </Text>
       <Text style={[styles.scoreSubtitle, compact && { fontSize: 11, marginBottom: 4 }]}>
-        out of {maxScore.toLocaleString()} points
+        {t('outOfPoints', { maxScore: maxScore.toLocaleString() })}
       </Text>
 
       {/* Action buttons */}
@@ -1140,7 +1142,7 @@ export default function GameResultsScreen() {
             ]}
           >
             <Text style={styles.detailsToggleBtnText}>
-              {detailsExpanded ? 'Hide Details' : 'View Details'}
+              {t(detailsExpanded ? 'hideDetails' : 'viewDetails')}
             </Text>
             <Ionicons
               name={detailsExpanded ? 'chevron-down' : 'chevron-up'}
@@ -1161,7 +1163,7 @@ export default function GameResultsScreen() {
               style={styles.actionBtnPrimary}
             >
               <Ionicons name="arrow-back" size={16} color={colors.white} />
-              <Text style={styles.actionBtnPrimaryText}>Back</Text>
+              <Text style={styles.actionBtnPrimaryText}>{t('back')}</Text>
             </LinearGradient>
           </Pressable>
         ) : (
@@ -1177,7 +1179,7 @@ export default function GameResultsScreen() {
                 style={styles.actionBtnPrimary}
               >
                 <Ionicons name="refresh" size={16} color={colors.white} />
-                <Text style={styles.actionBtnPrimaryText}>Play Again</Text>
+                <Text style={styles.actionBtnPrimaryText}>{t('playAgain')}</Text>
               </LinearGradient>
             </Pressable>
             {/* <Pressable
@@ -1201,7 +1203,7 @@ export default function GameResultsScreen() {
             onPress={handleCopyGameId}
             style={styles.gameIdBtn}
           >
-            <Text style={styles.gameIdText}>ID: {gameId.slice(0, 8)}...</Text>
+            <Text style={styles.gameIdText}>{t('gameIdShort', { id: gameId.slice(0, 8) })}</Text>
             <Ionicons
               name={gameIdCopied ? 'checkmark' : 'copy-outline'}
               size={12}
@@ -1224,7 +1226,7 @@ export default function GameResultsScreen() {
               style={styles.reportBtn}
             >
               <Ionicons name="flag-outline" size={14} color="#F44336" />
-              <Text style={styles.reportBtnText}>Report</Text>
+              <Text style={styles.reportBtnText}>{t('report', undefined, 'Report')}</Text>
             </Pressable>
           )}
         </View>
@@ -1240,7 +1242,7 @@ export default function GameResultsScreen() {
     return (
       <View style={{ marginBottom: 8 }}>
         <View style={styles.roundsHeader}>
-          <Text style={styles.roundsHeaderText}>Final Scores</Text>
+          <Text style={styles.roundsHeaderText}>{t('finalScores')}</Text>
         </View>
         {sorted.map((player, idx) => {
           const isMe = player.playerId === multiplayerInfo.myId;
@@ -1259,12 +1261,12 @@ export default function GameResultsScreen() {
                     )}
                     {player.countryCode && <CountryFlag countryCode={player.countryCode} size={14} />}
                     <Text style={[styles.roundNumber, isMe && { color: '#4CAF50' }]}>
-                      #{idx + 1} {player.username}{isMe ? ' (you)' : ''}
+                      {t('leaderboardPlayerRank', { rank: idx + 1, username: player.username })}{isMe ? ` (${t('you')})` : ''}
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={[styles.roundPts, { color: getPointsColor(player.totalPoints) }]}>
-                      {player.totalPoints.toLocaleString()} pts
+                      {t('ptsCount', { points: player.totalPoints.toLocaleString() })}
                     </Text>
                     <Ionicons
                       name={isSelected ? 'chevron-up' : 'chevron-down'}
@@ -1279,13 +1281,13 @@ export default function GameResultsScreen() {
                 <View style={styles.playerDrillDown}>
                   {playerRounds.map((pr) => (
                     <View key={pr.roundNumber} style={styles.playerDrillDownRow}>
-                      <Text style={styles.playerDrillDownLabel}>Round {pr.roundNumber}</Text>
+                      <Text style={styles.playerDrillDownLabel}>{t('roundNumber', { round: pr.roundNumber })}</Text>
                       <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                         {pr.distance != null && (
                           <Text style={styles.playerDrillDownDetail}>{formatDistance(pr.distance, units)}</Text>
                         )}
                         <Text style={[styles.playerDrillDownPts, { color: getPointsColor(pr.points) }]}>
-                          {pr.points.toLocaleString()} pts
+                          {t('ptsCount', { points: pr.points.toLocaleString() })}
                         </Text>
                       </View>
                     </View>
@@ -1307,15 +1309,15 @@ export default function GameResultsScreen() {
       <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => setReportModalVisible(false)}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Report Player</Text>
+            <Text style={styles.modalTitle}>{t('reportPlayer', undefined, 'Report Player')}</Text>
             <Text style={styles.modalWarning}>
-              False reports may result in action against your account.
+              {t('reportFalseWarning', undefined, 'False reports may result in action against your account.')}
             </Text>
 
             {/* Player selection (multiplayer with >1 opponent) */}
             {!reportTarget && opponents.length > 1 && (
               <View style={{ marginBottom: 12 }}>
-                <Text style={styles.modalLabel}>Select Player</Text>
+                <Text style={styles.modalLabel}>{t('selectPlayer', undefined, 'Select Player')}</Text>
                 {opponents.map(opp => (
                   <Pressable
                     key={opp.playerId}
@@ -1329,12 +1331,12 @@ export default function GameResultsScreen() {
             )}
 
             {/* Reason selection */}
-            <Text style={styles.modalLabel}>Reason</Text>
+            <Text style={styles.modalLabel}>{t('reason')}</Text>
             <View style={{ gap: 6, marginBottom: 12 }}>
               {([
-                ['inappropriate_username', 'Inappropriate Username'],
-                ['cheating', 'Cheating'],
-                ['other', 'Other'],
+                ['inappropriate_username', t('reportReasonInappropriateUsername')],
+                ['cheating', t('reportReasonCheating')],
+                ['other', t('reportReasonOther')],
               ] as const).map(([value, label]) => (
                 <Pressable
                   key={value}
@@ -1347,18 +1349,18 @@ export default function GameResultsScreen() {
             </View>
 
             {/* Description */}
-            <Text style={styles.modalLabel}>Description (5-100 words)</Text>
+            <Text style={styles.modalLabel}>{t('reportDescriptionLabel', undefined, 'Description (5-100 words)')}</Text>
             <TextInput
               style={styles.reportInput}
               multiline
               numberOfLines={4}
-              placeholder="Describe the issue..."
+              placeholder={t('reportDescriptionPlaceholder', undefined, 'Describe the issue...')}
               placeholderTextColor="rgba(255,255,255,0.3)"
               value={reportDescription}
               onChangeText={setReportDescription}
               textAlignVertical="top"
             />
-            <Text style={styles.wordCount}>{wordCount}/100 words</Text>
+            <Text style={styles.wordCount}>{t('wordCountOfMax', { count: wordCount })}</Text>
 
             {/* Buttons */}
             <View style={styles.modalButtons}>
@@ -1366,14 +1368,14 @@ export default function GameResultsScreen() {
                 onPress={() => { setReportModalVisible(false); setReportReason(''); setReportDescription(''); setReportTarget(null); }}
                 style={styles.modalCancelBtn}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={styles.modalCancelText}>{t('cancel')}</Text>
               </Pressable>
               <Pressable
                 onPress={handleSubmitReport}
                 disabled={reportSubmitting || !reportReason || !reportTarget || wordCount < 5}
                 style={[styles.modalSubmitBtn, (reportSubmitting || !reportReason || !reportTarget || wordCount < 5) && { opacity: 0.5 }]}
               >
-                <Text style={styles.modalSubmitText}>{reportSubmitting ? 'Submitting...' : 'Submit'}</Text>
+                <Text style={styles.modalSubmitText}>{t(reportSubmitting ? 'submitting' : 'submit', undefined, reportSubmitting ? 'Submitting...' : 'Submit')}</Text>
               </Pressable>
             </View>
           </View>
@@ -1407,7 +1409,7 @@ export default function GameResultsScreen() {
       {renderLeaderboard()}
 
       <View style={styles.roundsHeader}>
-        <Text style={styles.roundsHeaderText}>Round Details</Text>
+        <Text style={styles.roundsHeaderText}>{t('roundDetails')}</Text>
       </View>
       {parsedRounds.map((round, index) => {
         const isActive = activeRound === index;
@@ -1440,9 +1442,9 @@ export default function GameResultsScreen() {
             >
               {/* Round header row */}
               <View style={styles.roundItemHeader}>
-                <Text style={styles.roundNumber}>Round {index + 1}</Text>
+                <Text style={styles.roundNumber}>{t('roundNumber', { round: index + 1 })}</Text>
                 <Text style={[styles.roundPts, { color: getPointsColor(round.points) }]}>
-                  {round.points.toLocaleString()} pts
+                  {t('ptsCount', { points: round.points.toLocaleString() })}
                 </Text>
               </View>
 
@@ -1454,25 +1456,25 @@ export default function GameResultsScreen() {
                       {useAuthStore.getState().user?.countryCode && (
                         <CountryFlag countryCode={useAuthStore.getState().user!.countryCode!} size={12} />
                       )}
-                      <Text style={styles.duelPlayerName}>You</Text>
+                      <Text style={styles.duelPlayerName}>{t('you')}</Text>
                     </View>
                     {round.didGuess ? (
                       <Text style={[styles.duelPlayerScore, { color: getPointsColor(round.points) }]}>
-                        {round.points} pts
+                        {t('ptsCount', { points: round.points })}
                       </Text>
                     ) : (
                       <Text style={[styles.duelPlayerScore, { color: 'rgba(255,255,255,0.4)' }]}>
-                        No guess
+                        {t('noGuess', undefined, 'No guess')}
                       </Text>
                     )}
                     {round.didGuess && duelOpp.didGuess && round.points < duelOpp.points && (
                       <Text style={styles.healthDamage}>
-                        -{duelOpp.points - round.points} ❤️
+                        {t('duelHealthDamage', { damage: duelOpp.points - round.points }, '-{{damage}} ❤️')}
                       </Text>
                     )}
                   </View>
 
-                  <Text style={styles.vsDivider}>VS</Text>
+                  <Text style={styles.vsDivider}>{t('versus', undefined, 'VS')}</Text>
 
                   <View style={styles.duelPlayerCol}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -1481,16 +1483,16 @@ export default function GameResultsScreen() {
                     </View>
                     {duelOpp.didGuess ? (
                       <Text style={[styles.duelPlayerScore, { color: getPointsColor(duelOpp.points) }]}>
-                        {duelOpp.points} pts
+                        {t('ptsCount', { points: duelOpp.points })}
                       </Text>
                     ) : (
                       <Text style={[styles.duelPlayerScore, { color: 'rgba(255,255,255,0.4)' }]}>
-                        No guess
+                        {t('noGuess', undefined, 'No guess')}
                       </Text>
                     )}
                     {round.didGuess && duelOpp.didGuess && duelOpp.points < round.points && (
                       <Text style={styles.healthDamage}>
-                        -{round.points - duelOpp.points} ❤️
+                        {t('duelHealthDamage', { damage: round.points - duelOpp.points }, '-{{damage}} ❤️')}
                       </Text>
                     )}
                   </View>
@@ -1506,7 +1508,7 @@ export default function GameResultsScreen() {
                     <View style={styles.detailRow}>
                       <View style={styles.detailLabel}>
                         <Text style={styles.detailIcon}>📏</Text>
-                        <Text style={styles.detailText}>Distance</Text>
+                        <Text style={styles.detailText}>{t('distance')}</Text>
                       </View>
                       <Text style={styles.detailValue}>{formatDistance(round.distance, units)}</Text>
                     </View>
@@ -1515,7 +1517,7 @@ export default function GameResultsScreen() {
                     <View style={styles.detailRow}>
                       <View style={styles.detailLabel}>
                         <Text style={styles.detailIcon}>⏱️</Text>
-                        <Text style={styles.detailText}>Time</Text>
+                        <Text style={styles.detailText}>{t('timeTaken')}</Text>
                       </View>
                       <Text style={styles.detailValue}>{formatTime(round.timeTaken)}</Text>
                     </View>
@@ -1524,7 +1526,7 @@ export default function GameResultsScreen() {
                     <View style={styles.detailRow}>
                       <View style={styles.detailLabel}>
                         <Text style={styles.detailIcon}>⭐</Text>
-                        <Text style={styles.detailText}>XP</Text>
+                        <Text style={styles.detailText}>{t('xp')}</Text>
                       </View>
                       <Text style={[styles.detailValue, { color: '#FFC107' }]}>+{round.xpEarned}</Text>
                     </View>
@@ -1549,6 +1551,9 @@ export default function GameResultsScreen() {
           <View style={{ flex: 1 }}>
             <EmbeddedMap
               route="results"
+              mapType={mapType}
+              lang={language}
+              onOpenMaps={({ lat, lng, panoId }) => openInGoogleMaps(lat, lng, panoId)}
               style={StyleSheet.absoluteFillObject}
               rounds={resultsRounds}
               activeRound={activeRound}
@@ -1606,6 +1611,9 @@ export default function GameResultsScreen() {
       {/* Full-screen map */}
       <EmbeddedMap
         route="results"
+        mapType={mapType}
+        lang={language}
+        onOpenMaps={({ lat, lng, panoId }) => openInGoogleMaps(lat, lng, panoId)}
         style={StyleSheet.absoluteFillObject}
         rounds={resultsRounds}
         activeRound={activeRound}

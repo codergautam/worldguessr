@@ -14,6 +14,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors } from '../../shared';
+import { t } from '../../shared/locale';
 import { spacing, fontSizes } from '../../styles/theme';
 
 interface EloChangeDisplayProps {
@@ -105,7 +106,7 @@ export default function EloChangeDisplay({
           color={starColor}
         />
       ))}
-      <Text style={styles.label}>ELO RATING</Text>
+      <Text style={styles.label}>{t('eloRating')}</Text>
       <View style={styles.row}>
         <Text style={styles.oldElo}>{oldElo}</Text>
         <Animated.View style={[styles.deltaContainer, deltaStyle]}>
@@ -117,7 +118,7 @@ export default function EloChangeDisplay({
         </Animated.View>
       </View>
       <Text style={[styles.resultLabel, { color: deltaColor }]}>
-        {draw ? 'Draw' : winner ? 'Victory!' : 'Defeat'}
+        {draw ? t('draw') : winner ? t('victory') : t('defeat')}
       </Text>
     </View>
   );
@@ -187,6 +188,7 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     fontFamily: 'Lexend-SemiBold',
     letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   row: {
     flexDirection: 'row',

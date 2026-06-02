@@ -14,16 +14,45 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { wsService } from '../services/websocket';
 import { useMultiplayerStore } from '../store/multiplayerStore';
 import { useAuthStore } from '../store/authStore';
+
+/**
+ * Map the current expo-router pathname to one of the three screen values the
+ * server accepts (`Player.setScreen` ignores anything else): 'home',
+ * 'singleplayer', or 'multiplayer'. Used for presence / active-player counts.
+ */
+function pathnameToScreen(pathname: string): 'home' | 'singleplayer' | 'multiplayer' {
+  // Multiplayer: queue, party lobby/create/join, and the unified game route
+  // when launched as multiplayer (/game/multiplayer).
+  if (
+    pathname.startsWith('/queue') ||
+    pathname.startsWith('/party') ||
+    pathname.startsWith('/game/multiplayer')
+  ) {
+    return 'multiplayer';
+  }
+  // Singleplayer: SP game (/game/singleplayer), daily challenge, onboarding play.
+  if (
+    pathname.startsWith('/game/singleplayer') ||
+    pathname.startsWith('/daily') ||
+    pathname.startsWith('/onboarding')
+  ) {
+    return 'singleplayer';
+  }
+  // Everything else (tabs, settings, map detail, results, user) is "home".
+  return 'home';
+}
 
 export function useWebSocket() {
   const secret = useAuthStore((s) => s.secret);
   const isLoading = useAuthStore((s) => s.isLoading);
   const handleMessage = useMultiplayerStore((s) => s.handleMessage);
+  const verified = useMultiplayerStore((s) => s.verified);
   const router = useRouter();
+  const pathname = usePathname();
 
   // Track whether we've done the initial connect
   const hasConnected = useRef(false);
@@ -82,6 +111,16 @@ export function useWebSocket() {
     });
     return unsub;
   }, []);
+
+  // Report the current screen to the server for presence / active-player
+  // counting (mirrors web home.js which sends `{ type:'screen', screen }` on
+  // every screen change). Gated on `verified`; the dep on `verified` also
+  // re-sends the current screen after a reconnect, since the server resets a
+  // freshly-(re)connected player's screen to 'home'.
+  useEffect(() => {
+    if (!verified) return;
+    wsService.send({ type: 'screen', screen: pathnameToScreen(pathname) });
+  }, [pathname, verified]);
 
   // Connect / reconnect when auth state changes
   useEffect(() => {

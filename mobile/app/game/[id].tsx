@@ -245,7 +245,7 @@ function BetweenRoundsLeaderboard({
       pointerEvents="none"
     >
       <SafeAreaView style={styles.betweenRoundsInner} edges={['top', 'bottom']}>
-        <Text style={styles.betweenRoundsTitle}>Leaderboard</Text>
+        <Text style={styles.betweenRoundsTitle}>{t('leaderboard')}</Text>
         <View style={styles.betweenRoundsListWrap}>
           <PlayerList
             players={gameData.players}
@@ -276,7 +276,7 @@ function DuelWarningModal({
       <Pressable style={styles.warningModalOverlay} onPress={onDismiss}>
         <View style={styles.warningModalCard}>
           <Ionicons name="warning" size={26} color={colors.warning} />
-          <Text style={styles.warningModalTitle}>Fair Play Warning</Text>
+          <Text style={styles.warningModalTitle}>{t('fairPlayWarning', undefined, 'Fair Play Warning')}</Text>
           <Text style={styles.warningModalText}>
             {localeString('duelWarningText')}
           </Text>
@@ -303,6 +303,7 @@ export default function GameScreen() {
   const isMultiplayer = !isSingleplayer;
   const secret = useAuthStore((s) => s.secret);
   const mapType = useSettingsStore((s) => s.mapType);
+  const language = useSettingsStore((s) => s.language);
   const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
   const initialCountrySubMode = subModeFromDefaultMode(mode);
 
@@ -398,11 +399,11 @@ export default function GameScreen() {
   }, [hintShown, hintsUsed]);
   const [currentMapName, setCurrentMapName] = useState(
     initialCountrySubMode === 'continent'
-      ? 'Continent Guesser'
+      ? t('continentGuesser')
       : initialCountrySubMode === 'country'
-        ? 'Country Guesser'
+        ? t('countryGuesser')
         : map === 'all' || !map
-          ? 'World'
+          ? t('world')
           : mapName || map,
   );
   const [countryGuesserSubMode, setCountryGuesserSubMode] = useState<CountryGuesserSubMode | null>(
@@ -701,7 +702,7 @@ export default function GameScreen() {
 
         if (mapSlug === 'all') {
           data = await api.fetchAllLocations();
-          setCurrentMapName('World');
+          setCurrentMapName(t('world'));
         } else if (mapSlug.length === 2 && mapSlug === mapSlug.toUpperCase()) {
           data = await api.fetchCountryLocations(mapSlug);
           // Look up country name + maxDist from hosted JSON (matches web countryMaxDists import)
@@ -719,7 +720,7 @@ export default function GameScreen() {
         }
 
         if (!data.ready || !data.locations || data.locations.length === 0) {
-          throw new Error('No locations available for this map');
+          throw new Error(t('noLocationsForMap', undefined, 'No locations available for this map'));
         }
 
         const normalizedLocations = data.locations.map((loc: any) => ({
@@ -779,7 +780,7 @@ export default function GameScreen() {
           return;
         }
         console.error('Failed to fetch locations after all retries:', error);
-        setLoadError(error instanceof Error ? error.message : 'Failed to load game');
+        setLoadError(error instanceof Error ? error.message : t('failedToLoadGame', undefined, 'Failed to load game'));
         setIsLoading(false);
       }
     }
@@ -1101,11 +1102,11 @@ export default function GameScreen() {
     const isRankedDuel = !!gd?.duel && !gd?.public && gd?.state !== 'end';
     if (isRankedDuel) {
       Alert.alert(
-        'Forfeit game?',
-        'Leaving now will count as a loss.',
+        t('forfeitGameTitle', undefined, 'Forfeit game?'),
+        t('forfeitGameMessage', undefined, 'Leaving now will count as a loss.'),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Forfeit', style: 'destructive', onPress: doLeave },
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('forfeit', undefined, 'Forfeit'), style: 'destructive', onPress: doLeave },
         ],
       );
       return;
@@ -1334,7 +1335,7 @@ export default function GameScreen() {
           onAnswerCountry={countryGame.submit}
           loadingError={isCountryGuesserMode ? countryGame.loadError : loadError}
           onLoadingRetry={handleQuit}
-          loadingRetryLabel="Go back"
+          loadingRetryLabel={t('back')}
           hideInputs={
             isCountryGuesserMode
               ? countryGame.loading || !!countryGame.loadError || !countryGame.currentLoc
@@ -1379,14 +1380,15 @@ export default function GameScreen() {
                 style={({ pressed }) => [
                   styles.mapSelectorBtn,
                   activeShowingResult && styles.mapSelectorBtnDisabled,
-                  pressed && !activeShowingResult && { opacity: 0.85 },
+                  pressed && !activeShowingResult && { opacity: 0.85, transform: [{ scale: 0.97 }] },
                 ]}
                 onPress={() => setMapModalVisible(true)}
               >
+                <Ionicons name="map" size={14} color="rgba(255,255,255,0.85)" />
                 <Text style={styles.mapSelectorText} numberOfLines={1}>
                   {currentMapName}{!isCountryGuesserMode && nmpzEnabled ? ', NMPZ' : ''}
                 </Text>
-                <Ionicons name="pencil" size={14} color="rgba(255,255,255,0.7)" />
+                <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.85)" />
               </Pressable>
               <GameTimer
                 timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
@@ -1532,6 +1534,7 @@ export default function GameScreen() {
               <EmbeddedMap
                 route="map"
                 mapType={mapType}
+                lang={language}
                 mapBandFraction={miniFraction}
                 onRevealReady={handleRevealReady}
                 location={
@@ -1599,9 +1602,9 @@ export default function GameScreen() {
                 : 0;
               const buttonText = locked
                 ? (waitingCount > 0
-                    ? `Waiting for ${waitingCount} player${waitingCount === 1 ? '' : 's'}...`
-                    : 'Waiting...')
-                : 'Guess';
+                    ? t('waitingForPlayers', { p: waitingCount })
+                    : t('waiting'))
+                : t('guess');
               const disabled = !guessPosition || locked;
               const showActive = !!guessPosition && !locked;
               return (
@@ -1672,9 +1675,9 @@ export default function GameScreen() {
             : 0;
           const fabText = locked
             ? (waitingCount > 0
-                ? `Waiting for ${waitingCount} player${waitingCount === 1 ? '' : 's'}...`
-                : 'Waiting...')
-            : 'Guess';
+                ? t('waitingForPlayers', { p: waitingCount })
+                : t('waiting'))
+            : t('guess');
           return (
             <Animated.View
               style={[
@@ -1795,7 +1798,7 @@ const styles = StyleSheet.create({
   },
   singleplayerTopRightSlot: {
     alignItems: 'flex-end',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   betweenRoundsOverlay: {
     position: 'absolute',
@@ -1837,13 +1840,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: Platform.OS === 'android' ? '#1a4423' : 'rgba(26, 68, 35, 0.85)',
+    backgroundColor: Platform.OS === 'android' ? '#1a4423' : 'rgba(26, 68, 35, 0.9)',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
+    paddingVertical: spacing.xs + 2,
     borderRadius: borderRadius.lg,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.primary,
-    maxWidth: 180,
+    maxWidth: 210,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+      },
+      android: { elevation: 6 },
+    }),
   },
   mapSelectorBtnDisabled: {
     opacity: 0.65,
@@ -1851,7 +1863,7 @@ const styles = StyleSheet.create({
   mapSelectorText: {
     color: colors.white,
     fontFamily: 'Lexend-SemiBold',
-    fontSize: fontSizes.xs,
+    fontSize: fontSizes.sm,
     flexShrink: 1,
   },
 

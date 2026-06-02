@@ -10,7 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { colors } from '../shared';
+import { colors, t } from '../shared';
 import { useAuthStore } from '../store/authStore';
 
 export default function SetUsernameModal() {
@@ -30,7 +30,7 @@ export default function SetUsernameModal() {
     const result = await setUsernameApi(username.trim());
 
     if (!result.success) {
-      setError(result.error || 'An error occurred');
+      setError(result.error || t('error'));
       setIsLoading(false);
     }
     // On success, the store updates user.username which hides this modal
@@ -50,15 +50,15 @@ export default function SetUsernameModal() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.card}>
-          <Text style={styles.title}>Welcome to WorldGuessr</Text>
+          <Text style={styles.title}>{t('welcomeToWorldguessr')}</Text>
           <Text style={styles.subtitle}>
-            Please enter a username to get started
+            {t('enterUsername')}
           </Text>
 
           <View style={styles.form}>
             <TextInput
               style={[styles.input, isLoading && styles.inputDisabled]}
-              placeholder="Enter username"
+              placeholder={t('enterUsernameBox')}
               placeholderTextColor="rgba(255,255,255,0.4)"
               value={username}
               onChangeText={(text) => {
@@ -85,7 +85,7 @@ export default function SetUsernameModal() {
               {isLoading ? (
                 <ActivityIndicator color={colors.white} size="small" />
               ) : (
-                <Text style={styles.saveButtonText}>Save</Text>
+                <Text style={styles.saveButtonText}>{t('save')}</Text>
               )}
             </Pressable>
           </View>

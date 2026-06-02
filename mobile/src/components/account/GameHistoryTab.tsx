@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
 import { GlassCard, formatTimeAgo, formatTime, sharedStyles } from './shared';
+import { t } from '../../shared';
 
 interface GameHistoryTabProps {
   secret: string;
@@ -46,11 +47,13 @@ interface Pagination {
   hasPrevPage: boolean;
 }
 
-const GAME_TYPES: Record<string, { label: string; icon: string; color: string }> = {
-  singleplayer: { label: 'Singleplayer', icon: '👤', color: '#4CAF50' },
-  ranked_duel: { label: 'Ranked Duel', icon: '⚔️', color: '#FF5722' },
-  unranked_multiplayer: { label: 'Multiplayer', icon: '👥', color: '#2196F3' },
-  private_multiplayer: { label: 'Private', icon: '🔒', color: '#9C27B0' },
+// labelKey holds the i18n key (NOT a t() call) so the label is resolved at
+// render time and updates on language switch — never call t() at module scope.
+const GAME_TYPES: Record<string, { labelKey: string; icon: string; color: string }> = {
+  singleplayer: { labelKey: 'singleplayer', icon: '👤', color: '#4CAF50' },
+  ranked_duel: { labelKey: 'rankedDuel', icon: '⚔️', color: '#FF5722' },
+  unranked_multiplayer: { labelKey: 'multiplayer', icon: '👥', color: '#2196F3' },
+  private_multiplayer: { labelKey: 'privateGame', icon: '🔒', color: '#9C27B0' },
 };
 
 export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistoryTabProps) {
@@ -85,19 +88,19 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
   }, [page, secret]);
 
   const getGameType = (gameType: string) =>
-    GAME_TYPES[gameType] || { label: gameType, icon: '🎮', color: '#757575' };
+    GAME_TYPES[gameType] || { labelKey: null, icon: '🎮', color: '#757575' };
 
   const getLocationDisplay = (settings: Game['settings']) => {
     if (settings.countryGuesser) {
-      return settings.countryGuessrSubMode === 'continent'
-        ? 'Continent Guesser'
-        : 'Country Guesser';
+      return t(settings.countryGuessrSubMode === 'continent'
+        ? 'continentGuesser'
+        : 'countryGuesser');
     }
 
     const location = settings.location;
-    if (location === 'all') return 'Worldwide';
+    if (location === 'all') return t('worldwide');
     if (location && location.length === 2 && location === location.toUpperCase()) return location;
-    return location || 'Unknown';
+    return location || t('unknown');
   };
 
   if (loading) {
@@ -106,7 +109,7 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
         <View style={{ alignItems: 'center', gap: 16, paddingVertical: 40 }}>
           <ActivityIndicator size="large" color="#4CAF50" />
           <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontFamily: 'Lexend' }}>
-            Loading game history...
+            {t('loadingGameHistory')}
           </Text>
         </View>
       </GlassCard>
@@ -119,10 +122,10 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
         <View style={{ alignItems: 'center', paddingVertical: 40, gap: 12 }}>
           <Text style={{ fontSize: 48 }}>🎮</Text>
           <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lexend-SemiBold' }}>
-            No Games Played
+            {t('noGamesPlayed')}
           </Text>
           <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontFamily: 'Lexend' }}>
-            Start playing to see your history
+            {t('startPlayingToSeeHistory')}
           </Text>
         </View>
       </GlassCard>
@@ -153,7 +156,7 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
               <View style={styles.gameTypeRow}>
                 <Text style={{ fontSize: 18 }}>{typeInfo.icon}</Text>
                 <Text style={[styles.gameTypeLabel, { color: typeInfo.color }]}>
-                  {typeInfo.label}
+                  {typeInfo.labelKey ? t(typeInfo.labelKey) : game.gameType}
                 </Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -167,13 +170,13 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
               {isRankedDuel ? (
                 <>
                   <View style={styles.gameStat}>
-                    <Text style={styles.gameStatLabel}>Result</Text>
+                    <Text style={styles.gameStatLabel}>{t('result')}</Text>
                     <Text style={[styles.gameStatValue, { color: isVictory ? '#4CAF50' : '#F44336' }]}>
-                      {isVictory ? 'Victory' : 'Defeat'}
+                      {t(isVictory ? 'victory' : 'defeat')}
                     </Text>
                   </View>
                   <View style={styles.gameStat}>
-                    <Text style={styles.gameStatLabel}>ELO</Text>
+                    <Text style={styles.gameStatLabel}>{t('elo')}</Text>
                     <Text style={[styles.gameStatValue, {
                       color: (game.userStats?.elo?.change ?? 0) >= 0 ? '#4CAF50' : '#F44336'
                     }]}>
@@ -182,7 +185,7 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
                   </View>
                   {game.opponent?.username && (
                     <View style={styles.gameStat}>
-                      <Text style={styles.gameStatLabel}>Opponent</Text>
+                      <Text style={styles.gameStatLabel}>{t('opponent')}</Text>
                       <Pressable onPress={() => onNavigateToUser?.(game.opponent!.username)}>
                         <Text style={[styles.gameStatValue, { color: '#4dabf7', fontSize: 13 }]}>
                           {game.opponent.username}
@@ -191,13 +194,13 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
                     </View>
                   )}
                   <View style={styles.gameStat}>
-                    <Text style={styles.gameStatLabel}>Duration</Text>
+                    <Text style={styles.gameStatLabel}>{t('duration')}</Text>
                     <Text style={styles.gameStatValue}>{formatTime(game.totalDuration * 1000)}</Text>
                   </View>
                 </>
               ) : (
                 <View style={styles.gameStat}>
-                  <Text style={styles.gameStatLabel}>Points</Text>
+                  <Text style={styles.gameStatLabel}>{t('points')}</Text>
                   <Text style={styles.gameStatValue}>
                     {game.userStats.totalPoints.toLocaleString()}
                     <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
@@ -209,14 +212,14 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
 
               {game.userStats.totalXp > 0 && (
                 <View style={styles.gameStat}>
-                  <Text style={styles.gameStatLabel}>XP</Text>
+                  <Text style={styles.gameStatLabel}>{t('xp')}</Text>
                   <Text style={styles.gameStatValue}>{game.userStats.totalXp}</Text>
                 </View>
               )}
 
               {!isRankedDuel && (
                 <View style={styles.gameStat}>
-                  <Text style={styles.gameStatLabel}>Duration</Text>
+                  <Text style={styles.gameStatLabel}>{t('duration')}</Text>
                   <Text style={styles.gameStatValue}>{formatTime(game.totalDuration * 1000)}</Text>
                 </View>
               )}
@@ -226,16 +229,16 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
             <View style={styles.gameDetailsRow}>
               <View style={{ flexDirection: 'row', gap: 16, flex: 1 }}>
                 <View style={styles.gameDetail}>
-                  <Text style={styles.gameDetailLabel}>Map</Text>
+                  <Text style={styles.gameDetailLabel}>{t('map')}</Text>
                   <Text style={styles.gameDetailValue}>{getLocationDisplay(game.settings)}</Text>
                 </View>
                 <View style={styles.gameDetail}>
-                  <Text style={styles.gameDetailLabel}>Rounds</Text>
+                  <Text style={styles.gameDetailLabel}>{t('rounds')}</Text>
                   <Text style={styles.gameDetailValue}>{game.roundsPlayed}</Text>
                 </View>
                 {game.multiplayer && (
                   <View style={styles.gameDetail}>
-                    <Text style={styles.gameDetailLabel}>Players</Text>
+                    <Text style={styles.gameDetailLabel}>{t('players')}</Text>
                     <Text style={styles.gameDetailValue}>{game.multiplayer.playerCount}</Text>
                   </View>
                 )}
@@ -256,7 +259,7 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
             disabled={!pagination.hasPrevPage}
           >
             <Text style={[styles.pageButtonText, !pagination.hasPrevPage && { opacity: 0.4 }]}>
-              ← Previous
+              ← {t('previous')}
             </Text>
           </Pressable>
 
@@ -270,7 +273,7 @@ export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistory
             disabled={!pagination.hasNextPage}
           >
             <Text style={[styles.pageButtonText, !pagination.hasNextPage && { opacity: 0.4 }]}>
-              Next →
+              {t('next')} →
             </Text>
           </Pressable>
         </View>

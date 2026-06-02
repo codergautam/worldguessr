@@ -13,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { t } from '../../shared';
 import { api } from '../../services/api';
 import {
   GlassCard,
@@ -114,10 +115,10 @@ export default function ProfileTab({
 
   const validateUsername = (name: string): string | null => {
     if (name.length < 3 || name.length > 20) {
-      return 'Username must be between 3 and 20 characters';
+      return t('usernameLengthError', undefined, 'Username must be between 3 and 20 characters');
     }
     if (!/^[a-zA-Z0-9_]+$/.test(name)) {
-      return 'Username can only contain letters, numbers, and underscores';
+      return t('usernameCharsError', undefined, 'Username can only contain letters, numbers, and underscores');
     }
     return null;
   };
@@ -146,11 +147,11 @@ export default function ProfileTab({
       } else {
         // Normal name change — immediate success
         setNameModalVisible(false);
-        Alert.alert('Success', 'Username changed successfully');
+        Alert.alert(t('success'), t('nameChanged'));
         onUsernameChanged?.();
       }
     } catch {
-      setModalError('An error occurred. Please try again.');
+      setModalError(t('errorOccurredTryAgain', undefined, 'An error occurred. Please try again.'));
     } finally {
       setModalLoading(false);
     }
@@ -158,12 +159,12 @@ export default function ProfileTab({
 
   const handleLogout = () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
+      t('logOut'),
+      t('logoutConfirm', undefined, 'Are you sure you want to logout?'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Logout',
+          text: t('logOut'),
           style: 'destructive',
           onPress: () => onLogout?.(),
         },
@@ -178,24 +179,24 @@ export default function ProfileTab({
         {joinedAgo && (
           <View style={sharedStyles.statRow}>
             <Ionicons name="time-outline" size={16} color="rgba(255,255,255,0.8)" style={sharedStyles.statIcon} />
-            <Text style={sharedStyles.statText}>Joined {joinedAgo} ago</Text>
+            <Text style={sharedStyles.statText}>{t('joined', { t: joinedAgo })}</Text>
           </View>
         )}
 
         <View style={sharedStyles.statRow}>
           <Ionicons name="star" size={16} color="#ffd700" style={sharedStyles.statIcon} />
-          <Text style={sharedStyles.statText}>{(profileData.totalXp || 0).toLocaleString()} XP</Text>
+          <Text style={sharedStyles.statText}>{(profileData.totalXp || 0).toLocaleString()} {t('xp')}</Text>
         </View>
 
         <View style={sharedStyles.statRow}>
           <Ionicons name="game-controller" size={16} color="rgba(255,255,255,0.8)" style={sharedStyles.statIcon} />
-          <Text style={sharedStyles.statText}>Games Played: {gamesCount.toLocaleString()}</Text>
+          <Text style={sharedStyles.statText}>{t('gamesPlayedLabel', { count: gamesCount.toLocaleString() }, 'Games Played: {{count}}')}</Text>
         </View>
 
         {viewingPublicProfile && profileData.profileViews != null && (
           <View style={sharedStyles.statRow}>
             <Ionicons name="people" size={16} color="rgba(255,255,255,0.8)" style={sharedStyles.statIcon} />
-            <Text style={sharedStyles.statText}>Profile Views: {profileData.profileViews.toLocaleString()}</Text>
+            <Text style={sharedStyles.statText}>{t('profileViewsLabel', { count: profileData.profileViews.toLocaleString() }, 'Profile Views: {{count}}')}</Text>
           </View>
         )}
 
@@ -218,7 +219,7 @@ export default function ProfileTab({
                 ) : (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Ionicons name="warning" size={18} color="#fff" />
-                    <Text style={sharedStyles.actionButtonText}>Change Name (Required)</Text>
+                    <Text style={sharedStyles.actionButtonText}>{t('changeNameRequired', undefined, 'Change Name (Required)')}</Text>
                   </View>
                 )}
               </Pressable>
@@ -238,7 +239,7 @@ export default function ProfileTab({
                 {changingName ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={sharedStyles.actionButtonText}>Change Name</Text>
+                  <Text style={sharedStyles.actionButtonText}>{t('changeName')}</Text>
                 )}
               </Pressable>
             )}
@@ -247,7 +248,7 @@ export default function ProfileTab({
             {!profileData.pendingNameChange && profileData.recentChange && (
               <View style={styles.warningCard}>
                 <Text style={styles.warningText}>
-                  Username was recently changed, might take a few hours to fully update
+                  {t('recentChange')}
                 </Text>
               </View>
             )}
@@ -256,7 +257,7 @@ export default function ProfileTab({
             {!profileData.pendingNameChange && !profileData.canChangeUsername && profileData.daysUntilNameChange != null && profileData.daysUntilNameChange > 0 && (
               <View style={styles.warningCard}>
                 <Text style={styles.warningText}>
-                  Name change available in {profileData.daysUntilNameChange} days
+                  {t('nameChangeCooldown', { days: profileData.daysUntilNameChange })}
                 </Text>
               </View>
             )}
@@ -274,7 +275,7 @@ export default function ProfileTab({
                   <CountryFlag countryCode={profileData.countryCode} size={20} />
                 )}
                 <Text style={sharedStyles.actionButtonText}>
-                  {profileData.countryCode ? 'Change Flag' : 'Set Flag'}
+                  {t(profileData.countryCode ? 'changeFlag' : 'setFlag')}
                 </Text>
               </View>
             </Pressable>
@@ -300,7 +301,7 @@ export default function ProfileTab({
           ]}
           onPress={handleLogout}
         >
-          <Text style={[sharedStyles.actionButtonText, { color: '#dc3545' }]}>Logout</Text>
+          <Text style={[sharedStyles.actionButtonText, { color: '#dc3545' }]}>{t('logOut')}</Text>
         </Pressable>
       )}
 
@@ -323,13 +324,13 @@ export default function ProfileTab({
             </Pressable>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.modalTitle}>
-                {profileData.pendingNameChange ? 'Username Change Required' : 'Change Username'}
+                {t(profileData.pendingNameChange ? 'usernameChangeRequired' : 'changeName')}
               </Text>
 
               {/* Forced change description */}
               {profileData.pendingNameChange && (
                 <Text style={styles.modalSubtext}>
-                  Your username has been flagged as inappropriate. You can still play singleplayer, but multiplayer is disabled until your new name is approved.
+                  {t('usernameFlaggedMobileExplanation', undefined, 'Your username has been flagged as inappropriate. You can still play singleplayer, but multiplayer is disabled until your new name is approved.')}
                 </Text>
               )}
 
@@ -337,7 +338,7 @@ export default function ProfileTab({
               {profileData.pendingNameChange && profileData.pendingNameChangePublicNote && (
                 <View style={styles.reasonBox}>
                   <Text style={styles.reasonText}>
-                    Reason: {profileData.pendingNameChangePublicNote}
+                    {t('reason')}: {profileData.pendingNameChangePublicNote}
                   </Text>
                 </View>
               )}
@@ -352,15 +353,15 @@ export default function ProfileTab({
               {/* Pending review state */}
               {!checkingStatus && existingRequest?.status === 'pending' && (
                 <View style={styles.pendingBox}>
-                  <Text style={styles.pendingTitle}>Awaiting Approval</Text>
+                  <Text style={styles.pendingTitle}>{t('awaitingApproval', undefined, 'Awaiting Approval')}</Text>
                   <Text style={styles.pendingText}>
-                    Your requested username "{existingRequest.requestedUsername}" is being reviewed by our moderation team.
+                    {t('nameChangeUnderReview', { name: existingRequest.requestedUsername }, 'Your requested username "{{name}}" is being reviewed by our moderation team.')}
                   </Text>
                   <Text style={styles.pendingNote}>
-                    You will be able to play multiplayer once approved. This usually takes less than 7 days.
+                    {t('nameChangeApprovalEta', undefined, 'You will be able to play multiplayer once approved. This usually takes less than 7 days.')}
                   </Text>
                   <View style={styles.divider}>
-                    <Text style={styles.dividerText}>or submit a different name</Text>
+                    <Text style={styles.dividerText}>{t('orSubmitDifferentName', undefined, 'or submit a different name')}</Text>
                   </View>
                 </View>
               )}
@@ -368,17 +369,17 @@ export default function ProfileTab({
               {/* Rejected state */}
               {!checkingStatus && existingRequest?.status === 'rejected' && (
                 <View style={styles.rejectedBox}>
-                  <Text style={styles.rejectedTitle}>Name Rejected</Text>
+                  <Text style={styles.rejectedTitle}>{t('nameRejected', undefined, 'Name Rejected')}</Text>
                   <Text style={styles.rejectedText}>
-                    Your requested username "{existingRequest.requestedUsername}" was rejected.
+                    {t('nameChangeRejectedBody', { name: existingRequest.requestedUsername }, 'Your requested username "{{name}}" was rejected.')}
                   </Text>
                   {existingRequest.rejectionReason && (
                     <Text style={styles.rejectedReason}>
-                      Reason: {existingRequest.rejectionReason}
+                      {t('reason')}: {existingRequest.rejectionReason}
                     </Text>
                   )}
                   <Text style={styles.pendingNote}>
-                    Please choose a different username below.
+                    {t('chooseDifferentUsername', undefined, 'Please choose a different username below.')}
                   </Text>
                 </View>
               )}
@@ -386,9 +387,9 @@ export default function ProfileTab({
               {/* Success after fresh submission */}
               {submitSuccess && !existingRequest?.status ? (
                 <View style={styles.successBox}>
-                  <Text style={styles.successTitle}>Request Submitted</Text>
+                  <Text style={styles.successTitle}>{t('requestSubmitted', undefined, 'Request Submitted')}</Text>
                   <Text style={styles.successText}>
-                    Your name change request has been submitted for review.
+                    {t('nameChangeSubmittedForReview', undefined, 'Your name change request has been submitted for review.')}
                   </Text>
                 </View>
               ) : (
@@ -396,7 +397,7 @@ export default function ProfileTab({
                   {/* Input */}
                   <TextInput
                     style={styles.modalInput}
-                    placeholder="Enter new username"
+                    placeholder={t('enterNewName')}
                     placeholderTextColor="rgba(255,255,255,0.4)"
                     value={newUsername}
                     onChangeText={(text) => {
@@ -410,7 +411,7 @@ export default function ProfileTab({
                     editable={!modalLoading}
                   />
                   <Text style={styles.hintText}>
-                    3-20 characters, letters, numbers, and underscores only
+                    {t('usernameRulesHint', undefined, '3-20 characters, letters, numbers, and underscores only')}
                   </Text>
 
                   {/* Error */}
@@ -428,7 +429,7 @@ export default function ProfileTab({
                         onPress={() => setNameModalVisible(false)}
                         disabled={modalLoading}
                       >
-                        <Text style={styles.modalButtonText}>Cancel</Text>
+                        <Text style={styles.modalButtonText}>{t('cancel')}</Text>
                       </Pressable>
                     )}
                     <Pressable
@@ -440,7 +441,7 @@ export default function ProfileTab({
                         <ActivityIndicator color="#fff" size="small" />
                       ) : (
                         <Text style={styles.modalButtonText}>
-                          {profileData.pendingNameChange ? 'Submit' : 'Change'}
+                          {profileData.pendingNameChange ? t('submit', undefined, 'Submit') : t('change')}
                         </Text>
                       )}
                     </Pressable>
@@ -451,7 +452,7 @@ export default function ProfileTab({
               {/* Contact support */}
               {profileData.pendingNameChange && (
                 <Text style={styles.contactText}>
-                  Need help? Contact support@worldguessr.com
+                  {t('needHelpContactSupport', undefined, 'Need help? Contact support@worldguessr.com')}
                 </Text>
               )}
             </ScrollView>

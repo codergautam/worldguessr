@@ -1,6 +1,6 @@
 import { Animated, Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 
 /**
@@ -32,10 +32,10 @@ const LOADER = require('../../../assets/loader.gif');
 export default function GameLoadingOverlay({
   opacity = 1,
   interactive = true,
-  message = 'Loading…',
+  message = t('loading'),
   error,
   onRetry,
-  retryLabel = 'Go back',
+  retryLabel = t('back'),
 }: Props) {
   return (
     <Animated.View

@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../src/shared';
+import { colors, t } from '../../src/shared';
 import { api, MapItem } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { onHeartUpdate, emitHeartUpdate } from '../../src/store/heartSync';
@@ -229,7 +229,7 @@ export default function MapsScreen() {
           >
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </Pressable>
-          <Text style={styles.title}>Maps</Text>
+          <Text style={styles.title}>{t('maps')}</Text>
         </View>
 
         {/* Search */}
@@ -238,7 +238,7 @@ export default function MapsScreen() {
             <Ionicons name="search" size={18} color="#666" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search for maps..."
+              placeholder={t('searchForMaps')}
               placeholderTextColor="#999"
               value={searchQuery}
               onChangeText={handleSearch}
@@ -257,14 +257,14 @@ export default function MapsScreen() {
         {loading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color="white" />
-            <Text style={styles.loadingText}>Loading...</Text>
+            <Text style={styles.loadingText}>{t('loading')}</Text>
           </View>
         ) : error ? (
           <View style={styles.centered}>
             <Ionicons name="cloud-offline" size={48} color="rgba(255,255,255,0.4)" />
-            <Text style={styles.errorText}>Failed to load maps</Text>
+            <Text style={styles.errorText}>{t('failedToLoadMaps', undefined, 'Failed to load maps')}</Text>
             <Pressable style={styles.retryBtn} onPress={() => fetchMapHome(true)}>
-              <Text style={styles.retryBtnText}>Retry</Text>
+              <Text style={styles.retryBtnText}>{t('retry', undefined, 'Retry')}</Text>
             </Pressable>
           </View>
         ) : (
@@ -297,7 +297,7 @@ export default function MapsScreen() {
                   return (
                     <View style={styles.centered}>
                       <ActivityIndicator size="large" color="white" />
-                      <Text style={styles.loadingText}>Searching...</Text>
+                      <Text style={styles.loadingText}>{t('searching', undefined, 'Searching...')}</Text>
                     </View>
                   );
                 }
@@ -306,9 +306,9 @@ export default function MapsScreen() {
                   return (
                     <View style={styles.emptyState}>
                       <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.3)" />
-                      <Text style={styles.emptyTitle}>No results found</Text>
+                      <Text style={styles.emptyTitle}>{t('noResultsFound')}</Text>
                       <Text style={styles.emptySubtext}>
-                        Try adjusting your search terms
+                        {t('tryAdjustingSearchTerms', undefined, 'Try adjusting your search terms')}
                       </Text>
                     </View>
                   );
@@ -318,7 +318,7 @@ export default function MapsScreen() {
                   <>
                     {hasCountry && (
                       <MapSection
-                        title="Country Maps"
+                        title={t('countryMaps')}
                         maps={matchingCountryMaps}
                         isCountry
                         onMapPress={handleMapPress}
@@ -327,7 +327,7 @@ export default function MapsScreen() {
                     )}
                     {hasCommunity && (
                       <MapSection
-                        title="Search Results"
+                        title={t('searchResults', undefined, 'Search Results')}
                         maps={searchResults}
                         onMapPress={handleMapPress}
                         onHeartMap={secret ? handleHeartMap : undefined}
@@ -350,7 +350,7 @@ export default function MapsScreen() {
                   return (
                     <MapSection
                       key={key}
-                      title={SECTION_LABELS[key]}
+                      title={t(SECTION_LABELS[key])}
                       maps={maps}
                       isCountry={key === 'countryMaps'}
                       onMapPress={handleMapPress}
@@ -369,7 +369,7 @@ export default function MapsScreen() {
                 ) && (
                   <View style={styles.emptyState}>
                     <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.3)" />
-                    <Text style={styles.emptyTitle}>No maps available</Text>
+                    <Text style={styles.emptyTitle}>{t('noMapsAvailable', undefined, 'No maps available')}</Text>
                   </View>
                 )}
               </>

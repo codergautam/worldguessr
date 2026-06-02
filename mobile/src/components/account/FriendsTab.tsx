@@ -117,11 +117,11 @@ export default function FriendsTab() {
 
   const handleRemove = (id: string, name: string) => {
     Alert.alert(
-      'Remove friend',
-      `Remove ${name} from your friends list?`,
+      t('removeFriendTitle', undefined, 'Remove friend'),
+      t('removeFriendConfirm', { name }, 'Remove {{name}} from your friends list?'),
       [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => removeFriend(id) },
+        { text: t('cancel'), style: 'cancel' },
+        { text: t('remove', undefined, 'Remove'), style: 'destructive', onPress: () => removeFriend(id) },
       ],
     );
   };

@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { t } from '../../shared';
 import { api, MapItem } from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import { emitHeartUpdate, onHeartUpdate } from '../../store/heartSync';
@@ -396,7 +397,7 @@ export default function MapSelectorModal({
         ]}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.headerTitle}>Game Options</Text>
+              <Text style={styles.headerTitle}>{t('gameOptions', undefined, 'Game Options')}</Text>
               <Pressable
                 style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.6 }]}
                 onPress={() => animateClose()}
@@ -421,7 +422,7 @@ export default function MapSelectorModal({
                     <View style={styles.optionRow}>
                       <View style={styles.optionLabel}>
                         <Ionicons name="repeat-outline" size={20} color="#fff" />
-                        <Text style={styles.optionText}>Rounds</Text>
+                        <Text style={styles.optionText}>{t('rounds')}</Text>
                       </View>
                       <View style={styles.stepperRowInline}>
                         <Pressable
@@ -448,8 +449,10 @@ export default function MapSelectorModal({
                 <View style={styles.optionRow}>
                   <View style={styles.optionLabel}>
                     <Ionicons name="eye-off-outline" size={20} color="#fff" />
-                    <Text style={styles.optionText}>NMPZ</Text>
-                    <Text style={styles.optionSubtext}>(No Move, Pan, Zoom)</Text>
+                    <View style={styles.optionLabelTextStack}>
+                      <Text style={styles.optionText}>NMPZ</Text>
+                      <Text style={styles.optionSubtext}>{t('nmpzExpansion', undefined, '(No Move, Pan, Zoom)')}</Text>
+                    </View>
                   </View>
                   <Switch
                     value={nmpzEnabled}
@@ -464,7 +467,7 @@ export default function MapSelectorModal({
                 <View style={styles.optionRow}>
                   <View style={styles.optionLabel}>
                     <Ionicons name="timer-outline" size={20} color="#fff" />
-                    <Text style={styles.optionText}>Timer</Text>
+                    <Text style={styles.optionText}>{t('enableTimer')}</Text>
                   </View>
                   <Switch
                     value={timerEnabled}
@@ -484,7 +487,7 @@ export default function MapSelectorModal({
                     >
                       <Ionicons name="remove" size={20} color="#fff" />
                     </Pressable>
-                    <Text style={styles.stepperValue}>{timerDuration}s</Text>
+                    <Text style={styles.stepperValue}>{t('secondsShort', { secs: timerDuration })}</Text>
                     <Pressable
                       style={({ pressed }) => [styles.stepperBtn, pressed && { opacity: 0.6 }, timerDuration >= 300 && { opacity: 0.3 }]}
                       onPress={() => onTimerDurationChange(Math.min(300, timerDuration + 5))}
@@ -500,7 +503,7 @@ export default function MapSelectorModal({
               {/* ── Map Selection ── */}
               <View style={styles.sectionHeader}>
                 <View style={styles.sectionAccent} />
-                <Text style={styles.sectionHeaderText}>Select Map</Text>
+                <Text style={styles.sectionHeaderText}>{t('selectMap', undefined, 'Select Map')}</Text>
               </View>
 
               {/* Search — ABOVE the mode tiles. Mode tiles (World / Country
@@ -510,7 +513,7 @@ export default function MapSelectorModal({
                 <Ionicons name="search" size={18} color="#666" />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Search for maps..."
+                  placeholder={t('searchForMaps')}
                   placeholderTextColor="#999"
                   value={searchQuery}
                   onChangeText={handleSearch}
@@ -529,9 +532,9 @@ export default function MapSelectorModal({
                   <SingleplayerModeTiles
                     currentMode={currentSingleplayerMode}
                     onSelect={(mode) => {
-                      if (mode === 'world') onSelectMap('all', 'World');
-                      if (mode === 'country') onSelectMap('__countryGuesser', 'Country Guesser');
-                      if (mode === 'continent') onSelectMap('__continentGuesser', 'Continent Guesser');
+                      if (mode === 'world') onSelectMap('all', t('world'));
+                      if (mode === 'country') onSelectMap('__countryGuesser', t('countryGuesser'));
+                      if (mode === 'continent') onSelectMap('__continentGuesser', t('continentGuesser'));
                       animateClose();
                     }}
                   />
@@ -542,7 +545,7 @@ export default function MapSelectorModal({
                       currentMapSlug === 'all' && styles.allCountriesTileActive,
                       pressed && { opacity: 0.8 },
                     ]}
-                    onPress={() => { onSelectMap('all', 'World'); animateClose(); }}
+                    onPress={() => { onSelectMap('all', t('world')); animateClose(); }}
                   >
                     <LinearGradient
                       colors={['#1a4423', '#245734']}
@@ -551,7 +554,7 @@ export default function MapSelectorModal({
                       style={StyleSheet.absoluteFillObject}
                     />
                     <Ionicons name="globe-outline" size={24} color="#fff" />
-                    <Text style={styles.allCountriesText}>World</Text>
+                    <Text style={styles.allCountriesText}>{t('world')}</Text>
                     {currentMapSlug === 'all' && (
                       <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
                     )}
@@ -563,7 +566,7 @@ export default function MapSelectorModal({
               {loading ? (
                 <View style={styles.centered}>
                   <ActivityIndicator size="large" color="#4CAF50" />
-                  <Text style={styles.loadingText}>Loading maps...</Text>
+                  <Text style={styles.loadingText}>{t('loadingMaps', undefined, 'Loading maps...')}</Text>
                 </View>
               ) : isSearching ? (
                 <>
@@ -574,7 +577,7 @@ export default function MapSelectorModal({
                       <>
                         {countryResults.length > 0 && (
                           <MapSection
-                            title="Countries"
+                            title={t('countries', undefined, 'Countries')}
                             maps={countryResults}
                             isCountry
                             onMapPress={handleMapPress}
@@ -585,7 +588,7 @@ export default function MapSelectorModal({
                         )}
                         {communityResults.length > 0 && (
                           <MapSection
-                            title="Community Maps"
+                            title={t('communityMaps')}
                             maps={communityResults}
                             onMapPress={handleMapPress}
                             onHeartMap={secret ? handleHeartMap : undefined}
@@ -599,7 +602,7 @@ export default function MapSelectorModal({
                   {!searchLoading && searchResults.length === 0 && (
                     <View style={styles.centered}>
                       <Ionicons name="search" size={32} color="rgba(255,255,255,0.3)" />
-                      <Text style={styles.loadingText}>No maps found</Text>
+                      <Text style={styles.loadingText}>{t('noMapsFound', undefined, 'No maps found')}</Text>
                     </View>
                   )}
                   {searchLoading && (
@@ -614,7 +617,7 @@ export default function MapSelectorModal({
                     return (
                       <MapSection
                         key={key}
-                        title={SECTION_LABELS[key]}
+                        title={t(SECTION_LABELS[key])}
                         maps={maps}
                         isCountry={key === 'countryMaps'}
                         onMapPress={handleMapPress}
@@ -652,7 +655,7 @@ export default function MapSelectorModal({
               slug={(selectedMap || selectedMapRef.current)!.slug}
               onBack={hideDetail}
               onPlay={handleDetailPlay}
-              playLabel="SELECT MAP"
+              playLabel={t('selectMap', undefined, 'Select Map')}
               initialHearts={(selectedMap || selectedMapRef.current)!.hearts}
               initialHearted={(selectedMap || selectedMapRef.current)!.hearted}
             />
@@ -754,6 +757,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flexShrink: 1,
+  },
+  optionLabelTextStack: {
+    flexShrink: 1,
   },
   optionText: {
     fontSize: 16,

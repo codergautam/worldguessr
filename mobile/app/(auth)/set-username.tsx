@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../src/shared';
+import { colors, t } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 
@@ -24,13 +24,13 @@ export default function SetUsernameScreen() {
 
   const validateUsername = (name: string): string | null => {
     if (name.length < 3) {
-      return 'Username must be at least 3 characters';
+      return t('usernameTooShort', undefined, 'Username must be at least 3 characters');
     }
     if (name.length > 20) {
-      return 'Username must be less than 20 characters';
+      return t('usernameTooLong', undefined, 'Username must be less than 20 characters');
     }
     if (!/^[a-zA-Z0-9_]+$/.test(name)) {
-      return 'Username can only contain letters, numbers, and underscores';
+      return t('usernameCharsError', undefined, 'Username can only contain letters, numbers, and underscores');
     }
     return null;
   };
@@ -49,11 +49,11 @@ export default function SetUsernameScreen() {
       if (success) {
         router.replace('/(tabs)/home');
       } else {
-        setError('Username is already taken');
+        setError(t('usernameTaken', undefined, 'Username is already taken'));
       }
     } catch (err) {
       console.error('Set username error:', err);
-      setError('An unexpected error occurred');
+      setError(t('unexpectedErrorOccurred', undefined, 'An unexpected error occurred'));
     }
   };
 
@@ -70,9 +70,9 @@ export default function SetUsernameScreen() {
             <Ionicons name="person-add" size={48} color={colors.primary} />
           </View>
 
-          <Text style={styles.title}>Choose a Username</Text>
+          <Text style={styles.title}>{t('chooseUsername', undefined, 'Choose a Username')}</Text>
           <Text style={styles.subtitle}>
-            This is how other players will see you
+            {t('usernameVisibleToOthers', undefined, 'This is how other players will see you')}
           </Text>
 
           <View style={styles.inputContainer}>
@@ -81,7 +81,7 @@ export default function SetUsernameScreen() {
                 styles.input,
                 error && styles.inputError,
               ]}
-              placeholder="Enter username"
+              placeholder={t('enterUsernameBox')}
               placeholderTextColor={colors.textMuted}
               value={username}
               onChangeText={(text) => {
@@ -108,7 +108,7 @@ export default function SetUsernameScreen() {
           )}
 
           <Text style={styles.hint}>
-            3-20 characters, letters, numbers, and underscores only
+            {t('usernameRulesHint', undefined, '3-20 characters, letters, numbers, and underscores only')}
           </Text>
         </View>
 
@@ -125,7 +125,7 @@ export default function SetUsernameScreen() {
             {isLoading ? (
               <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.submitButtonText}>Continue</Text>
+              <Text style={styles.submitButtonText}>{t('continue', undefined, 'Continue')}</Text>
             )}
           </Pressable>
         </View>

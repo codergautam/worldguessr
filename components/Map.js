@@ -162,9 +162,28 @@ function getResetTarget(map, extent) {
   return constrainResetTarget(map, target.center, target.zoom);
 }
 
+/** True only when the map container has a real (non-zero) viewport. Leaflet's
+ *  projection math is degenerate at 0×0, so any camera mutation there lands on a
+ *  garbage centre near the maxBounds edge. */
+function hasRenderSize(map) {
+  try {
+    const s = map.getSize();
+    return !!s && s.x > 0 && s.y > 0;
+  } catch {
+    return false;
+  }
+}
+
 function stopMapAnimations(map) {
   if (!map) return;
   try { clearTimeout(map._sizeTimer); } catch {}
+
+  // Cancel the scheduled animation frames DIRECTLY. This halts motion (fly / pan
+  // inertia / zoom) without invoking Leaflet's high-level stop(), which finalises
+  // the pan via PosAnimation._complete → _onPanTransitionEnd → setView. At 0×0
+  // (the map collapsed between rounds) that finaliser projects onto a degenerate
+  // viewport and parks the camera at a garbage centre (~72–88°N) — the long-hunted
+  // "stuck north on next round" carry-over. Frame cancels are safe at any size.
   try {
     if (map._flyToFrame != null && L?.Util?.cancelAnimFrame) {
       L.Util.cancelAnimFrame(map._flyToFrame);
@@ -178,11 +197,26 @@ function stopMapAnimations(map) {
     map._animRequest = null;
   } catch {}
   try {
+    // Pan inertia (PosAnimation): cancel its frame without _complete()'ing, which
+    // would otherwise run the garbage 0×0 setView described above.
+    if (map._panAnim && map._panAnim._animId != null && L?.Util?.cancelAnimFrame) {
+      L.Util.cancelAnimFrame(map._panAnim._animId);
+      map._panAnim._inProgress = false;
+    }
+  } catch {}
+  try {
     if (map.touchZoom?._animRequest != null && L?.Util?.cancelAnimFrame) {
       L.Util.cancelAnimFrame(map.touchZoom._animRequest);
       map.touchZoom._animRequest = null;
     }
   } catch {}
+
+  // The high-level settles below run setView / zoom finalisers — only safe with a
+  // real viewport. At 0×0 we've already halted motion above; leave the camera
+  // untouched and let the size-gated resetters (ExtentFitter / BoundsApplier)
+  // recenter once the container regains size.
+  if (!hasRenderSize(map)) return;
+
   try { map._stop?.(); } catch {}
   try { map._panAnim?.stop?.(); } catch {}
   try {
@@ -218,34 +252,25 @@ function setMaxBoundsWithoutAutoPan(map, bounds) {
 }
 
 function forceCrispViewReset(map, center, zoom) {
+  // Resetting at 0×0 projects onto a degenerate viewport and lands on a garbage
+  // centre; the size-gated callers re-run this once the container has real size.
+  if (!hasRenderSize(map)) return;
   // During reveal Leaflet may be mid fly/pan/zoom animation. A normal fitBounds
   // can inherit that pixel origin and leave scaled, blurry tiles until the user
   // zooms. Cancel animation state first, then apply a target already constrained
   // to the vertical play bounds so the next user interaction has nothing to snap.
   const playBounds = toValidLatLngBounds(VIEW_BOUNDS);
   stopMapAnimations(map);
-  // invalidateSize FIRST so the target is constrained against the CURRENT container
-  // size — the reset can run right after the container changed between band and
-  // full, and a stale size could limit the centre to one that no longer fits, which
-  // the maxBounds clamp would then pull to the edge.
   try { map.invalidateSize({ pan: false, animate: false }); } catch {}
   const target = constrainResetTarget(map, center, zoom, playBounds);
-  // CRITICAL ordering: set the view with maxBounds LIFTED, and only re-apply bounds
-  // AFTER the final setView. The old tail re-applied playBounds (and/or
-  // panInsideBounds) BEFORE the last setView, so when recovering from a view left
-  // far outside the vertical bound, _limitCenter clamped the CENTRE to the nearest
-  // edge while the zoom still took — exactly the "zoom resets but the pan stays
-  // stuck at top/bottom" symptom. With bounds lifted, the target centre lands
-  // unclamped; bounds are then re-attached without moving the view (no
-  // panInsideBounds — the target already fits, and future user pans still enforce
-  // the bound via the moveend listener).
+
   setMaxBoundsWithoutAutoPan(map, null);
   try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
   try { map._resetView?.(target.center, target.zoom, true); } catch {}
   stopMapAnimations(map);
-  try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
-  try { map._resetView?.(target.center, target.zoom, true); } catch {}
   setMaxBoundsWithoutAutoPan(map, playBounds);
+  try { map.panInsideBounds(playBounds, { animate: false }); } catch {}
+  try { map._resetView?.(map.getCenter(), map.getZoom(), true); } catch {}
   try { map.invalidateSize({ pan: false, animate: false }); } catch {}
 }
 
@@ -366,23 +391,40 @@ const ClickHandler = memo(function ClickHandler({
 });
 
 /**
- * Applies maxBounds imperatively. Leaflet's public setMaxBounds() immediately
- * pans the current view inside the new bounds; after answer mode the current
- * view may be far outside Web Mercator, so we attach the bound listener without
- * that automatic pan and clamp synchronously with animation disabled.
+ * Re-applies maxBounds when guessing (re)starts (the reveal lifts them). Runs in
+ * a layout effect — BEFORE the browser paints — and snaps straight to the fit
+ * target (world / extent), not merely clamps to bounds.
+ *
+ * Why reset rather than clamp: the reveal leaves the camera at the answer view,
+ * which can sit at or past the ±85° ceiling. Clamping leaves it parked up north
+ * for one painted frame until ExtentFitter's POST-paint rAF recenters it — a
+ * visible flash, and the long-standing "stuck north on next round" bug when the
+ * carried-over view was beyond the displayable range. Recentering here, pre-paint,
+ * means the guess phase only ever paints at the fit target. ExtentFitter still
+ * owns the size-stable refit afterwards; both use getResetTarget so they agree.
  */
-const BoundsApplier = memo(function BoundsApplier({ bounds }) {
+const BoundsApplier = memo(function BoundsApplier({ bounds, extent }) {
   const map = useMap();
+  // Read the latest extent at apply-time without making it a dep (the array ref
+  // churns every render; the only moment we need it is when `bounds` flips).
+  const extentRef = useRef(extent);
+  extentRef.current = extent;
   useLayoutEffect(() => {
     if (!map) return;
     const latLngBounds = setMaxBoundsWithoutAutoPan(map, bounds);
     if (!latLngBounds) return;
+    // Recentering at 0×0 (map collapsed between rounds) would itself project onto
+    // a degenerate viewport. maxBounds is now set; defer the recenter to when the
+    // container has size — ExtentFitter's size-stable fit will handle it.
+    if (!hasRenderSize(map)) return;
 
     try {
+      // Kill any carried-over camera animation (e.g. flick inertia from panning
+      // the answer view) so it can't keep nudging north after we recenter.
       stopMapAnimations(map);
       const center = map.getCenter();
       const zoom = map.getZoom();
-      const target = constrainResetTarget(map, center, zoom, latLngBounds);
+      const target = getResetTarget(map, extentRef.current);
       if (!center.equals(target.center) || zoom !== target.zoom) {
         try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
         try { map._resetView?.(target.center, target.zoom, true); } catch {}
@@ -465,7 +507,15 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, re
         const target = getResetTarget(map, extent);
         forceCrispViewReset(map, target.center, target.zoom);
         finalRafId = requestAnimationFrame(() => {
-          try { forceCrispViewReset(map, map.getCenter(), map.getZoom()); } catch {}
+          // Re-derive the canonical target rather than trusting getCenter(): between
+          // the reset above and this frame, the hard maxBounds clamp (viscosity 1.0)
+          // can shove a tall low-zoom viewport to the ±85° edge. Reading getCenter()
+          // here cemented that drift (logged target≈72°N instead of 30,0); re-fitting
+          // to getResetTarget snaps it back to the intended world/extent view.
+          try {
+            const t = getResetTarget(map, extent);
+            forceCrispViewReset(map, t.center, t.zoom);
+          } catch {}
           needsFitRef.current = false;
           setResettingCamera(false);
         });
@@ -962,6 +1012,7 @@ const MapComponent = ({
   cameraCancelKey,
   onRevealReady,
   bandFraction,
+  lang,
 }) => {
   const { t: text } = useTranslation("common");
   // Single source of truth for "the reveal animation owns invalidateSize".
@@ -1056,7 +1107,7 @@ const MapComponent = ({
       </div>
 
       <CameraAnimationStopper active={stopCameraAnimations} cameraCancelKey={cameraCancelKey} resizingRef={resizingRef} />
-      <BoundsApplier bounds={answerShown ? null : VIEW_BOUNDS} />
+      <BoundsApplier bounds={answerShown ? null : VIEW_BOUNDS} extent={gameOptions?.extent} />
       <ClickHandler
         answerShown={answerShown}
         multiplayerState={multiplayerState}
@@ -1129,7 +1180,9 @@ const MapComponent = ({
         // cache hit), so painting them at full opacity is correct and
         // makes the wrap-snap effectively invisible.
         fadeAnimation={false}
-        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
+        // `lang` prop (mobile embed) drives the tile-label language deterministically;
+        // web renders Map.js without it and falls back to the i18n's text("lang").
+        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${lang || text("lang")}&scale=2`}
         subdomains={['0', '1', '2', '3']}
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}

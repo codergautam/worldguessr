@@ -11,17 +11,20 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import ConfettiBurst from './ConfettiBurst';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
 
-const NICE_LINES = [
-  "You're a natural!",
-  'You crushed it!',
-  'Globetrotter in the making!',
-  'Well played, explorer!',
-  'That was impressive!',
+// Store i18n KEYS (not t() calls) at module scope: t() reads a language table
+// set after module load, so calling it here would capture English forever.
+// Resolve each key with t() at render time (see niceMsg below).
+const NICE_LINE_KEYS = [
+  'obNiceMsg1',
+  'obNiceMsg2',
+  'obNiceMsg3',
+  'obNiceMsg4',
+  'obNiceMsg5',
 ];
 
 export type OnboardingMode = 'classic' | 'country';
@@ -89,7 +92,7 @@ export default function OnboardingComplete({
   const hideMax = isClassic && safePoints < 5000;
 
   const niceMsg = useMemo(
-    () => NICE_LINES[Math.floor(Math.random() * NICE_LINES.length)],
+    () => t(NICE_LINE_KEYS[Math.floor(Math.random() * NICE_LINE_KEYS.length)]),
     // re-pick whenever the modal becomes visible
     [visible],
   );
@@ -156,31 +159,31 @@ export default function OnboardingComplete({
               )}
             </View>
           )}
-          {!hideScore && <Text style={styles.scoreLabel}>points</Text>}
+          {!hideScore && <Text style={styles.scoreLabel}>{t('points')}</Text>}
 
-          <Text style={styles.prompt}>What would you like to try next?</Text>
+          <Text style={styles.prompt}>{t('obCompletePrompt')}</Text>
 
           <View style={styles.cards}>
             {isClassic ? (
               <>
                 <ActionCard
                   icon="map"
-                  title="Keep Playing"
-                  desc="Play a full 5-round match across the globe"
+                  title={t('obClassicKeepPlaying')}
+                  desc={t('obDescClassicKeepPlaying')}
                   accent="#4ade80"
                   onPress={onClassic}
                 />
                 <ActionCard
                   icon="flash"
-                  title="Find Duel"
-                  desc="Compete live against other players"
+                  title={t('findDuel')}
+                  desc={t('obDescCompete')}
                   accent="#fbbf24"
                   onPress={onDuel}
                 />
                 <ActionCard
                   icon="globe"
-                  title="Community Maps"
-                  desc="Discover thousands of player-created maps"
+                  title={t('communityMaps')}
+                  desc={t('obDescDiscover')}
                   accent="#60a5fa"
                   onPress={onCommunityMaps}
                 />
@@ -189,22 +192,22 @@ export default function OnboardingComplete({
               <>
                 <ActionCard
                   icon="flag"
-                  title="Keep Exploring"
-                  desc="Spot more countries and grow your streak!"
+                  title={t('obKeepPlaying')}
+                  desc={t('obDescKeepCountries')}
                   accent="#4ade80"
                   onPress={onCountryGuesser}
                 />
                 <ActionCard
                   icon="map"
-                  title="Classic"
-                  desc="Try the harder map-guessing experience"
+                  title={t('classic')}
+                  desc={t('obDescClassicFull')}
                   accent="#fbbf24"
                   onPress={onClassic}
                 />
                 <ActionCard
                   icon="globe"
-                  title="Community Maps"
-                  desc="Discover thousands of player-created maps"
+                  title={t('communityMaps')}
+                  desc={t('obDescDiscover')}
                   accent="#60a5fa"
                   onPress={onCommunityMaps}
                 />
@@ -222,7 +225,7 @@ export default function OnboardingComplete({
               end={{ x: 0, y: 1 }}
               style={styles.homeBtnInner}
             >
-              <Text style={styles.homeBtnText}>Main Menu</Text>
+              <Text style={styles.homeBtnText}>{t('obMainMenu')}</Text>
             </LinearGradient>
           </Pressable>
         </Animated.View>

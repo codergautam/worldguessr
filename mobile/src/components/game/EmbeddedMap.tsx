@@ -121,6 +121,7 @@ export default function EmbeddedMap({
       return {
         mode: 'results',
         lang,
+        mapType,
         rounds: rounds ?? [],
         activeRound: activeRound ?? null,
         myId: '',

@@ -111,7 +111,7 @@ export default function ClassicEndBanner({
   return (
     <View style={[styles.card, compact && styles.cardCompact]}>
       <LinearGradient
-        colors={['rgba(36,87,52,0.52)', 'rgba(36,87,52,0.28)', 'rgba(36,87,52,0)']}
+        colors={['rgba(36,87,52,0.78)', 'rgba(36,87,52,0.6)', 'rgba(36,87,52,0.42)']}
         locations={[0, 0.57, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -167,7 +167,7 @@ export default function ClassicEndBanner({
 const styles = StyleSheet.create({
   // #endBanner: green-glass card.
   card: {
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 10,
     marginHorizontal: 16,
     marginBottom: 10,

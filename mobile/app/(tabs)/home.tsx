@@ -16,7 +16,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, getLeague } from '../../src/shared';
+import { colors, getLeague, t } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { wsService } from '../../src/services/websocket';
@@ -277,23 +277,27 @@ export default function HomeScreen() {
     });
   }, [inGame, gameState]);
 
-  // Handle auto re-queue after gameCancelled (opponent left before start)
+  // Handle auto re-queue after gameCancelled (opponent left before start).
+  // Preserve the original queue type so unranked players re-queue into the
+  // unranked queue, not ranked (mirrors web home.js:2251-2260).
   useEffect(() => {
     if (nextGameQueued && connected && !inGame && !gameQueued) {
+      const isUnranked = nextGameType === 'unranked';
+      const queueType = isUnranked ? 'unrankedDuel' : 'publicDuel';
       useMultiplayerStore.setState({ nextGameQueued: false, nextGameType: null });
-      wsService.send({ type: 'publicDuel' });
-      useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
+      wsService.send({ type: queueType });
+      useMultiplayerStore.setState({ gameQueued: queueType });
       router.push('/queue');
     }
-  }, [nextGameQueued, connected, inGame, gameQueued]);
+  }, [nextGameQueued, connected, inGame, gameQueued, nextGameType]);
 
   const handleModePress = async (mode: GameMode) => {
     const needsConnection = mode === 'rankedDuel' || mode === 'unrankedDuel' || mode === 'createGame' || mode === 'joinGame';
     if (needsConnection && !connected) {
       Alert.alert(
-        'Not Connected',
-        'You are not connected to the server. Closing and re-opening the app can help.',
-        [{ text: 'OK' }],
+        t('multiplayerNotConnected'),
+        t('notConnectedReopenApp', undefined, 'You are not connected to the server. Closing and re-opening the app can help.'),
+        [{ text: t('ok') }],
       );
       return;
     }
@@ -499,7 +503,7 @@ export default function HomeScreen() {
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
                       <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
-                        {animatedElo} ELO {eloData.league.emoji}
+                        {animatedElo} {t('elo')} {eloData.league.emoji}
                       </Text>
                     </Pressable>
                   )}
@@ -530,7 +534,7 @@ export default function HomeScreen() {
                             },
                           ]}
                         >
-                          Login
+                          {t('login')}
                         </Text>
                         <ActivityIndicator size="small" color={colors.white} />
                       </>
@@ -546,7 +550,7 @@ export default function HomeScreen() {
                             },
                           ]}
                         >
-                          Login
+                          {t('login')}
                         </Text>
                       </>
                     )}
@@ -656,7 +660,7 @@ export default function HomeScreen() {
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
                       <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
-                        {animatedElo} ELO {eloData.league.emoji}
+                        {animatedElo} {t('elo')} {eloData.league.emoji}
                       </Text>
                     </Pressable>
                   )}
@@ -687,7 +691,7 @@ export default function HomeScreen() {
                             },
                           ]}
                         >
-                          Login
+                          {t('login')}
                         </Text>
                         <ActivityIndicator size="small" color={colors.white} />
                       </>
@@ -703,7 +707,7 @@ export default function HomeScreen() {
                             },
                           ]}
                         >
-                          Login
+                          {t('login')}
                         </Text>
                       </>
                     )}
@@ -719,27 +723,27 @@ export default function HomeScreen() {
 
             <View style={styles.menuGroup}>
               <MenuButton
-                label="Singleplayer"
+                label={t('singleplayer')}
                 onPress={() => handleModePress('singleplayer')}
                 delay={getDelay()}
                 ready={!authLoading}
               />
               <MenuButton
-                label="Daily Challenge"
+                label={t('dailyChallenge')}
                 onPress={() => handleModePress('dailyChallenge')}
                 delay={getDelay()}
                 ready={!authLoading}
               />
               {isAuthenticated && (
                 <MenuButton
-                  label="Ranked Duel"
+                  label={t('rankedDuel')}
                   onPress={() => handleModePress('rankedDuel')}
                   delay={getDelay()}
                   ready={!authLoading}
                 />
               )}
               <MenuButton
-                label={isAuthenticated ? 'Unranked Match' : 'Find a Match'}
+                label={isAuthenticated ? t('unrankedDuel') : t('findDuel')}
                 onPress={() => handleModePress('unrankedDuel')}
                 delay={getDelay()}
                 ready={!authLoading}
@@ -750,13 +754,13 @@ export default function HomeScreen() {
 
             <View style={styles.menuGroup}>
               <MenuButton
-                label="Create Game"
+                label={t('createGame')}
                 onPress={() => handleModePress('createGame')}
                 delay={getDelay()}
                 ready={!authLoading}
               />
               <MenuButton
-                label="Join Game"
+                label={t('joinGame')}
                 onPress={() => handleModePress('joinGame')}
                 delay={getDelay()}
                 ready={!authLoading}
@@ -767,7 +771,7 @@ export default function HomeScreen() {
 
             <View style={styles.menuGroup}>
               <MenuButton
-                label="Community Maps"
+                label={t('communityMaps')}
                 onPress={() => handleModePress('communityMaps')}
                 delay={getDelay()}
                 ready={!authLoading}
@@ -804,7 +808,7 @@ export default function HomeScreen() {
             pointerEvents="none"
           >
             <Text style={[styles.onlineCount, { fontSize: shortestSide >= 768 ? 20 : shortestSide >= 430 ? 17 : 15 }]}>
-              {'\u{1F7E2}'} {playerCount} online
+              {t('onlineCnt', { cnt: playerCount })}
             </Text>
           </View>
         )}
@@ -838,18 +842,18 @@ export default function HomeScreen() {
               <>
                 <Text style={styles.modPopupEmoji}>⚠️</Text>
                 <Text style={[styles.modPopupTitle, { color: '#ff9800' }]}>
-                  Username Change Required
+                  {t('usernameChangeRequired')}
                 </Text>
                 {user.pendingNameChangePublicNote && (
                   <View style={styles.modPopupReasonBox}>
-                    <Text style={styles.modPopupReasonLabel}>REASON</Text>
+                    <Text style={styles.modPopupReasonLabel}>{t('reason')}</Text>
                     <Text style={styles.modPopupReasonText}>
                       {user.pendingNameChangePublicNote}
                     </Text>
                   </View>
                 )}
                 <Text style={styles.modPopupDesc}>
-                  Your username has been flagged as inappropriate. Please change it from your profile.
+                  {t('usernameChangeExplanation')}
                 </Text>
                 <Pressable
                   style={({ pressed }) => [styles.modPopupActionBtn, { backgroundColor: '#ff9800' }, pressed && { opacity: 0.8 }]}
@@ -858,7 +862,7 @@ export default function HomeScreen() {
                     router.navigate('/(tabs)/account');
                   }}
                 >
-                  <Text style={[styles.modPopupActionBtnText, { color: '#000' }]}>Change Name</Text>
+                  <Text style={[styles.modPopupActionBtnText, { color: '#000' }]}>{t('changeName')}</Text>
                 </Pressable>
               </>
             )}
@@ -868,23 +872,23 @@ export default function HomeScreen() {
               <>
                 <Text style={styles.modPopupEmoji}>⛔</Text>
                 <Text style={[styles.modPopupTitle, { color: '#f44336' }]}>
-                  {user.banType === 'temporary' ? 'Account Temporarily Suspended' : 'Account Suspended'}
+                  {t(user.banType === 'temporary' ? 'accountTempSuspended' : 'accountSuspended')}
                 </Text>
                 {user.banType === 'temporary' && user.banExpiresAt && (
                   <Text style={styles.modPopupExpires}>
-                    Expires: {new Date(user.banExpiresAt).toLocaleString()}
+                    {t('expires')}: {new Date(user.banExpiresAt).toLocaleString()}
                   </Text>
                 )}
                 {user.banPublicNote && (
                   <View style={styles.modPopupReasonBox}>
-                    <Text style={styles.modPopupReasonLabel}>REASON</Text>
+                    <Text style={styles.modPopupReasonLabel}>{t('reason')}</Text>
                     <Text style={styles.modPopupReasonText}>{user.banPublicNote}</Text>
                   </View>
                 )}
                 <Text style={styles.modPopupDesc}>
-                  {user.banType === 'temporary'
-                    ? 'Your account has been temporarily suspended. You will regain access when the suspension expires.'
-                    : 'Your account has been permanently suspended.'}
+                  {t(user.banType === 'temporary'
+                    ? 'suspensionExplanationTemp'
+                    : 'suspensionExplanationPerm')}
                 </Text>
                 <Pressable
                   style={({ pressed }) => [styles.modPopupActionBtn, { backgroundColor: 'rgba(255,255,255,0.15)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }, pressed && { opacity: 0.8 }]}
@@ -893,7 +897,7 @@ export default function HomeScreen() {
                     router.navigate('/(tabs)/account');
                   }}
                 >
-                  <Text style={styles.modPopupActionBtnText}>View Details</Text>
+                  <Text style={styles.modPopupActionBtnText}>{t('viewDetails')}</Text>
                 </Pressable>
               </>
             )}
@@ -912,7 +916,7 @@ export default function HomeScreen() {
                 });
               }}
             >
-              <Text style={styles.modPopupDismissBtnText}>Dismiss</Text>
+              <Text style={styles.modPopupDismissBtnText}>{t('dismiss', undefined, 'Dismiss')}</Text>
             </Pressable>
           </Animated.View>
         </Animated.View>

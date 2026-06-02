@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
 import { useAuthStore } from '../../store/authStore';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
@@ -88,7 +88,7 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
       onClose();
     } catch (e) {
       console.error('Google login error:', e);
-      setError('Google sign in failed. Please try again.');
+      setError(t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.'));
     } finally {
       setProviderLoading(null);
     }
@@ -107,7 +107,7 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
       });
 
       if (!credential.identityToken) {
-        setError('Apple did not return a sign in token.');
+        setError(t('appleNoSignInToken', undefined, 'Apple did not return a sign in token.'));
         return;
       }
 
@@ -115,12 +115,12 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
       if (success) {
         onClose();
       } else {
-        setError('Apple sign in failed. Please try again.');
+        setError(t('appleSignInFailed', undefined, 'Apple sign in failed. Please try again.'));
       }
     } catch (e: any) {
       if (e?.code !== 'ERR_REQUEST_CANCELED') {
         console.error('Apple login error:', e);
-        setError('Apple sign in failed. Please try again.');
+        setError(t('appleSignInFailed', undefined, 'Apple sign in failed. Please try again.'));
       }
     } finally {
       setProviderLoading(null);
@@ -159,13 +159,13 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
           onPress={busy ? undefined : onClose}
           disabled={busy}
           accessibilityRole="button"
-          accessibilityLabel="Close sign in options"
+          accessibilityLabel={t('closeSignInOptions')}
         >
           <View style={styles.handle} />
         </Pressable>
-        <Text style={styles.title}>Sign in</Text>
+        <Text style={styles.title}>{t('signIn')}</Text>
         <Text style={styles.subtitle} numberOfLines={1} adjustsFontSizeToFit>
-          Track your progress and compete with friends!
+          {t('signInSubtitle', undefined, 'Track your progress and compete with friends!')}
         </Text>
 
         {Platform.OS === 'ios' && appleAvailable && (
@@ -184,7 +184,7 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
             ) : (
               <>
                 <Ionicons name="logo-apple" size={22} color="#111" style={styles.appleIcon} />
-                <Text style={[styles.providerText, styles.appleText]}>Continue with Apple</Text>
+                <Text style={[styles.providerText, styles.appleText]}>{t('continueWithApple', undefined, 'Continue with Apple')}</Text>
               </>
             )}
           </Pressable>
@@ -205,7 +205,7 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
           ) : (
             <>
               <Ionicons name="logo-google" size={20} color={colors.white} />
-              <Text style={styles.providerText}>Continue with Google</Text>
+              <Text style={styles.providerText}>{t('continueWithGoogle', undefined, 'Continue with Google')}</Text>
             </>
           )}
         </Pressable>

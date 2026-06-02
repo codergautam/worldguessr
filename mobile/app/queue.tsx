@@ -6,7 +6,7 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, Image, ImageBackground, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { useRouter, useNavigation } from 'expo-router';
-import { colors } from '../src/shared';
+import { colors, t } from '../src/shared';
 import { wsService } from '../src/services/websocket';
 import { useMultiplayerStore } from '../src/store/multiplayerStore';
 
@@ -68,7 +68,7 @@ export default function QueueScreen() {
   };
 
   const isRanked = gameQueued === 'publicDuel';
-  const title = 'Finding a game';
+  const title = t('findingGame');
 
   return (
     <View style={styles.container}>
@@ -92,7 +92,7 @@ export default function QueueScreen() {
 
         {isRanked && publicDuelRange && (
           <Text style={[styles.subText, { fontSize: subTextSize }]}>
-            ELO Range: {publicDuelRange[0]} - {publicDuelRange[1]}
+            {t('eloRange')}: {publicDuelRange[0]} - {publicDuelRange[1]}
           </Text>
         )}
       </View>
@@ -101,7 +101,7 @@ export default function QueueScreen() {
         style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.7 }]}
         onPress={handleCancel}
       >
-        <Text style={styles.cancelText}>Cancel</Text>
+        <Text style={styles.cancelText}>{t('cancel')}</Text>
       </Pressable>
     </View>
   );

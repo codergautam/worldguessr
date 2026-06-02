@@ -10,7 +10,7 @@
 import { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ImageBackground, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '../../src/shared';
+import { colors, t } from '../../src/shared';
 import { spacing, fontSizes } from '../../src/styles/theme';
 import { wsService } from '../../src/services/websocket';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
@@ -38,7 +38,7 @@ export default function PartyCreateScreen() {
       <View style={styles.darkOverlay} />
       <SafeAreaView style={[styles.flex, styles.center]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.loadingText}>Creating game...</Text>
+        <Text style={styles.loadingText}>{t('creating')}</Text>
       </SafeAreaView>
     </View>
   );

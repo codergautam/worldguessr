@@ -106,6 +106,7 @@ export default function ResultsMap({
   isDuel = false,
   isCountryGuesser = false,
   lang = 'en',
+  mapType = 'm',
   onUserInteraction,
   onOpenMaps,
 }) {
@@ -292,7 +293,7 @@ export default function ResultsMap({
       />
 
       <TileLayer
-        url={`https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=${lang}&scale=2`}
+        url={`https://mt{s}.google.com/vt/lyrs=${mapType || 'm'}&x={x}&y={y}&z={z}&hl=${lang}&scale=2`}
         subdomains={['0', '1', '2', '3']}
         maxZoom={22}
       />

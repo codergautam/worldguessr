@@ -15,7 +15,7 @@ import {
   flagUrl,
   nameFromCode,
 } from '../../shared/data/countryHelpers';
-import { localeString } from '../../shared';
+import { localeString, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 
 interface Props {
@@ -143,7 +143,7 @@ export default function CountryEndBanner({
         </View>
         <View style={styles.textCol}>
           <Text style={styles.smallLabel}>
-            Round {round}/{totalRounds} · {isCorrect ? 'Correct!' : 'Not quite'}
+            {t('round', { r: round, mr: totalRounds })} · {isCorrect ? t('correctExclaim', undefined, 'Correct!') : t('notQuite', undefined, 'Not quite')}
           </Text>
           <Text style={styles.title} numberOfLines={1}>
             {correctName}
@@ -181,7 +181,7 @@ export default function CountryEndBanner({
           end={{ x: 1, y: 1 }}
           style={styles.nextBtn}
         >
-          <Text style={styles.nextBtnText}>{isFinal ? 'View Results' : 'Next Round'}</Text>
+          <Text style={styles.nextBtnText}>{isFinal ? t('viewResults') : t('nextRound')}</Text>
         </LinearGradient>
       </Pressable>
     </Animated.View>

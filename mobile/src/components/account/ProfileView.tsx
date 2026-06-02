@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
+import { t } from '../../shared';
 import { ProgressionEntry } from './shared';
 import CountryFlag from '../CountryFlag';
 import ProfileTab from './ProfileTab';
@@ -28,21 +29,24 @@ type TabKey = 'profile' | 'history' | 'elo' | 'friends' | 'moderation';
 
 interface Tab {
   key: TabKey;
-  label: string;
+  // Store the locale KEY (not a resolved string) so we can call t() at render
+  // time — t() reads the language table set after module load, so resolving here
+  // at module scope would capture English permanently.
+  labelKey: string;
   icon: string;
 }
 
 const OWN_TABS: Tab[] = [
-  { key: 'profile', label: 'Profile', icon: '👤' },
-  { key: 'history', label: 'History', icon: '📜' },
-  { key: 'elo', label: 'ELO', icon: '🏆' },
-  { key: 'friends', label: 'Friends', icon: '👥' },
-  { key: 'moderation', label: 'Moderation', icon: '⚖️' },
+  { key: 'profile', labelKey: 'profile', icon: '👤' },
+  { key: 'history', labelKey: 'history', icon: '📜' },
+  { key: 'elo', labelKey: 'elo', icon: '🏆' },
+  { key: 'friends', labelKey: 'friendsText', icon: '👥' },
+  { key: 'moderation', labelKey: 'moderation', icon: '⚖️' },
 ];
 
 const PUBLIC_TABS: Tab[] = [
-  { key: 'profile', label: 'Profile', icon: '👤' },
-  { key: 'elo', label: 'ELO', icon: '🏆' },
+  { key: 'profile', labelKey: 'profile', icon: '👤' },
+  { key: 'elo', labelKey: 'elo', icon: '🏆' },
 ];
 
 interface ProfileData {
@@ -171,7 +175,7 @@ export default function ProfileView({
         ]);
 
         if (account.status === 'rejected') {
-          setError('Failed to load profile');
+          setError(t('failedToLoadProfile', undefined, 'Failed to load profile'));
           setLoading(false);
           return;
         }
@@ -214,7 +218,7 @@ export default function ProfileView({
         ]);
 
         if (profile.status === 'rejected') {
-          setError('User not found');
+          setError(t('friendReqNotFound'));
           setLoading(false);
           return;
         }
@@ -236,7 +240,7 @@ export default function ProfileView({
         }
       }
     } catch (e) {
-      setError('Failed to load profile');
+      setError(t('failedToLoadProfile', undefined, 'Failed to load profile'));
     } finally {
       setLoading(false);
     }
@@ -366,7 +370,7 @@ export default function ProfileView({
           <View style={styles.centered}>
             <View style={styles.loadingCard}>
               <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.loadingText}>Loading profile...</Text>
+              <Text style={styles.loadingText}>{t('loadingProfile', undefined, 'Loading profile...')}</Text>
             </View>
           </View>
         )}
@@ -376,20 +380,20 @@ export default function ProfileView({
           <View style={styles.centered}>
             <View style={styles.errorCard}>
               <Text style={styles.errorTitle}>{error}</Text>
-              <Text style={styles.errorSubtext}>The profile could not be loaded.</Text>
+              <Text style={styles.errorSubtext}>{t('profileCouldNotLoad', undefined, 'The profile could not be loaded.')}</Text>
               <View style={styles.errorActions}>
                 <Pressable
                   style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.8 }]}
                   onPress={fetchProfile}
                 >
-                  <Text style={styles.retryButtonText}>Retry</Text>
+                  <Text style={styles.retryButtonText}>{t('retry')}</Text>
                 </Pressable>
                 {onBack && (
                   <Pressable
                     style={({ pressed }) => [styles.closeModalButton, pressed && { opacity: 0.8 }]}
                     onPress={onBack}
                   >
-                    <Text style={styles.closeModalButtonText}>Close</Text>
+                    <Text style={styles.closeModalButtonText}>{t('close')}</Text>
                   </Pressable>
                 )}
               </View>
@@ -422,7 +426,7 @@ export default function ProfileView({
                     end={{ x: 1, y: 1 }}
                     style={styles.supporterBadge}
                   >
-                    <Text style={styles.supporterText}>SUPPORTER</Text>
+                    <Text style={styles.supporterText}>{t('supporter').toUpperCase()}</Text>
                   </LinearGradient>
                 )}
                 {/* Share Profile Link */}
@@ -454,7 +458,7 @@ export default function ProfileView({
                 >
                   <Text style={styles.tabIcon}>{tab.icon}</Text>
                   <Text style={[styles.tabLabel, activeTab === tab.key && styles.tabLabelActive]}>
-                    {tab.label}
+                    {t(tab.labelKey)}
                   </Text>
                 </Pressable>
               ))}

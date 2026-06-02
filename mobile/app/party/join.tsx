@@ -22,7 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../src/shared';
+import { colors, t } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 
@@ -81,7 +81,7 @@ export default function PartyJoinScreen() {
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={colors.white} />
           </Pressable>
-          <Text style={styles.headerTitle}>Join Game</Text>
+          <Text style={styles.headerTitle}>{t('joinGame')}</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -89,7 +89,7 @@ export default function PartyJoinScreen() {
           style={styles.content}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <Text style={styles.codeLabel}>ENTER GAME CODE</Text>
+          <Text style={styles.codeLabel}>{t('gameCode')}</Text>
 
           <TextInput
             ref={inputRef}
@@ -117,7 +117,7 @@ export default function PartyJoinScreen() {
             {joining ? (
               <ActivityIndicator color={colors.white} />
             ) : (
-              <Text style={styles.joinBtnText}>Join</Text>
+              <Text style={styles.joinBtnText}>{t('join')}</Text>
             )}
           </Pressable>
         </KeyboardAvoidingView>

@@ -23,7 +23,7 @@ import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { wsService } from '../../services/websocket';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
@@ -58,7 +58,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
   );
   const [nmpz, setNmpz] = useState(serverNm ?? false);
   const [mapSlug, setMapSlug] = useState('all');
-  const [mapName, setMapName] = useState(serverDisplayLocation ?? 'World');
+  const [mapName, setMapName] = useState(serverDisplayLocation ?? t('world'));
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
@@ -95,7 +95,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
 
   const handleStart = () => {
     if (!players || players.length < 2) {
-      Alert.alert('Need Players', 'You need at least 2 players to start.');
+      Alert.alert(t('needPlayersTitle', undefined, 'Need Players'), t('needMorePlayers'));
       return;
     }
     wsService.send({ type: 'startGameHost' });
@@ -134,14 +134,14 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
           <Pressable onPress={onLeave} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={colors.white} />
           </Pressable>
-          <Text style={styles.headerTitle}>{isHost ? 'Your Game' : 'Game Lobby'}</Text>
+          <Text style={styles.headerTitle}>{isHost ? t('yourPrivateGame') : t('gameLobby', undefined, 'Game Lobby')}</Text>
           <View style={{ width: 40 }} />
         </View>
 
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           {/* Game Code */}
           <View style={styles.codeSection}>
-            <Text style={styles.codeLabel}>GAME CODE</Text>
+            <Text style={styles.codeLabel}>{t('gameCode')}</Text>
             <Pressable onPress={handleCopyCode} style={styles.codeRow}>
               <Text style={styles.codeText}>{gameCode}</Text>
               <Animated.View style={{ transform: [{ scale: copyIconScale }] }}>
@@ -153,18 +153,20 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
               </Animated.View>
             </Pressable>
             <Text style={styles.codeHint}>
-              {codeCopied ? 'Invite link copied!' : 'Tap to copy invite link'}
+              {codeCopied
+                ? t('inviteLinkCopied', undefined, 'Invite link copied!')
+                : t('tapToCopyInviteLink', undefined, 'Tap to copy invite link')}
             </Text>
           </View>
 
           {/* Players */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Players ({playerCount})</Text>
+            <Text style={styles.sectionTitle}>{t('playersCount', { cnt: playerCount }, 'Players ({{cnt}})')}</Text>
             <PlayerList players={players ?? []} myId={myId} mode="lobby" />
           </View>
 
           {!isHost && (
-            <Text style={styles.waitingText}>Waiting for host to start...</Text>
+            <Text style={styles.waitingText}>{t('waitingForHostToStart')}</Text>
           )}
         </ScrollView>
 
@@ -172,14 +174,17 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
         <View style={styles.footer}>
           <View style={styles.settingsPreview}>
             {(() => {
-              const dispMap = isHost ? mapName : (serverDisplayLocation ?? 'World');
+              const dispMap = isHost ? mapName : (serverDisplayLocation ?? t('world'));
               const dispRounds = isHost ? rounds : (serverRounds ?? 5);
               const tSecs = isHost ? timePerRound : ((serverTimePerRound ?? 30000) / 1000);
-              const dispTimer = tSecs > 0 ? `${tSecs}s` : 'Timer Off';
+              const dispTimer = tSecs > 0
+                ? t('secondsShort', { secs: tSecs }, '{{secs}}s')
+                : t('timerOff', undefined, 'Timer Off');
               const dispNmpz = (isHost ? nmpz : serverNm) ? 'NMPZ' : null;
               return (
                 <Text style={styles.settingsPreviewText}>
-                  {dispMap} · {dispRounds} rounds · {dispTimer}{dispNmpz ? ` · ${dispNmpz}` : ''}
+                  {t('lobbySettingsPreview', { map: dispMap, rounds: dispRounds, timer: dispTimer }, '{{map}} · {{rounds}} rounds · {{timer}}')}
+                  {dispNmpz ? ` · ${dispNmpz}` : ''}
                 </Text>
               );
             })()}
@@ -191,7 +196,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
               onPress={() => setMapModalVisible(true)}
             >
               <Ionicons name="settings-outline" size={18} color={colors.white} />
-              <Text style={styles.optionsBtnText}>Edit Game Options</Text>
+              <Text style={styles.optionsBtnText}>{t('editOptions')}</Text>
             </Pressable>
           )}
 
@@ -201,7 +206,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
               onPress={() => setInviteModalVisible(true)}
             >
               <Ionicons name="people" size={18} color={colors.white} />
-              <Text style={styles.optionsBtnText}>Invite Friends</Text>
+              <Text style={styles.optionsBtnText}>{t('inviteFriends', undefined, 'Invite Friends')}</Text>
             </Pressable>
           )}
 
@@ -216,7 +221,9 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
               disabled={playerCount < 2}
             >
               <Text style={styles.startBtnText}>
-                {playerCount < 2 ? 'Waiting for players...' : 'Start Game'}
+                {playerCount < 2
+                  ? t('waitingForPlayersShort', undefined, 'Waiting for players...')
+                  : t('startGame')}
               </Text>
             </Pressable>
           )}

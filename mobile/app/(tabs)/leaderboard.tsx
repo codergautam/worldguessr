@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../src/shared';
+import { colors, t } from '../../src/shared';
 import { api } from '../../src/services/api';
 import CountryFlag from '../../src/components/CountryFlag';
 import { useAuthStore } from '../../src/store/authStore';
@@ -128,7 +128,7 @@ export default function LeaderboardScreen() {
           <Text style={styles.score}>
             {formatScore(mode === 'elo' ? item.elo : item.totalXp, isDailyLeaderboard)}
           </Text>
-          <Text style={styles.scoreLabel}>{mode === 'elo' ? 'Elo' : 'XP'}</Text>
+          <Text style={styles.scoreLabel}>{t(mode === 'elo' ? 'ELO' : 'xp')}</Text>
         </View>
       </Pressable>
     );
@@ -151,10 +151,10 @@ export default function LeaderboardScreen() {
             </View>
             <Text style={styles.playerScore}>
               {formatScore(mode === 'elo' ? data.myElo : data.myXp, isDailyLeaderboard)}
-              <Text style={styles.scoreType}> {mode === 'elo' ? 'Elo' : 'XP'}</Text>
+              <Text style={styles.scoreType}> {t(mode === 'elo' ? 'ELO' : 'xp')}</Text>
             </Text>
           </View>
-          <Text style={styles.myRankLabel}>Your Rank</Text>
+          <Text style={styles.myRankLabel}>{t('yourRank', undefined, 'Your Rank')}</Text>
         </View>
       )}
     </>
@@ -184,7 +184,7 @@ export default function LeaderboardScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* Branding / Header */}
         <View style={styles.branding}>
-          <Text style={styles.title}>Leaderboard</Text>
+          <Text style={styles.title}>{t('leaderboard')}</Text>
 
           <View style={styles.controls}>
             {/* Time Controls */}
@@ -202,7 +202,7 @@ export default function LeaderboardScreen() {
                     timePeriod === 'allTime' && styles.controlButtonTextActiveGreen,
                   ]}
                 >
-                  All Time
+                  {t('allTime')}
                 </Text>
               </Pressable>
               <Pressable
@@ -218,7 +218,7 @@ export default function LeaderboardScreen() {
                     timePeriod === 'daily' && styles.controlButtonTextActiveGreen,
                   ]}
                 >
-                  Past Day
+                  {t('pastDay')}
                 </Text>
               </Pressable>
             </View>
@@ -238,7 +238,7 @@ export default function LeaderboardScreen() {
                     mode === 'elo' && styles.controlButtonTextActiveGold,
                   ]}
                 >
-                  ELO
+                  {t('ELO')}
                 </Text>
               </Pressable>
               <Pressable
@@ -254,7 +254,7 @@ export default function LeaderboardScreen() {
                     mode === 'xp' && styles.controlButtonTextActiveGold,
                   ]}
                 >
-                  XP
+                  {t('xp')}
                 </Text>
               </Pressable>
             </View>
@@ -267,7 +267,7 @@ export default function LeaderboardScreen() {
               onPress={() => router.navigate('/(tabs)/home')}
             >
               <Ionicons name="arrow-back" size={16} color="#dc3545" />
-              <Text style={styles.exitButtonText}>Back to Game</Text>
+              <Text style={styles.exitButtonText}>{t('backToGame')}</Text>
             </Pressable>
           </View>
         </View>
@@ -275,7 +275,7 @@ export default function LeaderboardScreen() {
         {/* Error State */}
         {error && (
           <View style={styles.errorMessage}>
-            <Text style={styles.errorText}>Error fetching leaderboard data</Text>
+            <Text style={styles.errorText}>{t('errorFetchingLeaderboard', undefined, 'Error fetching leaderboard data')}</Text>
           </View>
         )}
 
@@ -283,7 +283,7 @@ export default function LeaderboardScreen() {
         {loading && !error && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4CAF50" />
-            <Text style={styles.loadingText}>Loading...</Text>
+            <Text style={styles.loadingText}>{t('loading')}</Text>
           </View>
         )}
 
@@ -306,7 +306,7 @@ export default function LeaderboardScreen() {
               ListEmptyComponent={
                 <View style={styles.emptyState}>
                   <Ionicons name="trophy-outline" size={64} color="rgba(255,255,255,0.4)" />
-                  <Text style={styles.emptyText}>No entries yet</Text>
+                  <Text style={styles.emptyText}>{t('noEntriesYet', undefined, 'No entries yet')}</Text>
                 </View>
               }
             />

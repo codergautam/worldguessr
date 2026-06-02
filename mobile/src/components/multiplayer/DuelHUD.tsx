@@ -11,7 +11,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { colors, getLeague } from '../../shared';
+import { colors, getLeague, t } from '../../shared';
 import { spacing, fontSizes } from '../../styles/theme';
 import { MPPlayer } from '../../store/multiplayerStore';
 import CountryFlag from '../CountryFlag';
@@ -33,7 +33,7 @@ export default function DuelHUD({ players, myId }: DuelHUDProps) {
   return (
     <View style={styles.container}>
       <PlayerBar player={me} isMe side="left" />
-      <Text style={styles.vs}>VS</Text>
+      <Text style={styles.vs}>{t('versus', undefined, 'VS')}</Text>
       <PlayerBar player={opponent} isMe={false} side="right" />
     </View>
   );

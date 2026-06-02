@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LineChart } from 'react-native-gifted-charts';
+import { t } from '../../shared';
 
 const GRAPH_Y_AXIS_LABEL_WIDTH = 42;
 const GRAPH_MIN_PLOT_WIDTH = 170;
@@ -112,10 +113,10 @@ export function formatTimeAgo(dateString: string): string {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffMinutes < 1) return 'Just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffMinutes < 1) return t('justNow');
+  if (diffMinutes < 60) return t('minutesAgo', { minutes: diffMinutes });
+  if (diffHours < 24) return t('hoursAgo', { hours: diffHours });
+  if (diffDays < 7) return t('daysAgo', { days: diffDays });
   return date.toLocaleDateString();
 }
 
@@ -196,7 +197,7 @@ export function ProgressionGraph({
         <View style={{ alignItems: 'center', gap: 16, paddingVertical: 20 }}>
           <ActivityIndicator size="small" color="#4CAF50" />
           <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontFamily: 'Lexend' }}>
-            Loading game history...
+            {t('loadingGameHistory')}
           </Text>
         </View>
       </GlassCard>
@@ -208,7 +209,7 @@ export function ProgressionGraph({
       <GlassCard>
         <View style={{ alignItems: 'center', paddingVertical: 20 }}>
           <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lexend-SemiBold' }}>
-            No stats available
+            {t('noStatsAvailable')}
           </Text>
         </View>
       </GlassCard>
@@ -223,7 +224,7 @@ export function ProgressionGraph({
       <GlassCard>
         <View style={{ alignItems: 'center', paddingVertical: 20 }}>
           <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lexend-SemiBold' }}>
-            No stats available
+            {t('noStatsAvailable')}
           </Text>
         </View>
       </GlassCard>
@@ -311,11 +312,15 @@ export function ProgressionGraph({
   });
 
   const filterSuffix =
-    dateFilter === '7days' ? ' (7 Days)' : dateFilter === '30days' ? ' (30 Days)' : ' (All Time)';
+    dateFilter === '7days'
+      ? t('graphFilter7Days', undefined, ' (7 Days)')
+      : dateFilter === '30days'
+        ? t('graphFilter30Days', undefined, ' (30 Days)')
+        : t('graphFilterAllTime', undefined, ' (All Time)');
   const baseTitle =
     mode === 'xp'
-      ? isRankMode ? 'XP Rank Over Time' : 'XP Over Time'
-      : isRankMode ? 'ELO Rank Over Time' : 'ELO Over Time';
+      ? isRankMode ? t('rankOverTime') : t('xpOverTime')
+      : isRankMode ? t('eloRankOverTime') : t('eloOverTime');
   const titleText = baseTitle + filterSuffix;
 
   const formatYLabel = (val: string) => {
@@ -352,7 +357,11 @@ export function ProgressionGraph({
                     dateFilter === f && sharedStyles.graphToggleTextActive,
                   ]}
                 >
-                  {f === '7days' ? '7D' : f === '30days' ? '30D' : 'All'}
+                  {f === '7days'
+                    ? t('graphRange7DShort', undefined, '7D')
+                    : f === '30days'
+                      ? t('graphRange30DShort', undefined, '30D')
+                      : t('graphRangeAllShort', undefined, 'All')}
                 </Text>
               </Pressable>
             ))}
@@ -374,7 +383,7 @@ export function ProgressionGraph({
                   viewMode === 'value' && sharedStyles.graphToggleTextActive,
                 ]}
               >
-                {mode === 'xp' ? 'XP' : 'ELO'}
+                {mode === 'xp' ? t('xp') : t('elo')}
               </Text>
             </Pressable>
             <Pressable
@@ -390,7 +399,7 @@ export function ProgressionGraph({
                   viewMode === 'rank' && sharedStyles.graphToggleTextActive,
                 ]}
               >
-                Rank
+                {t('rank')}
               </Text>
             </Pressable>
           </View>
@@ -482,8 +491,8 @@ export function ProgressionGraph({
                     ) : null}
                     <Text style={{ color: '#fff', fontSize: 13, fontFamily: 'Lexend-Bold', textAlign: 'center' }}>
                       {mode === 'xp'
-                        ? (isRankMode ? `Rank: ${displayVal}` : `XP: ${displayVal}`)
-                        : (isRankMode ? `Rank: ${displayVal}` : `ELO: ${displayVal}`)}
+                        ? (isRankMode ? `${t('rank')}: ${displayVal}` : `${t('xp')}: ${displayVal}`)
+                        : (isRankMode ? `${t('rank')}: ${displayVal}` : `${t('elo')}: ${displayVal}`)}
                     </Text>
                   </View>
                 );

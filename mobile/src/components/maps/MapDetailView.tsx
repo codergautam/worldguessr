@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
+import { t } from '../../shared';
 import StreetViewWebView from '../game/StreetViewWebView';
 import { useAuthStore } from '../../store/authStore';
 import { emitHeartUpdate, onHeartUpdate } from '../../store/heartSync';
@@ -36,7 +37,7 @@ export default function MapDetailView({
   slug,
   onBack,
   onPlay,
-  playLabel = 'PLAY',
+  playLabel,
   initialHearts,
   initialHearted,
 }: MapDetailViewProps) {
@@ -159,9 +160,9 @@ export default function MapDetailView({
     return (
       <View style={styles.centered}>
         <Ionicons name="map-outline" size={48} color="rgba(255,255,255,0.4)" />
-        <Text style={styles.errorText}>Map not found</Text>
+        <Text style={styles.errorText}>{t('mapNotFound', undefined, 'Map not found')}</Text>
         <Pressable style={styles.backBtn} onPress={onBack}>
-          <Text style={styles.backBtnText}>Go Back</Text>
+          <Text style={styles.backBtnText}>{t('back')}</Text>
         </Pressable>
       </View>
     );
@@ -175,18 +176,18 @@ export default function MapDetailView({
         onPress={onBack}
       >
         <Ionicons name="arrow-back" size={20} color="#fff" />
-        <Text style={styles.headerBackText}>Back</Text>
+        <Text style={styles.headerBackText}>{t('back')}</Text>
       </Pressable>
 
       {/* Status messages */}
       {mapData.in_review && (
         <View style={styles.statusBanner}>
-          <Text style={styles.statusText}>This map is currently under review.</Text>
+          <Text style={styles.statusText}>{t('mapUnderReview', undefined, 'This map is currently under review.')}</Text>
         </View>
       )}
       {mapData.reject_reason && (
         <View style={[styles.statusBanner, { backgroundColor: 'rgba(220,53,69,0.2)' }]}>
-          <Text style={styles.statusText}>Rejected: {mapData.reject_reason}</Text>
+          <Text style={styles.statusText}>{t('mapRejectedReason', { reason: mapData.reject_reason }, 'Rejected: {{reason}}')}</Text>
         </View>
       )}
 
@@ -234,7 +235,7 @@ export default function MapDetailView({
           style={styles.playButtonGradient}
         >
           <Ionicons name="play" size={24} color="white" />
-          <Text style={styles.playButtonText}>{playLabel}</Text>
+          <Text style={styles.playButtonText}>{playLabel ?? t('play')}</Text>
         </LinearGradient>
       </Pressable>
 
@@ -244,14 +245,14 @@ export default function MapDetailView({
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>👥</Text>
             <Text style={styles.statValue}>{formatNumber(mapData.plays)}</Text>
-            <Text style={styles.statLabel}>Plays</Text>
+            <Text style={styles.statLabel}>{t('plays', undefined, 'Plays')}</Text>
           </View>
         )}
         {(mapData.locationcnt || mapData.data) && (
           <View style={styles.statCard}>
             <Text style={styles.statIcon}>📍</Text>
             <Text style={styles.statValue}>{formatNumber(mapData.locationcnt || mapData.data?.length || 0)}</Text>
-            <Text style={styles.statLabel}>Locations</Text>
+            <Text style={styles.statLabel}>{t('locations', undefined, 'Locations')}</Text>
           </View>
         )}
         {typeof mapData.hearts !== 'undefined' && (
@@ -262,7 +263,7 @@ export default function MapDetailView({
           >
             <Ionicons name={hearted ? 'heart' : 'heart-outline'} size={24} color={hearted ? '#ff4d6d' : '#fff'} />
             <Text style={styles.statValue}>{formatNumber(hearts)}</Text>
-            <Text style={styles.statLabel}>Hearts</Text>
+            <Text style={styles.statLabel}>{t('hearts', undefined, 'Hearts')}</Text>
           </Pressable>
         )}
       </View>
@@ -270,15 +271,15 @@ export default function MapDetailView({
       {/* Description */}
       {mapData.description_long && (
         <View style={styles.descriptionCard}>
-          <Text style={styles.descriptionTitle}>About this map</Text>
+          <Text style={styles.descriptionTitle}>{t('aboutThisMap', undefined, 'About this map')}</Text>
           {mapData.description_long.split('\n').map((line: string, i: number) => (
             <Text key={i} style={styles.descriptionText}>{line}</Text>
           ))}
           {mapData.created_by && (
             <View style={styles.authorRow}>
               <Text style={styles.authorText}>
-                Created by <Text style={styles.authorName}>{mapData.created_by}</Text>
-                {mapData.created_at ? ` ${mapData.created_at} ago` : ''}
+                {t('createdByLabel', undefined, 'Created by')} <Text style={styles.authorName}>{mapData.created_by}</Text>
+                {mapData.created_at ? ` ${mapData.created_at} ${t('ago')}` : ''}
               </Text>
             </View>
           )}

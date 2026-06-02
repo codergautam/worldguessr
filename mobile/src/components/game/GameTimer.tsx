@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors } from '../../shared';
+import { t } from '../../shared/locale';
 import { fontSizes } from '../../styles/theme';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
 
@@ -138,13 +139,15 @@ export default function GameTimer({
       ]}
     >
       <Text style={styles.roundLabel}>
-        {isInfiniteRound ? `Round ${currentRound}/${totalRounds}` : `Round ${currentRound} of ${totalRounds}`}
+        {isInfiniteRound
+          ? t('roundSlashTotal', { round: currentRound, total: totalRounds })
+          : t('roundOfTotal', { round: currentRound, total: totalRounds })}
       </Text>
       <Text style={styles.mainRow}>
         {shouldShowCountdown ? (
           <>
             <Text style={[styles.countdown, isCritical && styles.countdownCritical]}>
-              {formatTime(timeRemaining)}s
+              {t('secondsShort', { secs: formatTime(timeRemaining) })}
             </Text>
             <Text style={styles.separator}> · </Text>
           </>
@@ -152,7 +155,7 @@ export default function GameTimer({
         <Text style={[styles.points, scoreAnimating && styles.pointsAnimating]}>
           {displayedScore.toLocaleString()}
         </Text>
-        <Text style={styles.pointsLabel}> pts</Text>
+        <Text style={styles.pointsLabel}> {t('pts')}</Text>
       </Text>
     </Animated.View>
   );

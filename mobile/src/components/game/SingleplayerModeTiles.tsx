@@ -1,7 +1,7 @@
 import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 
 export type SingleplayerModeTile = 'world' | 'country' | 'continent';
@@ -11,24 +11,27 @@ interface Props {
   onSelect: (mode: SingleplayerModeTile) => void;
 }
 
+// Store the locale KEY (not a t() call) at module scope — t() reads a table set
+// to the user language only after module load, so calling it here would capture
+// English permanently. Resolve titleKey -> t(titleKey) at render time instead.
 const TILES: Array<{
   mode: SingleplayerModeTile;
-  title: string;
+  titleKey: string;
   image: string;
 }> = [
   {
     mode: 'world',
-    title: 'World',
+    titleKey: 'world',
     image: 'https://www.worldguessr.com/world.jpg',
   },
   {
     mode: 'country',
-    title: 'Country Guesser',
+    titleKey: 'countryGuesser',
     image: 'https://www.worldguessr.com/flags.jpg',
   },
   {
     mode: 'continent',
-    title: 'Continent Guesser',
+    titleKey: 'continentGuesser',
     image: 'https://www.worldguessr.com/continents.jpg',
   },
 ];
@@ -61,7 +64,7 @@ export default function SingleplayerModeTiles({
               style={StyleSheet.absoluteFillObject}
             />
             <Text style={styles.title} numberOfLines={2}>
-              {tile.title}
+              {t(tile.titleKey)}
             </Text>
             {active && (
               <View style={styles.check}>

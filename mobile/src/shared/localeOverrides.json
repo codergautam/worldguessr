@@ -17,5 +17,16 @@
   "streakStartedBig": "STREAK STARTED",
   "videoAdThanks": "Thanks for helping us keep WorldGuessr free by watching video ads!",
   "watchAd": "Watch Ad",
-  "watchAnAdToRestore": "Watch a short ad to restore your streak."
+  "watchAnAdToRestore": "Watch a short ad to restore your streak.",
+  "notConnectedReopenApp": "You are not connected to the server. Closing and re-opening the app can help.",
+  "duelDrawNoHpChange": "Draw — no HP change",
+  "opponentLostHp": "Opponent lost {{diff}} HP",
+  "youLostHp": "You lost {{diff}} HP",
+  "openInMapsButton": "📍 Open in Maps",
+  "duelHealthDamage": "-{{damage}} ❤️",
+  "usernameFlaggedMobileExplanation": "Your username has been flagged as inappropriate. You can still play singleplayer, but multiplayer is disabled until your new name is approved.",
+  "usernameFlaggedGoToProfileTab": "Your username has been flagged. Please change it from the Profile tab.",
+  "appleNoSignInToken": "Apple did not return a sign in token.",
+  "appleSignInFailed": "Apple sign in failed. Please try again.",
+  "continueWithApple": "Continue with Apple"
 }

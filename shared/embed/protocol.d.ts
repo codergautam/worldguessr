@@ -40,6 +40,8 @@ export interface EmbedMapProps {
 /** Serializable props for the results map embed (/embed/results →
  *  components/ResultsMap.js). `rounds` is the roundOverScreen finalHistory shape. */
 export interface EmbedResultsProps {
+  /** Google Maps tile layer for the results map (matches the live map's setting). */
+  mapType?: "m" | "s" | "p" | "y";
   rounds?: unknown[];
   activeRound?: number | null;
   myId?: string | null;

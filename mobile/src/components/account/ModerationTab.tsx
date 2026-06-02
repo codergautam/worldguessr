@@ -8,6 +8,7 @@ import {
   Linking,
 } from 'react-native';
 import { api } from '../../services/api';
+import { t } from '../../shared';
 import { GlassCard, sharedStyles } from './shared';
 
 interface ModerationTabProps {
@@ -67,7 +68,7 @@ export default function ModerationTab({
         const result = await api.userModerationData(secret);
         setData(result);
       } catch (err: any) {
-        setError(err.message || 'Failed to load');
+        setError(err.message || t('failedToLoad', undefined, 'Failed to load'));
       } finally {
         setLoading(false);
       }
@@ -79,7 +80,7 @@ export default function ModerationTab({
     const now = new Date();
     const expires = new Date(expiresAt);
     const diff = expires.getTime() - now.getTime();
-    if (diff <= 0) return 'Expired';
+    if (diff <= 0) return t('expired');
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -109,18 +110,18 @@ export default function ModerationTab({
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'open': return 'Open';
-      case 'action_taken': return 'Action Taken';
-      case 'ignored': return 'Ignored';
+      case 'open': return t('reportStatusOpen');
+      case 'action_taken': return t('reportStatusActionTaken');
+      case 'ignored': return t('reportStatusIgnored');
       default: return status;
     }
   };
 
   const getReasonText = (reason: string) => {
     switch (reason) {
-      case 'inappropriate_username': return 'Inappropriate Username';
-      case 'cheating': return 'Cheating';
-      case 'other': return 'Other';
+      case 'inappropriate_username': return t('reportReasonInappropriateUsername');
+      case 'cheating': return t('reportReasonCheating');
+      case 'other': return t('reportReasonOther');
       default: return reason;
     }
   };
@@ -131,7 +132,7 @@ export default function ModerationTab({
         <View style={{ alignItems: 'center', gap: 16, paddingVertical: 40 }}>
           <ActivityIndicator size="large" color="#4CAF50" />
           <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontFamily: 'Lexend' }}>
-            Loading moderation data...
+            {t('loadingModerationData')}
           </Text>
         </View>
       </GlassCard>
@@ -143,7 +144,7 @@ export default function ModerationTab({
       <GlassCard>
         <View style={{ alignItems: 'center', paddingVertical: 40 }}>
           <Text style={{ color: '#f44336', fontSize: 16, fontFamily: 'Lexend' }}>
-            Error: {error}
+            {t('error')}: {error}
           </Text>
         </View>
       </GlassCard>
@@ -157,43 +158,43 @@ export default function ModerationTab({
         <View style={styles.suspensionBanner}>
           <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 12 }}>🚫</Text>
           <Text style={styles.suspensionTitle}>
-            {banType === 'temporary' ? 'Account Temporarily Suspended' : 'Account Suspended'}
+            {t(banType === 'temporary' ? 'accountTempSuspended' : 'accountSuspended')}
           </Text>
 
           {banType === 'temporary' && banExpiresAt && (
             <View style={styles.timeRemainingCard}>
-              <Text style={styles.timeRemainingLabel}>TIME REMAINING</Text>
+              <Text style={styles.timeRemainingLabel}>{t('timeRemaining')}</Text>
               <Text style={styles.timeRemainingValue}>{getTimeRemaining(banExpiresAt)}</Text>
               <Text style={styles.timeRemainingExpires}>
-                Expires: {new Date(banExpiresAt).toLocaleString()}
+                {t('expires')}: {new Date(banExpiresAt).toLocaleString()}
               </Text>
             </View>
           )}
 
           {banPublicNote && (
             <View style={styles.reasonCard}>
-              <Text style={styles.reasonLabel}>REASON</Text>
+              <Text style={styles.reasonLabel}>{t('reason')}</Text>
               <Text style={styles.reasonText}>{banPublicNote}</Text>
             </View>
           )}
 
           <Text style={styles.suspensionExplanation}>
-            {banType === 'temporary'
-              ? 'Your account has been temporarily suspended. You will regain access when the suspension expires.'
-              : 'Your account has been permanently suspended.'}
+            {t(banType === 'temporary'
+              ? 'suspensionExplanationTemp'
+              : 'suspensionExplanationPerm')}
           </Text>
 
           {/* Appeal */}
           <View style={styles.appealCard}>
-            <Text style={styles.appealTitle}>Want to Appeal?</Text>
+            <Text style={styles.appealTitle}>{t('wantToAppeal')}</Text>
             <Text style={styles.appealText}>
-              Appeals are handled through our Discord server.
+              {t('appealInstructions')}
             </Text>
             <Pressable
               style={({ pressed }) => [styles.discordButton, pressed && { opacity: 0.8 }]}
               onPress={() => Linking.openURL('https://discord.gg/ADw47GAyS5')}
             >
-              <Text style={styles.discordButtonText}>Join Discord</Text>
+              <Text style={styles.discordButtonText}>{t('joinDiscord')}</Text>
             </Pressable>
           </View>
         </View>
@@ -203,37 +204,37 @@ export default function ModerationTab({
       {pendingNameChange && (
         <View style={styles.nameChangeBanner}>
           <Text style={{ fontSize: 48, textAlign: 'center', marginBottom: 12 }}>✏️</Text>
-          <Text style={styles.nameChangeTitle}>Username Change Required</Text>
+          <Text style={styles.nameChangeTitle}>{t('usernameChangeRequired')}</Text>
           {pendingNameChangePublicNote && (
             <View style={styles.reasonCard}>
-              <Text style={styles.reasonLabel}>REASON</Text>
+              <Text style={styles.reasonLabel}>{t('reason')}</Text>
               <Text style={styles.reasonText}>{pendingNameChangePublicNote}</Text>
             </View>
           )}
           <Text style={[styles.suspensionExplanation, { color: '#e0e0e0' }]}>
-            Your username has been flagged. Please change it from the Profile tab.
+            {t('usernameFlaggedGoToProfileTab', undefined, 'Your username has been flagged. Please change it from the Profile tab.')}
           </Text>
         </View>
       )}
 
       {/* Stats Card */}
       <GlassCard>
-        <Text style={sharedStyles.cardTitle}>Moderation</Text>
+        <Text style={sharedStyles.cardTitle}>{t('moderation')}</Text>
         <View style={sharedStyles.statsGrid}>
           <View style={styles.modStat}>
-            <Text style={styles.modStatLabel}>ELO REFUNDED</Text>
+            <Text style={styles.modStatLabel}>{t('eloRefunded')}</Text>
             <Text style={[styles.modStatValue, { color: '#4caf50' }]}>
               +{data?.totalEloRefunded || 0}
             </Text>
           </View>
           <View style={styles.modStat}>
-            <Text style={styles.modStatLabel}>REPORTS FILED</Text>
+            <Text style={styles.modStatLabel}>{t('reportsFiled')}</Text>
             <Text style={[styles.modStatValue, { color: '#ffd700' }]}>
               {data?.reportStats?.total || 0}
             </Text>
           </View>
           <View style={styles.modStat}>
-            <Text style={styles.modStatLabel}>EFFECTIVE</Text>
+            <Text style={styles.modStatLabel}>{t('effectiveReports')}</Text>
             <Text style={[styles.modStatValue, { color: '#4caf50' }]}>
               {data?.reportStats?.actionTaken || 0}
             </Text>
@@ -244,9 +245,9 @@ export default function ModerationTab({
         <View style={styles.subTabRow}>
           {(['refunds', 'history', 'reports'] as SubTab[]).map((tab) => {
             const labels: Record<SubTab, string> = {
-              refunds: `ELO Refunds (${data?.eloRefunds?.length || 0})`,
-              history: `History (${data?.moderationHistory?.length || 0})`,
-              reports: `My Reports (${data?.submittedReports?.length || 0})`,
+              refunds: t('eloRefundsTabCount', { count: data?.eloRefunds?.length || 0 }, 'ELO Refunds ({{count}})'),
+              history: t('historyTabCount', { count: data?.moderationHistory?.length || 0 }, 'History ({{count}})'),
+              reports: t('myReportsTabCount', { count: data?.submittedReports?.length || 0 }, 'My Reports ({{count}})'),
             };
             return (
               <Pressable
@@ -267,19 +268,19 @@ export default function ModerationTab({
       <GlassCard>
         {activeSection === 'refunds' && (
           <>
-            <Text style={[sharedStyles.cardTitle, { fontSize: 18 }]}>ELO Refunds</Text>
+            <Text style={[sharedStyles.cardTitle, { fontSize: 18 }]}>{t('eloRefundsTab')}</Text>
             <Text style={styles.sectionDesc}>
-              ELO points refunded when opponents were banned for cheating.
+              {t('eloRefundsDesc')}
             </Text>
             {(data?.eloRefunds?.length || 0) > 0 ? (
               data!.eloRefunds.map((refund) => (
                 <View key={refund.id} style={styles.listItem}>
                   <View>
                     <Text style={{ color: '#4caf50', fontFamily: 'Lexend-Bold', fontSize: 16 }}>
-                      +{refund.amount} ELO
+                      {t('eloRefundAmount', { amount: refund.amount }, '+{{amount}} ELO')}
                     </Text>
                     <Text style={{ color: '#888', fontSize: 12, fontFamily: 'Lexend', marginTop: 4 }}>
-                      From: <Text style={{ color: '#f44336' }}>{refund.bannedUsername}</Text>
+                      {t('fromLabel', undefined, 'From:')} <Text style={{ color: '#f44336' }}>{refund.bannedUsername}</Text>
                     </Text>
                   </View>
                   <Text style={{ color: '#888', fontSize: 12, fontFamily: 'Lexend' }}>
@@ -288,14 +289,14 @@ export default function ModerationTab({
                 </View>
               ))
             ) : (
-              <Text style={styles.emptyText}>No ELO refunds yet</Text>
+              <Text style={styles.emptyText}>{t('noEloRefundsYet')}</Text>
             )}
           </>
         )}
 
         {activeSection === 'history' && (
           <>
-            <Text style={[sharedStyles.cardTitle, { fontSize: 18 }]}>Account History</Text>
+            <Text style={[sharedStyles.cardTitle, { fontSize: 18 }]}>{t('accountHistoryTab')}</Text>
             {(data?.moderationHistory?.length || 0) > 0 ? (
               data!.moderationHistory.map((item) => (
                 <View key={item.id} style={styles.listItem}>
@@ -316,7 +317,7 @@ export default function ModerationTab({
                     )}
                     {item.expiresAt && new Date(item.expiresAt) > new Date() && (
                       <Text style={{ color: '#ffd700', marginTop: 4, fontSize: 12, fontFamily: 'Lexend' }}>
-                        Expires: {formatDate(item.expiresAt)}
+                        {t('expires')}: {formatDate(item.expiresAt)}
                       </Text>
                     )}
                   </View>
@@ -326,16 +327,16 @@ export default function ModerationTab({
                 </View>
               ))
             ) : (
-              <Text style={styles.emptyText}>No moderation actions</Text>
+              <Text style={styles.emptyText}>{t('noModerationActions')}</Text>
             )}
           </>
         )}
 
         {activeSection === 'reports' && (
           <>
-            <Text style={[sharedStyles.cardTitle, { fontSize: 18 }]}>Reports You Submitted</Text>
+            <Text style={[sharedStyles.cardTitle, { fontSize: 18 }]}>{t('reportsYouSubmitted')}</Text>
             <Text style={styles.sectionDesc}>
-              Report outcomes are kept private to protect the review process.
+              {t('reportsPrivacyNote')}
             </Text>
             {(data?.submittedReports?.length || 0) > 0 ? (
               data!.submittedReports.map((report) => (
@@ -364,7 +365,7 @@ export default function ModerationTab({
                 </View>
               ))
             ) : (
-              <Text style={styles.emptyText}>No reports submitted</Text>
+              <Text style={styles.emptyText}>{t('noReportsSubmitted')}</Text>
             )}
           </>
         )}

@@ -4,7 +4,7 @@
 
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import CountryFlag from '../CountryFlag';
 import type { MPPlayer } from '../../store/multiplayerStore';
@@ -48,7 +48,7 @@ export default function PlayerList({
           >
             <View style={styles.playerLeft}>
               {mode !== 'lobby' && (
-                <Text style={[styles.rankText, dense && styles.rankTextBetween]}>#{index + 1}</Text>
+                <Text style={[styles.rankText, dense && styles.rankTextBetween]}>{t('rankN', { rank: index + 1 }, '#{{rank}}')}</Text>
               )}
               {player.countryCode && (
                 <CountryFlag countryCode={player.countryCode} size={dense ? 16 : 18} />
@@ -65,7 +65,7 @@ export default function PlayerList({
                 {player.username}
               </Text>
               {player.host && (
-                <Text style={styles.hostText}>(Host)</Text>
+                <Text style={styles.hostText}>({t('host')})</Text>
               )}
               {player.supporter && (
                 <Ionicons name="heart" size={12} color="#ff6b9d" />

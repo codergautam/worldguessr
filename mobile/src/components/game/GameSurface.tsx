@@ -177,6 +177,7 @@ function GameSurface(
 ) {
   const insets = useSafeAreaInsets();
   const mapType = useSettingsStore((s) => s.mapType);
+  const language = useSettingsStore((s) => s.language);
   const { width, height } = useWindowDimensions();
 
   const expandedMapHeight =
@@ -567,6 +568,7 @@ function GameSurface(
               <EmbeddedMap
                 route="map"
                 mapType={mapType}
+                lang={language}
                 location={location}
                 guessPosition={isCountryVariant ? null : computedGuessPosition}
                 onGuessPositionChange={
@@ -670,7 +672,7 @@ function GameSurface(
                     !guessPosition && { opacity: 0.5 },
                   ]}
                 >
-                  Guess
+                  {t('guess')}
                 </Text>
               </LinearGradient>
             </Pressable>
@@ -719,7 +721,7 @@ function GameSurface(
                 style={styles.guessFabInner}
               >
                 <Ionicons name="map" size={28} color={colors.white} />
-                <Text style={styles.guessFabText}>Guess</Text>
+                <Text style={styles.guessFabText}>{t('guess')}</Text>
               </LinearGradient>
             </Pressable>
           </Animated.View>

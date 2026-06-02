@@ -11,7 +11,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { spacing, fontSizes } from '../../styles/theme';
 
 interface GetReadyOverlayProps {
@@ -73,13 +73,13 @@ export default function GetReadyOverlay({
         { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
       ]}
     >
-      <Text style={styles.roundLabel}>ROUND {round} OF {totalRounds}</Text>
-      <Text style={styles.getReady}>Get Ready!</Text>
+      <Text style={styles.roundLabel}>{t('roundOfTotal', { round, total: totalRounds }, 'Round {{round}} of {{total}}')}</Text>
+      <Text style={styles.getReady}>{t('getReady', undefined, 'Get Ready!')}</Text>
       <Text style={styles.countdown}>{countdown}</Text>
 
       {generated < totalRounds && (
         <Text style={styles.generating}>
-          Loading locations... {generated}/{totalRounds}
+          {t('loadingLocationsProgress', { generated, total: totalRounds }, 'Loading locations... {{generated}}/{{total}}')}
         </Text>
       )}
     </Animated.View>

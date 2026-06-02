@@ -3,7 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../src/shared';
+import { colors, t } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import ProfileView from '../../src/components/account/ProfileView';
@@ -49,7 +49,7 @@ export default function AccountScreen() {
             ) : (
               <View style={styles.loginButtonContent}>
                 <Ionicons name="person-circle" size={20} color={colors.white} />
-                <Text style={styles.loginButtonText}>Sign in</Text>
+                <Text style={styles.loginButtonText}>{t('signIn')}</Text>
               </View>
             )}
           </Pressable>

@@ -10,7 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../../shared';
+import { colors, t } from '../../shared';
 import { onboardingAnalytics } from '../../services/onboardingAnalytics';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 
@@ -93,10 +93,10 @@ export default function WelcomeOverlay({ visible, onModeSelected, onSkip }: Prop
         >
           <Text style={[styles.hero, isShort && styles.heroShort]}>🌍</Text>
           <Text style={[styles.title, isShort && styles.titleShort]}>
-            Welcome to WorldGuessr!
+            {t('welcomeTitle')}
           </Text>
           <Text style={[styles.desc, isShort && styles.descShort]}>
-            You'll be dropped somewhere on Earth. Look for clues and guess where you are.
+            {t('welcomeDesc')}
           </Text>
 
           <View style={[styles.modes, isLandscape && styles.modesLandscape]}>
@@ -117,15 +117,15 @@ export default function WelcomeOverlay({ visible, onModeSelected, onSkip }: Prop
                 <Text style={[styles.modeIcon, isLandscape && styles.modeIconLandscape]}>🏳️</Text>
                 <View style={styles.modeText}>
                   <Text style={[styles.modeTitle, isLandscape && styles.modeTitleLandscape]}>
-                    Country Guesser
+                    {t('countryGuesser')}
                   </Text>
-                  <Text style={styles.modeSub}>Just choose the right country</Text>
+                  <Text style={styles.modeSub}>{t('countryGuessrDesc')}</Text>
                 </View>
               </LinearGradient>
               {/* Badge lives outside the gradient so its negative `top` isn't
                   clipped by the rounded mask on iOS/Android. */}
               <View style={styles.recommendedBadge} pointerEvents="none">
-                <Text style={styles.recommendedText}>Best for beginners</Text>
+                <Text style={styles.recommendedText}>{t('recommended')}</Text>
               </View>
             </Pressable>
 
@@ -145,9 +145,9 @@ export default function WelcomeOverlay({ visible, onModeSelected, onSkip }: Prop
                 <Text style={[styles.modeIcon, isLandscape && styles.modeIconLandscape]}>🗺️</Text>
                 <View style={styles.modeText}>
                   <Text style={[styles.modeTitle, isLandscape && styles.modeTitleLandscape]}>
-                    Classic
+                    {t('classic')}
                   </Text>
-                  <Text style={styles.modeSub}>Try to guess the exact location</Text>
+                  <Text style={styles.modeSub}>{t('classicDesc')}</Text>
                 </View>
               </LinearGradient>
             </Pressable>
@@ -157,7 +157,7 @@ export default function WelcomeOverlay({ visible, onModeSelected, onSkip }: Prop
             onPress={() => dismiss(onSkip)}
             style={({ pressed }) => [pressed && { opacity: 0.7 }]}
           >
-            <Text style={styles.skip}>Skip tutorial →</Text>
+            <Text style={styles.skip}>{t('skipTutorial')}</Text>
           </Pressable>
         </Animated.View>
       </ScrollView>

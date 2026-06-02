@@ -14,7 +14,16 @@ if (typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent =
     leafletCss +
-    'html,body,#root{height:100%;margin:0;padding:0;background:#08120d;overflow:hidden;}';
+    'html,body,#root{height:100%;margin:0;padding:0;background:#08120d;overflow:hidden;}' +
+    // Match the app's main font (Lexend) on all Leaflet UI — tooltips, popups,
+    // controls, attribution — instead of the browser default sans-serif. The font
+    // itself is loaded via the Google Fonts <link> injected in embed/build.mjs.
+    ".leaflet-container,.leaflet-container .leaflet-tooltip,.leaflet-container .leaflet-popup-content,.leaflet-control{font-family:'Lexend',sans-serif;}" +
+    // Hide the Leaflet attribution badge (the "Leaflet | Google" link in the
+    // bottom-right). It's a tappable link that navigates the WebView away with no
+    // way back. The web app hides it via globals.scss, but that stylesheet isn't
+    // bundled here, so replicate the rule for both embedded maps (Map + ResultsMap).
+    '.leaflet-control-attribution{display:none !important;}';
   document.head.appendChild(style);
 }
 
@@ -101,6 +110,7 @@ function MapEmbed({ state }) {
       <Map
         shown={state.shown}
         options={state.options}
+        lang={state.lang}
         answerShown={state.answerShown}
         location={state.location}
         gameOptions={state.gameOptions}
@@ -138,6 +148,7 @@ function ResultsEmbed({ state }) {
         isDuel={!!state.isDuel}
         isCountryGuesser={!!state.isCountryGuesser}
         lang={state.lang || 'en'}
+        mapType={state.mapType || 'm'}
         onOpenMaps={onOpenMaps}
       />
     </div>
