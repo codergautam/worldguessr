@@ -57,3 +57,5 @@ mobile/
 
 android/*
 ios/*
+embed/
+ios-crashes/
