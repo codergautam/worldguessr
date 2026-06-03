@@ -23,7 +23,14 @@
       "Bash(npx acorn:*)",
       "WebSearch",
       "Bash(npx next:*)",
-      "WebFetch(domain:restcountries.com)"
+      "WebFetch(domain:restcountries.com)",
+      "Read(//usr/share/xsessions/**)",
+      "Bash(journalctl --user -b 0 -p err --no-pager)",
+      "Bash(journalctl -b 0 --no-pager)",
+      "Bash(sudo cat *)",
+      "Bash(sudo cp *)",
+      "Bash(sudo ls *)",
+      "Bash(sudo tee *)"
     ],
     "deny": [
       "Bash(git push:*)"
