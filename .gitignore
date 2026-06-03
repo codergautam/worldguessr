@@ -56,4 +56,6 @@ mobile/
 .codex
 
 android/*
-*.ipa
+ios/*
+embed/
+ios-crashes/
