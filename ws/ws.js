@@ -1342,7 +1342,6 @@ try {
   setInterval(() => {
     const activePlayerCount = getActivePlayerCount();
 
-    const activePlayerCount = getActivePlayerCount();
     for (const player of players.values()) {
       if (player.verified && !player.gameId) {
         player.send({
