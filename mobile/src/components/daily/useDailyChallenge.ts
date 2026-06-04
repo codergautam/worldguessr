@@ -10,6 +10,7 @@ import {
   type DailyTop10Entry,
 } from './dailyStatusCache';
 import { ensureGuestId, getGuestId } from './guestId';
+import { claimGuestProgressIfAny } from './claimGuestProgress';
 
 type LocationData = Awaited<ReturnType<typeof api.dailyChallenge.locations>>;
 type ResultsData = Awaited<ReturnType<typeof api.dailyChallenge.results>>;
@@ -114,12 +115,12 @@ export function useDailyChallenge({ secret, dateOverride, autoFetchResults = fal
     if (!secret || claimedRef.current) return;
     (async () => {
       claimedRef.current = true;
-      const gid = await getGuestId();
-      if (!gid) return;
       try {
-        await api.dailyChallenge.claimGuestProgress(secret, gid);
+        // Shared helper dedupes with the claim fired by the auth store on
+        // sign-in, and clears the guest id on success/already-claimed.
+        const result = await claimGuestProgressIfAny(secret);
         // Refresh — any merged days/streak show up immediately.
-        fetchResults();
+        if (result) fetchResults();
       } catch {
         /* silent — not useful to the user */
       }

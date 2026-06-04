@@ -30,6 +30,8 @@ import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
 import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
 import { prefetchDailyStatus } from '../../src/components/daily/prefetchDailyStatus';
+import DailyStreakBadge from '../../src/components/daily/DailyStreakBadge';
+import { useDailyMenuStatus } from '../../src/components/daily/useDailyMenuStatus';
 import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 
 type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
@@ -42,9 +44,12 @@ interface MenuButtonProps {
    * Ranked Duel) that mount when login resolves still animate IN SEQUENCE with
    * the rest instead of a beat later. */
   ready: boolean;
+  /** Optional trailing accessory rendered next to the label (e.g. the daily
+   * streak pill on the Daily Challenge entry, mirroring web's DailyMenuItem). */
+  accessory?: React.ReactNode;
 }
 
-function MenuButton({ label, onPress, delay, ready }: MenuButtonProps) {
+function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps) {
   const slideAnim = useRef(new Animated.Value(-80)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const hasAnimated = useRef(false);
@@ -82,7 +87,10 @@ function MenuButton({ label, onPress, delay, ready }: MenuButtonProps) {
         ]}
         onPress={onPress}
       >
-        <Text style={styles.menuButtonText}>{label}</Text>
+        <View style={styles.menuButtonRow}>
+          <Text style={styles.menuButtonText}>{label}</Text>
+          {accessory}
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -128,6 +136,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, isLoading: authLoading, secret } = useAuthStore();
+
+  // Daily streak status for the home menu pill (mirrors web's DailyMenuItem).
+  const dailyStatus = useDailyMenuStatus(secret ?? null);
 
   // ELO data fetching & animation (matches web home.js:298-367)
   const [eloData, setEloData] = useState<{ elo: number; rank: number; league: ReturnType<typeof getLeague> } | null>(null);
@@ -756,6 +767,11 @@ export default function HomeScreen() {
                 onPress={() => handleModePress('dailyChallenge')}
                 delay={getDelay()}
                 ready={!authLoading}
+                accessory={
+                  dailyStatus.streak > 0 ? (
+                    <DailyStreakBadge streak={dailyStatus.streak} variant={dailyStatus.variant} />
+                  ) : null
+                }
               />
               {isAuthenticated && (
                 <MenuButton
@@ -1103,6 +1119,11 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     paddingVertical: 10,
+  },
+  menuButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   menuButtonPressed: {
     opacity: 0.7,

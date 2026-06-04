@@ -1,7 +1,10 @@
 import { Animated, Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
+import WgWordmark from '../ui/WgWordmark';
+import MatchCountdown from '../ui/MatchCountdown';
 
 /**
  * The single loading/error layer used everywhere a game-y screen needs
@@ -20,6 +23,9 @@ interface Props {
   /** Caller decides if the overlay should swallow taps. */
   interactive?: boolean;
   message?: string;
+  /** When set, render the branded match-start ring countdown instead of the
+   *  spinner row (casual multiplayer round 1). Fractional seconds remaining. */
+  countdown?: number | null;
   /** When set, the spinner is replaced with an error block + retry. */
   error?: string | null;
   onRetry?: () => void;
@@ -33,10 +39,12 @@ export default function GameLoadingOverlay({
   opacity = 1,
   interactive = true,
   message = t('loading'),
+  countdown,
   error,
   onRetry,
   retryLabel = t('back'),
 }: Props) {
+  const showCountdown = countdown != null && !error;
   return (
     <Animated.View
       style={[styles.overlay, { opacity }]}
@@ -44,8 +52,18 @@ export default function GameLoadingOverlay({
     >
       <ImageBackground source={STREET2} style={StyleSheet.absoluteFillObject} resizeMode="cover" fadeDuration={0} />
       <View style={styles.dim} />
+      {showCountdown && (
+        <SafeAreaView style={styles.brandBar} edges={['top']} pointerEvents="none">
+          <WgWordmark size="sm" />
+        </SafeAreaView>
+      )}
       <View style={styles.center}>
-        {error ? (
+        {showCountdown ? (
+          <MatchCountdown
+            seconds={countdown as number}
+            label={t('getReady', undefined, 'Get Ready!')}
+          />
+        ) : error ? (
           <>
             <Ionicons name="warning" size={42} color={colors.error} />
             <Text style={styles.errorText}>{error}</Text>
@@ -78,6 +96,14 @@ const styles = StyleSheet.create({
   dim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  brandBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingLeft: spacing.xl,
+    paddingTop: spacing.sm,
   },
   center: {
     flex: 1,

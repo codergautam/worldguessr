@@ -207,8 +207,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     backgroundColor: 'transparent',
   },
+  // Text emotes (e.g. "GG") fall back to the system font in black without these;
+  // match web's .emoteFloatGlyph: inherits white + Lexend (body font) + drop-shadow.
+  // Emoji glyphs render in color regardless of fontFamily.
   floatGlyph: {
     fontSize: 34,
+    color: colors.white,
+    fontFamily: 'Lexend',
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   floatGlyphNoName: {
     fontSize: 52,

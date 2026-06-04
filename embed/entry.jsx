@@ -23,7 +23,14 @@ if (typeof document !== 'undefined') {
     // bottom-right). It's a tappable link that navigates the WebView away with no
     // way back. The web app hides it via globals.scss, but that stylesheet isn't
     // bundled here, so replicate the rule for both embedded maps (Map + ResultsMap).
-    '.leaflet-control-attribution{display:none !important;}';
+    '.leaflet-control-attribution{display:none !important;}' +
+    // Mobile-only: hide the Leaflet zoom (+/-) control in the top-left. Touch users
+    // pinch-to-zoom, so the buttons are redundant and clutter the full-screen map.
+    // Scoped to this embed bundle (mobile WebView), so the web version is unaffected.
+    '.leaflet-control-zoom{display:none !important;}' +
+    // Mobile-only: hide the Google logo (the .mapAttr image rendered by Map.js in
+    // the bottom-left). Same reasoning — only the mobile embed gets this rule.
+    '.mapAttr{display:none !important;}';
   document.head.appendChild(style);
 }
 

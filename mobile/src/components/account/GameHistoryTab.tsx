@@ -54,6 +54,7 @@ const GAME_TYPES: Record<string, { labelKey: string; icon: string; color: string
   ranked_duel: { labelKey: 'rankedDuel', icon: '⚔️', color: '#FF5722' },
   unranked_multiplayer: { labelKey: 'multiplayer', icon: '👥', color: '#2196F3' },
   private_multiplayer: { labelKey: 'privateGame', icon: '🔒', color: '#9C27B0' },
+  daily_challenge: { labelKey: 'dailyChallenge', icon: '📅', color: '#FFC107' },
 };
 
 export default function GameHistoryTab({ secret, onNavigateToUser }: GameHistoryTabProps) {

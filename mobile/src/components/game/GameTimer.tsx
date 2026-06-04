@@ -144,11 +144,15 @@ export default function GameTimer({
   // (web `!showAnswer`), state===guess (`criticalEnabled`), AND no guess yet
   // (web `!pinPoint`). Placing a pin / guessing instantly calms the warning.
   const isInfiniteRound = initialTime === 86400000 && timeRemaining > 120;
-  const shouldShowCountdown = showTimer && !isInfiniteRound && timeRemaining > 0;
+  // Show the countdown all the way down to 0.0 (web renders `.toFixed(1)` with
+  // no `> 0` gate on the multiplayer/duel timers — only the red critical skin
+  // stops at `> 0`). Hiding at exactly 0.0 was the flash the user reported.
+  const shouldShowCountdown = showTimer && !isInfiniteRound;
   const isCritical =
     criticalEnabled &&
     shouldShowCountdown &&
     timeRemaining <= 5 &&
+    timeRemaining > 0 &&
     !isPaused &&
     !hasGuess;
 

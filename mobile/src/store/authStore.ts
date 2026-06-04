@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { User } from '../shared';
 import { api } from '../services/api';
+import {
+  claimGuestProgressIfAny,
+  resetClaimGuestProgressState,
+} from '../components/daily/claimGuestProgress';
 
 const SECRET_KEY = 'wg_secret';
 
@@ -75,6 +79,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           isLoading: false,
         });
+        // Merge any pre-signin guest daily progress into this account.
+        // Fire-and-forget — failure shouldn't block auth.
+        claimGuestProgressIfAny(response.secret).catch(() => {});
         return true;
       }
       set({ isLoading: false });
@@ -118,6 +125,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           isAuthenticated: true,
           isLoading: false,
         });
+        // Merge any pre-signin guest daily progress into this account.
+        // Fire-and-forget — failure shouldn't block auth.
+        claimGuestProgressIfAny(response.secret).catch(() => {});
         return true;
       }
       set({ isLoading: false });
@@ -160,6 +170,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           },
           isAuthenticated: true,
         });
+        // Merge any pre-signin guest daily progress into this account.
+        // Fire-and-forget — failure shouldn't block auth.
+        claimGuestProgressIfAny(response.secret).catch(() => {});
         return true;
       }
       return false;
@@ -192,6 +205,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     await SecureStore.deleteItemAsync(SECRET_KEY);
+    resetClaimGuestProgressState();
     set({
       secret: null,
       user: null,

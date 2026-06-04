@@ -470,8 +470,20 @@ export default function GameScreen() {
   const showBetweenRoundMap = isMultiplayer
     && gameData?.state === 'getready'
     && gameData.curRound > 1
+    && gameData.curRound <= (gameData.rounds ?? 0) // exclude the post-final getready — that's the final reveal, not a between-rounds one
     && ((gameData.roundHistory?.length ?? 0) > 0 || (gameData.locations?.length ?? 0) >= gameData.curRound - 1);
-  const showMapResult = gameState.isShowingResult || showBetweenRoundMap;
+  // The FINAL answer reveal. The server sends `getready` (curRound > rounds) and
+  // then `end` for the last round; treat BOTH as one continuous reveal, derived
+  // INLINE from gameData. Previously the reveal was driven by `gameState.isShowingResult`
+  // (set in a deferred useEffect) for the `end` leg — so at the getready→end
+  // handoff `showMapResult` dropped to false for one frame (between-map off,
+  // isShowingResult not yet on) → the reveal collapsed and re-animated. This
+  // inline flag closes that gap so it plays once and transitions seamlessly.
+  const mpFinalReveal = !!(isMultiplayer && gameData
+    && (gameData.state === 'end'
+      || (gameData.state === 'getready' && gameData.curRound > (gameData.rounds ?? 0)))
+    && (gameData.locations?.length ?? 0) > 0);
+  const showMapResult = gameState.isShowingResult || showBetweenRoundMap || mpFinalReveal;
   // Once I've submitted this round (server `me.final`, set optimistically on
   // submit, reset each round by clearGuesses), the pin must lock — web doesn't
   // let you move your guess while waiting for the other players. Drives the
@@ -493,6 +505,20 @@ export default function GameScreen() {
   const fabScaleAnim = useRef(new Animated.Value(1)).current;
   const singleplayerTopRightAnim = useRef(new Animated.Value(1)).current;
   const hasCompletedInitialReveal = useRef(false);
+
+  // Round-1 reveal: keep the start countdown ring on the loading overlay from the
+  // getready countdown through the brief handoff into 'guess'. The round-1 pano
+  // mounts and preloads behind the overlay during getready (same as the
+  // between-rounds preload for every later round). Once it's ready, this fades the
+  // ring straight into the scene — matching the smooth reveal of later rounds —
+  // instead of swapping to the "Loading…" spinner for the overlay's fade-out.
+  // If the pano isn't ready yet we fall through to the spinner via
+  // showLoadingBanner, exactly like a later round whose preload didn't finish.
+  const mpRound1Reveal = !!(isMultiplayer && gameData && !gameData.duel
+    && gameData.curRound === 1
+    && gameData.state === 'guess'
+    && streetViewLoaded
+    && !hasCompletedInitialReveal.current);
 
   // Mount map eagerly once game loads — prevents first-touch being swallowed
   // by a freshly-mounted MapView when showing the first round's result
@@ -817,7 +843,7 @@ export default function GameScreen() {
         ? buildHistoryPlayerGuesses(betweenRoundHistory)
         : buildCurrentPlayerGuesses(gameData.players, betweenRoundLocation, gameState.maxDist))
     : [];
-  const currentRoundPlayerGuesses = isMultiplayer && gameData && gameState.isShowingResult
+  const currentRoundPlayerGuesses = isMultiplayer && gameData && (gameState.isShowingResult || mpFinalReveal)
     ? buildCurrentPlayerGuesses(gameData.players, currentLocation, gameState.maxDist)
     : [];
 
@@ -852,7 +878,10 @@ export default function GameScreen() {
         answerCountry: (gameData.map === 'all' || !gameData.map)
           ? mapActualLocation.country ?? null
           : null,
-        isFinal: gameState.isShowingResult,
+        // Final throughout the post-final reveal (getready→end) so the banner
+        // doesn't flip state mid-reveal; isShowingResult alone would only be true
+        // on the `end` leg.
+        isFinal: gameState.isShowingResult || mpFinalReveal,
       }
     : null;
 
@@ -1593,7 +1622,7 @@ export default function GameScreen() {
                     ? { lat: mapActualLocation.lat, long: mapActualLocation.long }
                     : null
                 }
-                guessPosition={showBetweenRoundMap ? null : guessPosition}
+                guessPosition={showBetweenRoundMap || mpFinalReveal ? null : guessPosition}
                 onGuessPositionChange={(p) => handleMapPress(p.lat, p.lng)}
                 isShowingResult={showMapResult}
                 interactive={!showMapResult && !mpGuessSubmitted}
@@ -1825,9 +1854,10 @@ export default function GameScreen() {
       <GameLoadingOverlay
         opacity={loadingOpacity}
         interactive={showLoadingBanner}
-        message={mpInitialGetReady
-          ? t('gameStartingIn', { t: gameStartingCountdown.toFixed(1) })
-          : undefined}
+        // Keep the ring through the round-1 getready→guess handoff (mpRound1Reveal)
+        // so a preloaded pano fades the ring straight in instead of flashing the
+        // spinner. gameStartingCountdown is already 0 by the 'guess' phase.
+        countdown={mpInitialGetReady || mpRound1Reveal ? Math.max(0, gameStartingCountdown) : undefined}
       />
       </View>
       )}

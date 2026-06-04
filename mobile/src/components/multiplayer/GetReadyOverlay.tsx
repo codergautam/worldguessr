@@ -1,18 +1,16 @@
 /**
- * Fullscreen overlay shown during the "getready" phase before each round.
- * Shows round number, countdown, and generation progress.
+ * Fullscreen overlay shown during the "getready" phase before a duel round.
+ * A draining ring countdown with WorldGuessr branding + generation progress.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Easing,
-} from 'react-native';
-import { colors, t } from '../../shared';
-import { spacing, fontSizes } from '../../styles/theme';
+import { Animated, StyleSheet } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { t } from '../../shared';
+import { spacing } from '../../styles/theme';
+import WgWordmark from '../ui/WgWordmark';
+import MatchCountdown from '../ui/MatchCountdown';
 
 interface GetReadyOverlayProps {
   round: number;
@@ -32,9 +30,9 @@ export default function GetReadyOverlay({
   timeOffset,
   generated,
 }: GetReadyOverlayProps) {
-  const [countdown, setCountdown] = useState(5);
+  const [seconds, setSeconds] = useState(5);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const scaleAnim = useRef(new Animated.Value(0.85)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -50,16 +48,13 @@ export default function GetReadyOverlay({
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeAnim, scaleAnim]);
 
-  // Countdown from server time
+  // Countdown from server time (fractional — drives the draining ring)
   useEffect(() => {
     const update = () => {
-      const remaining = Math.max(
-        0,
-        Math.ceil((nextEvtTime - Date.now() - timeOffset) / 1000),
-      );
-      setCountdown(remaining);
+      const remaining = Math.max(0, (nextEvtTime - Date.now() - timeOffset) / 1000);
+      setSeconds(remaining);
     };
     update();
     const interval = setInterval(update, 100);
@@ -67,21 +62,32 @@ export default function GetReadyOverlay({
   }, [nextEvtTime, timeOffset]);
 
   return (
-    <Animated.View
-      style={[
-        styles.overlay,
-        { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
-      ]}
-    >
-      <Text style={styles.roundLabel}>{t('round', { r: round, mr: totalRounds }, 'Round #{{r}} / {{mr}}')}</Text>
-      <Text style={styles.getReady}>{t('getReady', undefined, 'Get Ready!')}</Text>
-      <Text style={styles.countdown}>{countdown}</Text>
+    <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+      <LinearGradient
+        colors={['rgba(6, 16, 10, 0.92)', 'rgba(3, 8, 5, 0.96)']}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-      {generated < totalRounds && (
-        <Text style={styles.generating}>
-          {t('loadingLocationsProgress', { generated, total: totalRounds }, 'Loading locations... {{generated}}/{{total}}')}
-        </Text>
-      )}
+      <SafeAreaView style={styles.brandBar} edges={['top']} pointerEvents="none">
+        <WgWordmark size="sm" />
+      </SafeAreaView>
+
+      <Animated.View style={[styles.body, { transform: [{ scale: scaleAnim }] }]}>
+        <MatchCountdown
+          seconds={seconds}
+          label={t('getReady', undefined, 'Get Ready!')}
+          sublabel={t('round', { r: round, mr: totalRounds }, 'Round #{{r}} / {{mr}}')}
+          footnote={
+            generated < totalRounds
+              ? t(
+                  'loadingLocationsProgress',
+                  { generated, total: totalRounds },
+                  'Loading locations... {{generated}}/{{total}}',
+                )
+              : undefined
+          }
+        />
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -89,33 +95,19 @@ export default function GetReadyOverlay({
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 9999,
   },
-  roundLabel: {
-    color: 'rgba(255, 255, 255, 0.5)',
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-SemiBold',
-    letterSpacing: 3,
-    marginBottom: spacing.md,
+  brandBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingLeft: spacing.xl,
+    paddingTop: spacing.sm,
   },
-  getReady: {
-    color: colors.white,
-    fontSize: 36,
-    fontFamily: 'Lexend-Bold',
-    marginBottom: spacing.lg,
-  },
-  countdown: {
-    color: colors.primary,
-    fontSize: 72,
-    fontFamily: 'Lexend-Bold',
-  },
-  generating: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: fontSizes.xs,
-    fontFamily: 'Lexend',
-    marginTop: spacing.xl,
+  body: {
+    alignItems: 'center',
   },
 });

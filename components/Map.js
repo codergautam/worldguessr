@@ -746,14 +746,22 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
 });
 
 /**
- * Finishes an in-flight zoom the instant a new gesture starts. While a zoom
- * animation runs, Leaflet's `_animatingZoom` flag blocks the next interaction —
- * a fast second zoom (`_tryAnimatedZoom` early-returns, `TouchZoom._onTouchStart`
- * bails) and the first pan stroke / tap. We finish the in-flight zoom on any
- * gesture start (capture phase, before Leaflet's own handlers) so nothing —
- * zoom, pan, or tap — is swallowed. `stopMapAnimations` clears `_animatingZoom`
- * without firing synthetic zoom/move events, so it won't disturb the camera
- * controllers (RevealController / ExtentFitter).
+ * Finishes an in-flight PINCH zoom the instant the next touch gesture starts.
+ * While a zoom animation runs, Leaflet's `_animatingZoom` flag makes
+ * `TouchZoom._onTouchStart` bail, so a fast second pinch (and the first pan/tap
+ * after a pinch) is swallowed — the "every other zoom rejected" mobile bug.
+ * Finishing the in-flight zoom on `touchstart` (capture phase, before Leaflet's
+ * own handlers) unblocks it. `stopMapAnimations` clears `_animatingZoom` without
+ * firing synthetic zoom/move events, so it won't disturb the camera controllers
+ * (RevealController / ExtentFitter).
+ *
+ * TOUCH-ONLY by design. On desktop, zoom is the mouse wheel, and Leaflet's
+ * ScrollWheelZoom already accumulates wheel deltas and drives its own animation
+ * correctly. Intercepting `wheel`/`mousedown` here aborted that animation
+ * mid-flight on every tick (clearing `_animatingZoom`, stripping the
+ * `leaflet-zoom-anim` class), desyncing the pane transform from the zoom level
+ * and making desktop zoom jump wildly. Leaving those paths to Leaflet restores
+ * the original (master) desktop behaviour while keeping the mobile pinch fix.
  */
 const ZoomFix = memo(function ZoomFix() {
   const map = useMap();
@@ -763,12 +771,8 @@ const ZoomFix = memo(function ZoomFix() {
     if (!container) return;
     const finishZoom = () => { if (map._animatingZoom) stopMapAnimations(map); };
     container.addEventListener("touchstart", finishZoom, true);
-    container.addEventListener("mousedown", finishZoom, true);
-    container.addEventListener("wheel", finishZoom, true);
     return () => {
       container.removeEventListener("touchstart", finishZoom, true);
-      container.removeEventListener("mousedown", finishZoom, true);
-      container.removeEventListener("wheel", finishZoom, true);
     };
   }, [map]);
   return null;
