@@ -212,6 +212,21 @@
   text-align: left;
 }
 
+.wg-lb__end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.wg-lb__meEnd {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 .wg-lb__score {
   font-weight: 700;
   font-size: 14px;

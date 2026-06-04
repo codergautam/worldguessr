@@ -168,7 +168,7 @@ const Leaderboard = ({ }) => {
 
                   <div className={styles.playerDetails}>
                     <a
-                      href={`${navigate('/user')}?u=${encodeURIComponent(user.username)}`}
+                      href={`${navigate('/')}?profile=${encodeURIComponent(user.username)}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={styles.username}

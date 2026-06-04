@@ -39,7 +39,7 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                             />
                         </span>
                     )}
-                    {!(screen === 'multiplayer' && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && !gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) && (
+                    {!(screen === 'multiplayer' && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && !gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting' || dailyPhase === 'loading' || dailyPhase === 'confirming')) && (
                         <button
                             className={`wg-backBtn wg-backBtn--nav ${screen === 'onboarding' ? 'wg-backBtn--menu' : ''}`}
                             onClick={(e) => { playSound('interfaceClick'); backBtnPressed?.(e); }}

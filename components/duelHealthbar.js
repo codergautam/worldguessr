@@ -111,7 +111,7 @@ const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel, isOppo
                 if (typeof window !== 'undefined' && window.wgOpenProfile) {
                   window.wgOpenProfile(name);
                 } else {
-                  window.location.href = `/user?u=${encodeURIComponent(name)}`;
+                  window.location.href = `/?profile=${encodeURIComponent(name)}`;
                 }
               }}
               style={{

@@ -237,7 +237,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                     {accountData?.username && (
                                         <button
                                             onClick={() => {
-                                                const profileUrl = `${window.location.origin}${navigate('/user')}?u=${encodeURIComponent(accountData.username)}`;
+                                                const profileUrl = `${window.location.origin}${navigate('/')}?profile=${encodeURIComponent(accountData.username)}`;
                                                 navigator.clipboard.writeText(profileUrl).then(() => {
                                                     setCopiedLink(true);
                                                     setTimeout(() => setCopiedLink(false), 2000);

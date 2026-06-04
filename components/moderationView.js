@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from '@/components/useTranslations';
+import { FaBan, FaScaleBalanced, FaPenToSquare, FaCircleCheck } from 'react-icons/fa6';
 
 export default function ModerationView({ session }) {
     const { t: text } = useTranslation("common");
@@ -229,16 +230,15 @@ export default function ModerationView({ session }) {
             {/* Suspension Banner - Show prominently if user is banned */}
             {isBanned && !pendingNameChange && (
                 <div style={suspensionBannerStyle}>
-                    <div style={{ fontSize: 'clamp(36px, 8vw, 56px)', marginBottom: '15px' }}>
-                        🚫
+                    <div style={{ fontSize: 'clamp(36px, 8vw, 56px)', marginBottom: '15px', color: '#f44336', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FaBan />
                     </div>
                     <h2 style={{
                         fontSize: 'clamp(22px, 5vw, 32px)',
                         color: '#f44336',
                         fontWeight: 'bold',
                         marginBottom: '15px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '2px'
+                        letterSpacing: '0.3px'
                     }}>
                         {banType === 'temporary' ? text("accountTempSuspended") : text("accountSuspended")}
                     </h2>
@@ -252,7 +252,7 @@ export default function ModerationView({ session }) {
                             marginBottom: '15px'
                         }}>
                             <div style={{ color: '#b0b0b0', fontSize: 'clamp(12px, 2.5vw, 14px)', marginBottom: '5px' }}>
-                                {text("timeRemaining").toUpperCase()}
+                                {text("timeRemaining")}
                             </div>
                             <div style={{ color: '#ffd700', fontSize: 'clamp(20px, 4vw, 28px)', fontWeight: 'bold' }}>
                                 {getTimeRemaining(banExpiresAt)}
@@ -273,7 +273,7 @@ export default function ModerationView({ session }) {
                             margin: '15px auto 0'
                         }}>
                             <div style={{ color: '#b0b0b0', fontSize: 'clamp(11px, 2.5vw, 13px)', marginBottom: '8px' }}>
-                                {text("reason").toUpperCase()}
+                                {text("reason")}
                             </div>
                             <div style={{ color: '#e0e0e0', fontSize: 'clamp(14px, 3vw, 16px)', lineHeight: '1.5' }}>
                                 {banPublicNote}
@@ -334,8 +334,8 @@ export default function ModerationView({ session }) {
             {/* Name Change Required Banner */}
             {pendingNameChange && (
                 <div style={nameChangeBannerStyle}>
-                    <div style={{ fontSize: 'clamp(36px, 8vw, 56px)', marginBottom: '15px' }}>
-                        ✏️
+                    <div style={{ fontSize: 'clamp(36px, 8vw, 56px)', marginBottom: '15px', color: '#ff9800', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <FaPenToSquare />
                     </div>
                     <h2 style={{
                         fontSize: 'clamp(22px, 5vw, 32px)',
@@ -356,7 +356,7 @@ export default function ModerationView({ session }) {
                             margin: '0 auto 20px'
                         }}>
                             <div style={{ color: '#b0b0b0', fontSize: 'clamp(11px, 2.5vw, 13px)', marginBottom: '8px' }}>
-                                {text("reason").toUpperCase()}
+                                {text("reason")}
                             </div>
                             <div style={{ color: '#e0e0e0', fontSize: 'clamp(14px, 3vw, 16px)', lineHeight: '1.5' }}>
                                 {pendingNameChangePublicNote}
@@ -385,12 +385,14 @@ export default function ModerationView({ session }) {
 
             {/* Header Card with Stats */}
             <div style={cardStyle}>
-                <h2 style={titleStyle}>⚖️ {text("moderation")}</h2>
+                <h2 style={{ ...titleStyle, display: 'inline-flex', alignItems: 'center', gap: '12px', justifyContent: 'center' }}>
+                    <FaScaleBalanced /> {text("moderation")}
+                </h2>
 
                 <div style={statsGridStyle}>
                     <div style={statItemStyle}>
                         <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#b0b0b0', marginBottom: '4px' }}>
-                            {text("eloRefunded").toUpperCase()}
+                            {text("eloRefunded")}
                         </div>
                         <div style={{ fontSize: 'clamp(18px, 4vw, 24px)', color: '#4caf50', fontWeight: 'bold' }}>
                             +{data?.totalEloRefunded || 0}
@@ -398,7 +400,7 @@ export default function ModerationView({ session }) {
                     </div>
                     <div style={statItemStyle}>
                         <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#b0b0b0', marginBottom: '4px' }}>
-                            {text("reportsFiled").toUpperCase()}
+                            {text("reportsFiled")}
                         </div>
                         <div style={{ fontSize: 'clamp(18px, 4vw, 24px)', color: '#ffd700', fontWeight: 'bold' }}>
                             {data?.reportStats?.total || 0}
@@ -406,7 +408,7 @@ export default function ModerationView({ session }) {
                     </div>
                     <div style={statItemStyle}>
                         <div style={{ fontSize: 'clamp(10px, 2.5vw, 12px)', color: '#b0b0b0', marginBottom: '4px' }}>
-                            {text("effectiveReports").toUpperCase()}
+                            {text("effectiveReports")}
                         </div>
                         <div style={{ fontSize: 'clamp(18px, 4vw, 24px)', color: '#4caf50', fontWeight: 'bold' }}>
                             {data?.reportStats?.actionTaken || 0}
@@ -517,8 +519,8 @@ export default function ModerationView({ session }) {
                                 ))}
                             </div>
                         ) : (
-                            <div style={emptyStyle}>
-                                ✅ {text("noModerationActions")}
+                            <div style={{ ...emptyStyle, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                                <FaCircleCheck style={{ color: '#4ade80' }} /> {text("noModerationActions")}
                             </div>
                         )}
                     </>

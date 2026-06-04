@@ -1,4 +1,5 @@
 import HeadContent from "@/components/headContent";
+import LeagueIcon from "@/components/utils/leagueIcon";
 import ProfilePanel from "@/components/homeScreen/ProfilePanel";
 import HomeLeaderboardPanel from "@/components/homeScreen/HomeLeaderboardPanel";
 import { FaDiscord, FaBook, FaSignal } from "react-icons/fa";
@@ -36,10 +37,13 @@ import { preloadPinImages } from '@/lib/markerIcons';
 // is also kept dynamic to match its prior behavior.
 const RoundOverScreen = dynamic(() => import('@/components/roundOverScreen'), { ssr: false });
 const DailyChallengeScreen = dynamic(() => import('@/components/daily/DailyChallengeScreen'), { ssr: false });
-const AccountModal = dynamic(() => import('@/components/accountModal'), { ssr: false });
+const DailyPanel = dynamic(() => import('@/components/daily/DailyPanel'), { ssr: false });
+const MapsPanel = dynamic(() => import('@/components/maps/MapsPanel'), { ssr: false });
+const AccountModal = dynamic(() => import('@/components/AccountPanel'), { ssr: false });
 const MapGuessrModal = dynamic(() => import('@/components/mapGuessrModal'), { ssr: false });
 import MultiplayerHome from "@/components/multiplayerHome";
 import SetUsernameModal from "@/components/setUsernameModal";
+import JoinPartyOverlay from "@/components/joinPartyOverlay";
 import ChatBox from "@/components/chatBox";
 import SettingsModal from "@/components/settingsModal";
 import WelcomeOverlay from "@/components/welcomeOverlay";
@@ -75,8 +79,7 @@ import DynamicBackground from "./homeScreen/DynamicBackground";
 import WgLoadingScreen from "./homeScreen/WgLoadingScreen";
 import { pickRandomLocation, preloadCandidates, preloadDynamicBackgrounds } from "./homeScreen/locations";
 
-
-export default function Home({ initialScreen, dailyBootstrap } = {}) {
+export default function Home() {
 
     const { width, height } = useWindowDimensions();
     const router = useRouter();
@@ -86,7 +89,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [session, setSession] = useState(false);
     const { data: mainSession } = useSession();
     const [accountModalOpen, setAccountModalOpen] = useState(false);
-    const [screen, setScreen] = useState(initialScreen === "daily" ? "daily" : "home");
+    const [screen, setScreen] = useState("home");
     const [loading, setLoading] = useState(false);
     const [mapSwitchMaskShown, setMapSwitchMaskShown] = useState(false);
     const [mapSwitchSawLoading, setMapSwitchSawLoading] = useState(false);
@@ -112,8 +115,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }, [router]);
 
     const [wgLeaderboardOpen, setWgLeaderboardOpen] = useState(false);
+    const [wgDailyPanelOpen, setWgDailyPanelOpen] = useState(false);
     const closeAllSidebars = useCallback(() => {
         setWgLeaderboardOpen(false);
+        setWgDailyPanelOpen(false);
         closeProfilePanel();
     }, [closeProfilePanel]);
 
@@ -313,7 +318,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }, [wgLoadingOverlay]);
     useEffect(() => {
         if (!loading && latLong && latLong.lat && latLong.long && (
-            screen === 'singleplayer' || screen === 'countryGuesser' || screen === 'onboarding' || screen === 'multiplayer'
+            screen === 'singleplayer' || screen === 'countryGuesser' || screen === 'onboarding' || screen === 'multiplayer' || screen === 'daily'
         )) {
             setWgInGame(true);
         }
@@ -340,6 +345,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [screen]);
     useEffect(() => {
+        if (typeof document === 'undefined') return;
+        if (screen === 'daily') {
+            document.body.classList.add('wg-daily-active');
+            return () => document.body.classList.remove('wg-daily-active');
+        }
+    }, [screen]);
+    useEffect(() => {
         if (wgShowBg) {
             setWgBgMounted(true);
             return undefined;
@@ -360,6 +372,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [countryGuessrStreak, setCgStreak] = useState(0)
     const [settingsModal, setSettingsModal] = useState(false)
     const [mapModal, setMapModal] = useState(false)
+    const [wgMapsPanelOpen, setWgMapsPanelOpen] = useState(false)
     const [friendsModal, setFriendsModal] = useState(false)
     const [merchModal, setMerchModal] = useState(false)
     const [mapGuessrModal, setMapGuessrModal] = useState(false)
@@ -456,7 +469,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             cancelAnimationFrame(id);
         }
 
-
     }, [options?.ramUsage])
 
     let login = null;
@@ -518,12 +530,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (typeof window !== "undefined") window.login = login;
     }
 
-
-
     const [isApp, setIsApp] = useState(false);
     const [inCrazyGames, setInCrazyGames] = useState(false);
     const [maintenance, setMaintenance] = useState(false);
-
 
     useEffect(() => {
 
@@ -551,7 +560,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         })();
     }, [session?.token?.email])
 
-
     useEffect(() => {
         const handlePageClose = () => {
             window.isPageClosing = true;
@@ -573,7 +581,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     //     }
     //   }
     // }, [screen])
-
 
     useEffect(() => {
         if (screen) {
@@ -663,7 +670,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (window.location.search.includes("instantJoin=true")) {
             // crazygames
         }
-
 
         async function crazyAuthListener() {
             console.log("crazygames auth listener")
@@ -785,7 +791,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             finish()
                         })
 
-
                         window.CrazyGames.SDK.user.addAuthListener(crazyAuthListener);
 
                     }).catch((e) => {
@@ -846,49 +851,38 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [selectCountryModalShown, setSelectCountryModalShown] = useState(false);
     const [connectionErrorModalShown, setConnectionErrorModalShown] = useState(false);
 
-
     const [inCoolMathGames, setInCoolMathGames] = useState(false);
     const [inGameDistribution, setInGameDistribution] = useState(false);
     const [navSlideOut, setNavSlideOut] = useState(false);
     const [awaitingCreatePartyScreen, setAwaitingCreatePartyScreen] = useState(false);
 
-    // Daily challenge navigation (in-app pushState, no real Next route change)
     const screenRef = useRef('home');
     useEffect(() => { screenRef.current = screen; }, [screen]);
-    const isDailyPath = useCallback((p) => /^\/(?:(?:es|fr|de|ru|en)\/)?daily$/.test(p || ''), []);
+    const [dailyInitialPhase, setDailyInitialPhase] = useState('confirming');
+    const [wgDailyActive, setWgDailyActive] = useState(false);
+
     const enterDailyMode = useCallback(() => {
-        if (typeof window !== 'undefined' && !isDailyPath(window.location.pathname)) {
-            const lang = (typeof window !== 'undefined' && window.language) || 'en';
-            const dailyPath = lang === 'en' ? '/daily' : `/${lang}/daily`;
-            window.history.pushState({ wgDaily: true }, '', dailyPath);
-        }
-        setNavSlideOut(true);
-        setTimeout(() => {
-            setNavSlideOut(false);
-            setScreen('daily');
-        }, 300);
-    }, [isDailyPath]);
+        setWgDailyPanelOpen(true);
+    }, []);
+    const startDailyGame = useCallback((mode = 'play') => {
+        setWgDailyPanelOpen(false);
+        setDailyInitialPhase(mode === 'results' ? 'results' : 'confirming');
+        setWgDailyActive(true);
+    }, []);
     const exitDailyMode = useCallback(() => {
-        if (typeof window !== 'undefined' && isDailyPath(window.location.pathname)) {
-            // Infer locale from current path: /daily → /, /es/daily → /es, etc.
-            const match = /^\/(es|fr|de|ru|en)\/daily$/.exec(window.location.pathname);
-            const target = match ? `/${match[1]}` : '/';
-            window.history.pushState({}, '', target);
-        }
-        setScreen('home');
-    }, [isDailyPath]);
+        setWgDailyActive(false);
+        setDailyInitialPhase('confirming');
+        setDailyPhase(null);
+        if (screenRef.current === 'daily') setScreen('home');
+    }, []);
+
     useEffect(() => {
-        if (typeof window === 'undefined') return;
-        if (initialScreen === 'daily' || isDailyPath(window.location.pathname)) {
-            setScreen('daily');
+        if (dailyPhase === 'game') {
+            setScreen((prev) => prev === 'daily' ? prev : 'daily');
+        } else if (screenRef.current === 'daily') {
+            setScreen('home');
         }
-        const onPop = () => {
-            if (isDailyPath(window.location.pathname)) setScreen('daily');
-            else if (screenRef.current === 'daily') setScreen('home');
-        };
-        window.addEventListener('popstate', onPop);
-        return () => window.removeEventListener('popstate', onPop);
-    }, [initialScreen, isDailyPath]);
+    }, [dailyPhase]);
 
     useEffect(() => {
         if (!awaitingCreatePartyScreen) return;
@@ -907,23 +901,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         return () => clearTimeout(restoreHomeNavTimeout);
     }, [awaitingCreatePartyScreen, screen, connectionErrorModalShown, multiplayerError]);
-
-    // Keep the URL in sync with the `screen` state for daily mode. Anything
-    // that transitions screen away from 'daily' (back button on the navbar,
-    // exit from results modal, popstate, etc.) must also clear `/daily` from
-    // the URL. Doing it here rather than inside each exit path means we
-    // can't forget to call it.
-    const prevScreenForUrlRef = useRef(screen);
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const prev = prevScreenForUrlRef.current;
-        prevScreenForUrlRef.current = screen;
-        if (prev === 'daily' && screen !== 'daily' && isDailyPath(window.location.pathname)) {
-            const match = /^\/(es|fr|de|ru|en)\/daily$/.exec(window.location.pathname);
-            const target = match ? `/${match[1]}` : '/';
-            window.history.pushState({}, '', target);
-        }
-    }, [screen, isDailyPath]);
 
     // Close suggest login modal when user successfully logs in
     useEffect(() => {
@@ -1189,7 +1166,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 extent: country && officialCountryMap && officialCountryMap.extent ? officialCountryMap.extent : null
             };
 
-
             return newOptions;
         })
     }
@@ -1306,19 +1282,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // users came here for the daily challenge, not for an onboarding
             // street-view round. We don't write "done" to localStorage so
             // they'll still see the tutorial later if they navigate to home.
-            const onDailyEntry = initialScreen === 'daily'
-              || (typeof window !== 'undefined' && isDailyPath(window.location.pathname));
             console.log("onboarding", onboarding, specifiedMapSlug)
             // make it false just for testing
             // gameStorage.setItem("onboarding", null)
             if (onboarding && onboarding === "done") {
                 setOnboardingCompleted(true)
 
-
             }
             else if (specifiedMapSlug && !cg) setOnboardingCompleted(true)
             else if (hasPartyParam) setOnboardingCompleted(true)
-            else if (onDailyEntry) setOnboardingCompleted(true)
             else setOnboardingCompleted(false)
         } catch (e) {
             console.error(e, "onboard");
@@ -1326,8 +1298,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
         // setOnboardingCompleted(false)
     }, [])
-
-
 
     useEffect(() => {
 
@@ -1451,7 +1421,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             setOnboardingCompleted(true)
         }
 
-
         if (onboardingCompleted === false) {
             if (onboardingCompleted === null) return;
             if (!loading) {
@@ -1534,18 +1503,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
             const currentPath = stripBase(window.location.pathname);
 
-            // Special-case /daily (and /[lang]/daily): stay on daily, just swap
-            // the locale segment. Without this, the redirect below would yank
-            // the user off the daily challenge and onto /{lang}.
-            const dailyRegex = /^\/(?:(es|fr|de|ru|en)\/)?daily$/;
-            if (dailyRegex.test(currentPath)) {
-                const desiredDaily = options.language === 'en' ? '/daily' : `/${options.language}/daily`;
-                if (currentPath !== desiredDaily) {
-                    router.replace(desiredDaily);
-                }
-                return;
-            }
-
             const target = `/${options.language}`;
             // Don't redirect to /en from root — English is the default
             const isDefaultOnRoot = options.language === "en" && (currentPath === "/" || currentPath === "");
@@ -1611,7 +1568,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 } catch (e) {
                     // If everything fails, default to metric
                 }
-
 
                 setOptions({
                     units: system,
@@ -1724,7 +1680,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         ws.send(JSON.stringify({ type: "timeSync", clientSentAt: Date.now() }));
     };
 
-
     // Auto-close connection error modal when connected
     useEffect(() => {
         if (multiplayerState.connected) {
@@ -1823,8 +1778,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (action === "joinPrivateGame") {
 
             if (args[0]) {
-                setScreen("multiplayer")
-
                 setMultiplayerState((prev) => ({
                     ...prev,
                     joinOptions: {
@@ -1838,7 +1791,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 sendEvent("multiplayer_join_private_game", { gameCode: args[0] })
 
             } else {
-                setScreen("multiplayer")
                 setMultiplayerState((prev) => {
                     return {
                         ...initialMultiplayerState,
@@ -1925,7 +1877,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         if (action === 'screen') {
             ws.send(JSON.stringify({ type: "screen", screen: args[0] }))
         }
-
 
     }
 
@@ -2068,7 +2019,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [multiplayerState?.gameData?.state])
 
-
     useEffect(() => {
         if (!multiplayerState?.inGame && multiplayerState?.gameData?.duel) {
 
@@ -2199,8 +2149,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         showRoadName: data.showRoadName
                     }))
 
-
-
                     if (data.state === "getready") {
                         setMultiplayerChatEnabled(true)
 
@@ -2271,7 +2219,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         joinOptions: initialMultiplayerState.joinOptions,
                     }
                 })
-
 
             } else if (data.type === "duelEnd") {
                 console.log("duel end", data)
@@ -2479,7 +2426,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                 toast(toastComponent, { type: 'info', theme: "dark" })
 
-
             } else if (data.type === 'toast') {
                 toast(text(data.key, data), { type: data.toastType ?? 'info', theme: "dark", closeOnClick: data.closeOnClick ?? false, autoClose: data.autoClose ?? 5000 })
             } else if (data.type === 'invite') {
@@ -2566,7 +2512,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             handleMultiplayerAction("screen", screen);
         }
     }, [screen]);
-
 
     // useEffect(() => {
     //   if (multiplayerState.inGame && multiplayerState.gameData?.state === "guess" && pinPoint) {
@@ -2719,12 +2664,10 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }
 
-
     useEffect(() => {
         window.crazyMidgame = crazyMidgame;
 
     }, []);
-
 
     function backBtnPressed(queueNextGame = false, nextGameType) {
         setOnboardingCompleted(true)
@@ -2957,7 +2900,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             [data.locations[i], data.locations[j]] = [data.locations[j], data.locations[i]];
                         }
 
-
                         setAllLocsArray(data.locations)
 
                         if (gameOptions.location === "all") {
@@ -3148,7 +3090,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     }, [ws]);
     const [showPanoOnResult, setShowPanoOnResult] = useState(false);
 
-
     useEffect(() => {
         function checkForCheats() {
             if (document.getElementById("coo1rdinates")) return true;
@@ -3172,7 +3113,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // redirect to banned page
             window.localStorage.setItem("bannedv2", "true")
 
-
             // fetch("https://discord.com/api/webhooks/1236105403947945984/2XU0c0xOlo4yLEVfMxt97LOIxG1jiFcAhFbi7tW6E9t4Qiu9KYxPhSI3l3S303KbhUbg", {
             //     method: "POST",
             //     headers: {
@@ -3190,7 +3130,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             // window.location.href = navigate("/banned");
 
             // })
-
 
         }
         if (checkForCheats()) {
@@ -3215,12 +3154,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 inCoolMathGames={inCoolMathGames}
                 inCrazyGames={inCrazyGames}
                 inGameDistribution={inGameDistribution}
-                titleOverride={initialScreen === 'daily' ? `${text('dailyChallenge')} - WorldGuessr` : undefined}
-                descOverride={initialScreen === 'daily' ? text('dailyLandingTagline') : undefined}
-                canonicalOverride={initialScreen === 'daily' ? 'https://www.worldguessr.com/daily' : undefined}
             />
-
-
 
             {accountModalOpen && <AccountModal inCrazyGames={inCrazyGames} shown={true} session={session} setSession={setSession} setAccountModalOpen={setAccountModalOpen}
                 eloData={eloData} accountModalPage={accountModalPage} setAccountModalPage={setAccountModalPage}
@@ -3229,6 +3163,26 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 } sendInvite={sendInvite} options={options}
             />}
             {session?.token?.secret && !session.token.username && <SetUsernameModal shown={true} session={session} />}
+
+            <JoinPartyOverlay
+                shown={!!multiplayerState?.enteringGameCode && !multiplayerState?.inGame && !multiplayerState?.gameQueued}
+                multiplayerState={multiplayerState}
+                setMultiplayerState={setMultiplayerState}
+                handleAction={handleMultiplayerAction}
+                onClose={() => {
+                    setMultiplayerState((prev) => ({
+                        ...prev,
+                        enteringGameCode: false,
+                        joinOptions: {
+                            ...prev.joinOptions,
+                            error: false,
+                            progress: false,
+                            gameCode: "",
+                        },
+                    }));
+                }}
+            />
+
             {showSuggestLoginModal && <SuggestAccountModal shown={true} setOpen={setShowSuggestLoginModal} showNeverAgain={suggestLoginShowNeverAgain} />}
             {showDiscordModal && typeof window !== 'undefined' && window.innerWidth >= 768 && <DiscordModal shown={true} setOpen={setShowDiscordModal} />}
             {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
@@ -3304,17 +3258,17 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     overlay={wgLoadingOverlay}
                     onBack={() => backBtnPressed()}
                     text={text}
-                    hideChrome={screen === 'multiplayer' && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public}
+                    hideChrome={
+                        (screen === 'multiplayer' && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public)
+                        || screen === 'daily'
+                    }
                 />
-
-
 
                 <Navbar
                     joinCodePress={() => {
                         setOnboarding(null)
                         setOnboardingCompleted(true)
                         gameStorage.setItem("onboarding", 'done')
-                        setScreen("multiplayer")
                         setMultiplayerState((prev) => ({
                             ...prev,
                             enteringGameCode: true
@@ -3456,7 +3410,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         <button className="gameBtn leagueBtn" onClick={() => { setAccountModalOpen(true); setAccountModalPage("elo"); }}
                             style={{ backgroundColor: eloData?.league?.color }}
                         >
-                            {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league?.emoji}
+                            {!eloData ? '...' : animatedEloDisplay} ELO {eloData?.league && (
+                                <LeagueIcon
+                                    league={{ ...eloData.league, color: 'rgba(0,0,0,0.82)', gradient: null }}
+                                    size={16}
+                                    showSubrank={false}
+                                    style={{ verticalAlign: 'middle' }}
+                                />
+                            )}
                         </button>
                     )}
                 </div>
@@ -3470,8 +3431,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     />
                 )}
 
-                {/* Daily challenge screen (landing → game → results) */}
-                {screen === "daily" && (
+                {wgDailyActive && (
                     <DailyChallengeScreen
                         session={session}
                         options={options}
@@ -3479,13 +3439,13 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         inCrazyGames={inCrazyGames}
                         inCoolMathGames={inCoolMathGames}
                         inGameDistribution={inGameDistribution}
-                        landingBootstrap={dailyBootstrap}
                         latLong={latLong}
                         setLatLong={setLatLong}
                         setLatLongKey={setLatLongKey}
                         loading={loading}
                         setLoading={setLoading}
                         onPhaseChange={setDailyPhase}
+                        initialPhase={dailyInitialPhase}
                     />
                 )}
 
@@ -3493,14 +3453,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     <div className={`home__content g2_modal ${screen !== "home" ? "hidden" : "cshown"} `}>
                         <div className={`g2_nav_ui ${navSlideOut ? 'g2_slide_out' : ''} ${onboardingCompleted !== true ? 'hide' : ''}`} >
 
-
                             {onboardingCompleted === null ? (
                                 <>
 
                                 </>
                             ) : (
                                 <>
-
 
                                     {onboardingCompleted && (
 
@@ -3511,8 +3469,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                         </>
 
                                     )}
-
-
 
                                     {onboardingCompleted && (
 
@@ -3556,8 +3512,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                 )}
                                                 <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("unrankedDuel") }}>{
                                                     session?.token?.secret ? text("unrankedDuel") : text("findDuel")}</button>
-
-
 
                                             </div>
                                             <div className="g2_nav_hr"></div>
@@ -3683,7 +3637,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                             </div>
                                         )}
 
-
                                         <div className="g2_container_light g2_container_style g2_card" >
                                         <button className="g2_text" disabled={!multiplayerState.connected || maintenance} onClick={() => { handleMultiplayerAction("unrankedDuel") }}>
                                                 {
@@ -3756,7 +3709,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             handleMultiplayerAction("joinPrivateGame");
                         }}
                         onDailyChallenge={() => enterDailyMode()}
-                        onCommunityMaps={() => setMapModal(true)}
+                        onCommunityMaps={() => setWgMapsPanelOpen(true)}
                         onOpenAccountModal={() => { setAccountModalOpen(true); setAccountModalPage("profile"); }}
                         onConnectionError={() => setConnectionErrorModalShown(true)}
                         onOpenProfilePanel={openProfilePanel}
@@ -3764,7 +3717,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         setLeaderboardOpen={setWgLeaderboardOpen}
                     />
                 )}
-                {(mapModal || gameOptionsModalShown) && <MapsModal shown={true} session={session} onClose={() => {
+                {mapModal && !wgMapsPanelOpen && <MapsModal shown={true} session={session} onClose={() => {
                     if (mapModalClosing) return;
                     setMapModalClosing(true);
                     setTimeout(() => {
@@ -3857,9 +3810,6 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     }
                     type={multiplayerState.connecting ? "warning" : "error"}
                 />}
-
-
-
 
                 {screen === "singleplayer" && <div className="home__singleplayer">
                     <GameUI
@@ -3967,7 +3917,6 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                     }}
                 />
 
-
                 {screen === "multiplayer" && <div className="home__multiplayer">
                     <MultiplayerHome
                         partyModalShown={partyModalShown}
@@ -3997,8 +3946,6 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
                             showRoadName: multiplayerState?.gameData?.showRoadName
                         }} setGameOptions={() => { }} showAnswer={(multiplayerState?.gameData?.curRound !== 1) && multiplayerState?.gameData?.state === 'getready'} setShowAnswer={guessMultiplayer} />
                 )}
-
-
 
                 <Script id="clarity">
                     {`
@@ -4030,7 +3977,6 @@ document.addEventListener(
             }
 }, 1000);
 
-
   	window.aiptag = window.aiptag || {cmd: []};
 	aiptag.cmd.display = aiptag.cmd.display || [];
 
@@ -4052,7 +3998,7 @@ document.addEventListener(
                 <WhatsNewModal changelog={changelog} text={text} />
 
                 <div
-                    className={`wg-panelScrim ${(profilePanelUser || wgLeaderboardOpen) ? 'wg-panelScrim--shown' : ''}`}
+                    className={`wg-panelScrim ${(profilePanelUser || wgLeaderboardOpen || wgDailyPanelOpen) ? 'wg-panelScrim--shown' : ''}`}
                     onClick={closeAllSidebars}
                 />
 
@@ -4068,6 +4014,64 @@ document.addEventListener(
                     onClose={closeProfilePanel}
                     username={profilePanelUser}
                     session={session}
+                />
+
+                <DailyPanel
+                    open={wgDailyPanelOpen}
+                    onClose={() => setWgDailyPanelOpen(false)}
+                    session={session}
+                    onStartChallenge={startDailyGame}
+                    onOpenProfile={openProfilePanel}
+                />
+
+                <MapsPanel
+                    open={
+                      wgMapsPanelOpen
+                      || (gameOptionsModalShown && (screen === 'singleplayer' || screen === 'countryGuesser'))
+                    }
+                    onClose={() => {
+                      setWgMapsPanelOpen(false);
+                      setGameOptionsModalShown(false);
+                    }}
+                    session={session}
+                    gameOptions={gameOptions}
+                    setGameOptions={setGameOptions}
+                    showOptions={gameOptionsModalShown && screen === 'singleplayer'}
+                    showTimerOption={gameOptionsModalShown && screen === 'singleplayer'}
+                    showAllCountriesOption={gameOptionsModalShown && (screen === 'singleplayer' || screen === 'countryGuesser')}
+                    customChooseMapCallback={
+                      gameOptionsModalShown && (screen === 'singleplayer' || screen === 'countryGuesser')
+                        ? (map) => {
+                          const selectedMapSlug = map.countryMap || map.slug;
+                          const selectingCountryGuesser = map.slug === '__countryGuesser';
+                          const selectingContinentGuesser = map.slug === '__continentGuesser';
+                          const selectingRegularMap = !selectingCountryGuesser && !selectingContinentGuesser;
+                          const isSameSelection =
+                            (selectingCountryGuesser && screen === 'countryGuesser' && countryGuessrMode?.subMode === 'country') ||
+                            (selectingContinentGuesser && screen === 'countryGuesser' && countryGuessrMode?.subMode === 'continent') ||
+                            (selectingRegularMap && screen === 'singleplayer' && selectedMapSlug === gameOptions.location);
+                          setWgMapsPanelOpen(false);
+                          setGameOptionsModalShown(false);
+                          if (isSameSelection) return;
+                          if (map.slug === '__countryGuesser') {
+                            try { gameStorage.setItem('singleplayerDefaultMode', 'countryGuesser'); } catch(e) {}
+                            enterCountryGuessrMode('country');
+                          } else if (map.slug === '__continentGuesser') {
+                            try { gameStorage.setItem('singleplayerDefaultMode', 'continentGuesser'); } catch(e) {}
+                            enterCountryGuessrMode('continent');
+                          } else {
+                            cancelInFlightLocationLoad();
+                            setLoading(false);
+                            setLatLong(null);
+                            setShowAnswer(false);
+                            setShowCountryButtons(false);
+                            if (screen === 'countryGuesser') setScreen('singleplayer');
+                            try { gameStorage.setItem('singleplayerDefaultMode', 'world'); } catch(e) {}
+                            openMap(selectedMapSlug);
+                          }
+                        }
+                        : undefined
+                    }
                 />
             </main>
         </>

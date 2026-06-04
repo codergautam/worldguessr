@@ -4,6 +4,7 @@ import { useTranslation } from '@/components/useTranslations';
 import sendEvent from '@/components/utils/sendEvent';
 import CountryFlag from '@/components/utils/countryFlag';
 import { getLeague } from '@/components/utils/leagues';
+import LeagueIcon from '@/components/utils/leagueIcon';
 
 export default function HomeAccountBtn({
   session,
@@ -59,8 +60,7 @@ export default function HomeAccountBtn({
 
   const username = session.token.username;
   const elo = eloData?.elo ?? session.token.elo;
-  const league = eloData?.league || (elo != null ? getLeague(elo) : null);
-  const leagueEmoji = league?.emoji || null;
+  const league = elo != null ? getLeague(elo) : eloData?.league || null;
 
   return (
     <button
@@ -82,8 +82,10 @@ export default function HomeAccountBtn({
           <span className="wg-homeAcc__name">{username}</span>
           {elo != null && (
             <span className="wg-homeAcc__bottom">
-              {leagueEmoji && (
-                <span className="wg-homeAcc__rankIcon" aria-hidden="true">{leagueEmoji}</span>
+              {league && (
+                <span className="wg-homeAcc__rankIcon">
+                  <LeagueIcon league={league} size={15} showSubrank={false} />
+                </span>
               )}
               <span className="wg-homeAcc__elo">
                 {animatedEloDisplay != null && Number.isFinite(animatedEloDisplay)

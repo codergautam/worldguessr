@@ -13,7 +13,7 @@ import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
 import Memsave from '../models/Memsave.js';
 import blockedAt from 'blocked-at';
-import { getLeagueRange, leagues } from '../components/utils/leagues.js';
+import { getLeagueRange } from '../components/utils/leagues.js';
 import calculateOutcomes from '../components/utils/eloSystem.js';
 import { tmpdir } from 'os';
 
@@ -1633,8 +1633,7 @@ try {
           }
 
           // Track last opponent to prevent same matchup twice in a row
-          // only for users below 5000 elo
-          if(p1.elo < leagues.voyager.min && p2.elo < leagues.voyager.min) {
+          if(p1.elo < 5000 && p2.elo < 5000) {
             lastDuelOpponent.set(p1.accountId, p2.accountId);
             lastDuelOpponent.set(p2.accountId, p1.accountId);
           }

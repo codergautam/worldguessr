@@ -99,7 +99,21 @@ export default function ProfilePanel({ open, onClose, username, session, onOpenA
     return () => { cancelled = true; };
   }, [open, username]);
 
-  const league = useMemo(() => data?.league || (data?.elo != null ? getLeague(data.elo) : null), [data]);
+  const league = useMemo(() => (data?.elo != null ? getLeague(data.elo) : data?.league || null), [data]);
+
+  const isOwnProfile = !!(session?.token?.username && username && session.token.username === username);
+
+  const subrankProgress = useMemo(() => {
+    if (!league?.next || data?.elo == null) return null;
+    const span = league.next.min - league.min;
+    if (span <= 0) return null;
+    const pct = Math.max(0, Math.min(100, ((data.elo - league.min) / span) * 100));
+    return { pct, remaining: Math.max(0, league.next.min - data.elo), nextLabel: league.next.label };
+  }, [league, data]);
+
+  const labelStyle = league?.gradient
+    ? { background: league.gradient, WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent', color: 'transparent' }
+    : { color: league?.color || 'white' };
 
   const winrate = useMemo(() => {
     const w = data?.duelStats?.wins || 0;
@@ -256,11 +270,29 @@ export default function ProfilePanel({ open, onClose, username, session, onOpenA
                   <div>
                     <div className="wg-profile__statLbl">{text('elo')}</div>
                     <div className="wg-profile__statVal wg-profile__statVal--elo">
-                      {league && <LeagueIcon league={league} size={26} />}
-                      <span style={{ color: league?.color || 'white' }}>
+                      {league && <LeagueIcon league={league} size={30} />}
+                      <span style={labelStyle}>
                         {(data.elo ?? 0).toLocaleString()}
                       </span>
                     </div>
+                    {league && (
+                      <div className="wg-profile__rankLabel" style={labelStyle}>
+                        {league.label}
+                      </div>
+                    )}
+                    {isOwnProfile && subrankProgress && (
+                      <div className="wg-profile__rankProgress">
+                        <div className="wg-profile__rankProgressBar">
+                          <div
+                            className="wg-profile__rankProgressFill"
+                            style={{ width: `${subrankProgress.pct}%`, background: league.gradient || league.color }}
+                          />
+                        </div>
+                        <div className="wg-profile__rankProgressText">
+                          {subrankProgress.remaining.toLocaleString()} {text('elo')} → {subrankProgress.nextLabel}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="wg-profile__statLbl">{text('globalRank')}</div>

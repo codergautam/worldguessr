@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { toast } from 'react-toastify';
-import { FaCalendarDay, FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
+import { FaExclamationTriangle, FaArrowRight } from 'react-icons/fa';
+import { FaXmark } from 'react-icons/fa6';
 import { useTranslation } from '@/components/useTranslations';
 import { signIn } from '@/components/auth/auth';
 import { getClientLocalDate } from '@/utils/dailyDate';
@@ -11,44 +12,41 @@ import DailyResultsScreen from './DailyResultsScreen';
 
 const GameUI = dynamic(() => import('@/components/gameUI'), { ssr: false });
 
-function DailyRoundBadge({ round, total }) {
-  const { t: text } = useTranslation();
-  const dots = [];
-  for (let i = 0; i < total; i++) {
-    let cls = 'dot';
-    if (i < round - 1) cls += ' done';
-    else if (i === round - 1) cls += ' current';
-    dots.push(<span key={i} className={cls} />);
-  }
-  return (
-    <div className="daily-round-badge">
-      <span aria-hidden="true">🗓</span>
-      <span>{text('dailyRoundBadge', { round, total })}</span>
-      <span className="dot-row">{dots}</span>
-    </div>
-  );
-}
-
 function ConfirmStartModal({ onConfirm, onCancel }) {
   const { t: text } = useTranslation();
   return (
-    <div className="daily-confirm-modal" role="dialog" aria-modal="true" onClick={onCancel}>
-      <div className="daily-confirm-card daily-confirm-card--start" onClick={e => e.stopPropagation()}>
-        <div className="daily-confirm-icon" aria-hidden="true">
-          <FaCalendarDay />
-        </div>
-        <h3>{text('dailyChallenge')}</h3>
-        <p className="daily-confirm-tagline">{text('confirmStartDaily')}</p>
-        <div className="daily-confirm-warning" role="note">
+    <div className="wg-dailyConfirm" role="dialog" aria-modal="true">
+      <div className="wg-dailyConfirm__scrim" onClick={onCancel} aria-hidden="true" />
+      <div className="wg-dailyConfirm__card">
+        <button
+          type="button"
+          className="wg-dailyConfirm__close"
+          onClick={onCancel}
+          aria-label={text('cancel') || 'Close'}
+        >
+          <FaXmark />
+        </button>
+        <h3 className="wg-dailyConfirm__title">{text('dailyChallenge')}</h3>
+        <p className="wg-dailyConfirm__tagline">{text('confirmStartDaily')}</p>
+        <div className="wg-dailyConfirm__warning" role="note">
           <FaExclamationTriangle aria-hidden="true" />
           <span>{text('confirmStartDailyWarning')}</span>
         </div>
-        <div className="daily-confirm-actions daily-confirm-actions--stacked">
-          <button type="button" className="daily-confirm-primary" onClick={onConfirm} autoFocus>
+        <div className="wg-dailyConfirm__actions">
+          <button
+            type="button"
+            className="wg-dailyConfirm__primary"
+            onClick={onConfirm}
+            autoFocus
+          >
             <span>{text('startDailyChallenge')}</span>
             <FaArrowRight aria-hidden="true" />
           </button>
-          <button type="button" className="daily-confirm-cancel" onClick={onCancel}>
+          <button
+            type="button"
+            className="wg-dailyConfirm__cancel"
+            onClick={onCancel}
+          >
             {text('cancel')}
           </button>
         </div>
@@ -65,12 +63,27 @@ function DisqualifiedModal({ onClose, alreadyDone = false }) {
   const titleKey = alreadyDone ? 'dailyAlreadyDisqualifiedTitle' : 'dailyDisqualifiedTitle';
   const descKey = alreadyDone ? 'dailyAlreadyDisqualifiedDesc' : 'dailyDisqualifiedDesc';
   return (
-    <div className="daily-confirm-modal" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="daily-confirm-card" onClick={e => e.stopPropagation()}>
-        <h3>{text(titleKey)}</h3>
-        <p>{text(descKey)}</p>
-        <div className="daily-confirm-actions">
-          <button className="g2_green_button" onClick={onClose}>{text('gotIt')}</button>
+    <div className="wg-dailyConfirm" role="dialog" aria-modal="true">
+      <div className="wg-dailyConfirm__scrim" onClick={onClose} aria-hidden="true" />
+      <div className="wg-dailyConfirm__card">
+        <button
+          type="button"
+          className="wg-dailyConfirm__close"
+          onClick={onClose}
+          aria-label={text('gotIt') || 'Close'}
+        >
+          <FaXmark />
+        </button>
+        <h3 className="wg-dailyConfirm__title">{text(titleKey)}</h3>
+        <p className="wg-dailyConfirm__tagline">{text(descKey)}</p>
+        <div className="wg-dailyConfirm__actions">
+          <button
+            type="button"
+            className="wg-dailyConfirm__primary"
+            onClick={onClose}
+          >
+            {text('gotIt')}
+          </button>
         </div>
       </div>
     </div>
@@ -92,6 +105,7 @@ export default function DailyChallengeScreen({
   loading,
   setLoading,
   onPhaseChange,
+  initialPhase = 'landing',
 }) {
   const { t: text } = useTranslation();
   const today = getClientLocalDate();
@@ -112,7 +126,7 @@ export default function DailyChallengeScreen({
     dismissClaimResult();
   }, [claimResult, text, dismissClaimResult]);
 
-  const [phase, setPhase] = useState('landing');
+  const [phase, setPhase] = useState(initialPhase || 'landing');
 
   // Surface phase changes to home.js so the navbar can hide its back button
   // only during the actual round (phase === 'game'), not on landing/results.
@@ -371,78 +385,45 @@ export default function DailyChallengeScreen({
     const t = setTimeout(() => setLandingEntranceActive(false), 750);
     return () => clearTimeout(t);
   }, [phase, landingShouldWait, landingEntranceActive]);
-  const renderDailyShell = content => (
-    <>
-      <div
-        className={`daily-page-backdrop ${landingEntranceActive ? 'daily-page-backdrop--opening' : ''}`}
-        aria-hidden="true"
-      />
-      {content}
-    </>
-  );
+
   if (phase === 'landing' && landingShouldWait) {
-    return renderDailyShell(
-      <div className="daily-loading">
-      </div>
-    );
+    return null;
   }
 
   if (phase === 'landing' || phase === 'confirming') {
-    const landing = (
-      <DailyLanding
-        today={today}
-        todayTop10={results?.top10 || []}
-        userData={results?.user || landingBootstrap?.userData}
-        isLoggedIn={!!session?.token?.secret}
-        onStartChallenge={handleStart}
-        onSignIn={() => signIn()}
-        animateEntrance={phase === 'landing' && landingEntranceActive}
-      />
-    );
-
     if (phase === 'landing') {
-      return renderDailyShell(
-        <>
-          {landing}
-          {showDisqualifiedModal && (
-            <DisqualifiedModal
-              alreadyDone
-              onClose={() => setShowDisqualifiedModal(false)}
-            />
-          )}
-        </>
+      if (!showDisqualifiedModal) return null;
+      return (
+        <DisqualifiedModal
+          alreadyDone
+          onClose={() => {
+            setShowDisqualifiedModal(false);
+            onExit?.();
+          }}
+        />
       );
     }
 
-    return renderDailyShell(
-      <>
-        {landing}
-        <ConfirmStartModal
-          onConfirm={handleConfirmStart}
-          onCancel={() => setPhase('landing')}
-        />
-      </>
+    return (
+      <ConfirmStartModal
+        onConfirm={handleConfirmStart}
+        onCancel={() => onExit?.()}
+      />
     );
   }
 
   if (phase === 'loading' || (phase === 'game' && !locationData)) {
-    return renderDailyShell(
-      <div className="daily-loading">
-      </div>
-    );
+    return null;
   }
 
-  // Post-game submit state: the user has finished the last round and we're
-  // waiting on /api/dailyChallenge/submit to come back with rank/streak.
-  // Show an explicit "Tallying your score…" overlay instead of a stale
-  // Street View, which felt like the game had hung.
   if (phase === 'submitting') {
-    return renderDailyShell(
-      <div className="daily-submitting" role="status" aria-live="polite">
-        <div className="daily-submitting__card">
-          <div className="daily-submitting__spinner" aria-hidden="true" />
-          <div className="daily-submitting__title">{text('dailySubmittingScore')}</div>
-          <div className="daily-submitting__hint">{text('dailySubmittingHint')}</div>
+    return (
+      <div className="wg-dailySubmitting" role="status" aria-live="polite">
+        <div className="wg-dailySubmitting__scrim" aria-hidden="true" />
+        <div className="wg-dailySubmitting__card">
+          <div className="wg-dailySubmitting__spinner" aria-hidden="true" />
+          <div className="wg-dailySubmitting__title">{text('dailySubmittingScore')}</div>
+          <div className="wg-dailySubmitting__hint">{text('dailySubmittingHint')}</div>
         </div>
       </div>
     );

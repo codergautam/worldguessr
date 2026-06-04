@@ -17,7 +17,7 @@ function ProfileNameLink({ username, className }) {
     if (typeof window !== 'undefined' && window.wgOpenProfile) {
       window.wgOpenProfile(username);
     } else {
-      window.location.href = `/user?u=${encodeURIComponent(username)}`;
+      window.location.href = `/?profile=${encodeURIComponent(username)}`;
     }
   };
   return (

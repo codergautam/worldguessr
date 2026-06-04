@@ -134,7 +134,7 @@ export default function HomeScreen({
 
   const wsConnected = !!multiplayerState?.connected;
 
-  const guard = (fn, { needsWs = false } = {}) => () => {
+  const guard = (fn, { needsWs = false, panel = false } = {}) => () => {
     if (loading || exiting) return;
     if (typeof fn !== 'function') return;
     if (needsWs && !wsConnected) {
@@ -142,6 +142,7 @@ export default function HomeScreen({
       return;
     }
     playSound('interfaceClick');
+    if (panel) { fn(); return; }
     setExiting(true);
     setTimeout(() => {
       fn();
@@ -275,13 +276,13 @@ export default function HomeScreen({
           <MenuItem
             icon={<FaRegCalendar />}
             label={text('dailyChallenge') || 'Daily Challenge'}
-            onClick={guard(onDailyChallenge)}
+            onClick={guard(onDailyChallenge, { panel: true })}
             disabled={loading}
           />
           <MenuItem
             icon={<FaMap />}
             label={text('communityMaps') || 'Community Maps'}
-            onClick={guard(onCommunityMaps)}
+            onClick={guard(onCommunityMaps, { panel: true })}
             disabled={loading}
           />
         </Section>

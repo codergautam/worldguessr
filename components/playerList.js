@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useTranslation } from '@/components/useTranslations'
 import { FaCopy, FaLink } from 'react-icons/fa6';
+import { FaEye, FaEyeSlash, FaListOl, FaStopwatch, FaLock, FaMap, FaCog, FaPlay, FaUsers } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import UsernameWithFlag from './utils/usernameWithFlag';
 import playSound from './utils/playSound';
@@ -52,6 +54,7 @@ async function copyToClipboard(text) {
 
 export default function PlayerList({ multiplayerState, playAgain, backBtn, startGameHost, onEditClick, fadingOut, inCrazyGames }) {
   const { t: text } = useTranslation("common");
+  const [codeHidden, setCodeHidden] = useState(false);
 
   const players = (multiplayerState?.gameData?.finalPlayers ?? multiplayerState?.gameData?.players).sort((a, b) => b.score - a.score);
   const myId = multiplayerState?.gameData?.myId;
@@ -60,105 +63,165 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
   const waitingForStart = multiplayerState.gameData?.state === "waiting";
   const gameOver = multiplayerState.gameData?.state === "end";
   const host = multiplayerState.gameData?.host;
-  const N = waitingForStart ? 200 : 5; // Number of top players to show
+  const N = waitingForStart ? 200 : 5;   const partyCode = multiplayerState.gameData?.code || "";
+  const partyRounds = multiplayerState.gameData?.rounds;
+  const partyNm = multiplayerState?.gameData?.nm;
+  const partyNpz = multiplayerState?.gameData?.npz;
+  const partyTime = multiplayerState?.gameData?.timePerRound;
+  const partyTimerDisabled = partyTime === 60 * 60 * 24;
+  const partyLocation = multiplayerState?.gameData?.displayLocation;
+  const generationPending = multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated);
+
+  const handleShareLink = async () => {
+    const link = getPartyLink(partyCode, inCrazyGames);
+    try {
+      const copied = await copyToClipboard(link);
+      if (copied) {
+        toast.success(text("copiedToClipboard"));
+      } else {
+        toast.error(text("shareFailed"));
+      }
+    } catch (e) {
+      toast.error(text("shareFailed"));
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!partyCode) return;
+    try {
+      const copied = await copyToClipboard(partyCode);
+      if (copied) toast.success(text("copiedToClipboard"));
+      else toast.error(text("shareFailed"));
+    } catch (e) {
+      toast.error(text("shareFailed"));
+    }
+  };
 
   return (
     <div className={`multiplayerLeaderboard g2_container ${fadingOut ? 'leaderboardFadingOut' : ''}`}>
-      <span className="bigSpan">
-        {gameOver?text("gameOver"):waitingForStart?host?text("yourPrivateGame"):text("privateGame"):text("leaderboard")}
-        {waitingForStart && <span style={{color: "white"}}> ({text("roundsCount",{rounds:multiplayerState.gameData?.rounds})}
-      {multiplayerState?.gameData?.nm && multiplayerState?.gameData?.npz && ", NMPZ"}
-      {multiplayerState?.gameData?.nm && !multiplayerState?.gameData?.npz && ", NM"}
-      {multiplayerState?.gameData?.npz && !multiplayerState?.gameData?.nm && ", NPZ"}
-
-          )</span>}
-      </span>
-      {waitingForStart &&multiplayerState?.gameData?.displayLocation &&
-      <span>
-        {text("map")}: {multiplayerState?.gameData?.displayLocation ?? ""}
-      </span>
-      }
-
-
-
+      {!waitingForStart && (
+        <span className="bigSpan">
+          {gameOver ? text("gameOver") : text("leaderboard")}
+        </span>
+      )}
 
       { waitingForStart && (
+        <div className="wg-party-room">
+          <div className="wg-party-room__hero">
+            <h2 className="wg-party-room__title">
+              {host ? text("yourPrivateGame") : text("privateGame")}
+            </h2>
+          </div>
 
-        <div style={{
-          display: "flex", 
-          flexDirection: "row", 
-          alignItems: "center",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          gap: "10px",
-          marginTop: "8px"
-        }}>
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          backgroundColor: "#fff3cd",
-          border: "1px solid #ffc107",
-          borderRadius: "8px",
-          padding: "10px 16px"
-        }}>
-          <span style={{
-            color: "#856404",
-            fontWeight: "700",
-            fontSize: "clamp(16px, 4vw, 20px)"
-          }}>{text("gameCode")}: {multiplayerState.gameData?.code}</span>
-        <button onClick={async () => {
-          const link = getPartyLink(multiplayerState.gameData?.code, inCrazyGames);
-          try {
-            const copied = await copyToClipboard(link);
-            if (copied) {
-              toast.success(text("copiedToClipboard"));
-            } else {
-              toast.error(text("shareFailed"));
-            }
-          } catch (e) {
-            toast.error(text("shareFailed"));
-          }
-        }} style={{
-            marginLeft: "12px",
-            padding: "8px 12px",
-            backgroundColor: "#ffc107",
-            color: "#000",
-          border: "none",
-          cursor: "pointer",
-          pointerEvents: "all",
-            borderRadius: "6px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            transition: "all 0.15s ease"
-          }}>
-          <FaLink />
-        </button>
-        </div>
-        { host && (
-        <button onClick={() => {
-            onEditClick();
-        }} style={{
-          padding: "10px 20px",
-          backgroundColor: (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) 
-            ? "#6c757d" 
-            : "#28a745",
-          color: "white",
-          border: "none",
-          cursor: (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) ? "not-allowed": "pointer",
-          pointerEvents: "all",
-          borderRadius: "8px",
-          fontWeight: "600",
-          fontSize: "14px",
-          transition: "all 0.15s ease",
-          boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)"
-        }}
-        disabled={ (multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) }
-        >
-          {text("editOptions")}
-        </button>
-        )}
+          <div className="wg-party-room__chips">
+            <span className="wg-party-room__chip">
+              <FaListOl />
+              {text("roundsCount", { rounds: partyRounds })}
+            </span>
+            {!partyTimerDisabled && typeof partyTime === 'number' && (
+              <span className="wg-party-room__chip">
+                <FaStopwatch />
+                {`${partyTime >= 1000 ? Math.round(partyTime / 1000) : partyTime}s`}
+              </span>
+            )}
+            {(partyNm || partyNpz) && (
+              <span className="wg-party-room__chip">
+                <FaLock />
+                {partyNm && partyNpz ? "NMPZ" : partyNm ? "NM" : "NPZ"}
+              </span>
+            )}
+            {partyLocation && (
+              <span className="wg-party-room__chip wg-party-room__chip--map">
+                <FaMap />
+                {partyLocation}
+              </span>
+            )}
+          </div>
 
+          <div className="wg-party-room__codeCard">
+            <span className="wg-party-room__codeLabel">Game code</span>
+            <span
+              className={`wg-party-room__codeValue ${codeHidden ? 'wg-party-room__codeValue--hidden' : ''}`}
+              onClick={!codeHidden ? handleCopyCode : undefined}
+              title={!codeHidden ? "Click to copy" : undefined}
+            >
+              {codeHidden ? "••••••" : partyCode}
+            </span>
+            <div className="wg-party-room__codeActions">
+              <button
+                type="button"
+                className="wg-party-room__codeBtn"
+                onClick={() => setCodeHidden((v) => !v)}
+                aria-pressed={codeHidden}
+              >
+                {codeHidden ? <FaEye /> : <FaEyeSlash />}
+                {codeHidden ? "Show" : "Hide"}
+              </button>
+              <button
+                type="button"
+                className="wg-party-room__codeBtn"
+                onClick={handleShareLink}
+              >
+                <FaLink />
+                Share link
+              </button>
+              <button
+                type="button"
+                className="wg-party-room__codeBtn"
+                onClick={handleCopyCode}
+              >
+                <FaCopy />
+                Copy code
+              </button>
+            </div>
+          </div>
+
+          { host && (
+            <div className="wg-party-room__hostActions">
+              <button
+                type="button"
+                className="wg-party-btn wg-party-btn--primary"
+                onClick={onEditClick}
+                disabled={generationPending}
+              >
+                <FaCog />
+                {text("editOptions")}
+              </button>
+              { players.length < 2 ? (
+                <div className="wg-party-room__inlineNotice wg-party-room__inlineNotice--warn">
+                  <FaUsers />
+                  {text("singlePlayerNeeded")}
+                </div>
+              ) : !generationPending ? (
+                <button
+                  type="button"
+                  className="wg-party-btn wg-party-btn--start"
+                  onClick={() => startGameHost()}
+                >
+                  <FaPlay />
+                  {text("startGame")}
+                </button>
+              ) : null}
+            </div>
+          )}
+
+          { generationPending && (
+            <div className="wg-party-room__status wg-party-room__status--info">
+              {text("generating")}...
+            </div>
+          )}
+          { !host && !generationPending && (
+            <div className="wg-party-room__status wg-party-room__status--neutral">
+              {text("waitingForHostToStart")}...
+            </div>
+          )}
+
+          <div className="wg-party-room__playersHeader">
+            <span className="wg-party-room__playersTitle">
+              Players
+              <span className="wg-party-room__playersCount">{players.length}</span>
+            </span>
+          </div>
         </div>
       )}
 
@@ -215,12 +278,12 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
                   isGuest={process.env.NEXT_PUBLIC_COOLMATH}
                 />
                 {player.id === myId && player.username?.startsWith('Guest #') && <span style={{
-                  color: "#28a745", 
+                  color: "#28a745",
                   fontWeight: "600",
                   fontSize: "12px"
                 }}> ({text("you")})</span>}
                 {player.supporter && <span className="badge" style={{
-                  marginLeft: "6px", 
+                  marginLeft: "6px",
                   backgroundColor: "#ffc107",
                   color: "#000",
                   padding: "2px 8px",
@@ -246,12 +309,12 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
                 isGuest={process.env.NEXT_PUBLIC_COOLMATH}
               />
             {player.id === myId && player.username?.startsWith('Guest #') && <span style={{
-              color: "#28a745", 
+              color: "#28a745",
               fontWeight: "600",
               fontSize: "12px"
             }}> ({text("you")})</span>}
             {player.supporter && <span className="badge" style={{
-              marginLeft: "6px", 
+              marginLeft: "6px",
               backgroundColor: "#ffc107",
               color: "#000",
               padding: "2px 8px",
@@ -291,7 +354,7 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
             countryCode={players[myIndex].countryCode}
             isGuest={process.env.NEXT_PUBLIC_COOLMATH}
           /> {players[myIndex].username?.startsWith('Guest #') && <span style={{
-            color: "#28a745", 
+            color: "#28a745",
             fontWeight: "600",
             fontSize: "12px"
           }}>({text("you")})</span>}</div>
@@ -317,50 +380,6 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
         )
       }
 
-      { waitingForStart && host && (
-        <div className="multiplayerFinalBtns">
-          { players.length < 2 ?
-          <p style={{
-            color: "#721c24",
-            fontSize: "14px",
-            fontWeight: "500",
-            padding: "10px 20px",
-            backgroundColor: "#f8d7da",
-            borderRadius: "6px",
-            border: "1px solid #f5c6cb"
-          }}>{text("singlePlayerNeeded")}</p>
-        : multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated) ?
-        null
-        :
-        <button className="gameBtn g2_green_button g2_button_style"
-        onClick={() => startGameHost()}>{text("startGame")}</button> }
-
-        </div>
-      )}
-
-      {(multiplayerState?.gameData?.rounds > (multiplayerState?.gameData?.generated)) &&
-        <p style={{
-          color: "#856404",
-          fontSize: "14px",
-          fontWeight: "500",
-          padding: "10px 20px",
-          backgroundColor: "#fff3cd",
-          borderRadius: "6px",
-          border: "1px solid #ffc107",
-          marginTop: "10px"
-        }}>{text("generating")}</p>}
-
-{ waitingForStart && !host && (multiplayerState?.gameData?.rounds== multiplayerState?.gameData?.generated) && (
-          <p style={{
-            color: "#fff",
-            fontSize: "14px",
-            fontWeight: "500",
-            padding: "10px 20px",
-            backgroundColor: "rgba(255, 255, 255, 0.15)",
-            borderRadius: "6px",
-            marginTop: "10px"
-          }}>{text("waitingForHostToStart")}...</p>
-      )}
     </div>
   );
 }

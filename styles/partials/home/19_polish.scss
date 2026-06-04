@@ -1,0 +1,272 @@
+
+.wg-settings__segBtn {
+  border: none !important;
+}
+.wg-settings__segBtn--active {
+
+  background: rgba(72, 142, 255, 0.32) !important;
+  border: none !important;
+}
+.wg-settings__mapTile {
+  border: none !important;
+}
+.wg-settings__mapTile--active {
+
+  border: 1px solid rgba(96, 165, 250, 0.7) !important;
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.4) !important;
+}
+.wg-settings__langTile {
+  border: none !important;
+}
+.wg-settings__langTile--active {
+  background: rgba(72, 142, 255, 0.22) !important;
+  border: none !important;
+}
+.wg-settings__toggleRow {
+  border: none !important;
+}
+.wg-settings__viz {
+  border: none !important;
+}
+
+.wg-lb__me {
+  border: none !important;
+  outline: none !important;
+}
+.wg-lb__meLabel {
+  display: none !important;
+}
+
+.wg-home__footerBtn {
+  background: rgba(20, 24, 32, 0.85) !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 1px solid $wg-card-border !important;
+}
+.wg-home__footerBtn--discord    { background: #5865f2 !important; }
+.wg-home__footerBtn--youtube    { background: #c4181f !important; }
+.wg-home__footerBtn--forum      { background: #7c3aed !important; }
+.wg-home__footerBtn--leaderboard { background: #b48527 !important; }
+.wg-home__footerBtn--settings   { background: rgba(30, 34, 46, 0.92) !important; }
+.wg-home__footerBtn:hover {
+  filter: brightness(1.1);
+  box-shadow: none !important;
+}
+
+.wg-onlinePanel__stat {
+  border: none !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.round-item {
+  border: none !important;
+  border-bottom: none !important;
+  border-left: none !important;
+
+  &:hover {
+    border: none !important;
+    border-color: transparent !important;
+  }
+  &.active {
+    border: none !important;
+    border-color: transparent !important;
+  }
+}
+
+@media (min-width: 901px) {
+  .wg-home__menu {
+    scale: calc(var(--wg-scale, 1) * 1.15) !important;
+  }
+}
+
+.historicalGameView,
+[class*="historicalGameView"] {
+  z-index: 100001 !important;
+}
+
+.wg-flagPicker {
+  position: relative;
+  width: min(640px, 92vw);
+  max-height: min(80vh, 720px);
+  background: #0d1730;
+  border-radius: 16px;
+  padding: 26px 26px 22px;
+  color: white;
+  font-family: 'Lexend', sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  animation: wg-flagPicker-in 0.18s ease-out both;
+}
+@keyframes wg-flagPicker-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.wg-flagPicker__overlay,
+.wg-flagPicker__modal {
+  animation-duration: 0.18s !important;
+}
+
+.wg-flagPicker__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.15s ease;
+  z-index: 2;
+
+  &:hover { background: rgba(0, 0, 0, 0.85); }
+  svg { display: block; }
+}
+
+.wg-flagPicker__title {
+  margin: 0;
+  font-family: 'GmarketSans', 'Lexend', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: white;
+  letter-spacing: 0.3px;
+  text-align: center;
+  padding-right: 40px;
+  padding-left: 40px;
+}
+
+.wg-flagPicker__search {
+  width: 100%;
+  height: 50px;
+  padding: 0 18px;
+  background: #131e3a;
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-family: 'Lexend', sans-serif;
+  font-size: 16px;
+  outline: none;
+  box-sizing: border-box;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 13px;
+    letter-spacing: 0.2px;
+  }
+  &:focus {
+    background: #182547;
+    box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.45);
+  }
+}
+
+.wg-flagPicker__grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
+  gap: 8px;
+  padding-right: 6px;
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  &::-webkit-scrollbar { width: 8px; }
+  &::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.22); border-radius: 4px; }
+  &::-webkit-scrollbar-track { background: transparent; }
+}
+
+.wg-flagPicker__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-family: 'Lexend', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, transform 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+    transform: translateY(-1px);
+  }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  &--on {
+    background: rgba(76, 175, 80, 0.22);
+    outline: 2px solid #4caf50;
+    outline-offset: -2px;
+  }
+}
+.wg-flagPicker__flag {
+  width: 28px;
+  height: 18px;
+  object-fit: cover;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.wg-flagPicker__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wg-flagPicker__actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.wg-flagPicker__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 10px;
+  font-family: 'GmarketSans', 'Lexend', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, filter 0.15s ease;
+
+  &:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+.wg-flagPicker__btn--danger {
+  background: #e02424;
+  color: white;
+}
+.wg-flagPicker__btn--ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+  box-shadow: none;
+  &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+}
+
+@media (max-width: 540px) {
+  .wg-flagPicker { padding: 22px 18px 18px; }
+  .wg-flagPicker__title { font-size: 18px; padding-right: 36px; padding-left: 36px; }
+  .wg-flagPicker__search { height: 44px; font-size: 15px; }
+  .wg-flagPicker__actions { flex-direction: column; }
+  .wg-flagPicker__btn { width: 100%; }
+}

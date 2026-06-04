@@ -3,6 +3,8 @@ import { FaXmark } from 'react-icons/fa6';
 import { useTranslation } from '@/components/useTranslations';
 import clientConfig from '@/clientConfig';
 import CountryFlag from '@/components/utils/countryFlag';
+import { getLeague } from '@/components/utils/leagues';
+import LeagueIcon from '@/components/utils/leagueIcon';
 
 export default function HomeLeaderboardPanel({ open, onClose, session, onOpenProfile }) {
   const { t: text } = useTranslation('common');
@@ -133,9 +135,21 @@ export default function HomeLeaderboardPanel({ open, onClose, session, onOpenPro
               </div>
               <div className="wg-lb__meLabel">{text('viewProfile') || 'View profile'}</div>
             </div>
-            <div className="wg-lb__meScore">
-              {formatScore(myScore)}
-              <span className="wg-lb__meScoreLbl">{useElo ? 'ELO' : 'XP'}</span>
+            <div className="wg-lb__meEnd">
+              {useElo && (
+                <LeagueIcon
+                  league={getLeague(
+                    pastDay
+                      ? (session?.token?.elo ?? data?.myCurrentElo ?? data?.myElo)
+                      : data?.myElo
+                  )}
+                  size={32}
+                />
+              )}
+              <div className="wg-lb__meScore">
+                {formatScore(myScore)}
+                <span className="wg-lb__meScoreLbl">{useElo ? 'ELO' : 'XP'}</span>
+              </div>
             </div>
           </div>
         )}
@@ -184,9 +198,17 @@ export default function HomeLeaderboardPanel({ open, onClose, session, onOpenPro
                       <span className="wg-lb__nameText">{u.username}</span>
                       {u.countryCode && <CountryFlag countryCode={u.countryCode} size={0.9} marginRight="0" />}
                     </button>
-                    <span className="wg-lb__score">
-                      {formatScore(score)}
-                      <span className="wg-lb__scoreLbl">{useElo ? 'ELO' : 'XP'}</span>
+                    <span className="wg-lb__end">
+                      {useElo && (
+                        <LeagueIcon
+                          league={getLeague(pastDay ? (u.totalXp ?? u.elo) : u.elo)}
+                          size={32}
+                        />
+                      )}
+                      <span className="wg-lb__score">
+                        {formatScore(score)}
+                        <span className="wg-lb__scoreLbl">{useElo ? 'ELO' : 'XP'}</span>
+                      </span>
                     </span>
                   </li>
                 );

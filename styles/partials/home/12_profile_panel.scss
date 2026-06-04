@@ -218,6 +218,39 @@
   margin-top: 6px;
 }
 
+.wg-profile__rankLabel {
+  margin-top: 4px;
+  font-family: 'GmarketSans', 'Lexend', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.2px;
+  line-height: 1.1;
+}
+
+.wg-profile__rankProgress {
+  margin-top: 10px;
+  max-width: 240px;
+}
+
+.wg-profile__rankProgressBar {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.wg-profile__rankProgressFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.wg-profile__rankProgressText {
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
 .wg-profile__statVal--rank { color: #facc15; }
 .wg-profile__statVal--wins { color: #22c55e; }
 .wg-profile__statVal--losses { color: #ef4444; }
