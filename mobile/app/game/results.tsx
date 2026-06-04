@@ -27,10 +27,13 @@ import { useSettingsStore } from '../../src/store/settingsStore';
 import { findDistance } from '../../src/shared/game/calcPoints';
 import { api } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
-import { maybeShowGameInterstitial } from '../../src/services/ads';
+import { useMultiplayerStore } from '../../src/store/multiplayerStore';
+import { dismissAllSafe } from '../../src/utils/navigation';
+import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 import PinMarker from '../../src/components/game/PinMarker';
 import CountryFlag from '../../src/components/CountryFlag';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
+import BackButton from '../../src/components/ui/BackButton';
 
 const guessPinImage = require('../../assets/marker-src.png');
 const actualPinImage = require('../../assets/marker-dest.png');
@@ -152,9 +155,11 @@ function getPolylineColor(points: number): string {
   return '#F44336';
 }
 
+// Same thresholds as getPolylineColor and web's getPointsColor (3000/1500) so
+// the connecting line and the points text always agree across all platforms.
 function getPointsColor(points: number): string {
-  if (points >= 4000) return '#4CAF50';
-  if (points >= 2000) return '#FFC107';
+  if (points >= 3000) return '#4CAF50';
+  if (points >= 1500) return '#FFC107';
   return '#F44336';
 }
 
@@ -269,6 +274,7 @@ export default function GameResultsScreen() {
     mode,
     myId: liveMyIdParam,
     duel: duelParam,
+    public: publicParam,
   } = useLocalSearchParams<{
     totalScore: string;
     rounds: string;
@@ -281,6 +287,7 @@ export default function GameResultsScreen() {
     mode?: string;
     myId?: string;
     duel?: string;
+    public?: string;
   }>();
 
   const isHistoryView = fromHistory === 'true';
@@ -795,17 +802,28 @@ export default function GameResultsScreen() {
 
   const handlePlayAgain = () => {
     if (isLiveMultiplayer) {
-      // Clean up multiplayer state and go home to re-queue
-      const { useMultiplayerStore: mpStore } = require('../../src/store/multiplayerStore');
-      const { wsService: ws } = require('../../src/services/websocket');
-      mpStore.getState().reset();
-      // Auto re-queue for duels
-      if (multiplayerInfo?.isDuel) {
-        maybeShowGameInterstitial('rankedDuel');
-        ws.send({ type: 'publicDuel' });
-        mpStore.setState({ gameQueued: 'publicDuel' as const });
+      // Mirror web's backBtnPressed(true, type): leave the finished game, then
+      // re-queue into the SAME public queue. Only public games (ranked duels +
+      // unranked public multiplayer) have a queue to rejoin; private/party games
+      // have none, so for those we just go home.
+      const isDuel = !!multiplayerInfo?.isDuel;
+      const isPublic = publicParam === 'true' || isDuel; // duels are always public
+
+      useMultiplayerStore.getState().leaveGame();
+
+      if (isPublic) {
+        // Hand off to home.tsx's re-queue effect (the single owner of "→ /queue"):
+        // it reads nextGameQueued/nextGameType and fires the right publicDuel/
+        // unrankedDuel for us. Arm it only AFTER the interstitial is dismissed,
+        // so we don't re-enter the queue (and get matched) behind the ad.
+        runGameInterstitial(isDuel ? 'rankedDuel' : 'unrankedDuel').then(() => {
+          useMultiplayerStore.setState({
+            nextGameQueued: true,
+            nextGameType: isDuel ? 'ranked' : 'unranked',
+          });
+        });
       }
-      router.dismissAll();
+      dismissAllSafe();
       return;
     }
     // Play Again always restarts a world singleplayer game (map: 'all'),
@@ -825,10 +843,9 @@ export default function GameResultsScreen() {
 
   const handleGoHome = () => {
     if (isLiveMultiplayer) {
-      const { useMultiplayerStore: mpStore } = require('../../src/store/multiplayerStore');
-      mpStore.getState().reset();
+      useMultiplayerStore.getState().reset();
     }
-    router.dismissAll();
+    dismissAllSafe();
   };
   const handleBackPress = () => {
     if (isHistoryView) {
@@ -959,7 +976,7 @@ export default function GameResultsScreen() {
             >
               <Callout onPress={() => openInGoogleMaps(round.actualLat!, round.actualLong!, round.panoId)}>
                 <View style={styles.calloutContainer}>
-                  <Text style={styles.calloutTitle}>{t('roundActualLocation', { round: index + 1 })}</Text>
+                  <Text style={styles.calloutTitle}>{t('roundNumber', { round: index + 1 })} - {t('actualLocation')}</Text>
                   <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
                     {t('pointsCount', { points: round.points.toLocaleString() })}
                   </Text>
@@ -985,7 +1002,7 @@ export default function GameResultsScreen() {
             >
               <Callout>
                 <View style={styles.calloutContainer}>
-                  <Text style={styles.calloutTitle}>{t('roundYourGuess', { round: index + 1 })}</Text>
+                  <Text style={styles.calloutTitle}>{t('roundNumber', { round: index + 1 })} - {t('yourGuess')}</Text>
                   <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
                     {t('pointsCount', { points: round.points.toLocaleString() })}
                   </Text>
@@ -1383,24 +1400,7 @@ export default function GameResultsScreen() {
       </Modal>
     );
   };
-  const renderBackButton = () => (
-    <Pressable
-      style={({ pressed }) => [
-        styles.backButton,
-        pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
-      ]}
-      onPress={handleBackPress}
-    >
-      <LinearGradient
-        colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)', 'rgba(255,112,112,0.9)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.backButtonGradient}
-      >
-        <Ionicons name="arrow-back" size={22} color={colors.white} />
-      </LinearGradient>
-    </Pressable>
-  );
+  const renderBackButton = () => <BackButton onPress={handleBackPress} />;
 
   // ── Rounds list ────────────────────────────────────────────
   const renderRoundsList = () => (
@@ -1743,19 +1743,6 @@ const styles = StyleSheet.create({
     zIndex: 2000,
     paddingLeft: spacing.lg,
     paddingTop: spacing.sm,
-  },
-  backButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  backButtonGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.4,
-    borderColor: '#85200c',
   },
 
   // ── Header section (stars, score, buttons) ─────────────────

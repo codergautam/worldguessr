@@ -561,6 +561,8 @@
   "dailyHistoryTitle": "Votre historique",
   "dailyLeaderboard": "Classement du jour",
   "tooFewPlaysForChart": "Pas assez de joueurs pour afficher un graphique - revenez plus tard !",
+  "dailyLandingGraceDay": "⚠️ Jour de grâce - jouez aujourd'hui ou votre séquence de {{streak}} jours se termine à minuit",
+  "dailyLandingGraceDayShort": "Jour de grâce",
   "dailyLandingLockInStreak": "🔥 Connectez-vous pour conserver votre série de {{streak}} jours",
   "dailyGuestSignInToSave": "🔥 Connectez-vous pour sauvegarder votre série de {{streak}} jours",
   "dailyGuestClaimed": "Progression invité fusionnée - {{mergedDays}} jours ajoutés !",
@@ -691,7 +693,6 @@
   "shareInviteLink": "Partager le lien d'invitation",
   "noOnlineFriends": "Aucun ami en ligne pour le moment",
   "shareGameCodeHint": "Partagez le code de la partie avec les personnes que vous souhaitez inviter.",
-  "roundOfTotal": "Manche {{round}} sur {{total}}",
   "getReady": "Préparez-vous !",
   "loadingLocationsProgress": "Chargement des lieux… {{generated}}/{{total}}",
   "findingRankedDuel": "Recherche d'une partie classée…",
@@ -706,10 +707,8 @@
   "reportSubmittedTitle": "Signalement envoyé",
   "reportSubmittedMessage": "Merci pour votre signalement. Notre équipe l'examinera.",
   "reportSubmitFailed": "Échec de l'envoi du signalement. Veuillez réessayer.",
-  "roundActualLocation": "Manche {{round}} - Emplacement réel",
   "pointsCount": "{{points}} points",
   "distanceWithValue": "Distance : {{distance}}",
-  "roundYourGuess": "Manche {{round}} - Votre estimation",
   "xpEarnedBadge": "+{{xp}} XP",
   "rankOfTotalSlash": "Rang {{rank}}/{{total}}",
   "outOfPoints": "sur {{maxScore}} points",
@@ -796,6 +795,5 @@
   "noLocationsForMap": "Aucun lieu disponible pour cette carte",
   "createdByLabel": "Créée par",
   "eloRating": "Classement ELO",
-  "closeSignInOptions": "Fermer les options de connexion",
-  "roundSlashTotal": "Manche {{round}}/{{total}}"
+  "closeSignInOptions": "Fermer les options de connexion"
 }

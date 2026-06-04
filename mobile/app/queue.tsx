@@ -4,11 +4,14 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { View, Text, Image, ImageBackground, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
+import { View, Text, Image, ImageBackground, StyleSheet, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useNavigation } from 'expo-router';
 import { colors, t } from '../src/shared';
+import { spacing } from '../src/styles/theme';
 import { wsService } from '../src/services/websocket';
 import { useMultiplayerStore } from '../src/store/multiplayerStore';
+import BackButton from '../src/components/ui/BackButton';
 
 export default function QueueScreen() {
   const router = useRouter();
@@ -79,6 +82,11 @@ export default function QueueScreen() {
         fadeDuration={0}
       />
       <View style={styles.darkOverlay} />
+
+      <SafeAreaView style={styles.backButtonContainer} edges={['top']} pointerEvents="box-none">
+        <BackButton onPress={handleCancel} />
+      </SafeAreaView>
+
       <View style={styles.center}>
         <View style={styles.row}>
           <Text style={[styles.title, { fontSize: titleSize }]} numberOfLines={1} adjustsFontSizeToFit>
@@ -96,13 +104,6 @@ export default function QueueScreen() {
           </Text>
         )}
       </View>
-
-      <Pressable
-        style={({ pressed }) => [styles.cancelBtn, pressed && { opacity: 0.7 }]}
-        onPress={handleCancel}
-      >
-        <Text style={styles.cancelText}>{t('cancel')}</Text>
-      </Pressable>
     </View>
   );
 }
@@ -138,19 +139,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
     textAlign: 'center',
   },
-  cancelBtn: {
+  backButtonContainer: {
     position: 'absolute',
-    bottom: 80,
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  cancelText: {
-    color: colors.white,
-    fontSize: 18,
-    fontFamily: 'Lexend-SemiBold',
+    top: 0,
+    left: 0,
+    zIndex: 10,
+    paddingLeft: spacing.lg,
+    paddingTop: spacing.sm,
   },
 });

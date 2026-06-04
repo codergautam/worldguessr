@@ -151,11 +151,30 @@ export interface FriendRequestEntry {
 export type FriendReqState = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export interface ToastData {
+  /** Unique id used as the React key and for dismissal. */
+  id: string;
   key: string;
   toastType: 'success' | 'error' | 'info';
   message?: string;
   timestamp: number;
+  /** Auto-dismiss duration in ms (defaults applied by the renderer). */
+  autoClose?: number;
   vars?: Record<string, string | number>;
+}
+
+/** Max number of toasts kept on screen at once (oldest dropped first). */
+const MAX_TOASTS = 4;
+
+let toastSeq = 0;
+/** Create a ToastData with a generated id + timestamp from partial input. */
+function makeToast(
+  input: Omit<ToastData, 'id' | 'timestamp'> & { timestamp?: number },
+): ToastData {
+  return {
+    ...input,
+    id: `toast-${Date.now()}-${toastSeq++}`,
+    timestamp: input.timestamp ?? Date.now(),
+  };
 }
 
 interface MultiplayerState {
@@ -188,6 +207,9 @@ interface MultiplayerState {
   friendRequests: FriendRequest[];
   gameInvites: GameInvite[];
 
+  /** accountId -> timestamp(ms) of the last party invite we sent that friend. */
+  invitedFriends: Record<string, number>;
+
   // Friends list state (full sync from server `friends` message)
   friends: Friend[];
   sentRequests: FriendRequestEntry[];
@@ -197,8 +219,8 @@ interface MultiplayerState {
   friendReqState: FriendReqState | null;
   friendReqStateAt: number;
 
-  // Toasts
-  latestToast: ToastData | null;
+  // Toasts (queue — newest appended; rendered stacked)
+  toasts: ToastData[];
 
   // Maintenance
   maintenance: boolean;
@@ -211,6 +233,10 @@ interface MultiplayerState {
   clearEmote: (id: number) => void;
   clearGameInvite: (code: string) => void;
   clearFriendRequest: (id: string) => void;
+  /** Enqueue a toast (id + timestamp generated automatically). */
+  pushToast: (toast: Omit<ToastData, 'id' | 'timestamp'> & { timestamp?: number }) => void;
+  /** Remove a toast from the queue by id. */
+  dismissToast: (id: string) => void;
   clearFriendReqState: () => void;
   // Friend WS actions — direct ports of ws.js handlers
   requestFriends: () => void;
@@ -220,9 +246,10 @@ interface MultiplayerState {
   cancelFriendRequest: (id: string) => void;
   removeFriend: (id: string) => void;
   setAllowFriendReqOnServer: (allow: boolean) => void;
-  inviteFriendToGame: (friendSocketId: string) => void;
+  inviteFriendToGame: (friendSocketId: string, friendId?: string) => void;
   acceptGameInvite: (code: string, invitedById: string) => void;
   joinPrivateGame: (code: string) => void;
+  leaveGame: () => void;
   reset: () => void;
 }
 
@@ -246,13 +273,14 @@ const initialState = {
   emotes: [] as EmoteReaction[],
   friendRequests: [] as FriendRequest[],
   gameInvites: [] as GameInvite[],
+  invitedFriends: {} as Record<string, number>,
   friends: [] as Friend[],
   sentRequests: [] as FriendRequestEntry[],
   receivedRequests: [] as FriendRequestEntry[],
   allowFriendReq: true,
   friendReqState: null as FriendReqState | null,
   friendReqStateAt: 0,
-  latestToast: null as ToastData | null,
+  toasts: [] as ToastData[],
   maintenance: false,
 };
 
@@ -288,6 +316,15 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
   clearFriendReqState: () => set({ friendReqState: null, friendReqStateAt: 0 }),
 
+  pushToast: (toast) =>
+    set((s) => ({
+      // Append newest, cap the queue (drop oldest) so the stack stays tidy.
+      toasts: [...s.toasts, makeToast(toast)].slice(-MAX_TOASTS),
+    })),
+
+  dismissToast: (id) =>
+    set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+
   // ── Friend WS actions (1:1 with web ws.js) ────────────────
   requestFriends: () => wsService.send({ type: 'getFriends' }),
   sendFriendRequest: (name) => {
@@ -310,8 +347,16 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   removeFriend: (id) => wsService.send({ type: 'removeFriend', id }),
   setAllowFriendReqOnServer: (allow) =>
     wsService.send({ type: 'setAllowFriendReq', allow }),
-  inviteFriendToGame: (friendSocketId) =>
-    wsService.send({ type: 'inviteFriend', friendId: friendSocketId }),
+  inviteFriendToGame: (friendSocketId, friendId) => {
+    wsService.send({ type: 'inviteFriend', friendId: friendSocketId });
+    // Record when we invited this friend (keyed by their accountId) so the UI
+    // can show a "sent" check that survives the modal closing/reopening.
+    if (friendId) {
+      set((s) => ({
+        invitedFriends: { ...s.invitedFriends, [friendId]: Date.now() },
+      }));
+    }
+  },
   acceptGameInvite: (code, invitedById) => {
     wsService.send({ type: 'acceptInvite', code, invitedById });
     // Drop the invite from the queue locally — server will deliver gameJoin events.
@@ -324,6 +369,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   joinPrivateGame: (code) => {
     set({ joinError: null, enteringGameCode: true });
     wsService.send({ type: 'joinPrivateGame', gameCode: code });
+  },
+
+  // Leave the current game: tell the server (so it clears player.gameId, freeing
+  // the player to re-queue) then drop all game-scoped state. Used by the in-game
+  // back button and the results-screen Play Again / Home actions.
+  leaveGame: () => {
+    wsService.send({ type: 'leaveGame' });
+    get().reset();
   },
 
   reset: () =>
@@ -346,12 +399,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     if (data.type === 'restartQueued') {
       set({ maintenance: !!data.value });
       if (data.value) {
-        set({
-          latestToast: {
-            key: 'maintenanceModeStarted',
-            toastType: 'info',
-            timestamp: Date.now(),
-          },
+        get().pushToast({
+          key: 'maintenanceModeStarted',
+          toastType: 'info',
         });
       }
       return;
@@ -407,13 +457,10 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         wsService.setDontReconnect(true);
         useAuthStore.getState().logout();
       }
-      set({
-        latestToast: {
-          key: data.message === 'uac' ? 'userAlreadyConnected' : 'connectionError',
-          toastType: 'error',
-          message: data.message,
-          timestamp: Date.now(),
-        },
+      get().pushToast({
+        key: data.message === 'uac' ? 'userAlreadyConnected' : 'connectionError',
+        toastType: 'error',
+        message: data.message,
       });
       return;
     }
@@ -540,6 +587,15 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     // ── gameShutdown (home.js:1754-1771) ──────────────────
     if (data.type === 'gameShutdown') {
+      // Ignore shutdowns that don't apply to a live game we're in: the echo of
+      // our own leaveGame (already !inGame), or a public game we've already
+      // finished and are viewing results for. Mirrors web's guards
+      // (home.js:1754-1771); without them a late shutdown for the OLD game — e.g.
+      // arriving as a reconnect restores a NEW one — wipes the fresh game and
+      // bounces the user home.
+      if (!state.inGame || (state.gameData?.public && state.gameData?.state === 'end')) {
+        return;
+      }
       set({
         ...initialState,
         connected: true,
@@ -566,11 +622,10 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
         nextGameType: state.gameQueued === 'unrankedDuel' ? 'unranked' : 'ranked',
         playerCount: state.playerCount,
         guestName: state.guestName,
-        latestToast: {
-          key: 'opponentLeftBeforeStart',
-          toastType: 'info',
-          timestamp: Date.now(),
-        },
+      });
+      get().pushToast({
+        key: 'opponentLeftBeforeStart',
+        toastType: 'info',
       });
       return;
     }
@@ -612,14 +667,12 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     // ── toast (home.js:1842-1843) ─────────────────────────
     if (data.type === 'toast') {
       // Extract template variables (everything except type, key, toastType, closeOnClick)
-      const { type: _t, key, toastType, closeOnClick, ...vars } = data;
-      set({
-        latestToast: {
-          key,
-          toastType: toastType ?? 'info',
-          timestamp: Date.now(),
-          vars: Object.keys(vars).length > 0 ? vars : undefined,
-        },
+      const { type: _t, key, toastType, closeOnClick, autoClose, ...vars } = data;
+      get().pushToast({
+        key,
+        toastType: toastType ?? 'info',
+        autoClose: typeof autoClose === 'number' ? autoClose : undefined,
+        vars: Object.keys(vars).length > 0 ? vars : undefined,
       });
       return;
     }
@@ -671,13 +724,10 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           : data.streak === 1
             ? 'streakStarted'
             : 'streakGained';
-      set({
-        latestToast: {
-          key,
-          toastType: 'info',
-          message: `${data.streak}`,
-          timestamp: Date.now(),
-        },
+      get().pushToast({
+        key,
+        toastType: 'info',
+        message: `${data.streak}`,
       });
       return;
     }

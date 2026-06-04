@@ -62,17 +62,6 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
-  // Auto-open the options modal once, only the first time a host lands in a
-  // freshly created lobby (not on reconnect or a post-game reset).
-  const autoOpenedRef = useRef(false);
-  useEffect(() => {
-    if (isHost && gameCode && !autoOpenedRef.current) {
-      autoOpenedRef.current = true;
-      const timer = setTimeout(() => setMapModalVisible(true), 150);
-      return () => clearTimeout(timer);
-    }
-  }, [isHost, gameCode]);
-
   // Push settings to the server when the host changes them.
   const sendOptions = useCallback(() => {
     wsService.send({
@@ -87,8 +76,18 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
     });
   }, [rounds, timePerRound, nmpz, mapSlug, mapName]);
 
+  // Skip the redundant mount-time send: local options are initialised FROM the
+  // server's values, so re-broadcasting them when the lobby first renders is a
+  // wasted round-trip whose echo can flicker the settings preview. Only send on
+  // actual host edits after that.
+  const optionsSyncedRef = useRef(false);
   useEffect(() => {
-    if (isHost) sendOptions();
+    if (!isHost) return;
+    if (!optionsSyncedRef.current) {
+      optionsSyncedRef.current = true;
+      return;
+    }
+    sendOptions();
   }, [rounds, timePerRound, nmpz, mapSlug, mapName, isHost]);
 
   const playerCount = players?.length ?? 0;

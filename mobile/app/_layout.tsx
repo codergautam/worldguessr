@@ -110,14 +110,19 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+          {/* The whole multiplayer flow (home → queue/party → game → results)
+              crossfades instead of sliding. Every one of these screens sits on
+              the SAME street2 backdrop, so a fade keeps the backdrop continuous
+              and only crossfades the foreground — smooth, and no slide-gap ever
+              exposes the solid green card background. */}
           <Stack.Screen
             name="game/[id]"
-            options={{ headerShown: false, gestureEnabled: false }}
+            options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 300 }}
           />
-          <Stack.Screen name="game/results" options={{ headerShown: false }} />
-          <Stack.Screen name="party/create" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="party/join" options={{ headerShown: false, gestureEnabled: false }} />
-          <Stack.Screen name="queue" options={{ headerShown: false }} />
+          <Stack.Screen name="game/results" options={{ headerShown: false, animation: 'fade', animationDuration: 300 }} />
+          <Stack.Screen name="party/create" options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 250 }} />
+          <Stack.Screen name="party/join" options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 250 }} />
+          <Stack.Screen name="queue" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
           <Stack.Screen
             name="daily/index"
             options={{ headerShown: false, animation: 'slide_from_bottom', animationDuration: 280 }}

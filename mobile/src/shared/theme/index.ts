@@ -1,1 +1,1 @@
-export { colors, gradients, getHealthColor, type ColorKey } from './colors';
+export { colors, getHealthColor, HEALTH_GRADIENTS, type ColorKey, type HealthBand } from './colors';

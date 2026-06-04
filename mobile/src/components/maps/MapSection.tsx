@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { memo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ export const SECTION_LABELS: Record<string, string> = {
   recent: 'recent',
 };
 
-export default function MapSection({
+function MapSection({
   title,
   maps,
   isCountry,
@@ -249,3 +249,11 @@ export const sectionStyles = StyleSheet.create({
 });
 
 const styles = sectionStyles;
+
+// Memoised: the party-lobby Game Options modal lives in the same tree as this
+// list, and its rounds/timer +/- steppers re-render the modal on every tap.
+// Without memo, all sections (and their MapTile grids of images) re-rendered on
+// each tap, making the steppers feel laggy. Props from the modal are stable
+// (maps keep their array identity, callbacks are useCallback), so a shallow
+// compare lets every section bail out of those stepper-driven re-renders.
+export default memo(MapSection);

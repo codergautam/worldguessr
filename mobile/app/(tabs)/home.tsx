@@ -30,7 +30,7 @@ import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
 import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
 import { prefetchDailyStatus } from '../../src/components/daily/prefetchDailyStatus';
-import { maybeShowGameInterstitial } from '../../src/services/ads';
+import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 
 type GameMode = 'singleplayer' | 'dailyChallenge' | 'rankedDuel' | 'unrankedDuel' | 'createGame' | 'joinGame' | 'communityMaps';
 
@@ -193,6 +193,19 @@ export default function HomeScreen() {
       .catch(() => {});
   }, [isAuthenticated, user?.username]);
 
+  // Instant ELO update after a ranked match (web home.js:1835 `type:"elo"` handler).
+  // The multiplayerStore `elo` handler writes the new rating into authStore on
+  // duel end; re-derive eloData from user.elo here so the pill (and its animated
+  // counter) updates immediately without a refetch or app reopen.
+  useEffect(() => {
+    if (!isAuthenticated || user?.elo === undefined) return;
+    setEloData((prev) =>
+      prev && prev.elo === user.elo
+        ? prev
+        : { elo: user.elo, rank: prev?.rank ?? 0, league: getLeague(user.elo) },
+    );
+  }, [isAuthenticated, user?.elo]);
+
   // Animated ELO counter (matches web home.js:348-367)
   useEffect(() => {
     if (!eloData?.elo) return;
@@ -254,6 +267,7 @@ export default function HomeScreen() {
   const gameQueued = useMultiplayerStore((s) => s.gameQueued);
   const inGame = useMultiplayerStore((s) => s.inGame);
   const gameState = useMultiplayerStore((s) => s.gameData?.state);
+  const gamePublic = useMultiplayerStore((s) => s.gameData?.public);
   const playerCount = useMultiplayerStore((s) => s.playerCount);
   const connected = useMultiplayerStore((s) => s.connected);
   const nextGameQueued = useMultiplayerStore((s) => s.nextGameQueued);
@@ -269,13 +283,20 @@ export default function HomeScreen() {
       hasAutoNavigated.current = false;
       return;
     }
+    // A PUBLIC duel sits in `waiting` while matchmaking finds an opponent — keep
+    // the queue ("finding game") on screen and DON'T open the game screen yet,
+    // which would render MultiplayerLobby (the "party" UI). That brief render was
+    // the "flash of my party" the user saw right after pressing a duel. Only
+    // PRIVATE games show the lobby during waiting; public games navigate once the
+    // round actually starts (state → getready).
+    if (gameState === 'waiting' && gamePublic) return;
     if (hasAutoNavigated.current) return;
     hasAutoNavigated.current = true;
     router.push({
       pathname: '/game/[id]',
       params: { id: 'multiplayer' },
     });
-  }, [inGame, gameState]);
+  }, [inGame, gameState, gamePublic]);
 
   // Handle auto re-queue after gameCancelled (opponent left before start).
   // Preserve the original queue type so unranked players re-queue into the
@@ -317,13 +338,15 @@ export default function HomeScreen() {
         });
         break;
       case 'rankedDuel':
-        maybeShowGameInterstitial('rankedDuel');
+        // Wait for the interstitial to be dismissed before joining the queue —
+        // otherwise the server can match us and start the round behind the ad.
+        await runGameInterstitial('rankedDuel');
         wsService.send({ type: 'publicDuel' });
         useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
         router.push('/queue');
         break;
       case 'unrankedDuel':
-        maybeShowGameInterstitial('unrankedDuel');
+        await runGameInterstitial('unrankedDuel');
         wsService.send({ type: 'unrankedDuel' });
         useMultiplayerStore.setState({ gameQueued: 'unrankedDuel' });
         router.push('/queue');

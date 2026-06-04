@@ -125,6 +125,7 @@ export default function DailyLanding({
               <DailyStreakBadge
                 streak={userData.streak}
                 size="lg"
+                align="center"
                 variant={graceDay ? 'at-risk' : playedToday ? 'done' : 'pulsing'}
               />
             )}

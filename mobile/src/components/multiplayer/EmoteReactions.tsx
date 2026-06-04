@@ -1,76 +1,158 @@
 /**
  * In-game emote reactions (replaces chat) — mirrors web components/emoteReactions.js.
  * A floating toggle opens a bar of emotes; tapping sends one over WS, and every
- * player (including the sender) sees it float for a few seconds.
+ * player (including the sender) sees it float upward for a few seconds.
  *
  * Reads/writes the multiplayer store (emotes list + sendEmote). The parent only
  * mounts this during an active multiplayer game.
+ *
+ * All motion mirrors the web CSS (styles/globals.scss) and uses ReduceMotion.Never
+ * so it stays smooth even with the device's Reduce Motion setting on.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import Animated, { FadeIn, FadeOut, FadeInDown } from 'react-native-reanimated';
+import Animated, {
+  Easing,
+  Extrapolation,
+  ReduceMotion,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../shared';
 import { spacing, fontSizes } from '../../styles/theme';
-import { EMOTES } from '../../shared/emotes';
-import { useMultiplayerStore } from '../../store/multiplayerStore';
+import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../../shared/emotes';
+import { useMultiplayerStore, type EmoteReaction } from '../../store/multiplayerStore';
 import CountryFlag from '../CountryFlag';
 
-export default function EmoteReactions() {
+const NEVER = ReduceMotion.Never;
+
+/**
+ * A single reaction that rises and fades, mirroring web @keyframes emoteFloatRise:
+ *   0%   translateY(20)  scale(0.6)  opacity(0)
+ *   15%  translateY(0)   scale(1.05) opacity(1)
+ *   25%  translateY(-10) scale(1)    opacity(1)
+ *   80%  translateY(-180) scale(1)   opacity(0.9)
+ *   100% translateY(-220) scale(0.85) opacity(0)
+ * Progress is driven linearly over the same TTL the store uses to remove the item.
+ */
+function FloatingEmote({ reaction, hideName }: { reaction: EmoteReaction; hideName: boolean }) {
+  const p = useSharedValue(0);
+  useEffect(() => {
+    p.value = withTiming(1, { duration: EMOTE_TTL_MS, easing: Easing.linear, reduceMotion: NEVER });
+  }, []);
+
+  const style = useAnimatedStyle(() => {
+    const stops = [0, 0.15, 0.25, 0.8, 1];
+    return {
+      opacity: interpolate(p.value, stops, [0, 1, 1, 0.9, 0], Extrapolation.CLAMP),
+      transform: [
+        { translateY: interpolate(p.value, stops, [20, 0, -10, -180, -220], Extrapolation.CLAMP) },
+        { scale: interpolate(p.value, stops, [0.6, 1.05, 1, 1, 0.85], Extrapolation.CLAMP) },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[styles.floatItem, reaction.isSelf && styles.floatItemSelf, hideName && styles.floatItemNoName, style]}
+    >
+      <Text style={[styles.floatGlyph, hideName && styles.floatGlyphNoName]}>{reaction.emote}</Text>
+      {!hideName && !!reaction.name && (
+        <View style={styles.floatNameRow}>
+          {reaction.countryCode ? <CountryFlag countryCode={reaction.countryCode} size={12} /> : null}
+          <Text style={styles.floatName} numberOfLines={1}>{reaction.name}</Text>
+        </View>
+      )}
+    </Animated.View>
+  );
+}
+
+export default function EmoteReactions({ hidden = false, hideName = false }: { hidden?: boolean; hideName?: boolean }) {
   const insets = useSafeAreaInsets();
   const emotes = useMultiplayerStore((s) => s.emotes);
   const sendEmote = useMultiplayerStore((s) => s.sendEmote);
   const [open, setOpen] = useState(false);
+  // Cooldown feedback (mirrors web): disable buttons until the next send is allowed.
+  const [cooldownUntil, setCooldownUntil] = useState(0);
+  const [now, setNow] = useState(0);
+  const inCooldown = now < cooldownUntil;
+
+  // Mirror web: fade out + slide 20px left over 0.3s ease when an overlay (the
+  // guess map) covers the screen, then restore. See styles/globals.scss.
+  const hideProgress = useSharedValue(0);
+  useEffect(() => {
+    hideProgress.value = withTiming(hidden ? 1 : 0, { duration: 300, easing: Easing.inOut(Easing.ease), reduceMotion: NEVER });
+    if (hidden) setOpen(false);
+  }, [hidden]);
+  const hideStyle = useAnimatedStyle(() => ({
+    opacity: 1 - hideProgress.value,
+    transform: [{ translateX: hideProgress.value * -20 }],
+  }));
+
+  // Mirror web .emoteBar: always mounted + absolutely positioned, toggled purely
+  // via opacity/transform (translateY 8->0, scale 0.95->1) so sending/closing
+  // never reflows the layout — which is what caused the snap-to-bottom flash.
+  const barProgress = useSharedValue(0);
+  useEffect(() => {
+    barProgress.value = withTiming(open ? 1 : 0, { duration: 200, easing: Easing.out(Easing.ease), reduceMotion: NEVER });
+  }, [open]);
+  const barStyle = useAnimatedStyle(() => ({
+    opacity: barProgress.value,
+    transform: [
+      { translateY: (1 - barProgress.value) * 8 },
+      { scale: 0.95 + barProgress.value * 0.05 },
+    ],
+  }));
+
+  // Tick only while a cooldown is pending so buttons re-enable on time.
+  useEffect(() => {
+    if (!inCooldown) return;
+    const id = setInterval(() => setNow(Date.now()), 100);
+    return () => clearInterval(id);
+  }, [inCooldown]);
 
   const handleSend = (index: number) => {
+    if (inCooldown) return;
     sendEmote(index);
+    setCooldownUntil(Date.now() + EMOTE_COOLDOWN_MS);
+    setNow(Date.now());
     setOpen(false);
   };
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.container,
         { bottom: Math.max(insets.bottom, 16) + 16, left: Math.max(insets.left, spacing.md) },
+        hideStyle,
       ]}
-      pointerEvents="box-none"
+      pointerEvents={hidden ? 'none' : 'box-none'}
     >
-      {/* Floating incoming reactions */}
+      {/* Floating incoming reactions — rise above the toggle */}
       <View style={styles.floatStack} pointerEvents="none">
         {emotes.map((r) => (
-          <Animated.View
-            key={r.id}
-            entering={FadeInDown.duration(250)}
-            exiting={FadeOut.duration(300)}
-            style={[styles.floatItem, r.isSelf && styles.floatItemSelf]}
-          >
-            <Text style={styles.floatGlyph}>{r.emote}</Text>
-            {!!r.name && (
-              <View style={styles.floatNameRow}>
-                {r.countryCode ? <CountryFlag countryCode={r.countryCode} size={12} /> : null}
-                <Text style={styles.floatName} numberOfLines={1}>{r.name}</Text>
-              </View>
-            )}
-          </Animated.View>
+          <FloatingEmote key={r.id} reaction={r} hideName={hideName} />
         ))}
       </View>
 
-      {/* Emote bar */}
-      {open && (
-        <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(120)} style={styles.bar}>
-          {EMOTES.map((e, i) => (
-            <Pressable
-              key={e}
-              onPress={() => handleSend(i)}
-              style={({ pressed }) => [styles.emoteBtn, pressed && { opacity: 0.5 }]}
-            >
-              <Text style={styles.emoteGlyph}>{e}</Text>
-            </Pressable>
-          ))}
-        </Animated.View>
-      )}
+      {/* Emote bar — always mounted, fades/scales in above the toggle */}
+      <Animated.View style={[styles.bar, barStyle]} pointerEvents={open ? 'auto' : 'none'}>
+        {EMOTES.map((e, i) => (
+          <Pressable
+            key={e}
+            onPress={() => handleSend(i)}
+            disabled={inCooldown}
+            style={({ pressed }) => [styles.emoteBtn, inCooldown && styles.emoteBtnDisabled, pressed && { opacity: 0.5 }]}
+          >
+            <Text style={styles.emoteGlyph}>{e}</Text>
+          </Pressable>
+        ))}
+      </Animated.View>
 
       {/* Toggle */}
       <Pressable
@@ -80,35 +162,56 @@ export default function EmoteReactions() {
       >
         <Ionicons name={open ? 'close' : 'happy-outline'} size={24} color={colors.white} />
       </Pressable>
-    </View>
+    </Animated.View>
   );
 }
+
+const TOGGLE_SIZE = 48;
+const ABOVE_TOGGLE = TOGGLE_SIZE + 12; // bar/floats sit just above the toggle
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     zIndex: 1300,
+    width: 260,
+    height: TOGGLE_SIZE,
     alignItems: 'flex-start',
-    gap: spacing.sm,
+    justifyContent: 'flex-end',
   },
+  // Rising-reaction area anchored above the toggle (web .emoteFloatStack).
   floatStack: {
-    alignItems: 'flex-start',
-    gap: 6,
+    position: 'absolute',
+    left: 0,
+    bottom: ABOVE_TOGGLE,
+    width: 260,
+    height: 240,
   },
   floatItem: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 14,
+    gap: 8,
+    paddingVertical: 6,
+    paddingLeft: 8,
+    paddingRight: 12,
+    borderRadius: 999,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   floatItemSelf: {
-    backgroundColor: 'rgba(36, 87, 52, 0.7)',
+    backgroundColor: 'rgba(34, 139, 34, 0.7)',
+  },
+  floatItemNoName: {
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    backgroundColor: 'transparent',
   },
   floatGlyph: {
-    fontSize: 22,
+    fontSize: 34,
+  },
+  floatGlyphNoName: {
+    fontSize: 52,
   },
   floatNameRow: {
     flexDirection: 'row',
@@ -122,12 +225,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Lexend-SemiBold',
     flexShrink: 1,
   },
+  // Fixed-width 4-up grid (RN width is border-box). Exact fit is
+  // border(1*2) + padding(8*2) + 4 buttons(40) + 3 gaps(8) = 202; +2px buffer
+  // avoids sub-pixel rounding wrapping the 4th button to a new row.
   bar: {
+    position: 'absolute',
+    left: 0,
+    bottom: ABOVE_TOGGLE,
+    width: 204,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    maxWidth: 280,
-    gap: 4,
-    padding: 6,
+    gap: 8,
+    padding: 8,
     borderRadius: 16,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     borderWidth: 1,
@@ -141,15 +250,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
+  emoteBtnDisabled: {
+    opacity: 0.35,
+  },
   emoteGlyph: {
     fontSize: 22,
     color: colors.white,
     fontFamily: 'Lexend-Bold',
   },
   toggle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: TOGGLE_SIZE,
+    height: TOGGLE_SIZE,
+    borderRadius: TOGGLE_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(20, 50, 30, 0.85)',

@@ -59,4 +59,18 @@ export function getHealthColor(percentage: number): { bg: string; glow: string }
   return { bg: colors.healthLow, glow: colors.errorGlow };
 }
 
+/**
+ * Glossy 3-stop gradients (light → base → deep) for each health band, used by the
+ * duel health bars. All three are rendered stacked and cross-faded by HP% on the
+ * UI thread, so they are exported as a set rather than picked one at a time.
+ * Thresholds match getHealthColor: high >60%, medium 30–60%, low ≤30%.
+ */
+export const HEALTH_GRADIENTS = {
+  high: ['#86efac', '#4ade80', '#22c55e'],
+  medium: ['#fde68a', '#fbbf24', '#f59e0b'],
+  low: ['#fca5a5', '#ef4444', '#dc2626'],
+} as const;
+
+export type HealthBand = keyof typeof HEALTH_GRADIENTS;
+
 export type ColorKey = keyof typeof colors;

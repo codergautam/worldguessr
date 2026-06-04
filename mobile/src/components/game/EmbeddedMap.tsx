@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Linking,
   Platform,
   StyleSheet,
@@ -112,6 +114,22 @@ export default function EmbeddedMap({
   const webRef = useRef<WebView>(null);
   const readyRef = useRef(false);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+
+  // On the results screen this WebView cold-starts on every fresh route mount —
+  // a dark spinner then an abrupt map pop ("loading for a bit"). Fade the map in
+  // once it signals ready so it emerges smoothly instead. Scoped to results so
+  // the frame-tuned in-game reveal (route 'map') is untouched (starts at 1).
+  const mapOpacity = useRef(new Animated.Value(route === 'results' ? 0 : 1)).current;
+  useEffect(() => {
+    if (route === 'results' && status === 'ready') {
+      Animated.timing(mapOpacity, {
+        toValue: 1,
+        duration: 280,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [route, status, mapOpacity]);
 
   // Mobile game state → the serializable prop subset the bundled embed expects.
   const buildProps = useCallback(() => {
@@ -247,22 +265,24 @@ export default function EmbeddedMap({
 
   return (
     <View style={[styles.container, style]}>
-      <WebView
-        ref={webRef}
-        source={{ html: EMBED_HTML }}
-        originWhitelist={['*']}
-        onMessage={onMessage}
-        onError={() => setStatus('failed')}
-        style={styles.webview}
-        scrollEnabled={false}
-        bounces={false}
-        overScrollMode="never"
-        javaScriptEnabled
-        domStorageEnabled
-        setSupportMultipleWindows={false}
-        androidLayerType="hardware"
-        {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true } : {})}
-      />
+      <Animated.View style={[styles.webview, { opacity: mapOpacity }]}>
+        <WebView
+          ref={webRef}
+          source={{ html: EMBED_HTML }}
+          originWhitelist={['*']}
+          onMessage={onMessage}
+          onError={() => setStatus('failed')}
+          style={styles.webview}
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
+          javaScriptEnabled
+          domStorageEnabled
+          setSupportMultipleWindows={false}
+          androidLayerType="hardware"
+          {...(Platform.OS === 'ios' ? { allowsInlineMediaPlayback: true } : {})}
+        />
+      </Animated.View>
       {status === 'loading' && (
         <View style={styles.loading} pointerEvents="none">
           <ActivityIndicator size="large" color="#7cc4a0" />

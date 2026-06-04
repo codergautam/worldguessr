@@ -123,3 +123,58 @@ export function maybeShowGameInterstitial(context: AdGameContext): boolean {
   }
   return shown;
 }
+
+/**
+ * Show an eligible interstitial (same context-eligibility + 5-minute frequency
+ * cap as {@link maybeShowGameInterstitial}) and resolve ONLY once the user has
+ * dismissed it. Resolves immediately when no ad is actually displayed —
+ * ineligible context, inside the cap window, or nothing preloaded.
+ *
+ * Use this (instead of the fire-and-forget variant) to gate anything that must
+ * not happen *behind* the ad — above all, joining a matchmaking queue. The
+ * server matches players and starts the round on its own clock, so queueing
+ * while the interstitial still covers the screen lets the duel begin before the
+ * player ever sees it. Awaiting CLOSED keeps the player out of the queue until
+ * they're actually looking at the game.
+ */
+export function runGameInterstitial(context: AdGameContext): Promise<void> {
+  if (!AD_ELIGIBLE_CONTEXTS.has(context)) return Promise.resolve();
+
+  const now = Date.now();
+  if (now - lastInterstitialAt < AD_INTERVAL_MS) {
+    // Within cap window — no ad this time; keep one warm for the next moment.
+    preloadInterstitial();
+    return Promise.resolve();
+  }
+
+  const ad = ensureInterstitial();
+  if (!ad.loaded) {
+    // Nothing ready — don't stall the player waiting on a load; warm for later.
+    preloadInterstitial();
+    return Promise.resolve();
+  }
+
+  return new Promise<void>((resolve) => {
+    let settled = false;
+    // CLOSED = user dismissed; ERROR = failed mid-show. Either way the screen is
+    // clear and the caller is free to proceed. No timeout fallback on purpose:
+    // resolving while the ad is still up would re-introduce the very bug this
+    // guards against (queueing behind the ad).
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      unsubClosed();
+      unsubError();
+      resolve();
+    };
+    const unsubClosed = ad.addAdEventListener(AdEventType.CLOSED, finish);
+    const unsubError = ad.addAdEventListener(AdEventType.ERROR, finish);
+    try {
+      ad.show();
+      lastInterstitialAt = now;
+    } catch (err) {
+      console.warn('[ads] interstitial show failed', err);
+      finish();
+    }
+  });
+}

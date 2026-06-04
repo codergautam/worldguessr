@@ -1,16 +1,15 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Image, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { calcPoints, colors, findDistance } from '../../src/shared';
-import { borderRadius, fontSizes, spacing } from '../../src/styles/theme';
+import { calcPoints, findDistance } from '../../src/shared';
+import { dismissAllSafe } from '../../src/utils/navigation';
 import GameSurface, { GameSurfaceHandle } from '../../src/components/game/GameSurface';
 import GameTimer from '../../src/components/game/GameTimer';
 import CountryEndBanner from '../../src/components/game/CountryEndBanner';
 import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
 import TopRightActions from '../../src/components/game/TopRightActions';
+import BackButton from '../../src/components/ui/BackButton';
 import OnboardingComplete from '../../src/components/onboarding/OnboardingComplete';
 import WelcomeOverlay from '../../src/components/onboarding/WelcomeOverlay';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
@@ -126,7 +125,7 @@ export default function OnboardingPlay() {
   const handleWelcomeSkip = useCallback(() => {
     onboardingAnalytics.modeSelected('skipped');
     markComplete();
-    router.dismissAll();
+    dismissAllSafe();
     router.replace('/(tabs)/home');
   }, [markComplete, router]);
 
@@ -135,7 +134,7 @@ export default function OnboardingPlay() {
       onboardingAnalytics.end(settledMode, 'quit');
     }
     markComplete();
-    router.dismissAll();
+    dismissAllSafe();
     router.replace('/(tabs)/home');
   };
 
@@ -224,7 +223,7 @@ export default function OnboardingPlay() {
     onboardingAnalytics.continue('classic');
     onboardingAnalytics.end(settledMode, 'classic');
     finish(() => {
-      router.dismissAll();
+      dismissAllSafe();
       router.push({
         pathname: '/game/[id]',
         params: { id: 'singleplayer', map: 'all', rounds: '5' },
@@ -239,7 +238,7 @@ export default function OnboardingPlay() {
       finish(() => {
         wsService.send({ type: 'publicDuel' });
         useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
-        router.dismissAll();
+        dismissAllSafe();
         router.push('/queue');
       });
     });
@@ -249,7 +248,7 @@ export default function OnboardingPlay() {
     onboardingAnalytics.continue('communitymaps');
     onboardingAnalytics.end(settledMode, 'communitymaps');
     finish(() => {
-      router.dismissAll();
+      dismissAllSafe();
       router.replace('/(tabs)/maps');
     });
   };
@@ -259,7 +258,7 @@ export default function OnboardingPlay() {
     onboardingAnalytics.end(settledMode, 'countryguesser');
     finish(() => {
       AsyncStorage.setItem(SINGLEPLAYER_DEFAULT_MODE_KEY, 'countryGuesser').catch(() => {});
-      router.dismissAll();
+      dismissAllSafe();
       router.push({
         pathname: '/game/[id]',
         params: { id: 'singleplayer', map: 'all', rounds: '10', mode: 'countryGuesser' },
@@ -271,7 +270,7 @@ export default function OnboardingPlay() {
     onboardingAnalytics.homeClicked();
     onboardingAnalytics.end(settledMode, 'home');
     finish(() => {
-      router.dismissAll();
+      dismissAllSafe();
       router.replace('/(tabs)/home');
     });
   };
@@ -281,19 +280,7 @@ export default function OnboardingPlay() {
 
   // ── Slot content ───────────────────────────────────────────────────────
   const topLeftSlot = !isUndecided ? (
-    <Pressable
-      onPress={handleQuit}
-      style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.85 }]}
-    >
-      <LinearGradient
-        colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.backBtnInner}
-      >
-        <Ionicons name="close" size={22} color={colors.white} />
-      </LinearGradient>
-    </Pressable>
+    <BackButton onPress={handleQuit} icon="close" />
   ) : null;
 
   const roundHud = !isUndecided ? (
@@ -304,7 +291,7 @@ export default function OnboardingPlay() {
     <TopRightActions
       onBeforeNavigate={() => {
         markComplete();
-        router.dismissAll();
+        dismissAllSafe();
       }}
     >
       {roundHud}
@@ -393,19 +380,3 @@ export default function OnboardingPlay() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  backBtn: {
-    overflow: 'hidden',
-    borderRadius: 12,
-  },
-  backBtnInner: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.4,
-    borderColor: '#85200c',
-  },
-});

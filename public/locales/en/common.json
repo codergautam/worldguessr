@@ -693,7 +693,6 @@
   "shareInviteLink": "Share invite link",
   "noOnlineFriends": "No online friends right now",
   "shareGameCodeHint": "Share the game code with anyone you want to invite.",
-  "roundOfTotal": "Round {{round}} of {{total}}",
   "getReady": "Get Ready!",
   "loadingLocationsProgress": "Loading locations... {{generated}}/{{total}}",
   "findingRankedDuel": "Finding Ranked Duel...",
@@ -708,10 +707,8 @@
   "reportSubmittedTitle": "Report Submitted",
   "reportSubmittedMessage": "Thank you for your report. Our team will review it.",
   "reportSubmitFailed": "Failed to submit report. Please try again.",
-  "roundActualLocation": "Round {{round}} - Actual Location",
   "pointsCount": "{{points}} points",
   "distanceWithValue": "Distance: {{distance}}",
-  "roundYourGuess": "Round {{round}} - Your Guess",
   "xpEarnedBadge": "+{{xp}} XP",
   "rankOfTotalSlash": "Rank {{rank}}/{{total}}",
   "outOfPoints": "out of {{maxScore}} points",
@@ -798,6 +795,5 @@
   "noLocationsForMap": "No locations available for this map",
   "createdByLabel": "Created by",
   "eloRating": "ELO Rating",
-  "closeSignInOptions": "Close sign in options",
-  "roundSlashTotal": "Round {{round}}/{{total}}"
+  "closeSignInOptions": "Close sign in options"
 }

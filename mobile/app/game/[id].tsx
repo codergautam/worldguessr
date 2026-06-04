@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,8 @@ import {
   InteractionManager,
 } from 'react-native';
 import Reanimated, {
-  Easing as ReanimatedEasing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
+  FadeInDown,
+  ReduceMotion,
 } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
@@ -30,6 +28,7 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore, type GameData, type MPPlayer, type RoundHistoryEntry } from '../../src/store/multiplayerStore';
 import { useSettingsStore } from '../../src/store/settingsStore';
 import { wsService } from '../../src/services/websocket';
+import { dismissAllSafe } from '../../src/utils/navigation';
 
 import StreetViewWebView from '../../src/components/game/StreetViewWebView';
 import EmbeddedMap from '../../src/components/game/EmbeddedMap';
@@ -44,9 +43,11 @@ import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
 import GetReadyOverlay from '../../src/components/multiplayer/GetReadyOverlay';
 import DuelHUD from '../../src/components/multiplayer/DuelHUD';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
-import MultiplayerEndBanner from '../../src/components/multiplayer/MultiplayerEndBanner';
 import EmoteReactions from '../../src/components/multiplayer/EmoteReactions';
 import MultiplayerLobby from '../../src/components/multiplayer/MultiplayerLobby';
+import TransitionCurtain from '../../src/components/TransitionCurtain';
+import RevealView from '../../src/components/RevealView';
+import BackButton from '../../src/components/ui/BackButton';
 import { localeString, t } from '../../src/shared';
 import {
   CountryGuesserSubMode,
@@ -207,41 +208,38 @@ function BetweenRoundsLeaderboard({
   gameData: GameData;
   timeOffset: number;
 }) {
-  const opacity = useSharedValue(0);
-  const [shouldRender, setShouldRender] = useState(false);
+  // The view stays mounted for the whole between-rounds getready at opacity 0,
+  // then fades the dark leaderboard in over the last ~5s and back out before the
+  // next round. We drive a PERSISTENT view's opacity with RN Animated (whose
+  // value is read synchronously at render) instead of mounting a Reanimated.View
+  // with useAnimatedStyle — that mounted one frame at the base style's opacity
+  // (1) before the animated style applied, which read as an instant flash-in.
+  const opacity = useRef(new Animated.Value(0)).current;
   const shownRef = useRef(false);
 
-  // Mirror web exactly: the leaderboard appears only in the last 5s of getready
-  // and is a pure opacity fade (0 → 0.92, 500ms). The ticker only flips
-  // shouldRender at the 5s/0s boundaries — it never stores the countdown, so
-  // the player list does NOT re-render every 100ms (that was the jank).
   useEffect(() => {
-    const ease = ReanimatedEasing.out(ReanimatedEasing.cubic);
     const tick = () => {
       const msLeft = gameData.nextEvtTime - Date.now() - timeOffset;
-      const show = msLeft > 0 && msLeft < 5000;
-      if (show && !shownRef.current) {
-        shownRef.current = true;
-        setShouldRender(true);
-        opacity.value = withTiming(0.92, { duration: 500, easing: ease });
-      } else if (!show && shownRef.current && msLeft <= 0) {
-        shownRef.current = false;
-        opacity.value = withTiming(0, { duration: 500, easing: ease });
-        setTimeout(() => setShouldRender(false), 520);
-      }
+      // Visible from the last 5s down to ~0.6s left; the trailing margin lets the
+      // fade-out finish before the parent unmounts this at the guess phase.
+      const show = msLeft > 600 && msLeft < 5000;
+      if (show === shownRef.current) return;
+      shownRef.current = show;
+      Animated.timing(opacity, {
+        toValue: show ? 0.92 : 0,
+        duration: show ? 500 : 400,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
     };
     tick();
     const interval = setInterval(tick, 100);
     return () => clearInterval(interval);
   }, [gameData.nextEvtTime, timeOffset, opacity]);
 
-  const overlayStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-
-  if (!shouldRender) return null;
-
   return (
-    <Reanimated.View
-      style={[styles.betweenRoundsOverlay, overlayStyle]}
+    <Animated.View
+      style={[styles.betweenRoundsOverlay, { opacity }]}
       pointerEvents="none"
     >
       <SafeAreaView style={styles.betweenRoundsInner} edges={['top', 'bottom']}>
@@ -254,7 +252,7 @@ function BetweenRoundsLeaderboard({
           />
         </View>
       </SafeAreaView>
-    </Reanimated.View>
+    </Animated.View>
   );
 }
 
@@ -316,16 +314,18 @@ export default function GameScreen() {
   const [allLocations, setAllLocations] = useState<Location[]>([]);
   const roundStartTimeRef = useRef<number>(Date.now());
 
-  // Track whether we already sent a guess this round (multiplayer)
+  // Track whether we already sent a guess this round (multiplayer). The UI lock
+  // ("Waiting for N…") is driven purely by the server's `player.final` (set
+  // optimistically on submit, reset every round by the server's clearGuesses) —
+  // mirroring web. This ref only guards against double-sending.
   const mpGuessSentRef = useRef(false);
-  const [mpGuessLocked, setMpGuessLocked] = useState(false);
   const duelWarningShownRef = useRef(false);
   const [duelWarningVisible, setDuelWarningVisible] = useState(false);
 
   // Navigate home if multiplayer game shuts down
   useEffect(() => {
     if (isMultiplayer && !inGame) {
-      router.dismissAll();
+      dismissAllSafe();
     }
   }, [isMultiplayer, inGame]);
 
@@ -372,7 +372,6 @@ export default function GameScreen() {
     if (gameData.state === 'getready' || gameData.state === 'guess') {
       if (gameData.state === 'getready') {
         mpGuessSentRef.current = false;
-        setMpGuessLocked(false);
         setGuessPosition(null);
         setMiniMapShown(false);
       }
@@ -457,13 +456,27 @@ export default function GameScreen() {
     && gameData?.state === 'getready'
     && gameData.curRound === 1
     && !gameData.duel);
+  // The loading banner covers an UNREADY street view during ACTIVE play only.
+  // Never show it during an MP reveal: 'getready' (between-rounds) or 'end'
+  // (final). At 'end' the server bumps curRound past totalRounds, which trips the
+  // streetViewLoaded reset effect — but currentLocation is clamped to the last
+  // real round, so the WebView never reloads and `streetViewLoaded` stays false
+  // forever. Without the 'end' guard that left the spinner covering the answer
+  // reveal for the whole 2s hold before results (the "MP results loads, SP is
+  // instant" bug — SP has no phantom post-final round so it never resets).
   const showLoadingBanner = mpInitialGetReady
-    || ((isLoading || !streetViewLoaded) && !(isMultiplayer && gameData?.state === 'getready'));
+    || ((isLoading || !streetViewLoaded)
+      && !(isMultiplayer && (gameData?.state === 'getready' || gameData?.state === 'end')));
   const showBetweenRoundMap = isMultiplayer
     && gameData?.state === 'getready'
     && gameData.curRound > 1
     && ((gameData.roundHistory?.length ?? 0) > 0 || (gameData.locations?.length ?? 0) >= gameData.curRound - 1);
   const showMapResult = gameState.isShowingResult || showBetweenRoundMap;
+  // Once I've submitted this round (server `me.final`, set optimistically on
+  // submit, reset each round by clearGuesses), the pin must lock — web doesn't
+  // let you move your guess while waiting for the other players. Drives the
+  // map's `interactive` below so the embed ignores further pin taps.
+  const mpGuessSubmitted = isMultiplayer && !!gameData?.players.find((p) => p.id === gameData?.myId)?.final;
   const timeOffset = wsService.getTimeOffset();
   const gameStartingCountdown = useGameStartingCountdown(
     gameData?.nextEvtTime,
@@ -808,30 +821,47 @@ export default function GameScreen() {
     ? buildCurrentPlayerGuesses(gameData.players, currentLocation, gameState.maxDist)
     : [];
 
-  // Synthesize MPPlayer-like objects from a history entry so MultiplayerEndBanner can
-  // render the just-finished round's results between rounds (matches web's endBanner
-  // showing during getready state, components/gameUI.js).
-  const betweenRoundBannerPlayers: MPPlayer[] = useMemo(() => {
-    if (!showBetweenRoundMap || !betweenRoundHistory || !gameData) return [];
-    return Object.entries(betweenRoundHistory.players).map(([id, p]) => {
-      const currentPlayer = gameData.players.find((cp) => cp.id === id);
-      return {
-        id,
-        username: p.username,
-        score: currentPlayer?.score ?? 0,
-        accountId: currentPlayer?.accountId,
-        countryCode: p.countryCode ?? currentPlayer?.countryCode,
-        elo: currentPlayer?.elo,
-        host: currentPlayer?.host,
-        supporter: currentPlayer?.supporter,
-        final: p.final,
-        latLong: p.lat != null && p.long != null ? [p.lat, p.long] : null,
-      } as MPPlayer;
-    });
-  }, [showBetweenRoundMap, betweenRoundHistory, gameData?.players]);
+  // My own result for the answer-reveal banner — reuses the singleplayer
+  // ClassicEndBanner (web parity: endBanner.js shows your distance/points; only
+  // the Next-Round button is hidden in MP). My guess persists on gameData.players
+  // through the reveal (server clears it only at getready→guess).
+  const mpMe = isMultiplayer && gameData
+    ? gameData.players.find((p) => p.id === gameData.myId)
+    : undefined;
+  const mpMyGuess = mpMe?.latLong && (mpMe.latLong[0] !== 0 || mpMe.latLong[1] !== 0)
+    ? mpMe.latLong
+    : null;
+  const mpReveal = isMultiplayer && gameData && showMapResult && mapActualLocation
+    ? {
+        didGuess: !!mpMyGuess,
+        distance: mpMyGuess
+          ? findDistance(mapActualLocation.lat, mapActualLocation.long, mpMyGuess[0], mpMyGuess[1])
+          : null,
+        points: mpMyGuess
+          ? calcPoints({
+              lat: mapActualLocation.lat,
+              lon: mapActualLocation.long,
+              guessLat: mpMyGuess[0],
+              guessLon: mpMyGuess[1],
+              maxDist: gameState.maxDist,
+            })
+          : 0,
+        guessLat: mpMyGuess ? mpMyGuess[0] : null,
+        guessLng: mpMyGuess ? mpMyGuess[1] : null,
+        // "It was {Country}!" reveal only on the world map (matches singleplayer).
+        answerCountry: (gameData.map === 'all' || !gameData.map)
+          ? mapActualLocation.country ?? null
+          : null,
+        isFinal: gameState.isShowingResult,
+      }
+    : null;
 
   const handleMapPress = useCallback((lat: number, lng: number) => {
     if (gameState.isShowingResult) return;
+    // Guess locked once submitted (multiplayer) — can't move the pin while
+    // waiting for other players (web parity). Belt-and-suspenders alongside the
+    // map's `interactive={false}`.
+    if (mpGuessSentRef.current) return;
     setGuessPosition({ lat, lng });
   }, [gameState.isShowingResult]);
 
@@ -842,7 +872,6 @@ export default function GameScreen() {
     if (isMultiplayer) {
       if (mpGuessSentRef.current) return;
       mpGuessSentRef.current = true;
-      setMpGuessLocked(true);
       // Match web (home.js:2315) — optimistically mark my player as final so the
       // "Waiting for N players..." count drops instantly instead of waiting for
       // the server's broadcast to ack our own guess.
@@ -912,11 +941,17 @@ export default function GameScreen() {
   const handleTimeUp = useCallback(() => {
     if (gameState.isShowingResult) return;
 
+    // Only auto-submit during the ACTIVE multiplayer 'guess' phase. The round
+    // timer can fire onTimeUp late — after the next round's getready reset has
+    // run — which would re-send a stale guess and re-lock mpGuessSentRef,
+    // silently swallowing every guess in round 2+. Read live store state so a
+    // stale-closure timer firing at the round boundary is caught too.
+    if (isMultiplayer && useMultiplayerStore.getState().gameData?.state !== 'guess') return;
+
     // Multiplayer: server handles time-up, just send current guess if any
     if (isMultiplayer) {
       if (guessPosition && !mpGuessSentRef.current) {
         mpGuessSentRef.current = true;
-        setMpGuessLocked(true);
         useMultiplayerStore.setState((s) => {
           if (!s.gameData) return s;
           return {
@@ -983,22 +1018,19 @@ export default function GameScreen() {
       myId: gameData.myId,
       gameId: gameData.code ?? '',
       duel: gameData.duel ? 'true' : 'false',
+      // Public flag drives the results-screen "Play Again": only public games
+      // (ranked duels + unranked public multiplayer) have a queue to re-enter.
+      // Private/party games have no public queue, so Play Again falls back home.
+      public: gameData.public ? 'true' : 'false',
     };
 
-    // Show answer banner ~2s, then 400ms fade-to-black, then navigate.
+    // Hold the answer banner ~2s (web parity), then push results. The results
+    // route's 'fade' transition crossfades it in over the live answer scene —
+    // matching singleplayer and web. (Previously we faded the scene to black
+    // first and let it slide in, which read as a jarring double cut.)
     const HOLD_MS = 2000;
-    const FADE_MS = 400;
     const holdTimer = setTimeout(() => {
-      Animated.timing(sceneOpacity, {
-        toValue: 0,
-        duration: FADE_MS,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (finished) {
-          router.push({ pathname: '/game/results', params: snapshot });
-        }
-      });
+      router.push({ pathname: '/game/results', params: snapshot });
     }, HOLD_MS);
     return () => clearTimeout(holdTimer);
   }, [isMultiplayer, gameData?.duelEnd, gameData?.state, gameData?.curRound]);
@@ -1066,10 +1098,9 @@ export default function GameScreen() {
 
   const handleQuit = () => {
     if (isMultiplayer) {
-      wsService.send({ type: 'leaveGame' });
-      useMultiplayerStore.getState().reset();
+      useMultiplayerStore.getState().leaveGame();
     }
-    router.dismissAll();
+    dismissAllSafe();
   };
 
   // Multiplayer leave — direct port of web backBtnPressed (home.js:2453-2513):
@@ -1081,7 +1112,7 @@ export default function GameScreen() {
   const leftRef = useRef(false);
   const handleLeave = useCallback(() => {
     if (!isMultiplayer) {
-      router.dismissAll();
+      dismissAllSafe();
       return;
     }
     const gd = useMultiplayerStore.getState().gameData;
@@ -1095,11 +1126,11 @@ export default function GameScreen() {
       }
       if (leftRef.current) return;
       leftRef.current = true;
-      wsService.send({ type: 'leaveGame' });
-      useMultiplayerStore.getState().reset();
-      router.dismissAll();
+      useMultiplayerStore.getState().leaveGame();
+      dismissAllSafe();
     };
-    const isRankedDuel = !!gd?.duel && !gd?.public && gd?.state !== 'end';
+    // Ranked duel = duel && public (server: ws.js `game.duel && game.public`).
+    const isRankedDuel = !!gd?.duel && !!gd?.public && gd?.state !== 'end';
     if (isRankedDuel) {
       Alert.alert(
         t('forfeitGameTitle', undefined, 'Forfeit game?'),
@@ -1341,24 +1372,7 @@ export default function GameScreen() {
               ? countryGame.loading || !!countryGame.loadError || !countryGame.currentLoc
               : isLoading || !!loadError || !currentLocation
           }
-          topLeftSlot={
-            <Pressable
-              style={({ pressed }) => [
-                styles.backButton,
-                pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
-              ]}
-              onPress={handleQuit}
-            >
-              <LinearGradient
-                colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)', 'rgba(255,112,112,0.9)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.backButtonGradient}
-              >
-                <Ionicons name="arrow-back" size={22} color={colors.white} />
-              </LinearGradient>
-            </Pressable>
-          }
+          topLeftSlot={<BackButton onPress={handleQuit} />}
           topRightSlot={
             <Animated.View
               pointerEvents={mapModalVisible ? 'none' : 'auto'}
@@ -1399,6 +1413,7 @@ export default function GameScreen() {
                 totalRounds={activeTotalRounds}
                 totalScore={activeTotalScore}
                 showTimer={!isCountryGuesserMode && timerEnabled && !activeShowingResult}
+                hasGuess={!!guessPosition}
               />
             </Animated.View>
           }
@@ -1437,16 +1452,24 @@ export default function GameScreen() {
   // lobby and the game live on ONE route. Lobby→game and game→lobby (host reset)
   // are pure re-renders, eliminating the router.replace leave/back races. When a
   // private game finishes, the server resets it to 'waiting' and this re-renders.
-  if (isMultiplayer && gameData?.state === 'waiting') {
-    return <MultiplayerLobby onLeave={handleLeave} />;
-  }
-
+  const isLobby = isMultiplayer && gameData?.state === 'waiting';
   const mpGetReady = isMultiplayer && gameData?.state === 'getready';
+  // Ranked duel (matchmade, ELO-affecting) = duel && public. Used to hide the
+  // back button so ranked feels committed (server auto-ends timed rounds).
+  const isRankedInProgress = isMultiplayer && !!gameData?.duel && !!gameData?.public && gameData?.state !== 'end';
   const showFab = !showLoadingBanner && !miniMapShown && !gameState.isShowingResult && !mpGetReady;
   const scenePointerEvents = showLoadingBanner && !hasCompletedInitialReveal.current ? 'none' : 'box-none';
 
+  // Lobby (waiting) and the in-game scene share ONE persistent container so the
+  // TransitionCurtain below can mask the heavy lobby⇄WebView swap (party start,
+  // and host "Play Again"/back → lobby): it fades through the brand colour
+  // instead of flashing WebView-teardown artifacts. getready⇄guess stay 'game'.
   return (
     <View style={styles.container}>
+      {isLobby ? (
+        <MultiplayerLobby onLeave={handleLeave} />
+      ) : (
+      <View style={styles.container}>
       <Animated.View
         style={[StyleSheet.absoluteFillObject, { opacity: sceneOpacity }]}
         pointerEvents={scenePointerEvents}
@@ -1461,50 +1484,56 @@ export default function GameScreen() {
               pitch={currentLocation.pitch}
               onLoad={handleStreetViewLoad}
               nmpz={isMultiplayer ? (gameData?.nm ?? false) : nmpzEnabled}
+              // Dual-slot crossfade: the next round's pano (currentLocation bumps
+              // to round N+1 during the between-rounds reveal — that's the
+              // preload) loads in the HIDDEN slot while the current pano stays
+              // visible, then crossfades when ready. Without this the pano
+              // reloaded in-place in the visible slot → the iframe's white
+              // mid-load frame flashed when the answer map slid down. Preserves
+              // the preload; only removes the flash.
+              smoothTransitions
             />
           )}
         </View>
 
-        {/* Multiplayer round/score/timer pill - top right */}
-        {isMultiplayer && !gameState.isShowingResult && (
+        {/* Multiplayer round/score/timer pill - top right.
+            Web parity (gameUI.js multiplayerTimerShown): the pill is shown ONLY during the
+            active 'guess' phase — hidden across the whole answer reveal (getready round>1 and
+            'end', via showMapResult) and during loading (showLoadingBanner). RevealView
+            fades it in/out so the show/hide isn't a hard flash.
+            Duels use the centered timer below the health bars instead (see DUEL HUD). */}
+        {isMultiplayer && !gameData?.duel && (
           <SafeAreaView style={[styles.timerContainer, { paddingRight: Math.max(insets.right, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
-            <GameTimer
-              timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
-              onTimeUp={handleTimeUp}
-              isPaused={gameState.isShowingResult || mapModalVisible}
-              roundKey={gameState.currentRound}
-              currentRound={gameState.currentRound}
-              totalRounds={gameState.totalRounds}
-              totalScore={isMultiplayer
-                ? (gameData?.players.find((p) => p.id === gameData?.myId)?.score ?? 0)
-                : gameState.totalScore}
-              showTimer={!isSingleplayer || timerEnabled}
-              serverEndTime={isMultiplayer ? gameData?.nextEvtTime : undefined}
-              timeOffset={isMultiplayer ? timeOffset : undefined}
-              criticalEnabled={gameData?.state === 'guess'}
-            />
+            <RevealView visible={!showMapResult && !showLoadingBanner} translateY={-10} durationIn={260} durationOut={180}>
+              <GameTimer
+                timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
+                onTimeUp={handleTimeUp}
+                isPaused={gameState.isShowingResult || mapModalVisible}
+                roundKey={gameState.currentRound}
+                currentRound={gameState.currentRound}
+                totalRounds={gameState.totalRounds}
+                totalScore={isMultiplayer
+                  ? (gameData?.players.find((p) => p.id === gameData?.myId)?.score ?? 0)
+                  : gameState.totalScore}
+                showTimer={!isSingleplayer || timerEnabled}
+                serverEndTime={isMultiplayer ? gameData?.nextEvtTime : undefined}
+                timeOffset={isMultiplayer ? timeOffset : undefined}
+                criticalEnabled={gameData?.state === 'guess'}
+                hasGuess={!!guessPosition}
+              />
+            </RevealView>
           </SafeAreaView>
         )}
 
-        {/* Back button - top left (matches web navbar red back button) */}
-        <SafeAreaView style={[styles.backButtonContainer, { paddingLeft: Math.max(insets.left, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
-          <Pressable
-            style={({ pressed }) => [
-              styles.backButton,
-              pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },
-            ]}
-            onPress={handleLeave}
-          >
-            <LinearGradient
-              colors={['rgba(156,82,39,0.9)', 'rgba(91,29,29,0.9)', 'rgba(255,112,112,0.9)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.backButtonGradient}
-            >
-              <Ionicons name="arrow-back" size={22} color={colors.white} />
-            </LinearGradient>
-          </Pressable>
-        </SafeAreaView>
+        {/* Back button - top left (matches web navbar red back button).
+            Hidden during a ranked duel so it feels committed — there is no easy
+            exit; the server auto-ends the timed rounds. (Android hardware-back
+            still routes through handleLeave's forfeit confirm.) */}
+        {!isRankedInProgress && (
+          <SafeAreaView style={[styles.backButtonContainer, { paddingLeft: Math.max(insets.left, spacing.lg) }]} edges={['top']} pointerEvents="box-none">
+            <BackButton onPress={handleLeave} />
+          </SafeAreaView>
+        )}
 
         {/* ═══ DUEL HUD - health bars persistent through guess + between-rounds (matches web's .hb-parent) ═══ */}
         {isMultiplayer && gameData?.duel && !gameState.isShowingResult
@@ -1515,6 +1544,28 @@ export default function GameScreen() {
             pointerEvents="box-none"
           >
             <DuelHUD players={gameData.players} myId={gameData.myId} />
+            {/* Centered, single-line timer BELOW the health bars (web .timer.duel).
+                Round + seconds in one line; the score is the health, shown above. */}
+            <Reanimated.View
+              entering={FadeInDown.duration(420).delay(80).reduceMotion(ReduceMotion.Never)}
+              pointerEvents="none"
+            >
+              <GameTimer
+                variant="duel"
+                timeRemaining={gameState.timePerRound}
+                onTimeUp={handleTimeUp}
+                isPaused={gameState.isShowingResult || mapModalVisible}
+                roundKey={gameState.currentRound}
+                currentRound={gameState.currentRound}
+                totalRounds={gameState.totalRounds}
+                totalScore={0}
+                showTimer
+                serverEndTime={gameData.nextEvtTime}
+                timeOffset={timeOffset}
+                criticalEnabled={gameData.state === 'guess'}
+                hasGuess={!!guessPosition}
+              />
+            </Reanimated.View>
           </SafeAreaView>
         )}
 
@@ -1545,7 +1596,7 @@ export default function GameScreen() {
                 guessPosition={showBetweenRoundMap ? null : guessPosition}
                 onGuessPositionChange={(p) => handleMapPress(p.lat, p.lng)}
                 isShowingResult={showMapResult}
-                interactive={!showMapResult}
+                interactive={!showMapResult && !mpGuessSubmitted}
                 extent={gameState.extent}
                 maxDist={gameState.maxDist}
                 round={gameState.currentRound}
@@ -1596,7 +1647,7 @@ export default function GameScreen() {
               const myPlayer = isMultiplayer && gameData
                 ? gameData.players.find((p) => p.id === gameData.myId)
                 : undefined;
-              const locked = isMultiplayer && (mpGuessLocked || !!myPlayer?.final);
+              const locked = isMultiplayer && !!myPlayer?.final;
               const waitingCount = isMultiplayer && gameData
                 ? gameData.players.reduce((acc, p) => (p.final ? acc - 1 : acc), gameData.players.length)
                 : 0;
@@ -1669,15 +1720,9 @@ export default function GameScreen() {
           const myPlayer = isMultiplayer && gameData
             ? gameData.players.find((p) => p.id === gameData.myId)
             : undefined;
-          const locked = isMultiplayer && (mpGuessLocked || !!myPlayer?.final);
-          const waitingCount = isMultiplayer && gameData
-            ? gameData.players.reduce((acc, p) => (p.final ? acc - 1 : acc), gameData.players.length)
-            : 0;
-          const fabText = locked
-            ? (waitingCount > 0
-                ? t('waitingForPlayers', { p: waitingCount })
-                : t('waiting'))
-            : t('guess');
+          const locked = false;
+
+          const fabText =  t('guess');
           return (
             <Animated.View
               style={[
@@ -1709,27 +1754,35 @@ export default function GameScreen() {
         })()}
 
         {/* ═══ RESULT BANNER — your distance/points during the answer reveal ═══
-            One render for both the final-round 'end' reveal and the between-rounds
-            'getready' reveal (mutually-exclusive states). Matches web endBanner.js
-            (content shows in MP; only the Next-Round button is hidden). */}
-        {isMultiplayer && gameData && (gameState.isShowingResult || showBetweenRoundMap) && mapActualLocation && (
-          <View style={{ paddingBottom: Math.max(insets.bottom, spacing.lg) }} pointerEvents="none">
-            <MultiplayerEndBanner
-              round={showBetweenRoundMap
-                ? completedRoundNumber
-                : Math.min(gameState.currentRound, gameState.totalRounds)}
-              totalRounds={gameData.rounds}
-              players={showBetweenRoundMap && betweenRoundBannerPlayers.length > 0
-                ? betweenRoundBannerPlayers
-                : gameData.players}
-              myId={gameData.myId}
-              location={mapActualLocation}
-              maxDist={gameState.maxDist}
-              duel={gameData.duel}
-              isAutoTransition={true}
+            Reuses the singleplayer ClassicEndBanner (web parity: endBanner.js shows
+            your distance/points; only the Next-Round button is hidden in MP). One
+            render for both the between-rounds 'getready' reveal and the final 'end'
+            reveal. RevealView slides it up like singleplayer (and back down on exit). */}
+        <RevealView
+          visible={!!mpReveal}
+          style={[styles.mpBannerWrap, {
+            paddingBottom: Math.max(insets.bottom, spacing.md),
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+          }]}
+          translateY={300}
+          durationIn={420}
+          durationOut={220}
+          pointerEvents="none"
+        >
+          {mpReveal && (
+            <ClassicEndBanner
+              points={mpReveal.points}
+              distance={mpReveal.distance}
+              didGuess={mpReveal.didGuess}
+              answerCountry={mpReveal.answerCountry}
+              guessLat={mpReveal.guessLat}
+              guessLng={mpReveal.guessLng}
+              totalRounds={gameData?.rounds}
+              isFinal={mpReveal.isFinal}
             />
-          </View>
-        )}
+          )}
+        </RevealView>
 
         {/* ═══ GET READY OVERLAY - multiplayer countdown before round ═══ */}
         {/* Skip post-final-round getready: server briefly stays in getready with
@@ -1765,7 +1818,7 @@ export default function GameScreen() {
       {/* Gated by the settings toggle (mirrors web's multiplayerEmotesEnabled). */}
       {emotesEnabled && isMultiplayer && gameData
         && (gameData.state === 'guess' || gameData.state === 'getready' || gameData.state === 'end') && (
-        <EmoteReactions />
+        <EmoteReactions hidden={miniMapShown && !gameState.isShowingResult} hideName={!!gameData.duel} />
       )}
 
       {/* ═══ LOADING BANNER OVERLAY — shared with onboarding + country guesser ═══ */}
@@ -1776,6 +1829,9 @@ export default function GameScreen() {
           ? t('gameStartingIn', { t: gameStartingCountdown.toFixed(1) })
           : undefined}
       />
+      </View>
+      )}
+      <TransitionCurtain sceneKey={isLobby ? 'lobby' : 'game'} />
     </View>
   );
 }
@@ -1799,6 +1855,16 @@ const styles = StyleSheet.create({
   singleplayerTopRightSlot: {
     alignItems: 'flex-end',
     gap: spacing.sm,
+  },
+  // Bottom-anchored end-banner slot — mirrors GameSurface.endBanner so the MP
+  // answer banner pins to the screen bottom (the absolute wrapper owns the
+  // anchor + safe-area padding; ClassicEndBanner just flows inside it).
+  mpBannerWrap: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1001,
   },
   betweenRoundsOverlay: {
     position: 'absolute',
@@ -1876,6 +1942,7 @@ const styles = StyleSheet.create({
     zIndex: 101,
     alignItems: 'center',
     paddingTop: spacing.sm,
+    gap: spacing.sm,
   },
 
   // ── Back button (top left) — matches web red navbar back btn ──
@@ -1886,19 +1953,6 @@ const styles = StyleSheet.create({
     zIndex: 102,
     paddingLeft: spacing.lg,
     paddingTop: spacing.sm,
-  },
-  backButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  backButtonGradient: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.4,
-    borderColor: '#85200c',
   },
   warningModalOverlay: {
     flex: 1,

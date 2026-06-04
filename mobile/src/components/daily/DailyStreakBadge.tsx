@@ -17,9 +17,10 @@ interface Props {
   streak: number;
   variant?: StreakVariant;
   size?: 'sm' | 'lg';
+  align?: 'flex-start' | 'center' | 'flex-end';
 }
 
-export default function DailyStreakBadge({ streak, variant = 'default', size = 'sm' }: Props) {
+export default function DailyStreakBadge({ streak, variant = 'default', size = 'sm', align = 'flex-start' }: Props) {
   const scale = useSharedValue(1);
   const brightness = useSharedValue(1);
 
@@ -77,7 +78,7 @@ export default function DailyStreakBadge({ streak, variant = 'default', size = '
   const fontSize = size === 'lg' ? 16 : 13;
 
   return (
-    <Animated.View style={[styles.wrap, animatedStyle]}>
+    <Animated.View style={[styles.wrap, { alignSelf: align }, animatedStyle]}>
       <LinearGradient
         colors={colors}
         start={{ x: 0, y: 0 }}
@@ -96,9 +97,7 @@ export default function DailyStreakBadge({ streak, variant = 'default', size = '
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    alignSelf: 'flex-start',
-  },
+  wrap: {},
   pill: {
     flexDirection: 'row',
     alignItems: 'center',

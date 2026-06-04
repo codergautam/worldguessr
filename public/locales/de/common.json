@@ -561,6 +561,8 @@
   "dailyHistoryTitle": "Dein Verlauf",
   "dailyLeaderboard": "Heutige Bestenliste",
   "tooFewPlaysForChart": "Nicht genügend Spieler für eine Grafik - schau später wieder vorbei!",
+  "dailyLandingGraceDay": "⚠️ Gnadentag – spielen Sie noch heute, sonst endet Ihr {{streak}}-Day-Streak um Mitternacht",
+  "dailyLandingGraceDayShort": "Gnadentag",
   "dailyLandingLockInStreak": "🔥 Melde dich an, um deinen {{streak}}-Tage-Streak zu sichern",
   "dailyGuestSignInToSave": "🔥 Melde dich an, um deinen {{streak}}-Tage-Streak zu speichern",
   "dailyGuestClaimed": "Gast-Fortschritt zusammengeführt - {{mergedDays}} Tage hinzugefügt!",
@@ -691,7 +693,6 @@
   "shareInviteLink": "Einladungslink teilen",
   "noOnlineFriends": "Gerade keine Freunde online",
   "shareGameCodeHint": "Teile den Spielcode mit allen, die du einladen möchtest.",
-  "roundOfTotal": "Runde {{round}} von {{total}}",
   "getReady": "Mach dich bereit!",
   "loadingLocationsProgress": "Standorte werden geladen... {{generated}}/{{total}}",
   "findingRankedDuel": "Ranglisten-Duell wird gesucht...",
@@ -706,10 +707,8 @@
   "reportSubmittedTitle": "Meldung gesendet",
   "reportSubmittedMessage": "Danke für deine Meldung. Unser Team wird sie prüfen.",
   "reportSubmitFailed": "Meldung konnte nicht gesendet werden. Bitte versuche es erneut.",
-  "roundActualLocation": "Runde {{round}} - Tatsächlicher Ort",
   "pointsCount": "{{points}} Punkte",
   "distanceWithValue": "Distanz: {{distance}}",
-  "roundYourGuess": "Runde {{round}} - Deine Vermutung",
   "xpEarnedBadge": "+{{xp}} XP",
   "rankOfTotalSlash": "Rang {{rank}}/{{total}}",
   "outOfPoints": "von {{maxScore}} Punkten",
@@ -796,6 +795,5 @@
   "noLocationsForMap": "Keine Orte für diese Karte verfügbar",
   "createdByLabel": "Erstellt von",
   "eloRating": "ELO-Wertung",
-  "closeSignInOptions": "Anmeldeoptionen schließen",
-  "roundSlashTotal": "Runde {{round}}/{{total}}"
+  "closeSignInOptions": "Anmeldeoptionen schließen"
 }

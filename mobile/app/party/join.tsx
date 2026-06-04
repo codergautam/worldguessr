@@ -29,6 +29,7 @@ import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 export default function PartyJoinScreen() {
   const router = useRouter();
   const inputRef = useRef<TextInput>(null);
+  const joinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [code, setCode] = useState('');
   const [joining, setJoining] = useState(false);
 
@@ -50,13 +51,25 @@ export default function PartyJoinScreen() {
 
   // A join error means the attempt failed — re-enable the button
   useEffect(() => {
-    if (joinError) setJoining(false);
+    if (joinError) {
+      setJoining(false);
+      if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);
+    }
   }, [joinError]);
+
+  // Clear the safety timeout on unmount (success navigates away before it fires).
+  useEffect(() => () => {
+    if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);
+  }, []);
 
   const handleJoin = () => {
     if (code.length !== 6) return;
     setJoining(true);
     joinPrivateGame(code);
+    // Safety net: if the server never answers (dropped packet / silent drop),
+    // re-enable the button instead of spinning forever.
+    if (joinTimeoutRef.current) clearTimeout(joinTimeoutRef.current);
+    joinTimeoutRef.current = setTimeout(() => setJoining(false), 5000);
   };
 
   return (

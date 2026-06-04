@@ -54,8 +54,14 @@ const BASE_TABLES: Record<SupportedLanguage, Record<string, string>> = {
 // an accepted tradeoff, as no mobile-specific translations exist for them.
 const OVERRIDES = overrides as Record<string, string>;
 
+// Layer the active language on top of English so any key missing from a
+// non-English locale (e.g. `dailyLandingGraceDay` that only exists in en/common.json)
+// falls back to the English string instead of rendering the raw key — matching the
+// web app's per-key English fallback (see components/useTranslations.js). Overrides
+// win last.
 function buildTable(lang: SupportedLanguage): Record<string, string> {
-  return { ...BASE_TABLES[lang], ...OVERRIDES };
+  if (lang === 'en') return { ...BASE_TABLES.en, ...OVERRIDES };
+  return { ...BASE_TABLES.en, ...BASE_TABLES[lang], ...OVERRIDES };
 }
 
 let currentLang: SupportedLanguage = 'en';

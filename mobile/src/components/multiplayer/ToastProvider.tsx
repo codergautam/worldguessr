@@ -1,131 +1,215 @@
 /**
- * Toast notification surface for server-driven multiplayer events.
+ * Toast notification surface for server-driven events.
+ *
+ * Renders a top-center stack of toasts (queue lives in `multiplayerStore.toasts`)
+ * that mirrors the web `react-toastify` dark theme look & feel:
+ *   - dark pill, type-colored left accent + icon
+ *   - linear countdown progress bar in the type accent color
+ *   - bounce-in entrance (react-toastify `bounceInRight` easing) + slide/fade exit
+ *   - swipe horizontally to dismiss (springs back if not past threshold)
+ *   - press-and-hold pauses the auto-dismiss + progress (matches web pauseOnHover)
+ * Stacked toasts re-flow smoothly via Reanimated layout transitions.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ComponentProps } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Platform,
-  Pressable,
-} from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
+  cancelAnimation,
   Easing,
+  LinearTransition,
+  ReduceMotion,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { colors, t } from '../../shared';
-import { spacing, fontSizes } from '../../styles/theme';
+import { t } from '../../shared';
+import { spacing } from '../../styles/theme';
 import { useMultiplayerStore, ToastData } from '../../store/multiplayerStore';
+import { accentForType, iconForType, toastSharedStyles } from './toastStyles';
+import NotificationPill from './NotificationPill';
 
-const TOAST_DURATION = 4000;
-const HIDDEN_Y = -120;
-type IoniconName = ComponentProps<typeof Ionicons>['name'];
+/** Default auto-dismiss when the toast doesn't specify one (web default 5s). */
+const DEFAULT_DURATION = 4500;
+/** react-toastify `bounceInRight` keyframe easing. */
+const BOUNCE_EASING = Easing.bezier(0.215, 0.61, 0.355, 1);
+/**
+ * Always play these animations even when the OS "Reduce Motion" setting is on —
+ * they're brief, essential UI feedback (and the web toasts ignore the setting).
+ * Without this, Reanimated disables withTiming/layout transitions and toasts
+ * just pop in/out with no motion.
+ */
+const NO_REDUCE = ReduceMotion.Never;
+/** Horizontal travel before a swipe counts as a dismiss. */
+const SWIPE_THRESHOLD = 80;
+/** How far off-screen the toast flies when entering/exiting. */
+const OFFSET_X = 400;
 
 export default function ToastProvider() {
   const insets = useSafeAreaInsets();
-  const latestToast = useMultiplayerStore((s) => s.latestToast);
-  const [visible, setVisible] = useState(false);
-  const [currentToast, setCurrentToast] = useState<ToastData | null>(null);
-  const translateY = useSharedValue(HIDDEN_Y);
-  const opacity = useSharedValue(0);
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const finishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toasts = useMultiplayerStore((s) => s.toasts);
 
-  const clearTimers = useCallback(() => {
+  if (toasts.length === 0) return null;
+
+  return (
+    <View
+      style={[styles.container, { top: insets.top + spacing.sm }]}
+      pointerEvents="box-none"
+    >
+      {toasts.map((toast) => (
+        <ToastItem key={toast.id} toast={toast} />
+      ))}
+    </View>
+  );
+}
+
+function ToastItem({ toast }: { toast: ToastData }) {
+  const dismissToast = useMultiplayerStore((s) => s.dismissToast);
+
+  const duration = toast.autoClose ?? DEFAULT_DURATION;
+  const accent = accentForType(toast.toastType);
+  const iconName = iconForType(toast.toastType);
+  const message = t(toast.key, toast.vars, toast.message);
+
+  // Entrance: bounce/slide in from the right + fade.
+  const translateX = useSharedValue(OFFSET_X);
+  const opacity = useSharedValue(0);
+  const progress = useSharedValue(1);
+
+  // Auto-dismiss timer bookkeeping (supports pause-on-press / resume).
+  const remaining = useRef(duration);
+  const startedAt = useRef(0);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exiting = useRef(false);
+
+  const clearTimer = useCallback(() => {
     if (hideTimer.current) {
       clearTimeout(hideTimer.current);
       hideTimer.current = null;
     }
-    if (finishTimer.current) {
-      clearTimeout(finishTimer.current);
-      finishTimer.current = null;
-    }
   }, []);
 
-  const dismiss = useCallback(() => {
-    clearTimers();
-    translateY.value = withTiming(HIDDEN_Y, {
-      duration: 250,
-      easing: Easing.in(Easing.cubic),
-    });
-    opacity.value = withTiming(0, { duration: 200 });
-    finishTimer.current = setTimeout(() => {
-      setVisible(false);
-      setCurrentToast(null);
-    }, 260);
-  }, [clearTimers, opacity, translateY]);
+  const remove = useCallback(() => {
+    dismissToast(toast.id);
+  }, [dismissToast, toast.id]);
 
+  const beginExit = useCallback(
+    (toRight = true) => {
+      if (exiting.current) return;
+      exiting.current = true;
+      clearTimer();
+      translateX.value = withTiming(toRight ? OFFSET_X : -OFFSET_X, {
+        duration: 220,
+        easing: Easing.in(Easing.cubic),
+        reduceMotion: NO_REDUCE,
+      });
+      opacity.value = withTiming(
+        0,
+        { duration: 200, reduceMotion: NO_REDUCE },
+        (finished) => {
+          if (finished) runOnJS(remove)();
+        },
+      );
+    },
+    [clearTimer, opacity, remove, translateX],
+  );
+
+  const startTimer = useCallback(
+    (ms: number) => {
+      clearTimer();
+      startedAt.current = Date.now();
+      remaining.current = ms;
+      progress.value = withTiming(0, {
+        duration: ms,
+        easing: Easing.linear,
+        reduceMotion: NO_REDUCE,
+      });
+      hideTimer.current = setTimeout(() => beginExit(true), ms);
+    },
+    [beginExit, clearTimer, progress],
+  );
+
+  const pause = useCallback(() => {
+    if (exiting.current) return;
+    clearTimer();
+    remaining.current = Math.max(
+      0,
+      remaining.current - (Date.now() - startedAt.current),
+    );
+    // Freeze the progress bar at its current position.
+    cancelAnimation(progress);
+  }, [clearTimer, progress]);
+
+  const resume = useCallback(() => {
+    if (exiting.current) return;
+    startTimer(remaining.current);
+  }, [startTimer]);
+
+  // Mount: play entrance + kick off the countdown.
   useEffect(() => {
-    clearTimers();
-
-    if (!latestToast) {
-      dismiss();
-      return;
-    }
-
-    setCurrentToast(latestToast);
-    setVisible(true);
-    translateY.value = HIDDEN_Y;
-    opacity.value = 0;
-    translateY.value = withTiming(0, {
-      duration: 300,
-      easing: Easing.out(Easing.back(1.2)),
+    translateX.value = withTiming(0, {
+      duration: 420,
+      easing: BOUNCE_EASING,
+      reduceMotion: NO_REDUCE,
     });
-    opacity.value = withTiming(1, { duration: 180 });
-    hideTimer.current = setTimeout(dismiss, TOAST_DURATION);
-  }, [clearTimers, dismiss, latestToast, opacity, translateY]);
+    opacity.value = withTiming(1, { duration: 200, reduceMotion: NO_REDUCE });
+    startTimer(duration);
+    return clearTimer;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  useEffect(() => clearTimers, [clearTimers]);
+  // Swipe-to-dismiss (horizontal). Springs back if not past threshold.
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      runOnJS(pause)();
+    })
+    .onUpdate((e) => {
+      translateX.value = e.translationX;
+    })
+    .onEnd((e) => {
+      if (Math.abs(e.translationX) > SWIPE_THRESHOLD || Math.abs(e.velocityX) > 600) {
+        runOnJS(beginExit)(e.translationX >= 0);
+      } else {
+        translateX.value = withTiming(0, { duration: 180, reduceMotion: NO_REDUCE });
+        runOnJS(resume)();
+      }
+    });
+
+  const tapGesture = Gesture.Tap().onEnd(() => {
+    runOnJS(beginExit)(true);
+  });
+
+  const composed = Gesture.Exclusive(panGesture, tapGesture);
 
   const animatedStyle = useAnimatedStyle(() => ({
     opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateX: translateX.value }],
   }));
 
-  if (!visible || !currentToast) return null;
-
-  const message = t(currentToast.key, currentToast.vars, currentToast.message);
-
-  const iconName: IoniconName =
-    currentToast.toastType === 'success'
-      ? 'checkmark-circle'
-      : currentToast.toastType === 'error'
-        ? 'alert-circle'
-        : 'information-circle';
-
-  const iconColor =
-    currentToast.toastType === 'success'
-      ? colors.success
-      : currentToast.toastType === 'error'
-        ? colors.error
-        : '#60a5fa';
+  const progressStyle = useAnimatedStyle(() => ({
+    width: `${Math.max(0, progress.value) * 100}%`,
+  }));
 
   return (
     <Animated.View
-      style={[
-        styles.container,
-        {
-          top: insets.top + spacing.sm,
-        },
-        animatedStyle,
-      ]}
-      pointerEvents="box-none"
+      layout={LinearTransition.duration(220).easing(Easing.out(Easing.cubic)).reduceMotion(NO_REDUCE)}
+      style={[styles.itemWrap, animatedStyle]}
     >
-      <Pressable
-        onPress={dismiss}
-        style={({ pressed }) => [styles.toast, { borderLeftColor: iconColor }, pressed && styles.toastPressed]}
-      >
-        <Ionicons name={iconName} size={20} color={iconColor} />
-        <Text style={styles.text} numberOfLines={2}>
-          {message}
-        </Text>
-      </Pressable>
+      <GestureDetector gesture={composed}>
+        <NotificationPill icon={iconName} accent={accent} message={message}>
+          <View style={toastSharedStyles.progressTrack}>
+            <Animated.View
+              style={[
+                toastSharedStyles.progressFill,
+                { backgroundColor: accent },
+                progressStyle,
+              ]}
+            />
+          </View>
+        </NotificationPill>
+      </GestureDetector>
     </Animated.View>
   );
 }
@@ -137,36 +221,11 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     zIndex: 10000,
     alignItems: 'center',
+    gap: spacing.xs,
   },
-  toast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: Platform.OS === 'android'
-      ? 'rgba(20, 20, 20, 0.95)'
-      : 'rgba(20, 20, 20, 0.88)',
-    borderRadius: 12,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderLeftWidth: 3,
-    maxWidth: 400,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: { elevation: 6 },
-    }),
-  },
-  toastPressed: {
-    opacity: 0.85,
-  },
-  text: {
-    color: colors.white,
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-SemiBold',
-    flex: 1,
+  itemWrap: {
+    width: '100%',
+    maxWidth: 460,
+    alignItems: 'stretch',
   },
 });

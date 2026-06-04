@@ -22,6 +22,11 @@ import {
 
 const REJOIN_CODE_KEY = 'wg_rejoinCode';
 
+// The server keeps a disconnected player rejoinable for this long; backgrounded
+// past it, our session is likely gone, so a foregrounding must force a fresh
+// connect+verify rather than trust a possibly-zombie "OPEN" socket.
+const RECONNECT_WINDOW_MS = 30_000;
+
 type MessageHandler = (data: any) => void;
 type DisconnectHandler = () => void;
 
@@ -40,6 +45,10 @@ class WebSocketService {
   private _currentRetry = 0;
   private _secret: string | null = null;
   private _intentionalClose = false;
+
+  // Timestamp (ms) the app was last backgrounded, to decide on foreground
+  // whether we've been gone long enough that the server dropped our session.
+  private _backgroundedAt = 0;
 
   // Connection generation — incremented on each connect() call.
   // Any in-flight initWebsocket chain with a stale generation is abandoned.
@@ -85,9 +94,11 @@ class WebSocketService {
    * Connect to the WS server with optional auth secret.
    * Ported from initWebsocket.js + home.js:1297-1391.
    */
-  async connect(secret: string | null): Promise<void> {
-    // Skip if already connected with the same secret
-    if (this.isConnected && this._secret === secret) {
+  async connect(secret: string | null, force = false): Promise<void> {
+    // Skip if already connected with the same secret. `force` bypasses this so a
+    // foreground after a long background can tear down a possibly-stale socket
+    // and re-verify even though readyState still reads OPEN.
+    if (!force && this.isConnected && this._secret === secret) {
       console.log('[WS] Already connected with same secret, skipping');
       return;
     }
@@ -284,13 +295,22 @@ class WebSocketService {
 
   private handleAppStateChange = (nextState: AppStateStatus) => {
     if (nextState === 'active') {
-      // App came to foreground — re-sync time
-      if (this.isConnected) {
+      const bgMs = this._backgroundedAt ? Date.now() - this._backgroundedAt : 0;
+      this._backgroundedAt = 0;
+      if (this._dontReconnect) return;
+      if (this.isConnected && bgMs < RECONNECT_WINDOW_MS) {
+        // Socket survived a short background — just re-sync the clock.
         this.sendTimeSync();
-      } else if (!this._dontReconnect) {
-        // Connection lost while backgrounded — reconnect immediately
-        this.connect(this._secret);
+      } else {
+        // Either the socket died, or we were backgrounded past the server's
+        // reconnect window (our session is likely evicted). Force a fresh
+        // connect+verify so the server replays the live game (or tells us it
+        // ended). Trusting a possibly-zombie "OPEN" socket here is exactly what
+        // left a stale in-round UI frozen after a long background.
+        this.connect(this._secret, true);
       }
+    } else if (nextState === 'background' || nextState === 'inactive') {
+      if (!this._backgroundedAt) this._backgroundedAt = Date.now();
     }
   };
 

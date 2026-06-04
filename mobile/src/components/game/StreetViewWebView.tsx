@@ -94,6 +94,13 @@ export default function StreetViewWebView({
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const activeSlotRef = useRef<SlotKey>('primary');
+  // State mirror of activeSlotRef purely so pointerEvents re-renders when the
+  // visible slot changes. With smoothTransitions the active slot alternates
+  // primary↔secondary each round; only the visible slot may be interactive, and
+  // the hidden one (which overlaps on top) MUST be pointerEvents:'none' or it
+  // eats touches. Previously secondary was hardcoded 'none', so after an odd
+  // number of crossfades the visible slot was secondary → StreetView went dead.
+  const [interactiveSlot, setInteractiveSlot] = useState<SlotKey>('primary');
   const pendingSlotRef = useRef<SlotKey | null>(null);
   const sourcesRef = useRef<Record<SlotKey, WebViewSourceState | null>>({
     primary: null,
@@ -106,6 +113,7 @@ export default function StreetViewWebView({
     primaryOpacity.setValue(slot === 'primary' ? 1 : 0);
     secondaryOpacity.setValue(slot === 'secondary' ? 1 : 0);
     activeSlotRef.current = slot;
+    setInteractiveSlot(slot);
   }, [primaryOpacity, secondaryOpacity]);
 
   useEffect(() => {
@@ -167,6 +175,12 @@ export default function StreetViewWebView({
       const incomingOpacity = slot === 'primary' ? primaryOpacity : secondaryOpacity;
       const outgoingOpacity = activeSlot === 'primary' ? primaryOpacity : secondaryOpacity;
 
+      // Hand interactivity to the incoming pano as it fades in. Without this the
+      // crossfade only updated activeSlotRef (a ref) at completion, so pointerEvents
+      // stayed on the old/hidden slot and the visible pano was dead after every
+      // round transition.
+      setInteractiveSlot(slot);
+
       Animated.parallel([
         Animated.timing(incomingOpacity, {
           toValue: 1,
@@ -217,7 +231,10 @@ export default function StreetViewWebView({
       {(sources.primary || sources.secondary) && (
         <>
           {sources.primary && (
-            <Animated.View style={[styles.webviewLayer, { opacity: primaryOpacity }]}>
+            <Animated.View
+              pointerEvents={interactiveSlot === 'primary' ? 'auto' : 'none'}
+              style={[styles.webviewLayer, { opacity: primaryOpacity }]}
+            >
               <WebView
                 source={{ html: sources.primary.html }}
                 style={styles.webview}
@@ -234,7 +251,10 @@ export default function StreetViewWebView({
             </Animated.View>
           )}
           {sources.secondary && (
-            <Animated.View pointerEvents="none" style={[styles.webviewLayer, { opacity: secondaryOpacity }]}>
+            <Animated.View
+              pointerEvents={interactiveSlot === 'secondary' ? 'auto' : 'none'}
+              style={[styles.webviewLayer, { opacity: secondaryOpacity }]}
+            >
               <WebView
                 source={{ html: sources.secondary.html }}
                 style={styles.webview}

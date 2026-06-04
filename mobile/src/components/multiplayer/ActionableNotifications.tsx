@@ -9,30 +9,30 @@
 
 import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   Easing,
   FadeInUp,
   FadeOutDown,
+  ReduceMotion,
 } from 'react-native-reanimated';
 import { colors, t } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
+import NotificationPill from './NotificationPill';
+import { INFO_ACCENT } from './toastStyles';
 
 /** Stale cards drop after 60s — matches a reasonable user-attention window. */
 const STALE_MS = 60_000;
 
 export default function ActionableNotifications() {
   const insets = useSafeAreaInsets();
-  const router = useRouter();
   const friendRequests = useMultiplayerStore((s) => s.friendRequests);
   const gameInvites = useMultiplayerStore((s) => s.gameInvites);
   const acceptFriend = useMultiplayerStore((s) => s.acceptFriend);
@@ -66,7 +66,7 @@ export default function ActionableNotifications() {
         <NotificationCard
           key={`fr-${req.id}`}
           icon="person-add"
-          accentColor="#60a5fa"
+          accentColor={INFO_ACCENT}
           message={t('youGotFriendReq', { from: req.name })}
           onAccept={() => acceptFriend(req.id)}
           onDecline={() => declineFriend(req.id)}
@@ -78,12 +78,11 @@ export default function ActionableNotifications() {
           icon="game-controller"
           accentColor={colors.primary}
           message={t('youGotInvite', { from: inv.invitedByName })}
-          onAccept={() => {
-            acceptGameInvite(inv.code, inv.invitedById);
-            // Server adds us to the game and broadcasts `game`; jump to the multiplayer
-            // game screen so the inGame state effect lands us in the right view.
-            router.push({ pathname: '/game/[id]', params: { id: 'multiplayer' } });
-          }}
+          // Accept only — home.tsx's inGame effect is the SINGLE owner of
+          // navigating into /game/multiplayer (it fires when the server's `game`
+          // message flips inGame). Pushing here too stacked a duplicate game
+          // screen on the stack.
+          onAccept={() => acceptGameInvite(inv.code, inv.invitedById)}
           onDecline={() => clearGameInvite(inv.code)}
         />
       ))}
@@ -106,30 +105,34 @@ function NotificationCard({
 }) {
   return (
     <Animated.View
-      entering={FadeInUp.duration(220).easing(Easing.out(Easing.cubic))}
-      exiting={FadeOutDown.duration(180)}
-      style={[styles.card, { borderLeftColor: accentColor }]}
+      entering={FadeInUp.duration(220).easing(Easing.out(Easing.cubic)).reduceMotion(ReduceMotion.Never)}
+      exiting={FadeOutDown.duration(180).reduceMotion(ReduceMotion.Never)}
+      style={styles.card}
     >
-      <Ionicons name={icon} size={20} color={accentColor} />
-      <Text style={styles.message} numberOfLines={2}>
-        {message}
-      </Text>
-      <View style={styles.actions}>
-        <Pressable
-          onPress={onAccept}
-          style={({ pressed }) => [styles.btn, styles.btnAccept, pressed && styles.btnPressed]}
-          hitSlop={6}
-        >
-          <Text style={styles.btnAcceptText}>{t('accept')}</Text>
-        </Pressable>
-        <Pressable
-          onPress={onDecline}
-          style={({ pressed }) => [styles.btn, styles.btnDecline, pressed && styles.btnPressed]}
-          hitSlop={6}
-        >
-          <Text style={styles.btnDeclineText}>{t('decline')}</Text>
-        </Pressable>
-      </View>
+      <NotificationPill
+        icon={icon}
+        accent={accentColor}
+        message={message}
+        maxLines={2}
+        trailing={
+          <View style={styles.actions}>
+            <Pressable
+              onPress={onAccept}
+              style={({ pressed }) => [styles.btn, styles.btnAccept, pressed && styles.btnPressed]}
+              hitSlop={6}
+            >
+              <Text style={styles.btnAcceptText}>{t('accept')}</Text>
+            </Pressable>
+            <Pressable
+              onPress={onDecline}
+              style={({ pressed }) => [styles.btn, styles.btnDecline, pressed && styles.btnPressed]}
+              hitSlop={6}
+            >
+              <Text style={styles.btnDeclineText}>{t('decline')}</Text>
+            </Pressable>
+          </View>
+        }
+      />
     </Animated.View>
   );
 }
@@ -144,33 +147,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: Platform.OS === 'android'
-      ? 'rgba(20, 20, 20, 0.95)'
-      : 'rgba(20, 20, 20, 0.92)',
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderLeftWidth: 3,
+    // Wrapper sizing; the pill visuals come from NotificationPill.
     maxWidth: 460,
     width: '100%',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.35,
-        shadowRadius: 8,
-      },
-      android: { elevation: 8 },
-    }),
-  },
-  message: {
-    flex: 1,
-    color: colors.white,
-    fontSize: fontSizes.sm,
-    fontFamily: 'Lexend-SemiBold',
   },
   actions: {
     flexDirection: 'row',

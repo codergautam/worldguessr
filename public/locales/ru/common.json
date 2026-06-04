@@ -561,6 +561,8 @@
   "dailyHistoryTitle": "Ваша история игр",
   "dailyLeaderboard": "Сегодняшняя таблица лидеров",
   "tooFewPlaysForChart": "Игроков пока мало для графика - загляните позже!",
+  "dailyLandingGraceDay": "⚠️ День отсрочки — играйте сегодня, иначе ваша серия {{streak}}-day закончится в полночь.",
+  "dailyLandingGraceDayShort": "Благодатный день",
   "dailyLandingLockInStreak": "🔥 Войдите, чтобы зафиксировать серию из {{streak}} дн.",
   "dailyGuestSignInToSave": "🔥 Войдите, чтобы сохранить серию из {{streak}} дн.",
   "dailyGuestClaimed": "Прогресс гостя объединён - добавлено {{mergedDays}} дней!",
@@ -691,7 +693,6 @@
   "shareInviteLink": "Поделиться ссылкой-приглашением",
   "noOnlineFriends": "Сейчас нет друзей в сети",
   "shareGameCodeHint": "Поделитесь кодом игры с теми, кого хотите пригласить.",
-  "roundOfTotal": "Раунд {{round}} из {{total}}",
   "getReady": "Приготовьтесь!",
   "loadingLocationsProgress": "Загрузка локаций... {{generated}}/{{total}}",
   "findingRankedDuel": "Поиск рейтинговой дуэли...",
@@ -706,10 +707,8 @@
   "reportSubmittedTitle": "Жалоба отправлена",
   "reportSubmittedMessage": "Спасибо за вашу жалобу. Наша команда её рассмотрит.",
   "reportSubmitFailed": "Не удалось отправить жалобу. Попробуйте ещё раз.",
-  "roundActualLocation": "Раунд {{round}} - Фактическое местоположение",
   "pointsCount": "{{points}} очков",
   "distanceWithValue": "Расстояние: {{distance}}",
-  "roundYourGuess": "Раунд {{round}} - Ваше предположение",
   "xpEarnedBadge": "+{{xp}} XP",
   "rankOfTotalSlash": "Место {{rank}}/{{total}}",
   "outOfPoints": "из {{maxScore}} очков",
@@ -796,6 +795,5 @@
   "noLocationsForMap": "Нет доступных локаций для этой карты",
   "createdByLabel": "Создано",
   "eloRating": "Рейтинг ELO",
-  "closeSignInOptions": "Закрыть параметры входа",
-  "roundSlashTotal": "Раунд {{round}}/{{total}}"
+  "closeSignInOptions": "Закрыть параметры входа"
 }

@@ -5,7 +5,7 @@
  * Polls getFriends every 5s while open so the list stays fresh.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Modal,
   View,
@@ -35,6 +35,37 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
   const requestFriends = useMultiplayerStore((s) => s.requestFriends);
   const inviteFriendToGame = useMultiplayerStore((s) => s.inviteFriendToGame);
   const gameCode = useMultiplayerStore((s) => s.gameData?.code);
+  const partyPlayers = useMultiplayerStore((s) => s.gameData?.players);
+  const invitedFriends = useMultiplayerStore((s) => s.invitedFriends);
+
+  // Ticks every second so the 5s "recently invited" window re-evaluates without
+  // needing to mutate any state on invite.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!visible) return;
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, [visible]);
+
+  // accountIds of players currently in the party — keeps the check on for
+  // friends who accepted the invite.
+  const partyAccountIds = useMemo(
+    () => new Set((partyPlayers ?? []).map((p) => p.accountId).filter(Boolean)),
+    [partyPlayers],
+  );
+
+  // The check shows if the friend is in the party (accepted) OR we invited them
+  // within the last 5s. Derived from durable store state, so it survives the
+  // modal closing/reopening.
+  const isInvited = (friendId: string) =>
+    partyAccountIds.has(friendId) ||
+    (invitedFriends[friendId] != null && now - invitedFriends[friendId] < 5000);
+
+  const handleInvite = (friend: { id: string; socketId?: string | null }) => {
+    if (!friend.socketId) return;
+    inviteFriendToGame(friend.socketId, friend.id);
+    setNow(Date.now());
+  };
 
   const handleShareCode = async () => {
     if (!gameCode) return;
@@ -102,11 +133,22 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
                     {friend.supporter && <Text style={styles.supporter}> ★</Text>}
                   </Text>
                   <Pressable
-                    onPress={() => inviteFriendToGame(friend.socketId!)}
-                    style={({ pressed }) => [styles.inviteBtn, pressed && { opacity: 0.85 }]}
+                    onPress={() => handleInvite(friend)}
+                    disabled={isInvited(friend.id)}
+                    style={({ pressed }) => [
+                      styles.inviteBtn,
+                      isInvited(friend.id) && styles.inviteBtnSent,
+                      pressed && { opacity: 0.85 },
+                    ]}
                   >
-                    <Ionicons name="paper-plane" size={14} color="#0b1410" />
-                    <Text style={styles.inviteText}>{t('invite')}</Text>
+                    {isInvited(friend.id) ? (
+                      <Ionicons name="checkmark" size={16} color="#0b1410" />
+                    ) : (
+                      <>
+                        <Ionicons name="paper-plane" size={14} color="#0b1410" />
+                        <Text style={styles.inviteText}>{t('invite')}</Text>
+                      </>
+                    )}
                   </Pressable>
                 </View>
               ))
@@ -208,11 +250,17 @@ const styles = StyleSheet.create({
   inviteBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 6,
     backgroundColor: '#60a5fa',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: borderRadius.sm,
+    // Lock the width so swapping to the check state doesn't resize the button.
+    minWidth: 88,
+  },
+  inviteBtnSent: {
+    backgroundColor: '#22c55e',
   },
   inviteText: {
     color: '#0b1410',

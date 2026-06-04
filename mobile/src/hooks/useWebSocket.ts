@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useRouter, usePathname } from 'expo-router';
+import { usePathname } from 'expo-router';
 import { wsService } from '../services/websocket';
 import { useMultiplayerStore } from '../store/multiplayerStore';
 import { useAuthStore } from '../store/authStore';
@@ -51,7 +51,6 @@ export function useWebSocket() {
   const isLoading = useAuthStore((s) => s.isLoading);
   const handleMessage = useMultiplayerStore((s) => s.handleMessage);
   const verified = useMultiplayerStore((s) => s.verified);
-  const router = useRouter();
   const pathname = usePathname();
 
   // Track whether we've done the initial connect
@@ -64,50 +63,44 @@ export function useWebSocket() {
   }, [handleMessage]);
 
   // Handle WS disconnect — ported from home.js:1882-1927 / MultiplayerProvider.
-  // Reset multiplayer state, navigate home if in multiplayer screen, show toast.
+  // A WS drop is RECOVERABLE: the service immediately auto-reconnects and the
+  // server replays our live game within its 30s reconnect window. So we must NOT
+  // tear down inGame/gameData here — doing so popped the user out of the game
+  // (via the game screen's `!inGame` effect) and then bounced them back in when
+  // the fresh snapshot arrived: the "screen home → multiplayer" thrash and the
+  // "is the game over or am I still in it?" confusion. We only flag the transient
+  // connection state (WsIndicator pulses yellow) + show a recoverable toast; the
+  // screen stays mounted and re-syncs from the reconnect snapshot. Hard teardown
+  // happens only when reconnection truly gives up (onReconnectFailed below).
   useEffect(() => {
     const unsub = wsService.onDisconnect(() => {
       const state = useMultiplayerStore.getState();
-
-      // Reset multiplayer state (like web's onclose handler), but mark
-      // `connecting: true` — onDisconnect only fires when the service is about
-      // to auto-reconnect, so the WsIndicator should pulse yellow (connecting),
-      // not show a hard red disconnect. This mirrors the web, where onclose
-      // resets state and the reconnect loop immediately sets connecting:true.
       useMultiplayerStore.setState({
         connected: false,
         verified: false,
         connecting: true,
+      });
+      if (state.inGame || state.gameQueued || state.gameData) {
+        state.pushToast({ key: 'connectionLostRecov', toastType: 'error' });
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Auto-reconnection exhausted all retries — NOW it's a real disconnect. Drop
+  // from "connecting" (yellow) to disconnected (red) AND tear the game down:
+  // clearing inGame/gameQueued lets each multiplayer screen's own state-driven
+  // effect pop home (game/[id] on `!inGame`, queue on `!gameQueued && !inGame`).
+  useEffect(() => {
+    const unsub = wsService.onReconnectFailed(() => {
+      useMultiplayerStore.setState({
+        connected: false,
+        connecting: false,
         inGame: false,
         gameData: null,
         gameQueued: false,
         emotes: [],
       });
-
-      // If was in a multiplayer game/lobby, navigate home and show toast
-      if (state.inGame || state.gameQueued || state.gameData) {
-        useMultiplayerStore.setState({
-          latestToast: {
-            key: 'connectionLostRecov',
-            toastType: 'error',
-            timestamp: Date.now(),
-          },
-        });
-        try {
-          router.dismissAll();
-        } catch {
-          // Navigation may fail if already on home
-        }
-      }
-    });
-    return unsub;
-  }, [router]);
-
-  // When auto-reconnection finally gives up, drop from "connecting" (yellow)
-  // to a real disconnected state (red).
-  useEffect(() => {
-    const unsub = wsService.onReconnectFailed(() => {
-      useMultiplayerStore.setState({ connected: false, connecting: false });
     });
     return unsub;
   }, []);

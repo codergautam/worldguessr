@@ -73,7 +73,7 @@ export default function GetReadyOverlay({
         { opacity: fadeAnim, transform: [{ scale: scaleAnim }] },
       ]}
     >
-      <Text style={styles.roundLabel}>{t('roundOfTotal', { round, total: totalRounds }, 'Round {{round}} of {{total}}')}</Text>
+      <Text style={styles.roundLabel}>{t('round', { r: round, mr: totalRounds }, 'Round #{{r}} / {{mr}}')}</Text>
       <Text style={styles.getReady}>{t('getReady', undefined, 'Get Ready!')}</Text>
       <Text style={styles.countdown}>{countdown}</Text>
 

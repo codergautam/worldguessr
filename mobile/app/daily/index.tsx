@@ -488,6 +488,7 @@ export default function DailyScreen() {
               totalScore={totalScoreSoFar}
               isPaused={showAnswer}
               showTimer
+              hasGuess={!!pinPoint}
             />
           ) : undefined
         }

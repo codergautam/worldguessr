@@ -561,6 +561,8 @@
   "dailyHistoryTitle": "Tu historial",
   "dailyLeaderboard": "Clasificación de hoy",
   "tooFewPlaysForChart": "No hay suficientes jugadores para dibujar un gráfico - ¡vuelve más tarde!",
+  "dailyLandingGraceDay": "⚠️ Día de gracia: juega hoy o tu racha de días {{streak}} terminará a medianoche",
+  "dailyLandingGraceDayShort": "dia de gracia",
   "dailyLandingLockInStreak": "🔥 Inicia sesión para asegurar tu racha de {{streak}} días",
   "dailyGuestSignInToSave": "🔥 Inicia sesión para guardar tu racha de {{streak}} días",
   "dailyGuestClaimed": "Progreso de invitado fusionado - ¡{{mergedDays}} días añadidos!",
@@ -691,7 +693,6 @@
   "shareInviteLink": "Compartir enlace de invitación",
   "noOnlineFriends": "No hay amigos en línea ahora mismo",
   "shareGameCodeHint": "Comparte el código del juego con quien quieras invitar.",
-  "roundOfTotal": "Ronda {{round}} de {{total}}",
   "getReady": "¡Prepárate!",
   "loadingLocationsProgress": "Cargando ubicaciones... {{generated}}/{{total}}",
   "findingRankedDuel": "Buscando duelo clasificado...",
@@ -706,10 +707,8 @@
   "reportSubmittedTitle": "Informe enviado",
   "reportSubmittedMessage": "Gracias por tu informe. Nuestro equipo lo revisará.",
   "reportSubmitFailed": "No se pudo enviar el informe. Inténtalo de nuevo.",
-  "roundActualLocation": "Ronda {{round}} - Ubicación real",
   "pointsCount": "{{points}} puntos",
   "distanceWithValue": "Distancia: {{distance}}",
-  "roundYourGuess": "Ronda {{round}} - Tu suposición",
   "xpEarnedBadge": "+{{xp}} XP",
   "rankOfTotalSlash": "Puesto {{rank}}/{{total}}",
   "outOfPoints": "de {{maxScore}} puntos",
@@ -796,6 +795,5 @@
   "noLocationsForMap": "No hay ubicaciones disponibles para este mapa",
   "createdByLabel": "Creado por",
   "eloRating": "Puntuación ELO",
-  "closeSignInOptions": "Cerrar opciones de inicio de sesión",
-  "roundSlashTotal": "Ronda {{round}}/{{total}}"
+  "closeSignInOptions": "Cerrar opciones de inicio de sesión"
 }
