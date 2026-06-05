@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '../../shared';
@@ -72,6 +73,16 @@ export default function CountryEndBanner({
   const isCorrect = points > 0;
   const isContinent = mode === 'continent';
 
+  // The dock background spans full width (painted by GameSurface), but the
+  // content is centered and width-capped so it stays a readable block instead
+  // of spreading edge-to-edge on wide / landscape screens ("don't take too much
+  // width"). Landscape also goes vertically compact so the dock doesn't eat the
+  // short viewport — mirrors web's landscape banner tightening.
+  const { width, height } = useWindowDimensions();
+  const landscape = width > height;
+  const contentMaxWidth = Math.min(width, 720);
+  const centered = { alignSelf: 'center' as const, width: '100%' as const, maxWidth: contentMaxWidth };
+
   const correctName = isContinent
     ? continentFromCode(correctCountry)
     : nameFromCode(correctCountry);
@@ -130,10 +141,11 @@ export default function CountryEndBanner({
     <Animated.View
       style={[
         styles.wrap,
+        landscape && styles.wrapLandscape,
         { opacity, transform: [{ translateY: slide }] },
       ]}
     >
-      <View style={styles.row}>
+      <View style={[styles.row, centered]}>
         <View style={styles.flagBox}>
           {isContinent ? (
             <Text style={styles.continentEmoji}>🌍</Text>
@@ -166,20 +178,20 @@ export default function CountryEndBanner({
         </View>
       </View>
 
-      {factText ? <Text style={styles.fact}>{factText}</Text> : null}
+      {factText ? <Text style={[styles.fact, centered]}>{factText}</Text> : null}
 
       {autoAdvanceMs ? (
-        <View style={styles.progressTrack}>
+        <View style={[styles.progressTrack, centered]}>
           <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
         </View>
       ) : null}
 
-      <Pressable onPress={onNext} style={({ pressed }) => [pressed && { opacity: 0.85 }]}>
+      <Pressable onPress={onNext} style={({ pressed }) => [centered, pressed && { opacity: 0.85 }]}>
         <LinearGradient
           colors={[colors.primary, colors.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.nextBtn}
+          style={[styles.nextBtn, landscape && styles.nextBtnLandscape]}
         >
           <Text style={styles.nextBtnText}>{isFinal ? t('viewResults') : t('nextRound')}</Text>
         </LinearGradient>
@@ -199,6 +211,13 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.lg,
     gap: spacing.md,
+  },
+  // Landscape: trim the vertical footprint so the dock stays low-profile on a
+  // short viewport (web's landscape banner tightening).
+  wrapLandscape: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+    gap: spacing.sm,
   },
   row: {
     flexDirection: 'row',
@@ -276,6 +295,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
     alignItems: 'center',
+  },
+  nextBtnLandscape: {
+    paddingVertical: spacing.sm,
   },
   nextBtnText: {
     color: colors.white,

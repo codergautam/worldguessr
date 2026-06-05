@@ -3,6 +3,10 @@
  * Animated radar "sonar" pulse behind a spinning compass, ranked/unranked
  * theming, an ELO range chip for ranked, and an elapsed timer. The shared
  * back button (top-left) is the single cancel affordance.
+ *
+ * Layout is orientation-aware: a vertical stack in portrait, and a centered
+ * radar-beside-info row in landscape so everything fits one screen without
+ * scrolling or clipping on short viewports.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -16,7 +20,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useNavigation } from 'expo-router';
@@ -25,11 +29,12 @@ import { spacing, fontSizes, borderRadius } from '../src/styles/theme';
 import { wsService } from '../src/services/websocket';
 import { useMultiplayerStore } from '../src/store/multiplayerStore';
 import BackButton from '../src/components/ui/BackButton';
+import WgWordmark from '../src/components/ui/WgWordmark';
 
-const RADAR = 150; // base ring size; rings scale up to ~1.55x
+const RADAR_MAX = 240; // radar container ceiling; everything inside derives from this
 
 /** Expanding "sonar" rings that ripple outward from the center. */
-function PulseRings({ accent }: { accent: string }) {
+function PulseRings({ accent, size }: { accent: string; size: number }) {
   const a = useRef(new Animated.Value(0)).current;
   const b = useRef(new Animated.Value(0)).current;
   const c = useRef(new Animated.Value(0)).current;
@@ -59,7 +64,7 @@ function PulseRings({ accent }: { accent: string }) {
           key={i}
           pointerEvents="none"
           style={[
-            styles.ring,
+            { position: 'absolute', width: size, height: size, borderRadius: size / 2, borderWidth: 2 },
             { borderColor: accent },
             {
               transform: [
@@ -77,7 +82,9 @@ function PulseRings({ accent }: { accent: string }) {
 export default function QueueScreen() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const isLandscape = width > height;
   const gameQueued = useMultiplayerStore((s) => s.gameQueued);
   const publicDuelRange = useMultiplayerStore((s) => s.publicDuelRange);
   const inGame = useMultiplayerStore((s) => s.inGame);
@@ -93,7 +100,18 @@ export default function QueueScreen() {
   const ss = elapsed % 60;
   const elapsedStr = `${mm}:${ss < 10 ? '0' : ''}${ss}`;
 
-  const titleSize = Math.min(40, Math.max(26, width * 0.085));
+  // Radar scales to the shorter axis so it never crowds the rest of the screen.
+  // Landscape is height-bound; portrait stays comfortably under the ceiling.
+  const radarSize = isLandscape
+    ? Math.min(RADAR_MAX, height * 0.6)
+    : Math.min(RADAR_MAX, height * 0.32, width * 0.72);
+  const ringBase = radarSize * 0.625;
+  const coreSize = radarSize * 0.43;
+  const compassSize = radarSize * 0.25;
+
+  const titleSize = isLandscape
+    ? Math.min(34, Math.max(22, height * 0.085))
+    : Math.min(40, Math.max(26, width * 0.085));
 
   // Single exit path. Idempotent — caller can race state updates without double-popping.
   const exitBack = () => {
@@ -154,6 +172,70 @@ export default function QueueScreen() {
         label: t('unrankedDuel'),
       };
 
+  // Shared building blocks — composed differently per orientation below.
+  const radarEl = (
+    <View style={[styles.radar, { width: radarSize, height: radarSize }]}>
+      <PulseRings accent={theme.accent} size={ringBase} />
+      <View
+        style={[
+          styles.radarCore,
+          {
+            width: coreSize,
+            height: coreSize,
+            borderRadius: coreSize / 2,
+            borderColor: theme.accent,
+            shadowColor: theme.glow,
+          },
+        ]}
+      >
+        <Image
+          source={require('../assets/loader.gif')}
+          style={{ width: compassSize, height: compassSize }}
+        />
+      </View>
+    </View>
+  );
+
+  const pillEl = (
+    <LinearGradient
+      colors={theme.gradient}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={styles.modePill}
+    >
+      <Ionicons name={theme.icon} size={15} color="#1a1205" />
+      <Text style={styles.modePillText}>{theme.label.toUpperCase()}</Text>
+    </LinearGradient>
+  );
+
+  const titleEl = (
+    <Text
+      style={[styles.title, { fontSize: titleSize, textAlign: isLandscape ? 'left' : 'center' }]}
+      numberOfLines={isLandscape ? 2 : 1}
+      adjustsFontSizeToFit
+    >
+      {t('findingGame')}
+    </Text>
+  );
+
+  const eloEl =
+    isRanked && publicDuelRange ? (
+      <View style={styles.eloChip}>
+        <Ionicons name="podium-outline" size={15} color={theme.accent} />
+        <Text style={styles.eloLabel}>{t('eloRange')}</Text>
+        <Text style={[styles.eloValue, { color: theme.accent }]}>
+          {publicDuelRange[0]} – {publicDuelRange[1]}
+        </Text>
+      </View>
+    ) : null;
+
+  const timerEl = (
+    <View style={styles.timerRow}>
+      <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.5)" />
+      <Text style={styles.timerText}>{elapsedStr}</Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <ImageBackground
@@ -167,59 +249,38 @@ export default function QueueScreen() {
         style={StyleSheet.absoluteFillObject}
       />
 
-      <SafeAreaView style={styles.backButtonContainer} edges={['top']} pointerEvents="box-none">
+      <SafeAreaView style={styles.topBar} edges={['top']} pointerEvents="box-none">
         <BackButton onPress={handleCancel} />
+        <WgWordmark size="sm" style={styles.wordmark} />
       </SafeAreaView>
 
-      <View style={styles.center}>
-        {/* Mode tag */}
-        <LinearGradient
-          colors={theme.gradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.modePill}
+      {isLandscape ? (
+        <View
+          style={[
+            styles.center,
+            styles.centerLandscape,
+            { paddingHorizontal: spacing.xl + Math.max(insets.left, insets.right) },
+          ]}
         >
-          <Ionicons name={theme.icon} size={15} color="#1a1205" />
-          <Text style={styles.modePillText}>{theme.label.toUpperCase()}</Text>
-        </LinearGradient>
-
-        {/* Radar */}
-        <View style={styles.radar}>
-          <PulseRings accent={theme.accent} />
-          <View
-            style={[
-              styles.radarCore,
-              { borderColor: theme.accent, shadowColor: theme.glow },
-            ]}
-          >
-            <Image source={require('../assets/loader.gif')} style={styles.compass} />
+          {radarEl}
+          <View style={[styles.infoLandscape, { maxWidth: width * 0.46 }]}>
+            {pillEl}
+            {titleEl}
+            {eloEl}
+            {timerEl}
           </View>
         </View>
-
-        {/* Title */}
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, { fontSize: titleSize }]} numberOfLines={1} adjustsFontSizeToFit>
-            {t('findingGame')}
-          </Text>
-        </View>
-
-        {/* ELO range chip (ranked only) */}
-        {isRanked && publicDuelRange ? (
-          <View style={styles.eloChip}>
-            <Ionicons name="podium-outline" size={15} color={theme.accent} />
-            <Text style={styles.eloLabel}>{t('eloRange')}</Text>
-            <Text style={[styles.eloValue, { color: theme.accent }]}>
-              {publicDuelRange[0]} – {publicDuelRange[1]}
-            </Text>
+      ) : (
+        <View style={styles.center}>
+          {pillEl}
+          <View style={styles.radarSpacer}>{radarEl}</View>
+          <View style={styles.infoPortrait}>
+            {titleEl}
+            {eloEl}
+            {timerEl}
           </View>
-        ) : null}
-
-        {/* Elapsed timer */}
-        <View style={styles.timerRow}>
-          <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.5)" />
-          <Text style={styles.timerText}>{elapsedStr}</Text>
         </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -229,19 +290,42 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  backButtonContainer: {
+  topBar: {
     position: 'absolute',
     top: 0,
     left: 0,
+    right: 0,
     zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     paddingLeft: spacing.lg,
     paddingTop: spacing.sm,
+  },
+  wordmark: {
+    marginTop: 2,
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+  },
+  centerLandscape: {
+    flexDirection: 'row',
+    gap: spacing['2xl'],
+  },
+  infoLandscape: {
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    flexShrink: 1,
+  },
+  infoPortrait: {
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  radarSpacer: {
+    marginVertical: spacing['3xl'],
   },
   modePill: {
     flexDirection: 'row',
@@ -250,7 +334,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 7,
     borderRadius: borderRadius.full,
-    marginBottom: spacing['3xl'],
   },
   modePillText: {
     color: '#1a1205',
@@ -259,22 +342,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   radar: {
-    width: RADAR * 1.6,
-    height: RADAR * 1.6,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ring: {
-    position: 'absolute',
-    width: RADAR,
-    height: RADAR,
-    borderRadius: RADAR / 2,
-    borderWidth: 2,
-  },
   radarCore: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
     backgroundColor: 'rgba(0, 0, 0, 0.35)',
     borderWidth: 1.5,
     alignItems: 'center',
@@ -284,27 +355,15 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     elevation: 10,
   },
-  compass: {
-    width: 60,
-    height: 60,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing['3xl'],
-    maxWidth: '100%',
-  },
   title: {
     color: colors.white,
     fontFamily: 'Lexend-Bold',
-    textAlign: 'center',
     flexShrink: 1,
   },
   eloChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: spacing.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
@@ -325,7 +384,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginTop: spacing.lg,
   },
   timerText: {
     color: 'rgba(255, 255, 255, 0.5)',

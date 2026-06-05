@@ -27,6 +27,10 @@
   "usernameFlaggedMobileExplanation": "Your username has been flagged as inappropriate. You can still play singleplayer, but multiplayer is disabled until your new name is approved.",
   "usernameFlaggedGoToProfileTab": "Your username has been flagged. Please change it from the Profile tab.",
   "appleNoSignInToken": "Apple did not return a sign in token.",
+  "googleNoSignInToken": "Google did not return a sign in token.",
   "appleSignInFailed": "Apple sign in failed. Please try again.",
-  "continueWithApple": "Continue with Apple"
+  "continueWithApple": "Continue with Apple",
+  "queueLeftDisconnect": "Connection lost — you've left the queue.",
+  "errorRequestTimedOut": "Request timed out. Check your connection and try again.",
+  "errorNetworkRequest": "Network error. Check your connection and try again."
 }

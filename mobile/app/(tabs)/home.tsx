@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,7 +26,7 @@ import { spacing, borderRadius } from '../../src/styles/theme';
 import SetUsernameModal from '../../src/components/SetUsernameModal';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 import WhatsNewModal from '../../src/components/WhatsNewModal';
-import CountryFlag from '../../src/components/CountryFlag';
+import PlayerName from '../../src/components/PlayerName';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
 import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
@@ -487,22 +488,20 @@ export default function HomeScreen() {
                       ]}
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
-                      <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
-                        <Text
-                          style={[
-                            styles.accountBtnText,
-                            {
-                              fontSize: headerActionMetrics.accountFontSize,
-                              lineHeight: headerActionMetrics.accountLineHeight,
-                            },
-                          ]}
-                        >
-                          {user.username}
-                        </Text>
-                        {user.countryCode && (
-                          <CountryFlag countryCode={user.countryCode} size={headerActionMetrics.flagSize} />
-                        )}
-                      </View>
+                      <PlayerName
+                        name={user.username}
+                        countryCode={user.countryCode}
+                        flagSize={headerActionMetrics.flagSize}
+                        gap={headerActionMetrics.accountGap}
+                        style={styles.accountBtnContent}
+                        textStyle={[
+                          styles.accountBtnText,
+                          {
+                            fontSize: headerActionMetrics.accountFontSize,
+                            lineHeight: headerActionMetrics.accountLineHeight,
+                          },
+                        ]}
+                      />
                     </Pressable>
 
                     <Pressable
@@ -644,22 +643,20 @@ export default function HomeScreen() {
                       ]}
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
-                      <View style={[styles.accountBtnContent, { gap: headerActionMetrics.accountGap }]}>
-                        <Text
-                          style={[
-                            styles.accountBtnText,
-                            {
-                              fontSize: headerActionMetrics.accountFontSize,
-                              lineHeight: headerActionMetrics.accountLineHeight,
-                            },
-                          ]}
-                        >
-                          {user.username}
-                        </Text>
-                        {user.countryCode && (
-                          <CountryFlag countryCode={user.countryCode} size={headerActionMetrics.flagSize} />
-                        )}
-                      </View>
+                      <PlayerName
+                        name={user.username}
+                        countryCode={user.countryCode}
+                        flagSize={headerActionMetrics.flagSize}
+                        gap={headerActionMetrics.accountGap}
+                        style={styles.accountBtnContent}
+                        textStyle={[
+                          styles.accountBtnText,
+                          {
+                            fontSize: headerActionMetrics.accountFontSize,
+                            lineHeight: headerActionMetrics.accountLineHeight,
+                          },
+                        ]}
+                      />
                     </Pressable>
 
                     <Pressable
@@ -821,6 +818,18 @@ export default function HomeScreen() {
           {/* Bottom Icons */}
           <View style={[styles.bottomIcons, isLandscape && styles.bottomIconsLandscape]}>
             <Pressable
+              style={({ pressed }) => [styles.iconButton, styles.iconButtonDiscord, pressed && styles.iconButtonDiscordPressed]}
+              onPress={() => Linking.openURL('https://discord.gg/ADw47GAyS5')}
+            >
+              <Ionicons name="logo-discord" size={24} color="rgba(255,255,255,0.95)" />
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [styles.iconButton, styles.iconButtonYoutube, pressed && styles.iconButtonYoutubePressed]}
+              onPress={() => Linking.openURL('https://www.youtube.com/@worldguessr?sub_confirmation=1')}
+            >
+              <Ionicons name="logo-youtube" size={24} color="rgba(255,255,255,0.95)" />
+            </Pressable>
+            <Pressable
               style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
               onPress={() => router.navigate('/(tabs)/leaderboard')}
             >
@@ -842,7 +851,9 @@ export default function HomeScreen() {
           <View
             style={[
               styles.onlineCountContainer,
-              { bottom: Math.max(insets.bottom, spacing.lg) + 8, right: Math.max(insets.right, spacing.xl) },
+              // Raise to align vertically with the bottom footer icon row
+              // (footer: paddingBottom spacing.xl + ~half of the 44px icons).
+              { bottom: Math.max(insets.bottom, spacing.lg) + spacing.xl + 10, right: Math.max(insets.right, spacing.xl) },
             ]}
             pointerEvents="none"
           >
@@ -1038,8 +1049,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   onlineCount: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontFamily: 'Lexend',
+    // Match web #g2_playerCount: full white, font-weight 500 (Lexend-Medium).
+    color: '#fff',
+    fontFamily: 'Lexend-Medium',
   },
   // Logged-in top row: [Username] [Friends]
   loggedInRow: {
@@ -1159,6 +1171,18 @@ const styles = StyleSheet.create({
   },
   iconButtonPressed: {
     backgroundColor: 'rgba(20, 65, 25, 0.75)',
+  },
+  iconButtonDiscord: {
+    backgroundColor: '#738adb',
+  },
+  iconButtonDiscordPressed: {
+    backgroundColor: '#3e4970',
+  },
+  iconButtonYoutube: {
+    backgroundColor: 'rgba(255, 0, 0, 0.5)',
+  },
+  iconButtonYoutubePressed: {
+    backgroundColor: '#8b0000',
   },
   // Moderation popup
   modPopupOverlay: {

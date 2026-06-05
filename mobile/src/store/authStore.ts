@@ -17,8 +17,8 @@ interface AuthState {
 
   // Actions
   loadSession: () => Promise<void>;
-  loginWithGoogle: (idToken: string) => Promise<boolean>;
-  loginWithApple: (identityToken: string) => Promise<boolean>;
+  loginWithGoogle: (idToken: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithApple: (identityToken: string) => Promise<{ success: boolean; error?: string }>;
   loginWithSecret: (secret: string) => Promise<boolean>;
   setUsername: (username: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -82,14 +82,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Merge any pre-signin guest daily progress into this account.
         // Fire-and-forget — failure shouldn't block auth.
         claimGuestProgressIfAny(response.secret).catch(() => {});
-        return true;
+        return { success: true };
       }
       set({ isLoading: false });
-      return false;
-    } catch (error) {
+      // Authenticated at the transport level but the server returned no secret —
+      // pass along any server-provided reason so the UI can show it.
+      return { success: false, error: (response as any).error };
+    } catch (error: any) {
       console.error('Google auth failed:', error);
       set({ isLoading: false });
-      return false;
+      // error.message is already a clean, localized string for network/timeout
+      // failures (see fetchApi) or the server's message for HTTP errors.
+      return { success: false, error: error?.message };
     }
   },
 
@@ -128,14 +132,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Merge any pre-signin guest daily progress into this account.
         // Fire-and-forget — failure shouldn't block auth.
         claimGuestProgressIfAny(response.secret).catch(() => {});
-        return true;
+        return { success: true };
       }
       set({ isLoading: false });
-      return false;
-    } catch (error) {
+      return { success: false, error: (response as any).error };
+    } catch (error: any) {
       console.error('Apple auth failed:', error);
       set({ isLoading: false });
-      return false;
+      return { success: false, error: error?.message };
     }
   },
 

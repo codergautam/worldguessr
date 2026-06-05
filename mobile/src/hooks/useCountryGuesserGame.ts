@@ -76,8 +76,15 @@ export default function useCountryGuesserGame({
   const [showResult, setShowResult] = useState(false);
   const [currentLoc, setCurrentLoc] = useState<CountryGuesserLocation | null>(null);
   const [otherOptions, setOtherOptions] = useState<string[]>([]);
+  // Bumped by retry() to re-run the location-load effect after a network failure.
+  const [reloadNonce, setReloadNonce] = useState(0);
   const cursorRef = useRef(0);
   const roundStartTimeRef = useRef(Date.now());
+
+  const retry = useCallback(() => {
+    setLoadError(null);
+    setReloadNonce((n) => n + 1);
+  }, []);
 
   const resetGame = useCallback(() => {
     cursorRef.current = 0;
@@ -145,7 +152,7 @@ export default function useCountryGuesserGame({
     return () => {
       cancelled = true;
     };
-  }, [enabled, region, resetGame, subMode]);
+  }, [enabled, region, resetGame, subMode, reloadNonce]);
 
   useEffect(() => {
     if (!enabled || allLocs.length === 0 || loading || round > totalRounds) return;
@@ -244,6 +251,7 @@ export default function useCountryGuesserGame({
     submit,
     advance,
     resetGame,
+    retry,
     isFinal: round >= totalRounds,
     isOver: round > totalRounds,
   };

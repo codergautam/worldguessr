@@ -1,5 +1,5 @@
 // API Configuration
-const DEV_SERVER_HOST = '192.168.4.43';
+const DEV_SERVER_HOST = '192.168.4.58';
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || (__DEV__ ? `http://${DEV_SERVER_HOST}:3001` : 'https://api.worldguessr.com');
 export const AUTH_URL = process.env.EXPO_PUBLIC_AUTH_URL || (__DEV__ ? `http://${DEV_SERVER_HOST}:3004` : 'https://api.worldguessr.com');
@@ -15,6 +15,15 @@ export const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || 'https://worldguessr
 export const EMBED_BASE_URL =
   process.env.EXPO_PUBLIC_EMBED_URL ||
   (__DEV__ ? `http://${DEV_SERVER_HOST}:3000` : 'https://worldguessr.com');
+
+// Hard ceiling on every HTTP request (enforced by services/fetchWithTimeout.ts,
+// which all network calls route through). A mobile socket can hang indefinitely —
+// DNS, TCP connect, or the read can stall without the request ever failing — and
+// a bare fetch() will then never resolve OR reject. That is exactly what leaves a
+// loading spinner spinning forever. 15s sits comfortably above a slow-but-working
+// mobile round-trip, so we only abort genuinely dead requests, never merely slow
+// ones. Tune here in one place; nothing else hard-codes a request timeout.
+export const HTTP_TIMEOUT_MS = 15000;
 
 // Game Configuration
 export const DEFAULT_ROUNDS = 5;

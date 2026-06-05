@@ -110,11 +110,11 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          {/* The whole multiplayer flow (home → queue/party → game → results)
-              crossfades instead of sliding. Every one of these screens sits on
-              the SAME street2 backdrop, so a fade keeps the backdrop continuous
-              and only crossfades the foreground — smooth, and no slide-gap ever
-              exposes the solid green card background. */}
+          {/* The multiplayer flow (home → queue/party → game → results) and the
+              daily challenge all crossfade instead of sliding. Every one of these
+              screens sits on the SAME street2 backdrop, so a fade keeps the
+              backdrop continuous and only crossfades the foreground — smooth, and
+              no slide-gap ever exposes the solid green card background. */}
           <Stack.Screen
             name="game/[id]"
             options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 300 }}
@@ -123,10 +123,7 @@ export default function RootLayout() {
           <Stack.Screen name="party/create" options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 250 }} />
           <Stack.Screen name="party/join" options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 250 }} />
           <Stack.Screen name="queue" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
-          <Stack.Screen
-            name="daily/index"
-            options={{ headerShown: false, animation: 'slide_from_bottom', animationDuration: 280 }}
-          />
+          <Stack.Screen name="daily/index" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
           <Stack.Screen name="user/[username]" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ headerShown: false }} />
           <Stack.Screen

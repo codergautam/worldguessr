@@ -680,6 +680,7 @@
   "gameLobby": "Sala de espera",
   "inviteLinkCopied": "¡Enlace de invitación copiado!",
   "tapToCopyInviteLink": "Toca para copiar el enlace de invitación",
+  "tapToShareInviteLink": "Toca para compartir el enlace de invitación",
   "playersCount": "Jugadores ({{cnt}})",
   "timerOff": "Sin temporizador",
   "secondsShort": "{{secs}}s",

@@ -6,7 +6,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, t } from '../../shared';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
-import CountryFlag from '../CountryFlag';
+import PlayerName from '../PlayerName';
 import type { MPPlayer } from '../../store/multiplayerStore';
 
 interface PlayerListProps {
@@ -50,26 +50,25 @@ export default function PlayerList({
               {mode !== 'lobby' && (
                 <Text style={[styles.rankText, dense && styles.rankTextBetween]}>{t('rankN', { rank: index + 1 }, '#{{rank}}')}</Text>
               )}
-              {player.countryCode && (
-                <CountryFlag countryCode={player.countryCode} size={dense ? 16 : 18} />
-              )}
-              <Text
-                style={[
+              <PlayerName
+                name={player.username}
+                countryCode={player.countryCode}
+                flagSize={dense ? 16 : 18}
+                gap={8}
+                textStyle={[
                   styles.playerName,
                   dense && styles.playerNameDense,
                   player.id === myId && styles.playerNameSelf,
                   dense && styles.playerNameBetween,
                 ]}
-                numberOfLines={1}
               >
-                {player.username}
-              </Text>
-              {player.host && (
-                <Text style={styles.hostText}>({t('host')})</Text>
-              )}
-              {player.supporter && (
-                <Ionicons name="heart" size={12} color="#ff6b9d" />
-              )}
+                {player.host && (
+                  <Text style={styles.hostText}>({t('host')})</Text>
+                )}
+                {player.supporter && (
+                  <Ionicons name="heart" size={12} color="#ff6b9d" />
+                )}
+              </PlayerName>
             </View>
             {shouldShowScores && (
               <View style={styles.playerRight}>

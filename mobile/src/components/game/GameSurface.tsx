@@ -24,8 +24,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../shared';
 import { t } from '../../shared/locale';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
-import StreetViewWebView from './StreetViewWebView';
+import StreetViewWebView, { StreetViewHandle } from './StreetViewWebView';
 import EmbeddedMap from './EmbeddedMap';
+import ReloadButton from '../ui/ReloadButton';
 import { useSettingsStore } from '../../store/settingsStore';
 import CountryButtons from './CountryButtons';
 import GameLoadingOverlay from './GameLoadingOverlay';
@@ -114,6 +115,9 @@ interface GameSurfaceProps {
   loadingError?: string | null;
   onLoadingRetry?: () => void;
   loadingRetryLabel?: string;
+  /** Back/leave handler shown on the loading cover (see GameLoadingOverlay.onBack).
+   *  Pass only for modes where bailing mid-load is safe (singleplayer). */
+  onLoadingBack?: () => void;
   /** Mirrors web CountryBtns compact mode. Regular play uses compact; onboarding does not. */
   compactCountryButtons?: boolean;
   /**
@@ -134,6 +138,8 @@ interface GameSurfaceProps {
   maxDist?: number;
   /** Current round number — seeds the embed hint circle offset (matches web). */
   round?: number;
+  /** Shows the blue "reload street view" button (web parity). Default on. */
+  enableReload?: boolean;
 }
 
 const EXPANDED_MAP_HEIGHT_RATIO = 0.5;
@@ -163,6 +169,7 @@ function GameSurface(
     loadingError,
     onLoadingRetry,
     loadingRetryLabel,
+    onLoadingBack,
     compactCountryButtons = true,
     hideInputs = false,
     showPanoOnResult = false,
@@ -172,10 +179,12 @@ function GameSurface(
     hintCircleData = null,
     maxDist,
     round,
+    enableReload = true,
   }: GameSurfaceProps,
   ref: React.Ref<GameSurfaceHandle>,
 ) {
   const insets = useSafeAreaInsets();
+  const streetViewRef = useRef<StreetViewHandle>(null);
   const mapType = useSettingsStore((s) => s.mapType);
   const language = useSettingsStore((s) => s.language);
   const { width, height } = useWindowDimensions();
@@ -329,12 +338,20 @@ function GameSurface(
   const mapOpacity = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (isCountryVariant) {
+      // Pure opacity fade-in, mirroring web's `mapFadeReveal` (opacity 0 -> 1)
+      // for #miniMapArea.countryGuessrMapReveal. The map is SNAPPED to full size
+      // (mapSlideAnim = 1, no slide) and the whole overlay simply fades in —
+      // slow & smooth, no dim, no slide. The Leaflet camera glides to the answer
+      // underneath the fade.
       mapSlideAnim.setValue(isShowingResult ? 1 : 0);
       Animated.timing(mapOpacity, {
         toValue: isShowingResult ? 1 : 0,
-        duration: isShowingResult ? 1200 : 260,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        // Snappy fade-in (still smooth), quick fade-out.
+        duration: isShowingResult ? 550 : 260,
+        easing: Easing.inOut(Easing.ease),
+        // JS-driven to match the overlay's animated `height` prop on the same
+        // node (mixing native + JS drivers on one view is unsupported).
+        useNativeDriver: false,
       }).start();
       return;
     }
@@ -454,6 +471,9 @@ function GameSurface(
     !showLoadingBanner &&
     !isShowingResult &&
     !hideInputs;
+  // Reload button: shown while the pano is loaded and the player is actively
+  // guessing — mirrors web's reloadBtn conditions (active round, not result).
+  const showReload = enableReload && !showLoadingBanner && !isShowingResult && !hideInputs;
 
   // Fade the country-button dock and the FAB in/out instead of hard-mounting
   // — the user wants fades wherever possible.
@@ -517,6 +537,7 @@ function GameSurface(
         <View style={StyleSheet.absoluteFillObject}>
           {location && canMountStreetView && (
             <StreetViewWebView
+              ref={streetViewRef}
               lat={location.lat}
               long={location.long}
               heading={location.heading ?? undefined}
@@ -526,10 +547,17 @@ function GameSurface(
           )}
         </View>
 
-        {/* Top-left / center / right slots — provided by parent. */}
-        {topLeftSlot && (
+        {/* Top-left / center / right slots — provided by parent. The blue
+            reload button (web parity) sits to the right of the back button
+            while the pano is loaded and the player is actively guessing. */}
+        {(topLeftSlot || showReload) && (
           <SafeAreaView edges={['top']} style={styles.topLeft} pointerEvents="box-none">
-            {topLeftSlot}
+            <View style={styles.topLeftStack} pointerEvents="box-none">
+              {topLeftSlot}
+              {showReload && (
+                <ReloadButton onPress={() => streetViewRef.current?.reload()} />
+              )}
+            </View>
           </SafeAreaView>
         )}
         {topCenterSlot && (
@@ -539,10 +567,15 @@ function GameSurface(
         )}
 
         {/* Map overlay — for pin variant, animates height (slide-up); for
-            country/continent, height is snapped and we fade in by
-            crossfading a dark scrim on top of the map. */}
+            country/continent, the height is snapped to full and the whole
+            overlay fades in (web `mapFadeReveal` parity) — slow & smooth, no
+            slide, no dim. */}
         <Animated.View
-          style={[styles.mapOverlay, { height: mapHeight }]}
+          style={[
+            styles.mapOverlay,
+            { height: mapHeight },
+            isCountryVariant && { opacity: mapOpacity },
+          ]}
           pointerEvents={miniMapShown || isShowingResult ? 'auto' : 'none'}
         >
           <View
@@ -593,23 +626,6 @@ function GameSurface(
             )}
           </View>
 
-          {isCountryVariant && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                StyleSheet.absoluteFillObject,
-                {
-                  backgroundColor: '#08120d',
-                  // Cap the dim at 0.55 so the map is visible through the
-                  // scrim from frame 1.
-                  opacity: mapOpacity.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.55, 0],
-                  }),
-                },
-              ]}
-            />
-          )}
         </Animated.View>
 
         {/* Pin variant: Guess + collapse buttons above the open mini-map. */}
@@ -798,6 +814,7 @@ function GameSurface(
         error={loadingError}
         onRetry={onLoadingRetry}
         retryLabel={loadingRetryLabel}
+        onBack={onLoadingBack}
       />
     </View>
   );
@@ -814,6 +831,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     zIndex: 102,
+  },
+  topLeftStack: {
+    // Horizontal row so the reload button sits to the RIGHT of the back button
+    // (matches web's navbar). alignSelf keeps the row hugging its buttons so the
+    // empty strip beside them never swallows pano touches.
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    alignSelf: 'flex-start',
   },
   topCenter: {
     position: 'absolute',

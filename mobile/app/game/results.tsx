@@ -31,7 +31,7 @@ import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { dismissAllSafe } from '../../src/utils/navigation';
 import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 import PinMarker from '../../src/components/game/PinMarker';
-import CountryFlag from '../../src/components/CountryFlag';
+import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
 import BackButton from '../../src/components/ui/BackButton';
 
@@ -84,6 +84,7 @@ interface MultiplayerInfo {
   isWinner: boolean;
   isDraw: boolean;
   roundData: Record<string, PlayerRoundData[]>;
+  timeElapsedMs?: number;
 }
 
 interface DuelOpponent {
@@ -457,6 +458,7 @@ export default function GameResultsScreen() {
         isWinner: duelEnd?.winner ?? false,
         isDraw: duelEnd?.draw ?? false,
         roundData,
+        timeElapsedMs: typeof duelEnd?.timeElapsed === 'number' ? duelEnd.timeElapsed : undefined,
       });
     } catch {}
   }, [isLiveMultiplayer, playersParam, duelEndParam, rounds, liveMyIdParam, duelParam]);
@@ -1140,13 +1142,19 @@ export default function GameResultsScreen() {
         </>
       )}
 
-      {/* Score */}
-      <Text style={[styles.scoreValue, compact && { fontSize: 30 }]}>
-        {displayScore.toLocaleString()}
-      </Text>
-      <Text style={[styles.scoreSubtitle, compact && { fontSize: 11, marginBottom: 4 }]}>
-        {t('outOfPoints', { maxScore: maxScore.toLocaleString() })}
-      </Text>
+      {/* Score — singleplayer + non-duel multiplayer only. Web's duel header
+          shows just title + ELO + time (no "out of N points"), so hide it for
+          duels to match. */}
+      {!multiplayerInfo?.isDuel && (
+        <>
+          <Text style={[styles.scoreValue, compact && { fontSize: 30 }]}>
+            {displayScore.toLocaleString()}
+          </Text>
+          <Text style={[styles.scoreSubtitle, compact && { fontSize: 11, marginBottom: 4 }]}>
+            {t('outOfPoints', { maxScore: maxScore.toLocaleString() })}
+          </Text>
+        </>
+      )}
 
       {/* Action buttons */}
       <View style={styles.headerButtons}>
@@ -1272,14 +1280,17 @@ export default function GameResultsScreen() {
                 style={[styles.roundItem, isMe && { backgroundColor: 'rgba(76, 175, 80, 0.15)' }]}
               >
                 <View style={styles.roundItemHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1, minWidth: 0 }}>
                     {idx < 3 && (
                       <Ionicons name="trophy" size={16} color={trophyColors[idx]} />
                     )}
-                    {player.countryCode && <CountryFlag countryCode={player.countryCode} size={14} />}
-                    <Text style={[styles.roundNumber, isMe && { color: '#4CAF50' }]}>
-                      {t('leaderboardPlayerRank', { rank: idx + 1, username: player.username })}{isMe ? ` (${t('you')})` : ''}
-                    </Text>
+                    <PlayerName
+                      name={`${t('leaderboardPlayerRank', { rank: idx + 1, username: player.username })}${isMe ? ` (${t('you')})` : ''}`}
+                      countryCode={player.countryCode}
+                      flagSize={14}
+                      gap={8}
+                      textStyle={[styles.roundNumber, isMe && { color: '#4CAF50' }]}
+                    />
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={[styles.roundPts, { color: getPointsColor(player.totalPoints) }]}>
@@ -1443,21 +1454,45 @@ export default function GameResultsScreen() {
               {/* Round header row */}
               <View style={styles.roundItemHeader}>
                 <Text style={styles.roundNumber}>{t('roundNumber', { round: index + 1 })}</Text>
-                <Text style={[styles.roundPts, { color: getPointsColor(round.points) }]}>
-                  {t('ptsCount', { points: round.points.toLocaleString() })}
-                </Text>
+                {/* Duel: time + Street View button on the right (web parity:
+                    roundOverScreen.js duel round-header). Non-duel keeps points. */}
+                {multiplayerInfo?.isDuel ? (
+                  <View style={styles.roundHeaderRight}>
+                    {round.timeTaken != null && round.timeTaken > 0 && (
+                      <Text style={styles.roundTimeText}>⏱️ {formatTime(round.timeTaken)}</Text>
+                    )}
+                    {round.actualLat != null && round.actualLong != null && (
+                      <Pressable
+                        onPress={() => openInGoogleMaps(round.actualLat!, round.actualLong!, round.panoId)}
+                        style={({ pressed }) => [
+                          styles.gmapsButton,
+                          pressed && { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
+                        ]}
+                        hitSlop={8}
+                        accessibilityLabel={t('openInMaps')}
+                      >
+                        <Text style={styles.gmapsIcon}>📍</Text>
+                      </Pressable>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={[styles.roundPts, { color: getPointsColor(round.points) }]}>
+                    {t('ptsCount', { points: round.points.toLocaleString() })}
+                  </Text>
+                )}
               </View>
 
               {/* Duel: side-by-side comparison */}
               {multiplayerInfo?.isDuel && duelOpp ? (
                 <View style={styles.duelRoundRow}>
                   <View style={styles.duelPlayerCol}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      {useAuthStore.getState().user?.countryCode && (
-                        <CountryFlag countryCode={useAuthStore.getState().user!.countryCode!} size={12} />
-                      )}
-                      <Text style={styles.duelPlayerName}>{t('you')}</Text>
-                    </View>
+                    <PlayerName
+                      name={t('you')}
+                      countryCode={useAuthStore.getState().user?.countryCode}
+                      flagSize={12}
+                      gap={4}
+                      textStyle={styles.duelPlayerName}
+                    />
                     {round.didGuess ? (
                       <Text style={[styles.duelPlayerScore, { color: getPointsColor(round.points) }]}>
                         {t('ptsCount', { points: round.points })}
@@ -1477,10 +1512,13 @@ export default function GameResultsScreen() {
                   <Text style={styles.vsDivider}>{t('versus', undefined, 'VS')}</Text>
 
                   <View style={styles.duelPlayerCol}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      {duelOpp.countryCode && <CountryFlag countryCode={duelOpp.countryCode} size={12} />}
-                      <Text style={styles.duelPlayerName}>{duelOpp.username}</Text>
-                    </View>
+                    <PlayerName
+                      name={duelOpp.username}
+                      countryCode={duelOpp.countryCode}
+                      flagSize={12}
+                      gap={4}
+                      textStyle={styles.duelPlayerName}
+                    />
                     {duelOpp.didGuess ? (
                       <Text style={[styles.duelPlayerScore, { color: getPointsColor(duelOpp.points) }]}>
                         {t('ptsCount', { points: duelOpp.points })}
@@ -1889,6 +1927,31 @@ const styles = StyleSheet.create({
   roundPts: {
     fontSize: fontSizes.md,
     fontFamily: 'Lexend-Bold',
+  },
+  roundHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  // Web shows the time using `.round-points` (bold white) — mirror it.
+  roundTimeText: {
+    fontSize: fontSizes.md,
+    fontFamily: 'Lexend-Bold',
+    color: colors.white,
+  },
+  // Matches web roundOverScreen.js `.gmaps-icon` inline style exactly.
+  gmapsButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 3,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  gmapsIcon: {
+    fontSize: 12,
+    lineHeight: 16,
   },
   roundDetails: {
     gap: 4,

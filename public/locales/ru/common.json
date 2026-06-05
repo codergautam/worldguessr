@@ -680,6 +680,7 @@
   "gameLobby": "Лобби игры",
   "inviteLinkCopied": "Ссылка-приглашение скопирована!",
   "tapToCopyInviteLink": "Нажмите, чтобы скопировать ссылку-приглашение",
+  "tapToShareInviteLink": "Нажмите, чтобы поделиться ссылкой-приглашением",
   "playersCount": "Игроки ({{cnt}})",
   "timerOff": "Таймер выключен",
   "secondsShort": "{{secs}}с",

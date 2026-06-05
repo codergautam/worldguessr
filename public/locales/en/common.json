@@ -680,6 +680,7 @@
   "gameLobby": "Game Lobby",
   "inviteLinkCopied": "Invite link copied!",
   "tapToCopyInviteLink": "Tap to copy invite link",
+  "tapToShareInviteLink": "Tap to share invite link",
   "playersCount": "Players ({{cnt}})",
   "timerOff": "Timer Off",
   "secondsShort": "{{secs}}s",

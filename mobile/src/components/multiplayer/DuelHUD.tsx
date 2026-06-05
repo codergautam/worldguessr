@@ -12,7 +12,7 @@
  * on timing) and by `.reduceMotion(ReduceMotion.Never)` on the layout animations.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { View, Text, StyleSheet, Platform, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -31,11 +31,19 @@ import { colors, getHealthColor, getLeague, t, HEALTH_GRADIENTS } from '../../sh
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { MPPlayer } from '../../store/multiplayerStore';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
-import CountryFlag from '../CountryFlag';
+import PlayerName from '../PlayerName';
 
 interface DuelHUDProps {
   players: MPPlayer[];
   myId: string;
+  /**
+   * Optional node (the round timer) rendered in the gap BETWEEN the two corner
+   * health bars. The game screen passes this only when the middle gap is wide
+   * enough (landscape / tablets / large phones); flexbox `space-between` then
+   * centers it exactly between the bars. Omitted → bars sit at the edges and the
+   * timer is rendered below them by the parent.
+   */
+  centerSlot?: ReactNode;
 }
 
 const MAX_HP = 5000;
@@ -43,8 +51,16 @@ const HP_ANIM_MS = 1200;       // fill + number, matches web's 1200ms RAF tween
 const DAMAGE_ANIM_MS = 2000;   // floating "-X", matches web's damage-float
 const TRACK_HEIGHT = 22;
 const ENTER_STAGGER_MS = 120;  // opponent bar slides in just after yours
+// Fixed bar width pinned to each corner (web parity: .health-bar-container is a
+// fixed 160px at mobile widths, NOT flex-stretched). The middle gap grows with
+// the screen instead of the bars; `maxWidth` lets them shrink on tiny phones.
+// Exported so the game screen can size the middle gap and decide whether the
+// round timer fits between the bars.
+export const BAR_WIDTH = 164;
+/** Fraction of the row each bar may occupy before it shrinks (collision guard). */
+export const BAR_MAX_FRACTION = 0.47;
 
-export default function DuelHUD({ players, myId }: DuelHUDProps) {
+export default function DuelHUD({ players, myId, centerSlot }: DuelHUDProps) {
   const me = players.find((p) => p.id === myId);
   const opponent = players.find((p) => p.id !== myId);
 
@@ -53,6 +69,11 @@ export default function DuelHUD({ players, myId }: DuelHUDProps) {
   return (
     <View style={styles.row}>
       <HealthBar player={me} isMe side="left" />
+      {centerSlot != null && (
+        <View style={styles.centerSlot} pointerEvents="none">
+          {centerSlot}
+        </View>
+      )}
       <HealthBar player={opponent} isMe={false} side="right" />
     </View>
   );
@@ -149,20 +170,19 @@ function HealthBar({
   const eloColor = league?.light ?? league?.color ?? '#60a5fa';
 
   const nameInner = (
-    <>
-      {player.countryCode && <CountryFlag countryCode={player.countryCode} size={14} />}
-      <Text
-        style={[styles.username, !isMe && styles.usernameOpponent]}
-        numberOfLines={1}
-      >
-        {player.username}
-      </Text>
+    <PlayerName
+      name={player.username}
+      countryCode={player.countryCode}
+      flagSize={14}
+      textStyle={[styles.username, !isMe && styles.usernameOpponent]}
+      gap={5}
+    >
       {player.elo !== undefined && (
         <Text style={[styles.elo, { color: eloColor, textShadowColor: `${eloColor}70` }]}>
           ({player.elo})
         </Text>
       )}
-    </>
+    </PlayerName>
   );
 
   return (
@@ -263,13 +283,21 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    // Pin one bar to each edge so a clear gap opens in the middle and grows with
+    // the screen (web parity), instead of both bars stretching to fill the width.
+    justifyContent: 'space-between',
     width: '100%',
-    gap: spacing.md,
-    paddingHorizontal: spacing.xs,
   },
   bar: {
-    flex: 1,
-    minWidth: 0,
+    width: BAR_WIDTH,
+    maxWidth: '47%',  // == BAR_MAX_FRACTION; shrink rather than overflow on narrow phones
+    flexShrink: 1,
+  },
+  centerSlot: {
+    flex: 1,           // soak up the gap between the two fixed-width bars
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingHorizontal: spacing.sm,
   },
   barInner: {
     width: '100%',

@@ -27,8 +27,16 @@ export default function WsIndicator() {
   const slideAnim = useRef(new Animated.Value(80)).current; // off-screen right
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const prevConnected = useRef(connected);
-  const prevConnecting = useRef(connecting);
+  // Initialize the prev-refs to the IDLE state (false/false), NOT the current
+  // store value. WsIndicator lives behind the splash/loading gate in _layout, so
+  // on a slow connect it mounts AFTER useWebSocket has already flipped
+  // `connecting:true`. Seeding these refs from the live value would make the first
+  // effect run see `wasConnecting===true`, miss the false→true edge, and never
+  // schedule the 3s reveal timer — leaving the yellow icon permanently hidden.
+  // Pretending we were idle before mount lets that first run detect the edge and
+  // reveal normally.
+  const prevConnected = useRef(false);
+  const prevConnecting = useRef(false);
   const connectingStartTime = useRef<number | null>(null);
   const connectingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

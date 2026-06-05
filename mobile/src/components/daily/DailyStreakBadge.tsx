@@ -6,7 +6,7 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { withRepeat, withSequence, withTiming } from './anims';
+import { withRepeat, withSequence, withTiming, withSpring } from './anims';
 import { LinearGradient } from 'expo-linear-gradient';
 import { t } from '../../shared/locale';
 import { dailyColors, dailyTimings } from './styles';
@@ -23,6 +23,16 @@ interface Props {
 export default function DailyStreakBadge({ streak, variant = 'default', size = 'sm', align = 'flex-start' }: Props) {
   const scale = useSharedValue(1);
   const brightness = useSharedValue(1);
+  // One-shot entrance: the pill mounts only after the async streak fetch
+  // resolves (the home row has already slid in), so without this it just pops.
+  const enter = useSharedValue(0);
+
+  useEffect(() => {
+    enter.value = withSpring(1, { damping: 11, stiffness: 170, mass: 0.6 });
+    return () => {
+      cancelAnimation(enter);
+    };
+  }, []);
 
   useEffect(() => {
     cancelAnimation(scale);
@@ -55,10 +65,15 @@ export default function DailyStreakBadge({ streak, variant = 'default', size = '
     };
   }, [variant]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-    opacity: brightness.value,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    // Entrance scales 0.6 -> 1 (spring overshoots past 1 for a subtle pop) and
+    // fades 0 -> 1; multiply by the looping pulse scale so both compose.
+    const enterScale = 0.6 + 0.4 * enter.value;
+    return {
+      transform: [{ scale: enterScale * scale.value }],
+      opacity: brightness.value * Math.min(1, enter.value),
+    };
+  });
 
   if (!streak || streak <= 0) return null;
 
@@ -95,7 +110,7 @@ export default function DailyStreakBadge({ streak, variant = 'default', size = '
         end={{ x: 1, y: 1 }}
         style={styles.pill}
       >
-        <Text style={[styles.icon, { fontSize: fontSize + 2 }]} accessibilityElementsHidden>
+        <Text style={[styles.icon, { fontSize: fontSize + 2, color: textColor }]} accessibilityElementsHidden>
           {variant === 'done' ? '✓' : '🔥'}
         </Text>
         <Text style={[styles.label, { fontSize, color: textColor }]}>
@@ -118,6 +133,10 @@ const styles = StyleSheet.create({
   },
   icon: {
     lineHeight: 18,
+    // Match the label so the white ✓ stays legible on light gradients.
+    textShadowColor: 'rgba(0,0,0,0.45)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   label: {
     fontFamily: 'Lexend-SemiBold',

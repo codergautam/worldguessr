@@ -680,6 +680,7 @@
   "gameLobby": "Spiel-Lobby",
   "inviteLinkCopied": "Einladungslink kopiert!",
   "tapToCopyInviteLink": "Tippen, um den Einladungslink zu kopieren",
+  "tapToShareInviteLink": "Tippen, um den Einladungslink zu teilen",
   "playersCount": "Spieler ({{cnt}})",
   "timerOff": "Timer aus",
   "secondsShort": "{{secs}}s",

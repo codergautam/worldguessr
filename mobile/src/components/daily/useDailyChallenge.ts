@@ -27,6 +27,10 @@ export function useDailyChallenge({ secret, dateOverride, autoFetchResults = fal
 
   const [locationData, setLocationData] = useState<LocationData | null>(null);
   const [locationError, setLocationError] = useState<Error | null>(null);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  // Prevents the prefetch effect and an explicit retry from firing overlapping
+  // requests; also lets the retry button no-op while a fetch is already running.
+  const locationFetchInFlight = useRef(false);
 
   const [results, setResults] = useState<ResultsData | null>(null);
   const [resultsError, setResultsError] = useState<Error | null>(null);
@@ -56,11 +60,23 @@ export function useDailyChallenge({ secret, dateOverride, autoFetchResults = fal
   }, [date, secret]);
 
   const fetchLocations = useCallback(async () => {
+    if (locationFetchInFlight.current) return;
+    locationFetchInFlight.current = true;
+    setLoadingLocations(true);
+    setLocationError(null); // clear any stale error so a retry can succeed cleanly
     try {
       const data = await api.dailyChallenge.locations(date, secret ?? undefined);
+      // No usable locations is as unplayable as a network failure — surface it as
+      // an error so the UI blocks the run rather than entering a broken game.
+      if (!data?.locations?.length) {
+        throw new Error('Daily locations unavailable');
+      }
       setLocationData(data);
     } catch (err) {
       setLocationError(err as Error);
+    } finally {
+      locationFetchInFlight.current = false;
+      setLoadingLocations(false);
     }
   }, [date, secret]);
 
@@ -136,6 +152,7 @@ export function useDailyChallenge({ secret, dateOverride, autoFetchResults = fal
     guestId,
     locationData,
     locationError,
+    loadingLocations,
     fetchLocations,
     results,
     resultsError,

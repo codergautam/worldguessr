@@ -1,8 +1,13 @@
 /**
  * Animated ELO change display for ranked duel results.
+ *
+ * Mirrors the web duel header (components/roundOverScreen.js `elo-container`):
+ * an "ELO:" label, the NEW rating counting up/down from the old value, and the
+ * delta in green/red. No old→new arrow, no parentheses, and no duplicate
+ * Victory/Defeat label — that title already sits above this in the header.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -54,25 +59,45 @@ export default function EloChangeDisplay({
   draw,
 }: EloChangeDisplayProps) {
   const delta = newElo - oldElo;
-  const slide = useSharedValue(0);
-  const scale = useSharedValue(0.5);
   const particleCount = delta > 0 ? getParticleCount(newElo) : 0;
   const starColor = getStarColor(newElo);
 
+  // Count the rating up/down from old → new (web parity: `animatedElo`). Capped
+  // at 60 steps so a large swing still finishes in ~1.2s without lagging.
+  const [animatedElo, setAnimatedElo] = useState(oldElo);
   useEffect(() => {
-    slide.value = withDelay(
-      500,
-      withTiming(1, {
-        duration: 600,
-        easing: Easing.out(Easing.back(1.5)),
-      }),
-    );
+    if (oldElo === newElo) {
+      setAnimatedElo(newElo);
+      return;
+    }
+    const DURATION = 1200;
+    const START_DELAY = 350; // let the "Victory/Defeat" title land first
+    const steps = Math.min(Math.abs(delta), 60);
+    const stepMs = DURATION / steps;
+    let i = 0;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    setAnimatedElo(oldElo);
+    const startTimer = setTimeout(() => {
+      interval = setInterval(() => {
+        i += 1;
+        setAnimatedElo(i >= steps ? newElo : Math.round(oldElo + (delta * i) / steps));
+        if (i >= steps && interval) clearInterval(interval);
+      }, stepMs);
+    }, START_DELAY);
+    return () => {
+      clearTimeout(startTimer);
+      if (interval) clearInterval(interval);
+    };
+  }, [oldElo, newElo, delta]);
+
+  // Subtle pop-in on the value row.
+  const slide = useSharedValue(0);
+  const scale = useSharedValue(0.6);
+  useEffect(() => {
+    slide.value = withDelay(150, withTiming(1, { duration: 350 }));
     scale.value = withDelay(
-      500,
-      withTiming(1, {
-        duration: 600,
-        easing: Easing.out(Easing.back(1.5)),
-      }),
+      150,
+      withTiming(1, { duration: 450, easing: Easing.out(Easing.back(1.6)) }),
     );
     return () => {
       cancelAnimation(slide);
@@ -80,20 +105,13 @@ export default function EloChangeDisplay({
     };
   }, [scale, slide]);
 
-  const deltaStyle = useAnimatedStyle(() => ({
+  const displayStyle = useAnimatedStyle(() => ({
     opacity: slide.value,
-    transform: [
-      { scale: scale.value },
-      { translateX: (1 - slide.value) * -20 },
-    ],
+    transform: [{ scale: scale.value }],
   }));
 
-  const deltaColor = draw
-    ? 'rgba(255, 255, 255, 0.6)'
-    : winner
-      ? colors.success
-      : colors.error;
-
+  // Web colours the delta purely by sign (`eloChange >= 0 ? green : red`).
+  const deltaColor = delta >= 0 ? colors.success : colors.error;
   const deltaText = delta >= 0 ? `+${delta}` : `${delta}`;
 
   return (
@@ -106,20 +124,11 @@ export default function EloChangeDisplay({
           color={starColor}
         />
       ))}
-      <Text style={styles.label}>{t('eloRating')}</Text>
-      <View style={styles.row}>
-        <Text style={styles.oldElo}>{oldElo}</Text>
-        <Animated.View style={[styles.deltaContainer, deltaStyle]}>
-          <Text style={styles.arrow}>-&gt;</Text>
-          <Text style={[styles.newElo, { color: deltaColor }]}>{newElo}</Text>
-          <Text style={[styles.delta, { color: deltaColor }]}>
-            ({deltaText})
-          </Text>
-        </Animated.View>
-      </View>
-      <Text style={[styles.resultLabel, { color: deltaColor }]}>
-        {draw ? t('draw') : winner ? t('victory') : t('defeat')}
-      </Text>
+      <Text style={styles.label}>{t('elo')}:</Text>
+      <Animated.View style={[styles.row, displayStyle]}>
+        <Text style={styles.value}>{animatedElo}</Text>
+        <Text style={[styles.delta, { color: deltaColor }]}>{deltaText}</Text>
+      </Animated.View>
     </View>
   );
 }
@@ -180,52 +189,33 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     gap: spacing.xs,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     position: 'relative',
   },
   label: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: fontSizes.xs,
+    color: 'rgba(255, 255, 255, 0.45)',
+    fontSize: fontSizes.sm,
     fontFamily: 'Lexend-SemiBold',
     letterSpacing: 2,
     textTransform: 'uppercase',
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
     gap: spacing.sm,
   },
-  oldElo: {
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontSize: fontSizes.xl,
-    fontFamily: 'Lexend-Bold',
-  },
-  deltaContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  arrow: {
-    color: 'rgba(255, 255, 255, 0.4)',
-    fontSize: fontSizes.lg,
-    fontFamily: 'Lexend',
-  },
-  newElo: {
-    fontSize: fontSizes['2xl'],
+  value: {
+    color: colors.white,
+    fontSize: fontSizes['3xl'],
     fontFamily: 'Lexend-Bold',
   },
   delta: {
-    fontSize: fontSizes.md,
+    fontSize: fontSizes.xl,
     fontFamily: 'Lexend-SemiBold',
-  },
-  resultLabel: {
-    fontSize: fontSizes.lg,
-    fontFamily: 'Lexend-Bold',
-    marginTop: spacing.xs,
   },
   starParticle: {
     position: 'absolute',
-    top: 18,
+    top: 10,
     fontSize: 18,
     fontFamily: 'Lexend-Bold',
     textShadowOffset: { width: 0, height: 0 },

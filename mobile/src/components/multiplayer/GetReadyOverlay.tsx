@@ -1,18 +1,35 @@
 /**
- * Fullscreen overlay shown during the "getready" phase before a duel round.
- * A draining ring countdown with WorldGuessr branding + generation progress.
+ * Fullscreen overlay shown during the "getready" phase before duel round 1 —
+ * the opponent introduction (web parity: the two players slide to center with a
+ * "VS" in gameUI.js while `isStartingDuel`).
+ *
+ * WorldGuessr has no user avatars, so each player is identified by their country
+ * flag + name + league/ELO. The round countdown is intentionally understated — a
+ * thin draining bar, not a hero ring — so the matchup is the focus.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Animated, StyleSheet } from 'react-native';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import Reanimated, {
+  FadeIn,
+  FadeInLeft,
+  FadeInRight,
+  ZoomIn,
+  ReduceMotion,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { t } from '../../shared';
-import { spacing } from '../../styles/theme';
+import { colors, getLeague, t } from '../../shared';
+import { spacing, fontSizes, borderRadius } from '../../styles/theme';
+import { MPPlayer } from '../../store/multiplayerStore';
 import WgWordmark from '../ui/WgWordmark';
-import MatchCountdown from '../ui/MatchCountdown';
+import PlayerName from '../PlayerName';
 
 interface GetReadyOverlayProps {
+  /** Both duel players — drives the opponent-introduction matchup. */
+  players?: MPPlayer[];
+  /** My player id (so the matchup knows which side is "You"). */
+  myId?: string;
   round: number;
   totalRounds: number;
   /** Server timestamp when getready phase ends */
@@ -23,34 +40,33 @@ interface GetReadyOverlayProps {
   generated: number;
 }
 
+const COUNTDOWN_WINDOW = 5;
+
 export default function GetReadyOverlay({
+  players,
+  myId,
   round,
   totalRounds,
   nextEvtTime,
   timeOffset,
   generated,
 }: GetReadyOverlayProps) {
-  const [seconds, setSeconds] = useState(5);
+  const [seconds, setSeconds] = useState(COUNTDOWN_WINDOW);
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.85)).current;
+
+  const me = players?.find((p) => p.id === myId);
+  const opponent = players?.find((p) => p.id !== myId);
+  const showMatchup = !!(me && opponent);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        friction: 6,
-        tension: 80,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fadeAnim, scaleAnim]);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
-  // Countdown from server time (fractional — drives the draining ring)
+  // Countdown from server time (fractional — drives the draining bar)
   useEffect(() => {
     const update = () => {
       const remaining = Math.max(0, (nextEvtTime - Date.now() - timeOffset) / 1000);
@@ -72,23 +88,138 @@ export default function GetReadyOverlay({
         <WgWordmark size="sm" />
       </SafeAreaView>
 
-      <Animated.View style={[styles.body, { transform: [{ scale: scaleAnim }] }]}>
-        <MatchCountdown
+      <View style={styles.body}>
+        {showMatchup && (
+          <View style={styles.matchup}>
+            <PlayerColumn player={me} label={t('you', undefined, 'You')} side="left" />
+            <Reanimated.View
+              entering={ZoomIn.delay(200).duration(380).reduceMotion(ReduceMotion.Never)}
+            >
+              <Text style={styles.vsText}>VS</Text>
+            </Reanimated.View>
+            <PlayerColumn player={opponent} side="right" />
+          </View>
+        )}
+
+        <Countdown
           seconds={seconds}
-          label={t('getReady', undefined, 'Get Ready!')}
-          sublabel={t('round', { r: round, mr: totalRounds }, 'Round #{{r}} / {{mr}}')}
-          footnote={
-            generated < totalRounds
-              ? t(
-                  'loadingLocationsProgress',
-                  { generated, total: totalRounds },
-                  'Loading locations... {{generated}}/{{total}}',
-                )
-              : undefined
-          }
+          round={round}
+          totalRounds={totalRounds}
+          generated={generated}
         />
-      </Animated.View>
+      </View>
     </Animated.View>
+  );
+}
+
+function PlayerColumn({
+  player,
+  label,
+  side,
+}: {
+  player: MPPlayer;
+  /** Override the displayed name (e.g. "You" for the local player). */
+  label?: string;
+  side: 'left' | 'right';
+}) {
+  const league = player.elo !== undefined ? getLeague(player.elo) : null;
+  const accent = league?.light ?? league?.color ?? '#cbd5e1';
+  const name = label ?? player.username;
+  const Entering = side === 'left' ? FadeInLeft : FadeInRight;
+
+  return (
+    <Reanimated.View
+      style={styles.player}
+      entering={Entering.duration(460).reduceMotion(ReduceMotion.Never)}
+    >
+      <PlayerName
+        name={name}
+        countryCode={player.countryCode}
+        flagSize={15}
+        flagStyle={styles.flag}
+        textStyle={styles.name}
+        style={styles.nameRow}
+      />
+
+      {player.elo !== undefined && (
+        <View style={styles.eloRow}>
+          {league?.emoji ? <Text style={styles.eloEmoji}>{league.emoji}</Text> : null}
+          <Text style={[styles.eloText, { color: accent }]}>{player.elo}</Text>
+        </View>
+      )}
+    </Reanimated.View>
+  );
+}
+
+function Countdown({
+  seconds,
+  round,
+  totalRounds,
+  generated,
+}: {
+  seconds: number;
+  round: number;
+  totalRounds: number;
+  generated: number;
+}) {
+  // Grow the window to the largest value seen so the bar starts full even if we
+  // mount a beat into the countdown, then drains only.
+  const windowRef = useRef(COUNTDOWN_WINDOW);
+  windowRef.current = Math.max(windowRef.current, seconds);
+  const progress = windowRef.current > 0
+    ? Math.max(0, Math.min(1, seconds / windowRef.current))
+    : 0;
+
+  // The seconds prop steps every ~100ms; glide the bar between steps so it reads
+  // as a continuous drain rather than a stutter. Hold full until the first real
+  // (>0) value, then snap to the true fill and only ever drain.
+  const barAnim = useRef(new Animated.Value(1)).current;
+  const syncedRef = useRef(false);
+  useEffect(() => {
+    if (!syncedRef.current) {
+      if (seconds > 0) {
+        syncedRef.current = true;
+        barAnim.setValue(progress);
+      }
+      return;
+    }
+    const anim = Animated.timing(barAnim, {
+      toValue: progress,
+      duration: 130,
+      easing: Easing.linear,
+      useNativeDriver: false, // width % isn't a native-driver prop
+    });
+    anim.start();
+    return () => anim.stop();
+  }, [progress, seconds, barAnim]);
+
+  const barWidth = barAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
+  return (
+    <Reanimated.View
+      style={styles.countdown}
+      entering={FadeIn.delay(320).duration(420).reduceMotion(ReduceMotion.Never)}
+    >
+      <Text style={styles.getReady}>{t('getReady', undefined, 'Get Ready!')}</Text>
+
+      <View style={styles.track}>
+        <Animated.View style={[styles.fill, { width: barWidth }]} />
+      </View>
+
+      <Text style={styles.roundText}>
+        {t('round', { r: round, mr: totalRounds }, 'Round #{{r}} / {{mr}}')}
+        {generated < totalRounds
+          ? `  ·  ${t(
+              'loadingLocationsProgress',
+              { generated, total: totalRounds },
+              'Loading locations... {{generated}}/{{total}}',
+            )}`
+          : ''}
+      </Text>
+    </Reanimated.View>
   );
 }
 
@@ -109,5 +240,92 @@ const styles = StyleSheet.create({
   },
   body: {
     alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+  },
+  // ── Opponent-introduction matchup ───────────────────────────────
+  matchup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 420,
+    marginBottom: spacing['3xl'],
+  },
+  player: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    maxWidth: '100%',
+  },
+  flag: {
+    borderRadius: 3,
+  },
+  name: {
+    color: colors.white,
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: fontSizes.md,
+    flexShrink: 1,
+  },
+  eloRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  eloEmoji: {
+    fontSize: 15,
+  },
+  eloText: {
+    fontFamily: 'Lexend-Bold',
+    fontSize: fontSizes.md,
+    fontVariant: ['tabular-nums'],
+  },
+  vsText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: 'Lexend-Bold',
+    fontSize: fontSizes.lg,
+    letterSpacing: 1.5,
+    marginHorizontal: spacing.sm,
+    textShadowColor: 'rgba(0,0,0,0.4)',
+    textShadowRadius: 8,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  // ── Understated round countdown ─────────────────────────────────
+  countdown: {
+    alignItems: 'center',
+  },
+  getReady: {
+    color: colors.white,
+    fontFamily: 'Lexend-Bold',
+    fontSize: fontSizes.lg,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  track: {
+    width: 200,
+    height: 4,
+    borderRadius: 2,
+    marginTop: spacing.md,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    overflow: 'hidden',
+  },
+  fill: {
+    height: '100%',
+    borderRadius: 2,
+    backgroundColor: colors.success,
+  },
+  roundText: {
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: fontSizes.xs,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
 });

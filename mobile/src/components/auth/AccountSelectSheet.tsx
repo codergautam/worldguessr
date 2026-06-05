@@ -27,6 +27,7 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
   const { promptAsync, isReady: googleReady } = useGoogleAuth();
+  const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
   const loginWithApple = useAuthStore((s) => s.loginWithApple);
   const authLoading = useAuthStore((s) => s.isLoading);
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -84,8 +85,25 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
     setProviderLoading('google');
     setError('');
     try {
-      await promptAsync();
-      onClose();
+      // Keep the sheet open through the whole flow so a failure has somewhere to
+      // show — only close once we're actually signed in.
+      const result = await promptAsync();
+      if (result.type === 'success') {
+        const idToken = result.params?.id_token;
+        if (!idToken) {
+          setError(t('googleNoSignInToken', undefined, 'Google did not return a sign in token.'));
+          return;
+        }
+        const res = await loginWithGoogle(idToken);
+        if (res.success) {
+          onClose();
+        } else {
+          setError(res.error || t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.'));
+        }
+      } else if (result.type === 'error') {
+        setError(t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.'));
+      }
+      // 'cancel' / 'dismiss' — the user backed out; not an error, show nothing.
     } catch (e) {
       console.error('Google login error:', e);
       setError(t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.'));
@@ -111,11 +129,11 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
         return;
       }
 
-      const success = await loginWithApple(credential.identityToken);
-      if (success) {
+      const res = await loginWithApple(credential.identityToken);
+      if (res.success) {
         onClose();
       } else {
-        setError(t('appleSignInFailed', undefined, 'Apple sign in failed. Please try again.'));
+        setError(res.error || t('appleSignInFailed', undefined, 'Apple sign in failed. Please try again.'));
       }
     } catch (e: any) {
       if (e?.code !== 'ERR_REQUEST_CANCELED') {

@@ -1,4 +1,5 @@
 import { API_URL } from '../../constants/config';
+import { fetchWithTimeout } from '../../services/fetchWithTimeout';
 import type { DailyClaimResponse } from '@shared/daily/types';
 import { getGuestId, clearGuestId } from './guestId';
 
@@ -41,7 +42,7 @@ export async function claimGuestProgressIfAny(secret?: string | null): Promise<C
   inFlight = (async () => {
     let result: ClaimResult;
     try {
-      const res = await fetch(url, {
+      const res = await fetchWithTimeout(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ guestId, secret }),

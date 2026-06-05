@@ -680,6 +680,7 @@
   "gameLobby": "Salon de partie",
   "inviteLinkCopied": "Lien d'invitation copié !",
   "tapToCopyInviteLink": "Touchez pour copier le lien d'invitation",
+  "tapToShareInviteLink": "Touchez pour partager le lien d'invitation",
   "playersCount": "Joueurs ({{cnt}})",
   "timerOff": "Minuteur désactivé",
   "secondsShort": "{{secs}}s",

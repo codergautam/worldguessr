@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
 import { t } from '../../shared';
 import { ProgressionEntry } from './shared';
-import CountryFlag from '../CountryFlag';
+import PlayerName from '../PlayerName';
 import ProfileTab from './ProfileTab';
 import EloTab from './EloTab';
 import GameHistoryTab from './GameHistoryTab';
@@ -348,11 +348,7 @@ export default function ProfileView({
 
   return (
     <View style={styles.container}>
-      <ImageBackground
-        source={require('../../../assets/street2.jpg')}
-        style={StyleSheet.absoluteFillObject}
-        resizeMode="cover"
-      />
+      <ScreenBackground />
       <LinearGradient
         colors={[
           'rgba(0, 0, 0, 0.9)',
@@ -415,10 +411,14 @@ export default function ProfileView({
                 </Pressable>
               )}
               <View style={styles.usernameRow}>
-                <Text style={styles.usernameText}>{profileData.username}</Text>
-                {profileData.countryCode && (
-                  <CountryFlag countryCode={profileData.countryCode} size={24} />
-                )}
+                <PlayerName
+                  name={profileData.username}
+                  countryCode={profileData.countryCode}
+                  flagSize={24}
+                  gap={10}
+                  numberOfLines={0}
+                  textStyle={styles.usernameText}
+                />
                 {profileData.supporter && (
                   <LinearGradient
                     colors={['#ffd700', '#ffed4e']}

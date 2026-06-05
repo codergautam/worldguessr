@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator, StyleSheet, AppState, type AppStateStatus, BackHandler } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, AppState, type AppStateStatus, BackHandler } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { t } from '../../src/shared';
 import * as Haptics from 'expo-haptics';
 import { useAuthStore } from '../../src/store/authStore';
 import { useDailyChallenge } from '../../src/components/daily/useDailyChallenge';
@@ -77,6 +79,7 @@ export default function DailyScreen() {
     date,
     locationData,
     locationError,
+    loadingLocations,
     fetchLocations,
     results,
     fetchResults,
@@ -125,13 +128,11 @@ export default function DailyScreen() {
     }
   }, [phase, locationData, fetchLocations]);
 
-  // Surface location-load errors and drop back to landing.
-  const lastErrRef = useRef<Error | null>(null);
-  useEffect(() => {
-    if (!locationError || lastErrRef.current === locationError) return;
-    lastErrRef.current = locationError;
-    if (phase === 'loading' || phase === 'confirming') setPhase('landing');
-  }, [locationError, phase]);
+  // Location-load failures are NOT silently bounced to landing anymore — that left
+  // the user guessing why the challenge wouldn't start. Instead the run is blocked
+  // at the loading screen, which shows an error + Retry (see the `phase === 'loading'`
+  // render below). A best-effort prefetch failure during `confirming` is ignored
+  // here: the user hasn't committed yet, and confirming re-fetches into `loading`.
 
   // Transition loading → game once locations arrive.
   useEffect(() => {
@@ -208,9 +209,13 @@ export default function DailyScreen() {
       roundStartedAtRef.current = Date.now();
       setPhase('game');
     } else {
+      // Kick the fetch off as we enter loading so the loading screen opens on the
+      // spinner (loadingLocations=true, error cleared) instead of flashing a stale
+      // prefetch error. The in-flight guard makes the prefetch effect a no-op.
+      fetchLocations();
       setPhase('loading');
     }
-  }, [locationData]);
+  }, [locationData, fetchLocations]);
 
   const finishRound = useCallback(
     (guess: { lat: number; lng: number } | null) => {
@@ -413,9 +418,31 @@ export default function DailyScreen() {
   }
 
   if (phase === 'loading' || (phase === 'game' && !currentLocation)) {
+    // Hard gate: the challenge can't start without locations. A failed fetch shows
+    // an error + Retry instead of spinning forever or silently bouncing — the run
+    // only proceeds once locations actually load (loading → game effect above).
+    const loadFailed = !!locationError && !loadingLocations;
     return (
       <DailyBackground style={styles.loading}>
-        <ActivityIndicator color={dailyColors.green} size="large" />
+        {loadFailed ? (
+          <View style={styles.loadError}>
+            <Ionicons name="cloud-offline-outline" size={52} color={dailyColors.green} />
+            <Text style={styles.loadErrorText}>
+              {t('dailyLocationsLoadFailed', undefined, "Couldn't load today's challenge. Please check your connection and try again.")}
+            </Text>
+            <Pressable
+              onPress={fetchLocations}
+              style={({ pressed }) => [styles.retryBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.retryText}>{t('retry')}</Text>
+            </Pressable>
+            <Pressable onPress={() => setPhase('landing')} hitSlop={10} style={styles.backLink}>
+              <Text style={styles.backLinkText}>{t('back')}</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <ActivityIndicator color={dailyColors.green} size="large" />
+        )}
       </DailyBackground>
     );
   }
@@ -544,6 +571,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadError: {
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  loadErrorText: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: 'Lexend-SemiBold',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  retryBtn: {
+    backgroundColor: dailyColors.green,
+    borderRadius: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  retryText: {
+    color: '#fff',
+    fontFamily: 'Lexend-SemiBold',
+    fontSize: 15,
+  },
+  backLink: {
+    paddingVertical: 6,
+  },
+  backLinkText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: 'Lexend-Medium',
+    fontSize: 14,
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,

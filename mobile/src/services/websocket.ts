@@ -15,17 +15,15 @@ import {
   WS_URL,
   WS_TIMEOUT_MS,
   WS_MAX_RETRIES,
+  WS_INGAME_RECONNECT_ATTEMPTS,
   WS_RETRY_DELAY_MS,
   PONG_INTERVAL_MS,
   TIME_SYNC_INTERVAL_MS,
+  RECONNECT_WINDOW_MS,
+  WS_LIVENESS_TIMEOUT_MS,
 } from './websocketConfig';
 
 const REJOIN_CODE_KEY = 'wg_rejoinCode';
-
-// The server keeps a disconnected player rejoinable for this long; backgrounded
-// past it, our session is likely gone, so a foregrounding must force a fresh
-// connect+verify rather than trust a possibly-zombie "OPEN" socket.
-const RECONNECT_WINDOW_MS = 30_000;
 
 type MessageHandler = (data: any) => void;
 type DisconnectHandler = () => void;
@@ -35,9 +33,17 @@ class WebSocketService {
   private messageHandlers: Set<MessageHandler> = new Set();
   private disconnectHandlers: Set<DisconnectHandler> = new Set();
   private reconnectFailedHandlers: Set<DisconnectHandler> = new Set();
+  // Fired when a reconnect of an established session STARTS (foreground / liveness
+  // / post-drop). Lets the UI flip to "connecting" (yellow WsIcon) without the
+  // "Connection Lost" toast that onDisconnect shows for genuine mid-session drops.
+  private reconnectingHandlers: Set<DisconnectHandler> = new Set();
+  // Fired when a reconnect SUCCEEDS (a fresh verify arrived after we'd been
+  // connected before). Drives the universal "Reconnected!" toast.
+  private reconnectedHandlers: Set<DisconnectHandler> = new Set();
   private pongInterval: ReturnType<typeof setInterval> | null = null;
   private timeSyncInterval: ReturnType<typeof setInterval> | null = null;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
+  private livenessTimeout: ReturnType<typeof setTimeout> | null = null;
   private appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
 
   // Reconnect control (replaces web's window.dontReconnect)
@@ -45,6 +51,24 @@ class WebSocketService {
   private _currentRetry = 0;
   private _secret: string | null = null;
   private _intentionalClose = false;
+
+  // True while the user is in a multiplayer game / party / queue. Pushed from
+  // useWebSocket whenever the store's multiplayer state changes. Shortens the
+  // auto-reconnect budget (reconnectBudget) so a drop we can't recover within
+  // ~the server's rejoin window gives up fast and pops the user home (via the
+  // onReconnectFailed teardown) instead of leaving them on a frozen game.
+  private _inGame = false;
+
+  // True once we've completed at least one verify this session. Gates the
+  // "Reconnected!" toast (so a first connect / cold launch never toasts) and
+  // whether a drop should be treated as a reconnect.
+  private _everConnected = false;
+  // True while the current (re)connection attempt is a reconnect of a previously
+  // established session — set it, and the next verify fires reconnectedHandlers.
+  private _pendingReconnect = false;
+  // Timestamp (ms) of the last timeSync response, used by the liveness watchdog
+  // to detect a zombie socket on foreground (capture-and-compare).
+  private _lastTimeSyncResponseAt = 0;
 
   // Timestamp (ms) the app was last backgrounded, to decide on foreground
   // whether we've been gone long enough that the server dropped our session.
@@ -94,7 +118,11 @@ class WebSocketService {
    * Connect to the WS server with optional auth secret.
    * Ported from initWebsocket.js + home.js:1297-1391.
    */
-  async connect(secret: string | null, force = false): Promise<void> {
+  async connect(
+    secret: string | null,
+    force = false,
+    opts?: { isReconnect?: boolean },
+  ): Promise<void> {
     // Skip if already connected with the same secret. `force` bypasses this so a
     // foreground after a long background can tear down a possibly-stale socket
     // and re-verify even though readyState still reads OPEN.
@@ -103,18 +131,32 @@ class WebSocketService {
       return;
     }
 
+    const isReconnect = !!opts?.isReconnect;
+
     // Bump generation so any in-flight retry chain from a previous connect() is abandoned
     const gen = ++this._generation;
-    console.log(`[WS] connect() called (gen=${gen}, secret=${secret ? 'yes' : 'no'})`);
+    console.log(`[WS] connect() called (gen=${gen}, secret=${secret ? 'yes' : 'no'}, reconnect=${isReconnect})`);
 
     this._secret = secret;
     this._dontReconnect = false;
     this._currentRetry = 0;
+    // Reset-then-set so a stale pendingReconnect from an abandoned attempt can
+    // never survive a fresh connect and fire a spurious "Reconnected!" toast.
+    this._pendingReconnect = isReconnect;
 
     // Cancel any pending retry timeout from a previous connection attempt
     if (this.retryTimeout) {
       clearTimeout(this.retryTimeout);
       this.retryTimeout = null;
+    }
+
+    // A reconnect of an established session: flip the UI to "connecting" (yellow
+    // WsIcon) up front — WITHOUT the "Connection Lost" toast that onDisconnect
+    // shows for genuine mid-session drops. A foreground reconnect via connect()
+    // suppresses handleDisconnect (handlers nulled below), so this is the only
+    // place that can drive the indicator for a reopen reconnect.
+    if (isReconnect) {
+      this.notifyReconnecting();
     }
 
     // Close existing connection cleanly
@@ -132,11 +174,19 @@ class WebSocketService {
     this._intentionalClose = false;
 
     try {
-      await this.initWebsocket(WS_URL, WS_TIMEOUT_MS, WS_MAX_RETRIES, gen);
+      await this.initWebsocket(WS_URL, WS_TIMEOUT_MS, this.reconnectBudget, gen);
     } catch (err) {
-      // Only log if this is still the active generation
+      // Only act if this is still the active generation (a newer connect() owns
+      // the connection state otherwise).
       if (gen === this._generation) {
         console.error('[WS] All connection attempts failed:', err);
+        // A failed reconnect is a real disconnect: drop from "connecting"
+        // (yellow) to disconnected (red) and tear the game down — mirroring
+        // handleDisconnect's give-up path. Without this a failed foreground
+        // reconnect would leave the indicator stuck green forever.
+        if (isReconnect && !this._dontReconnect) {
+          this.notifyReconnectFailed();
+        }
       }
     }
   }
@@ -175,6 +225,26 @@ class WebSocketService {
         this.retryTimeout = null;
       }
     }
+  }
+
+  /**
+   * Tell the service whether the user is currently in a multiplayer game / party /
+   * queue. Drives the shortened in-game reconnect budget (see _inGame /
+   * reconnectBudget). Pushed from useWebSocket whenever the store's multiplayer
+   * state changes.
+   */
+  setInGame(value: boolean): void {
+    this._inGame = value;
+  }
+
+  /**
+   * Auto-reconnect attempt budget. Shortened to a few attempts while the user is
+   * in a multiplayer game / party / queue so a non-recoverable drop pops them home
+   * quickly; the full WS_MAX_RETRIES budget applies everywhere else (home presence
+   * / re-queue should keep retrying).
+   */
+  private get reconnectBudget(): number {
+    return this._inGame ? WS_INGAME_RECONNECT_ATTEMPTS : WS_MAX_RETRIES;
   }
 
   // ── Messaging ─────────────────────────────────────────────
@@ -225,6 +295,61 @@ class WebSocketService {
     return () => {
       this.reconnectFailedHandlers.delete(handler);
     };
+  }
+
+  /**
+   * Register a handler fired when a reconnect of an established session STARTS
+   * (foreground / liveness / post-drop force-reconnect). Lets the UI flip to
+   * "connecting" (yellow) without the "Connection Lost" toast. Returns an
+   * unsubscribe function.
+   */
+  onReconnecting(handler: DisconnectHandler): () => void {
+    this.reconnectingHandlers.add(handler);
+    return () => {
+      this.reconnectingHandlers.delete(handler);
+    };
+  }
+
+  /**
+   * Register a handler fired when a reconnect SUCCEEDS (a fresh verify arrived
+   * after we'd been connected before). Drives the "Reconnected!" toast.
+   * Returns an unsubscribe function.
+   */
+  onReconnected(handler: DisconnectHandler): () => void {
+    this.reconnectedHandlers.add(handler);
+    return () => {
+      this.reconnectedHandlers.delete(handler);
+    };
+  }
+
+  private notifyReconnecting(): void {
+    for (const handler of this.reconnectingHandlers) {
+      try {
+        handler();
+      } catch (err) {
+        console.error('[WS] Reconnecting handler error:', err);
+      }
+    }
+  }
+
+  private notifyReconnected(): void {
+    for (const handler of this.reconnectedHandlers) {
+      try {
+        handler();
+      } catch (err) {
+        console.error('[WS] Reconnected handler error:', err);
+      }
+    }
+  }
+
+  private notifyReconnectFailed(): void {
+    for (const handler of this.reconnectFailedHandlers) {
+      try {
+        handler();
+      } catch (err) {
+        console.error('[WS] Reconnect-failed handler error:', err);
+      }
+    }
   }
 
   // ── Time Sync (ported from home.js:1065-1094) ─────────────
@@ -297,22 +422,59 @@ class WebSocketService {
     if (nextState === 'active') {
       const bgMs = this._backgroundedAt ? Date.now() - this._backgroundedAt : 0;
       this._backgroundedAt = 0;
-      if (this._dontReconnect) return;
-      if (this.isConnected && bgMs < RECONNECT_WINDOW_MS) {
-        // Socket survived a short background — just re-sync the clock.
-        this.sendTimeSync();
+
+      // NOTE: we deliberately DON'T bail on `_dontReconnect` here. A UAC
+      // (userAlreadyConnected) sets that latch so we don't *passively* fight a
+      // device that took over — but bringing this app to the foreground is
+      // explicit intent to use THIS device, so we should reconnect (and let the
+      // server hand the session back). connect() clears the latch. Because this
+      // only fires on a discrete background→foreground transition, it can't loop
+      // into a reconnect war.
+      if (this.isConnected && bgMs < RECONNECT_WINDOW_MS && !this._dontReconnect) {
+        // Socket looks alive and we weren't gone long. But after a freeze the OS
+        // may have killed TCP while readyState still reads OPEN (zombie), so
+        // verify liveness before trusting it.
+        this.verifyLiveness();
       } else {
-        // Either the socket died, or we were backgrounded past the server's
-        // reconnect window (our session is likely evicted). Force a fresh
-        // connect+verify so the server replays the live game (or tells us it
-        // ended). Trusting a possibly-zombie "OPEN" socket here is exactly what
-        // left a stale in-round UI frozen after a long background.
-        this.connect(this._secret, true);
+        // Dead/zombie socket, gone past the server's reconnect window (session
+        // likely evicted), or UAC-suppressed. Force a fresh connect+verify so the
+        // server replays the live game (or tells us it ended). Trusting a
+        // possibly-zombie "OPEN" socket here is exactly what left a stale in-round
+        // UI frozen after a long background.
+        this.connect(this._secret, true, { isReconnect: this._everConnected });
       }
     } else if (nextState === 'background' || nextState === 'inactive') {
       if (!this._backgroundedAt) this._backgroundedAt = Date.now();
     }
   };
+
+  /**
+   * Foreground liveness check for a socket that still reads OPEN. Pings the
+   * server (timeSync) and, if no response arrives within WS_LIVENESS_TIMEOUT_MS,
+   * treats the socket as a zombie and forces a reconnect. Capture-and-compare on
+   * `_lastTimeSyncResponseAt` so a routine timeSync tick can't mask a dead socket.
+   */
+  private verifyLiveness(): void {
+    if (!this.isConnected) {
+      // Raced with a close — just reconnect.
+      this.connect(this._secret, true, { isReconnect: this._everConnected });
+      return;
+    }
+    const gen = this._generation;
+    const before = this._lastTimeSyncResponseAt;
+    this.sendTimeSync();
+
+    if (this.livenessTimeout) clearTimeout(this.livenessTimeout);
+    this.livenessTimeout = setTimeout(() => {
+      this.livenessTimeout = null;
+      // Superseded by a newer connect, or handleDisconnect already took over.
+      if (gen !== this._generation || !this.isConnected) return;
+      if (this._lastTimeSyncResponseAt === before) {
+        console.warn('[WS] Liveness check failed — forcing reconnect');
+        this.connect(this._secret, true, { isReconnect: this._everConnected });
+      }
+    }, WS_LIVENESS_TIMEOUT_MS);
+  }
 
   // ── Internal: connection with retry ───────────────────────
 
@@ -486,6 +648,10 @@ class WebSocketService {
     // (not intentional close from connect()/disconnect())
     if (!this._intentionalClose && !this._dontReconnect) {
       console.log('[WS] Unexpected disconnect — notifying handlers');
+      // This drop will be followed by a reconnect; flag it so the eventual
+      // verify fires the "Reconnected!" toast (only if we'd connected before —
+      // a drop before the first verify isn't a "reconnect").
+      if (this._everConnected) this._pendingReconnect = true;
       for (const handler of this.disconnectHandlers) {
         try {
           handler();
@@ -499,19 +665,13 @@ class WebSocketService {
       // retry, instead of showing a hard red disconnect.
       console.log('[WS] Attempting reconnection...');
       const gen = ++this._generation;
-      this.initWebsocket(WS_URL, WS_TIMEOUT_MS, WS_MAX_RETRIES, gen).catch(
+      this.initWebsocket(WS_URL, WS_TIMEOUT_MS, this.reconnectBudget, gen).catch(
         (err) => {
           // Only the still-active generation should report failure — a newer
           // connect() supersedes us and owns the connection state.
           if (gen === this._generation && !this._dontReconnect) {
             console.error('[WS] Reconnection failed:', err);
-            for (const handler of this.reconnectFailedHandlers) {
-              try {
-                handler();
-              } catch (e) {
-                console.error('[WS] Reconnect-failed handler error:', e);
-              }
-            }
+            this.notifyReconnectFailed();
           }
         },
       );
@@ -529,8 +689,24 @@ class WebSocketService {
     // Handle time sync messages internally as well
     if (data.type === 'timeSync') {
       this.updateTimeOffsetFromSync(data.serverNow, data.clientSentAt);
+      // Mark liveness — the foreground watchdog compares against this timestamp.
+      this._lastTimeSyncResponseAt = Date.now();
     } else if (data.type === 't') {
       this.updateTimeOffsetFallback(data.t);
+    }
+
+    // Reconnect-toast bookkeeping (Fix C). A `verify` after we'd previously
+    // connected, during a pending reconnect, is a successful RE-connection.
+    if (data.type === 'verify') {
+      if (this._everConnected && this._pendingReconnect) {
+        this.notifyReconnected();
+      }
+      this._everConnected = true;
+      this._pendingReconnect = false;
+    } else if (data.type === 'error') {
+      // A UAC / auth error during a reconnect attempt is NOT a success — don't
+      // let a later verify (e.g. a guest re-verify) misfire the toast.
+      this._pendingReconnect = false;
     }
 
     // Dispatch to all registered handlers
@@ -552,6 +728,13 @@ class WebSocketService {
       clearInterval(this.timeSyncInterval);
       this.timeSyncInterval = null;
     }
+    // Single choke point for the liveness watchdog — connect()/disconnect()/
+    // handleDisconnect() all route through here, so a stale watchdog can never
+    // force a reconnect against a newer connection.
+    if (this.livenessTimeout) {
+      clearTimeout(this.livenessTimeout);
+      this.livenessTimeout = null;
+    }
   }
 
   /**
@@ -567,5 +750,30 @@ class WebSocketService {
   }
 }
 
-// Singleton export
+// Singleton export.
+//
+// DEV/HMR guard: when Fast Refresh hot-replaces THIS module, a brand-new
+// WebSocketService is constructed while the PREVIOUS instance's socket is still
+// open and authenticated. The server allows only one live connection per account,
+// so the new socket's verify makes the server kick the old one with `uac`
+// ("You logged in from another device") — even though it's the same single device.
+// Before creating the replacement, tear the old instance down cleanly: stop its
+// AppState listener and disconnect() (which nulls the old socket's onmessage so a
+// stray `uac` never reaches the store, and closes it so the server frees the slot
+// / moves us into the rejoin window). Production evaluates this module once, so the
+// guard is inert there.
+declare const __DEV__: boolean;
+const _g = globalThis as unknown as { __wgWsService?: WebSocketService };
+
+if (__DEV__ && _g.__wgWsService) {
+  try {
+    _g.__wgWsService.stopAppStateListener();
+    _g.__wgWsService.disconnect();
+  } catch {}
+}
+
 export const wsService = new WebSocketService();
+
+if (__DEV__) {
+  _g.__wgWsService = wsService;
+}

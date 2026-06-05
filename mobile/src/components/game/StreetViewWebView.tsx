@@ -1,7 +1,20 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 import { View, ActivityIndicator, StyleSheet, Animated, Easing } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { colors } from '../../shared';
+
+/** Imperative API: lets any HUD reload the current pano (web parity: the blue reload button). */
+export interface StreetViewHandle {
+  /** Re-loads the current panorama in place via a smooth crossfade (no black flash). */
+  reload: () => void;
+}
 
 interface StreetViewWebViewProps {
   lat: number;
@@ -38,6 +51,7 @@ function buildStreetViewHtml(
   pitch: number,
   cropRightPx: number,
   nmpz: boolean,
+  reloadNonce: number,
 ) {
   const headingParam = heading !== null && heading !== undefined ? `&heading=${heading}` : '';
   const pitchParam = pitch !== null && pitch !== undefined ? `&pitch=${pitch}` : '';
@@ -47,6 +61,7 @@ function buildStreetViewHtml(
     <!DOCTYPE html>
     <html>
     <head>
+      <!-- reload:${reloadNonce} -->
       <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -72,7 +87,7 @@ function buildStreetViewHtml(
   `;
 }
 
-export default function StreetViewWebView({
+function StreetViewWebView({
   lat,
   long,
   onLoad,
@@ -85,13 +100,25 @@ export default function StreetViewWebView({
   cropRightPx = 0,
   showInitialLoader = true,
   nmpz = false,
-}: StreetViewWebViewProps) {
+}: StreetViewWebViewProps, ref: React.Ref<StreetViewHandle>) {
   const [sources, setSources] = useState<Record<SlotKey, WebViewSourceState | null>>({
     primary: null,
     secondary: null,
   });
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  // Bumping this re-loads the current pano (same coords) — the imperative
+  // `reload()` below. It feeds the location fingerprint so a bump always counts
+  // as a change, and is baked into the HTML so the WebView source actually
+  // differs. A reload always takes the crossfade path (see the effect) so it's
+  // flash-free regardless of `smoothTransitions`.
+  const [reloadNonce, setReloadNonce] = useState(0);
+  const prevReloadNonceRef = useRef(0);
+
+  useImperativeHandle(ref, () => ({
+    reload: () => setReloadNonce((n) => n + 1),
+  }), []);
 
   const activeSlotRef = useRef<SlotKey>('primary');
   // State mirror of activeSlotRef purely so pointerEvents re-renders when the
@@ -125,10 +152,17 @@ export default function StreetViewWebView({
   useEffect(() => {
     if (!isValidCoordinate) return;
 
-    const locationKey = `${lat}-${long}-${language}-${fov}-${heading ?? ''}-${pitch}-${cropRightPx}-${nmpz}`;
+    // A reload (nonce bump at the same coords) must always crossfade — the old
+    // pano stays visible until the fresh one paints — even in modes that don't
+    // otherwise opt into smooth transitions (e.g. GameSurface singleplayer).
+    const isReload = reloadNonce !== prevReloadNonceRef.current;
+    prevReloadNonceRef.current = reloadNonce;
+    const useCrossfade = smoothTransitions || isReload;
+
+    const locationKey = `${lat}-${long}-${language}-${fov}-${heading ?? ''}-${pitch}-${cropRightPx}-${nmpz}-${reloadNonce}`;
     const nextSource = {
       key: locationKey,
-      html: buildStreetViewHtml(lat, long, language, fov, heading, pitch, cropRightPx, nmpz),
+      html: buildStreetViewHtml(lat, long, language, fov, heading, pitch, cropRightPx, nmpz, reloadNonce),
     };
 
     const activeSlot = activeSlotRef.current;
@@ -144,7 +178,7 @@ export default function StreetViewWebView({
 
     if (activeSource.key === nextSource.key) return;
 
-    if (!smoothTransitions) {
+    if (!useCrossfade) {
       pendingSlotRef.current = null;
       setIsInitialLoading(true);
       setSources((prev) => ({
@@ -165,13 +199,17 @@ export default function StreetViewWebView({
       ...prev,
       [nextSlot]: nextSource,
     }));
-  }, [lat, long, language, fov, heading, pitch, cropRightPx, nmpz, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
+  }, [lat, long, language, fov, heading, pitch, cropRightPx, nmpz, reloadNonce, isValidCoordinate, setSlotVisible, smoothTransitions, primaryOpacity, secondaryOpacity]);
 
   const handleLoadEnd = useCallback((slot: SlotKey) => {
     const pendingSlot = pendingSlotRef.current;
     const activeSlot = activeSlotRef.current;
 
-    if (smoothTransitions && pendingSlot === slot && slot !== activeSlot) {
+    // `pendingSlotRef` is only ever set when we entered the crossfade branch
+    // (it's null for in-place swaps), so a pending slot already implies a
+    // crossfade is in flight — no need to also gate on `smoothTransitions`.
+    // This is what lets reload crossfades work in non-smooth modes too.
+    if (pendingSlot === slot && slot !== activeSlot) {
       const incomingOpacity = slot === 'primary' ? primaryOpacity : secondaryOpacity;
       const outgoingOpacity = activeSlot === 'primary' ? primaryOpacity : secondaryOpacity;
 
@@ -275,6 +313,8 @@ export default function StreetViewWebView({
     </View>
   );
 }
+
+export default forwardRef<StreetViewHandle, StreetViewWebViewProps>(StreetViewWebView);
 
 const styles = StyleSheet.create({
   container: {

@@ -27,7 +27,7 @@ import { colors } from '../../shared';
 import { spacing, fontSizes } from '../../styles/theme';
 import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../../shared/emotes';
 import { useMultiplayerStore, type EmoteReaction } from '../../store/multiplayerStore';
-import CountryFlag from '../CountryFlag';
+import PlayerName from '../PlayerName';
 
 const NEVER = ReduceMotion.Never;
 
@@ -63,10 +63,14 @@ function FloatingEmote({ reaction, hideName }: { reaction: EmoteReaction; hideNa
     >
       <Text style={[styles.floatGlyph, hideName && styles.floatGlyphNoName]}>{reaction.emote}</Text>
       {!hideName && !!reaction.name && (
-        <View style={styles.floatNameRow}>
-          {reaction.countryCode ? <CountryFlag countryCode={reaction.countryCode} size={12} /> : null}
-          <Text style={styles.floatName} numberOfLines={1}>{reaction.name}</Text>
-        </View>
+        <PlayerName
+          name={reaction.name}
+          countryCode={reaction.countryCode}
+          flagSize={12}
+          gap={4}
+          textStyle={styles.floatName}
+          style={styles.floatNameRow}
+        />
       )}
     </Animated.View>
   );

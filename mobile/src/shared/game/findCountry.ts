@@ -1,4 +1,5 @@
 import { SITE_URL } from '../../constants/config';
+import { fetchWithTimeout } from '../../services/fetchWithTimeout';
 import { buildCountryIndex, lookupCountry, type CountryIndexEntry } from '@shared/country/findCountry';
 
 // Lazy-load the borders GeoJSON (~450 KB) from the web's public folder and
@@ -11,7 +12,7 @@ let loadPromise: Promise<CountryIndexEntry[]> | null = null;
 function load(): Promise<CountryIndexEntry[]> {
   if (indexed) return Promise.resolve(indexed);
   if (!loadPromise) {
-    loadPromise = fetch(`${SITE_URL}/genBorders.json`)
+    loadPromise = fetchWithTimeout(`${SITE_URL}/genBorders.json`)
       .then((res) => {
         if (!res.ok) throw new Error(`genBorders.json fetch failed: ${res.status}`);
         return res.json();

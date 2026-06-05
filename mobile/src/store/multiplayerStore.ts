@@ -165,6 +165,16 @@ export interface ToastData {
 /** Max number of toasts kept on screen at once (oldest dropped first). */
 const MAX_TOASTS = 4;
 
+/**
+ * Dedup window for the "Reconnected!" toast. A reconnect into an active game
+ * produces TWO triggers close together — the client-side reconnect event and the
+ * server's game-rejoin `toast` message — so we suppress a second within this
+ * window. Tracked as a standalone timestamp (NOT by scanning the visible toast
+ * list, which may have already auto-dismissed before the second trigger arrives).
+ */
+const RECONNECTED_TOAST_DEDUP_MS = 3000;
+let lastReconnectedToastAt = 0;
+
 let toastSeq = 0;
 /** Create a ToastData with a generated id + timestamp from partial input. */
 function makeToast(
@@ -235,6 +245,12 @@ interface MultiplayerState {
   clearFriendRequest: (id: string) => void;
   /** Enqueue a toast (id + timestamp generated automatically). */
   pushToast: (toast: Omit<ToastData, 'id' | 'timestamp'> & { timestamp?: number }) => void;
+  /**
+   * Enqueue the "Reconnected!" success toast, deduped within a short window. Both
+   * the client-driven reconnect event and the server's game-rejoin toast route
+   * through here so they collapse into a single toast.
+   */
+  pushReconnectedToast: () => void;
   /** Remove a toast from the queue by id. */
   dismissToast: (id: string) => void;
   clearFriendReqState: () => void;
@@ -321,6 +337,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       // Append newest, cap the queue (drop oldest) so the stack stays tidy.
       toasts: [...s.toasts, makeToast(toast)].slice(-MAX_TOASTS),
     })),
+
+  pushReconnectedToast: () => {
+    const now = Date.now();
+    if (now - lastReconnectedToastAt < RECONNECTED_TOAST_DEDUP_MS) return;
+    lastReconnectedToastAt = now;
+    get().pushToast({ key: 'reconnected', toastType: 'success' });
+  },
 
   dismissToast: (id) =>
     set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
@@ -445,10 +468,24 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     // ── error (home.js:1574-1595) ─────────────────────────
     if (data.type === 'error') {
+      // A `uac` (another device took over) or a `failedToLogin` are TERMINAL: both
+      // set `dontReconnect`, so the client will NOT auto-reconnect and the socket
+      // close that follows no-ops in handleDisconnect(). If we're sitting in a
+      // multiplayer game / party / queue when that happens, the screen would be
+      // left frozen on a dead session. Tear the game-scoped state down (mirroring
+      // onReconnectFailed) so each multiplayer screen's own effect pops the user
+      // home smoothly: game/[id] on `!inGame` (covers the `waiting` party lobby
+      // too), queue on `!gameQueued && !inGame`. Singleplayer/daily never set these
+      // fields, so they're unaffected. Web parity: home.js bounces to home on close.
+      const terminal = data.message === 'uac' || !!data.failedToLogin;
+      const wasInMultiplayer = state.inGame || !!state.gameData || !!state.gameQueued;
       set({
         connecting: false,
         connected: false,
         error: data.message,
+        ...(terminal && wasInMultiplayer
+          ? { inGame: false, gameData: null, gameQueued: false, emotes: [] }
+          : {}),
       });
       if (data.message === 'uac') {
         wsService.setDontReconnect(true);
@@ -668,6 +705,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     if (data.type === 'toast') {
       // Extract template variables (everything except type, key, toastType, closeOnClick)
       const { type: _t, key, toastType, closeOnClick, autoClose, ...vars } = data;
+      // The server sends a 'reconnected' toast on game rejoin. Route it through
+      // the deduped path so it collapses with the client-driven reconnect toast
+      // into a single notification.
+      if (key === 'reconnected') {
+        get().pushReconnectedToast();
+        return;
+      }
       get().pushToast({
         key,
         toastType: toastType ?? 'info',
@@ -727,7 +771,10 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       get().pushToast({
         key,
         toastType: 'info',
-        message: `${data.streak}`,
+        // `streakGained` (and `restoreYourStreak` etc.) contain a `{{streak}}`
+        // placeholder — pass the value via `vars` so `t()` interpolates it.
+        // `streakLost`/`streakStarted` have no placeholder and ignore it.
+        vars: { streak: data.streak },
       });
       return;
     }

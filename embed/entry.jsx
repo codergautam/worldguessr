@@ -15,6 +15,11 @@ if (typeof document !== 'undefined') {
   style.textContent =
     leafletCss +
     'html,body,#root{height:100%;margin:0;padding:0;background:#08120d;overflow:hidden;}' +
+    // Leaflet's default container background is light gray (#ddd). When the
+    // results map zooms out to fit wide-spanning guesses it leaves that gray
+    // showing above/below the world tiles — an ugly light band on our dark
+    // theme. Letterbox it with the app's dark base so it reads as intentional.
+    '.leaflet-container{background:#08120d !important;}' +
     // Match the app's main font (Lexend) on all Leaflet UI — tooltips, popups,
     // controls, attribution — instead of the browser default sans-serif. The font
     // itself is loaded via the Google Fonts <link> injected in embed/build.mjs.

@@ -18,9 +18,9 @@ import {
   ImageBackground,
   Alert,
   Animated,
+  Share,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, t } from '../../shared';
@@ -38,6 +38,12 @@ interface MultiplayerLobbyProps {
 }
 
 export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
+  // Read insets via the hook (synchronous from context) rather than the native
+  // <SafeAreaView> component, whose padding lands a frame late — under the
+  // 'fade' screen transition that one-frame jump is visible as the header
+  // flashing up under the status bar then snapping down. The hook is correct on
+  // the first paint.
+  const insets = useSafeAreaInsets();
   const gameCode = useMultiplayerStore((s) => s.gameData?.code);
   const isHost = useMultiplayerStore((s) => s.gameData?.host);
   const players = useMultiplayerStore((s) => s.gameData?.players);
@@ -47,7 +53,6 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
   const serverDisplayLocation = useMultiplayerStore((s) => s.gameData?.displayLocation);
   const serverNm = useMultiplayerStore((s) => s.gameData?.nm);
 
-  const [codeCopied, setCodeCopied] = useState(false);
   const copyIconScale = useRef(new Animated.Value(1)).current;
 
   // Host-controlled settings. Initialise from server values so a reconnect or a
@@ -100,15 +105,20 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
     wsService.send({ type: 'startGameHost' });
   };
 
-  const handleCopyCode = async () => {
+  const handleShareCode = async () => {
     if (!gameCode) return;
-    await Clipboard.setStringAsync(getPartyLink(gameCode));
-    setCodeCopied(true);
     Animated.sequence([
       Animated.timing(copyIconScale, { toValue: 1.4, duration: 150, useNativeDriver: true }),
       Animated.timing(copyIconScale, { toValue: 1, duration: 150, useNativeDriver: true }),
     ]).start();
-    setTimeout(() => setCodeCopied(false), 2000);
+    try {
+      await Share.share({
+        message: t('shareJoinPartyMessage', { link: getPartyLink(gameCode) }, 'Join my WorldGuessr party: {{link}}'),
+        title: t('sharePartyInviteTitle', undefined, 'WorldGuessr Party Invite'),
+      });
+    } catch {
+      // User cancelled the share sheet — no-op.
+    }
   };
 
   return (
@@ -128,7 +138,17 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
         ]}
         style={StyleSheet.absoluteFillObject}
       />
-      <SafeAreaView style={styles.flex} edges={['top', 'bottom', 'left', 'right']}>
+      <View
+        style={[
+          styles.flex,
+          {
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+          },
+        ]}
+      >
         <View style={styles.header}>
           <Pressable onPress={onLeave} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color={colors.white} />
@@ -141,20 +161,18 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
           {/* Game Code */}
           <View style={styles.codeSection}>
             <Text style={styles.codeLabel}>{t('gameCode')}</Text>
-            <Pressable onPress={handleCopyCode} style={styles.codeRow}>
+            <Pressable onPress={handleShareCode} style={styles.codeRow}>
               <Text style={styles.codeText}>{gameCode}</Text>
               <Animated.View style={{ transform: [{ scale: copyIconScale }] }}>
                 <Ionicons
-                  name={codeCopied ? 'checkmark' : 'copy'}
+                  name="share-outline"
                   size={20}
-                  color={codeCopied ? colors.success : 'rgba(255,255,255,0.6)'}
+                  color="rgba(255,255,255,0.6)"
                 />
               </Animated.View>
             </Pressable>
             <Text style={styles.codeHint}>
-              {codeCopied
-                ? t('inviteLinkCopied', undefined, 'Invite link copied!')
-                : t('tapToCopyInviteLink', undefined, 'Tap to copy invite link')}
+              {t('tapToShareInviteLink', undefined, 'Tap to share invite link')}
             </Text>
           </View>
 
@@ -165,7 +183,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
           </View>
 
           {!isHost && (
-            <Text style={styles.waitingText}>{t('waitingForHostToStart')}</Text>
+            <Text style={styles.waitingText}>{t('waitingForHostToStart')}...</Text>
           )}
         </ScrollView>
 
@@ -227,7 +245,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
             </Pressable>
           )}
         </View>
-      </SafeAreaView>
+      </View>
 
       <InviteFriendsModal
         visible={inviteModalVisible}

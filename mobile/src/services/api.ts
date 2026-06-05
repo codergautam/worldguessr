@@ -1,5 +1,6 @@
-import { GameSettings } from '../shared';
-import { API_URL, AUTH_URL } from '../constants/config';
+import { GameSettings, t } from '../shared';
+import { API_URL, AUTH_URL, HTTP_TIMEOUT_MS } from '../constants/config';
+import { fetchWithTimeout, TimeoutError } from './fetchWithTimeout';
 import type {
   DailyLocationsResponse,
   DailyResultsResponse,
@@ -32,16 +33,37 @@ async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {},
   baseUrl = API_URL,
+  timeoutMs = HTTP_TIMEOUT_MS,
 ): Promise<T> {
   const url = `${baseUrl}${endpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(
+      url,
+      {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      },
+      timeoutMs,
+    );
+  } catch (err) {
+    // We never got a response: the request timed out, or the device is offline /
+    // DNS failed. Every UI surface renders `error.message` straight into its
+    // error state, so translate these into clean, localized, user-safe strings
+    // here — this is what the user now sees instead of a spinner that never stops.
+    if (err instanceof TimeoutError) {
+      throw new Error(
+        t('errorRequestTimedOut', undefined, 'Request timed out. Check your connection and try again.'),
+      );
+    }
+    throw new Error(
+      t('errorNetworkRequest', undefined, 'Network error. Check your connection and try again.'),
+    );
+  }
 
   if (!response.ok) {
     let message = `API error: ${response.status}`;
@@ -116,7 +138,7 @@ export const api = {
 
   setName: async (secret: string, username: string) => {
     const url = `${AUTH_URL}/api/setName`;
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: secret, username }),
@@ -478,7 +500,7 @@ export const api = {
 
   trackMapPlay: async (slug: string) => {
     try {
-      await fetch(`${API_URL}/mapPlay/${encodeURIComponent(slug)}`, { method: 'POST' });
+      await fetchWithTimeout(`${API_URL}/mapPlay/${encodeURIComponent(slug)}`, { method: 'POST' });
     } catch {}
   },
 

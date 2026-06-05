@@ -15,7 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, t } from '../../src/shared';
 import { api } from '../../src/services/api';
-import CountryFlag from '../../src/components/CountryFlag';
+import PlayerName from '../../src/components/PlayerName';
 import { useAuthStore } from '../../src/store/authStore';
 
 interface LeaderboardEntry {
@@ -113,14 +113,13 @@ export default function LeaderboardScreen() {
 
         {/* Player Details */}
         <View style={styles.playerDetails}>
-          <View style={styles.usernameRow}>
-            <Text style={styles.username} numberOfLines={1}>
-              {item.username}
-            </Text>
-            {item.countryCode && (
-              <CountryFlag countryCode={item.countryCode} size={18} />
-            )}
-          </View>
+          <PlayerName
+            name={item.username}
+            countryCode={item.countryCode}
+            flagSize={18}
+            textStyle={styles.username}
+            style={styles.usernameRow}
+          />
         </View>
 
         {/* Score */}
@@ -143,12 +142,13 @@ export default function LeaderboardScreen() {
             <Text style={styles.rankBadgeText}>#{data.myRank}</Text>
           </View>
           <View style={styles.playerInfo}>
-            <View style={styles.usernameRow}>
-              <Text style={styles.playerName}>{session.username}</Text>
-              {data.myCountryCode && (
-                <CountryFlag countryCode={data.myCountryCode} size={18} />
-              )}
-            </View>
+            <PlayerName
+              name={session.username}
+              countryCode={data.myCountryCode}
+              flagSize={18}
+              textStyle={styles.playerName}
+              style={styles.usernameRow}
+            />
             <Text style={styles.playerScore}>
               {formatScore(mode === 'elo' ? data.myElo : data.myXp, isDailyLeaderboard)}
               <Text style={styles.scoreType}> {t(mode === 'elo' ? 'ELO' : 'xp')}</Text>

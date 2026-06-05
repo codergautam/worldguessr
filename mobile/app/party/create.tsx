@@ -22,7 +22,7 @@ import {
   Animated,
   Easing,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -70,6 +70,12 @@ function SkeletonBlock({
 }
 
 export default function PartyCreateScreen() {
+  // Insets via the hook (correct on first paint) instead of the native
+  // <SafeAreaView> component, whose padding lands a frame late and — under the
+  // 'fade' transition — flashes the header up under the status bar before
+  // snapping down. Must match MultiplayerLobby so the skeleton→lobby swap is
+  // seamless.
+  const insets = useSafeAreaInsets();
   const verified = useMultiplayerStore((s) => s.verified);
   const inGame = useMultiplayerStore((s) => s.inGame);
   const sentRef = useRef(false);
@@ -119,7 +125,17 @@ export default function PartyCreateScreen() {
         style={StyleSheet.absoluteFillObject}
       />
 
-      <SafeAreaView style={styles.flex} edges={['top', 'bottom', 'left', 'right']}>
+      <View
+        style={[
+          styles.flex,
+          {
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+            paddingLeft: insets.left,
+            paddingRight: insets.right,
+          },
+        ]}
+      >
         {/* Header mirrors the lobby so the swap is seamless. */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
@@ -157,7 +173,7 @@ export default function PartyCreateScreen() {
           <SkeletonBlock width="100%" height={48} radius={borderRadius.lg} shimmer={shimmerX} />
           <SkeletonBlock width="100%" height={48} radius={borderRadius.lg} shimmer={shimmerX} />
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }
