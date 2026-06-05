@@ -280,7 +280,7 @@ export default function ProfilePanel({ open, onClose, username, session, onOpenA
                         {league.label}
                       </div>
                     )}
-                    {isOwnProfile && subrankProgress && (
+                    {!isOwnProfile && subrankProgress && (
                       <div className="wg-profile__rankProgress">
                         <div className="wg-profile__rankProgressBar">
                           <div

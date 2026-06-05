@@ -20,7 +20,6 @@ import {
 import { FaRegCalendar } from 'react-icons/fa';
 import { LuSwords } from 'react-icons/lu';
 import {
-  pickNextVariant,
   pickRandomLocation,
   pickDefaultLocation,
   preloadCandidates,
@@ -101,7 +100,10 @@ export default function HomeScreen({
   const [extLink, setExtLink] = useState(null);
 
   useEffect(() => {
-    if (bgLocation) return;
+    if (bgLocation) {
+      if (cardLocation !== bgLocation) setCardLocation(bgLocation);
+      return;
+    }
     const start = pickDefaultLocation();
     setBgLocation(start);
     setCardLocation(start);
@@ -119,10 +121,7 @@ export default function HomeScreen({
   useEffect(() => {
     if (!bgLocation || loading) return;
     const id = setInterval(() => {
-      const swapVariant = Math.random() < 0.25;
-      const next = swapVariant && bgLocation.images.length > 1
-        ? pickNextVariant(bgLocation)
-        : pickRandomLocation();
+      const next = pickRandomLocation();
       setBgLocation(next);
 
       setTimeout(() => setCardLocation(next), 800);

@@ -270,3 +270,21 @@
   .wg-flagPicker__actions { flex-direction: column; }
   .wg-flagPicker__btn { width: 100%; }
 }
+
+.wg-profile { z-index: 99800 !important; }
+
+.wg-acct__profileHero,
+.wg-acct__graphCard,
+.wg-acct__gameCard,
+.wg-acct__statCell,
+.wg-acct__statCell--hero,
+.wg-acct__road,
+.wg-acct__leagues,
+.wg-acct__friendsTop,
+.wg-acct__friendsList,
+.wg-acct__mod {
+  background: #181c28 !important;
+}
+.wg-acct__gameCard:hover { background: #20242f !important; }
+.wg-acct__friendsInput { background: #0e1118 !important; }
+.wg-acct__friendsInput:focus { background: #181c28 !important; }
