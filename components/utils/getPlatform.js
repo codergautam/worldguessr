@@ -4,6 +4,8 @@ export function getPlatform() {
   try {
     if (process.env.NEXT_PUBLIC_GAMEDISTRIBUTION === "true") {
       return "gamedistribution";
+    } else if (process.env.NEXT_PUBLIC_SCHOOLGUESSR === "true") {
+      return "schoolguessr";
     } else if (process.env.NEXT_PUBLIC_COOLMATH === "true") {
       return "coolmath";
     } else if (typeof window !== "undefined" && window.CrazyGames) {

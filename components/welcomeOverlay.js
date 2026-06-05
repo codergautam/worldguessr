@@ -28,6 +28,8 @@ export default function WelcomeOverlay({ onModeSelected, onSkip }) {
     }, 300);
   }
 
+  const isSchoolGuessr = process.env.NEXT_PUBLIC_SCHOOLGUESSR === "true";
+
   return (
     <div className={`welcome-modal-backdrop ${visible ? 'visible' : ''}`}>
       <div className={`welcome-modal ${visible ? 'visible' : ''}`}>
@@ -37,10 +39,25 @@ export default function WelcomeOverlay({ onModeSelected, onSkip }) {
           className="welcome-modal__heroImg"
           draggable={false}
         />
-        <h1 className="welcome-modal__title">{text("welcomeTitle")}</h1>
-        <p className="welcome-modal__desc">
-          {text("welcomeDesc")}
-        </p>
+        <h1 className="welcome-modal__title">
+          {isSchoolGuessr ? "Welcome to SchoolGuessr!" : text("welcomeTitle")}
+        </h1>
+        {isSchoolGuessr ? (
+          <>
+            <p className="welcome-modal__desc">
+              A kid-friendly version of WorldGuessr made for classrooms and schools.
+            </p>
+            <ul className="welcome-modal__schoolList">
+              <li>Chats and user content are turned off</li>
+              <li>Same maps and gameplay as WorldGuessr</li>
+              <li>Maintained by the WorldGuessr team!</li>
+            </ul>
+          </>
+        ) : (
+          <p className="welcome-modal__desc">
+            {text("welcomeDesc")}
+          </p>
+        )}
 
         <div className="welcome-modal__modes">
           <button className="welcome-modal__mode-btn welcome-modal__mode-btn--recommended" onClick={() => selectMode("country")}>

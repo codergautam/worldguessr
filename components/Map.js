@@ -86,6 +86,16 @@ function isFiniteNumber(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function toValidLatLngBounds(bounds) {
+  if (!bounds) return null;
+  try {
+    const latLngBounds = L.latLngBounds(bounds);
+    return latLngBounds?.isValid?.() ? latLngBounds : null;
+  } catch {
+    return null;
+  }
+}
+
 function sanitizeExtent(extent) {
   if (!Array.isArray(extent) || extent.length < 4) return null;
 
@@ -117,13 +127,14 @@ function sanitizeExtent(extent) {
   return [west, south, east, north];
 }
 
-function constrainResetTarget(map, center, zoom) {
+function constrainResetTarget(map, center, zoom, bounds = VIEW_BOUNDS) {
   const limitedZoom = isFiniteNumber(zoom) ? zoom : 2;
   const latLng = L.latLng(center);
+  const latLngBounds = toValidLatLngBounds(bounds);
   try {
     return {
       center: map._limitCenter
-        ? map._limitCenter(latLng, limitedZoom, L.latLngBounds(VIEW_BOUNDS))
+        ? map._limitCenter(latLng, limitedZoom, latLngBounds)
         : latLng,
       zoom: limitedZoom,
     };
@@ -187,19 +198,41 @@ function stopMapAnimations(map) {
   try { map.stop(); } catch {}
 }
 
+function setMaxBoundsWithoutAutoPan(map, bounds) {
+  if (!map) return null;
+
+  const latLngBounds = toValidLatLngBounds(bounds);
+  try {
+    if (map.listens?.('moveend', map._panInsideMaxBounds)) {
+      map.off('moveend', map._panInsideMaxBounds);
+    }
+  } catch {}
+
+  if (!latLngBounds) {
+    try { map.options.maxBounds = null; } catch {}
+    return null;
+  }
+
+  try { map.options.maxBounds = latLngBounds; } catch {}
+  try { map.on('moveend', map._panInsideMaxBounds); } catch {}
+  return latLngBounds;
+}
+
 function forceCrispViewReset(map, center, zoom) {
   // During reveal Leaflet may be mid fly/pan/zoom animation. A normal fitBounds
   // can inherit that pixel origin and leave scaled, blurry tiles until the user
   // zooms. Cancel animation state first, then apply a target already constrained
   // to the vertical play bounds so the next user interaction has nothing to snap.
-  const target = constrainResetTarget(map, center, zoom);
+  const playBounds = toValidLatLngBounds(VIEW_BOUNDS);
+  const target = constrainResetTarget(map, center, zoom, playBounds);
   stopMapAnimations(map);
   try { map.invalidateSize({ pan: false, animate: false }); } catch {}
-  try { map.setMaxBounds(L.latLngBounds(VIEW_BOUNDS)); } catch {}
+  setMaxBoundsWithoutAutoPan(map, null);
   try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
-  try { map._resetView?.(map.getCenter(), map.getZoom(), true); } catch {}
+  try { map._resetView?.(target.center, target.zoom, true); } catch {}
   stopMapAnimations(map);
-  try { map.panInsideBounds(L.latLngBounds(VIEW_BOUNDS), { animate: false }); } catch {}
+  setMaxBoundsWithoutAutoPan(map, playBounds);
+  try { map.panInsideBounds(playBounds, { animate: false }); } catch {}
   try { map._resetView?.(map.getCenter(), map.getZoom(), true); } catch {}
   try { map.invalidateSize({ pan: false, animate: false }); } catch {}
 }
@@ -322,17 +355,28 @@ const ClickHandler = memo(function ClickHandler({
 });
 
 /**
- * Applies maxBounds imperatively. react-leaflet only honors `maxBounds` as
- * an initial prop; subsequent changes (and HMR) don't propagate. Also
- * <RevealController> toggles bounds during reveal, so they must be
- * re-applied idempotently. Viscosity + inertia disable are set on
- * MapContainer at construction.
+ * Applies maxBounds imperatively. Leaflet's public setMaxBounds() immediately
+ * pans the current view inside the new bounds; after answer mode the current
+ * view may be far outside Web Mercator, so we attach the bound listener without
+ * that automatic pan and clamp synchronously with animation disabled.
  */
 const BoundsApplier = memo(function BoundsApplier({ bounds }) {
   const map = useMap();
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!map) return;
-    try { map.setMaxBounds(bounds); } catch {}
+    const latLngBounds = setMaxBoundsWithoutAutoPan(map, bounds);
+    if (!latLngBounds) return;
+
+    try {
+      stopMapAnimations(map);
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const target = constrainResetTarget(map, center, zoom, latLngBounds);
+      if (!center.equals(target.center) || zoom !== target.zoom) {
+        try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
+        try { map._resetView?.(target.center, target.zoom, true); } catch {}
+      }
+    } catch {}
   }, [map, bounds]);
   return null;
 });
@@ -490,7 +534,7 @@ const RevealController = memo(function RevealController({
     // loop -> flyTo; lifting the constraint prevents panInsideBounds from
     // fighting the reveal. BoundsApplier re-applies the clamp when guessing
     // resumes.
-    try { map.setMaxBounds(null); } catch {}
+    setMaxBoundsWithoutAutoPan(map, null);
 
     const cleanup = () => {
       if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }

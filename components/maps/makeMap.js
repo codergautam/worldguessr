@@ -92,7 +92,7 @@ export default function MakeMapForm({ map, setMap, createMap }) {
         <li>Keep all details in English (no NSFW)</li>
         {/*  no bullet */}
         <li style={{marginTop: '10px',fontSize: '1.4em', listStyleType: 'none'}}
-        >Need help? <a style={{color: 'cyan'}} href="https://forum.worldguessr.com/t/tutorial-how-to-make-community-maps-in-worldguessr/28872" target="_blank" rel="noreferrer">Ask in our Forum</a></li>
+        >Need help? <a style={{color: 'cyan'}} href="https://discord.gg/ADw47GAyS5" target="_blank" rel="noreferrer">Ask in our Discord</a></li>
       </div>
 
       <form className="make-map-form" onSubmit={handleSubmit}>
@@ -205,7 +205,7 @@ export default function MakeMapForm({ map, setMap, createMap }) {
             { uploaded ? "Bulk Uploaded":"...or Bulk Upload a file" }
             </h3>
             { !uploaded && (
-          <span>Supports JSON format from <a style={{color: "cyan"}} href="https://map-degen.vercel.app/" target="_blank" rel="noreferrer">map-degen.vercel.app</a></span>
+          <span>Supports JSON format from <a style={{color: "cyan"}} href="https://map-g3nerator.vercel.app/" target="_blank" rel="noreferrer">map-g3nerator.vercel.app</a></span>
             )}
           { !uploaded && (
             <div>

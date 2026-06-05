@@ -24,6 +24,8 @@ export default function HomeSettingsPanel({
   setOptions,
   inCrazyGames,
   inGameDistribution,
+  multiplayerEmotesEnabled,
+  setMultiplayerEmotesEnabled,
 }) {
   const { t: text, lang } = useTranslation('common');
   const [mounted, setMounted] = useState(false);
@@ -170,6 +172,17 @@ export default function HomeSettingsPanel({
                   </button>
                 ))}
               </div>
+            </SettingBlock>
+          )}
+
+          {typeof setMultiplayerEmotesEnabled === 'function' && (
+            <SettingBlock title={text('multiplayer') || 'Multiplayer'}>
+              <ToggleRow
+                label={text('enableEmoteReactions') || 'Enable emote reactions'}
+                sub={text('enableEmoteReactionsDesc') || 'React with emojis during ranked and casual matches.'}
+                checked={!!multiplayerEmotesEnabled}
+                onChange={(v) => setMultiplayerEmotesEnabled(v)}
+              />
             </SettingBlock>
           )}
 

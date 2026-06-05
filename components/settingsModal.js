@@ -2,9 +2,8 @@ import { Modal } from "react-responsive-modal";
 import { useTranslation } from '@/components/useTranslations';
 import { asset, navigate } from '@/lib/basePath';
 import { FaGithub } from "react-icons/fa";
-import NextImage from "next/image";
 
-export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution }) {
+export default function SettingsModal({ shown, onClose, options, setOptions, inCrazyGames, inGameDistribution, multiplayerEmotesEnabled, setMultiplayerEmotesEnabled }) {
     const { t: text } = useTranslation("common");
 
     const handleUnitsChange = (event) => {
@@ -92,6 +91,12 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                         <label htmlFor="ramUsage">Show RAM Usage</label>
                         <input className="g2_input" type="checkbox" id="ramUsage" checked={options.ramUsage} onChange={() => setOptions((prevOptions) => ({ ...prevOptions, ramUsage: !prevOptions.ramUsage }))} />
                     </div>
+                    {typeof setMultiplayerEmotesEnabled === 'function' && (
+                        <div className="settingsModalInner">
+                            <label htmlFor="mpEmotes">Multiplayer emote reactions</label>
+                            <input className="g2_input" type="checkbox" id="mpEmotes" checked={!!multiplayerEmotesEnabled} onChange={() => setMultiplayerEmotesEnabled(!multiplayerEmotesEnabled)} />
+                        </div>
+                    )}
                 </>
                 )}
 
@@ -107,11 +112,6 @@ export default function SettingsModal({ shown, onClose, options, setOptions, inC
                 <div className="g2_slide_in" style={{ position: 'absolute', bottom: '25px', left: '25px', display: 'flex', gap: '8px', zIndex: 10 }}>
                     <a href="https://github.com/codergautam/worldguessr" target="_blank" rel="noreferrer">
                         <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="Github" style={{ width: '50px', height: '50px', padding: '0', color: 'white' }}><FaGithub size={24} /></button>
-                    </a>
-                    <a href="https://www.coolmathgames.com/0-worldguessr" target="_blank" rel="noreferrer">
-                        <button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames" style={{ width: '50px', height: '50px', padding: '0', position: 'relative', overflow: 'hidden' }}>
-                            <NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" style={{ objectFit: 'contain', padding: '4px' }} />
-                        </button>
                     </a>
                     <a href="https://worldguessr.com/privacy.html" target="_blank" rel="noreferrer">
                         <button className="g2_hover_effect gameBtn g2_container_full" aria-label="Terms & Privacy" style={{ height: '50px', padding: '0 12px', color: 'white', fontSize: '13px', whiteSpace: 'nowrap' }}>Terms & Privacy</button>

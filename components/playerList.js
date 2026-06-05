@@ -97,8 +97,14 @@ export default function PlayerList({ multiplayerState, playAgain, backBtn, start
     }
   };
 
+  const leaderboardClasses = [
+    'multiplayerLeaderboard',
+    waitingForStart ? 'leaderboardWaiting g2_container' : 'leaderboardInRound g2_container',
+    fadingOut ? 'leaderboardFadingOut' : 'leaderboardShown'
+  ].join(' ');
+
   return (
-    <div className={`multiplayerLeaderboard g2_container ${fadingOut ? 'leaderboardFadingOut' : ''}`}>
+    <div className={leaderboardClasses}>
       {!waitingForStart && (
         <span className="bigSpan">
           {gameOver ? text("gameOver") : text("leaderboard")}

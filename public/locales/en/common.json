@@ -54,6 +54,7 @@
   "connecting": "Connecting",
   "back": "Back",
   "menu": "Menu",
+  "resetStreetView": "Refresh street view",
   "onlineCnt": "🟢 {{cnt}} online",
   "inRankedCnt": "{{cnt}} in ranked",
   "inCasualCnt": "{{cnt}} in casual",

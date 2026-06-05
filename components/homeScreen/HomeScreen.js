@@ -90,6 +90,9 @@ export default function HomeScreen({
   onOpenProfilePanel,
   leaderboardOpen,
   setLeaderboardOpen,
+  multiplayerEmotesEnabled,
+  setMultiplayerEmotesEnabled,
+  adSlot,
 }) {
   const { t: text } = useTranslation('common');
 
@@ -322,6 +325,9 @@ export default function HomeScreen({
       </div>
 
       <div className="wg-home__bottomRight">
+        {adSlot && (
+          <div className="wg-home__adSlot">{adSlot}</div>
+        )}
         <LocationCard
           location={cardLocation}
           onSearchClick={() => setLocPanelOpen(true)}
@@ -352,6 +358,8 @@ export default function HomeScreen({
         setOptions={setOptions}
         inCrazyGames={inCrazyGames}
         inGameDistribution={inGameDistribution}
+        multiplayerEmotesEnabled={multiplayerEmotesEnabled}
+        setMultiplayerEmotesEnabled={setMultiplayerEmotesEnabled}
       />
 
       <ExternalLinkConfirm

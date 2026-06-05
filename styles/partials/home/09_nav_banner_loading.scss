@@ -48,6 +48,32 @@
   }
 }
 
+.wg-home__adSlot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 50px;
+  width: 100%;
+  pointer-events: auto;
+
+  > .home_ad,
+  > div {
+    display: block !important;
+    position: relative !important;
+    bottom: auto !important;
+    right: auto !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .wg-home__adSlot {
+    display: none !important;
+  }
+}
+
 .wg-bgWrap {
   position: fixed;
   inset: 0;

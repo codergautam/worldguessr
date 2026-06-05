@@ -667,6 +667,16 @@ const GameSummary = ({
     return [];
   }, [history, multiplayerState?.gameData?.roundHistory, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.public]);
 
+  // Alias used by the map helpers (fitMapToBounds/focusOnRound) and the map-fit
+  // effect below. It MUST be declared here — before the early returns and before
+  // those closures could ever run — so it is always initialized on every render
+  // that commits. Previously it lived after the early returns (empty history /
+  // Leaflet not ready); on a bail-out render the `const` stayed in its temporal
+  // dead zone, and when React later flushed the passive map-fit effect it read
+  // `finalHistory.length` and threw "Cannot access 'finalHistory' before
+  // initialization", which Next.js surfaced as a fatal client-side crash.
+  const finalHistory = gameHistory;
+
   // Compute the map's initial bounds from round locations + guesses up front
   // so MapContainer mounts already fitted to them. Passing `bounds` to a v4
   // MapContainer runs fitBounds at map creation, so the very first tile fetch
@@ -790,9 +800,6 @@ const GameSummary = ({
   //     </div>
   //   );
   // }
-
-  // Use the constructed or provided history
-  const finalHistory = gameHistory;
 
   // Helper function to open report modal
   const handleReportUser = (accountId, username) => {
@@ -1357,7 +1364,7 @@ const GameSummary = ({
                 >
                   <Popup className="map-marker-popup">
                     <div className="popup-content">
-                      <div className="popup-round">{text("roundNumber", {number: index + 1})} - {text("actualLocation")}</div>
+                      <div className="popup-round">{text("roundNumber", {round: index + 1})} - {text("actualLocation")}</div>
                       {/* Only show points in single player games */}
                       {(!multiplayerState?.gameData || !finalHistory[0]?.players || Object.keys(finalHistory[0].players).length <= 1) && (
                         <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
@@ -1392,7 +1399,7 @@ const GameSummary = ({
                     >
                       <Popup className="map-marker-popup">
                         <div className="popup-content">
-                          <div className="popup-round">{text("roundNumber", {number: index + 1})} - {options?.isModView ? (multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.username || text("player")) : text("yourGuess")}</div>
+                          <div className="popup-round">{text("roundNumber", {round: index + 1})} - {options?.isModView ? (multiplayerState?.gameData?.players?.find(p => p.id === multiplayerState?.gameData?.myId)?.username || text("player")) : text("yourGuess")}</div>
                           <div className="popup-points" style={{ color: getPointsColor(round.points) }}>
                             {round.points} {text("points")}
                           </div>

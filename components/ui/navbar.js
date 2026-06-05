@@ -16,6 +16,14 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
     const reloadDisabled = !!(loading || showAnswer);
 
     const [showAccBtn, setShowAccBtn] = useState(true);
+    // Custom tooltip for the blue reload button. Rendered position:fixed (not as a
+    // child) so it isn't clipped by the navbar's overflow. null = hidden.
+    const [reloadTip, setReloadTip] = useState(null);
+    const showReloadTip = (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        setReloadTip({ top: r.bottom + 8, right: Math.max(4, window.innerWidth - r.right) });
+    };
+    const hideReloadTip = () => setReloadTip(null);
     useEffect(() => {
         if (window.location.search.includes("app=true")) {
             setShowAccBtn(false);
@@ -53,12 +61,21 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                 {reloadBtn && !accountModalOpen && !gameOptionsModalShown && (
                     <button
                         className={`wg-reloadBtn ${reloadDisabled ? 'wg-reloadBtn--disabled' : ''}`}
-                        onClick={reloadDisabled ? undefined : reloadBtnPressed}
+                        onClick={reloadDisabled ? undefined : () => { hideReloadTip(); reloadBtnPressed(); }}
+                        onMouseEnter={showReloadTip}
+                        onMouseLeave={hideReloadTip}
+                        onFocus={showReloadTip}
+                        onBlur={hideReloadTip}
                         disabled={reloadDisabled}
-                        aria-label="Reload pano"
+                        aria-label={text("resetStreetView") || "Reload pano"}
                     >
                         <img src={asset("/return.png")} alt="" height={14} style={{ filter: 'invert(1)' }} />
                     </button>
+                )}
+                {reloadTip && (
+                    <div className="reloadBtnTooltip" role="tooltip" style={{ top: reloadTip.top, right: reloadTip.right }}>
+                        {text("resetStreetView")}
+                    </div>
                 )}
 
 

@@ -237,11 +237,36 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                                     {accountData?.username && (
                                         <button
                                             onClick={() => {
-                                                const profileUrl = `${window.location.origin}${navigate('/')}?profile=${encodeURIComponent(accountData.username)}`;
-                                                navigator.clipboard.writeText(profileUrl).then(() => {
+                                                const profileUrl = `${window.location.origin}${navigate('/user')}?u=${encodeURIComponent(accountData.username)}`;
+                                                const showCopied = () => {
                                                     setCopiedLink(true);
                                                     setTimeout(() => setCopiedLink(false), 2000);
-                                                });
+                                                };
+                                                const fallbackCopy = () => {
+                                                    try {
+                                                        const ta = document.createElement('textarea');
+                                                        ta.value = profileUrl;
+                                                        ta.setAttribute('readonly', '');
+                                                        ta.style.position = 'fixed';
+                                                        ta.style.top = '0';
+                                                        ta.style.left = '0';
+                                                        ta.style.opacity = '0';
+                                                        document.body.appendChild(ta);
+                                                        ta.focus();
+                                                        ta.select();
+                                                        const ok = document.execCommand('copy');
+                                                        document.body.removeChild(ta);
+                                                        if (ok) showCopied();
+                                                        else window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
+                                                    } catch (e) {
+                                                        window.prompt(text("copyProfileLink") || "Copy profile link", profileUrl);
+                                                    }
+                                                };
+                                                if (navigator.clipboard && window.isSecureContext) {
+                                                    navigator.clipboard.writeText(profileUrl).then(showCopied).catch(fallbackCopy);
+                                                } else {
+                                                    fallbackCopy();
+                                                }
                                             }}
                                             title={text("copyProfileLink") || "Copy profile link"}
                                             style={{

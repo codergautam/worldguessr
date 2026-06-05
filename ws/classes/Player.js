@@ -7,6 +7,7 @@ import User from "../../models/User.js";
 import { getLeague } from "../../components/utils/leagues.js";
 import { setElo } from "../../api/eloRank.js";
 import { createUUID } from "../../components/createUUID.js";
+import { getActivePlayerCount } from "../../serverUtils/playerCounts.js";
 export default class Player {
   constructor(ws, id, ip, username=null, accountId=null, gameId=null) {
     this.id = id;
@@ -146,7 +147,7 @@ export default class Player {
       });
       dcPlayer.send({
         type: 'cnt',
-        c: players.size-disconnectedPlayers.size
+        c: getActivePlayerCount()
       });
 
 
@@ -198,7 +199,7 @@ export default class Player {
           });
           this.send({
             type: 'cnt',
-            c: players.size-disconnectedPlayers.size
+            c: getActivePlayerCount()
           })
         }
 
@@ -287,7 +288,7 @@ export default class Player {
           });
           this.send({
             type: 'cnt',
-            c: players.size-disconnectedPlayers.size
+            c: getActivePlayerCount()
           })
 
           // Always update lastLogin on verify
