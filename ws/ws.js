@@ -18,6 +18,7 @@ import calculateOutcomes from '../components/utils/eloSystem.js';
 import { tmpdir } from 'os';
 
 import arbitraryWorld from '../data/world-arbitrary.json' with { type: "json" };
+import { isCleanMessage, censorMessage } from '../serverUtils/chatFilter.js';
 config();
 
 console.log("[INFO] Starting ws.js")
@@ -773,6 +774,28 @@ app.ws('/wg', {
           name: player.username,
           countryCode: player.countryCode || null,
           emote
+        });
+      }
+
+      if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {
+        const msg = json.message;
+        // Validate: must be string, non-empty, max 200 chars
+        if (typeof msg !== 'string' || !msg.trim() || msg.length > 200) return;
+        // Rate limit: 1 message every 2 seconds
+        const now = Date.now();
+        if (player.lastChat && now - player.lastChat < 2000) return;
+        player.lastChat = now;
+        // Banned players cannot chat
+        if (player.banned) return;
+        // Censor bad words
+        const cleanMsg = censorMessage(msg.trim().substring(0, 200));
+        const game = games.get(player.gameId);
+        game.sendAllPlayers({
+          type: 'chat',
+          id: player.id,
+          name: player.username || 'Guest',
+          countryCode: player.countryCode || null,
+          message: cleanMsg,
         });
       }
 
