@@ -27,6 +27,7 @@ import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 import StreetViewWebView, { StreetViewHandle } from './StreetViewWebView';
 import EmbeddedMap from './EmbeddedMap';
 import ReloadButton from '../ui/ReloadButton';
+import { haptics } from '../../services/haptics';
 import { useSettingsStore } from '../../store/settingsStore';
 import CountryButtons from './CountryButtons';
 import GameLoadingOverlay from './GameLoadingOverlay';
@@ -63,6 +64,13 @@ interface Location {
 
 type Extent = [number, number, number, number] | null;
 
+/**
+ * A pano's identity for the loading-reset effect. Defined once so the
+ * committed-preload guard compares the exact same string the effect computes.
+ */
+const fingerprintOf = (loc: Location | null) =>
+  loc ? `${loc.lat}|${loc.long}|${loc.heading ?? ''}|${loc.pitch ?? ''}` : 'empty';
+
 export type GameVariant = 'pin' | 'country' | 'continent';
 
 export interface GameSurfaceHandle {
@@ -79,6 +87,13 @@ export interface GameSurfaceHandle {
 interface GameSurfaceProps {
   /** Current round's location. */
   location: Location | null;
+  /**
+   * Next round's location. While the result screen is up, it's warmed in a
+   * hidden Street View slot so tapping "Next" crossfades into an already-loaded
+   * pano with no loading cover. Pass null to disable (final round, or modes
+   * without a known-ahead next location — they fall back to the loading cover).
+   */
+  nextLocation?: Location | null;
   /** Map bounding box; `null` falls back to a world view (matches web). */
   extent?: Extent;
   /** Used by GuessMap to color the guess→actual line in pin mode. */
@@ -140,14 +155,30 @@ interface GameSurfaceProps {
   round?: number;
   /** Shows the blue "reload street view" button (web parity). Default on. */
   enableReload?: boolean;
+  /** Locks Street View pan/zoom (web NMPZ — "No Move, Pan, Zoom"). */
+  nmpz?: boolean;
 }
 
-const EXPANDED_MAP_HEIGHT_RATIO = 0.5;
-const EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO = 0.6;
+/** Fraction of screen height the expanded minimap occupies during gameplay (0–1). */
+export const EXPANDED_MAP_HEIGHT_RATIO = 0.65;
+export const EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO = 0.6;
+
+/**
+ * Shared computation for the expanded (mini) guess-map height so the
+ * singleplayer surface and the multiplayer screen in `app/game/[id].tsx`
+ * stay in sync. Landscape uses a taller ratio since vertical space is scarce.
+ */
+export function getExpandedMapHeight(width: number, height: number): number {
+  return (
+    height *
+    (width > height ? EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO : EXPANDED_MAP_HEIGHT_RATIO)
+  );
+}
 
 function GameSurface(
   {
     location,
+    nextLocation = null,
     extent = null,
     guessPoints,
     isShowingResult,
@@ -180,6 +211,7 @@ function GameSurface(
     maxDist,
     round,
     enableReload = true,
+    nmpz = false,
   }: GameSurfaceProps,
   ref: React.Ref<GameSurfaceHandle>,
 ) {
@@ -189,8 +221,7 @@ function GameSurface(
   const language = useSettingsStore((s) => s.language);
   const { width, height } = useWindowDimensions();
 
-  const expandedMapHeight =
-    height * (width > height ? EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO : EXPANDED_MAP_HEIGHT_RATIO);
+  const expandedMapHeight = getExpandedMapHeight(width, height);
   // mapSlideAnim value for the open mini-map. Because mapHeight interpolates to a
   // CONSTANT full-height range, the mini state is this fraction — so reveal can
   // animate the height smoothly from mini → full instead of jumping.
@@ -219,12 +250,21 @@ function GameSurface(
   // bump. Mode switches (country ↔ classic during onboarding) re-key the
   // round but keep the same lat/long, and we don't want a stale "Loading…"
   // flash over a panorama that's already painted.
-  const panoFingerprint = location
-    ? `${location.lat}|${location.long}|${location.heading ?? ''}|${location.pitch ?? ''}`
-    : 'empty';
+  const panoFingerprint = fingerprintOf(location);
   const lastFingerprint = useRef(panoFingerprint);
+  // A round transition commits the PRELOADED next pano (already loaded) and flips
+  // streetViewLoaded true under the cover so the next round's inputs come back.
+  // When `location` then advances to that pano this effect must NOT treat it as a
+  // fresh load and reset streetViewLoaded=false — for a 'ready' commit there is no
+  // later onLoad to flip it back, so the FAB / country buttons would stay hidden.
+  const committedPreloadFingerprintRef = useRef<string | null>(null);
   useEffect(() => {
     if (lastFingerprint.current === panoFingerprint) return;
+    if (committedPreloadFingerprintRef.current === panoFingerprint) {
+      lastFingerprint.current = panoFingerprint;
+      committedPreloadFingerprintRef.current = null;
+      return; // committed preload — already loaded/visible; keep streetViewLoaded
+    }
     lastFingerprint.current = panoFingerprint;
     setStreetViewLoaded(false);
     setMiniMapShown(false);
@@ -259,22 +299,25 @@ function GameSurface(
 
   const showLoadingBanner = !streetViewLoaded;
 
-  // Loading banner crossfade — direct port of game/[id].tsx:230-263
+  // Loading banner crossfade — direct port of game/[id].tsx:230-263.
+  // While a round transition is driving the cover manually (isManualFadeIn), this
+  // effect stays out of its way ENTIRELY: the transition flips streetViewLoaded
+  // true early — to bring the next round's UI back behind the cover before it
+  // lifts — and we must not also schedule a fade-out in response. The transition
+  // clears isManualFadeIn when it hands control back.
   useEffect(() => {
     if (fadeOutTimer.current) {
       clearTimeout(fadeOutTimer.current);
       fadeOutTimer.current = null;
     }
+    if (isManualFadeIn.current) return;
     if (showLoadingBanner) {
-      if (!isManualFadeIn.current) {
-        Animated.timing(loadingOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-      }
+      Animated.timing(loadingOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
     } else {
-      isManualFadeIn.current = false;
       fadeOutTimer.current = setTimeout(() => {
         Animated.timing(loadingOpacity, {
           toValue: 0,
@@ -361,6 +404,8 @@ function GameSurface(
     // result reveal is a pure clip change with NO WebView resize. That's what
     // lets us snap straight to a full-screen map in ONE frame: instant, with no
     // reflow glitch and no flash. Leaflet then flies to the answer underneath.
+    // The result→next-round exit is hidden behind the loading cover (see
+    // beginRoundTransition), so the height collapse here is never visible.
     mapOpacity.setValue(1);
     if (isShowingResult && !showPanoOnResult) {
       // Slide the clip up to full ONLY once the embed says its in-page resize is
@@ -476,7 +521,7 @@ function GameSurface(
   const showReload = enableReload && !showLoadingBanner && !isShowingResult && !hideInputs;
 
   // Fade the country-button dock and the FAB in/out instead of hard-mounting
-  // — the user wants fades wherever possible.
+  // so round transitions do not pop.
   const inputsFade = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(inputsFade, {
@@ -499,30 +544,84 @@ function GameSurface(
     showLoadingBanner && !hasCompletedInitialReveal.current ? 'none' : 'box-none';
 
   const handleStreetViewLoad = useCallback(() => setStreetViewLoaded(true), []);
-  const handleOpenMap = useCallback(() => setMiniMapShown(true), []);
-  const handleCloseMap = useCallback(() => setMiniMapShown(false), []);
+  const handleOpenMap = useCallback(() => {
+    haptics.light();
+    setMiniMapShown(true);
+  }, []);
+  const handleCloseMap = useCallback(() => {
+    haptics.light();
+    setMiniMapShown(false);
+  }, []);
 
   const handleSubmitPin = useCallback(() => {
     onSubmitPin?.();
     setMiniMapShown(false);
   }, [onSubmitPin]);
 
-  // Imperative handle — direct port of game/[id].tsx:614-673 handleNextRound.
-  // The trick is to fade the loading banner all the way IN over the current
-  // scene BEFORE swapping state, so the previous round's panorama is never
-  // visible during the transition. The new panorama loads behind the
-  // opaque banner, then onLoad → streetViewLoaded → banner fades out.
+  // Imperative handle for advancing to the next round.
+  //
+  // The opaque loading cover is the single source of smoothness: it fades IN over
+  // the current scene, then EVERYTHING messy happens hidden beneath it — the
+  // result map collapses, the Street-View slot is swapped, the embed re-renders —
+  // and the cover fades back OUT to reveal the next round. The user only ever sees
+  // one clean fade, never a flash or leftover frame of the old round.
+  //
+  // The win over the old flow is purely duration: `commitPreload()` snaps the
+  // PRELOADED next pano (warmed during the result screen via `nextLocation`) to
+  // the active slot, so when it's 'ready' the pano is already painted and we fade
+  // the cover right back out — no waiting on a network load. 'pending' (warm slot
+  // still loading) and 'none' (no preload — country/onboarding final round, pool
+  // exhaustion) keep the cover up until the pano paints (its onLoad → the reactive
+  // fade-out), exactly like the classic flow.
+  const transitionInFlight = useRef(false);
   useImperativeHandle(ref, () => ({
     beginRoundTransition: (onCovered) => {
+      if (transitionInFlight.current) return; // ignore double-taps of Next
+      transitionInFlight.current = true;
+
+      // Fade the cover IN ourselves (isManualFadeIn suppresses the reactive
+      // showLoadingBanner fade-in so the two never fight).
       isManualFadeIn.current = true;
       setStreetViewLoaded(false);
       Animated.timing(loadingOpacity, {
         toValue: 1,
-        duration: 400,
-        easing: Easing.out(Easing.cubic),
+        duration: 280,
+        easing: Easing.inOut(Easing.ease),
         useNativeDriver: true,
       }).start(() => {
-        onCovered();
+        // Fully covered — the swap, map collapse and embed re-render are invisible.
+        const status = streetViewRef.current?.commitPreload() ?? 'none';
+        if (status !== 'none') {
+          // The next `location` IS this committed (already-loaded) pano — tell the
+          // panoFingerprint effect not to reset streetViewLoaded when it advances.
+          committedPreloadFingerprintRef.current = fingerprintOf(nextLocation);
+        }
+        onCovered(); // advance the round under the cover
+        transitionInFlight.current = false;
+
+        if (status === 'ready') {
+          // Next pano was warmed during the result screen and is already painted.
+          // Flip streetViewLoaded NOW (while still fully covered) so the next
+          // round's UI — FAB / country buttons / reload — fades back in BEHIND the
+          // cover and is already in place when it lifts (no late snap). The reactive
+          // effect ignores this because isManualFadeIn is still true. Then reveal
+          // with a short, snappy fade (skipping the grace a fresh pano would need).
+          setStreetViewLoaded(true);
+          Animated.timing(loadingOpacity, {
+            toValue: 0,
+            duration: 340,
+            delay: 90,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }).start(() => {
+            isManualFadeIn.current = false;
+          });
+        } else {
+          // 'pending'/'none': streetViewLoaded stays false; hand the cover back to
+          // the reactive effect, which fades it out (and brings the UI back) once
+          // the pano's onLoad flips streetViewLoaded true.
+          isManualFadeIn.current = false;
+        }
       });
     },
   }));
@@ -542,7 +641,21 @@ function GameSurface(
               long={location.long}
               heading={location.heading ?? undefined}
               pitch={location.pitch}
+              nmpz={nmpz}
               onLoad={handleStreetViewLoad}
+              // Warm the next round's pano in the hidden slot while the result
+              // map is up. Mirror the visible props exactly so committing it then
+              // advancing `location` matches the source key (no reload).
+              preload={
+                isShowingResult && nextLocation
+                  ? {
+                      lat: nextLocation.lat,
+                      long: nextLocation.long,
+                      heading: nextLocation.heading ?? undefined,
+                      pitch: nextLocation.pitch,
+                    }
+                  : null
+              }
             />
           )}
         </View>
@@ -652,7 +765,10 @@ function GameSurface(
           >
             {onHint && (
               <Pressable
-                onPress={onHint}
+                onPress={() => {
+                  haptics.medium(); // hint reveal — a notable "aha" beat
+                  onHint?.();
+                }}
                 disabled={hintShown || hintDisabled}
                 style={({ pressed }) => [
                   styles.hintBtn,
@@ -743,8 +859,7 @@ function GameSurface(
           </Animated.View>
         )}
 
-        {/* Country / continent variant: button grid. Fades in/out with
-            inputsFade so the dock doesn't pop on round transitions. */}
+        {/* Country / continent variant: button grid. */}
         {showCountryInputs && (
           <Animated.View
             style={[

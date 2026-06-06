@@ -3,6 +3,7 @@ import { Image, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { calcPoints, findDistance } from '../../src/shared';
+import { haptics, hapticForScore } from '../../src/services/haptics';
 import { dismissAllSafe } from '../../src/utils/navigation';
 import GameSurface, { GameSurfaceHandle } from '../../src/components/game/GameSurface';
 import GameTimer from '../../src/components/game/GameTimer';
@@ -18,7 +19,6 @@ import { flagUrl, shuffle } from '../../src/shared/data/countryHelpers';
 import { useOnboardingStore } from '../../src/store/onboardingStore';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
-import { wsService } from '../../src/services/websocket';
 import { onboardingAnalytics } from '../../src/services/onboardingAnalytics';
 import { SINGLEPLAYER_DEFAULT_MODE_KEY } from '../../src/hooks/useCountryGuesserGame';
 
@@ -78,6 +78,12 @@ export default function OnboardingPlay() {
   const settledMode: Mode = mode === 'classic' ? 'classic' : 'country';
 
   const markComplete = useOnboardingStore((s) => s.markComplete);
+  // Country guesser shares ONE persistent streak counter across onboarding and
+  // the real game (useCountryGuesserGame reads/bumps the same store value), so
+  // a streak built here carries straight in — web parity (gameUI.js).
+  const bumpStreak = useOnboardingStore((s) => s.bumpStreak);
+  const resetStreak = useOnboardingStore((s) => s.resetStreak);
+  const countryStreak = useOnboardingStore((s) => s.countryStreak);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const [round, setRound] = useState(1);
@@ -144,6 +150,14 @@ export default function OnboardingPlay() {
     const correct = currentLoc.country;
     const isCorrect = answer === correct;
     const points = isCorrect ? 1000 : 0;
+    if (isCorrect) haptics.success();
+    else haptics.light();
+    // Drive the shared persistent streak so it carries into country guesser.
+    if (isCorrect) {
+      bumpStreak('country');
+    } else {
+      resetStreak('country');
+    }
     setShowResult(true);
     setResults((prev) => [...prev, { points, picked: answer, correct }]);
   };
@@ -164,6 +178,7 @@ export default function OnboardingPlay() {
       guessLon: guessPosition.lng,
       maxDist: ONBOARDING_MAX_DIST,
     });
+    hapticForScore(points); // close-based feedback, like the normal game
     setShowResult(true);
     setResults((prev) => [
       ...prev,
@@ -215,6 +230,11 @@ export default function OnboardingPlay() {
   };
 
   const finish = (cb: () => void) => {
+    // Drop the native <Modal> before navigating. Without this, showComplete
+    // stays true and the modal floats above the screen we push to (it lives in
+    // a separate native window), so it looks "stuck open" after a choice.
+    // Mirrors how handleAuthSheetClose hides the sheet before its action runs.
+    setShowComplete(false);
     markComplete();
     cb();
   };
@@ -236,8 +256,7 @@ export default function OnboardingPlay() {
       onboardingAnalytics.continue('duel');
       onboardingAnalytics.end(settledMode, 'duel');
       finish(() => {
-        wsService.send({ type: 'publicDuel' });
-        useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
+        useMultiplayerStore.getState().joinQueue('publicDuel');
         dismissAllSafe();
         router.push('/queue');
       });
@@ -311,7 +330,7 @@ export default function OnboardingPlay() {
             correctCountry={lastResult.correct}
             picked={lastResult.picked || null}
             points={lastResult.points}
-            streak={results.filter((r) => r.points > 0).length}
+            streak={countryStreak}
             round={round}
             totalRounds={TOTAL_ROUNDS}
             onNext={advanceRound}
@@ -340,6 +359,9 @@ export default function OnboardingPlay() {
       <GameSurface
         ref={surfaceRef}
         location={currentLoc}
+        // Warm the next onboarding pano during the result screen → no loading
+        // cover on advance (hardcoded list, so the next round is known ahead).
+        nextLocation={round < ONBOARDING_LOCATIONS.length ? ONBOARDING_LOCATIONS[round] : null}
         roundKey={`${settledMode}-${round}`}
         variant={settledMode === 'classic' ? 'pin' : 'country'}
         hideInputs={isUndecided}

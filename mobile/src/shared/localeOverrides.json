@@ -11,10 +11,8 @@
   "disableVideoAds": "Disable Video Ads",
   "enjoyGameplay": "Enjoy 30 minutes of uninterrupted gameplay after this ad break",
   "restoreYourStreak": "Restore your {{streak}} country streak?",
-  "streakExtendedBig": "STREAK EXTENDED",
   "streakRestored": "Your streak has been restored!",
   "streakStarted": "You have a 1 day login streak! Log in daily to grow your streak!",
-  "streakStartedBig": "STREAK STARTED",
   "videoAdThanks": "Thanks for helping us keep WorldGuessr free by watching video ads!",
   "watchAd": "Watch Ad",
   "watchAnAdToRestore": "Watch a short ad to restore your streak.",
@@ -31,6 +29,7 @@
   "appleSignInFailed": "Apple sign in failed. Please try again.",
   "continueWithApple": "Continue with Apple",
   "queueLeftDisconnect": "Connection lost — you've left the queue.",
+  "queueJoinFailed": "Couldn't join the queue. Please try again.",
   "errorRequestTimedOut": "Request timed out. Check your connection and try again.",
   "errorNetworkRequest": "Network error. Check your connection and try again."
 }

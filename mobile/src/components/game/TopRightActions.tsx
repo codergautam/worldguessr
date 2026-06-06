@@ -65,11 +65,14 @@ export default function TopRightActions({ children, onBeforeNavigate }: TopRight
 const styles = StyleSheet.create({
   stack: {
     alignItems: 'flex-end',
+    // Nudge the round-timer pill (children) down a touch so it doesn't crowd
+    // the toolbar buttons above it.
+    gap: spacing.xs,
   },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm + 2,
+    gap: 3,
   },
   toolbarBtn: {
     flexDirection: 'row',

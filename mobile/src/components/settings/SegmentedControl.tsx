@@ -7,7 +7,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { haptics } from '../../services/haptics';
 import { colors } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 
@@ -58,7 +58,7 @@ export default function SegmentedControl<T extends string>({ options, value, onC
             onPress={() => {
               if (!active) {
                 onChange(o.value);
-                Haptics.selectionAsync().catch(() => {});
+                haptics.selection();
               }
             }}
           >

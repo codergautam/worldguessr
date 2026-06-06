@@ -92,10 +92,19 @@ export default function InviteFriendsModal({ visible, onClose }: InviteFriendsMo
   );
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      transparent
+      onRequestClose={onClose}
+      // iOS: a native <Modal> defaults to portrait-only and rotates the whole UI
+      // to portrait when opened in landscape. Allow both so the lobby's orientation
+      // is preserved when invites slide up.
+      supportedOrientations={['portrait', 'landscape']}
+    >
       <View style={styles.backdrop}>
         <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} />
-        <SafeAreaView edges={['bottom']} style={styles.sheet}>
+        <SafeAreaView edges={['bottom', 'left', 'right']} style={styles.sheet}>
           <View style={styles.handle} />
           <View style={styles.header}>
             <Text style={styles.title}>{t('inviteFriends', undefined, 'Invite Friends')}</Text>

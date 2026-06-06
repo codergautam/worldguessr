@@ -78,6 +78,41 @@ async function fetchApi<T>(
   return response.json();
 }
 
+export interface FeedbackPayload {
+  /** Account secret if signed in; omitted/undefined for guests. */
+  secret?: string | null;
+  stars: number;
+  comment?: string;
+  /** Device + locale context so support can reproduce/help (see useReviewPrompt). */
+  platform?: string;
+  osVersion?: string;
+  appVersion?: string;
+  buildVersion?: string;
+  deviceModel?: string;
+  deviceName?: string;
+  /** Selected in-app language. */
+  language?: string;
+  /** Country code from the signed-in account, if any. */
+  accountCountry?: string | null;
+  /** Device locale tag + region from expo-localization. */
+  deviceLocale?: string;
+  deviceRegion?: string;
+  timezone?: string;
+}
+
+/**
+ * The device's current IANA timezone (e.g. "America/New_York"). Sent to the
+ * server on auth so brand-new accounts get their country flag auto-assigned
+ * instantly (server maps tz → countryCode). Returns undefined if unavailable.
+ */
+function getDeviceTimezone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const api = {
   // Auth
   googleAuth: async (idToken: string) => {
@@ -104,7 +139,7 @@ export const api = {
       recentChange?: boolean;
     }>('/api/googleAuth', {
       method: 'POST',
-      body: JSON.stringify({ id_token: idToken }),
+      body: JSON.stringify({ id_token: idToken, tz: getDeviceTimezone() }),
     }, AUTH_URL);
   },
 
@@ -132,7 +167,7 @@ export const api = {
       recentChange?: boolean;
     }>('/api/googleAuth', {
       method: 'POST',
-      body: JSON.stringify({ apple_identity_token: identityToken }),
+      body: JSON.stringify({ apple_identity_token: identityToken, tz: getDeviceTimezone() }),
     }, AUTH_URL);
   },
 
@@ -172,7 +207,7 @@ export const api = {
       recentChange?: boolean;
     }>('/api/googleAuth', {
       method: 'POST',
-      body: JSON.stringify({ secret }),
+      body: JSON.stringify({ secret, tz: getDeviceTimezone() }),
     }, AUTH_URL);
   },
 
@@ -261,7 +296,7 @@ export const api = {
   },
 
   updateCountryCode: async (secret: string, countryCode: string) => {
-    return fetchApi<{ success: boolean }>('/api/updateCountryCode', {
+    return fetchApi<{ success: boolean; countryCode: string | null }>('/api/updateCountryCode', {
       method: 'POST',
       body: JSON.stringify({ token: secret, countryCode }),
     });
@@ -460,6 +495,14 @@ export const api = {
     return fetchApi<{ message: string; reportId?: string }>('/api/submitReport', {
       method: 'POST',
       body: JSON.stringify({ secret, reason, description, gameId, gameType, reportedUserAccountId }),
+    });
+  },
+
+  // In-app rate-us feedback (1–4★) → forwarded to a Discord webhook server-side.
+  submitFeedback: async (payload: FeedbackPayload) => {
+    return fetchApi<{ message: string }>('/api/submitFeedback', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   },
 

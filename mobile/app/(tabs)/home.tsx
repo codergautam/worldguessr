@@ -6,11 +6,14 @@ import {
   Pressable,
   ImageBackground,
   Animated,
+  Easing,
   ScrollView,
   useWindowDimensions,
   ActivityIndicator,
   Alert,
   Linking,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,10 +23,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, getLeague, t } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
-import { wsService } from '../../src/services/websocket';
 import { api } from '../../src/services/api';
+import { haptics } from '../../src/services/haptics';
 import { spacing, borderRadius } from '../../src/styles/theme';
-import SetUsernameModal from '../../src/components/SetUsernameModal';
 import AccountSelectSheet from '../../src/components/auth/AccountSelectSheet';
 import WhatsNewModal from '../../src/components/WhatsNewModal';
 import PlayerName from '../../src/components/PlayerName';
@@ -126,6 +128,63 @@ function OutlinedTitle({ children }: { children: string }) {
       <Text style={[styles.title, styles.titleShadow]}>{children}</Text>
       <Text style={styles.title}>{children}</Text>
     </View>
+  );
+}
+
+/**
+ * Bottom-right "X online" badge. Kept ALWAYS MOUNTED (not conditionally
+ * rendered) so it can animate OUT as well as in: it slides off to the right +
+ * fades when `visible` goes false (disconnect, login/logout socket swap, or
+ * count→0) and slides back in from the right when it returns. The last positive
+ * count is latched so the text never blinks to "0 online" mid-slide-out.
+ */
+function OnlineCountBadge({
+  visible,
+  count,
+  fontSize,
+  style,
+}: {
+  visible: boolean;
+  count: number;
+  fontSize: number;
+  style: StyleProp<ViewStyle>;
+}) {
+  const SLIDE = 80; // px off-screen to the right when hidden
+  const translateX = useRef(new Animated.Value(SLIDE)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const [shownCount, setShownCount] = useState(count);
+
+  // Latch the live count while it's meaningful; keep showing it during exit.
+  useEffect(() => {
+    if (count > 0) setShownCount(count);
+  }, [count]);
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(translateX, {
+        toValue: visible ? 0 : SLIDE,
+        duration: visible ? 420 : 300,
+        easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: visible ? 1 : 0,
+        duration: visible ? 360 : 240,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [visible, translateX, opacity]);
+
+  return (
+    <Animated.View
+      style={[style, { opacity, transform: [{ translateX }] }]}
+      pointerEvents="none"
+    >
+      <Text style={[styles.onlineCount, { fontSize }]}>
+        {t('onlineCnt', { cnt: shownCount })}
+      </Text>
+    </Animated.View>
   );
 }
 
@@ -318,13 +377,13 @@ export default function HomeScreen() {
       const isUnranked = nextGameType === 'unranked';
       const queueType = isUnranked ? 'unrankedDuel' : 'publicDuel';
       useMultiplayerStore.setState({ nextGameQueued: false, nextGameType: null });
-      wsService.send({ type: queueType });
-      useMultiplayerStore.setState({ gameQueued: queueType });
+      useMultiplayerStore.getState().joinQueue(queueType);
       router.push('/queue');
     }
   }, [nextGameQueued, connected, inGame, gameQueued, nextGameType]);
 
   const handleModePress = async (mode: GameMode) => {
+    haptics.light(); // tap on any main menu mode button
     const needsConnection = mode === 'rankedDuel' || mode === 'unrankedDuel' || mode === 'createGame' || mode === 'joinGame';
     if (needsConnection && !connected) {
       Alert.alert(
@@ -353,14 +412,12 @@ export default function HomeScreen() {
         // Wait for the interstitial to be dismissed before joining the queue —
         // otherwise the server can match us and start the round behind the ad.
         await runGameInterstitial('rankedDuel');
-        wsService.send({ type: 'publicDuel' });
-        useMultiplayerStore.setState({ gameQueued: 'publicDuel' });
+        useMultiplayerStore.getState().joinQueue('publicDuel');
         router.push('/queue');
         break;
       case 'unrankedDuel':
         await runGameInterstitial('unrankedDuel');
-        wsService.send({ type: 'unrankedDuel' });
-        useMultiplayerStore.setState({ gameQueued: 'unrankedDuel' });
+        useMultiplayerStore.getState().joinQueue('unrankedDuel');
         router.push('/queue');
         break;
       case 'createGame':
@@ -439,6 +496,9 @@ export default function HomeScreen() {
   };
 
   const loggedIn = isAuthenticated && !!user?.username;
+  // Authenticated but hasn't picked a username yet — the forced SetUsernameModal
+  // is covering the screen, so don't render the misleading "Login" button behind it.
+  const awaitingUsername = isAuthenticated && !user?.username;
 
   return (
     <View style={styles.container}>
@@ -474,7 +534,7 @@ export default function HomeScreen() {
         >
           <View style={styles.headerActionsOverlayInner} pointerEvents="box-none">
             <View style={styles.headerRight}>
-              {loggedIn ? (
+              {awaitingUsername ? null : loggedIn ? (
                 <>
                   <View style={styles.loggedInRow}>
                     <Pressable
@@ -750,6 +810,41 @@ export default function HomeScreen() {
 
           {/* Menu */}
           <View style={styles.menu}>
+            {/* Persistent moderation banner — always visible while a mod action
+                is pending, even after the popup is dismissed. Tapping it opens
+                the account screen where full details live. */}
+            {isAuthenticated && (user?.pendingNameChange || user?.banned) && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modBanner,
+                  user?.pendingNameChange ? styles.modBannerWarning : styles.modBannerError,
+                  pressed && { opacity: 0.85 },
+                ]}
+                onPress={() => router.navigate('/(tabs)/account')}
+              >
+                <Text style={styles.modBannerEmoji}>
+                  {user?.pendingNameChange ? '⚠️' : '⛔'}
+                </Text>
+                <View style={styles.modBannerTextWrap}>
+                  <Text
+                    style={[
+                      styles.modBannerTitle,
+                      { color: user?.pendingNameChange ? '#ff9800' : '#f44336' },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {user?.pendingNameChange
+                      ? t('usernameChangeRequired')
+                      : t(user?.banType === 'temporary' ? 'accountTempSuspended' : 'accountSuspended')}
+                  </Text>
+                  <Text style={styles.modBannerAction} numberOfLines={1}>
+                    {user?.pendingNameChange ? t('changeName') : t('viewDetails')}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
+              </Pressable>
+            )}
+
             <View style={styles.divider} />
 
             <View style={styles.menuGroup}>
@@ -846,22 +941,19 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
 
-        {/* Online player count — bottom right */}
-        {connected && playerCount > 0 && (
-          <View
-            style={[
-              styles.onlineCountContainer,
-              // Raise to align vertically with the bottom footer icon row
-              // (footer: paddingBottom spacing.xl + ~half of the 44px icons).
-              { bottom: Math.max(insets.bottom, spacing.lg) + spacing.xl + 10, right: Math.max(insets.right, spacing.xl) },
-            ]}
-            pointerEvents="none"
-          >
-            <Text style={[styles.onlineCount, { fontSize: shortestSide >= 768 ? 20 : shortestSide >= 430 ? 17 : 15 }]}>
-              {t('onlineCnt', { cnt: playerCount })}
-            </Text>
-          </View>
-        )}
+        {/* Online player count — bottom right. Always mounted so it can slide
+            in/out (see OnlineCountBadge); visibility drives the animation. */}
+        <OnlineCountBadge
+          visible={connected && playerCount > 0}
+          count={playerCount}
+          fontSize={shortestSide >= 768 ? 20 : shortestSide >= 430 ? 17 : 15}
+          style={[
+            styles.onlineCountContainer,
+            // Raise to align vertically with the bottom footer icon row
+            // (footer: paddingBottom spacing.xl + ~half of the 44px icons).
+            { bottom: Math.max(insets.bottom, spacing.lg) + spacing.xl + 10, right: Math.max(insets.right, spacing.xl) },
+          ]}
+        />
       </SafeAreaView>
 
       {/* Moderation Popup - animated in after delay */}
@@ -972,8 +1064,6 @@ export default function HomeScreen() {
         </Animated.View>
       )}
 
-      {/* Set Username Modal for new signups */}
-      <SetUsernameModal />
       <AccountSelectSheet visible={accountSheetVisible} onClose={() => setAccountSheetVisible(false)} />
 
       {/* What's New — auto-shows for logged-in users on version bump.
@@ -1199,6 +1289,39 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
+  },
+  modBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.md,
+    borderWidth: 1.5,
+    marginBottom: 4,
+  },
+  modBannerWarning: {
+    backgroundColor: 'rgba(255,152,0,0.15)',
+    borderColor: '#ff9800',
+  },
+  modBannerError: {
+    backgroundColor: 'rgba(244,67,54,0.15)',
+    borderColor: '#f44336',
+  },
+  modBannerEmoji: {
+    fontSize: 22,
+  },
+  modBannerTextWrap: {
+    flex: 1,
+  },
+  modBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modBannerAction: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.75)',
+    marginTop: 1,
   },
   modPopupCardWarning: {
     backgroundColor: '#1a1a0a',

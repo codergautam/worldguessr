@@ -86,7 +86,7 @@ export default function DailyLanding({
       <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.headerBar}>
           <Pressable onPress={onClose} hitSlop={12} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={22} color="#fff" />
+            <Ionicons name="close" size={22} color="#fff" />
           </Pressable>
         </View>
 

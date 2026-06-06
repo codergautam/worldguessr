@@ -175,7 +175,7 @@ export default function MapDetailView({
         style={({ pressed }) => [styles.headerBackBtn, pressed && { opacity: 0.7 }]}
         onPress={onBack}
       >
-        <Ionicons name="arrow-back" size={20} color="#fff" />
+        <Ionicons name="close" size={20} color="#fff" />
         <Text style={styles.headerBackText}>{t('back')}</Text>
       </Pressable>
 

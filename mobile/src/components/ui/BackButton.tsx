@@ -8,6 +8,7 @@ import { Pressable, StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../shared';
+import { haptics } from '../../services/haptics';
 
 // Canonical brand gradient for the back/leave button (matches web's red navbar btn).
 const BACK_GRADIENT = [
@@ -18,16 +19,19 @@ const BACK_GRADIENT = [
 
 interface BackButtonProps {
   onPress: () => void;
-  /** Icon glyph — defaults to a back arrow; pass "close" for dismiss-style screens. */
+  /** Icon glyph — defaults to an X (close); a bare back arrow tested as confusing. */
   icon?: keyof typeof Ionicons.glyphMap;
   /** Optional wrapper style (positioning, margins). */
   style?: StyleProp<ViewStyle>;
 }
 
-export default function BackButton({ onPress, icon = 'arrow-back', style }: BackButtonProps) {
+export default function BackButton({ onPress, icon = 'close', style }: BackButtonProps) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        haptics.light();
+        onPress();
+      }}
       style={({ pressed }) => [
         styles.button,
         pressed && { opacity: 0.85, transform: [{ scale: 0.95 }] },

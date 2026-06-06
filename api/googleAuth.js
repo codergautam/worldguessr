@@ -3,7 +3,7 @@ import User from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
 import { OAuth2Client } from "google-auth-library";
 import { createPublicKey, createVerify } from "crypto";
-import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
+import timezoneToCountry, { VALID_COUNTRY_CODES } from "../serverUtils/timezoneToCountry.js";
 import { syncedClearCache } from '../serverUtils/cacheBus.js';
 import { getLeague } from '../components/utils/leagues.js';
 
@@ -189,7 +189,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { code, secret, redirect_uri, id_token, apple_identity_token } = req.body;
+  const { code, secret, redirect_uri, id_token, apple_identity_token, tz } = req.body;
+
+  // Derive a country flag from a real client-provided IANA timezone (mobile sends
+  // the device tz on signup). We deliberately do NOT trust the User schema's
+  // default tz ('America/Los_Angeles') for this — only an explicit, valid tz from
+  // the request, so brand-new users get the correct flag instantly instead of
+  // waiting for a later websocket-driven migration.
+  const signupCountryCode = (() => {
+    if (!tz || typeof tz !== 'string') return null;
+    const cc = timezoneToCountry(tz);
+    return cc && VALID_COUNTRY_CODES.includes(cc) ? cc : null;
+  })();
 
   if (apple_identity_token && !code && !secret && !id_token) {
     timings.authType = 'apple_id_token';
@@ -223,6 +234,11 @@ export default async function handler(req, res) {
         timings.isNewUser = true;
         const newSecret = createUUID();
         const newUser = new User({ email, appleId, secret: newSecret });
+        // Auto-assign country flag instantly from the client's real device tz.
+        if (signupCountryCode) {
+          newUser.countryCode = signupCountryCode;
+          if (tz) newUser.timeZone = tz;
+        }
         await newUser.save();
 
         const startRank = Date.now();
@@ -315,6 +331,11 @@ export default async function handler(req, res) {
         const startNewUser = Date.now();
         const newSecret = createUUID();
         const newUser = new User({ email, secret: newSecret });
+        // Auto-assign country flag instantly from the client's real device tz.
+        if (signupCountryCode) {
+          newUser.countryCode = signupCountryCode;
+          if (tz) newUser.timeZone = tz;
+        }
         await newUser.save();
         timings.newUserCreate = Date.now() - startNewUser;
 
@@ -332,7 +353,7 @@ export default async function handler(req, res) {
           canMakeClues: false,
           supporter: false,
           accountId: newUser._id,
-          countryCode: null,
+          countryCode: signupCountryCode,
           banned: false,
           banType: 'none',
           banExpiresAt: null,
@@ -559,12 +580,17 @@ export default async function handler(req, res) {
       if (!existingUser) {
         timings.isNewUser = true;
         const startNewUser = Date.now();
-        // Note: countryCode is left as null (schema default) for new users.
-        // We don't auto-assign based on timeZone here because timeZone defaults to
-        // 'America/Los_Angeles', which would incorrectly assign all new users to 'US'.
-        // Users can manually set their country flag later in their profile.
+        // countryCode is auto-assigned ONLY from an explicit, valid client-provided
+        // tz (see signupCountryCode). We never derive it from the User schema's
+        // default tz ('America/Los_Angeles'), which would mislabel all new users as
+        // 'US'. When no tz is provided (e.g. web OAuth, which doesn't send one), it
+        // stays null and the user can pick a flag later / get it via ws migration.
         secret = createUUID();
         const newUser = new User({ email, secret });
+        if (signupCountryCode) {
+          newUser.countryCode = signupCountryCode;
+          if (tz) newUser.timeZone = tz;
+        }
 
         await newUser.save();
         timings.newUserCreate = Date.now() - startNewUser;
@@ -583,7 +609,7 @@ export default async function handler(req, res) {
           canMakeClues: false,
           supporter: false,
           accountId: newUser._id,
-          countryCode: null,
+          countryCode: signupCountryCode,
           banned: false,
           banType: 'none',
           banExpiresAt: null,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   Animated,
   Easing,
@@ -16,6 +16,8 @@ import {
   flagUrl,
   nameFromCode,
 } from '../../shared/data/countryHelpers';
+
+const ANIMATED_ONE = new Animated.Value(1);
 
 const CONTINENT_IMAGES: Record<string, string> = {
   Africa: 'https://www.worldguessr.com/continents/africa.png',
@@ -66,40 +68,6 @@ export default function CountryButtons({
     : isPhone || isShort
       ? width - 12
       : undefined;
-
-  // Anti-ghost-tap guard: when the option set changes, briefly ignore taps so
-  // a finger lifting from a previous round's tile doesn't immediately fire here.
-  const [interactive, setInteractive] = useState(false);
-  useEffect(() => {
-    setInteractive(false);
-    const t = setTimeout(() => setInteractive(true), 500);
-    return () => clearTimeout(t);
-  }, [countries.join('|'), mode]);
-
-  // One Animated.Value per slot; staggered fade-in matches web cardSlideIn.
-  const anims = useRef(items.map(() => new Animated.Value(0))).current;
-  // Re-create when length changes (continent → country switch).
-  const animsRef = useRef(anims);
-  if (animsRef.current.length !== items.length) {
-    animsRef.current = items.map(() => new Animated.Value(0));
-  }
-  useEffect(() => {
-    if (!shown) {
-      animsRef.current.forEach((a) => a.setValue(0));
-      return;
-    }
-    Animated.stagger(
-      isContinent ? 60 : 70,
-      animsRef.current.map((a) =>
-        Animated.timing(a, {
-          toValue: 1,
-          duration: 280,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ),
-    ).start();
-  }, [shown, items.length, isContinent]);
 
   const buttonMetrics = useMemo(() => {
     if (isLarge) {
@@ -179,7 +147,39 @@ export default function CountryButtons({
 
   const rowWrap = isShort && !isContinent ? 'nowrap' : 'wrap';
 
-  const tapDisabled = disabled || !interactive;
+  const tapDisabled = !!disabled;
+  const itemsKey = `${mode}:${items.join('|')}`;
+  const entranceAnims = useMemo(
+    () => items.map(() => new Animated.Value(0)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [itemsKey],
+  );
+
+  useEffect(() => {
+    if (!shown) {
+      entranceAnims.forEach((a) => a.setValue(0));
+      return;
+    }
+
+    entranceAnims.forEach((a) => a.setValue(0));
+    const delay = isContinent ? 45 : 55;
+    const animation = Animated.parallel(
+      entranceAnims.map((a, i) =>
+        Animated.sequence([
+          Animated.delay(i * delay),
+          Animated.timing(a, {
+            toValue: 1,
+            duration: 260,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: false,
+          }),
+        ]),
+      ),
+      { stopTogether: false },
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [shown, isContinent, entranceAnims]);
 
   if (!shown) return null;
 
@@ -235,9 +235,10 @@ export default function CountryButtons({
                   ? '30%'
                   : undefined
                 : undefined;
+          const entrance = entranceAnims[i] ?? ANIMATED_ONE;
 
           return (
-            <Animated.View
+            <View
               key={`${mode}-${item}`}
               style={[
                 styles.cell,
@@ -246,73 +247,77 @@ export default function CountryButtons({
                   flexGrow: flexBasis === undefined ? 0 : 1,
                   flexShrink: 1,
                 },
-                {
-                  opacity: animsRef.current[i],
-                  transform: [
-                    {
-                      translateY: animsRef.current[i].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [16, 0],
-                      }),
-                    },
-                  ],
-                },
               ]}
             >
               <Pressable
                 onPress={() => !tapDisabled && onPress(item)}
                 disabled={tapDisabled}
-                style={({ pressed }) => [
-                  styles.btn,
-                  !compact && styles.btnOnboarding,
-                  {
-                    minWidth: buttonMetrics.minWidth,
-                    paddingHorizontal: buttonMetrics.buttonPaddingH,
-                    paddingVertical: buttonMetrics.buttonPaddingV,
-                    gap: buttonMetrics.buttonGap,
-                    borderRadius: buttonMetrics.buttonRadius,
-                  },
-                  isCorrect && styles.btnCorrect,
-                  isWrongPick && styles.btnWrong,
-                  pressed && !tapDisabled && styles.btnPressed,
-                ]}
+                style={styles.pressable}
               >
-                {isContinent ? (
-                  <Image
-                    source={{ uri: CONTINENT_IMAGES[item] }}
+                {({ pressed }) => (
+                  <Animated.View
                     style={[
-                      styles.continentIcon,
+                      styles.btn,
+                      !compact && styles.btnOnboarding,
                       {
-                        width: buttonMetrics.iconSize,
-                        height: buttonMetrics.iconSize,
+                        minWidth: buttonMetrics.minWidth,
+                        paddingHorizontal: buttonMetrics.buttonPaddingH,
+                        paddingVertical: buttonMetrics.buttonPaddingV,
+                        gap: buttonMetrics.buttonGap,
+                        borderRadius: buttonMetrics.buttonRadius,
+                        opacity: entrance,
+                        transform: [
+                          {
+                            translateY: entrance.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [14, 0],
+                            }),
+                          },
+                        ],
                       },
+                      isCorrect && styles.btnCorrect,
+                      isWrongPick && styles.btnWrong,
+                      pressed && !tapDisabled && styles.btnPressed,
                     ]}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Image
-                    source={{ uri: flagUrl(item, 'w80') }}
-                    style={[
-                      styles.flag,
-                      {
-                        width: buttonMetrics.flagWidth,
-                        height: buttonMetrics.flagHeight,
-                      },
-                    ]}
-                    resizeMode="contain"
-                  />
+                  >
+                    {isContinent ? (
+                      <Image
+                        source={{ uri: CONTINENT_IMAGES[item] }}
+                        style={[
+                          styles.continentIcon,
+                          {
+                            width: buttonMetrics.iconSize,
+                            height: buttonMetrics.iconSize,
+                          },
+                        ]}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Image
+                        source={{ uri: flagUrl(item, 'w80') }}
+                        style={[
+                          styles.flag,
+                          {
+                            width: buttonMetrics.flagWidth,
+                            height: buttonMetrics.flagHeight,
+                          },
+                        ]}
+                        resizeMode="contain"
+                      />
+                    )}
+                    <Text
+                      style={[styles.label, { fontSize: buttonMetrics.labelFont }]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.76}
+                    >
+                      {fullName}
+                    </Text>
+                  </Animated.View>
                 )}
-                <Text
-                  style={[styles.label, { fontSize: buttonMetrics.labelFont }]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.76}
-                >
-                  {fullName}
-                </Text>
               </Pressable>
-            </Animated.View>
+            </View>
           );
         })}
       </View>
@@ -355,6 +360,9 @@ const styles = StyleSheet.create({
   },
   cell: {
     alignItems: 'stretch',
+  },
+  pressable: {
+    alignSelf: 'stretch',
   },
   btn: {
     backgroundColor: 'rgba(255, 255, 255, 0.08)',

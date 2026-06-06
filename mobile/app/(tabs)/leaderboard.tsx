@@ -266,7 +266,7 @@ export default function LeaderboardScreen() {
               ]}
               onPress={() => router.navigate('/(tabs)/home')}
             >
-              <Ionicons name="arrow-back" size={16} color="#dc3545" />
+              <Ionicons name="close" size={16} color="#dc3545" />
               <Text style={styles.exitButtonText}>{t('backToGame')}</Text>
             </Pressable>
           </View>

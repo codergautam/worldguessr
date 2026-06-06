@@ -18,11 +18,13 @@ import { colors } from '../src/shared';
 import { useAuthStore } from '../src/store/authStore';
 import { useOnboardingStore } from '../src/store/onboardingStore';
 import { useSettingsStore } from '../src/store/settingsStore';
+import { useReviewPromptStore } from '../src/store/reviewPromptStore';
 import { useWebSocket } from '../src/hooks/useWebSocket';
 import { useDeepLinkInvite } from '../src/hooks/useDeepLinkInvite';
 import ToastProvider from '../src/components/multiplayer/ToastProvider';
 import ActionableNotifications from '../src/components/multiplayer/ActionableNotifications';
 import WsIndicator from '../src/components/multiplayer/WsIndicator';
+import SetUsernameModal from '../src/components/SetUsernameModal';
 import { initAds, preloadInterstitial } from '../src/services/ads';
 import { initAnalytics } from '../src/services/analytics';
 
@@ -67,6 +69,7 @@ export default function RootLayout() {
     useAuthStore.getState().loadSession();
     useOnboardingStore.getState().loadFlag();
     useSettingsStore.getState().loadSettings();
+    useReviewPromptStore.getState().load();
   }, []);
 
   // Initialize native services (ads, analytics)
@@ -134,6 +137,10 @@ export default function RootLayout() {
         <ToastProvider />
         <ActionableNotifications />
         <WsIndicator />
+        {/* Forces a new account with no username to set one before using the app.
+            Mounted last + at root so its modal overlays EVERYTHING (home,
+            onboarding, game) and cannot be bypassed. */}
+        <SetUsernameModal />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

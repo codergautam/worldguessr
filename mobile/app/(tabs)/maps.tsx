@@ -227,7 +227,7 @@ export default function MapsScreen() {
             style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
             onPress={() => router.navigate('/(tabs)/home')}
           >
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="close" size={20} color="#fff" />
           </Pressable>
           <Text style={styles.title}>{t('maps')}</Text>
         </View>

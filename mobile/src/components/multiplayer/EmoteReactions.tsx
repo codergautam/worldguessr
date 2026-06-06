@@ -24,6 +24,7 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../shared';
+import { haptics } from '../../services/haptics';
 import { spacing, fontSizes } from '../../styles/theme';
 import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../../shared/emotes';
 import { useMultiplayerStore, type EmoteReaction } from '../../store/multiplayerStore';
@@ -122,6 +123,7 @@ export default function EmoteReactions({ hidden = false, hideName = false }: { h
 
   const handleSend = (index: number) => {
     if (inCooldown) return;
+    haptics.light();
     sendEmote(index);
     setCooldownUntil(Date.now() + EMOTE_COOLDOWN_MS);
     setNow(Date.now());
@@ -160,7 +162,10 @@ export default function EmoteReactions({ hidden = false, hideName = false }: { h
 
       {/* Toggle */}
       <Pressable
-        onPress={() => setOpen((o) => !o)}
+        onPress={() => {
+          haptics.light();
+          setOpen((o) => !o);
+        }}
         style={({ pressed }) => [styles.toggle, pressed && { opacity: 0.85 }]}
         hitSlop={8}
       >

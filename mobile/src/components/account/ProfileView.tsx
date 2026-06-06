@@ -348,7 +348,14 @@ export default function ProfileView({
 
   return (
     <View style={styles.container}>
-      <ScreenBackground />
+      {/* Background Image */}
+      <ImageBackground
+        source={require('../../../assets/street2.jpg')}
+        style={StyleSheet.absoluteFillObject}
+        resizeMode="cover"
+      />
+
+      {/* Dark overlay keeps the street2 backdrop subtle, matching the rest of the app */}
       <LinearGradient
         colors={[
           'rgba(0, 0, 0, 0.9)',
@@ -407,7 +414,7 @@ export default function ProfileView({
                   style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
                   onPress={onBack}
                 >
-                  <Ionicons name="arrow-back" size={22} color="#fff" />
+                  <Ionicons name="close" size={22} color="#fff" />
                 </Pressable>
               )}
               <View style={styles.usernameRow}>

@@ -6,6 +6,12 @@
  * - Yellow pulsating after 3s of connecting
  * - Red when disconnected
  * - Green briefly when reconnected after showing yellow/red
+ *
+ * Only ever shown in a MULTIPLAYER context (active game, party lobby, or
+ * matchmaking queue). On home / singleplayer / daily the connection is just
+ * background presence — a foreground-after-idle reconnect there is housekeeping,
+ * not something to surface — so the indicator stays fully hidden (no yellow pulse,
+ * no green "reconnected" flash), mirroring the silenced reconnect toast.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -22,6 +28,12 @@ export default function WsIndicator() {
   const insets = useSafeAreaInsets();
   const connected = useMultiplayerStore((s) => s.connected);
   const connecting = useMultiplayerStore((s) => s.connecting);
+  // Connection status only surfaces in a multiplayer context (active game, party
+  // lobby, or matchmaking queue). Anywhere else the radar stays hidden — see the
+  // file header and the guard at the top of the status effect below.
+  const inMultiplayer = useMultiplayerStore(
+    (s) => s.inGame || !!s.gameData || !!s.gameQueued,
+  );
 
   const [showIcon, setShowIcon] = useState(false);
   const slideAnim = useRef(new Animated.Value(80)).current; // off-screen right
@@ -73,6 +85,28 @@ export default function WsIndicator() {
   }, [showIcon, connected]);
 
   useEffect(() => {
+    // Outside multiplayer the radar never shows — kill any in-flight reveal/hold
+    // and stay hidden. This is what silences the yellow→green flash a home-screen
+    // foreground-after-idle reconnect would otherwise produce. We still keep the
+    // prev-refs in sync and record hasEverConnected so that when the user DOES
+    // enter multiplayer, the first genuine drop can flash yellow instantly.
+    if (!inMultiplayer) {
+      if (connected) hasEverConnected.current = true;
+      if (hideTimer.current) {
+        clearTimeout(hideTimer.current);
+        hideTimer.current = null;
+      }
+      if (connectingTimer.current) {
+        clearTimeout(connectingTimer.current);
+        connectingTimer.current = null;
+      }
+      connectingStartTime.current = null;
+      setShowIcon(false);
+      prevConnected.current = connected;
+      prevConnecting.current = connecting;
+      return;
+    }
+
     const wasConnected = prevConnected.current;
     const wasConnecting = prevConnecting.current;
 
@@ -87,13 +121,27 @@ export default function WsIndicator() {
 
     if (connecting) {
       if (!wasConnecting) {
-        // Just started connecting — hide, then re-show (yellow) after 3s so a
-        // fast (re)connect never flashes the icon. Matches web's wsIcon.js.
         connectingStartTime.current = Date.now();
-        setShowIcon(false);
-        connectingTimer.current = setTimeout(() => {
+        if (hasEverConnected.current && !connected) {
+          // A genuine mid-session RECONNECT: the socket actually dropped, so the
+          // store cleared `connected` (onDisconnect / onReconnecting) BEFORE
+          // flipping `connecting`. Show the yellow indicator INSTANTLY — the user
+          // needs to know they're offline the moment it happens (e.g. just bounced
+          // home from a multiplayer game) — not 3s later.
           setShowIcon(true);
-        }, 3000);
+        } else {
+          // First app-open connect, OR a CONTROLLED reconnect that still holds a
+          // live socket — `connected` is still true because we tore the old socket
+          // down cleanly (login/logout swaps the secret via connect(reconnect:false);
+          // the auth-change effect flips `connecting` without ever clearing
+          // `connected`). Hide, then reveal (yellow) only after 3s if still pending,
+          // so the fast secret-swap reconnect clears this timer first and never
+          // flashes the icon in/out. Matches web's wsIcon.js.
+          setShowIcon(false);
+          connectingTimer.current = setTimeout(() => {
+            setShowIcon(true);
+          }, 3000);
+        }
       }
     } else if (!connected) {
       // Real disconnect — show red immediately, but ONLY if we've previously
@@ -127,7 +175,7 @@ export default function WsIndicator() {
 
     prevConnected.current = connected;
     prevConnecting.current = connecting;
-  }, [connected, connecting]);
+  }, [connected, connecting, inMultiplayer]);
 
   // Drive slide animation after React commits the new showIcon state.
   // Starting animations inline above could fire before the View is mounted,

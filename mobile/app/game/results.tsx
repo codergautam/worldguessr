@@ -26,6 +26,7 @@ import { colors, formatDistance, t } from '../../src/shared';
 import { useSettingsStore } from '../../src/store/settingsStore';
 import { findDistance } from '../../src/shared/game/calcPoints';
 import { api } from '../../src/services/api';
+import { haptics, hapticForScore } from '../../src/services/haptics';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { dismissAllSafe } from '../../src/utils/navigation';
@@ -34,6 +35,8 @@ import PinMarker from '../../src/components/game/PinMarker';
 import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
 import BackButton from '../../src/components/ui/BackButton';
+import ReviewPromptModal from '../../src/components/ReviewPromptModal';
+import { useReviewPrompt } from '../../src/hooks/useReviewPrompt';
 
 const guessPinImage = require('../../assets/marker-src.png');
 const actualPinImage = require('../../assets/marker-dest.png');
@@ -276,6 +279,8 @@ export default function GameResultsScreen() {
     myId: liveMyIdParam,
     duel: duelParam,
     public: publicParam,
+    map: mapParam,
+    mapName: mapNameParam,
   } = useLocalSearchParams<{
     totalScore: string;
     rounds: string;
@@ -289,11 +294,21 @@ export default function GameResultsScreen() {
     myId?: string;
     duel?: string;
     public?: string;
+    map?: string;
+    mapName?: string;
   }>();
 
   const isHistoryView = fromHistory === 'true';
   const isLiveMultiplayer = mpParam === 'true';
   const secret = useAuthStore((s) => s.secret);
+
+  // Rate-us prompt: this screen mounts once per finished game, so mounting is the
+  // completion signal. Count every game EXCEPT private parties (and never history
+  // replays). A live MP game is a private party when it's neither a duel nor a
+  // public/matchmade game — derivable straight from the route params.
+  const isDuelGame = !!duelEndParam || duelParam === 'true';
+  const isPrivateParty = isLiveMultiplayer && !isDuelGame && publicParam !== 'true';
+  const review = useReviewPrompt(!isHistoryView && !isPrivateParty);
 
   // History mode: fetch game details and transform into RoundResult[]
   const [historyLoading, setHistoryLoading] = useState(!!gameId && !rounds);
@@ -483,6 +498,7 @@ export default function GameResultsScreen() {
   const isLandscape = width > height;
 
   const openInGoogleMaps = useCallback((lat: number, lng: number, panoId?: string) => {
+    haptics.light();
     const url = panoId
       ? `https://www.google.com/maps/@?api=1&map_action=pano&pano=${panoId}`
       : `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
@@ -579,7 +595,14 @@ export default function GameResultsScreen() {
       duration: 1200,
       easing: (t: number) => 1 - Math.pow(1 - t, 3),
       useNativeDriver: false,
-    }).start();
+    }).start(({ finished }) => {
+      // Score-graded celebration once the headline total lands. Normalize the
+      // multi-round total to the per-guess 0–5000 scale (average per round) so
+      // it maps onto the same intensity tiers as a single guess.
+      if (finished && score > 0) {
+        hapticForScore(score / Math.max(1, parsedRounds.length));
+      }
+    });
 
     return () => {
       animatedValue.removeListener(listener);
@@ -792,6 +815,7 @@ export default function GameResultsScreen() {
   );
 
   const toggleDetails = useCallback(() => {
+    haptics.light();
     const expanding = !detailsExpanded;
     setDetailsExpanded(expanding);
     Animated.spring(panelAnim, {
@@ -803,6 +827,7 @@ export default function GameResultsScreen() {
   }, [detailsExpanded, panelAnim]);
 
   const handlePlayAgain = () => {
+    haptics.medium();
     if (isLiveMultiplayer) {
       // Mirror web's backBtnPressed(true, type): leave the finished game, then
       // re-queue into the SAME public queue. Only public games (ranked duels +
@@ -828,14 +853,19 @@ export default function GameResultsScreen() {
       dismissAllSafe();
       return;
     }
-    // Play Again always restarts a world singleplayer game (map: 'all'),
-    // never a community map — so it's always ad-eligible.
+    // Play Again restarts the SAME singleplayer game the player just finished —
+    // preserving the map they chose (world, a country, or a community map)
+    // instead of resetting to the world map. Country-guesser modes always run on
+    // map 'all' (the submode drives them). Singleplayer is ad-eligible in every
+    // case, so the interstitial gating is unchanged.
     maybeShowGameInterstitial('singleplayer');
+    const replayMap = isCountryGuesserResult ? 'all' : (mapParam || 'all');
     router.replace({
       pathname: '/game/[id]',
       params: {
         id: 'singleplayer',
-        map: 'all',
+        map: replayMap,
+        ...(replayMap !== 'all' && mapNameParam ? { mapName: mapNameParam } : {}),
         rounds: isCountryGuesserResult ? '10' : '5',
         time: '60',
         mode: mode || 'world',
@@ -844,6 +874,8 @@ export default function GameResultsScreen() {
   };
 
   const handleGoHome = () => {
+    // No haptic here: the back button taps fire it via the shared BackButton, and
+    // the standalone Home CTA fires it inline — keeping it out avoids a double buzz.
     if (isLiveMultiplayer) {
       useMultiplayerStore.getState().reset();
     }
@@ -859,7 +891,9 @@ export default function GameResultsScreen() {
 
   const handleCopyGameId = useCallback(async () => {
     if (!gameId) return;
+    haptics.light();
     await Clipboard.setStringAsync(gameId);
+    haptics.success();
     setGameIdCopied(true);
     if (gameIdCopiedTimer.current) clearTimeout(gameIdCopiedTimer.current);
     gameIdCopiedTimer.current = setTimeout(() => {
@@ -1178,7 +1212,10 @@ export default function GameResultsScreen() {
         )}
         {isHistoryView ? (
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => {
+              haptics.light();
+              router.back();
+            }}
             style={({ pressed }) => [pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
           >
             <LinearGradient
@@ -1187,7 +1224,7 @@ export default function GameResultsScreen() {
               end={{ x: 1, y: 1 }}
               style={styles.actionBtnPrimary}
             >
-              <Ionicons name="arrow-back" size={16} color={colors.white} />
+              <Ionicons name="close" size={16} color={colors.white} />
               <Text style={styles.actionBtnPrimaryText}>{t('back')}</Text>
             </LinearGradient>
           </Pressable>
@@ -1334,7 +1371,7 @@ export default function GameResultsScreen() {
     const opponents = multiplayerInfo?.players.filter(p => p.playerId !== multiplayerInfo?.myId) ?? [];
     const wordCount = reportDescription.trim().split(/\s+/).filter(Boolean).length;
     return (
-      <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => setReportModalVisible(false)}>
+      <Modal visible={reportModalVisible} transparent animationType="fade" onRequestClose={() => setReportModalVisible(false)} supportedOrientations={['portrait', 'landscape']}>
         <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>{t('reportPlayer', undefined, 'Report Player')}</Text>
@@ -1714,6 +1751,11 @@ export default function GameResultsScreen() {
         </LinearGradient>
       </Animated.View>
       {renderReportModal()}
+      <ReviewPromptModal
+        visible={review.visible}
+        onRate={review.onRate}
+        onDismiss={review.onDismiss}
+      />
     </View>
   );
 }

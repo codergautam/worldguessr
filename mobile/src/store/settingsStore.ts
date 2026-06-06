@@ -27,6 +27,7 @@ interface PersistedSettings {
   mapType: MapType;
   language: SupportedLanguage;
   multiplayerEmotesEnabled: boolean;
+  hapticsEnabled: boolean;
 }
 
 interface SettingsState extends PersistedSettings {
@@ -37,6 +38,7 @@ interface SettingsState extends PersistedSettings {
   setMapType: (mapType: MapType) => void;
   setLanguage: (language: SupportedLanguage) => void;
   setMultiplayerEmotesEnabled: (enabled: boolean) => void;
+  setHapticsEnabled: (enabled: boolean) => void;
 }
 
 const DEFAULTS: PersistedSettings = {
@@ -44,6 +46,7 @@ const DEFAULTS: PersistedSettings = {
   mapType: 'm',
   language: 'en',
   multiplayerEmotesEnabled: true,
+  hapticsEnabled: true,
 };
 
 function persist(s: PersistedSettings): void {
@@ -52,6 +55,7 @@ function persist(s: PersistedSettings): void {
     mapType: s.mapType,
     language: s.language,
     multiplayerEmotesEnabled: s.multiplayerEmotesEnabled,
+    hapticsEnabled: s.hapticsEnabled,
   };
   AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(data)).catch(() => {});
 }
@@ -77,6 +81,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         typeof stored.multiplayerEmotesEnabled === 'boolean'
           ? stored.multiplayerEmotesEnabled
           : DEFAULTS.multiplayerEmotesEnabled,
+      hapticsEnabled:
+        typeof stored.hapticsEnabled === 'boolean'
+          ? stored.hapticsEnabled
+          : DEFAULTS.hapticsEnabled,
     };
 
     // Prime the i18n table before anything renders so t() is correct from frame 1.
@@ -103,6 +111,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setMultiplayerEmotesEnabled: (multiplayerEmotesEnabled) => {
     set({ multiplayerEmotesEnabled });
+    persist(get());
+  },
+
+  setHapticsEnabled: (hapticsEnabled) => {
+    set({ hapticsEnabled });
     persist(get());
   },
 }));

@@ -16,18 +16,25 @@ import {
   ImageBackground,
   ActivityIndicator,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, t } from '../../src/shared';
+import { haptics } from '../../src/services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 
 export default function PartyJoinScreen() {
   const router = useRouter();
+  // Landscape is height-bound: the auto-focused number pad covers most of a short
+  // viewport, so the content is made scrollable and the input/button are compacted.
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const inputRef = useRef<TextInput>(null);
   const joinTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [code, setCode] = useState('');
@@ -64,6 +71,7 @@ export default function PartyJoinScreen() {
 
   const handleJoin = () => {
     if (code.length !== 6) return;
+    haptics.medium(); // committing to join a party
     setJoining(true);
     joinPrivateGame(code);
     // Safety net: if the server never answers (dropped packet / silent drop),
@@ -92,47 +100,55 @@ export default function PartyJoinScreen() {
       <SafeAreaView style={styles.flex} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.white} />
+            <Ionicons name="close" size={24} color={colors.white} />
           </Pressable>
           <Text style={styles.headerTitle}>{t('joinGame')}</Text>
           <View style={{ width: 40 }} />
         </View>
 
         <KeyboardAvoidingView
-          style={styles.content}
+          style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          <Text style={styles.codeLabel}>{t('gameCode')}</Text>
-
-          <TextInput
-            ref={inputRef}
-            style={styles.codeInput}
-            value={code}
-            onChangeText={(text) => setCode(text.replace(/\D/g, '').slice(0, 6))}
-            keyboardType="number-pad"
-            maxLength={6}
-            placeholder="000000"
-            placeholderTextColor="rgba(255, 255, 255, 0.2)"
-            autoFocus
-          />
-
-          {joinError && <Text style={styles.errorText}>{joinError}</Text>}
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.joinBtn,
-              code.length !== 6 && styles.joinBtnDisabled,
-              pressed && code.length === 6 && { opacity: 0.85 },
-            ]}
-            onPress={handleJoin}
-            disabled={code.length !== 6 || joining}
+          <ScrollView
+            style={styles.flex}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {joining ? (
-              <ActivityIndicator color={colors.white} />
-            ) : (
-              <Text style={styles.joinBtnText}>{t('join')}</Text>
-            )}
-          </Pressable>
+            <Text style={styles.codeLabel}>{t('gameCode')}</Text>
+
+            <TextInput
+              ref={inputRef}
+              style={[styles.codeInput, isLandscape && styles.codeInputLandscape]}
+              value={code}
+              onChangeText={(text) => setCode(text.replace(/\D/g, '').slice(0, 6))}
+              keyboardType="number-pad"
+              maxLength={6}
+              placeholder="000000"
+              placeholderTextColor="rgba(255, 255, 255, 0.2)"
+              autoFocus
+            />
+
+            {joinError && <Text style={styles.errorText}>{joinError}</Text>}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.joinBtn,
+                isLandscape && styles.joinBtnLandscape,
+                code.length !== 6 && styles.joinBtnDisabled,
+                pressed && code.length === 6 && { opacity: 0.85 },
+              ]}
+              onPress={handleJoin}
+              disabled={code.length !== 6 || joining}
+            >
+              {joining ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <Text style={styles.joinBtnText}>{t('join')}</Text>
+              )}
+            </Pressable>
+          </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </View>
@@ -152,7 +168,13 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { color: colors.white, fontSize: fontSizes.lg, fontFamily: 'Lexend-Bold' },
-  content: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: spacing.xl },
+  content: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+  },
   codeLabel: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: fontSizes.xs,
@@ -176,6 +198,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 300,
   },
+  codeInputLandscape: { paddingVertical: spacing.md },
   errorText: {
     color: colors.error,
     fontSize: fontSizes.sm,
@@ -192,6 +215,7 @@ const styles = StyleSheet.create({
     minWidth: 160,
     alignItems: 'center',
   },
+  joinBtnLandscape: { marginTop: spacing.lg },
   joinBtnDisabled: { opacity: 0.5 },
   joinBtnText: { color: colors.white, fontSize: fontSizes.md, fontFamily: 'Lexend-Bold' },
 });

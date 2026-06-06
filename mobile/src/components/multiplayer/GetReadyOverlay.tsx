@@ -20,6 +20,7 @@ import Reanimated, {
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, getLeague, t } from '../../shared';
+import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { MPPlayer } from '../../store/multiplayerStore';
 import WgWordmark from '../ui/WgWordmark';
@@ -76,6 +77,24 @@ export default function GetReadyOverlay({
     const interval = setInterval(update, 100);
     return () => clearInterval(interval);
   }, [nextEvtTime, timeOffset]);
+
+  // Countdown haptics: a light tick on each of the final 3 integer seconds, then
+  // a punchier medium "GO" the instant the timer hits zero (round start). The ref
+  // de-dupes the ~100ms updates so each beat fires exactly once; it resets on
+  // remount, so every round's getready ramps fresh.
+  const lastTickRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (seconds > 0) {
+      const whole = Math.ceil(seconds);
+      if (whole <= 3 && lastTickRef.current !== whole) {
+        lastTickRef.current = whole;
+        haptics.light();
+      }
+    } else if (lastTickRef.current !== 0) {
+      lastTickRef.current = 0;
+      haptics.medium();
+    }
+  }, [seconds]);
 
   return (
     <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
@@ -143,8 +162,7 @@ function PlayerColumn({
 
       {player.elo !== undefined && (
         <View style={styles.eloRow}>
-          {league?.emoji ? <Text style={styles.eloEmoji}>{league.emoji}</Text> : null}
-          <Text style={[styles.eloText, { color: accent }]}>{player.elo}</Text>
+          <Text style={[styles.eloText, { color: accent }]}>({player.elo})</Text>
         </View>
       )}
     </Reanimated.View>
@@ -276,9 +294,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-  },
-  eloEmoji: {
-    fontSize: 15,
   },
   eloText: {
     fontFamily: 'Lexend-Bold',

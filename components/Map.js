@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
+import SafeMapContainer from './SafeMapContainer';
 
 /* ---------------------------------------------------------------------------
  *  Constants
@@ -323,10 +324,10 @@ function useResizeWatcher(map, pausedRef) {
  *  Dynamic imports — react-leaflet must be client-only.
  * ------------------------------------------------------------------------ */
 
-const MapContainer = dynamic(
-  () => import("react-leaflet").then((m) => m.MapContainer),
-  { ssr: false }
-);
+// Error-boundaried MapContainer (see SafeMapContainer): a partial leaflet load
+// throws "a.Map is not a constructor" during commit; without the boundary it
+// white-screens the whole app.
+const MapContainer = SafeMapContainer;
 const TileLayer = dynamic(
   () => import("react-leaflet").then((m) => m.TileLayer),
   { ssr: false }

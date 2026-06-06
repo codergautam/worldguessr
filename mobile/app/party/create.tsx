@@ -21,6 +21,7 @@ import {
   Pressable,
   Animated,
   Easing,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -76,6 +77,10 @@ export default function PartyCreateScreen() {
   // snapping down. Must match MultiplayerLobby so the skeleton→lobby swap is
   // seamless.
   const insets = useSafeAreaInsets();
+  // Mirror MultiplayerLobby's landscape two-column split so the skeleton→lobby
+  // swap stays aligned in both orientations.
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const verified = useMultiplayerStore((s) => s.verified);
   const inGame = useMultiplayerStore((s) => s.inGame);
   const sentRef = useRef(false);
@@ -137,41 +142,49 @@ export default function PartyCreateScreen() {
         ]}
       >
         {/* Header mirrors the lobby so the swap is seamless. */}
-        <View style={styles.header}>
+        <View style={[styles.header, isLandscape && styles.headerLandscape]}>
           <Pressable onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.white} />
+            <Ionicons name="close" size={24} color={colors.white} />
           </Pressable>
           <Text style={styles.headerTitle}>{t('yourPrivateGame')}</Text>
           <View style={{ width: 40 }} />
         </View>
 
-        <View style={styles.body}>
-          {/* Game code card skeleton */}
-          <View style={styles.codeSection}>
-            <Text style={styles.codeLabel}>{t('gameCode')}</Text>
-            <SkeletonBlock width={200} height={44} radius={borderRadius.lg} shimmer={shimmerX} style={{ marginTop: spacing.sm }} />
-            <Text style={styles.creatingHint}>{t('creating')}</Text>
+        <View style={[styles.bodyWrap, isLandscape && styles.bodyWrapLandscape]}>
+          <View style={[styles.body, isLandscape && styles.bodyLandscape]}>
+            {/* Game code card skeleton */}
+            <View style={[styles.codeSection, isLandscape && styles.codeSectionLandscape]}>
+              <Text style={styles.codeLabel}>{t('gameCode')}</Text>
+              <SkeletonBlock width={200} height={44} radius={borderRadius.lg} shimmer={shimmerX} style={{ marginTop: spacing.sm }} />
+              <Text style={styles.creatingHint}>{t('creating')}</Text>
+            </View>
+
+            {/* Players section skeleton */}
+            <View style={styles.section}>
+              <SkeletonBlock width={120} height={18} shimmer={shimmerX} />
+              <View style={styles.playerRow}>
+                <SkeletonBlock width={40} height={40} radius={borderRadius.full} shimmer={shimmerX} />
+                <SkeletonBlock width={140} height={16} shimmer={shimmerX} />
+              </View>
+              <View style={styles.playerRowFaded}>
+                <SkeletonBlock width={40} height={40} radius={borderRadius.full} shimmer={shimmerX} />
+                <SkeletonBlock width={100} height={16} shimmer={shimmerX} />
+              </View>
+            </View>
           </View>
 
-          {/* Players section skeleton */}
-          <View style={styles.section}>
-            <SkeletonBlock width={120} height={18} shimmer={shimmerX} />
-            <View style={styles.playerRow}>
-              <SkeletonBlock width={40} height={40} radius={borderRadius.full} shimmer={shimmerX} />
-              <SkeletonBlock width={140} height={16} shimmer={shimmerX} />
-            </View>
-            <View style={styles.playerRowFaded}>
-              <SkeletonBlock width={40} height={40} radius={borderRadius.full} shimmer={shimmerX} />
-              <SkeletonBlock width={100} height={16} shimmer={shimmerX} />
-            </View>
+          {/* Footer skeleton (settings preview + buttons) */}
+          <View
+            style={[
+              styles.footer,
+              isLandscape && styles.footerLandscape,
+              isLandscape && { width: Math.min(320, Math.max(260, width * 0.4)) },
+            ]}
+          >
+            <SkeletonBlock width="100%" height={34} shimmer={shimmerX} />
+            <SkeletonBlock width="100%" height={48} radius={borderRadius.lg} shimmer={shimmerX} />
+            <SkeletonBlock width="100%" height={48} radius={borderRadius.lg} shimmer={shimmerX} />
           </View>
-        </View>
-
-        {/* Footer skeleton (settings preview + buttons) */}
-        <View style={styles.footer}>
-          <SkeletonBlock width="100%" height={34} shimmer={shimmerX} />
-          <SkeletonBlock width="100%" height={48} radius={borderRadius.lg} shimmer={shimmerX} />
-          <SkeletonBlock width="100%" height={48} radius={borderRadius.lg} shimmer={shimmerX} />
         </View>
       </View>
     </View>
@@ -189,15 +202,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  headerLandscape: { paddingVertical: spacing.xs },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { color: colors.white, fontSize: fontSizes.lg, fontFamily: 'Lexend-Bold' },
+  // Wraps body + footer: column in portrait, row in landscape (footer → sidebar).
+  bodyWrap: { flex: 1 },
+  bodyWrapLandscape: { flexDirection: 'row' },
   body: { flex: 1, padding: spacing.lg, gap: spacing.xl },
+  bodyLandscape: { gap: spacing.md },
   codeSection: {
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 16,
     padding: spacing.xl,
   },
+  codeSectionLandscape: { padding: spacing.md },
   codeLabel: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: fontSizes.xs,
@@ -230,4 +249,9 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   footer: { padding: spacing.lg, gap: spacing.sm },
+  footerLandscape: {
+    justifyContent: 'center',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: 'rgba(255, 255, 255, 0.1)',
+  },
 });

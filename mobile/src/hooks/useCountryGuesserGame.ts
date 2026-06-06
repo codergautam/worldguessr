@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../services/api';
+import { haptics } from '../services/haptics';
 import { useOnboardingStore } from '../store/onboardingStore';
 import {
   ALL_CONTINENTS,
@@ -25,7 +26,8 @@ export interface CountryGuesserLocation {
 }
 
 export interface CountryGuesserRoundResult {
-  picked: string;
+  /** null when the round timed out with no pick. */
+  picked: string | null;
   correct: string;
   points: number;
   actualLat: number;
@@ -54,6 +56,27 @@ export function subModeFromDefaultMode(value?: string | null): CountryGuesserSub
   return null;
 }
 
+/**
+ * Pick the next valid candidate from `locs` starting at `startCursor`, skipping
+ * continent-unknown entries in continent mode. Returns the chosen location plus
+ * the cursor position AFTER it, so callers can both consume it (advance the
+ * cursor) and peek the one after (preload) without duplicating the skip logic.
+ */
+function selectFrom(
+  locs: CountryGuesserLocation[],
+  startCursor: number,
+  subMode: CountryGuesserSubMode,
+): { loc: CountryGuesserLocation | null; cursor: number } {
+  let cursor = startCursor;
+  while (cursor < locs.length) {
+    const candidate = locs[cursor];
+    cursor += 1;
+    if (subMode === 'continent' && continentFromCode(candidate.country) === 'Unknown') continue;
+    return { loc: candidate, cursor };
+  }
+  return { loc: null, cursor };
+}
+
 export default function useCountryGuesserGame({
   enabled = true,
   subMode,
@@ -75,6 +98,9 @@ export default function useCountryGuesserGame({
   const [picked, setPicked] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [currentLoc, setCurrentLoc] = useState<CountryGuesserLocation | null>(null);
+  // The round AFTER currentLoc, peeked ahead so the result screen can warm its
+  // Street View (see GameSurface.nextLocation). Null near pool exhaustion.
+  const [nextLoc, setNextLoc] = useState<CountryGuesserLocation | null>(null);
   const [otherOptions, setOtherOptions] = useState<string[]>([]);
   // Bumped by retry() to re-run the location-load effect after a network failure.
   const [reloadNonce, setReloadNonce] = useState(0);
@@ -94,6 +120,7 @@ export default function useCountryGuesserGame({
     setPicked(null);
     setShowResult(false);
     setCurrentLoc(null);
+    setNextLoc(null);
     setOtherOptions([]);
   }, []);
 
@@ -157,35 +184,34 @@ export default function useCountryGuesserGame({
   useEffect(() => {
     if (!enabled || allLocs.length === 0 || loading || round > totalRounds) return;
 
-    let nextLoc: CountryGuesserLocation | null = null;
-    while (cursorRef.current < allLocs.length) {
-      const candidate = allLocs[cursorRef.current];
-      cursorRef.current += 1;
-      const continent = continentFromCode(candidate.country);
-      if (subMode === 'continent' && continent === 'Unknown') continue;
-      nextLoc = candidate;
-      break;
-    }
-
-    if (!nextLoc) {
+    const picked = selectFrom(allLocs, cursorRef.current, subMode);
+    if (!picked.loc) {
       cursorRef.current = 0;
       setAllLocs((prev) => shuffle(prev));
       return;
     }
 
-    setCurrentLoc(nextLoc);
+    cursorRef.current = picked.cursor;
+    setCurrentLoc(picked.loc);
     roundStartTimeRef.current = Date.now();
+
+    // Peek the FOLLOWING valid candidate WITHOUT consuming the cursor. The next
+    // advance() re-runs selectFrom from this same cursor → lands on this exact
+    // location, so the warm preload commits with no reload.
+    setNextLoc(selectFrom(allLocs, picked.cursor, subMode).loc);
 
     if (subMode === 'continent') {
       setOtherOptions([...ALL_CONTINENTS]);
     } else {
-      const distractors = pickDistractors(nextLoc.country, 5);
-      setOtherOptions(shuffle([...distractors, nextLoc.country]));
+      const distractors = pickDistractors(picked.loc.country, 5);
+      setOtherOptions(shuffle([...distractors, picked.loc.country]));
     }
   }, [allLocs, enabled, loading, round, subMode, totalRounds]);
 
   const submit = useCallback(
-    async (answer: string) => {
+    // `answer` is null when the round timer runs out with no pick — recorded as a
+    // wrong guess (0 points, streak reset). CountryEndBanner handles picked=null.
+    async (answer: string | null) => {
       if (!currentLoc || showResult) return;
 
       const correct =
@@ -213,8 +239,10 @@ export default function useCountryGuesserGame({
       setShowResult(true);
 
       if (isCorrect) {
+        haptics.success(); // right country/continent
         await bumpStreak(subMode);
       } else {
+        haptics.light(); // wrong (or timed out) — just a soft blip, not a buzz
         await resetStreak(subMode);
       }
     },
@@ -239,6 +267,7 @@ export default function useCountryGuesserGame({
     round,
     totalRounds,
     currentLoc,
+    nextLoc,
     otherOptions,
     picked,
     showResult,

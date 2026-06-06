@@ -91,6 +91,10 @@ export function useWebSocket() {
     (s) => s.inGame || !!s.gameData || !!s.gameQueued,
   );
   const pathname = usePathname();
+  // The onDisconnect handler is registered once, so it can't close over the live
+  // pathname. Mirror it into a ref it can read at fire time.
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
 
   // Track whether we've done the initial connect
   const hasConnected = useRef(false);
@@ -102,15 +106,16 @@ export function useWebSocket() {
   }, [handleMessage]);
 
   // Handle WS disconnect — ported from home.js:1882-1927 / MultiplayerProvider.
-  // A WS drop is RECOVERABLE: the service immediately auto-reconnects and the
-  // server replays our live game within its 30s reconnect window. So we must NOT
-  // tear down inGame/gameData here — doing so popped the user out of the game
-  // (via the game screen's `!inGame` effect) and then bounced them back in when
-  // the fresh snapshot arrived: the "screen home → multiplayer" thrash and the
-  // "is the game over or am I still in it?" confusion. We only flag the transient
-  // connection state (WsIndicator pulses yellow) + show a recoverable toast; the
-  // screen stays mounted and re-syncs from the reconnect snapshot. Hard teardown
-  // happens only when reconnection truly gives up (onReconnectFailed below).
+  // Flag the transient connection state (WsIndicator pulses yellow); the service
+  // auto-reconnects underneath.
+  //
+  // A drop while in an active game/party (NOT the post-game results screen) sends
+  // the user home: freezing them on an un-actionable game while we silently retry
+  // was confusing. We leave the game — tear down inGame/gameData (the game screen's
+  // `!inGame` effect pops home) — and reconnect like a home session: setInGame(false)
+  // gives the in-flight retry the full budget so it keeps pulsing yellow instead of
+  // giving up to red, and clearRejoinCode() stops the server replaying us straight
+  // back into the game on reconnect. A drop on home / results just flags connecting.
   useEffect(() => {
     const unsub = wsService.onDisconnect(() => {
       const state = useMultiplayerStore.getState();
@@ -119,13 +124,25 @@ export function useWebSocket() {
         verified: false,
         connecting: true,
       });
-      // Pre-match queue isn't recoverable — pop the user home rather than leaving a
-      // phantom radar spinning (see tearDownPhantomQueue). An active game / party
-      // lobby IS replayed on reconnect, so for those we keep the screen mounted and
-      // just flag a recoverable drop.
-      if (!tearDownPhantomQueue() && (state.inGame || state.gameData)) {
+
+      // Pre-match queue isn't recoverable — pop home (see tearDownPhantomQueue).
+      if (tearDownPhantomQueue()) return;
+      if (!state.inGame && !state.gameData) return;
+
+      // Reviewing results (route reads from params, not the live game) — don't
+      // yank the user off it; just keep reconnecting quietly.
+      if (pathnameRef.current.startsWith('/game/results')) {
         state.pushToast({ key: 'connectionLostRecov', toastType: 'error' });
+        return;
       }
+
+      // Active game/party drop → leave and go home. setInGame(false) must run
+      // BEFORE the service reads its reconnect budget (synchronous here, like
+      // tearDownPhantomQueue) so the retry uses the full home budget.
+      wsService.setInGame(false);
+      wsService.clearRejoinCode();
+      useMultiplayerStore.setState({ inGame: false, gameData: null, emotes: [] });
+      state.pushToast({ key: 'connectionLostRecov', toastType: 'error' });
     });
     return unsub;
   }, []);
@@ -169,13 +186,19 @@ export function useWebSocket() {
     return unsub;
   }, []);
 
-  // A reconnect SUCCEEDED — show the universal "Reconnected!" toast. This fires
-  // for EVERY successful reconnect (home, queue, in-game), not just game rejoins
-  // (which is all the server-sent toast covered). pushReconnectedToast dedupes so
-  // the server's game-rejoin toast and this one collapse into a single toast.
+  // A reconnect SUCCEEDED — show the "Reconnected!" toast, but ONLY when we're in
+  // a multiplayer context (active game, party lobby, or matchmaking queue) where the
+  // connection actually matters. On home / singleplayer / daily a reconnect is just
+  // a foreground-after-idle housekeeping event — onDisconnect stays silent there too
+  // (it returns early before toasting), so the reconnect must be equally silent or
+  // the user sees a lone "Reconnected!" pop after simply reopening the app. Game
+  // rejoins are still covered: the server sends its own 'reconnected' toast through
+  // pushReconnectedToast, and that dedupes against this one.
   useEffect(() => {
     const unsub = wsService.onReconnected(() => {
-      useMultiplayerStore.getState().pushReconnectedToast();
+      const state = useMultiplayerStore.getState();
+      if (!state.inGame && !state.gameData && !state.gameQueued) return;
+      state.pushReconnectedToast();
     });
     return unsub;
   }, []);
@@ -226,9 +249,18 @@ export function useWebSocket() {
     if (isLoading) return;
 
     if (wsService.isConnectedWith(secret)) {
-      // Already connected with this secret — connect() is a no-op. Make sure
-      // we're not stuck showing "connecting".
-      useMultiplayerStore.setState({ connecting: false });
+      // Already connected with this secret — connect() is a no-op, so no fresh
+      // `verify` will arrive to set connected/verified. Make sure we're not
+      // stuck showing "connecting", and re-sync connected/verified from the live
+      // socket: if it's genuinely open + verified (e.g. after a Fast-Refresh
+      // store reset, or a non-terminal `error` that cleared the flags without
+      // closing the socket), the store must reflect that or the home-screen
+      // multiplayer buttons falsely report "Not connected".
+      useMultiplayerStore.setState(
+        wsService.isVerified
+          ? { connecting: false, connected: true, verified: true }
+          : { connecting: false },
+      );
     } else {
       useMultiplayerStore.setState({ connecting: true });
       // The verify message handler in the store will set connected=true

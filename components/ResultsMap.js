@@ -4,16 +4,15 @@ import { Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { useTranslation } from '@/components/useTranslations';
 import { getPinIcons } from '@/lib/markerIcons';
 import 'leaflet/dist/leaflet.css';
+import SafeMapContainer from './SafeMapContainer';
 
 // Reusable all-rounds results Leaflet map, lifted verbatim from the desktop
 // MapContainer block in components/roundOverScreen.js so the mobile WebView
 // (via /embed/results) reuses the exact web map. MapContainer/TileLayer touch
 // window (Leaflet) → client-only, dynamically imported with ssr:false exactly
-// like roundOverScreen.js.
-const MapContainer = dynamic(
-  () => import("react-leaflet").then((module) => module.MapContainer),
-  { ssr: false }
-);
+// like roundOverScreen.js. MapContainer is error-boundaried (SafeMapContainer)
+// so a partial leaflet load can't white-screen the app.
+const MapContainer = SafeMapContainer;
 const TileLayer = dynamic(
   () => import("react-leaflet").then((module) => module.TileLayer),
   { ssr: false }

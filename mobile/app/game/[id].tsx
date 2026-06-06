@@ -25,6 +25,7 @@ import { colors, calcPoints, findDistance, getPlayerColor } from '../../src/shar
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 import { api } from '../../src/services/api';
 import { fetchWithTimeout } from '../../src/services/fetchWithTimeout';
+import { haptics, hapticForScore } from '../../src/services/haptics';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore, type GameData, type MPPlayer, type RoundHistoryEntry } from '../../src/store/multiplayerStore';
 import { useSettingsStore } from '../../src/store/settingsStore';
@@ -33,7 +34,7 @@ import { dismissAllSafe } from '../../src/utils/navigation';
 
 import StreetViewWebView, { StreetViewHandle } from '../../src/components/game/StreetViewWebView';
 import EmbeddedMap from '../../src/components/game/EmbeddedMap';
-import GameSurface, { GameSurfaceHandle } from '../../src/components/game/GameSurface';
+import GameSurface, { GameSurfaceHandle, getExpandedMapHeight } from '../../src/components/game/GameSurface';
 import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
 import { hintCircle } from '@shared/game/hint';
 import GameLoadingOverlay from '../../src/components/game/GameLoadingOverlay';
@@ -128,10 +129,6 @@ const DEFAULT_GAME_OPTIONS = {
   location: 'all',
   maxDist: 20000,
 };
-
-/** Fraction of screen height the expanded minimap occupies during gameplay (0–1) */
-const EXPANDED_MAP_HEIGHT_RATIO = 0.5;
-const EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO = 0.6;
 
 interface PlayerGuessMarker {
   id: string;
@@ -394,7 +391,9 @@ export default function GameScreen() {
   const duelWarningShownRef = useRef(false);
   const [duelWarningVisible, setDuelWarningVisible] = useState(false);
 
-  // Navigate home if multiplayer game shuts down
+  // Navigate home if multiplayer game shuts down. A mid-game WS drop tears the
+  // game down (useWebSocket.onDisconnect) → !inGame → this pops us home, where we
+  // keep reconnecting (yellow WsIndicator).
   useEffect(() => {
     if (isMultiplayer && !inGame) {
       dismissAllSafe();
@@ -868,7 +867,7 @@ export default function GameScreen() {
     }
   }, [isLoading, miniMapShown, gameState.isShowingResult]);
 
-  const expandedMapHeight = height * (width > height ? EXPANDED_MAP_LANDSCAPE_HEIGHT_RATIO : EXPANDED_MAP_HEIGHT_RATIO);
+  const expandedMapHeight = getExpandedMapHeight(width, height);
   // mapSlideAnim value for the open mini-map (mapHeight uses a constant full-range
   // so reveal animates mini→full smoothly instead of jumping).
   const miniFraction = height > 0 ? expandedMapHeight / height : 0.5;
@@ -1113,6 +1112,9 @@ export default function GameScreen() {
         latLong: [guessPosition.lat, guessPosition.lng],
         final: true,
       });
+      // Confirm the guess is locked in — the result reveal haptic comes later,
+      // server-driven, once the round ends.
+      haptics.medium();
       return;
     }
 
@@ -1156,6 +1158,8 @@ export default function GameScreen() {
     setMiniMapShown(false);
     setShowPano(false);
     if (points >= 4850) setConfettiKey((k) => k + 1);
+    // Score-graded reveal — the closer the guess, the stronger the buzz.
+    hapticForScore(points);
   }, [guessPosition, currentLocation, gameState.maxDist, isMultiplayer, hintShown]);
 
   const handleTimeUp = useCallback(() => {
@@ -1196,6 +1200,8 @@ export default function GameScreen() {
 
     // Singleplayer
     if (!guessPosition && currentLocation) {
+      // Ran out of time with no pin down — buzz a warning (0-point round).
+      haptics.warning();
       const timeTaken = Math.round((Date.now() - roundStartTimeRef.current) / 1000);
 
       setGameState((prev) => ({
@@ -1314,6 +1320,10 @@ export default function GameScreen() {
               : 0,
           }))),
           extent: gameState.extent ? JSON.stringify(gameState.extent) : '',
+          // Carry the played map through so the results-screen "Play Again"
+          // restarts the SAME map instead of resetting to the world map.
+          map: currentMapSlug,
+          mapName: currentMapName,
         },
       });
       return;
@@ -1521,6 +1531,18 @@ export default function GameScreen() {
     singleplayerSurfaceRef.current?.beginRoundTransition(countryGame.advance);
   }, [completeCountryGuesserGame, countryGame]);
 
+  // Round-timer expiry for singleplayer. Country/continent guesser modes auto-
+  // submit a null pick (recorded as a wrong guess); classic pin mode falls back
+  // to handleTimeUp (auto-submits the current pin or a 0-point miss). submit()
+  // self-guards against firing once the result is already showing.
+  const handleSingleplayerTimeUp = useCallback(() => {
+    if (isCountryGuesserMode) {
+      countryGame.submit(null);
+      return;
+    }
+    handleTimeUp();
+  }, [isCountryGuesserMode, countryGame, handleTimeUp]);
+
   const lastGuess = gameState.guesses[gameState.guesses.length - 1];
 
   if (isSingleplayer) {
@@ -1585,6 +1607,16 @@ export default function GameScreen() {
         <GameSurface
           ref={singleplayerSurfaceRef}
           location={activeLocation ?? null}
+          // Warm the next round's pano during the result screen → no loading
+          // cover on "Next". Country mode peeks its pool; pin mode indexes the
+          // upfront-fetched list (currentLocation = locations[currentRound-1]).
+          nextLocation={
+            isCountryGuesserMode
+              ? countryGame.nextLoc ?? null
+              : gameState.currentRound < gameState.totalRounds
+                ? gameState.locations[gameState.currentRound] ?? null
+                : null
+          }
           roundKey={`${isCountryGuesserMode ? activeCountryMode : currentMapSlug}-${activeRound}`}
           variant={isCountryGuesserMode ? activeCountryMode : 'pin'}
           extent={isCountryGuesserMode ? null : gameState.extent}
@@ -1597,6 +1629,7 @@ export default function GameScreen() {
           hintCircleData={hintCircleData}
           maxDist={isCountryGuesserMode ? undefined : gameState.maxDist}
           round={gameState.currentRound}
+          nmpz={nmpzEnabled}
           guessPosition={guessPosition}
           onGuessPositionChange={setGuessPosition}
           onSubmitPin={handleSubmitGuess}
@@ -1648,19 +1681,19 @@ export default function GameScreen() {
               >
                 <Ionicons name="map" size={14} color="rgba(255,255,255,0.85)" />
                 <Text style={styles.mapSelectorText} numberOfLines={1}>
-                  {currentMapName}{!isCountryGuesserMode && nmpzEnabled ? ', NMPZ' : ''}
+                  {currentMapName}{nmpzEnabled ? ', NMPZ' : ''}
                 </Text>
                 <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.85)" />
               </Pressable>
               <GameTimer
                 timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
-                onTimeUp={handleTimeUp}
-                isPaused={activeShowingResult || mapModalVisible || isCountryGuesserMode}
+                onTimeUp={handleSingleplayerTimeUp}
+                isPaused={activeShowingResult || mapModalVisible}
                 roundKey={activeRound}
                 currentRound={activeRound}
                 totalRounds={activeTotalRounds}
                 totalScore={activeTotalScore}
-                showTimer={!isCountryGuesserMode && timerEnabled && !activeShowingResult}
+                showTimer={timerEnabled && !activeShowingResult}
                 hasGuess={!!guessPosition}
               />
             </Animated.View>
@@ -2154,6 +2187,11 @@ export default function GameScreen() {
         // so a preloaded pano fades the ring straight in instead of flashing the
         // spinner. gameStartingCountdown is already 0 by the 'guess' phase.
         countdown={mpInitialGetReady || mpRound1Reveal ? Math.max(0, gameStartingCountdown) : undefined}
+        // Unranked "Get Ready!" is bailable, so surface a top-left back button
+        // during its countdown (web parity). Ranked uses GetReadyOverlay instead
+        // and never reaches here — so ranked get-ready stays back-button-free.
+        onBack={mpInitialGetReady ? handleLeave : undefined}
+        backDuringCountdown={mpInitialGetReady}
       />
       </View>
       )}

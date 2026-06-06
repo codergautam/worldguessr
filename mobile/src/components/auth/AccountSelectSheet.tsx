@@ -91,6 +91,10 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
       if (result.type === 'success') {
         const idToken = result.params?.id_token;
         if (!idToken) {
+          console.warn(
+            '[handleGoogle] success but NO id_token. Params returned:',
+            JSON.stringify((result as any)?.params ?? {}),
+          );
           setError(t('googleNoSignInToken', undefined, 'Google did not return a sign in token.'));
           return;
         }
@@ -101,6 +105,7 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
           setError(res.error || t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.'));
         }
       } else if (result.type === 'error') {
+        console.error('[handleGoogle] auth error result', (result as any)?.error, (result as any)?.params);
         setError(t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.'));
       }
       // 'cancel' / 'dismiss' — the user backed out; not an error, show nothing.

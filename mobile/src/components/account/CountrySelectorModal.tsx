@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { api } from '../../services/api';
+import { wsService } from '../../services/websocket';
 import * as countryCodes from 'countries-code';
 import { t } from '../../shared';
 
@@ -80,6 +81,13 @@ export default function CountrySelectorModal({
     try {
       const result = await api.updateCountryCode(secret, code);
       if (result.success) {
+        // Mirror web (countrySelectorModal.js): push the new flag to the WS
+        // server in real-time so it updates `player.countryCode` immediately,
+        // instead of staying stale until the next reconnect/verify.
+        wsService.send({
+          type: 'updateCountryCode',
+          countryCode: result.countryCode || '',
+        });
         onSelect(code);
         onClose();
       } else {

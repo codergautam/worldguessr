@@ -34,3 +34,11 @@ export const TIME_SYNC_INTERVAL_MS = 30000;
 // use a slightly smaller client window so a foreground always forces a full
 // reconnect *before* the server eviction boundary instead of racing it.
 export const RECONNECT_WINDOW_MS = 25000;
+
+// After we send a publicDuel/unrankedDuel join the server replies with a
+// `queueJoined` ack (ranked additionally sends `publicDuelRange`). If neither
+// arrives within this window the join never registered server-side, so instead of
+// leaving the user spinning on the matchmaking screen forever we toast and pop
+// them home. The ack is a same-tick server response, so 8s is far above a normal
+// round-trip while still short enough not to feel stuck.
+export const WS_QUEUE_CONFIRM_TIMEOUT_MS = 8000;

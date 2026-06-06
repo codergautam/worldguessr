@@ -705,7 +705,7 @@ export default async function handler(req, res) {
         });
 
         // Enforce ban immediately via WebSocket if player is connected
-        if (process.env.MAINTENANCE_SECRET && process.env.WS_PORT) {
+        if (process.env.MAINTENANCE_SECRET) {
           try {
             const wsPort = process.env.WS_PORT || 3002;
             const wsUrl = `http://localhost:${wsPort}/enforce-ban/${process.env.MAINTENANCE_SECRET}/${targetUserId}`;
@@ -818,7 +818,7 @@ export default async function handler(req, res) {
         });
 
         // Enforce name change immediately via WebSocket if player is connected
-        if (process.env.MAINTENANCE_SECRET && process.env.WS_PORT) {
+        if (process.env.MAINTENANCE_SECRET) {
           try {
             const wsPort = process.env.WS_PORT || 3002;
             const wsUrl = `http://localhost:${wsPort}/enforce-ban/${process.env.MAINTENANCE_SECRET}/${targetUserId}`;

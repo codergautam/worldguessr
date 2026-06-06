@@ -19,11 +19,13 @@ import {
   Alert,
   Animated,
   Share,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, t } from '../../shared';
+import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { wsService } from '../../services/websocket';
 import { useMultiplayerStore } from '../../store/multiplayerStore';
@@ -44,6 +46,11 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
   // flashing up under the status bar then snapping down. The hook is correct on
   // the first paint.
   const insets = useSafeAreaInsets();
+  // Landscape splits the lobby into two columns (code+players | settings+actions)
+  // so the Start button is never pushed off short landscape viewports the way the
+  // single vertical stack does. Matches queue.tsx / results.tsx orientation handling.
+  const { width, height } = useWindowDimensions();
+  const isLandscape = width > height;
   const gameCode = useMultiplayerStore((s) => s.gameData?.code);
   const isHost = useMultiplayerStore((s) => s.gameData?.host);
   const players = useMultiplayerStore((s) => s.gameData?.players);
@@ -102,11 +109,13 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
       Alert.alert(t('needPlayersTitle', undefined, 'Need Players'), t('needMorePlayers'));
       return;
     }
+    haptics.medium(); // match start — let the host feel the kickoff
     wsService.send({ type: 'startGameHost' });
   };
 
   const handleShareCode = async () => {
     if (!gameCode) return;
+    haptics.light();
     Animated.sequence([
       Animated.timing(copyIconScale, { toValue: 1.4, duration: 150, useNativeDriver: true }),
       Animated.timing(copyIconScale, { toValue: 1, duration: 150, useNativeDriver: true }),
@@ -149,17 +158,27 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
           },
         ]}
       >
-        <View style={styles.header}>
-          <Pressable onPress={onLeave} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={colors.white} />
+        <View style={[styles.header, isLandscape && styles.headerLandscape]}>
+          <Pressable
+            onPress={() => {
+              haptics.light();
+              onLeave();
+            }}
+            style={styles.backBtn}
+          >
+            <Ionicons name="close" size={24} color={colors.white} />
           </Pressable>
           <Text style={styles.headerTitle}>{isHost ? t('yourPrivateGame') : t('gameLobby', undefined, 'Game Lobby')}</Text>
           <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        <View style={[styles.body, isLandscape && styles.bodyLandscape]}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[styles.scrollContent, isLandscape && styles.scrollContentLandscape]}
+        >
           {/* Game Code */}
-          <View style={styles.codeSection}>
+          <View style={[styles.codeSection, isLandscape && styles.codeSectionLandscape]}>
             <Text style={styles.codeLabel}>{t('gameCode')}</Text>
             <Pressable onPress={handleShareCode} style={styles.codeRow}>
               <Text style={styles.codeText}>{gameCode}</Text>
@@ -187,8 +206,15 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
           )}
         </ScrollView>
 
-        {/* Footer: settings preview + buttons */}
-        <View style={styles.footer}>
+        {/* Footer: settings preview + buttons. In landscape this is a right-hand
+            sidebar; in portrait it sits below the scroll. */}
+        <View
+          style={[
+            styles.footer,
+            isLandscape && styles.footerLandscape,
+            isLandscape && { width: Math.min(320, Math.max(260, width * 0.4)) },
+          ]}
+        >
           <View style={styles.settingsPreview}>
             {(() => {
               const dispMap = isHost ? mapName : (serverDisplayLocation ?? t('world'));
@@ -210,7 +236,10 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
           {isHost && (
             <Pressable
               style={({ pressed }) => [styles.optionsBtn, pressed && { opacity: 0.85 }]}
-              onPress={() => setMapModalVisible(true)}
+              onPress={() => {
+                haptics.light();
+                setMapModalVisible(true);
+              }}
             >
               <Ionicons name="settings-outline" size={18} color={colors.white} />
               <Text style={styles.optionsBtnText}>{t('editOptions')}</Text>
@@ -220,7 +249,10 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
           {isHost && (
             <Pressable
               style={({ pressed }) => [styles.optionsBtn, pressed && { opacity: 0.85 }]}
-              onPress={() => setInviteModalVisible(true)}
+              onPress={() => {
+                haptics.light();
+                setInviteModalVisible(true);
+              }}
             >
               <Ionicons name="people" size={18} color={colors.white} />
               <Text style={styles.optionsBtnText}>{t('inviteFriends', undefined, 'Invite Friends')}</Text>
@@ -244,6 +276,7 @@ export default function MultiplayerLobby({ onLeave }: MultiplayerLobbyProps) {
               </Text>
             </Pressable>
           )}
+        </View>
         </View>
       </View>
 
@@ -284,16 +317,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
+  headerLandscape: { paddingVertical: spacing.xs },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { color: colors.white, fontSize: fontSizes.lg, fontFamily: 'Lexend-Bold' },
+  // Body wraps the scroll + footer. Column in portrait (footer below), row in
+  // landscape (footer becomes a right-hand sidebar).
+  body: { flex: 1 },
+  bodyLandscape: { flexDirection: 'row' },
   scroll: { flex: 1 },
   scrollContent: { padding: spacing.lg, gap: spacing.xl },
+  scrollContentLandscape: { paddingRight: spacing.md, gap: spacing.md },
   codeSection: {
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
     borderRadius: 16,
     padding: spacing.xl,
   },
+  codeSectionLandscape: { padding: spacing.md },
   codeLabel: {
     color: 'rgba(255, 255, 255, 0.5)',
     fontSize: fontSizes.xs,
@@ -330,6 +370,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   footer: { padding: spacing.lg, gap: spacing.sm },
+  // Landscape: fixed-width right sidebar holding the settings preview + actions,
+  // vertically centered so the Start button stays on-screen on short viewports.
+  footerLandscape: {
+    justifyContent: 'center',
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: 'rgba(255, 255, 255, 0.1)',
+  },
   optionsBtn: {
     flexDirection: 'row',
     alignItems: 'center',

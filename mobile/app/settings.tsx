@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
+import { haptics } from '../src/services/haptics';
 import {
   colors,
   t,
@@ -66,10 +66,12 @@ export default function SettingsScreen() {
   const mapType = useSettingsStore((s) => s.mapType);
   const language = useSettingsStore((s) => s.language);
   const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
+  const hapticsEnabled = useSettingsStore((s) => s.hapticsEnabled);
   const setUnits = useSettingsStore((s) => s.setUnits);
   const setMapType = useSettingsStore((s) => s.setMapType);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
   const setEmotesEnabled = useSettingsStore((s) => s.setMultiplayerEmotesEnabled);
+  const setHapticsEnabled = useSettingsStore((s) => s.setHapticsEnabled);
 
   // Recomputed each render so labels follow a live language switch (the screen
   // re-renders because it subscribes to `language`).
@@ -83,7 +85,7 @@ export default function SettingsScreen() {
   const pickLanguage = useCallback(
     (lang: SupportedLanguage) => {
       if (lang === language) return;
-      Haptics.selectionAsync().catch(() => {});
+      haptics.selection();
       setLanguage(lang);
     },
     [language, setLanguage],
@@ -118,7 +120,7 @@ export default function SettingsScreen() {
             hitSlop={12}
             style={({ pressed }) => [styles.backBtn, pressed && styles.backBtnPressed]}
           >
-            <Ionicons name="chevron-back" size={26} color={colors.white} />
+            <Ionicons name="close" size={26} color={colors.white} />
           </Pressable>
           <Text style={styles.headerTitle}>{t('settings')}</Text>
           <View style={styles.backBtn} />
@@ -153,7 +155,7 @@ export default function SettingsScreen() {
                     key={m.value}
                     onPress={() => {
                       if (!active) {
-                        Haptics.selectionAsync().catch(() => {});
+                        haptics.selection();
                         setMapType(m.value);
                       }
                     }}
@@ -229,7 +231,7 @@ export default function SettingsScreen() {
               <Switch
                 value={emotesEnabled}
                 onValueChange={(v) => {
-                  Haptics.selectionAsync().catch(() => {});
+                  haptics.selection();
                   setEmotesEnabled(v);
                 }}
                 trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
@@ -239,8 +241,38 @@ export default function SettingsScreen() {
             </View>
           </Section>
 
+          {/* Haptics */}
+          <Section title={t('haptics', undefined, 'Haptics')} icon="phone-portrait-outline" index={4}>
+            <View style={styles.row}>
+              <View style={styles.rowTextWrap}>
+                <Text style={styles.rowLabel}>
+                  {t('hapticFeedback', undefined, 'Haptic feedback')}
+                </Text>
+                <Text style={styles.rowSub}>
+                  {t(
+                    'hapticFeedbackDesc',
+                    undefined,
+                    'Vibrate on guesses, results, and other interactions.',
+                  )}
+                </Text>
+              </View>
+              <Switch
+                value={hapticsEnabled}
+                onValueChange={(v) => {
+                  // Set first, then tick: turning ON confirms with a buzz, turning
+                  // OFF is silent (the helper is already gated).
+                  setHapticsEnabled(v);
+                  haptics.selection();
+                }}
+                trackColor={{ false: 'rgba(255,255,255,0.18)', true: colors.primary }}
+                thumbColor={colors.white}
+                ios_backgroundColor="rgba(255,255,255,0.18)"
+              />
+            </View>
+          </Section>
+
           {/* About */}
-          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={4}>
+          <Section title={t('about', undefined, 'About')} icon="shield-checkmark-outline" index={5}>
             <Pressable
               onPress={openPrivacy}
               style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}

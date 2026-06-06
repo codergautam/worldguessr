@@ -22,6 +22,7 @@ import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Clipboard from 'expo-clipboard';
 import { t } from '../../shared/locale';
+import { haptics, hapticForScore } from '../../services/haptics';
 import { formatCountdown, msUntilLocalMidnight, challengeNumber as computeChallengeNumber } from './dailyDate';
 import { quipKey } from './motivationalQuips';
 import Stars from './Stars';
@@ -142,9 +143,27 @@ export default function DailyResultsScreen({
     if (disqualified) return;
     if (!submitResponse || !(submitResponse.streak > 0)) return;
     flameShownRef.current = true;
-    const timer = setTimeout(() => setShowFlame(true), 500);
+    const timer = setTimeout(() => {
+      setShowFlame(true);
+      haptics.success(); // celebratory streak buzz as the flame bursts in
+    }, 500);
     return () => clearTimeout(timer);
   }, [submitResponse, disqualified]);
+
+  // Score-graded buzz the moment the headline counter finishes counting up.
+  // Normalize the daily total onto the per-guess 0–5000 scale so it maps onto
+  // the same intensity tiers as a single great/poor guess.
+  const scoreLandedRef = useRef(false);
+  const prevScoreAnimating = useRef(false);
+  useEffect(() => {
+    if (prevScoreAnimating.current && !scoreAnimating && !scoreLandedRef.current) {
+      scoreLandedRef.current = true;
+      if (!disqualified && totalScore > 0) {
+        hapticForScore((totalScore / TOTAL_MAX) * 5000);
+      }
+    }
+    prevScoreAnimating.current = scoreAnimating;
+  }, [scoreAnimating, totalScore, disqualified]);
 
   const chNum = useMemo(() => computeChallengeNumber(date), [date]);
   const dateLabel = useMemo(() => {
@@ -197,6 +216,7 @@ export default function DailyResultsScreen({
   const sharePulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: sharePulse.value }] }));
 
   const handleShare = async () => {
+    haptics.light();
     const cleanDate = (dateLabel || '').replace(/[‎‏‪-‮]/g, '');
     const title = t('dailyShareTitleDate', { date: cleanDate });
     const maxScore = (rounds?.length || 3) * MAX_PER_ROUND;
@@ -218,12 +238,14 @@ export default function DailyResultsScreen({
       const result = await Share.share({ message: shareText });
       if (result.action === Share.dismissedAction) {
         await Clipboard.setStringAsync(shareText);
+        haptics.success();
         setShareCopied(true);
         setTimeout(() => setShareCopied(false), 2000);
       }
     } catch {
       try {
         await Clipboard.setStringAsync(shareText);
+        haptics.success();
         setShareCopied(true);
         setTimeout(() => setShareCopied(false), 2000);
       } catch {
@@ -363,7 +385,7 @@ export default function DailyResultsScreen({
               </Pressable>
             </Animated.View>
             <Pressable onPress={onClose} style={[styles.backBtn, stackActions && styles.backBtnStacked]}>
-              <Ionicons name="arrow-back" size={16} color="#fff" />
+              <Ionicons name="close" size={16} color="#fff" />
               <Text style={styles.backBtnText}>{t('backToHome')}</Text>
             </Pressable>
           </View>

@@ -13,10 +13,24 @@ import { create } from 'zustand';
 import { wsService } from '../services/websocket';
 import { useAuthStore } from './authStore';
 import { EMOTES, EMOTE_TTL_MS, EMOTE_COOLDOWN_MS } from '../shared/emotes';
+import { WS_QUEUE_CONFIRM_TIMEOUT_MS } from '../services/websocketConfig';
 
 // Module-level emote send throttle + id counter (mirrors web emoteReactions.js).
 let lastEmoteSend = 0;
 let nextEmoteId = 1;
+
+// "Did the server actually queue me?" watchdog. Started when we send a duel join
+// (joinQueue); cleared the moment the server acks (queueJoined / publicDuelRange)
+// or a match starts (game). If it fires, the join never registered and we bail
+// out of the queue screen instead of stranding the user there. Module-level
+// because at most one queue join is ever in flight.
+let queueConfirmTimer: ReturnType<typeof setTimeout> | null = null;
+function clearQueueConfirmTimer() {
+  if (queueConfirmTimer) {
+    clearTimeout(queueConfirmTimer);
+    queueConfirmTimer = null;
+  }
+}
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -238,6 +252,14 @@ interface MultiplayerState {
   // Actions
   handleMessage: (data: any) => void;
   setGameQueued: (type: false | 'publicDuel' | 'unrankedDuel') => void;
+  /**
+   * Join a duel queue: send the `publicDuel`/`unrankedDuel` message, flip
+   * `gameQueued`, and arm a watchdog. If the server doesn't confirm the join
+   * within WS_QUEUE_CONFIRM_TIMEOUT_MS we toast and clear `gameQueued` (the queue
+   * screen pops itself home on `!gameQueued && !inGame`) instead of leaving the
+   * user spinning. Use this instead of sending the join message by hand.
+   */
+  joinQueue: (type: 'publicDuel' | 'unrankedDuel') => void;
   setEnteringGameCode: (value: boolean) => void;
   sendEmote: (index: number) => void;
   clearEmote: (id: number) => void;
@@ -304,8 +326,43 @@ const initialState = {
 
 export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   ...initialState,
+  // Seed the connection flags from the LIVE socket, not the hardcoded `false`
+  // above. On a dev Fast-Refresh this store is recreated (resetting these to
+  // false) while the wsService singleton keeps its open, already-verified
+  // socket — connect() then short-circuits without sending a fresh `verify`, so
+  // nothing would ever flip these back true and the home-screen multiplayer
+  // buttons falsely report "Not connected". Reading the surviving socket keeps
+  // the UI honest across a hot reload. On a cold start the socket isn't open yet
+  // so isVerified is false (correct).
+  connected: wsService.isVerified,
+  verified: wsService.isVerified,
 
   setGameQueued: (type) => set({ gameQueued: type }),
+
+  joinQueue: (type) => {
+    clearQueueConfirmTimer();
+    wsService.send({ type });
+    set({ gameQueued: type, publicDuelRange: null });
+    queueConfirmTimer = setTimeout(() => {
+      queueConfirmTimer = null;
+      const s = get();
+      // We already moved on (a match started, or the user cancelled / got
+      // disconnected and the queue was cleared) — the join clearly worked or no
+      // longer matters. Nothing to do.
+      if (!s.gameQueued || s.inGame) return;
+      // No ack within the window: the server never put us in the queue. Tell it to
+      // drop us (a no-op server-side if it never had us) and clear local queue
+      // state — the queue screen pops itself home on `!gameQueued && !inGame` — so
+      // the user isn't misled into waiting on a queue they were never in.
+      wsService.send({ type: 'leaveQueue' });
+      set({ gameQueued: false, publicDuelRange: null });
+      get().pushToast({
+        key: 'queueJoinFailed',
+        toastType: 'error',
+        message: "Couldn't join the queue. Please try again.",
+      });
+    }, WS_QUEUE_CONFIRM_TIMEOUT_MS);
+  },
 
   setEnteringGameCode: (value) => set({ enteringGameCode: value }),
 
@@ -504,6 +561,9 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
 
     // ── game — full game state (home.js:1596-1688) ────────
     if (data.type === 'game') {
+      // A match (or private-game/reconnect) started — we're no longer waiting on a
+      // queue ack, so retire the watchdog.
+      clearQueueConfirmTimer();
       const prevGameData = state.gameData;
 
       // When a private game is reset back to the lobby (server resetGame), it
@@ -560,8 +620,19 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       return;
     }
 
+    // ── queueJoined — server confirms we're actually in the duel queue ─────
+    // Sent for BOTH ranked and unranked right after we're added server-side. This
+    // is the ack the join watchdog (joinQueue) waits on; without it there's no way
+    // to tell "queued, waiting for a match" apart from "server never queued me".
+    if (data.type === 'queueJoined') {
+      clearQueueConfirmTimer();
+      return;
+    }
+
     // ── publicDuelRange (home.js:1702-1706) ───────────────
     if (data.type === 'publicDuelRange') {
+      // Also a valid join confirmation for ranked — clear the watchdog.
+      clearQueueConfirmTimer();
       set({ publicDuelRange: data.range });
       return;
     }

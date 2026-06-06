@@ -3,7 +3,7 @@ import { View, Text, Pressable, ActivityIndicator, StyleSheet, AppState, type Ap
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { t } from '../../src/shared';
-import * as Haptics from 'expo-haptics';
+import { haptics } from '../../src/services/haptics';
 import { useAuthStore } from '../../src/store/authStore';
 import { useDailyChallenge } from '../../src/components/daily/useDailyChallenge';
 import DailyLanding from '../../src/components/daily/DailyLanding';
@@ -12,6 +12,8 @@ import DailyDisqualifiedModal from '../../src/components/daily/DailyDisqualified
 import DailyResultsScreen from '../../src/components/daily/DailyResultsScreen';
 import SubmittingOverlay from '../../src/components/daily/SubmittingOverlay';
 import DailyBackground from '../../src/components/daily/DailyBackground';
+import ReviewPromptModal from '../../src/components/ReviewPromptModal';
+import { useReviewPrompt } from '../../src/hooks/useReviewPrompt';
 import GameSurface, { type GameSurfaceHandle } from '../../src/components/game/GameSurface';
 import GameTimer from '../../src/components/game/GameTimer';
 import ConfettiBurst from '../../src/components/onboarding/ConfettiBurst';
@@ -104,6 +106,12 @@ export default function DailyScreen() {
   // Confetti on a near-perfect round (web fires at >= 4850).
   const [confettiKey, setConfettiKey] = useState(0);
 
+  // Rate-us prompt: daily is a solo (non-party) game, so it counts. Trigger only
+  // when the user actually finishes the rounds this session (set in advance()) —
+  // NOT when handleStart jumps straight to results for an already-played daily.
+  const [finishedThisSession, setFinishedThisSession] = useState(false);
+  const review = useReviewPrompt(finishedThisSession);
+
   const handleHint = useCallback(() => {
     if (hintShown || hintsUsed >= 2) return;
     setHintShown(true);
@@ -158,7 +166,7 @@ export default function DailyScreen() {
       if (next === 'background' || next === 'inactive') {
         setDisqualified(true);
         setShowDqModal(true);
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+        haptics.warning();
       }
     });
     return () => sub.remove();
@@ -198,7 +206,7 @@ export default function DailyScreen() {
   const handleConfirm = useCallback(() => {
     // Defensive reset — a stale prefetch must never short-circuit a fresh run.
     prefetchRef.current = null;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    haptics.light();
     if (locationData?.locations?.length) {
       setCurrentRound(1);
       setPinPoint(null);
@@ -303,6 +311,7 @@ export default function DailyScreen() {
   const advance = useCallback(async () => {
     const nextRound = currentRound + 1;
     if (nextRound > totalRounds) {
+      setFinishedThisSession(true); // eligible game completed → arm the rate-us prompt
       const prefetch = prefetchRef.current;
       // Fast path: the prefetch submitted with the matching DQ state.
       if (prefetch && prefetch.atDisqualified === disqualified) {
@@ -312,7 +321,7 @@ export default function DailyScreen() {
           setPhase('results');
           fetchResults();
           if (!disqualified) {
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+            haptics.success();
           }
           return;
         }
@@ -341,7 +350,7 @@ export default function DailyScreen() {
         });
         setSubmitResponse(response);
         if (!disqualified) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          haptics.success();
         }
       } catch {
         setSubmitResponse({ error: true, score: totalScore, disqualified });
@@ -477,6 +486,31 @@ export default function DailyScreen() {
     results?.user?.ownScore ??
     effectiveRounds.reduce((s, r) => s + (r.score || 0), 0);
 
+  // View-only results (opened from the landing's "view results" CTA for an
+  // already-completed daily): no game was played this session, so there's no
+  // in-session GameSurface to keep behind the modal. Mounting one here would
+  // fetch locations and flash a stray, blurred results map behind the backdrop.
+  // Render the results card over the plain daily background instead.
+  if (phase === 'results' && finalRounds.length === 0) {
+    return (
+      <View style={styles.root}>
+        <DailyBackground style={StyleSheet.absoluteFill} />
+        <DailyResultsScreen
+          date={date}
+          rounds={effectiveRounds}
+          locations={locationData?.locations ?? []}
+          totalScore={resultsTotalScore}
+          submitResponse={submitResponse}
+          results={results}
+          loadingResults={loadingResults}
+          isLoggedIn={isLoggedIn}
+          disqualified={disqualified || submitResponse?.disqualified}
+          onClose={() => router.back()}
+        />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
       <GameSurface
@@ -488,6 +522,19 @@ export default function DailyScreen() {
                 long: currentLocation.long,
                 heading: currentLocation.heading ?? null,
                 country: currentLocation.country,
+              }
+            : null
+        }
+        // Warm the next round's pano during the result screen → no loading cover
+        // on "Next" (all daily locations are fetched upfront). Mirror the
+        // `location` mapping above so the committed preload matches and won't reload.
+        nextLocation={
+          currentRound < totalRounds && locationData?.locations?.[currentRound]
+            ? {
+                lat: locationData.locations[currentRound].lat,
+                long: locationData.locations[currentRound].long,
+                heading: locationData.locations[currentRound].heading ?? null,
+                country: locationData.locations[currentRound].country,
               }
             : null
         }
@@ -504,7 +551,7 @@ export default function DailyScreen() {
         guessPosition={pinPoint}
         onGuessPositionChange={isResultsLike ? undefined : setPinPoint}
         onSubmitPin={handleSubmitPin}
-        topLeftSlot={
+        topRightSlot={
           phase === 'game' ? (
             <GameTimer
               timeRemaining={TIME_PER_ROUND}
@@ -561,6 +608,12 @@ export default function DailyScreen() {
       )}
 
       {confettiKey > 0 && <ConfettiBurst trigger={confettiKey} />}
+
+      <ReviewPromptModal
+        visible={review.visible}
+        onRate={review.onRate}
+        onDismiss={review.onDismiss}
+      />
     </View>
   );
 }

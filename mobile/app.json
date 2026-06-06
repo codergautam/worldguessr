@@ -2,7 +2,7 @@
   "expo": {
     "name": "WorldGuessr",
     "slug": "worldguessr",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
+      "resizeMode": "cover",
       "backgroundColor": "#112b18"
     },
     "ios": {
@@ -18,6 +18,10 @@
       "usesAppleSignIn": true,
       "buildNumber": "3",
       "bundleIdentifier": "com.codergautamyt.worldguessr",
+      "associatedDomains": [
+        "applinks:worldguessr.com",
+        "applinks:www.worldguessr.com"
+      ],
       "config": {
         "googleMapsApiKey": "AIzaSyCi1DtoToWaVOV77VPCyYO9mzncnLS5Kk0"
       },
@@ -36,6 +40,25 @@
       "versionCode": 3,
       "edgeToEdgeEnabled": true,
       "package": "com.codergautamyt.worldguessr",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [
+            { "scheme": "https", "host": "worldguessr.com", "path": "/" },
+            { "scheme": "https", "host": "worldguessr.com", "path": "/daily" },
+            { "scheme": "https", "host": "worldguessr.com", "path": "/map" },
+            { "scheme": "https", "host": "worldguessr.com", "pathPrefix": "/map/" },
+            { "scheme": "https", "host": "worldguessr.com", "path": "/user" },
+            { "scheme": "https", "host": "www.worldguessr.com", "path": "/" },
+            { "scheme": "https", "host": "www.worldguessr.com", "path": "/daily" },
+            { "scheme": "https", "host": "www.worldguessr.com", "path": "/map" },
+            { "scheme": "https", "host": "www.worldguessr.com", "pathPrefix": "/map/" },
+            { "scheme": "https", "host": "www.worldguessr.com", "path": "/user" }
+          ]
+        }
+      ],
       "config": {
         "googleMaps": {
           "apiKey": "YOUR_ANDROID_API_KEY"

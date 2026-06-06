@@ -530,6 +530,7 @@
   "nextChallengeIn": "Próximo desafío en {{time}}",
   "newChallengeReady": "¡Hay un nuevo desafío listo!",
   "streakExtended": "¡Días seguidos!",
+  "streakStartedLabel": "¡Racha iniciada!",
   "personalRecords": "Tus récords",
   "bestScore": "Mejor puntuación",
   "bestStreakLabel": "Racha más larga",
@@ -796,5 +797,15 @@
   "noLocationsForMap": "No hay ubicaciones disponibles para este mapa",
   "createdByLabel": "Creado por",
   "eloRating": "Puntuación ELO",
-  "closeSignInOptions": "Cerrar opciones de inicio de sesión"
+  "closeSignInOptions": "Cerrar opciones de inicio de sesión",
+  "rateUsTitle": "¿Te gusta WorldGuessr?",
+  "rateUsSubtitle": "Toca una estrella para valorar tu experiencia",
+  "rateUsMaybeLater": "Quizás más tarde",
+  "rateUsThanksTitle": "¡Gracias por tu opinión!",
+  "rateUsThanksSubtitle": "Nos encantaría saber cómo podemos mejorar.",
+  "rateUsFeedbackPlaceholder": "Dinos qué podemos mejorar (opcional)",
+  "rateUsSend": "Enviar",
+  "rateUsSkip": "Cerrar",
+  "rateUsFeedbackSent": "¡Comentario enviado, gracias!",
+  "rateUsFeedbackError": "No se pudo enviar tu comentario. Inténtalo de nuevo."
 }

@@ -28,6 +28,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { withRepeat, withSequence, withTiming } from '../daily/anims';
 import { colors, getHealthColor, getLeague, t, HEALTH_GRADIENTS } from '../../shared';
+import { haptics } from '../../services/haptics';
 import { spacing, fontSizes, borderRadius } from '../../styles/theme';
 import { MPPlayer } from '../../store/multiplayerStore';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
@@ -95,6 +96,14 @@ function HealthBar({
   const { glow } = getHealthColor(hpPct);
   const isCritical = hpPct <= 30;
 
+  // One-shot warning buzz the moment MY health crosses into the critical zone —
+  // the tense "you're about to lose" beat. Only on the downward crossing.
+  const wasCriticalRef = useRef(isCritical);
+  useEffect(() => {
+    if (isMe && isCritical && !wasCriticalRef.current) haptics.warning();
+    wasCriticalRef.current = isCritical;
+  }, [isCritical, isMe]);
+
   // HP number counts both up AND down (resetWhenLower:false) like the web bar.
   const { displayed: displayedHp } = useAnimatedNumber(hp, {
     duration: HP_ANIM_MS,
@@ -145,6 +154,10 @@ function HealthBar({
     if (delta <= 0) return;
 
     setDamage(delta);
+    // Light pulse when the OPPONENT takes a hit (your guess chipped them). Your
+    // own damage stays silent here — the critical-zone warning above covers the
+    // moment that actually matters for you.
+    if (!isMe) haptics.light();
     dmgOpacity.value = 1;
     dmgY.value = 0;
     dmgScale.value = 1;

@@ -34,11 +34,20 @@ interface Props {
   /**
    * When set, render a back/leave button in the top-left corner WHILE the spinner
    * is showing — an escape hatch so a slow (or hung) load isn't a dead end. Only
-   * pass it for modes where bailing mid-load is harmless (singleplayer); omit it
-   * for committed runs (ranked / daily) where leaving has consequences. The error
-   * state already offers its own retry/back button, so this is spinner-only.
+   * pass it for modes where bailing mid-load is harmless (singleplayer / UNRANKED
+   * multiplayer); omit it for committed runs (ranked / daily) where leaving has
+   * consequences. The error state already offers its own retry/back button, so by
+   * default this is spinner-only (see `backDuringCountdown`).
    */
   onBack?: () => void;
+  /**
+   * Normally the back button is suppressed during the match-start countdown
+   * (a committed round). Set this for UNRANKED multiplayer, where the "Get Ready!"
+   * countdown is still bailable — it surfaces the back button alongside the
+   * wordmark (mirroring the queue screen). Ranked never passes this (it uses the
+   * separate GetReadyOverlay), so ranked stays back-button-free.
+   */
+  backDuringCountdown?: boolean;
 }
 
 const STREET2 = require('../../../assets/street2.jpg');
@@ -53,14 +62,15 @@ export default function GameLoadingOverlay({
   onRetry,
   retryLabel = t('back'),
   onBack,
+  backDuringCountdown = false,
 }: Props) {
   const showCountdown = countdown != null && !error;
   // Escape hatch: a back button in the corner whenever we're loading OR showing an
-  // error — so neither a slow load nor a failed one is a dead end. (Suppressed only
-  // during the match-start countdown, which is a committed multiplayer round.) On
-  // the error screen this pairs with the center Retry button: corner = leave,
-  // center = try again.
-  const showBack = !!onBack && !showCountdown;
+  // error — so neither a slow load nor a failed one is a dead end. Suppressed during
+  // the match-start countdown (a committed round) UNLESS the caller opts in via
+  // `backDuringCountdown` (unranked, where leaving is harmless). On the error screen
+  // this pairs with the center Retry button: corner = leave, center = try again.
+  const showBack = !!onBack && (!showCountdown || backDuringCountdown);
   return (
     <Animated.View
       style={[styles.overlay, { opacity }]}
@@ -68,16 +78,25 @@ export default function GameLoadingOverlay({
     >
       <ImageBackground source={STREET2} style={StyleSheet.absoluteFillObject} resizeMode="cover" fadeDuration={0} />
       <View style={styles.dim} />
-      {showBack && (
+      {showCountdown ? (
+        // During the countdown the wordmark sits top-left; when the round is
+        // bailable (unranked) the back button shares that row, mirroring the
+        // queue screen's [back] [wordmark].
+        showBack ? (
+          <SafeAreaView style={styles.countdownTopBar} edges={['top']} pointerEvents="box-none">
+            <BackButton onPress={onBack!} />
+            <WgWordmark size="sm" style={styles.countdownWordmark} />
+          </SafeAreaView>
+        ) : (
+          <SafeAreaView style={styles.brandBar} edges={['top']} pointerEvents="none">
+            <WgWordmark size="sm" />
+          </SafeAreaView>
+        )
+      ) : showBack ? (
         <SafeAreaView edges={['top']} style={styles.backSlot} pointerEvents="box-none">
           <BackButton onPress={onBack!} />
         </SafeAreaView>
-      )}
-      {showCountdown && (
-        <SafeAreaView style={styles.brandBar} edges={['top']} pointerEvents="none">
-          <WgWordmark size="sm" />
-        </SafeAreaView>
-      )}
+      ) : null}
       <View style={styles.center}>
         {showCountdown ? (
           <MatchCountdown
@@ -125,6 +144,22 @@ const styles = StyleSheet.create({
     right: 0,
     paddingLeft: spacing.xl,
     paddingTop: spacing.sm,
+  },
+  // [back] [wordmark] row for a bailable (unranked) countdown — matches the
+  // queue screen's topBar so the control reads as the same back button.
+  countdownTopBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingLeft: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  countdownWordmark: {
+    marginTop: 2,
   },
   // Mirrors GameSurface's `topLeft` so the loading back button sits exactly where
   // the in-game back button does — the overlay's button reads as the same control.

@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { User } from '../shared';
 import { api } from '../services/api';
+import { wsService } from '../services/websocket';
 import {
   claimGuestProgressIfAny,
   resetClaimGuestProgressState,
@@ -200,6 +201,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set((state) => ({
         user: state.user ? { ...state.user, username } : null,
       }));
+      // Force a WS reconnect so the server re-reads this account with its new
+      // username. The secret hasn't changed, so the persistent socket would
+      // otherwise keep serving the stale (username-less) session — the web app
+      // sidesteps this by doing a full page reload after setName. force=true
+      // tears the socket down and sends a fresh `verify`, re-syncing presence,
+      // streak, profile name, etc. Fire-and-forget; failure just falls back to
+      // the existing socket and the normal reconnect machinery.
+      wsService.connect(secret, true).catch(() => {});
       return { success: true };
     } catch (error: any) {
       console.error('Set username failed:', error);

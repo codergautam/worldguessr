@@ -14,11 +14,12 @@ import UsernameWithFlag from './utils/usernameWithFlag';
 import CountryFlag from './utils/countryFlag';
 import generateShareText from './utils/generateShareText';
 import sendEvent from './utils/sendEvent';
+import SafeMapContainer from './SafeMapContainer';
 
-const MapContainer = dynamic(
-  () => import("react-leaflet").then((module) => module.MapContainer),
-  { ssr: false }
-);
+// Error-boundaried MapContainer (see SafeMapContainer): a partial leaflet load
+// throws "a.Map is not a constructor" during commit; without the boundary it
+// white-screens the whole app.
+const MapContainer = SafeMapContainer;
 const TileLayer = dynamic(
   () => import("react-leaflet").then((module) => module.TileLayer),
   { ssr: false }

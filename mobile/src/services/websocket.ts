@@ -100,6 +100,20 @@ class WebSocketService {
     return this.isConnected && this._secret === secret;
   }
 
+  /**
+   * True if the live socket is open AND the server has completed a verify this
+   * session. `_everConnected` survives drops and (crucially) survives a dev
+   * Fast-Refresh store reset, since this service is a persisted singleton. The
+   * store mirrors `connected`/`verified` as its own flags that are ONLY set true
+   * by an incoming `verify` — but connect() short-circuits when the socket is
+   * already open ("Already connected with same secret, skipping"), so no fresh
+   * verify arrives to restore those flags after a reset. Callers use this as the
+   * source of truth to re-sync the store against the real connection.
+   */
+  get isVerified(): boolean {
+    return this.isConnected && this._everConnected;
+  }
+
   get timeOffset(): number {
     return this._timeOffset;
   }
@@ -746,6 +760,19 @@ class WebSocketService {
       await SecureStore.setItemAsync(REJOIN_CODE_KEY, code);
     } catch (err) {
       console.error('[WS] Failed to store rejoinCode:', err);
+    }
+  }
+
+  /**
+   * Forget the stored rejoinCode so the next verify reconnects as a fresh home
+   * session instead of rejoining the game. Used when a mid-game drop sends the
+   * user home: we don't want the server to replay them back into the game.
+   */
+  async clearRejoinCode(): Promise<void> {
+    try {
+      await SecureStore.deleteItemAsync(REJOIN_CODE_KEY);
+    } catch (err) {
+      console.error('[WS] Failed to clear rejoinCode:', err);
     }
   }
 }
