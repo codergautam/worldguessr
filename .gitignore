@@ -67,5 +67,8 @@ ios/*
 ios-crashes/
 
 # generated build artifacts
-mobile/src/generated/
+# NOTE: mobile/src/generated/embedHtml.ts is intentionally NOT ignored. It is a
+# committed, self-contained bundle that the mobile WebView maps import. EAS Build
+# strips ANY path matching .gitignore from the upload (even committed files), so
+# ignoring this directory breaks the iOS/Android bundle step.
 embed/node_modules/
