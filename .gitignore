@@ -68,4 +68,4 @@ ios-crashes/
 
 # generated build artifacts
 mobile/src/generated/
-embed/
+embed/node_modules/

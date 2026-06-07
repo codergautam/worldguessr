@@ -41,7 +41,7 @@ const HTML = `<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-  html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #08120d; }
+  html, body, #map { height: 100%; width: 100%; margin: 0; padding: 0; background: #aadaff; }
   .lm-pin { width: 18px; height: 18px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
             border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
 </style>
@@ -195,6 +195,6 @@ export default function LeafletMap({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#08120d' },
-  webview: { flex: 1, backgroundColor: '#08120d' },
+  container: { flex: 1, backgroundColor: '#aadaff' },
+  webview: { flex: 1, backgroundColor: '#aadaff' },
 });

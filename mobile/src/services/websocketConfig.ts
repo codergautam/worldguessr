@@ -1,8 +1,7 @@
-// WebSocket server URL configuration
-// In dev, point to local server; in production, use the live server
-export const WS_URL = process.env.EXPO_PUBLIC_WS_URL || (__DEV__
-  ? 'ws://192.168.4.58:3002/wg'
-  : 'wss://server.worldguessr.com/wg');
+// WebSocket server URL — single source of truth lives in constants/config so the
+// socket and the rest of the app can never drift to different hosts. Defaults to
+// wss://server.worldguessr.com/wg; override via EXPO_PUBLIC_WS_URL for local dev.
+export { WS_URL } from '../constants/config';
 
 // Connection parameters (ported from web initWebsocket.js)
 export const WS_TIMEOUT_MS = 5000;

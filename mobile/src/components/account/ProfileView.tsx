@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useAuthStore } from '../../store/authStore';
 import {
   View,
   Text,
@@ -158,6 +160,15 @@ export default function ProfileView({
   const scrollViewRef = useRef<ScrollView>(null);
   const { width: screenWidth } = useWindowDimensions();
 
+  // Live totals from the auth store. For the OWN profile these are kept current
+  // by optimistic game-end updates (singleplayer/daily/duel), so the XP and
+  // games-played stats update instantly without an app reload — instead of being
+  // frozen at whatever the one-time publicAccount fetch returned. The server's
+  // publicAccount is cached ~20s, so the store (optimistic) is often fresher.
+  const liveTotalXp = useAuthStore((s) => s.user?.totalXp);
+  const liveGamesPlayed = useAuthStore((s) => s.user?.totalGamesPlayed);
+  const refreshAccount = useAuthStore((s) => s.refreshAccount);
+
   const setScrollEnabled = useCallback((enabled: boolean) => {
     scrollViewRef.current?.setNativeProps({ scrollEnabled: enabled });
   }, []);
@@ -250,6 +261,16 @@ export default function ProfileView({
     fetchProfile();
   }, [fetchProfile]);
 
+  // Reconcile authoritative totals from the server whenever the profile regains
+  // focus (e.g. returning to the Account tab after finishing a game). The tab
+  // stays mounted across navigation, so without this the one-time mount fetch
+  // would never refresh. refreshAccount() never regresses an optimistic value.
+  useFocusEffect(
+    useCallback(() => {
+      if (isOwnProfile) refreshAccount();
+    }, [isOwnProfile, refreshAccount]),
+  );
+
   // Fetch progression data
   useEffect(() => {
     const identifier = isOwnProfile && accountId
@@ -291,13 +312,23 @@ export default function ProfileView({
     }
   };
 
+  // For the own profile, prefer the live store totals (kept fresh by optimistic
+  // game-end updates + focus reconcile) over the one-time fetched snapshot.
+  const displayProfileData = profileData && isOwnProfile
+    ? {
+        ...profileData,
+        totalXp: liveTotalXp ?? profileData.totalXp,
+        gamesLen: liveGamesPlayed ?? profileData.gamesLen,
+      }
+    : profileData;
+
   // Render tab content
   const renderTabContent = () => {
     switch (activeTab) {
       case 'profile':
         return (
           <ProfileTab
-            profileData={profileData}
+            profileData={displayProfileData}
             isOwnProfile={isOwnProfile}
             secret={secret}
             onLogout={onLogout}

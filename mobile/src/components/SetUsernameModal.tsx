@@ -11,7 +11,7 @@ import {
   Easing,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, t } from '../shared';
+import { colors, t, USERNAME_MAX_LENGTH } from '../shared';
 import { useAuthStore } from '../store/authStore';
 
 /**
@@ -182,7 +182,7 @@ export default function SetUsernameModal() {
               }}
               autoCapitalize="none"
               autoCorrect={false}
-              maxLength={30}
+              maxLength={USERNAME_MAX_LENGTH}
               editable={!isLoading}
               onSubmitEditing={handleSave}
               returnKeyType="done"

@@ -13,7 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { t } from '../../shared';
+import { t, validateUsername, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from '../../shared';
 import { api } from '../../services/api';
 import {
   GlassCard,
@@ -111,16 +111,6 @@ export default function ProfileTab({
         setCheckingStatus(false);
       }
     }
-  };
-
-  const validateUsername = (name: string): string | null => {
-    if (name.length < 3 || name.length > 20) {
-      return t('usernameLengthError', undefined, 'Username must be between 3 and 20 characters');
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(name)) {
-      return t('usernameCharsError', undefined, 'Username can only contain letters, numbers, and underscores');
-    }
-    return null;
   };
 
   const submitNameChange = async () => {
@@ -407,11 +397,11 @@ export default function ProfileTab({
                     autoCapitalize="none"
                     autoCorrect={false}
                     autoFocus
-                    maxLength={20}
+                    maxLength={USERNAME_MAX_LENGTH}
                     editable={!modalLoading}
                   />
                   <Text style={styles.hintText}>
-                    {t('usernameRulesHint', undefined, '3-20 characters, letters, numbers, and underscores only')}
+                    {t('usernameRulesHint', { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH }, '3-30 characters, letters, numbers, and underscores only')}
                   </Text>
 
                   {/* Error */}

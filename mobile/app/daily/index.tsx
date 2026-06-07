@@ -112,6 +112,24 @@ export default function DailyScreen() {
   const [finishedThisSession, setFinishedThisSession] = useState(false);
   const review = useReviewPrompt(finishedThisSession);
 
+  // Optimistically bump the live profile totals once a fresh, tracked daily run
+  // is submitted, so XP / games-played update instantly without an app reload.
+  // Guards: logged-in only, not DQ'd, not an already-submitted replay (those
+  // don't award XP server-side), and fire exactly once per result.
+  const dailyRewardAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    if (!submitResponse || dailyRewardAppliedRef.current) return;
+    if (submitResponse.error || submitResponse.disqualified || submitResponse.alreadySubmitted) return;
+    dailyRewardAppliedRef.current = true;
+    // Server XP = sum(round.xp) capped 500, round.xp = clamp(round(score/50),0..100).
+    const earnedXp = Math.min(
+      500,
+      finalRounds.reduce((sum, r) => sum + Math.min(100, Math.round((r.score ?? 0) / 50)), 0),
+    );
+    useAuthStore.getState().applyGameResult({ xp: earnedXp, gamesPlayed: 1 });
+  }, [isLoggedIn, submitResponse, finalRounds]);
+
   const handleHint = useCallback(() => {
     if (hintShown || hintsUsed >= 2) return;
     setHintShown(true);
@@ -157,13 +175,16 @@ export default function DailyScreen() {
     }
   }, [phase, locationData]);
 
-  // AppState DQ — entering background during the game phase disqualifies the
-  // run. Gated on phase==='game' so backgrounding while reviewing results never
-  // disqualifies.
+  // AppState DQ — entering a TRUE background during the game phase disqualifies
+  // the run (web parity: visibilitychange→'hidden' only, never blur/inactive).
+  // Gated on phase==='game' so backgrounding while reviewing results never
+  // disqualifies. iOS-only 'inactive' is intentionally excluded: it fires for
+  // call banners, permission/Face ID dialogs, and Control/Notification Center
+  // pulldowns — transient states that must NOT permanently DQ.
   useEffect(() => {
     if (phase !== 'game' || disqualified) return;
     const sub = AppState.addEventListener('change', (next: AppStateStatus) => {
-      if (next === 'background' || next === 'inactive') {
+      if (next === 'background') {
         setDisqualified(true);
         setShowDqModal(true);
         haptics.warning();

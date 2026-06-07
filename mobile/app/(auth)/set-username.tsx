@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, t } from '../../src/shared';
+import { colors, t, validateUsername, USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { commonStyles, spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 
@@ -21,19 +21,6 @@ export default function SetUsernameScreen() {
   const { setUsername, isLoading } = useAuthStore();
   const [username, setUsernameInput] = useState('');
   const [error, setError] = useState<string | null>(null);
-
-  const validateUsername = (name: string): string | null => {
-    if (name.length < 3) {
-      return t('usernameTooShort', undefined, 'Username must be at least 3 characters');
-    }
-    if (name.length > 20) {
-      return t('usernameTooLong', undefined, 'Username must be less than 20 characters');
-    }
-    if (!/^[a-zA-Z0-9_]+$/.test(name)) {
-      return t('usernameCharsError', undefined, 'Username can only contain letters, numbers, and underscores');
-    }
-    return null;
-  };
 
   const handleSubmit = async () => {
     const validationError = validateUsername(username);
@@ -45,11 +32,11 @@ export default function SetUsernameScreen() {
     setError(null);
 
     try {
-      const success = await setUsername(username);
-      if (success) {
+      const result = await setUsername(username);
+      if (result.success) {
         router.replace('/(tabs)/home');
       } else {
-        setError(t('usernameTaken', undefined, 'Username is already taken'));
+        setError(result.error || t('error', undefined, 'An error occurred'));
       }
     } catch (err) {
       console.error('Set username error:', err);
@@ -57,7 +44,7 @@ export default function SetUsernameScreen() {
     }
   };
 
-  const isValid = username.length >= 3 && !validateUsername(username);
+  const isValid = username.length >= USERNAME_MIN_LENGTH && !validateUsername(username);
 
   return (
     <SafeAreaView style={commonStyles.container}>
@@ -90,7 +77,7 @@ export default function SetUsernameScreen() {
               }}
               autoCapitalize="none"
               autoCorrect={false}
-              maxLength={20}
+              maxLength={USERNAME_MAX_LENGTH}
             />
             {username.length > 0 && (
               <View style={styles.inputStatus}>
@@ -108,7 +95,7 @@ export default function SetUsernameScreen() {
           )}
 
           <Text style={styles.hint}>
-            {t('usernameRulesHint', undefined, '3-20 characters, letters, numbers, and underscores only')}
+            {t('usernameRulesHint', { min: USERNAME_MIN_LENGTH, max: USERNAME_MAX_LENGTH }, '3-30 characters, letters, numbers, and underscores only')}
           </Text>
         </View>
 

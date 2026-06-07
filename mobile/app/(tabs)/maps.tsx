@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, t } from '../../src/shared';
+import { colors, t, getCurrentLanguage } from '../../src/shared';
+import { nameFromCode } from '../../src/shared/data/countryHelpers';
 import { api, MapItem } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { onHeartUpdate, emitHeartUpdate } from '../../src/store/heartSync';
@@ -199,6 +200,22 @@ export default function MapsScreen() {
     }
   }, [secret, heartingMap]);
 
+  // Localize country-map names for the active language (mirrors web mapView.js's
+  // `displayMap`). The localized copy is display-only; heart sync still operates
+  // on the original mapHome.countryMaps by id, so this never breaks heart state.
+  const lang = getCurrentLanguage();
+  const localizeCountry = useCallback(
+    (arr: MapItem[]) =>
+      arr.map((m) => (m.countryMap ? { ...m, name: nameFromCode(m.countryMap, lang) } : m)),
+    [lang],
+  );
+  // Memoized so the React.memo'd country MapSection isn't re-rendered every frame
+  // (a fresh array each render would defeat its memoization).
+  const localizedCountryMaps = useMemo(
+    () => localizeCountry(mapHome.countryMaps || []),
+    [localizeCountry, mapHome.countryMaps],
+  );
+
   const isSearching = searchQuery.trim().length >= 3;
 
   return (
@@ -286,9 +303,15 @@ export default function MapsScreen() {
               // Search results — include matching country maps + API results
               (() => {
                 const queryLower = searchQuery.trim().toLowerCase();
-                const matchingCountryMaps = (mapHome.countryMaps || []).filter(
-                  (m) => m.name?.toLowerCase().includes(queryLower)
-                );
+                // Match the localized name AND the raw English name (mirrors web
+                // mapView.js), so e.g. a French user typing "Allemagne" finds Germany.
+                const matchingCountryMaps = (mapHome.countryMaps || []).filter((m) => {
+                  const localized = m.countryMap ? nameFromCode(m.countryMap, lang) : m.name;
+                  return (
+                    localized?.toLowerCase().includes(queryLower) ||
+                    m.name?.toLowerCase().includes(queryLower)
+                  );
+                });
                 const hasCountry = matchingCountryMaps.length > 0;
                 const hasCommunity = searchResults.length > 0;
                 const hasAny = hasCountry || hasCommunity;
@@ -319,7 +342,7 @@ export default function MapsScreen() {
                     {hasCountry && (
                       <MapSection
                         title={t('countryMaps')}
-                        maps={matchingCountryMaps}
+                        maps={localizeCountry(matchingCountryMaps)}
                         isCountry
                         onMapPress={handleMapPress}
                         numCols={countryNumCols}
@@ -351,7 +374,7 @@ export default function MapsScreen() {
                     <MapSection
                       key={key}
                       title={t(SECTION_LABELS[key])}
-                      maps={maps}
+                      maps={key === 'countryMaps' ? localizedCountryMaps : maps}
                       isCountry={key === 'countryMaps'}
                       onMapPress={handleMapPress}
                       onHeartMap={secret ? handleHeartMap : undefined}

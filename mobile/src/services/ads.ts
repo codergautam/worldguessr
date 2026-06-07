@@ -4,17 +4,30 @@ import mobileAds, {
   AdEventType,
   TestIds,
 } from 'react-native-google-mobile-ads';
+import { useAuthStore } from '../store/authStore';
 
-const TESTING = process.env.EXPO_PUBLIC_ADMOB_TESTING === 'true';
+// Use Google TEST ads only in dev or when explicitly opted in. In a release
+// build with no opt-in, we resolve a REAL prod unit id — or, if none is
+// configured, DISABLE ads entirely rather than ever serving test ads to real
+// users (AdMob policy violation + zero revenue).
+const FORCE_TEST = __DEV__ || process.env.EXPO_PUBLIC_ADMOB_TESTING === 'true';
 
 const PROD_INTERSTITIAL_ID = Platform.select({
   ios: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID,
   android: process.env.EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID_ID,
 });
 
-const INTERSTITIAL_UNIT_ID = TESTING
-  ? TestIds.INTERSTITIAL
-  : PROD_INTERSTITIAL_ID || TestIds.INTERSTITIAL;
+let INTERSTITIAL_UNIT_ID: string | null;
+if (FORCE_TEST) {
+  INTERSTITIAL_UNIT_ID = TestIds.INTERSTITIAL; // dev / explicit opt-in only
+} else if (PROD_INTERSTITIAL_ID) {
+  INTERSTITIAL_UNIT_ID = PROD_INTERSTITIAL_ID; // real ads in release
+} else {
+  INTERSTITIAL_UNIT_ID = null; // misconfigured release -> ads OFF (fail safe)
+  console.error(
+    '[ads] Missing EXPO_PUBLIC_ADMOB_INTERSTITIAL_{IOS,ANDROID}_ID in a release build — interstitials DISABLED (refusing to serve TEST ads to real users).',
+  );
+}
 
 let initPromise: Promise<void> | null = null;
 
@@ -33,7 +46,8 @@ export function initAds(): Promise<void> {
 let interstitial: InterstitialAd | null = null;
 let interstitialLoading = false;
 
-function ensureInterstitial(): InterstitialAd {
+function ensureInterstitial(): InterstitialAd | null {
+  if (!INTERSTITIAL_UNIT_ID) return null;
   if (interstitial) return interstitial;
   interstitial = InterstitialAd.createForAdRequest(INTERSTITIAL_UNIT_ID, {
     requestNonPersonalizedAdsOnly: false,
@@ -55,6 +69,7 @@ function ensureInterstitial(): InterstitialAd {
 export function preloadInterstitial(): void {
   if (interstitialLoading) return;
   const ad = ensureInterstitial();
+  if (!ad) return;
   if (ad.loaded) return;
   interstitialLoading = true;
   try {
@@ -67,6 +82,7 @@ export function preloadInterstitial(): void {
 
 export function showInterstitial(): boolean {
   const ad = ensureInterstitial();
+  if (!ad) return false;
   if (!ad.loaded) {
     preloadInterstitial();
     return false;
@@ -93,6 +109,12 @@ const AD_INTERVAL_MS = 5 * 60 * 1000;
 // Seeded to app-open time: guarantees no ad within the first 5 minutes.
 let lastInterstitialAt = Date.now();
 
+/** Supporters never see ads — mirrors web gameUI.js:788 (!session?.token?.supporter).
+ * Read lazily via getState() so it always reflects current login/logout state. */
+function isSupporter(): boolean {
+  return !!useAuthStore.getState().user?.supporter;
+}
+
 /** Game modes that are eligible for interstitials. */
 export type AdGameContext = 'singleplayer' | 'rankedDuel' | 'unrankedDuel';
 
@@ -108,6 +130,7 @@ const AD_ELIGIBLE_CONTEXTS: ReadonlySet<AdGameContext> = new Set([
  * Returns true only if an ad was actually displayed.
  */
 export function maybeShowGameInterstitial(context: AdGameContext): boolean {
+  if (isSupporter()) return false; // supporters never see ads (or preload one)
   if (!AD_ELIGIBLE_CONTEXTS.has(context)) return false;
 
   const now = Date.now();
@@ -138,6 +161,7 @@ export function maybeShowGameInterstitial(context: AdGameContext): boolean {
  * they're actually looking at the game.
  */
 export function runGameInterstitial(context: AdGameContext): Promise<void> {
+  if (isSupporter()) return Promise.resolve(); // supporters never see ads
   if (!AD_ELIGIBLE_CONTEXTS.has(context)) return Promise.resolve();
 
   const now = Date.now();
@@ -148,6 +172,7 @@ export function runGameInterstitial(context: AdGameContext): Promise<void> {
   }
 
   const ad = ensureInterstitial();
+  if (!ad) return Promise.resolve(); // ads disabled (no configured unit id)
   if (!ad.loaded) {
     // Nothing ready — don't stall the player waiting on a load; warm for later.
     preloadInterstitial();

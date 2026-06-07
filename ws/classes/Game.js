@@ -380,6 +380,12 @@ export default class Game {
       generated: this.locations?.length || 0,
       map: this.location,
       extent: this.extent,
+      // Include maxDist in every game payload. It's also broadcast as a standalone
+      // `maxDist` message, but a cold reconnect only replays this `game` state —
+      // without it the client falls back to the 20000 default and mis-scores the
+      // between-rounds banner on community/country maps. Additive; clients already
+      // read maxDist from the separate message too.
+      maxDist: this.maxDist,
       showRoadName: !!this.showRoadName,
       nm: !!this.nm,
       npz: !!this.npz

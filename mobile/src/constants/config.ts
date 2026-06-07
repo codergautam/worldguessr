@@ -1,20 +1,23 @@
 // API Configuration
-const DEV_SERVER_HOST = '192.168.4.58';
-
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || (__DEV__ ? `http://${DEV_SERVER_HOST}:3001` : 'https://api.worldguessr.com');
-export const AUTH_URL = process.env.EXPO_PUBLIC_AUTH_URL || (__DEV__ ? `http://${DEV_SERVER_HOST}:3004` : 'https://api.worldguessr.com');
-export const WS_URL = process.env.EXPO_PUBLIC_WS_URL || (__DEV__ ? `ws://${DEV_SERVER_HOST}:3002/wg` : 'wss://server.worldguessr.com/wg');
+//
+// Every build (dev client, preview, and store) defaults to the LIVE backends.
+// To run against a local backend, set the matching EXPO_PUBLIC_* var in
+// mobile/.env, e.g.
+//   EXPO_PUBLIC_API_URL=http://192.168.x.x:3001
+//   EXPO_PUBLIC_AUTH_URL=http://192.168.x.x:3004
+//   EXPO_PUBLIC_WS_URL=ws://192.168.x.x:3002/wg
+//   EXPO_PUBLIC_EMBED_URL=http://192.168.x.x:3000
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.worldguessr.com';
+export const AUTH_URL = process.env.EXPO_PUBLIC_AUTH_URL || 'https://api.worldguessr.com';
+export const WS_URL = process.env.EXPO_PUBLIC_WS_URL || 'wss://server.worldguessr.com/wg';
 
 // Public website (used for shareable party invite links — mirrors web NEXT_PUBLIC_DOMAIN).
 export const SITE_URL = process.env.EXPO_PUBLIC_SITE_URL || 'https://worldguessr.com';
 
 // Base URL for the chrome-less /embed/* Leaflet map pages loaded in the map
-// WebView. In dev these are served by your local `next dev` (default :3000 on
-// the dev host). Override with EXPO_PUBLIC_EMBED_URL if your web port differs.
-// Once the embed pages are deployed, prod uses worldguessr.com.
-export const EMBED_BASE_URL =
-  process.env.EXPO_PUBLIC_EMBED_URL ||
-  (__DEV__ ? `http://${DEV_SERVER_HOST}:3000` : 'https://worldguessr.com');
+// WebView. Served from worldguessr.com in prod; override with
+// EXPO_PUBLIC_EMBED_URL to point at a local `next dev`.
+export const EMBED_BASE_URL = process.env.EXPO_PUBLIC_EMBED_URL || 'https://worldguessr.com';
 
 // Hard ceiling on every HTTP request (enforced by services/fetchWithTimeout.ts,
 // which all network calls route through). A mobile socket can hang indefinitely —

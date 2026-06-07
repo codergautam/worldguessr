@@ -109,6 +109,14 @@ export interface GameData {
   showRoadName: boolean;
   duelEnd?: DuelEndData;
   map?: string;
+  /**
+   * Sticky: did we join this game while it was already underway (vs. starting it
+   * fresh)? Computed once from the FIRST `game` message of the session — a
+   * genuine starter always sees state:'waiting' first; a late join / cold
+   * reconnect mid-game sees getready/guess/end first. Used to skip the 5s
+   * get-ready and drop straight into normal loading.
+   */
+  joinedInProgress?: boolean;
 }
 
 /** A floating in-game emote reaction (replaces chat). */
@@ -288,6 +296,7 @@ interface MultiplayerState {
   acceptGameInvite: (code: string, invitedById: string) => void;
   joinPrivateGame: (code: string) => void;
   leaveGame: () => void;
+  resetGame: () => void;
   reset: () => void;
 }
 
@@ -459,6 +468,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
     get().reset();
   },
 
+  // Host-only: ask the server to reset a private party back to the lobby (web
+  // parity: home.js backBtnPressed → ws {type:'resetGame'}). Does NOT call
+  // reset() — the server's broadcast game{state:'waiting'} drives all clients
+  // (host + guests) back to the MultiplayerLobby.
+  resetGame: () => {
+    wsService.send({ type: 'resetGame' });
+  },
+
   reset: () =>
     set((s) => ({
       ...initialState,
@@ -592,6 +609,29 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       });
 
       console.log('[Store] game message received — state:', data.state, 'code:', data.code, 'host:', data.host, 'players:', data.players?.length);
+
+      // Optimistically bump the live profile totals when a game finishes, so XP /
+      // games-played update instantly without an app reload. Fire exactly once,
+      // on the edge into the 'end' state. Mirrors the server's award rules:
+      //   • every game (duel / unranked / party) → totalGamesPlayed +1
+      //   • XP only for ranked duels and public unranked (awardXp = duel||public)
+      //   • XP per round = floor(points/50) capped at 100 (Game.calculatePlayerXp)
+      const enteringEnd = data.state === 'end' && prevGameData?.state !== 'end';
+      if (enteringEnd) {
+        const myId = data.myId ?? prevGameData?.myId;
+        const roundHistory = data.roundHistory ?? prevGameData?.roundHistory ?? [];
+        const awardXp = !!data.duel || !!data.public;
+        let earnedXp = 0;
+        if (awardXp && myId) {
+          for (const round of roundHistory) {
+            const points = round?.players?.[myId]?.points;
+            if (points) earnedXp += Math.min(100, Math.floor(points / 50));
+          }
+        }
+        // Only registered users earn (applyGameResult no-ops without a user).
+        useAuthStore.getState().applyGameResult({ xp: earnedXp, gamesPlayed: 1 });
+      }
+
       set({
         gameQueued: false,
         inGame: true,
@@ -603,6 +643,16 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
           type: undefined, // Remove the message type field
           ...(enteringWaiting ? { locations: [], roundHistory: [], duelEnd: undefined } : {}),
           players: mergedPlayers,
+          // Decide once, on the first `game` message (prevGameData == null): a
+          // real starter's first state is 'waiting'; a late join / mid-game
+          // reconnect sees getready/guess/end first → joinedInProgress. Carried
+          // verbatim across every later merge (set LAST so the server payload —
+          // which never sends this field — can't clobber it). gameData reverts to
+          // null between matches (reset/shutdown/cancel), so it re-evaluates each
+          // session.
+          joinedInProgress: prevGameData
+            ? prevGameData.joinedInProgress
+            : data.state !== 'waiting',
         } as GameData,
       });
       return;

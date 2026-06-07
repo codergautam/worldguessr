@@ -252,6 +252,9 @@ importers:
       expo-web-browser:
         specifier: ~15.0.10
         version: 15.0.11(expo@54.0.34)(react-native@0.81.5(@babel/core@7.29.0)(@types/react@19.1.17)(react@19.1.0))
+      i18n-iso-countries:
+        specifier: ^7.14.0
+        version: 7.14.0
       i18next:
         specifier: ^25.8.0
         version: 25.10.10(typescript@5.9.3)

@@ -25,6 +25,7 @@ import ToastProvider from '../src/components/multiplayer/ToastProvider';
 import ActionableNotifications from '../src/components/multiplayer/ActionableNotifications';
 import WsIndicator from '../src/components/multiplayer/WsIndicator';
 import SetUsernameModal from '../src/components/SetUsernameModal';
+import GlobalErrorBoundary from '../src/components/GlobalErrorBoundary';
 import { initAds, preloadInterstitial } from '../src/services/ads';
 import { initAnalytics } from '../src/services/analytics';
 
@@ -96,51 +97,58 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.container}>
       <SafeAreaProvider>
         <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.background },
-            // iOS-style slide-in on Android, native push on iOS.
-            // Slides keep the outgoing screen opaque underneath. The card bg is
-            // colors.background (brand dark green = splash bg), so the incoming
-            // screen never flashes black before its content paints.
-            animation: 'ios_from_right',
-            animationDuration: 200,
-            // Make router.replace (queue→game, party→game) slide forward, not back.
-            animationTypeForReplace: 'push',
-            freezeOnBlur: false,
-          }}
-        >
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          {/* The multiplayer flow (home → queue/party → game → results) and the
-              daily challenge all crossfade instead of sliding. Every one of these
-              screens sits on the SAME street2 backdrop, so a fade keeps the
-              backdrop continuous and only crossfades the foreground — smooth, and
-              no slide-gap ever exposes the solid green card background. */}
-          <Stack.Screen
-            name="game/[id]"
-            options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 300 }}
-          />
-          <Stack.Screen name="game/results" options={{ headerShown: false, animation: 'fade', animationDuration: 300 }} />
-          <Stack.Screen name="party/create" options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 250 }} />
-          <Stack.Screen name="party/join" options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 250 }} />
-          <Stack.Screen name="queue" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
-          <Stack.Screen name="daily/index" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
-          <Stack.Screen name="user/[username]" options={{ headerShown: false }} />
-          <Stack.Screen name="settings" options={{ headerShown: false }} />
-          <Stack.Screen
-            name="onboarding/play"
-            options={{ headerShown: false, gestureEnabled: false }}
-          />
-        </Stack>
-        <ToastProvider />
-        <ActionableNotifications />
-        <WsIndicator />
-        {/* Forces a new account with no username to set one before using the app.
-            Mounted last + at root so its modal overlays EVERYTHING (home,
-            onboarding, game) and cannot be bypassed. */}
-        <SetUsernameModal />
+        {/* Catch any render/commit-phase throw so a single screen crash shows a
+            branded recovery fallback instead of white-screening the whole app.
+            Inside SafeAreaProvider/GestureHandlerRootView (so the fallback keeps
+            safe-area + gesture context and those providers survive a crash) but
+            outside StatusBar (so the status bar style is preserved). */}
+        <GlobalErrorBoundary>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+              // iOS-style slide-in on Android, native push on iOS.
+              // Slides keep the outgoing screen opaque underneath. The card bg is
+              // colors.background (brand dark green = splash bg), so the incoming
+              // screen never flashes black before its content paints.
+              animation: 'ios_from_right',
+              animationDuration: 200,
+              // Make router.replace (queue→game, party→game) slide forward, not back.
+              animationTypeForReplace: 'push',
+              freezeOnBlur: false,
+            }}
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            {/* The multiplayer flow (home → queue/party → game → results) and the
+                daily challenge all crossfade instead of sliding. Every one of these
+                screens sits on the SAME street2 backdrop, so a fade keeps the
+                backdrop continuous and only crossfades the foreground — smooth, and
+                no slide-gap ever exposes the solid green card background. */}
+            <Stack.Screen
+              name="game/[id]"
+              options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 300 }}
+            />
+            <Stack.Screen name="game/results" options={{ headerShown: false, animation: 'fade', animationDuration: 300 }} />
+            <Stack.Screen name="party/create" options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 250 }} />
+            <Stack.Screen name="party/join" options={{ headerShown: false, gestureEnabled: false, animation: 'fade', animationDuration: 250 }} />
+            <Stack.Screen name="queue" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
+            <Stack.Screen name="daily/index" options={{ headerShown: false, animation: 'fade', animationDuration: 250 }} />
+            <Stack.Screen name="user/[username]" options={{ headerShown: false }} />
+            <Stack.Screen name="settings" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="onboarding/play"
+              options={{ headerShown: false, gestureEnabled: false }}
+            />
+          </Stack>
+          <ToastProvider />
+          <ActionableNotifications />
+          <WsIndicator />
+          {/* Forces a new account with no username to set one before using the app.
+              Mounted last + at root so its modal overlays EVERYTHING (home,
+              onboarding, game) and cannot be bypassed. */}
+          <SetUsernameModal />
+        </GlobalErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

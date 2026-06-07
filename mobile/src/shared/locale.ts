@@ -48,20 +48,30 @@ const BASE_TABLES: Record<SupportedLanguage, Record<string, string>> = {
   ru: ruCommon as Record<string, string>,
 };
 
-// Mobile-only overrides are authored in English. They win over the base locale
-// so platform-specific wording is consistent; the handful of keys that also
-// exist (translated) on web therefore render in English on non-English locales —
-// an accepted tradeoff, as no mobile-specific translations exist for them.
+// Mobile-only overrides are authored in English. Two kinds live here:
+//   1. Keys web doesn't have at all (ad / streak-restore strings) — these MUST
+//      apply to every language (there's nothing to fall back to).
+//   2. Keys that exist AND are translated on web, re-worded for mobile (e.g.
+//      "background the app" instead of "switch tabs"). For these we only want to
+//      override English; non-English users should keep their real translation
+//      rather than be forced back to English on a flagship screen (daily/DQ).
+// So for a non-English language we apply an override key ONLY when that language
+// has no translation of its own for it. English always takes the full override.
 const OVERRIDES = overrides as Record<string, string>;
 
 // Layer the active language on top of English so any key missing from a
 // non-English locale (e.g. `dailyLandingGraceDay` that only exists in en/common.json)
 // falls back to the English string instead of rendering the raw key — matching the
-// web app's per-key English fallback (see components/useTranslations.js). Overrides
-// win last.
+// web app's per-key English fallback (see components/useTranslations.js).
 function buildTable(lang: SupportedLanguage): Record<string, string> {
   if (lang === 'en') return { ...BASE_TABLES.en, ...OVERRIDES };
-  return { ...BASE_TABLES.en, ...BASE_TABLES[lang], ...OVERRIDES };
+  const langTable = BASE_TABLES[lang];
+  // Drop override keys this language already translates, so its translation wins.
+  const applicableOverrides: Record<string, string> = {};
+  for (const key of Object.keys(OVERRIDES)) {
+    if (!(key in langTable)) applicableOverrides[key] = OVERRIDES[key];
+  }
+  return { ...BASE_TABLES.en, ...langTable, ...applicableOverrides };
 }
 
 let currentLang: SupportedLanguage = 'en';

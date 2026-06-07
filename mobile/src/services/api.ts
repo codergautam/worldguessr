@@ -8,6 +8,21 @@ import type {
   DailySubmitResponse,
   DailyClaimResponse,
 } from '@shared/daily/types';
+/**
+ * Thrown when the server responds with a non-2xx status. Carries the HTTP
+ * status so callers can distinguish a definitive rejection (e.g. 400/401/403)
+ * from a transient failure. Mirrors the typed-error pattern of TimeoutError.
+ * Network/timeout failures (no response) still throw a plain localized Error.
+ */
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 export interface MapItem {
   id?: string;
   slug: string;
@@ -72,7 +87,7 @@ async function fetchApi<T>(
       if (body.message) message = body.message;
       if (body.error) message = body.error;
     } catch {}
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   return response.json();

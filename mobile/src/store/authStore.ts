@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { User } from '../shared';
-import { api } from '../services/api';
+import { api, ApiError } from '../services/api';
 import { wsService } from '../services/websocket';
+import { useMultiplayerStore } from './multiplayerStore';
 import {
   claimGuestProgressIfAny,
   resetClaimGuestProgressState,
@@ -24,6 +25,18 @@ interface AuthState {
   setUsername: (username: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
+  /**
+   * Optimistically apply a finished game's rewards to the in-memory user so XP /
+   * games-played update instantly everywhere (profile, etc.) without an app
+   * reload. The server is the source of truth; refreshAccount() reconciles.
+   */
+  applyGameResult: (delta: { xp?: number; gamesPlayed?: number }) => void;
+  /**
+   * Re-fetch the signed-in user's authoritative totals (totalXp,
+   * totalGamesPlayed, elo) from the server and merge them into the store. Used
+   * to reconcile optimistic updates and on profile focus.
+   */
+  refreshAccount: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -36,13 +49,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const secret = await SecureStore.getItemAsync(SECRET_KEY);
       if (secret) {
-        const success = await get().loginWithSecret(secret);
-        if (!success) {
-          await SecureStore.deleteItemAsync(SECRET_KEY);
+        const ok = await get().loginWithSecret(secret);
+        if (!ok) {
+          // Definitive only: the server rejected the secret as invalid/expired.
+          // Full local sign-out (reuse logout()) so in-memory user/isAuthenticated
+          // are cleared too, not just the stored secret.
+          await get().logout();
         }
       }
     } catch (error) {
-      console.error('Failed to load session:', error);
+      // Transient (offline / timeout / 5xx): loginWithSecret rethrows these.
+      // Keep the stored secret so the next launch/refresh retries. Web parity.
+      console.warn('loadSession: transient error, keeping stored secret', error);
     } finally {
       set({ isLoading: false });
     }
@@ -182,8 +200,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       return false;
     } catch (error) {
-      console.error('Login with secret failed:', error);
-      return false;
+      // Definitive auth rejection: server responded that the secret is invalid/expired.
+      if (error instanceof ApiError && [400, 401, 403].includes(error.status)) {
+        console.warn('Login with secret rejected (invalid/expired):', error.status);
+        return false; // -> loadSession clears the secret via logout()
+      }
+      // Transient (offline / timeout / 5xx): keep the secret, let the caller retry.
+      throw error;
     }
   },
 
@@ -219,6 +242,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     await SecureStore.deleteItemAsync(SECRET_KEY);
     resetClaimGuestProgressState();
+    // Clear account-scoped multiplayer state (friends/presence + sent/received/
+    // incoming requests + game invites) on logout — web parity with signOut()'s
+    // full page reload. Run BEFORE set({secret:null}) so stale friends are gone
+    // before the useWebSocket secret-change effect kicks off the guest reconnect,
+    // leaving no window where stale account data coexists with a fresh guest
+    // socket. reset() preserves connected/verified, which the reconnect re-syncs.
+    useMultiplayerStore.getState().reset();
     set({
       secret: null,
       user: null,
@@ -230,5 +260,50 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set((state) => ({
       user: state.user ? { ...state.user, ...updates } : null,
     }));
+  },
+
+  applyGameResult: (delta) => {
+    const xp = Math.max(0, Math.round(delta.xp ?? 0));
+    const gamesPlayed = Math.max(0, Math.round(delta.gamesPlayed ?? 0));
+    if (xp === 0 && gamesPlayed === 0) return;
+    set((state) => {
+      if (!state.user) return {};
+      return {
+        user: {
+          ...state.user,
+          totalXp: (state.user.totalXp ?? 0) + xp,
+          totalGamesPlayed: (state.user.totalGamesPlayed ?? 0) + gamesPlayed,
+        },
+      };
+    });
+  },
+
+  refreshAccount: async () => {
+    const { user } = get();
+    const accountId = user?.accountId;
+    if (!accountId) return;
+    try {
+      // publicAccount is authoritative for totalXp / totalGamesPlayed (gamesLen).
+      const account = await api.publicAccount(accountId);
+      set((state) => {
+        if (!state.user) return {};
+        // publicAccount is cached server-side (~20s), so a refresh fired right
+        // after a game can return pre-game totals. XP / games only ever grow, so
+        // never let a stale cached read regress an optimistic value — take the
+        // max. Country code isn't monotonic, so always trust the server for it.
+        const serverXp = account.totalXp ?? 0;
+        const serverGames = account.gamesLen ?? 0;
+        return {
+          user: {
+            ...state.user,
+            totalXp: Math.max(state.user.totalXp ?? 0, serverXp),
+            totalGamesPlayed: Math.max(state.user.totalGamesPlayed ?? 0, serverGames),
+            countryCode: account.countryCode ?? state.user.countryCode,
+          },
+        };
+      });
+    } catch (error) {
+      console.warn('refreshAccount failed:', error);
+    }
   },
 }));

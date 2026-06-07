@@ -29,6 +29,8 @@ import { haptics, hapticForScore } from '../../src/services/haptics';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore, type GameData, type MPPlayer, type RoundHistoryEntry } from '../../src/store/multiplayerStore';
 import { useSettingsStore } from '../../src/store/settingsStore';
+import { useOnboardingStore } from '../../src/store/onboardingStore';
+import { findCountryLocal } from '../../src/shared/game/findCountry';
 import { wsService } from '../../src/services/websocket';
 import { dismissAllSafe } from '../../src/utils/navigation';
 
@@ -98,8 +100,8 @@ interface Location {
 }
 
 interface RoundResult {
-  guessLat: number;
-  guessLong: number;
+  guessLat: number | null;
+  guessLong: number | null;
   actualLat: number;
   actualLong: number;
   panoId?: string;
@@ -388,6 +390,10 @@ export default function GameScreen() {
   // optimistically on submit, reset every round by the server's clearGuesses) —
   // mirroring web. This ref only guards against double-sending.
   const mpGuessSentRef = useRef(false);
+  // Last multiplayer round we reconciled local guess state for. Used to detect a
+  // round change even when the client never observes the `getready` edge (e.g. a
+  // background/reconnect that lands directly in the next round's `guess` phase).
+  const mpRoundRef = useRef<number | null>(null);
   const duelWarningShownRef = useRef(false);
   const [duelWarningVisible, setDuelWarningVisible] = useState(false);
 
@@ -433,19 +439,35 @@ export default function GameScreen() {
       totalRounds: gameData.rounds,
       locations: mpLocations,
       timePerRound: gameData.timePerRound,
-      maxDist: gameData.maxDist,
+      // The server sends `maxDist` as a SEPARATE message (not in the `game`
+      // payload — see Game.getSendableState), so a cold reconnect replays `game`
+      // with maxDist undefined. Never let that undefined clobber a value we
+      // already know; keep the last good maxDist until a real `maxDist` arrives.
+      // Otherwise the between-rounds banner recomputes points with the wrong
+      // (default) maxDist on non-world community/country duels.
+      maxDist: gameData.maxDist ?? prev.maxDist,
       extent: gameData.extent,
       // Show result when server state is 'end' and we have locations
       isShowingResult: gameData.state === 'end' && mpLocations.length > 0,
     }));
 
-    // Reset guess tracking on new round
+    // Reset per-round guess tracking whenever the round actually changes — keyed
+    // off curRound, not the `getready` edge. A background/reconnect can land us
+    // straight in the next round's `guess` phase without us ever observing its
+    // `getready`; gating the reset on `getready` left mpGuessSentRef stuck `true`
+    // (silently swallowing every tap) and the previous round's pin on screen.
+    // We also reconcile against the server's authoritative `final` flag (web's
+    // signal, cleared every round server-side) so the local send-guard can never
+    // disagree with what the server thinks we've submitted.
     if (gameData.state === 'getready' || gameData.state === 'guess') {
-      if (gameData.state === 'getready') {
-        mpGuessSentRef.current = false;
+      const myFinal = !!gameData.players.find((p) => p.id === gameData.myId)?.final;
+      const roundChanged = mpRoundRef.current !== gameData.curRound;
+      if (roundChanged || (!myFinal && mpGuessSentRef.current)) {
+        mpGuessSentRef.current = myFinal;
         setGuessPosition(null);
         setMiniMapShown(false);
       }
+      mpRoundRef.current = gameData.curRound;
     }
 
     if (mpLocations.length > 0) {
@@ -461,6 +483,15 @@ export default function GameScreen() {
   const [hintShown, setHintShown] = useState(false);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [confettiKey, setConfettiKey] = useState(0);
+
+  // Classic world-map ("all") country streak — web parity (gameUI.js afterGuess
+  // + endBanner.js). worldStreak persists across games via onboardingStore;
+  // lostWorldStreak is transient (the run that just broke) and shown only on the
+  // breaking round's banner. Both feed ClassicEndBanner below.
+  const worldStreak = useOnboardingStore((s) => s.worldStreak);
+  const bumpStreak = useOnboardingStore((s) => s.bumpStreak);
+  const resetStreak = useOnboardingStore((s) => s.resetStreak);
+  const [lostWorldStreak, setLostWorldStreak] = useState(0);
 
   const handleHint = useCallback(() => {
     if (hintShown || hintsUsed >= 2) return;
@@ -812,8 +843,13 @@ export default function GameScreen() {
     }
   }, [miniMapShown, showMapResult, mapRevealReady, showBetweenRoundMap]);
 
-  // Map buttons (Guess + collapse) slide up with map
+  // Map buttons (Guess + collapse) slide up with map.
+  // stopAnimation() first so a rapid re-open never stacks on an in-flight
+  // collapse tween (which would jitter the spring). The mount-time flash on
+  // spam is prevented separately by resetting mapBtnsAnim to 0 in the open
+  // handler, before this conditionally-rendered row re-mounts.
   useEffect(() => {
+    mapBtnsAnim.stopAnimation();
     if (miniMapShown && !gameState.isShowingResult) {
       mapBtnsAnim.setValue(0);
       Animated.spring(mapBtnsAnim, {
@@ -1082,7 +1118,24 @@ export default function GameScreen() {
     // map's `interactive={false}`.
     if (mpGuessSentRef.current) return;
     setGuessPosition({ lat, lng });
-  }, [gameState.isShowingResult]);
+
+    // Multiplayer: send an interim (final:false) placement on every pin move
+    // (web parity, Map.js ClickHandler). Keeps the server's player.guess current
+    // so a dropped/late final:true still scores the latest pin instead of a
+    // 0-point round (the server prefers the most-recent interim over the final's
+    // coords). Read the live store so the round stamp can't lag at a boundary;
+    // NO throttle — dropping the trailing interim would corrupt the scored pin.
+    if (isMultiplayer) {
+      const gd = useMultiplayerStore.getState().gameData;
+      if (gd?.state !== 'guess') return; // active round only
+      wsService.send({
+        type: 'place',
+        latLong: [lat, lng],
+        final: false,
+        round: gd.curRound,
+      });
+    }
+  }, [gameState.isShowingResult, isMultiplayer]);
 
   const handleSubmitGuess = useCallback(() => {
     if (!guessPosition || !currentLocation) return;
@@ -1111,6 +1164,10 @@ export default function GameScreen() {
         type: 'place',
         latLong: [guessPosition.lat, guessPosition.lng],
         final: true,
+        // Stamp the round this guess was made in (web parity, home.js:2362) so the
+        // server can reject a stale guess that lands after the round rolled over
+        // (Game.js round-mismatch reject). Read live to avoid a stale closure.
+        round: useMultiplayerStore.getState().gameData?.curRound,
       });
       // Confirm the guess is locked in — the result reveal haptic comes later,
       // server-driven, once the round ends.
@@ -1160,20 +1217,41 @@ export default function GameScreen() {
     if (points >= 4850) setConfettiKey((k) => k + 1);
     // Score-graded reveal — the closer the guess, the stronger the buzz.
     hapticForScore(points);
-  }, [guessPosition, currentLocation, gameState.maxDist, isMultiplayer, hintShown]);
+
+    // Country streak — world map only (web gameUI.js: `gameOptions.location ===
+    // 'all'`). Reverse-geocode the GUESS's country and compare to the answer's:
+    // same country → extend the streak; a different KNOWN country → break it
+    // (remember the run for the banner); ocean/Unknown → leave it untouched.
+    if (currentMapSlug === 'all') {
+      const actualCountry = currentLocation.country;
+      const prevStreak = useOnboardingStore.getState().worldStreak;
+      findCountryLocal({ lat: guessPosition.lat, lon: guessPosition.lng })
+        .then((guessCountry) => {
+          setLostWorldStreak(0);
+          if (guessCountry === 'Unknown' && actualCountry === 'Unknown') return;
+          if (guessCountry === actualCountry) {
+            bumpStreak('world');
+          } else if (guessCountry !== 'Unknown') {
+            resetStreak('world');
+            setLostWorldStreak(prevStreak);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [guessPosition, currentLocation, gameState.maxDist, isMultiplayer, hintShown, currentMapSlug, bumpStreak, resetStreak]);
 
   const handleTimeUp = useCallback(() => {
     if (gameState.isShowingResult) return;
 
-    // Only auto-submit during the ACTIVE multiplayer 'guess' phase. The round
-    // timer can fire onTimeUp late — after the next round's getready reset has
-    // run — which would re-send a stale guess and re-lock mpGuessSentRef,
-    // silently swallowing every guess in round 2+. Read live store state so a
-    // stale-closure timer firing at the round boundary is caught too.
-    if (isMultiplayer && useMultiplayerStore.getState().gameData?.state !== 'guess') return;
-
     // Multiplayer: server handles time-up, just send current guess if any
     if (isMultiplayer) {
+      // Capture ONE live store snapshot so the active-round guard and the round
+      // stamp can't straddle a between-round reset (TOCTOU). Only auto-submit
+      // during the ACTIVE 'guess' phase — the round timer can fire onTimeUp late,
+      // after the next round's getready reset, which would re-send a stale guess
+      // and re-lock mpGuessSentRef, silently swallowing round 2+ guesses.
+      const gd = useMultiplayerStore.getState().gameData;
+      if (gd?.state !== 'guess') return;
       if (guessPosition && !mpGuessSentRef.current) {
         mpGuessSentRef.current = true;
         useMultiplayerStore.setState((s) => {
@@ -1193,6 +1271,7 @@ export default function GameScreen() {
           type: 'place',
           latLong: [guessPosition.lat, guessPosition.lng],
           final: true,
+          round: gd.curRound,
         });
       }
       return;
@@ -1209,12 +1288,16 @@ export default function GameScreen() {
         guesses: [
           ...prev.guesses,
           {
-            guessLat: 0,
-            guessLong: 0,
+            // Missed round — record a NULL guess, not a phantom pin at (0,0).
+            // Web parity (gameUI.js: null guess / 0 points / no distance). A 0,0
+            // guess would otherwise render a bogus ~8,432 km distance in results.
+            guessLat: null,
+            guessLong: null,
             actualLat: currentLocation.lat,
             actualLong: currentLocation.long,
+            panoId: currentLocation.panoId,
             points: 0,
-            distance: findDistance(currentLocation.lat, currentLocation.long, 0, 0),
+            distance: 0,
             timeTaken,
           },
         ],
@@ -1282,6 +1365,15 @@ export default function GameScreen() {
     if (mpHoldTimer.current) clearTimeout(mpHoldTimer.current);
   }, []);
 
+  // Party play-again (B14): when the host resets a private party, the server
+  // broadcasts game{state:'waiting'} and game/[id] re-renders the lobby BENEATH
+  // the pushed results route (this screen is never unmounted across a reset).
+  // Re-arm the one-shot results-nav guard so the NEXT party game navigates to
+  // results again.
+  useEffect(() => {
+    if (isMultiplayer && gameData?.state === 'waiting') mpResultsNavigated.current = false;
+  }, [isMultiplayer, gameData?.state]);
+
   const spResultsNavigated = useRef(false);
   const handleNextRound = useCallback(() => {
     setShowPano(false); // each round's result starts on the map (web parity)
@@ -1291,12 +1383,20 @@ export default function GameScreen() {
       // Store game if logged in (matches web gameUI.js behavior)
       if (secret && isSingleplayer && gameState.guesses.length > 0) {
         const isOfficial = currentMapSlug === 'all' || (currentMapSlug.length === 2 && currentMapSlug === currentMapSlug.toUpperCase());
+        // Server caps XP at 100/round and 500/game (api/storeGame.js) — mirror it
+        // so the optimistic profile total matches what the DB will persist.
+        const earnedXp = isOfficial
+          ? Math.min(500, gameState.guesses.reduce((sum, g) => sum + Math.min(100, Math.round(g.points / 50)), 0))
+          : 0;
         api.storeGame(secret, {
           official: isOfficial,
           location: currentMapName,
           rounds: gameState.guesses.map((g) => ({
-            lat: g.guessLat,
-            long: g.guessLong,
+            // A missed round forwards null coords (web parity, gameUI.js:120-121
+            // sends location.guessLat/Long which are null on a timeout); the
+            // storeGame type is number-only, so assert at this API boundary.
+            lat: g.guessLat as number,
+            long: g.guessLong as number,
             actualLat: g.actualLat,
             actualLong: g.actualLong,
             panoId: g.panoId,
@@ -1306,7 +1406,14 @@ export default function GameScreen() {
             xp: isOfficial ? Math.round(g.points / 50) : 0,
             points: g.points,
           })),
-        }).catch(() => {});
+        })
+          .then(() => {
+            // Optimistically bump the live profile totals; reconcile from the
+            // server on next profile focus. Every stored singleplayer game
+            // increments totalGamesPlayed by 1 server-side.
+            useAuthStore.getState().applyGameResult({ xp: earnedXp, gamesPlayed: 1 });
+          })
+          .catch(() => {});
       }
 
       router.push({
@@ -1337,6 +1444,7 @@ export default function GameScreen() {
       }));
       setGuessPosition(null);
       setHintShown(false); // hint is per-round; the 2/game count persists
+      setLostWorldStreak(0); // clear the "lost streak" line before the next guess
       roundStartTimeRef.current = Date.now();
     };
 
@@ -1591,7 +1699,7 @@ export default function GameScreen() {
           <ClassicEndBanner
             points={lastGuess.points}
             distance={lastGuess.distance}
-            didGuess={!(lastGuess.guessLat === 0 && lastGuess.guessLong === 0)}
+            didGuess={lastGuess.guessLat != null && lastGuess.guessLong != null}
             answerCountry={currentMapSlug === 'all' ? currentLocation?.country ?? null : null}
             guessLat={lastGuess.guessLat}
             guessLng={lastGuess.guessLong}
@@ -1599,6 +1707,9 @@ export default function GameScreen() {
             onTogglePano={() => setShowPano((v) => !v)}
             onNext={handleNextRound}
             isFinal={gameState.currentRound >= gameState.totalRounds}
+            // Country streak — world map only (web's countryStreaksEnabled).
+            streak={currentMapSlug === 'all' ? worldStreak : undefined}
+            lostStreak={currentMapSlug === 'all' ? lostWorldStreak : undefined}
           />
         ) : null);
 
@@ -2082,7 +2193,15 @@ export default function GameScreen() {
               ]}
             >
               <Pressable
-                onPress={() => setMiniMapShown(true)}
+                onPress={() => {
+                  // Reset the buttons-row anim to hidden BEFORE the row
+                  // re-mounts, so spamming open/close can't flash a stale
+                  // mid-collapse opacity. stopAnimation() cancels any
+                  // in-flight fade so the spring starts clean from 0.
+                  mapBtnsAnim.stopAnimation();
+                  mapBtnsAnim.setValue(0);
+                  setMiniMapShown(true);
+                }}
                 disabled={locked}
                 style={({ pressed }) => [pressed && !locked && { opacity: 0.85, transform: [{ scale: 0.96 }] }]}
               >
@@ -2144,8 +2263,11 @@ export default function GameScreen() {
         )}
 
         {/* Duel round 1 only — between-round duel getready shows the answer map underneath,
-            matching web (components/gameUI.js where health bars stay visible across all states). */}
-        {isMultiplayer && gameData?.state === 'getready' && gameData.duel && gameData.curRound === 1 && (
+            matching web (components/gameUI.js where health bars stay visible across all states).
+            Skipped on a cold reconnect mid-duel (joinedInProgress): drop straight back into
+            the live round rather than replaying the VS intro. */}
+        {isMultiplayer && gameData?.state === 'getready' && gameData.duel && gameData.curRound === 1
+          && !gameData.joinedInProgress && (
           // Reanimated exit fade: when the round flips to 'guess' the overlay
           // unmounts, so FadeOut dissolves the "Get Ready!" cover smoothly into
           // the (already-painted) panorama instead of a hard cut.
@@ -2186,7 +2308,14 @@ export default function GameScreen() {
         // Keep the ring through the round-1 getready→guess handoff (mpRound1Reveal)
         // so a preloaded pano fades the ring straight in instead of flashing the
         // spinner. gameStartingCountdown is already 0 by the 'guess' phase.
-        countdown={mpInitialGetReady || mpRound1Reveal ? Math.max(0, gameStartingCountdown) : undefined}
+        // Suppress the countdown entirely when we JOINED an already-running game
+        // (or cold-reconnected mid-game): no "Get Ready 5…" — just normal loading
+        // straight into the live round. The loading banner itself still shows.
+        countdown={
+          (mpInitialGetReady || mpRound1Reveal) && !gameData?.joinedInProgress
+            ? Math.max(0, gameStartingCountdown)
+            : undefined
+        }
         // Unranked "Get Ready!" is bailable, so surface a top-left back button
         // during its countdown (web parity). Ranked uses GetReadyOverlay instead
         // and never reaches here — so ranked get-ready stays back-button-free.

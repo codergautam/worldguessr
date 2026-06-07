@@ -310,6 +310,14 @@ export default function GameResultsScreen() {
   const isPrivateParty = isLiveMultiplayer && !isDuelGame && publicParam !== 'true';
   const review = useReviewPrompt(!isHistoryView && !isPrivateParty);
 
+  // Party play-again (B14): a private-party HOST resets the shared lobby instead
+  // of going home. Narrow primitive selectors avoid broad re-renders. gameData
+  // persists into results for parties (server keeps state='end' ~2h), so host/
+  // state stay readable here.
+  const mpHost = useMultiplayerStore((s) => s.gameData?.host);
+  const mpState = useMultiplayerStore((s) => s.gameData?.state);
+  const isPartyHost = isPrivateParty && !!mpHost;
+
   // History mode: fetch game details and transform into RoundResult[]
   const [historyLoading, setHistoryLoading] = useState(!!gameId && !rounds);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -829,6 +837,14 @@ export default function GameResultsScreen() {
   const handlePlayAgain = () => {
     haptics.medium();
     if (isLiveMultiplayer) {
+      // Party host (B14): web parity (home.js backBtnPressed → resetGame for a
+      // non-'waiting' host). Tell the server to reset the shared party back to
+      // the lobby; do NOT navigate here — the host-gated effect dismisses this
+      // route once state flips to 'waiting' (so the finished scene never flashes).
+      if (isPartyHost) {
+        useMultiplayerStore.getState().resetGame();
+        return;
+      }
       // Mirror web's backBtnPressed(true, type): leave the finished game, then
       // re-queue into the SAME public queue. Only public games (ranked duels +
       // unranked public multiplayer) have a queue to rejoin; private/party games
@@ -872,6 +888,21 @@ export default function GameResultsScreen() {
       },
     });
   };
+
+  // Party play-again (B14): once the host's resetGame lands and the server flips
+  // the shared game back to 'waiting', game/[id] underneath has already swapped
+  // to the MultiplayerLobby (TransitionCurtain masks it). Pop THIS results route
+  // (one level — never dismissAllSafe, which would go home) so the 300ms 'fade'
+  // crossfades results→lobby on the shared backdrop. Ref-guarded against double
+  // dismiss; host-gated so non-hosts keep their current behavior.
+  const partyLobbyDismissed = useRef(false);
+  useEffect(() => {
+    if (!isPartyHost) return;
+    if (mpState === 'waiting' && !partyLobbyDismissed.current) {
+      partyLobbyDismissed.current = true;
+      router.canGoBack() ? router.back() : dismissAllSafe();
+    }
+  }, [isPartyHost, mpState, router]);
 
   const handleGoHome = () => {
     // No haptic here: the back button taps fire it via the shared BackButton, and
@@ -1241,7 +1272,9 @@ export default function GameResultsScreen() {
                 style={styles.actionBtnPrimary}
               >
                 <Ionicons name="refresh" size={16} color={colors.white} />
-                <Text style={styles.actionBtnPrimaryText}>{t('playAgain')}</Text>
+                <Text style={styles.actionBtnPrimaryText}>
+                  {isPartyHost ? t('backToLobby') : t('playAgain')}
+                </Text>
               </LinearGradient>
             </Pressable>
             {/* <Pressable

@@ -45,6 +45,14 @@ interface Props {
   compact?: boolean;
   /** Replaces the next-button (multiplayer "Next round starting…"). */
   footerSlot?: React.ReactNode;
+  /**
+   * Country streak — world-map singleplayer only (web's `countryStreaksEnabled`).
+   * `streak` is the current run after this guess; `lostStreak` is the run that
+   * just broke. Omitted (undefined) elsewhere so no badge shows. Mirrors web
+   * endBanner.js: when one is > 0 the banner shows the 🔥 / "lost streak" line.
+   */
+  streak?: number;
+  lostStreak?: number;
 }
 
 export default function ClassicEndBanner({
@@ -61,6 +69,8 @@ export default function ClassicEndBanner({
   factText,
   compact,
   footerSlot,
+  streak,
+  lostStreak,
 }: Props) {
   // Mirror web's #endBanner: a centered card that HUGS its content (web is
   // `display:flex; flex-direction:column; align-items:center` with no width —
@@ -173,6 +183,18 @@ export default function ClassicEndBanner({
           {t('gotPoints', { p: Math.round(points) })}
         </Text>
 
+        {/* Country streak (world map only). Mirrors web endBanner.js: a 🔥 chip
+            while the run is alive, or a muted "lost your N streak" line. */}
+        {streak != null && streak > 0 ? (
+          <View style={styles.streakBadge}>
+            <Text style={styles.streakText}>🔥 {t('onCountryStreak', { streak })}</Text>
+          </View>
+        ) : lostStreak != null && lostStreak > 0 ? (
+          <Text style={styles.lostStreakText}>
+            {t('lostCountryStreak', { streak: lostStreak })}
+          </Text>
+        ) : null}
+
         {factText ? (
           <Text style={[styles.fact, landscape && styles.factLandscape]}>{factText}</Text>
         ) : null}
@@ -245,6 +267,22 @@ const styles = StyleSheet.create({
   // bannerPoints: small, white — not colored by score.
   points: { color: 'rgba(255,255,255,0.92)', fontFamily: 'Lexend', fontSize: 13, textAlign: 'center' },
   pointsLandscape: { fontSize: 12 },
+  // .streakBadge — amber 🔥 pill (web endBanner.js), matches CountryEndBanner.
+  streakBadge: {
+    backgroundColor: 'rgba(251,191,36,0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 3,
+    marginTop: 2,
+  },
+  streakText: { color: '#fbbf24', fontFamily: 'Lexend-Medium', fontSize: 13, textAlign: 'center' },
+  lostStreakText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontFamily: 'Lexend',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 2,
+  },
   fact: {
     color: 'rgba(255,255,255,0.75)',
     fontFamily: 'Lexend',

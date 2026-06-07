@@ -59,7 +59,7 @@ export function useReviewPrompt(trigger: boolean) {
 
       if (opts?.sendFeedback) {
         const comment = opts.comment?.trim() ?? '';
-        logEvent('app_review_feedback', { stars, comment: comment.slice(0, 100) });
+        logEvent('app_review_feedback', { stars, has_comment: comment.length > 0 });
         submitAppFeedback(stars, comment)
           .then(() =>
             useMultiplayerStore

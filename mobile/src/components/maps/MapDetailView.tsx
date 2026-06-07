@@ -12,7 +12,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../../services/api';
-import { t } from '../../shared';
+import { t, getCurrentLanguage } from '../../shared';
+import { nameFromCode } from '../../shared/data/countryHelpers';
 import StreetViewWebView from '../game/StreetViewWebView';
 import { useAuthStore } from '../../store/authStore';
 import { emitHeartUpdate, onHeartUpdate } from '../../store/heartSync';
@@ -216,7 +217,9 @@ export default function MapDetailView({
           colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.9)']}
           style={styles.mapHeaderOverlay}
         >
-          <Text style={styles.mapName}>{mapData.name}</Text>
+          <Text style={styles.mapName}>
+            {mapData.countryCode ? nameFromCode(mapData.countryCode, getCurrentLanguage()) : mapData.name}
+          </Text>
           {mapData.description_short && (
             <Text style={styles.mapShortDesc}>{mapData.description_short}</Text>
           )}

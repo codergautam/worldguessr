@@ -446,8 +446,13 @@ function GameSurface(
     }
   }, [miniMapShown, isShowingResult, isCountryVariant, showPanoOnResult, mapRevealReady]);
 
-  // Map button row spring
+  // Map button row spring.
+  // stopAnimation() first so a rapid re-open never stacks on an in-flight
+  // collapse tween (which would jitter the spring). The mount-time flash on
+  // spam is prevented separately by resetting mapBtnsAnim to 0 in handleOpenMap,
+  // before this conditionally-rendered row re-mounts.
   useEffect(() => {
+    mapBtnsAnim.stopAnimation();
     if (miniMapShown && !isShowingResult) {
       mapBtnsAnim.setValue(0);
       Animated.spring(mapBtnsAnim, {
@@ -546,6 +551,11 @@ function GameSurface(
   const handleStreetViewLoad = useCallback(() => setStreetViewLoaded(true), []);
   const handleOpenMap = useCallback(() => {
     haptics.light();
+    // Reset the buttons-row anim to hidden BEFORE the row re-mounts, so
+    // spamming open/close can't flash a stale mid-collapse opacity.
+    // stopAnimation() cancels any in-flight fade so the spring starts clean.
+    mapBtnsAnim.stopAnimation();
+    mapBtnsAnim.setValue(0);
     setMiniMapShown(true);
   }, []);
   const handleCloseMap = useCallback(() => {

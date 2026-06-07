@@ -31,5 +31,10 @@
   "queueLeftDisconnect": "Connection lost — you've left the queue.",
   "queueJoinFailed": "Couldn't join the queue. Please try again.",
   "errorRequestTimedOut": "Request timed out. Check your connection and try again.",
-  "errorNetworkRequest": "Network error. Check your connection and try again."
+  "errorNetworkRequest": "Network error. Check your connection and try again.",
+  "usernameLengthError": "Username must be between {{min}} and {{max}} characters",
+  "usernameRulesHint": "{{min}}-{{max}} characters, letters, numbers, and underscores only",
+  "errorBoundaryRetry": "Try Again",
+  "errorBoundaryMessage": "The app hit an unexpected error. You can try again or go back home.",
+  "backToLobby": "Back to Lobby"
 }

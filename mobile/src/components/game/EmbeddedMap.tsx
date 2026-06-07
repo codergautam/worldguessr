@@ -293,12 +293,15 @@ export default function EmbeddedMap({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#08120d' },
-  webview: { flex: 1, backgroundColor: '#08120d' },
+  // Light "map-water" blue behind the WebView so no dark frame shows before the
+  // page paints (or above the mini-map band as it springs open). Matches the
+  // embed page background (#aadaff) — see embed/entry.jsx.
+  container: { flex: 1, backgroundColor: '#aadaff' },
+  webview: { flex: 1, backgroundColor: '#aadaff' },
   loading: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#08120d',
+    backgroundColor: '#aadaff',
   },
 });
