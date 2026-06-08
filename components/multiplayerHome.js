@@ -4,6 +4,7 @@ import { FaArrowLeft, FaArrowRight } from "react-icons/fa"
 import PlayerList from "./playerList";
 import { useTranslation } from '@/components/useTranslations'
 import PartyModal from "./partyModal";
+import { getLeague } from "./utils/leagues";
 
 
 export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplayerState, setMultiplayerState, session, handleAction, partyModalShown, setPartyModalShown, selectCountryModalShown, setSelectCountryModalShown, inCrazyGames }) {
@@ -68,54 +69,31 @@ export default function MultiplayerHome({ ws, setWs, multiplayerError, multiplay
         <div className={`multiplayerHome g2_slide_in ${!["waiting"].includes(multiplayerState?.gameData?.state) ? "inGame" : ""}`}>
             {/* <BannerText text={multiplayerState.error} shown={multiplayerState.error} hideCompass={true} /> */}
 
-            {multiplayerState.connected && !multiplayerState.inGame && !multiplayerState.gameQueued && multiplayerState.enteringGameCode && (
-                <div className="join-party-container">
-                    <div className="join-party-card">
-                        <h2 className="join-party-title">{text("joinGame")}</h2>
-
-                        <div className="join-party-form">
-                            <div className="join-party-input-group">
-                                <input
-                                    type="text"
-                                    className="join-party-input"
-                                    placeholder={text("gameCode")}
-                                    value={multiplayerState.joinOptions.gameCode || ""}
-                                    maxLength={6}
-                                    onChange={(e) => setMultiplayerState((prev) => ({
-                                        ...prev,
-                                        joinOptions: {
-                                            ...prev.joinOptions,
-                                            gameCode: e.target.value.replace(/\D/g, "")
-                                        }
-                                    }))}
-                                />
-                                <button
-                                    className="join-party-button"
-                                    disabled={multiplayerState?.joinOptions?.gameCode?.length !== 6 || multiplayerState?.joinOptions?.progress}
-                                    onClick={() => handleAction("joinPrivateGame", multiplayerState?.joinOptions?.gameCode)}
-                                >
-                                    {multiplayerState?.joinOptions?.progress ? "..." : text("go")}
-                                </button>
-                            </div>
-
-                            {multiplayerState?.joinOptions?.error && (
-                                <div className="join-party-error">
-                                    {multiplayerState.joinOptions.error}
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-
-            <BannerText text={text("findingGame")} shown={multiplayerState.gameQueued} position={"auto"} subText={
-                multiplayerState?.publicDuelRange ? `${text("eloRange")}: ${multiplayerState?.publicDuelRange[0]} - ${multiplayerState?.publicDuelRange[1]}` : undefined
-            } />
-
-            {!multiplayerState.gameQueued && (
-                <BannerText  position={"auto"} text={`${text("waiting")}...`} shown={multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && multiplayerState.gameData?.public} />
-            )}
+            <BannerText
+                text={text("findingGame")}
+                shown={multiplayerState.gameQueued || (multiplayerState.inGame && multiplayerState.gameData?.state === 'waiting' && multiplayerState.gameData?.public)}
+                position={"auto"}
+                subText={
+                    multiplayerState?.publicDuelRange ? (() => {
+                        const colourForElo = (e) => {
+                            if (e < 2000) return 'white';
+                            return getLeague(e)?.color || 'white';
+                        };
+                        return (
+                            <>
+                                {text("eloRange")}:{' '}
+                                <span style={{ color: colourForElo(multiplayerState.publicDuelRange[0]) }}>
+                                    {multiplayerState.publicDuelRange[0]}
+                                </span>
+                                {' - '}
+                                <span style={{ color: colourForElo(multiplayerState.publicDuelRange[1]) }}>
+                                    {multiplayerState.publicDuelRange[1]}
+                                </span>
+                            </>
+                        );
+                    })() : undefined
+                }
+            />
 
             {multiplayerState.inGame && multiplayerState.gameData?.state === "waiting" && !multiplayerState.gameData?.public && (
                 <PlayerList multiplayerState={multiplayerState} startGameHost={() => handleAction("startGameHost")} onEditClick={() => setPartyModalShown(true)} inCrazyGames={inCrazyGames} />

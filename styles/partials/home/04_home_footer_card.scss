@@ -1,0 +1,224 @@
+
+.wg-home__footerBtn {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  background: rgba(20, 24, 32, 0.7);
+  backdrop-filter: blur($wg-blur);
+  -webkit-backdrop-filter: blur($wg-blur);
+  border: 1px solid $wg-card-border;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  color: white;
+  font-size: 22px;
+
+  svg {
+    pointer-events: none;
+    transition: transform 0.18s ease;
+  }
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+    svg { transform: scale(1.06); }
+  }
+  &:active { transform: translateY(0); }
+
+  &--discord {
+    background: linear-gradient(160deg, rgba(111, 125, 249, 0.85) 0%, rgba(74, 85, 222, 0.85) 100%);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur($wg-blur);
+    -webkit-backdrop-filter: blur($wg-blur);
+  }
+  &--youtube {
+    background: linear-gradient(160deg, rgba(255, 45, 52, 0.85) 0%, rgba(177, 0, 13, 0.85) 100%);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur($wg-blur);
+    -webkit-backdrop-filter: blur($wg-blur);
+  }
+  &--forum {
+    background: linear-gradient(160deg, rgba(155, 75, 232, 0.85) 0%, rgba(94, 37, 158, 0.85) 100%);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur($wg-blur);
+    -webkit-backdrop-filter: blur($wg-blur);
+  }
+  &--leaderboard {
+    background: linear-gradient(160deg, rgba(212, 164, 55, 0.85) 0%, rgba(138, 91, 21, 0.85) 100%);
+    border-color: rgba(255, 255, 255, 0.16);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur($wg-blur);
+    -webkit-backdrop-filter: blur($wg-blur);
+  }
+}
+
+button.wg-home__footerBtn {
+  font-family: inherit;
+}
+
+.wg-home__bottomRight {
+  position: absolute;
+  bottom: 24px;
+  right: 26px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  animation: wg-fadeInUp 0.45s ease-out 0.1s both;
+}
+
+.wg-locCard {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  padding: 12px 12px 12px 16px;
+  min-width: 320px;
+  max-width: 400px;
+  border-radius: 14px;
+  background: $wg-bg-card;
+  backdrop-filter: blur($wg-blur);
+  -webkit-backdrop-filter: blur($wg-blur);
+  border: 1px solid $wg-card-border;
+  overflow: visible;
+  transition: opacity 0.28s ease;
+
+  &--fading { opacity: 0; }
+}
+
+.wg-locCard__text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wg-locCard__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wg-locCard__pin {
+  flex: 0 0 auto;
+  font-size: 16px;
+  color: $wg-blue-soft;
+}
+
+.wg-locCard__name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wg-locCard__tagline {
+  font-size: 12.5px;
+  color: $wg-text-dim;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wg-locCard__zoom {
+  position: relative;
+  flex: 0 0 auto;
+  width: 86px;
+  height: 64px;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+
+  &:hover {
+    transform: scale(1.04);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.wg-locCard__zoomInner {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.35);
+  isolation: isolate;
+}
+
+.wg-locCard__zoomImg {
+  position: absolute;
+  inset: -1px;
+  background-size: cover;
+  background-position: center;
+  z-index: 0;
+}
+
+.wg-locCard__zoomIcon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.32);
+  color: white;
+  font-size: 20px;
+  z-index: 1;
+  transition: background 0.18s ease;
+
+  svg { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9)); }
+}
+
+.wg-locCard__zoom:hover .wg-locCard__zoomIcon {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.wg-locCard__zoomFlag {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: auto;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.wg-onlineBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: $wg-bg-card;
+  backdrop-filter: blur($wg-blur);
+  -webkit-backdrop-filter: blur($wg-blur);
+  border: 1px solid $wg-card-border;
+  color: white;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+
+  &:hover { background: $wg-bg-card-hover; transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
+
+  &--active {
+    background: $wg-bg-card-hover;
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.45);
+  }
+}

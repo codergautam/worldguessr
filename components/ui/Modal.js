@@ -80,7 +80,9 @@ export default function Modal({
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(0, 0, 0, 0.75);
+          background: rgba(0, 0, 0, 0.5);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -94,9 +96,13 @@ export default function Modal({
         }
 
         .modal {
-          background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 30, 15, 0.9) 50%, rgba(0, 0, 0, 0.95) 100%);
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background:
+            linear-gradient(160deg, rgba(28, 44, 78, 0.55) 0%, rgba(8, 12, 22, 0.92) 60%),
+            rgba(8, 12, 22, 0.92);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border-radius: 18px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
           color: white;
           font-family: "Lexend", sans-serif;
           max-width: 500px;
@@ -104,7 +110,7 @@ export default function Modal({
           max-height: 80vh;
           overflow: hidden;
           animation: slideIn 0.2s ease-out;
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+          box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
           display: flex;
           flex-direction: column;
         }
@@ -113,9 +119,9 @@ export default function Modal({
           animation: slideOut 0.2s ease-out;
         }
 
-        .modal.error {
-          background: linear-gradient(135deg, rgba(156, 82, 39, 0.95) 0%, rgba(91, 29, 29, 0.9) 100%);
-          border-color: rgba(220, 53, 69, 0.3);
+        .modal.error,
+        .modal.warning {
+          border-color: rgba(255, 255, 255, 0.08);
         }
 
         .modal-header {
@@ -170,22 +176,23 @@ export default function Modal({
         }
 
         .modal-actions :global(button) {
-          background: linear-gradient(135deg, rgba(36, 87, 52, 0.9) 0%, rgba(20, 65, 25, 0.8) 100%);
+          background: linear-gradient(160deg, #4f8bff 0%, #2c63d8 100%);
           color: white;
-          border: 2px solid #245734;
-          border-radius: 8px;
-          padding: 10px 20px;
+          border: 1px solid rgba(140, 180, 255, 0.4);
+          border-radius: 10px;
+          padding: 10px 22px;
           font-size: 14px;
-          font-weight: 500;
+          font-weight: 700;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
           font-family: "Lexend", sans-serif;
+          box-shadow: 0 4px 12px rgba(60, 120, 220, 0.35);
         }
 
         .modal-actions :global(button:hover) {
-          background: linear-gradient(135deg, rgba(36, 87, 52, 1) 0%, rgba(36, 87, 52, 0.9) 100%);
+          filter: brightness(1.07);
           transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(36, 87, 52, 0.4);
+          box-shadow: 0 6px 16px rgba(60, 120, 220, 0.45);
         }
 
         @keyframes fadeIn {

@@ -1,5 +1,6 @@
 import { Modal } from "react-responsive-modal";
 import { useState, useMemo } from "react";
+import { FaXmark } from 'react-icons/fa6';
 import { useTranslation } from '@/components/useTranslations';
 import nameFromCode from './utils/nameFromCode';
 import { VALID_COUNTRY_CODES } from '@/serverUtils/timezoneToCountry';
@@ -64,6 +65,12 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
       open={shown}
       onClose={onClose}
       center
+      showCloseIcon={false}
+      animationDuration={180}
+      classNames={{
+        modal: 'wg-flagPicker__modal',
+        overlay: 'wg-flagPicker__overlay',
+      }}
       styles={{
         modal: {
           background: 'transparent',
@@ -72,125 +79,79 @@ export default function CountrySelectorModal({ shown, onClose, currentCountry, o
           boxShadow: 'none',
           maxWidth: '100%',
           width: 'auto',
-          overflow: 'visible'
+          overflow: 'visible',
+          zIndex: 100000,
         },
         overlay: {
-          background: 'rgba(0, 0, 0, 0.8)',
-          backdropFilter: 'blur(10px)',
-          overflow: 'hidden'
-        }
+          background: 'rgba(0, 0, 0, 0.78)',
+          overflow: 'hidden',
+          zIndex: 100000,
+        },
+        root: { zIndex: 100000 },
       }}
     >
-      <div className="join-party-card" style={{
-        maxWidth: '600px',
-        width: '90vw',
-        maxHeight: '80vh',
-        display: 'flex',
-        flexDirection: 'column',
-        animation: 'slideInUp 0.6s ease-out'
-      }}>
-        <h2 style={{ textAlign: 'center', marginBottom: '15px', flexShrink: 0 }}>
-          {text('selectCountryFlag') || 'Select Your Country Flag'}
+      <div className="wg-flagPicker">
+        <button
+          type="button"
+          className="wg-flagPicker__close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <FaXmark />
+        </button>
+
+        <h2 className="wg-flagPicker__title">
+          {text('selectCountryFlag') || 'Select your country flag'}
         </h2>
 
         <input
           type="text"
-          className="join-party-input"
-          placeholder={text('searchCountry') || 'Search country...'}
+          className="wg-flagPicker__search"
+          placeholder={text('searchCountry') || 'Search country'}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            marginBottom: '15px',
-            flexShrink: 0
-          }}
+          autoFocus
         />
 
-        <div style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(min(160px, 100%), 1fr))',
-          gap: '8px',
-          marginBottom: '15px',
-          paddingRight: '5px'
-        }}>
+        <div className="wg-flagPicker__grid">
           {filteredCountries.map(code => (
             <button
               key={code}
+              type="button"
               onClick={() => handleSelect(code)}
               disabled={saving}
-              style={{
-                padding: '10px',
-                background: currentCountry === code
-                  ? 'rgba(76, 175, 80, 0.3)'
-                  : 'rgba(255, 255, 255, 0.1)',
-                border: currentCountry === code
-                  ? '2px solid #4CAF50'
-                  : '1px solid rgba(255, 255, 255, 0.2)',
-                borderRadius: '8px',
-                color: 'white',
-                cursor: saving ? 'not-allowed' : 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-              onMouseEnter={(e) => {
-                if (!saving) {
-                  e.target.style.background = 'rgba(255, 255, 255, 0.2)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!saving) {
-                  e.target.style.background = currentCountry === code
-                    ? 'rgba(76, 175, 80, 0.3)'
-                    : 'rgba(255, 255, 255, 0.1)';
-                }
-              }}
+              className={`wg-flagPicker__item ${currentCountry === code ? 'wg-flagPicker__item--on' : ''}`}
             >
               <img
                 src={`https://flagcdn.com/w80/${code.toLowerCase()}.png`}
                 srcSet={`https://flagcdn.com/w160/${code.toLowerCase()}.png 2x`}
                 alt={code}
-                style={{
-                  width: '1.8em',
-                  height: '1.2em',
-                  objectFit: 'cover',
-                  borderRadius: '2px',
-                  flexShrink: 0
-                }}
+                className="wg-flagPicker__flag"
+                loading="lazy"
               />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span className="wg-flagPicker__name">
                 {nameFromCode(code, lang)}
               </span>
             </button>
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexShrink: 0 }}>
+        <div className="wg-flagPicker__actions">
           {currentCountry && (
             <button
-              className="join-party-button"
+              type="button"
+              className="wg-flagPicker__btn wg-flagPicker__btn--danger"
               onClick={handleRemoveFlag}
               disabled={saving}
-              style={{
-                background: 'rgba(244, 67, 54, 0.8)',
-                borderColor: '#c62828'
-              }}
             >
-              {text('removeFlag') || 'Remove Flag'}
+              {text('removeFlag') || 'Remove flag'}
             </button>
           )}
           <button
-            className="join-party-button"
+            type="button"
+            className="wg-flagPicker__btn wg-flagPicker__btn--ghost"
             onClick={onClose}
-            style={{
-              background: 'rgba(255, 255, 255, 0.2)',
-              borderColor: 'rgba(255, 255, 255, 0.3)'
-            }}
+            disabled={saving}
           >
             {text('cancel') || 'Cancel'}
           </button>

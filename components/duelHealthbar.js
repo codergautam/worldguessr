@@ -104,30 +104,41 @@ const HealthBar = ({ health, maxHealth, name, elo, start, isStartingDuel, isOppo
       <div className={`player-info-modern ${isStartingDuel ? 'starting' : ''}`}>
         <div className="player-name-wrapper">
           {isOpponent && name ? (
-            <Link 
-              href={`/user?u=${encodeURIComponent(name)}`}
-              target="_blank"
+            <button
+              type="button"
               className="player-name"
-              style={{ 
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.wgOpenProfile) {
+                  window.wgOpenProfile(name);
+                } else {
+                  window.location.href = `/?profile=${encodeURIComponent(name)}`;
+                }
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                padding: 0,
+                fontFamily: 'inherit',
+                fontSize: 'inherit',
+                fontWeight: 'inherit',
                 color: 'white',
                 textDecoration: 'underline',
+                textDecorationStyle: 'dotted',
+                textDecorationColor: 'rgba(255, 255, 255, 0.55)',
+                textUnderlineOffset: '3px',
                 cursor: 'pointer',
                 transition: 'opacity 0.2s ease',
                 pointerEvents: 'auto',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '6px',
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '0.8';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
+              onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.8'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
             >
               {name}
               {countryCode && <CountryFlag countryCode={countryCode} />}
-            </Link>
+            </button>
           ) : (
             <span className="player-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
               {name}

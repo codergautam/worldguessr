@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from '@/components/useTranslations';
+import { asset } from '@/lib/basePath';
 import sendEvent from './utils/sendEvent';
 
 export default function WelcomeOverlay({ onModeSelected, onSkip }) {
@@ -32,7 +33,12 @@ export default function WelcomeOverlay({ onModeSelected, onSkip }) {
   return (
     <div className={`welcome-modal-backdrop ${visible ? 'visible' : ''}`}>
       <div className={`welcome-modal ${visible ? 'visible' : ''}`}>
-        <div className="welcome-modal__hero">🌍</div>
+        <img
+          src={asset('/assets/logos/globe.png')}
+          alt=""
+          className="welcome-modal__heroImg"
+          draggable={false}
+        />
         <h1 className="welcome-modal__title">
           {isSchoolGuessr ? "Welcome to SchoolGuessr!" : text("welcomeTitle")}
         </h1>
@@ -41,15 +47,7 @@ export default function WelcomeOverlay({ onModeSelected, onSkip }) {
             <p className="welcome-modal__desc">
               A kid-friendly version of WorldGuessr made for classrooms and schools.
             </p>
-            <ul style={{
-              textAlign: 'left',
-              margin: '0 auto 16px',
-              maxWidth: '360px',
-              padding: '0 0 0 20px',
-              lineHeight: '1.6',
-              fontSize: '0.95rem',
-              opacity: 0.92,
-            }}>
+            <ul className="welcome-modal__schoolList">
               <li>Chats and user content are turned off</li>
               <li>Same maps and gameplay as WorldGuessr</li>
               <li>Maintained by the WorldGuessr team!</li>

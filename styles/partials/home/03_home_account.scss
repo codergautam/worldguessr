@@ -1,0 +1,123 @@
+
+.wg-homeAcc__card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  min-width: 240px;
+  border-radius: 14px;
+  background: $wg-bg-card;
+  backdrop-filter: blur($wg-blur);
+  -webkit-backdrop-filter: blur($wg-blur);
+  border: 1px solid $wg-card-border;
+  color: white;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s ease, transform 0.18s ease;
+
+  &:hover { background: $wg-bg-card-hover; }
+  &:active { transform: translateY(1px); }
+
+  &--supporter {
+    border-color: rgba(255, 215, 0, 0.55);
+    box-shadow: 0 0 18px rgba(255, 215, 0, 0.25);
+  }
+}
+
+.wg-homeAcc__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wg-homeAcc__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wg-homeAcc__name {
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wg-homeAcc__bottom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: $wg-text-dim;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.wg-homeAcc__rankIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+}
+
+.wg-homeAcc__elo { letter-spacing: 0.2px; }
+
+.wg-homeAcc__chev {
+  flex: 0 0 auto;
+  font-size: 14px;
+  opacity: 0.65;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+
+  .wg-homeAcc__card:hover & { opacity: 1; transform: translateY(1px); }
+}
+
+.wg-homeAcc__loginBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: $wg-bg-card;
+  backdrop-filter: blur($wg-blur);
+  -webkit-backdrop-filter: blur($wg-blur);
+  border: 1px solid $wg-card-border;
+  color: white;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.18s ease;
+
+  &:hover { background: $wg-bg-card-hover; }
+  &:active { transform: translateY(1px); }
+  &:disabled { opacity: 0.6; cursor: progress; }
+}
+
+.wg-homeAcc__spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  animation: spin 1s linear infinite;
+}
+
+.wg-home__footer {
+  position: absolute;
+  bottom: 24px;
+  left: 26px;
+  display: flex;
+  gap: 10px;
+  z-index: 4;
+  animation: wg-fadeInUp 0.45s ease-out 0.05s both;
+
+  a { text-decoration: none; color: inherit; display: inline-flex; }
+}

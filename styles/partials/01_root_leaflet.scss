@@ -1,0 +1,96 @@
+:root {
+    --r: 20;
+    --g: 65;
+    --b: 25;
+    --gradBottomBase: rgba(var(--r), var(--g), var(--b), 1.0) 0%, rgba(var(--r), var(--g), var(--b), 0.612) 50%, rgba(255,255,255,0) 100%;
+    --gradTopBase: rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(255,255,255,0) 50%;
+    --grad1: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.812) 35%, rgba(255,255,255,0) 100%);
+    --gradDown: linear-gradient(0deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.812) 35%, rgba(255,255,255,0) 100%);
+    --gradBottom: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1.0) 0%, rgba(var(--r), var(--g), var(--b), 0.712) 60%, rgba(255,255,255,0) 100%);
+    --gradBottomAngle: linear-gradient(150deg, rgba(var(--r), var(--g), var(--b), 1.0) 0%, rgba(var(--r), var(--g), var(--b), 0.712) 60%, rgba(255,255,255,0) 100%);
+    --gradTop: linear-gradient(65deg, rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(255,255,255,0) 50%);
+    --gradDouble: linear-gradient(90deg, rgba(var(--r), var(--g), var(--b), 1) 0%, rgba(var(--r), var(--g), var(--b), 0.6) 15%, rgba(255,255,255,0) 30%, rgba(255,255,255,0) 70%, rgba(var(--r), var(--g), var(--b), 0.6) 85%, rgba(var(--r), var(--g), var(--b), 1) 100%);
+    --gradLight: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.52) 0%, rgba(var(--r), var(--g), var(--b), 0.28) 57%, rgba(255,255,255,0) 100%);
+    --gradFull: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.72) 0%, rgba(var(--r), var(--g), var(--b), 0.38) 57%, rgba(var(--r), var(--g), var(--b), 0.3) 100%);
+    --gradRed: linear-gradient(135deg, rgba(156, 82, 39, 0.9) 0%, rgba(91, 29, 29, 0.9) 31%, rgba(255, 112, 112, 0.9) 100%);
+    --gradBlue: linear-gradient(135deg, rgba(30, 62, 156, 0.9) 0%, rgba(29, 29, 91, 0.9) 31%, rgba(112, 112, 255, 0.9) 100%);
+    --gradGreenBtn: linear-gradient(135deg, rgba(var(--r), var(--g), var(--b), 0.9) 0%, rgba(var(--r), var(--g), var(--b), 0.6) 57%, rgba(255, 255, 255, 0) 100%);
+
+    --primary: #245734;
+    --primaryDark: #112b18;
+    --primaryTransparent: rgb(36, 87, 52, 0.85);
+    --darkTransparent: rgb(0, 0, 0, 0.4);
+}
+
+html * {
+    margin: 0;
+    font-family: "Lexend", sans-serif;
+    box-sizing: border-box
+}
+
+.button,
+button {
+
+    border: none;
+    padding: 0;
+}
+
+.home {
+    background-color: black;
+    width: 100vw;
+    box-sizing: border-box;
+    height: 100vh;
+    height: 100svh;
+    display: flex;
+    overflow: hidden;
+}
+
+body,
+html {
+    touch-action: pan-x pan-y !important;
+    background-color: #000000 !important;
+    padding: 0;
+    margin: 0;
+}
+
+.leaflet-container {
+    touch-action: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    background-color: #aadaff;
+}
+
+.leaflet-camera-reset-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 10000;
+    pointer-events: none;
+    background-color: #aadaff;
+}
+
+.animatedLine {
+    opacity: 0;
+    animation: fadeLineIn 0.5s ease 0.1s forwards;
+}
+
+@keyframes fadeLineIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.home__content {
+
+    z-index: 100;
+
+    overflow-y: auto;
+    box-sizing: border-box;
+}
+
+.home__content.hidden {
+    left: 100vw !important;
+    display: none !important;
+    opacity: 0;
+    animation: hide 0.5s ease-in-out forwards;
+    pointer-events: none;
+}
