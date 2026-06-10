@@ -2,7 +2,7 @@
   "expo": {
     "name": "WorldGuessr",
     "slug": "worldguessr",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
