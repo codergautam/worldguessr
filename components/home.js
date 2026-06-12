@@ -3341,7 +3341,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
                                         <Link target="_blank" href={"https://www.youtube.com/@worldguessr?sub_confirmation=1"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container youtube" aria-label="Youtube"><FaYoutube className="home__squarebtnicon" /></button></Link>
                                         {!inCrazyGames && !process.env.NEXT_PUBLIC_SCHOOLGUESSR && (
-                                            <Link target="_blank" href={"https://www.coolmathgames.com/0-worldguessr"}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames"><NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" /></button></Link>
+                                            <Link target="_blank" href={"https://www.coolmathgames.com/0-worldguessr"} onClick={() => sendEvent("coolmathgames_backlink_click")}><button className="g2_hover_effect home__squarebtn gameBtn g2_container_full" aria-label="CoolmathGames"><NextImage.default src={asset('/cmlogo.png')} draggable={false} fill alt="Coolmath Games Logo" className="home__squarebtnicon" /></button></Link>
                                         )}
                                         <Link href={"/leaderboard" + (inCrazyGames ? "?crazygames" : "")}>
 
