@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "start": "expo start",
     "start:tunnel": "expo start --tunnel",
     "android": "expo run:android",
