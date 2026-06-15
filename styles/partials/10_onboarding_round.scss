@@ -1,0 +1,1072 @@
+
+@keyframes cardSlideIn {
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.onboardingDiv {
+    position: fixed;
+    z-index: 1000;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100%);
+    top: 50px;
+    background-color: rgb(16, 27, 17);
+    color: white;
+    padding-left: 50px;
+    padding-top: 25px;
+    padding-bottom: 25px;
+    padding-right: 50px;
+    font-size: 1.5em;
+    border-radius: 10px;
+    width: 40%;
+    height: auto;
+    min-height: 40px;
+
+    opacity: 0;
+}
+
+.onboardingDiv.shown {
+    animation: fadeIn 1s ease-in-out forwards;
+    transform: translateY(0%) translateX(-50%);
+    opacity: 1;
+}
+
+@media screen and (max-width: 600px), screen and (pointer:coarse) {
+    .countryGuessrOptions {
+        bottom: 8px;
+        width: calc(100% - 12px);
+        padding: 8px;
+        gap: 5px;
+        border-radius: 12px;
+    }
+
+    .countryGuessrPrompt {
+        font-size: 0.82rem;
+    }
+
+    .countryGuessrBtnRow {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+
+    .countryGuessrBtn {
+        flex: 1 1 44%;
+        min-width: 0;
+        padding: 6px 5px;
+        gap: 3px;
+        border-radius: 9px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 38px;
+        height: 26px;
+        border-radius: 3px;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 32px;
+        height: 32px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.72rem;
+    }
+
+    .countryGuessrBtn--continent {
+        flex: 1 1 30%;
+        min-width: 0;
+        padding: 8px 5px;
+    }
+
+    .compactMode.countryGuessrOptions {
+        padding: 8px;
+        gap: 5px;
+    }
+
+    .compactMode .countryGuessrBtnRow {
+        gap: 5px;
+    }
+
+    .compactMode .countryGuessrBtn {
+        padding: 8px 6px;
+        gap: 4px;
+        flex: 1 1 30%;
+    }
+
+    .compactMode .countryGuessrBtn__flag {
+        width: 40px;
+        height: 27px;
+    }
+
+    .compactMode img.countryGuessrBtn__emoji {
+        width: 36px;
+        height: 36px;
+    }
+
+    .compactMode .countryGuessrBtn__name {
+        font-size: 0.76rem;
+    }
+
+    .compactMode .countryGuessrBtn--continent {
+        padding: 8px 5px;
+    }
+}
+
+@media (max-height: 500px) and (pointer: coarse),
+       (max-height: 500px) and (max-width: 900px) {
+    .countryGuessrOptions {
+        bottom: 4px;
+        padding: 6px 8px;
+        gap: 3px;
+        border-radius: 10px;
+    }
+
+    .countryGuessrPrompt {
+        font-size: 0.72rem;
+    }
+
+    .countryGuessrBtnRow {
+        flex-wrap: nowrap;
+        gap: 4px;
+    }
+
+    .countryGuessrBtn {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 4px 3px;
+        gap: 2px;
+        border-radius: 8px;
+    }
+
+    .countryGuessrBtn__flag {
+        width: 30px;
+        height: 20px;
+    }
+
+    img.countryGuessrBtn__emoji {
+        width: 24px;
+        height: 24px;
+    }
+
+    .countryGuessrBtn__name {
+        font-size: 0.65rem;
+        line-height: 1.1;
+    }
+
+    .countryGuessrOptions.continentMode .countryGuessrBtnRow {
+        flex-wrap: wrap;
+    }
+
+    .countryGuessrBtn--continent {
+        flex: 1 1 14%;
+        padding: 4px 3px;
+    }
+}
+
+.leaflet-container {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: crosshair !important;
+    border-radius: 10px !important;
+}
+.hintCircle {
+    cursor: crosshair !important;
+}
+.game-summary-map .leaflet-container {
+    height: 100vh !important;
+}
+
+.leaflet-tile {
+    max-width: none !important;
+}
+.round-over-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    transition: all 0.5s;
+    opacity: 1;
+    scale: 1;
+}
+
+.onboarding-results-reveal .round-over-screen {
+    animation: onboardingResultsFade 0.5s ease forwards;
+}
+
+@keyframes onboardingResultsFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.round-over-screen.duel {
+}
+
+.round-over-screen.hidden {
+    opacity: 0;
+    scale: 0;
+    pointer-events: none;
+}
+.round-over-screen.fullscreen {
+    background-color: #1a1a1a;
+    align-items: stretch;
+    justify-content: stretch;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 1000;
+}
+
+.game-summary-container {
+    display: flex;
+    width: 100%;
+    height: 100vh;
+    position: relative;
+    font-family: lexend;
+}
+
+.game-summary-map {
+    flex: 1;
+    position: fixed;
+    z-index: 1;
+    width: calc(100% - 400px);
+    height: 100vh;
+    top: 0;
+    right: 0;
+}
+
+.round-over-content {
+    padding: 40px;
+    border-radius: 10px;
+    text-align: center;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    font-family: lexend;
+}
+
+.game-summary-sidebar {
+    width: 400px;
+    background: linear-gradient(135deg, rgba(20, 65, 25, 0.95) 0%, rgba(20, 65, 25, 0.85) 100%);
+    backdrop-filter: blur(10px);
+    border-left: 2px solid var(--primary);
+    overflow: hidden;
+    z-index: 2;
+    position: relative;
+    box-shadow: -5px 0 20px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-header {
+    padding: 30px 25px 20px;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    background: rgba(0, 0, 0, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.summary-header.compact {
+    padding: 10px 25px 8px;
+    padding-top: 15px;
+}
+
+.summary-header.compact .summary-title {
+    font-size: 1.4rem;
+    margin-bottom: 5px;
+}
+
+.summary-header.compact .summary-score {
+    font-size: 1.8rem;
+    margin-bottom: 3px;
+}
+
+.summary-header.compact .summary-total {
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.summary-header.compact .star-container {
+    transform: scale(0.7);
+    margin: 2px 0;
+}
+
+.summary-header.compact .summary-actions {
+    gap: 6px;
+}
+
+.summary-header.compact .action-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.summary-title {
+    font-size: 2.2rem;
+    color: white;
+    margin-bottom: 10px;
+    font-weight: 600;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.summary-score {
+    font-size: 3rem;
+    color: #4CAF50;
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
+.summary-total {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.star-container {
+    transition: all 0.3s ease;
+}
+
+.summary-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    transition: all 0.3s ease;
+}
+
+.action-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    font-family: lexend;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.action-btn.primary {
+    background: linear-gradient(135deg, #4CAF50, #45a049);
+    color: white;
+}
+
+.action-btn.secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.rounds-container {
+    padding: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1;
+    min-height: 0;
+}
+
+.round-item {
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    background: transparent;
+}
+
+.round-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.round-item.active {
+    background: rgba(76, 175, 80, 0.2);
+    border-left: 4px solid #4CAF50;
+}
+
+.round-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.round-number {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+}
+
+.round-points {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4CAF50;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.round-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.detail-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.detail-icon {
+    font-size: 1rem;
+    color: #FFD700;
+}
+
+.distance-value {
+    font-weight: 500;
+    color: white;
+}
+
+.location-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gmaps-link {
+    background: rgba(66, 133, 244, 0.8);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-decoration: none;
+    font-size: 0.7rem;
+    transition: all 0.3s ease;
+    border: none;
+    cursor: pointer;
+}
+
+.gmaps-link:hover {
+    background: rgba(66, 133, 244, 1);
+    transform: scale(1.05);
+}
+
+.round-animation {
+    animation: slideInFromRight 0.5s ease-out forwards;
+    opacity: 0;
+}
+
+@keyframes slideInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.map-marker-popup {
+    max-width: 250px;
+}
+
+.popup-content {
+    text-align: center;
+    font-family: lexend;
+}
+
+.popup-round {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 8px;
+}
+
+.popup-points {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4CAF50;
+    margin-bottom: 8px;
+}
+
+.popup-distance {
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+}
+
+.popup-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.popup-btn {
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: none;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.popup-btn.gmaps {
+    background: #4285f4;
+    color: white;
+}
+
+.popup-btn:hover {
+    transform: scale(1.05);
+}
+
+.mobile-expand-btn {
+    display: none;
+}
+
+.rounds-container.mobile-hidden {
+    display: block;
+}
+
+@media (min-width: 1025px) {
+    .summary-header {
+        padding-top: 60px !important;
+    }
+
+}
+
+@media (max-width: 799px), (max-width: 1024px) and (orientation: portrait) {
+    .game-summary-container {
+        flex-direction: column;
+        overflow-x: hidden;
+        height: 100vh;
+    }
+
+    .game-summary-map {
+        flex: 1;
+        height: auto;
+        min-height: 0;
+    }
+
+    .game-summary-sidebar {
+        width: 100vw;
+        height: auto;
+        border-left: none;
+        border-top: 2px solid var(--primary);
+        order: 2;
+        display: grid;
+        grid-template-rows: auto 0fr;
+        overflow: hidden;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        transition: grid-template-rows 0.3s ease;
+    }
+
+    .game-summary-sidebar {
+        flex-direction: initial;
+    }
+
+    .summary-header {
+        position: relative !important;
+    }
+
+    .game-summary-sidebar.mobile-expanded {
+        grid-template-rows: auto 1fr;
+        max-height: 95vh;
+    }
+
+    .mobile-expand-btn {
+        display: block;
+        background: var(--primaryTransparent);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-family: lexend;
+        font-weight: 500;
+        transition: all 0.3s ease;
+    }
+
+    .mobile-expand-btn:hover {
+        background: var(--primary);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .rounds-container.mobile-hidden {
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .rounds-container {
+        overflow: hidden;
+        min-height: 0;
+        transition: all 0.3s ease;
+    }
+
+    .game-summary-sidebar.mobile-expanded .rounds-container {
+        overflow-y: auto;
+        padding-bottom: 10px;
+    }
+
+    @media (max-height: 600px) {
+        .game-summary-sidebar.mobile-expanded .summary-header {
+            padding: 8px 10px 5px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .summary-title {
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .summary-score {
+            font-size: 1.8rem;
+            margin-bottom: 4px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .summary-total {
+            font-size: 0.8rem;
+            margin-bottom: 6px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .summary-actions {
+            gap: 4px;
+            margin-bottom: 4px;
+        }
+
+        .game-summary-sidebar.mobile-expanded .action-btn {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+    }
+
+    .gmaps-link {
+        display: none;
+    }
+
+    .game-summary-map {
+        height: 60vh;
+        width: 100vw;
+        order: 1;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 5;
+    }
+
+    .summary-header {
+        padding: 15px 15px 10px;
+        grid-row: 1;
+    }
+
+    .summary-header:not(.mobile-expanded) {
+        padding-top: 15px;
+    }
+
+    .summary-actions {
+        margin-top: auto;
+    }
+
+    .rounds-container {
+        grid-row: 2;
+        overflow: hidden;
+        min-height: 0;
+    }
+}
+
+@media (min-width: 800px) and (max-width: 1024px) and (orientation: landscape) {
+    .game-summary-container {
+        flex-direction: row;
+        height: 100vh;
+    }
+
+    .game-summary-sidebar {
+        width: 350px;
+        height: 100vh;
+        position: relative;
+        overflow-y: auto;
+        border-left: 2px solid var(--primary);
+        border-top: none;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 350px);
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+    }
+
+    .summary-header {
+        padding: 15px 20px 12px;
+        padding-top: 40px !important;
+        position: sticky;
+        top: 0;
+    }
+
+    .mobile-expand-btn {
+        display: none;
+    }
+
+    .rounds-container {
+        overflow-y: auto;
+    }
+
+    .rounds-container.mobile-hidden {
+        overflow-y: auto;
+    }
+
+    .summary-title {
+        font-size: 1.2rem;
+    }
+
+    .summary-score {
+        font-size: 2.5rem;
+    }
+
+    .round-item {
+        padding: 10px 15px;
+    }
+
+    .round-details {
+        font-size: 0.85rem;
+    }
+
+    .action-btn {
+        padding: 8px 16px;
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .summary-header {
+        padding: 15px 10px;
+    }
+
+    .summary-title {
+        font-size: 1.5rem;
+    }
+
+    .summary-score {
+        font-size: 2rem;
+    }
+
+    .round-item {
+        padding: 8px 12px;
+    }
+
+    .summary-actions {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .action-btn {
+        width: 100%;
+        max-width: 200px;
+    }
+}
+
+@media (min-width: 1600px) and (max-height: 600px) {
+    .game-summary-sidebar {
+        width: 450px;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 450px);
+    }
+
+    .summary-header {
+        padding: 25px 30px 20px;
+        padding-top: 50px !important;
+    }
+
+    .summary-title {
+        font-size: 2rem;
+    }
+
+    .summary-score {
+        font-size: 2.8rem;
+    }
+
+    .summary-actions {
+        gap: 12px;
+    }
+
+    .action-btn {
+        padding: 10px 20px;
+        font-size: 0.95rem;
+    }
+
+    .round-item {
+        padding: 12px 20px;
+    }
+
+    #endBanner {
+        max-width: 600px;
+        margin: 0 auto 10px;
+    }
+
+    .round-over-content {
+        max-width: 600px;
+    }
+
+    .join-party-card {
+        max-width: 500px;
+    }
+
+    .g2_nav_hr {
+        max-width: 600px !important;
+    }
+}
+
+@media (min-width: 800px) and (max-width: 1024px) and (min-height: 451px) and (max-height: 600px) {
+    .game-summary-container {
+        flex-direction: row;
+        height: 100vh;
+    }
+
+    .game-summary-sidebar {
+        width: 350px;
+        height: 100vh;
+        position: relative;
+        overflow-y: auto;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 350px);
+        height: 100vh;
+        position: fixed;
+        right: 0;
+        top: 0;
+    }
+
+    .summary-header {
+        padding: 15px 20px 12px;
+        padding-top: 25px !important;
+    }
+
+    .summary-title {
+        font-size: 1.4rem;
+        margin-bottom: 5px;
+    }
+
+    .summary-score {
+        font-size: 2rem;
+        margin-bottom: 4px;
+    }
+
+    .summary-total {
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+
+    .star-container {
+        margin-bottom: 0.5rem;
+    }
+
+    .star {
+        font-size: 1.4rem;
+    }
+
+    .summary-actions {
+        gap: 6px;
+        margin-bottom: 6px;
+    }
+
+    .action-btn {
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+
+    .round-item {
+        padding: 8px 15px;
+    }
+
+    .round-details {
+        font-size: 0.8rem;
+    }
+
+    .elo-value {
+        font-size: 1.4rem;
+    }
+
+    .elo-change {
+        font-size: 0.9rem;
+    }
+
+    .time-elapsed {
+        font-size: 0.9rem;
+    }
+}
+
+@media (min-width: 800px) and (max-height: 350px) {
+    .game-summary-sidebar {
+        width: 280px !important;
+    }
+
+    .game-summary-map {
+        width: calc(100% - 280px) !important;
+    }
+
+    .summary-header {
+        padding: 3px 8px 2px !important;
+        padding-top: 5px !important;
+    }
+
+    .summary-title {
+        font-size: 0.7rem !important;
+        margin-bottom: 1px !important;
+    }
+
+    .summary-score {
+        font-size: 1rem !important;
+        margin-bottom: 1px !important;
+    }
+
+    .summary-total {
+        font-size: 0.6rem !important;
+        margin-bottom: 2px !important;
+    }
+
+    .star-container {
+        margin-bottom: 0.1rem !important;
+    }
+
+    .star {
+        font-size: 0.8rem !important;
+    }
+
+    .summary-actions {
+        gap: 1px !important;
+        margin-bottom: 1px !important;
+    }
+
+    .action-btn {
+        padding: 1px 4px !important;
+        font-size: 0.5rem !important;
+    }
+
+    .round-item {
+        padding: 2px 6px !important;
+    }
+
+    .round-number {
+        font-size: 0.65rem !important;
+    }
+
+    .round-points {
+        font-size: 0.7rem !important;
+    }
+
+    .round-details {
+        font-size: 0.55rem !important;
+        gap: 0px !important;
+    }
+
+    .detail-icon {
+        font-size: 0.6rem !important;
+    }
+
+    .elo-container {
+        display: none !important;
+    }
+
+    .time-elapsed {
+        display: none !important;
+    }
+
+    #miniMapContent {
+        width: 120px !important;
+        height: 80px !important;
+    }
+
+    .miniMap__btns {
+        bottom: 90px !important;
+    }
+
+    #endBanner {
+        min-height: auto !important;
+        padding: 6px 12px !important;
+    }
+
+    .bannerContent {
+        font-size: 0.9em !important;
+        gap: 2px !important;
+    }
+
+    .mainBannerTxt {
+        font-size: 0.8em !important;
+    }
+
+    .motivation {
+        font-size: 0.65em !important;
+    }
+
+    .quip {
+        font-size: 0.6em !important;
+    }
+
+    .encouragement {
+        font-size: 0.6em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.7em !important;
+    }
+
+    .locationFact {
+        font-size: 0.6em !important;
+    }
+
+    .endButtonContainer button {
+        padding: 6px 14px !important;
+        font-size: 0.85em !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px !important;
+        font-size: 1em !important;
+    }
+
+    .g2_nav_hr {
+        max-width: 400px !important;
+        height: 1.5px !important;
+    }
+}

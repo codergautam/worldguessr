@@ -1,0 +1,257 @@
+.daily-page-backdrop--opening {
+  animation: dailyBackdropIn 0.5s ease-out both;
+}
+@keyframes dailyBackdropIn {
+  from { background: rgba(0, 0, 0, 0); }
+  to { background: rgba(0, 0, 0, 0.45); }
+}
+.daily-landing {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  color: white;
+  background: transparent;
+  padding: clamp(20px, 4vw, 40px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+.daily-landing--opening .daily-landing-hero,
+.daily-landing--opening .daily-landing-section {
+  animation: dailyLandingContentIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.daily-landing--opening .daily-landing-section:nth-of-type(2) {
+  animation-delay: 80ms;
+}
+.daily-landing--opening .daily-landing-section:nth-of-type(3) {
+  animation-delay: 150ms;
+}
+.daily-landing--opening .daily-landing-section:nth-of-type(4) {
+  animation-delay: 220ms;
+}
+@keyframes dailyLandingContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.daily-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+}
+
+.daily-submitting {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(36, 87, 52, 0.32) 0%, rgba(36, 87, 52, 0) 70%),
+    linear-gradient(180deg, rgba(8, 22, 14, 0.78) 0%, rgba(3, 12, 7, 0.88) 100%);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  color: white;
+  animation: dailySubmittingFade 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.daily-submitting__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 32px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.daily-submitting__spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.14);
+  border-top-color: #4caf50;
+  animation: dailySubmittingSpin 0.9s linear infinite;
+  margin-bottom: 4px;
+  filter: drop-shadow(0 0 10px rgba(76, 175, 80, 0.35));
+}
+
+.daily-submitting__title {
+  font-size: clamp(1.1rem, 2.4vw, 1.45rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: #fff;
+}
+
+.daily-submitting__hint {
+  font-size: clamp(0.85rem, 1.6vw, 1rem);
+  color: rgba(255, 255, 255, 0.65);
+  max-width: 420px;
+}
+
+@keyframes dailySubmittingSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes dailySubmittingFade {
+  from { opacity: 0; backdrop-filter: blur(0) saturate(100%); -webkit-backdrop-filter: blur(0) saturate(100%); }
+  to { opacity: 1; backdrop-filter: blur(14px) saturate(120%); -webkit-backdrop-filter: blur(14px) saturate(120%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-submitting__spinner { animation-duration: 2s; }
+  .daily-submitting { animation: none; }
+}
+.daily-game-shell {
+  display: contents;
+}
+.daily-landing-hero {
+  text-align: center;
+  max-width: 820px;
+  padding: 40px 20px 20px;
+}
+.daily-landing-title {
+  font-family: "Jockey One", sans-serif;
+  font-size: clamp(2.4rem, 7vw, 4.6rem);
+  line-height: 1.05;
+  margin-bottom: 24px;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.6);
+}
+.daily-landing-tagline {
+  font-size: clamp(1rem, 2.2vw, 1.25rem);
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 24px;
+}
+.daily-landing-cta {
+  padding: 16px 40px;
+  font-size: 1.15rem;
+  font-weight: 500;
+  border-radius: 14px;
+  cursor: pointer;
+  background: var(--primary) !important;
+  color: white;
+  border: 1.4px solid var(--primaryDark);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+.daily-landing-cta:hover {
+  background: #2c6a3f !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  transform: translateY(-1px) scale(1.02);
+}
+.daily-landing-cta-subtitle,
+.daily-landing-cta-countdown {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 400;
+  margin-top: 4px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.daily-landing-cta.played {
+  background: rgba(76, 175, 80, 0.9) !important;
+  border-color: rgba(76, 175, 80, 0.85);
+}
+.daily-landing-cta.played .daily-landing-cta-subtitle {
+  color: #e8f7ea;
+  font-weight: 500;
+}
+.daily-landing-user-stats {
+  display: flex;
+  gap: 18px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.daily-landing-grace-banner {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 152, 0, 0.16);
+  border: 1px solid rgba(255, 152, 0, 0.55);
+  color: #ffd28a;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 0 18px rgba(255, 152, 0, 0.25);
+  animation: dailyLandingGracePulse 2.4s ease-in-out infinite;
+}
+
+@keyframes dailyLandingGracePulse {
+  0%, 100% {
+    box-shadow: 0 0 14px rgba(255, 152, 0, 0.22);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 24px rgba(255, 152, 0, 0.45);
+    transform: scale(1.02);
+  }
+}
+
+.daily-landing-section {
+  width: 100%;
+  max-width: 820px;
+  background: var(--gradLight);
+  background-color: rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+.daily-landing-section-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 14px;
+  letter-spacing: 0.02em;
+}
+.daily-landing-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+.daily-landing-step {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.daily-landing-step svg { font-size: 1.5rem; color: #ffd700; }
+.daily-landing-step-text { color: rgba(255, 255, 255, 0.85); font-size: 0.95rem; }
+
+.daily-history-bars14 {
+  position: relative;
+  margin-top: 14px;
+  padding: 14px 10px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}

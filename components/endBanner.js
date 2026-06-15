@@ -7,6 +7,7 @@ import continentFromCode from "./utils/continentFromCode";
 import { continentKey } from "./utils/continentLocale";
 import findCountryLocal, { findCountryLocalSync } from "./findCountryLocal";
 import { loadBorders } from "./utils/loadBorders";
+import playSound from "./utils/playSound";
 const QUIP_KEYS = {
   correct: Array.from({length: 24}, (_, i) => `quipCorrect${i+1}`),
   wrongSameContinent: Array.from({length: 20}, (_, i) => `quipWrongSame${i+1}`),
@@ -199,7 +200,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
     return (
         <div id='endBanner' className={isCountryGuessrRound && guessed ? 'countryGuessrDelayed' : ''} style={{ display: guessed && !mapFadingOut ? '' : 'none' }}>
 
-            <button className="openInMaps topGameInfoButton" onClick={toggleMap}>
+            <button className="openInMaps topGameInfoButton" onClick={() => { playSound('interfaceClick'); toggleMap?.(); }}>
                 {panoShown ? text("showMap") : text("showPano")}
             </button>
 
@@ -260,6 +261,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                 <div className="endButtonContainer">
                     {onboarding && !onboarding.completed ? (
                         <button className={`playAgain${isLastRound ? ' lastRoundPulse' : ''}`} onClick={(event) => {
+                            playSound('interfaceClick');
                             clearAutoAdvance();
                             logOnboardingAdvance("manual-click", {
                                 pointerType: event?.nativeEvent?.pointerType,
@@ -273,7 +275,7 @@ export default function EndBanner({ countryStreaksEnabled, singlePlayerRound, on
                             {`${isLastRound ? text("viewResults") : text("nextRound")}${autoAdvanceCountdown != null ? ` (${autoAdvanceCountdown})` : ''}`}
                         </button>
                     ) : (
-                        <button className="playAgain" onClick={() => { fullReset(); }}>
+                        <button className="playAgain" onClick={() => { playSound('interfaceClick'); fullReset(); }}>
                             {isLastRound ? text("viewResults") : text("nextRound")}
                         </button>
                     )}

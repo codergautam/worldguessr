@@ -1,0 +1,467 @@
+
+@media screen and (max-width: 600px) {
+    #miniMapArea.answerShown {
+        top: 0;
+        bottom: auto;
+        transition:
+            transform 600ms ease,
+            opacity 600ms ease;
+    }
+}
+
+#miniMapArea.countryGuessrMapReveal {
+    transform: none;
+
+    transition: none;
+    animation: mapFadeReveal 0.5s ease forwards;
+}
+
+#miniMapArea.countryGuessrMapFadeOut {
+    animation: mapFadeOut 0.3s ease forwards;
+}
+
+@keyframes mapFadeReveal {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes mapFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+#miniMapArea.gameOver {
+
+    height: 100%;
+    width: 100%;
+    margin-right: 0;
+    opacity: 100%;
+    bottom: 0;
+}
+
+#miniMapArea.gameOver.multiplayer {
+    width: 75vw;
+}
+
+.countriesContainer {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+
+    overflow-y: scroll;
+
+}
+
+.countryCard {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 200px;
+    background: linear-gradient(135deg, #1a3a28 0%, #0d1117 100%);
+    margin: 0;
+    padding: 0;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    cursor: pointer;
+}
+
+.nmpz {
+    pointer-events: none;
+}
+
+.countryCardHeader {
+    width: 100%;
+    flex: 1 0 75%;
+    max-width: 75%;
+}
+
+.countryCard:hover {
+    transform: translateY(-3px) scale(1.03);
+}
+
+.countryName {
+    color: white;
+    background: none;
+    border: none;
+    padding: 8px 12px;
+    font-size: 1.05em;
+    font-family: "Lexend", sans-serif;
+    font-weight: 600;
+    text-align: center;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+
+#endBanner {
+    min-height: auto;
+    background: var(--gradLight);
+    background-color: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    left: 50%;
+    padding: 14px 20px 20px;
+    margin-bottom: 10px;
+    z-index: 1001;
+    pointer-events: all;
+}
+
+#endBanner.countryGuessrDelayed {
+    pointer-events: none;
+    animation: bannerFadeIn 0.5s ease 0.8s both;
+}
+
+@keyframes bannerFadeIn {
+    from { opacity: 0; transform: translateY(12px); pointer-events: none; }
+    to { opacity: 1; transform: translateY(0); pointer-events: all; }
+}
+
+.topGameInfoButton {
+    align-self: flex-end;
+    transform: translate(10px, -10px);
+    background: none;
+    border: none;
+    color: white;
+    transition: color 0.5s, background 0.5s;
+    border-radius: 5px;
+}
+.topGameInfoButton:hover{
+    color: #BBBBFF;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.endCards {
+    pointer-events: none;
+    display: flex;
+    position: fixed;
+    justify-content: space-around;
+    align-items: center;
+    width: 100%;
+    margin-top: 10px;
+    bottom: 0;
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-sizing: border-box;
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    z-index: 1001;
+    font-family: lexend;
+}
+
+@media (orientation: landscape) and (max-height: 500px) and (hover: none) {
+    .endCards {
+        padding-left: max(env(safe-area-inset-left), 16px);
+        padding-right: max(env(safe-area-inset-right), 16px);
+        padding-bottom: max(env(safe-area-inset-bottom), 8px);
+    }
+}
+
+@media screen and (max-width: 600px) {
+    .endCards {
+        flex-direction: column;
+        gap: 2px;
+    }
+}
+
+.bannerContent {
+    font-size: min(clamp(1.4em, 2.5vw, 1.6em), clamp(1.2em, 3vh, 1.5em));
+    text-align: center;
+    font-family: lexend;
+    display: flex;
+    gap: 8px;
+    flex-direction: column;
+    align-items: center;
+}
+
+.bannerContent .motivation {
+    margin: 0;
+    padding: 0;
+}
+
+.endButtonContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 16px;
+    width: 100%;
+
+    button {
+        font-family: lexend;
+        font-size: 1.1em;
+        font-weight: 500;
+        padding: 12px 24px;
+        background-color: var(--primaryTransparent);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+
+        &:hover {
+            background-color: var(--primary);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        &:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+    }
+
+    button.playAgain {
+        font-size: 1.3em;
+        font-weight: 600;
+        padding: 16px 40px;
+        background: linear-gradient(135deg, var(--primary) 0%, #2e7042 100%);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 12px;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+
+        &:hover {
+            background: linear-gradient(135deg, #2e7042 0%, #388a51 100%);
+            border-color: rgba(255, 255, 255, 0.5);
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+    }
+}
+
+.lastRoundPulse {
+    animation: lastRoundPulse 1.5s ease-in-out infinite !important;
+    font-size: 1.35em !important;
+    padding: 16px 42px !important;
+}
+
+@keyframes lastRoundPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(36, 87, 52, 0.7); }
+    50% { box-shadow: 0 0 16px 6px rgba(36, 87, 52, 0.4); }
+}
+
+.mainBannerTxt {
+    font-size: 1.2em;
+    font-weight: 500;
+    padding: 0px;
+    animation: bannerPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes bannerPop {
+    0% { opacity: 0; transform: scale(0.85) translateY(8px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.streakBadge {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(255, 140, 0, 0.25) 0%, rgba(255, 69, 0, 0.2) 100%);
+    border: 1px solid rgba(255, 140, 0, 0.4);
+    border-radius: 20px;
+    padding: 4px 14px !important;
+    font-weight: 700 !important;
+    font-size: 1em !important;
+    animation: streakPulse 0.5s ease;
+}
+
+@keyframes streakPulse {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.encouragement {
+    font-style: italic;
+    opacity: 0.85;
+    font-size: 0.85em !important;
+}
+
+.quip {
+    font-style: italic;
+    opacity: 0.9;
+    font-size: 0.85em !important;
+    margin-top: 2px !important;
+}
+
+.bannerPoints {
+    font-weight: 100 900;
+    font-size: 0.95em !important;
+}
+
+.locationFact {
+    font-size: 0.8em !important;
+    color: rgba(255, 255, 255, 0.75);
+    max-width: 400px;
+    line-height: 1.4;
+    margin-top: 2px !important;
+}
+
+.smallmainBannerTxt {
+    font-size: 1em;
+    font-weight: 500;
+    padding: 0px;
+}
+
+.motivation {
+    font-size: 0.8em;
+    padding: 0px;
+}
+
+@media screen and (max-width: 600px) {
+
+    .bannerContent {
+        font-size: clamp(1rem, 4.5vw, 1.25rem);
+    }
+
+    .motivation {
+        font-size: 0.95em;
+    }
+
+    .quip {
+        font-size: 0.9em !important;
+    }
+
+    .encouragement {
+        font-size: 0.9em !important;
+    }
+
+    .bannerPoints {
+        font-size: 1.05em !important;
+    }
+
+    .locationFact {
+        font-size: 0.9em !important;
+        max-width: 320px;
+    }
+
+    .endButtonContainer button {
+        padding: 10px 20px !important;
+        font-size: 1em !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 14px 28px !important;
+        font-size: 1.15em !important;
+    }
+
+    .mainBannerTxt {
+        font-size: 1.15em;
+    }
+
+    .smallmainBannerTxt {
+        font-size: 0.9em;
+    }
+
+    @media screen and (max-height: 840px) {
+        .mainBannerTxt {
+            font-size: 1.05em;
+        }
+
+        .smallmainBannerTxt {
+            font-size: 0.85em;
+        }
+
+        .motivation {
+            font-size: 0.9em;
+        }
+
+        .quip {
+            font-size: 0.85em !important;
+        }
+
+        .encouragement {
+            font-size: 0.85em !important;
+        }
+
+        .bannerPoints {
+            font-size: 0.95em !important;
+        }
+
+        .locationFact {
+            font-size: 0.8em !important;
+        }
+
+        .endButtonContainer button {
+            padding: 9px 16px !important;
+            font-size: 0.95em !important;
+        }
+        .endButtonContainer button.playAgain {
+            padding: 12px 24px !important;
+            font-size: 1.1em !important;
+        }
+    }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+    #endBanner {
+        padding: 5px 14px 7px !important;
+        margin-bottom: 3px !important;
+        border-radius: 8px;
+    }
+
+    .topGameInfoButton {
+        transform: none !important;
+        align-self: flex-end;
+        padding: 2px 8px !important;
+        white-space: nowrap;
+    }
+
+    .bannerContent {
+        font-size: clamp(0.85rem, 3vh, 1.05rem) !important;
+        gap: 2px !important;
+    }
+
+    .mainBannerTxt {
+        font-size: 1em !important;
+    }
+
+    .smallmainBannerTxt {
+        font-size: 0.85em !important;
+    }
+
+    .motivation {
+        font-size: 0.82em !important;
+    }
+
+    .quip {
+        font-size: 0.78em !important;
+    }
+
+    .encouragement {
+        font-size: 0.78em !important;
+    }
+
+    .bannerPoints {
+        font-size: 0.9em !important;
+    }
+
+    .locationFact {
+        font-size: 0.72em !important;
+        max-width: 420px;
+    }
+
+    .endButtonContainer {
+        margin-top: 2px !important;
+    }
+
+    .endButtonContainer button {
+        padding: 6px 16px !important;
+        font-size: 0.85em !important;
+        margin: 2px !important;
+    }
+    .endButtonContainer button.playAgain {
+        padding: 8px 20px !important;
+        font-size: 1em !important;
+    }
+}

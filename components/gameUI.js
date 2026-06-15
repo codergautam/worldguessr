@@ -7,7 +7,7 @@ import calcPoints from "./calcPoints";
 import findCountry from "./findCountry";
 import BannerText from "./bannerText";
 import PlayerList from "./playerList";
-import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown } from "react-icons/fa6";
+import { FaExpand, FaMinimize, FaThumbtack, FaArrowDown, FaXmark } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import CountryBtns from "./countryButtons";
 import continentFromCode from "./utils/continentFromCode";
@@ -22,6 +22,7 @@ import GameDistributionBanner from "./bannerAdGameDistribution";
 import AnimatedCounter from "./AnimatedCounter";
 import gameStorage from "./utils/localStorage";
 import HealthBar from "./duelHealthbar";
+import playSound from "./utils/playSound";
 
 const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
 
@@ -649,12 +650,13 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   function showHint() {
     if (hintLimitReached || hintShown) return;
 
+    playSound('interfaceClickTone');
     setHintShown(true);
     setHintsUsedThisGame((prev) => prev + 1);
   }
   useEffect(() => {
     if (dailyMode) return;
-    loadLocation()
+    loadLocation({ force: true })
     if(singlePlayerRound) {
       setHintsUsedThisGame(0);
       setSinglePlayerRound({
@@ -668,6 +670,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
     // Guard against being called before a location has been loaded. Every branch
     // below dereferences latLong.lat/long, so bail out to avoid a TypeError.
     if (!latLong || latLong.lat == null || latLong.long == null) return;
+    playSound('interfaceClick');
     const isCorrect = correctOverride !== undefined ? correctOverride : countryGuesserCorrect;
     if (onboarding && !onboarding.completed && onboarding.mode !== "classic") {
       onboardingRevealStartedAt.current = Date.now();
@@ -703,6 +706,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
         return {
           ...prev,
           locations: [...prev.locations, {lat: latLong.lat, long: latLong.long, panoId: latLong.panoId || null, guessLat: pinPoint?.lat || null, guessLong: pinPoint?.lng || null,
+            country: latLong.country || null,
             points: roundPoints,
             timeTaken: Math.round((Date.now() - roundStartTime) / 1000),
             xpEarned: roundXp
@@ -895,7 +899,7 @@ start={true || isStartingDuel} isOpponent={true} />
 
 } maxPoints={countryGuesser ? singlePlayerRound.totalRounds * 1000 : singlePlayerRound.totalRounds * 5000}
 history={singlePlayerRound.locations}
-button1Text={"🎮 "+text("playAgain")}
+button1Text={text("playAgain")}
 button1Press={() =>{
   window.crazyMidgame(() =>
 
@@ -920,6 +924,7 @@ session={session}/>
 {!showAnswerOnMap && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
           <button className="cornerBtn" onClick={() => {
+            playSound('interfaceClick');
             setMiniMapFullscreen(!miniMapFullscreen)
             if(!miniMapFullscreen) {
               setMiniMapExpanded(true)
@@ -932,6 +937,7 @@ session={session}/>
 
           &nbsp;
           <button className="cornerBtn" onClick={() => {
+            playSound('interfaceClick');
             setMapPinned(!mapPinned)
           }}>
             <FaThumbtack style={{ transform: mapPinned ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
@@ -967,17 +973,21 @@ session={session}/>
           </>
         )}
         {!loading && !welcomeOverlayShown && (
-          <button className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`} onClick={() => {
-            setMiniMapShown(!miniMapShown)
-          }}>
+          <button
+            className={`gameBtn g2_mobile_guess ${miniMapShown ? 'mobileMiniMapExpandedToggle' : ''}`}
+            onClick={() => { playSound('interfaceClick'); setMiniMapShown(!miniMapShown) }}
+            aria-label={miniMapShown ? (text("close") || 'Close') : text("guess")}
+          >
               {!miniMapShown ? (
                 <>
-            <FaMap size={miniMapShown ? 30 : 50} /> {!miniMapShown ? text("guess") : ''}
-            </>
-            ) : (
-              <FaArrowDown size={30} />
-            ) }
-
+                  <FaMap size={50} className="g2_mobile_guess__icon" />
+                  <span className="g2_mobile_guess__label">{text("guess")}</span>
+                </>
+              ) : (
+                <>
+                  <FaXmark size={28} className="g2_mobile_guess__closeIcon" />
+                </>
+              )}
             </button>
         )}
       </div>
@@ -1028,27 +1038,28 @@ session={session}/>
          }}/>
       )}
 
-      {/* Duel timer — single line, old style */}
-      {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && (
-      <span className={`timer duel ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
-        {multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120
-          ? text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})
-          : text("roundTimer", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds, t: timeToNextMultiplayerEvt.toFixed(1)})}
-      </span>
-      )}
-
-      {/* Non-duel multiplayer timer — two line style */}
-      {!(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && (
-      <span className={`timer timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${timeToNextMultiplayerEvt <= 5 && timeToNextMultiplayerEvt > 0 && !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess' ? 'critical' : ''}`}>
-        <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
-        <span className="timer__main-row">
-          {!(multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120)
-            ? <><span className="timer__countdown">{timeToNextMultiplayerEvt.toFixed(1)}s</span></>
-            : null
-          }
-        </span>
-      </span>
-      )}
+      {multiplayerState?.inGame && (() => {
+        const t = timeToNextMultiplayerEvt;
+        const inGuess = !showAnswer && !pinPoint && multiplayerState?.gameData?.state === 'guess';
+        let tier = '';
+        if (inGuess && t > 0) {
+          if (t <= 5) tier = 'critical';
+          else if (t <= 15) tier = 'timer--alert';
+          else if (t <= 30) tier = 'timer--warn';
+          else tier = 'timer--ok';
+        }
+        return (
+          <span className={`timer timer--two-line ${!multiplayerTimerShown ? '' : 'shown'} ${tier}`}>
+            <span className="timer__round-label">{text("round", {r:multiplayerState?.gameData?.curRound, mr: multiplayerState?.gameData?.rounds})}</span>
+            <span className="timer__main-row">
+              {!(multiplayerState?.gameData?.timePerRound === 86400000 && timeToNextMultiplayerEvt > 120)
+                ? <><span className="timer__countdown">{timeToNextMultiplayerEvt.toFixed(1)}s</span></>
+                : null
+              }
+            </span>
+          </span>
+        );
+      })()}
 
       <span className={`timer timer--two-line ${!onboardingTimerShown ? '' : 'shown'} ${timeToNextRound <= 5 && timeToNextRound > 0 && !showAnswer && !pinPoint && onboarding ? 'critical' : ''}`}>
         <span className="timer__round-label">{onboarding ? text("tutorialRound", {round: onboarding.round, total: onboarding.locations?.length || 3}) : text("round", {r:onboarding?.round, mr: 5})}</span>
@@ -1070,7 +1081,7 @@ session={session}/>
                   ? <><span className="timer__countdown">{singlePlayerTimeLeft.toFixed(1)}s</span> &middot; </>
                   : null
                 }
-                <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} showIncrement={false} /> {text("points")}
+                <AnimatedCounter value={singlePlayerRound.locations.reduce((acc, cur) => acc + cur.points, 0)} showIncrement={true} duration={900} incrementColor="#22c55e" /> {text("points")}
               </span>
             </span>
           )

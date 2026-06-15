@@ -21,19 +21,19 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) 
   };
 
   return (
-    <Modal 
-      id="signUpModal" 
+    <Modal
+      id="signUpModal"
       styles={{
         modal: {
-          background: 'linear-gradient(135deg, rgba(20, 65, 25, 0.97) 0%, rgba(10, 40, 15, 0.99) 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'linear-gradient(160deg, rgba(28, 44, 78, 0.65) 0%, rgba(13, 18, 30, 0.95) 60%), rgba(5, 8, 16, 0.95)',
+          border: '1px solid rgba(96, 165, 250, 0.32)',
           borderRadius: '16px',
           padding: '30px',
           maxWidth: '420px',
           textAlign: 'center',
           color: 'white',
           fontFamily: 'Lexend, sans-serif',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
         }
       }}
       open={shown}
@@ -92,87 +92,38 @@ export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) 
         }} />
       </div>
       
-      <h2 style={{ 
-        fontSize: '1.8rem', 
-        marginBottom: '12px', 
+      <h2 style={{
+        fontFamily: '"GmarketSans", "Lexend", sans-serif',
+        fontSize: '1.9rem',
+        marginBottom: '12px',
         fontWeight: '700',
         color: 'white',
-        textShadow: '2px 2px 4px rgba(0, 0, 0, 0.4)',
-        background: 'linear-gradient(135deg, #ffffff 0%, #e8e8e8 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text'
+        letterSpacing: '0.3px',
       }}>
         {text("trackYourProgress")}
       </h2>
-      
-      <p style={{ 
-        fontSize: '1rem', 
-        marginBottom: '28px', 
-        color: 'rgba(255, 255, 255, 0.9)',
+
+      <p style={{
+        fontSize: '1rem',
+        marginBottom: '28px',
+        color: 'rgba(255, 255, 255, 0.85)',
         lineHeight: '1.6',
-        textShadow: '1px 1px 2px rgba(0, 0, 0, 0.3)' 
       }}>
         {text("trackYourProgress1")}
       </p>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-        <button 
+        <button
           onClick={handleGoogleLogin}
-          style={{
-            background: 'linear-gradient(135deg, #4285F4 0%, #34a853 100%)',
-            border: '2px solid rgba(255, 255, 255, 0.1)',
-            color: 'white',
-            padding: '14px 28px',
-            borderRadius: '10px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '10px',
-            boxShadow: '0 4px 15px rgba(66, 133, 244, 0.4)',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            textShadow: '1px 1px 2px rgba(0, 0, 0, 0.2)',
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.transform = 'translateY(-2px)';
-            e.target.style.boxShadow = '0 8px 25px rgba(66, 133, 244, 0.6)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.transform = 'translateY(0)';
-            e.target.style.boxShadow = '0 4px 15px rgba(66, 133, 244, 0.4)';
-          }}
+          className="wg-tutorialBtn wg-tutorialBtn--primary"
         >
           <FaGoogle />
           {text("loginWithGoogle1")}
         </button>
-        
-        <button 
+
+        <button
           onClick={handleClose}
-          style={{
-            background: 'rgba(255, 255, 255, 0.12)',
-            border: '1px solid rgba(255, 255, 255, 0.2)',
-            color: 'rgba(255, 255, 255, 0.95)',
-            padding: '14px 28px',
-            borderRadius: '10px',
-            fontSize: '1rem',
-            fontWeight: '500',
-            cursor: 'pointer',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            textShadow: '1px 1px 2px rgba(0, 0, 0, 0.2)',
-          }}
-          onMouseEnter={(e) => {
-            e.target.style.background = 'rgba(255, 255, 255, 0.15)';
-            e.target.style.borderColor = 'rgba(255, 255, 255, 0.4)';
-            e.target.style.transform = 'translateY(-2px)';
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = 'rgba(255, 255, 255, 0.12)';
-            e.target.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-            e.target.style.transform = 'translateY(0)';
-          }}
+          className="wg-tutorialBtn wg-tutorialBtn--ghost"
         >
           {text("playAsGuest")}
         </button>

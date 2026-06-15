@@ -210,9 +210,14 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
                         {game.opponent?.username ? (
                           <>
                             <Link
-                              href={`/user?u=${encodeURIComponent(game.opponent.username)}`}
-                              onClick={(e) => e.stopPropagation()}
-                              target="_blank"
+                              href={`/?profile=${encodeURIComponent(game.opponent.username)}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (typeof window !== 'undefined' && window.wgOpenProfile) {
+                                  e.preventDefault();
+                                  window.wgOpenProfile(game.opponent.username);
+                                }
+                              }}
                               style={{ color: 'cyan', textDecoration: 'underline', cursor: 'pointer' }}
                             >
                               {game.opponent.username}

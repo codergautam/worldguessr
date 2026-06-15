@@ -150,9 +150,13 @@ export default async function handler(req, res) {
       rank: rank,
       league: {
         name: league.name,
-        emoji: league.emoji,
+        label: league.label,
+        tier: league.tier,
+        roman: league.roman,
+        icon: league.icon,
         color: league.color,
-        minElo: league.minElo
+        gradient: league.gradient,
+        minElo: league.baseMin
       },
       duelStats: {
         wins: user.duels_wins || 0,

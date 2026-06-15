@@ -4,13 +4,16 @@ import AccountBtn from "./accountBtn";
 import { FaPencil } from "react-icons/fa6";
 import { useTranslation } from '@/components/useTranslations'
 import { asset } from '@/lib/basePath';
+import Image from 'next/image';
 import WsIcon from "../wsIcon";
 import { useState, useEffect } from "react";
+import playSound from "../utils/playSound";
 
-export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode }) {
+export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoolMathGames, inGameDistribution, inGame, openAccountModal, shown, backBtnPressed, reloadBtnPressed, setGameOptionsModalShown, onNavbarPress, onFriendsPress, gameOptions, session, screen, multiplayerState, loading, gameOptionsModalShown, accountModalOpen, selectCountryModalShown, partyModalShown, dailyPhase, mapModalOpen, onConnectionError, loginQueued, setLoginQueued, countryGuessrMode, showAnswer }) {
     const { t: text, lang } = useTranslation("common");
 
-    const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer') || (screen === 'countryGuesser') || (screen === 'daily' && dailyPhase === 'game'))) && (!loading) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
+    const reloadBtn = (((multiplayerState?.inGame) || (screen === 'singleplayer') || (screen === 'countryGuesser') || (screen === 'daily' && dailyPhase === 'game'))) && !(multiplayerState?.inGame && multiplayerState?.gameData?.state === "waiting") && !(multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state === "getready");
+    const reloadDisabled = !!(loading || showAnswer);
 
     const [showAccBtn, setShowAccBtn] = useState(true);
     // Custom tooltip for the blue reload button. Rendered position:fixed (not as a
@@ -32,26 +35,41 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
         <>
             <div className={`navbar ${shown ? "" : "hidden"} ${screen == "home" ? "": "navbarColor"} ${screen === "onboarding" ? "onboarding" : ""}`}>
                 <div className={`nonHome ${screen === 'home' ? '' : 'shown'}`}>
-                    {!mapModalOpen && <h1 className="navbar__title desktop" onClick={onNavbarPress}>WorldGuessr</h1>}
-                    {!mapModalOpen && <h1 className="navbar__title mobile" onClick={onNavbarPress}>WG</h1>}
-                    {!gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting')) &&  <>
-                        <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} desktop`} onClick={backBtnPressed}>{screen === 'onboarding' ? text("menu") : text("back")}</button>
-                        <button className={`gameBtn navBtn backBtn ${screen === 'onboarding' ? 'g2_blue_button' : 'g2_red_button'} mobile`} onClick={backBtnPressed}><FaArrowLeft /></button>
-                    </>
-                    }
+                    {!mapModalOpen && !(screen === 'multiplayer' && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && (
+                        <span className="wg-nav__brand" aria-label="WorldGuessr">
+                            <Image.default
+                                src={asset('/assets/logos/title.png')}
+                                alt="WorldGuessr"
+                                width={140}
+                                height={32}
+                                priority
+                                draggable={false}
+                            />
+                        </span>
+                    )}
+                    {!(screen === 'multiplayer' && multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public) && !gameOptionsModalShown && !accountModalOpen && !selectCountryModalShown && !partyModalShown && !(screen === 'daily' && (dailyPhase === 'game' || dailyPhase === 'submitting' || dailyPhase === 'loading' || dailyPhase === 'confirming')) && (
+                        <button
+                            className={`wg-backBtn wg-backBtn--nav ${screen === 'onboarding' ? 'wg-backBtn--menu' : ''}`}
+                            onClick={(e) => { playSound('interfaceClick'); backBtnPressed?.(e); }}
+                            aria-label={screen === 'onboarding' ? text("menu") : text("back")}
+                        >
+                            <FaArrowLeft className="wg-backBtn__icon" />
+                            <span className="wg-backBtn__label">{screen === 'onboarding' ? text("menu") : text("back")}</span>
+                        </button>
+                    )}
                 </div>
                 {reloadBtn && !accountModalOpen && !gameOptionsModalShown && (
                     <button
-                        className="gameBtn navBtn backBtn reloadBtn g2_blue_button"
-                        onClick={() => { hideReloadTip(); reloadBtnPressed(); }}
+                        className={`wg-reloadBtn ${reloadDisabled ? 'wg-reloadBtn--disabled' : ''}`}
+                        onClick={reloadDisabled ? undefined : () => { hideReloadTip(); reloadBtnPressed(); }}
                         onMouseEnter={showReloadTip}
                         onMouseLeave={hideReloadTip}
                         onFocus={showReloadTip}
                         onBlur={hideReloadTip}
-                        aria-label={text("resetStreetView")}
+                        disabled={reloadDisabled}
+                        aria-label={text("resetStreetView") || "Reload pano"}
                     >
-                        {/* use svg /arrow-turn-down-left-svgrepo-com.svg white color */}
-                        <img src={asset("/return.png")} alt="reload"  height={13} style={{ filter: 'invert(1)', transform: 'scale(1.5)' }} />
+                        <img src={asset("/return.png")} alt="" height={14} style={{ filter: 'invert(1)' }} />
                     </button>
                 )}
                 {reloadTip && (
@@ -73,32 +91,32 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
 
                 {screen === 'multiplayer' && multiplayerState?.inGame && multiplayerState?.gameData?.players.length > 0 && (
                     <span id="playerCnt" className="bigSpan">
-                        &nbsp; <FaUser /> {multiplayerState.gameData.players.length}
+                        <FaUser className="playerCnt__icon" />
+                        <span className="playerCnt__count">{multiplayerState.gameData.players.length}</span>
                     </span>
                 )}
                 <div className="navbar__right">
 
-                    {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && (
-                        <button className="gameBtn navBtn g2_green_button g2_lexend" disabled={loading} onClick={() => setGameOptionsModalShown(true)}>
-                            {screen === 'countryGuesser'
-                                ? (countryGuessrMode?.subMode === "continent" ? text("continentGuesser") : text("countryGuesser"))
-                                : <>
-                                    {((gameOptions.location === "all") || !gameOptions.location) ? text("allCountries") : gameOptions?.countryMap ? nameFromCode(gameOptions.location, lang) : gameOptions?.communityMapName}
-                                    {gameOptions.nm && gameOptions.npz ?
-                                        ', NMPZ' :
-                                        gameOptions.nm ? ', NM' :
-                                            gameOptions.npz ? ', NPZ' :
-                                                ''}
-                                </>
-                            }
-
-                            &nbsp;
-
-                            <FaPencil size={20} />
+                    {(screen === 'singleplayer' || screen === 'countryGuesser') && !accountModalOpen && !mapModalOpen && !gameOptionsModalShown && (
+                        <button className="wg-mapSwitcher g2_lexend" disabled={loading} onClick={() => { playSound('interfaceClick'); setGameOptionsModalShown(true); }}>
+                            <span className="wg-mapSwitcher__label">
+                                {screen === 'countryGuesser'
+                                    ? (countryGuessrMode?.subMode === "continent" ? text("continentGuesser") : text("countryGuesser"))
+                                    : <>
+                                        {((gameOptions.location === "all") || !gameOptions.location) ? text("allCountries") : gameOptions?.countryMap ? nameFromCode(gameOptions.location, lang) : gameOptions?.communityMapName}
+                                        {gameOptions.nm && gameOptions.npz ?
+                                            ', NMPZ' :
+                                            gameOptions.nm ? ', NM' :
+                                                gameOptions.npz ? ', NPZ' :
+                                                    ''}
+                                    </>
+                                }
+                            </span>
+                            <FaPencil size={14} className="wg-mapSwitcher__pencil" />
                         </button>
                     )}
 
-                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && screen !== 'daily' && (
+                    {!inGame && showAccBtn && !inCoolMathGames && !accountModalOpen && !mapModalOpen && screen !== "onboarding" && screen !== 'daily' && screen !== "home" && (
                         <AccountBtn
                             inCrazyGames={inCrazyGames}
                             inGameDistribution={inGameDistribution}
@@ -108,12 +126,6 @@ export default function Navbar({ maintenance, joinCodePress, inCrazyGames, inCoo
                             loginQueued={loginQueued}
                             setLoginQueued={setLoginQueued}
                         />
-                    )}
-
-                    {session?.token?.secret && !accountModalOpen && screen !== "onboarding" && !gameOptionsModalShown && !mapModalOpen && !["getready", "guess"].includes(multiplayerState?.gameData?.state) && screen !== 'singleplayer' && screen !== 'countryGuesser' && screen !== 'daily' && (
-                        <button className={`gameBtn friendBtn ${screen === "home" ? "friendBtnFixed" : ""}`} onClick={onFriendsPress} disabled={!multiplayerState?.connected} aria-label="Friends">
-                            <FaUserFriends size={40} className={`friendBtnIcon ${screen === "home" ? "friendBtnIconFixed" : ""}`} />
-                        </button>
                     )}
                 </div>
             </div>
