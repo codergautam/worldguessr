@@ -1455,10 +1455,15 @@ export default function GameScreen() {
     }
   }, [gameState, router, secret, isSingleplayer, currentMapSlug, currentMapName]);
 
+  // Tracks an intentional, user-initiated leave (visible back button) so the
+  // beforeRemove guard below lets it through instead of re-prompting / re-routing.
+  const leftRef = useRef(false);
+
   const handleQuit = () => {
     if (isMultiplayer) {
       useMultiplayerStore.getState().leaveGame();
     }
+    leftRef.current = true;
     dismissAllSafe();
   };
 
@@ -1468,7 +1473,6 @@ export default function GameScreen() {
   //   • everyone else → leaveGame + reset + exit home
   // This is the single source of truth for leaving; the visible back button and
   // the Android hardware-back listener both route through it.
-  const leftRef = useRef(false);
   const handleLeave = useCallback(() => {
     if (!isMultiplayer) {
       dismissAllSafe();
@@ -1504,18 +1508,52 @@ export default function GameScreen() {
     doLeave();
   }, [isMultiplayer, router]);
 
-  // Route Android hardware-back / swipe through handleLeave (multiplayer only).
-  // Always preventDefault and delegate: handleLeave decides whether to navigate
-  // (leave → dismissAll) or stay (host → resetGame → lobby re-render).
+  // Guard Android hardware-back / edge-swipe so an accidental gesture can't
+  // silently discard a game. gestureEnabled:false only stops the iOS JS swipe;
+  // the Android system back still fires beforeRemove and would pop us to home.
+  // The visible back buttons set leftRef and keep their existing (web-port)
+  // behavior; only the gesture is gated behind a confirm.
   useEffect(() => {
-    if (!isMultiplayer) return;
+    const confirmLeave = (onLeave: () => void) => {
+      Alert.alert(
+        t('leaveGameTitle', undefined, 'Leave game?'),
+        t('leaveGameMessage', undefined, 'Your current game will be lost.'),
+        [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('leaveGameConfirm', undefined, 'Leave'), style: 'destructive', onPress: onLeave },
+        ],
+      );
+    };
     const sub = navigation.addListener('beforeRemove', (e: any) => {
-      if (leftRef.current) return; // we already initiated dismissAll — allow it
-      // If the server already tore the game down (gameShutdown → inGame false),
-      // let the removal proceed; only intercept while still in a game.
-      if (!useMultiplayerStore.getState().inGame) return;
+      if (leftRef.current) return; // a visible button already initiated the leave — allow it
+      // When a game ends we push /game/results ON TOP (this screen stays mounted
+      // but unfocused); a later dismissAll from results must pass straight
+      // through, so only intercept while this is the focused screen.
+      if (!navigation.isFocused()) return;
+      if (isMultiplayer) {
+        // If the server already tore the game down (gameShutdown → inGame false),
+        // let the removal proceed; only intercept while still in a game.
+        if (!useMultiplayerStore.getState().inGame) return;
+        e.preventDefault();
+        // Ranked duel: handleLeave shows the web forfeit confirm (ELO warning)
+        // itself, so don't double-prompt — delegate straight to it.
+        const gd = useMultiplayerStore.getState().gameData;
+        const isRankedDuel = !!gd?.duel && !!gd?.public && gd?.state !== 'end';
+        if (isRankedDuel) {
+          handleLeave();
+          return;
+        }
+        // Casual game / private-game host: confirm the accidental gesture, then
+        // run the normal web leave (host → resetGame, everyone else → exit).
+        confirmLeave(handleLeave);
+        return;
+      }
+      // Singleplayer: confirm, then leave.
       e.preventDefault();
-      handleLeave();
+      confirmLeave(() => {
+        leftRef.current = true;
+        dismissAllSafe();
+      });
     });
     return sub;
   }, [isMultiplayer, navigation, handleLeave]);

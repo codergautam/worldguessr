@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, StyleSheet, AppState, type AppStateStatus, BackHandler } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, StyleSheet, AppState, type AppStateStatus, BackHandler, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { t } from '../../src/shared';
@@ -203,7 +203,16 @@ export default function DailyScreen() {
         router.back();
         return true;
       }
-      setPhase('landing');
+      // game phase: a stray back-gesture / button would abandon the run, so
+      // confirm first instead of dropping straight back to the landing screen.
+      Alert.alert(
+        t('leaveGameTitle', undefined, 'Leave game?'),
+        t('leaveGameMessage', undefined, 'Your current game will be lost.'),
+        [
+          { text: t('cancel'), style: 'cancel' },
+          { text: t('leaveGameConfirm', undefined, 'Leave'), style: 'destructive', onPress: () => setPhase('landing') },
+        ],
+      );
       return true;
     });
     return () => sub.remove();
