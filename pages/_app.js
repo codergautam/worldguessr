@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { asset, stripBase } from '@/lib/basePath';
 import installErrorTracking from '@/lib/errorTracking';
+import getPlatform from '@/components/utils/getPlatform';
 import { MultiplayerProvider } from '@/components/multiplayer/MultiplayerProvider';
 
 import '@smastrom/react-rating/style.css'
@@ -59,6 +60,21 @@ function App({ Component, pageProps }) {
       backgroundImage.onload = null;
       backgroundImage.onerror = null;
     };
+  }, []);
+
+  // Tag the GA session with the platform (worldguessr / coolmath / crazygames /
+  // gamedistribution / ...) so users can be segmented by source. Embedded SDKs
+  // (CrazyGames) load async, so re-check shortly after mount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const setPlatform = () => {
+      try {
+        window.gtag?.('set', 'user_properties', { platform: getPlatform() });
+      } catch (_) { /* noop */ }
+    };
+    setPlatform();
+    const t = setTimeout(setPlatform, 2000);
+    return () => clearTimeout(t);
   }, []);
 
   // Auto-redirect first-time visitors at `/` to their device locale (es/fr/de/ru)
