@@ -28,7 +28,15 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized ads to you.",
-        "FIREBASE_ANALYTICS_COLLECTION_ENABLED": true
+        "NSLocationWhenInUseUsageDescription": "WorldGuessr does not track your location. This permission is only referenced by the map components used to display in-game maps.",
+        "FIREBASE_ANALYTICS_COLLECTION_ENABLED": true,
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.471080734176-07tfkec1bhq6m2k5hid7dg6cemvi40kb"
+            ]
+          }
+        ]
       },
       "googleServicesFile": "./GoogleService-Info.plist"
     },
@@ -85,6 +93,12 @@
         }
       ],
       "@react-native-firebase/app",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.471080734176-07tfkec1bhq6m2k5hid7dg6cemvi40kb"
+        }
+      ],
       [
         "expo-build-properties",
         {

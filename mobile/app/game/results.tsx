@@ -14,13 +14,13 @@ import {
   TextInput,
   Alert,
   KeyboardAvoidingView,
+  BackHandler,
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import MapView, { Polyline, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import EmbeddedMap from '../../src/components/game/EmbeddedMap';
 import { colors, formatDistance, t } from '../../src/shared';
 import { useSettingsStore } from '../../src/store/settingsStore';
@@ -31,16 +31,12 @@ import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { dismissAllSafe } from '../../src/utils/navigation';
 import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
-import PinMarker from '../../src/components/game/PinMarker';
 import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
 import BackButton from '../../src/components/ui/BackButton';
 import ReviewPromptModal from '../../src/components/ReviewPromptModal';
 import { useReviewPrompt } from '../../src/hooks/useReviewPrompt';
 
-const guessPinImage = require('../../assets/marker-src.png');
-const actualPinImage = require('../../assets/marker-dest.png');
-const oppPinImage = require('../../assets/marker-opp.png');
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
 
 interface OpponentGuess {
@@ -153,14 +149,9 @@ function getStars(percentage: number): StarColor[] {
   return [STAR_PLATINUM, STAR_PLATINUM, STAR_PLATINUM];
 }
 
-function getPolylineColor(points: number): string {
-  if (points >= 3000) return '#4CAF50';
-  if (points >= 1500) return '#FFC107';
-  return '#F44336';
-}
 
-// Same thresholds as getPolylineColor and web's getPointsColor (3000/1500) so
-// the connecting line and the points text always agree across all platforms.
+// Same thresholds as web's getPointsColor (3000/1500) so the points text
+// colour stays consistent with the embedded results map across platforms.
 function getPointsColor(points: number): string {
   if (points >= 3000) return '#4CAF50';
   if (points >= 1500) return '#FFC107';
@@ -496,7 +487,6 @@ export default function GameResultsScreen() {
     return null;
   }, [extentParam]);
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const units = useSettingsStore((s) => s.units);
@@ -673,154 +663,11 @@ export default function GameResultsScreen() {
     ).start();
   }, []);
 
-  // Map edge padding based on layout
-  const getMapPadding = useCallback(() => {
-    if (isLandscape) {
-      return { top: 40, right: SIDEBAR_WIDTH + 20, bottom: 40, left: 40 };
-    }
-    const panelH = detailsExpanded ? height * 0.55 : height * 0.32;
-    return { top: 40 + insets.top, right: 30, bottom: panelH + 20, left: 30 };
-  }, [isLandscape, detailsExpanded, height, insets.top]);
-
-  // Safely fit the map to a coord list. Two failure modes we have to handle
-  // that bare fitToCoordinates can't:
-  //   (1) Single coord (country-guesser round focus has no guess pin, only
-  //       the actual location) — fitToCoordinates zooms to the maximum and
-  //       feels like a punch to the face. We use a sensible regional zoom
-  //       (~8° delta, same as GuessMap's no-guess reveal) instead.
-  //   (2) Coordinates that span > 180° of longitude (e.g., a worldwide game
-  //       where rounds are scattered across continents) — Google Maps'
-  //       LatLngBounds takes the shortest east-west arc, which can fling
-  //       the camera off to one side and hide half the pins. We detect a
-  //       wide span and use animateToRegion with explicit deltas centered
-  //       on the actual coordinate centroid instead.
-  const fitToCoordsSafely = useCallback(
-    (coords: { latitude: number; longitude: number }[]) => {
-      if (!mapRef.current || coords.length === 0) return;
-
-      if (coords.length === 1) {
-        mapRef.current.animateToRegion(
-          {
-            latitude: coords[0].latitude,
-            longitude: coords[0].longitude,
-            latitudeDelta: 8,
-            longitudeDelta: 8,
-          },
-          500,
-        );
-        return;
-      }
-
-      let minLat = Infinity;
-      let maxLat = -Infinity;
-      let minLng = Infinity;
-      let maxLng = -Infinity;
-      for (const c of coords) {
-        if (c.latitude < minLat) minLat = c.latitude;
-        if (c.latitude > maxLat) maxLat = c.latitude;
-        if (c.longitude < minLng) minLng = c.longitude;
-        if (c.longitude > maxLng) maxLng = c.longitude;
-      }
-      const latSpan = maxLat - minLat;
-      const lngSpan = maxLng - minLng;
-
-      if (lngSpan > 180 || latSpan > 120) {
-        // Too wide for fitToCoordinates to handle reliably — show the full
-        // span explicitly via animateToRegion. Pad deltas by 1.4x so the
-        // outermost pins aren't flush with the map edge.
-        mapRef.current.animateToRegion(
-          {
-            latitude: (minLat + maxLat) / 2,
-            longitude: (minLng + maxLng) / 2,
-            latitudeDelta: Math.min(180, Math.max(latSpan * 1.4, 40)),
-            longitudeDelta: Math.min(360, Math.max(lngSpan * 1.4, 60)),
-          },
-          500,
-        );
-        return;
-      }
-
-      mapRef.current.fitToCoordinates(coords, {
-        edgePadding: getMapPadding(),
-        animated: true,
-      });
-    },
-    [getMapPadding],
-  );
-
-  const fitMapToAllRounds = useCallback(() => {
-    if (!mapRef.current || parsedRounds.length === 0) return;
-
-    const coords: { latitude: number; longitude: number }[] = [];
-    parsedRounds.forEach((r) => {
-      if (r.actualLat != null && r.actualLong != null) {
-        coords.push({ latitude: r.actualLat, longitude: r.actualLong });
-      }
-      if (!isCountryGuesserResult && r.guessLat != null && r.guessLong != null) {
-        coords.push({ latitude: r.guessLat, longitude: r.guessLong });
-      }
-      if (!isCountryGuesserResult) {
-        r.opponents?.forEach((opp) => {
-          coords.push({ latitude: opp.guessLat, longitude: opp.guessLong });
-        });
-      }
-    });
-
-    // Include extent corners so the map shows the full playable area
-    if (extent) {
-      const [west, south, east, north] = extent;
-      coords.push({ latitude: south, longitude: west });
-      coords.push({ latitude: north, longitude: east });
-    }
-
-    fitToCoordsSafely(coords);
-  }, [parsedRounds, extent, isCountryGuesserResult, fitToCoordsSafely]);
-
-  const didInitialFit = useRef(false);
-  useEffect(() => {
-    if (didInitialFit.current) return;
-    const timeout = setTimeout(() => {
-      didInitialFit.current = true;
-      fitMapToAllRounds();
-    }, 500);
-    return () => clearTimeout(timeout);
-  }, [fitMapToAllRounds]);
-
-  const focusOnRound = useCallback(
-    (index: number) => {
-      const round = parsedRounds[index];
-      if (!mapRef.current || !round) return;
-
-      const coords: { latitude: number; longitude: number }[] = [];
-      if (round.actualLat != null && round.actualLong != null) {
-        coords.push({ latitude: round.actualLat, longitude: round.actualLong });
-      }
-      if (!isCountryGuesserResult && round.guessLat != null && round.guessLong != null) {
-        coords.push({ latitude: round.guessLat, longitude: round.guessLong });
-      }
-      if (!isCountryGuesserResult) {
-        round.opponents?.forEach((opp) => {
-          coords.push({ latitude: opp.guessLat, longitude: opp.guessLong });
-        });
-      }
-
-      fitToCoordsSafely(coords);
-    },
-    [parsedRounds, isCountryGuesserResult, fitToCoordsSafely],
-  );
-
-  const handleRoundPress = useCallback(
-    (index: number) => {
-      if (activeRound === index) {
-        setActiveRound(null);
-        setTimeout(fitMapToAllRounds, 100);
-      } else {
-        setActiveRound(index);
-        focusOnRound(index);
-      }
-    },
-    [activeRound, fitMapToAllRounds, focusOnRound],
-  );
+  const handleRoundPress = useCallback((index: number) => {
+    // Toggle round focus. The embedded results map watches `activeRound` and
+    // does its own camera fit/zoom, so there's nothing to drive from here.
+    setActiveRound((prev) => (prev === index ? null : index));
+  }, []);
 
   const toggleDetails = useCallback(() => {
     haptics.light();
@@ -904,21 +751,36 @@ export default function GameResultsScreen() {
     }
   }, [isPartyHost, mpState, router]);
 
-  const handleGoHome = () => {
+  const handleGoHome = useCallback(() => {
     // No haptic here: the back button taps fire it via the shared BackButton, and
     // the standalone Home CTA fires it inline — keeping it out avoids a double buzz.
     if (isLiveMultiplayer) {
       useMultiplayerStore.getState().reset();
     }
     dismissAllSafe();
-  };
-  const handleBackPress = () => {
+  }, [isLiveMultiplayer]);
+  const handleBackPress = useCallback(() => {
     if (isHistoryView) {
       router.back();
       return;
     }
     handleGoHome();
-  };
+  }, [isHistoryView, router, handleGoHome]);
+
+  // Android hardware-back / edge-swipe MUST exit to home (or pop, in history view),
+  // exactly like the visible X button. Without this, the system back pops only this
+  // results route and drops the player onto the finished game/[id] screen that's
+  // still mounted underneath — frozen on its final answer reveal / between-rounds
+  // leaderboard / full-screen map ("the glitched game page"). Returning true swallows
+  // the default one-level pop so that ghost screen is never exposed. Android-only API;
+  // a no-op subscription on iOS.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBackPress();
+      return true;
+    });
+    return () => sub.remove();
+  }, [handleBackPress]);
 
   const handleCopyGameId = useCallback(async () => {
     if (!gameId) return;
@@ -1022,112 +884,6 @@ export default function GameResultsScreen() {
       </View>
     );
   }
-
-  // ── Map markers ────────────────────────────────────────────
-  const renderMapMarkers = () =>
-    parsedRounds.map((round, index) => {
-      const hasActual = round.actualLat != null && round.actualLong != null;
-      const hasGuess =
-        !isCountryGuesserResult && round.guessLat != null && round.guessLong != null;
-      const hideRound = activeRound !== null && activeRound !== index;
-
-      return (
-        <React.Fragment key={index}>
-          {hasActual && (
-            <PinMarker
-              identifier={`actual-${index}`}
-              coordinate={{ latitude: round.actualLat!, longitude: round.actualLong! }}
-              imageSource={actualPinImage}
-              opacity={hideRound ? 0 : 1}
-              stopPropagation
-            >
-              <Callout onPress={() => openInGoogleMaps(round.actualLat!, round.actualLong!, round.panoId)}>
-                <View style={styles.calloutContainer}>
-                  <Text style={styles.calloutTitle}>{t('roundNumber', { round: index + 1 })} - {t('actualLocation')}</Text>
-                  <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
-                    {t('pointsCount', { points: round.points.toLocaleString() })}
-                  </Text>
-                  {round.distance != null && (
-                    <Text style={styles.calloutDistance}>
-                      {t('distanceWithValue', { distance: formatDistance(round.distance, units) })}
-                    </Text>
-                  )}
-                  <View style={styles.calloutActionBtn}>
-                    <Text style={styles.calloutActionText}>{t('openInMapsButton', undefined, '📍 Open in Maps')}</Text>
-                  </View>
-                </View>
-              </Callout>
-            </PinMarker>
-          )}
-          {hasGuess && (
-            <PinMarker
-              identifier={`guess-${index}`}
-              coordinate={{ latitude: round.guessLat!, longitude: round.guessLong! }}
-              imageSource={guessPinImage}
-              opacity={hideRound ? 0 : 1}
-              stopPropagation
-            >
-              <Callout>
-                <View style={styles.calloutContainer}>
-                  <Text style={styles.calloutTitle}>{t('roundNumber', { round: index + 1 })} - {t('yourGuess')}</Text>
-                  <Text style={[styles.calloutPoints, { color: getPointsColor(round.points) }]}>
-                    {t('pointsCount', { points: round.points.toLocaleString() })}
-                  </Text>
-                  {round.distance != null && (
-                    <Text style={styles.calloutDistance}>
-                      {t('distanceWithValue', { distance: formatDistance(round.distance, units) })}
-                    </Text>
-                  )}
-                </View>
-              </Callout>
-            </PinMarker>
-          )}
-          {!hideRound && hasActual && hasGuess && (
-            <Polyline
-              coordinates={[
-                { latitude: round.actualLat!, longitude: round.actualLong! },
-                { latitude: round.guessLat!, longitude: round.guessLong! },
-              ]}
-              strokeColor={getPolylineColor(round.points)}
-              strokeWidth={3}
-              lineDashPattern={[10, 5]}
-            />
-          )}
-          {/* Opponent guesses */}
-          {!isCountryGuesserResult && hasActual && round.opponents?.map((opp) => (
-            <React.Fragment key={`opp-${index}-${opp.playerId}`}>
-              <PinMarker
-                identifier={`opp-${index}-${opp.playerId}`}
-                coordinate={{ latitude: opp.guessLat, longitude: opp.guessLong }}
-                imageSource={oppPinImage}
-                opacity={hideRound ? 0 : 1}
-                stopPropagation
-              >
-                <Callout>
-                  <View style={styles.calloutContainer}>
-                    <Text style={styles.calloutTitle}>{opp.username}</Text>
-                    <Text style={[styles.calloutPoints, { color: getPointsColor(opp.points) }]}>
-                      {t('pointsCount', { points: opp.points.toLocaleString() })}
-                    </Text>
-                  </View>
-                </Callout>
-              </PinMarker>
-              {!hideRound && (
-                <Polyline
-                  coordinates={[
-                    { latitude: round.actualLat!, longitude: round.actualLong! },
-                    { latitude: opp.guessLat, longitude: opp.guessLong },
-                  ]}
-                  strokeColor={getPolylineColor(opp.points)}
-                  strokeWidth={2}
-                  lineDashPattern={[6, 4]}
-                />
-              )}
-            </React.Fragment>
-          ))}
-        </React.Fragment>
-      );
-    });
 
   // ── Sidebar header (stars + score + buttons) ───────────────
   const renderHeader = (compact: boolean) => (
@@ -1666,6 +1422,7 @@ export default function GameResultsScreen() {
               rounds={resultsRounds}
               activeRound={activeRound}
               isDuel={!!multiplayerInfo?.isDuel}
+              selectedPlayer={selectedPlayer}
             />
           </View>
 
@@ -1726,6 +1483,7 @@ export default function GameResultsScreen() {
         rounds={resultsRounds}
         activeRound={activeRound}
         isDuel={!!multiplayerInfo?.isDuel}
+        selectedPlayer={selectedPlayer}
       />
       <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>
         {renderBackButton()}
@@ -2204,6 +1962,9 @@ const styles = StyleSheet.create({
     borderLeftColor: 'rgba(255,255,255,0.15)',
     marginLeft: 16,
     paddingLeft: 12,
+    // Match roundItem's 20px right inset so the breakdown's points column
+    // doesn't run to the card edge (it has no paddingRight otherwise).
+    paddingRight: 20,
     paddingVertical: 4,
     marginBottom: 4,
   },

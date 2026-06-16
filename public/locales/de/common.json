@@ -807,5 +807,7 @@
   "rateUsSend": "Senden",
   "rateUsSkip": "Schließen",
   "rateUsFeedbackSent": "Feedback gesendet - danke!",
-  "rateUsFeedbackError": "Feedback konnte nicht gesendet werden. Bitte erneut versuchen."
+  "rateUsFeedbackError": "Feedback konnte nicht gesendet werden. Bitte erneut versuchen.",
+  "rateUsFiveTitle": "Danke!",
+  "rateUsFiveSubtitle": "Schön, dass dir WorldGuessr gefällt! Wir bringen dich zum Store für eine schnelle Bewertung…"
 }

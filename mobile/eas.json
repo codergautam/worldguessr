@@ -10,13 +10,31 @@
       "autoIncrement": true
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "471080734176-ildnge1km92lstdu11q07ov8r67sqj65.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "471080734176-gag9cuk6h2n49ttgotsvqopvit5bapso.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "471080734176-07tfkec1bhq6m2k5hid7dg6cemvi40kb.apps.googleusercontent.com",
+        "EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID_ID": "ca-app-pub-3340825671684972/2806733528",
+        "EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID": "ca-app-pub-3340825671684972/3860520854"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "471080734176-ildnge1km92lstdu11q07ov8r67sqj65.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "471080734176-gag9cuk6h2n49ttgotsvqopvit5bapso.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "471080734176-07tfkec1bhq6m2k5hid7dg6cemvi40kb.apps.googleusercontent.com",
+        "EXPO_PUBLIC_ADMOB_INTERSTITIAL_ANDROID_ID": "ca-app-pub-3340825671684972/2806733528",
+        "EXPO_PUBLIC_ADMOB_INTERSTITIAL_IOS_ID": "ca-app-pub-3340825671684972/3860520854"
+      }
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6778672486"
+      }
+    }
   }
 }

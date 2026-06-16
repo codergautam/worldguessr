@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, t } from '../../shared';
-import { useGoogleAuth } from '../../hooks/useGoogleAuth';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { useAuthStore } from '../../store/authStore';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
 
@@ -26,8 +26,7 @@ interface AccountSelectSheetProps {
 export default function AccountSelectSheet({ visible, onClose }: AccountSelectSheetProps) {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { promptAsync, isReady: googleReady } = useGoogleAuth();
-  const loginWithGoogle = useAuthStore((s) => s.loginWithGoogle);
+  const { signIn: googleSignIn, isReady: googleReady } = useGoogleSignIn();
   const loginWithApple = useAuthStore((s) => s.loginWithApple);
   const authLoading = useAuthStore((s) => s.isLoading);
   const [appleAvailable, setAppleAvailable] = useState(false);
@@ -84,37 +83,16 @@ export default function AccountSelectSheet({ visible, onClose }: AccountSelectSh
     if (!googleReady || providerLoading || authLoading) return;
     setProviderLoading('google');
     setError('');
-    try {
-      // Keep the sheet open through the whole flow so a failure has somewhere to
-      // show — only close once we're actually signed in.
-      const result = await promptAsync();
-      if (result.type === 'success') {
-        const idToken = result.params?.id_token;
-        if (!idToken) {
-          console.warn(
-            '[handleGoogle] success but NO id_token. Params returned:',
-            JSON.stringify((result as any)?.params ?? {}),
-          );
-          setError(t('googleNoSignInToken', undefined, 'Google did not return a sign in token.'));
-          return;
-        }
-        const res = await loginWithGoogle(idToken);
-        if (res.success) {
-          onClose();
-        } else {
-          setError(res.error || t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.'));
-        }
-      } else if (result.type === 'error') {
-        console.error('[handleGoogle] auth error result', (result as any)?.error, (result as any)?.params);
-        setError(t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.'));
-      }
-      // 'cancel' / 'dismiss' — the user backed out; not an error, show nothing.
-    } catch (e) {
-      console.error('Google login error:', e);
-      setError(t('googleSignInFailed', undefined, 'Google sign in failed. Please try again.'));
-    } finally {
-      setProviderLoading(null);
+    // Keep the sheet open through the whole flow so a failure has somewhere to
+    // show — only close once we're actually signed in.
+    const res = await googleSignIn();
+    if (res.ok) {
+      onClose();
+    } else if (res.error) {
+      setError(res.error);
     }
+    // res.cancelled — the user backed out; not an error, show nothing.
+    setProviderLoading(null);
   };
 
   const handleApple = async () => {

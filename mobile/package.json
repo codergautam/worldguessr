@@ -19,6 +19,7 @@
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-firebase/analytics": "^24.0.0",
     "@react-native-firebase/app": "^24.0.0",
+    "@react-native-google-signin/google-signin": "^16.1.2",
     "countries-code": "^1.1.1",
     "expo": "~54.0.33",
     "expo-apple-authentication": "~8.0.8",

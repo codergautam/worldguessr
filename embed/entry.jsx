@@ -158,6 +158,7 @@ function ResultsEmbed({ state }) {
         rounds={state.rounds || []}
         activeRound={state.activeRound ?? null}
         myId={state.myId ?? null}
+        selectedPlayer={state.selectedPlayer ?? null}
         isDuel={!!state.isDuel}
         isCountryGuesser={!!state.isCountryGuesser}
         lang={state.lang || 'en'}

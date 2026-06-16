@@ -102,6 +102,11 @@ export default function ResultsMap({
   rounds,
   activeRound = null,
   myId = null,
+  // Highlighted player from the Final Scores list. When set, only that player's
+  // guesses render (the current player's always do, separately), so the two can
+  // be compared; selecting yourself matches no opponent, hiding them all. Unset
+  // (web / no selection) → no filtering, original behavior.
+  selectedPlayer = null,
   isDuel = false,
   isCountryGuesser = false,
   lang = 'en',
@@ -298,10 +303,9 @@ export default function ResultsMap({
       />
 
       {finalHistory.map((round, index) => {
-        // For duels: show all destination pins when no round selected, or only
-        // selected round's destination when a round is selected. For other
-        // multiplayer / singleplayer: show all destination pins.
-        const shouldShowDestination = !isDuel || activeRound === null || activeRound === index;
+        // Show every round's destination by default; once a round is highlighted,
+        // collapse to only that round so the map isn't a tangle of pins and lines.
+        const shouldShowDestination = activeRound === null || activeRound === index;
 
         return (
           <React.Fragment key={index}>
@@ -338,7 +342,7 @@ export default function ResultsMap({
 
             {/* Current player's guess */}
             {round.guessLat && round.guessLong && (() => {
-              const shouldShowPlayerGuess = !isDuel || activeRound === null || activeRound === index;
+              const shouldShowPlayerGuess = activeRound === null || activeRound === index;
 
               if (!shouldShowPlayerGuess) {
                 return null;
@@ -372,7 +376,9 @@ export default function ResultsMap({
             {/* Other players' guesses */}
             {round.players && Object.entries(round.players).map(([playerId, player]) => {
               if (player.lat && player.long && playerId !== myId) {
-                const shouldShowOpponent = !isDuel || activeRound === null || activeRound === index;
+                const shouldShowOpponent =
+                  (activeRound === null || activeRound === index) &&
+                  (!selectedPlayer || selectedPlayer === playerId);
 
                 if (!shouldShowOpponent) {
                   return null;

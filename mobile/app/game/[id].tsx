@@ -1899,7 +1899,14 @@ export default function GameScreen() {
   // players in this game. Shown next to the back button for non-duel
   // ("unranked"/party) matches — duels show both players via the health bars.
   const playersInMatch = isMultiplayer && gameData && !gameData.duel ? gameData.players.length : 0;
-  const showFab = !showLoadingBanner && !miniMapShown && !gameState.isShowingResult && !mpGetReady;
+  // `mpFinalReveal` (inline-derived) must gate the FAB alongside `isShowingResult`:
+  // on the final round the server goes guess → getready(curRound=rounds+1) → end,
+  // and at the getready→end handoff `mpGetReady` drops a frame BEFORE the deferred
+  // `gameState.isShowingResult` effect flips true — leaving a one-frame window where
+  // nothing hides the FAB and it flickers in just before results. The inline flag
+  // closes that gap (same fix as showMapResult above).
+  const showFab = !showLoadingBanner && !miniMapShown && !gameState.isShowingResult
+    && !mpGetReady && !mpFinalReveal;
   const scenePointerEvents = showLoadingBanner && !hasCompletedInitialReveal.current ? 'none' : 'box-none';
 
   // The duel round timer (single source) — placed either between the health bars

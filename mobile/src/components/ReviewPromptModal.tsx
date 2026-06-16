@@ -22,9 +22,13 @@ import { haptics } from '../services/haptics';
 
 /**
  * Frictionless "rate us" prompt shown on the results screen. One tap on a star
- * rates: 5 stars resolves immediately (the parent fires the native store sheet),
- * 1–4 slides to an optional in-app feedback box so a low rating never leaves the
- * app. Styled to match DailyConfirmStartModal (dark glass card, gradient button).
+ * rates: 5 stars slides to a short thank-you step (and the parent fires the native
+ * store sheet when they tap through), 1–4 slides to an optional in-app feedback box
+ * so a low rating never leaves the app. The thank-you step also means a 5-star tap
+ * always gets a visible acknowledgement — important in dev/test builds where the
+ * native store sheet can't appear (Expo Go / rate-limited), so it no longer looks
+ * like the modal just vanished. Styled to match DailyConfirmStartModal (dark glass
+ * card, gradient button).
  *
  * The component is "dumb": it reports the user's choice via onRate/onDismiss and
  * the parent (useReviewPrompt) owns persistence, the native call, and analytics.
@@ -45,6 +49,8 @@ const GOLD = '#FFD700';
 const STAR_EMPTY = 'rgba(255,255,255,0.32)';
 /** Brief pause after a tap so the fill animation is seen before resolving. */
 const RESOLVE_DELAY_MS = 320;
+/** How long the 5★ "thank you" shows before the native store sheet auto-opens. */
+const THANKS_DELAY_MS = 1500;
 
 function Star({
   index,
@@ -77,10 +83,12 @@ function Star({
 }
 
 export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props) {
-  const [step, setStep] = useState<'stars' | 'feedback'>('stars');
+  const [step, setStep] = useState<'stars' | 'feedback' | 'thanks'>('stars');
   const [selected, setSelected] = useState(0);
   const [comment, setComment] = useState('');
   const resolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards the 5★ finalise so the auto-timer and a backdrop tap can't both fire it.
+  const finishedRef = useRef(false);
 
   const cardOpacity = useSharedValue(0);
   const cardScale = useSharedValue(0.92);
@@ -92,6 +100,7 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
       setStep('stars');
       setSelected(0);
       setComment('');
+      finishedRef.current = false;
       cardOpacity.value = 0;
       cardScale.value = 0.92;
       iconScale.value = 0.6;
@@ -118,7 +127,9 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
       resolveTimer.current = null;
       if (stars === 5) {
         haptics.success();
-        onRate(5);
+        // Show a thank-you beat first; the native store sheet fires when the user
+        // taps through (finishFiveStar) so they always see an acknowledgement.
+        setStep('thanks');
       } else {
         setStep('feedback');
       }
@@ -130,11 +141,28 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
   const sendFeedback = () => onRate(selected, { comment, sendFeedback: true });
   const skipFeedback = () => onRate(selected, { sendFeedback: false });
 
-  // Backdrop / hardware back: on the stars step it's a decline; on the feedback
-  // step they've already rated, so close without sending.
+  // Thanks step (5★): finalise the rating; the parent fires the native store sheet.
+  // Guarded so the auto-timer below and a stray backdrop tap can't fire it twice.
+  const finishFiveStar = () => {
+    if (finishedRef.current) return;
+    finishedRef.current = true;
+    onRate(5);
+  };
+
+  // 5★ thank-you auto-advances to the native store sheet after a short read beat,
+  // so a happy user reaches the store without an extra tap.
+  useEffect(() => {
+    if (step !== 'thanks') return;
+    const timer = setTimeout(finishFiveStar, THANKS_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [step]);
+
+  // Backdrop / hardware back: on the stars step it's a decline; on the feedback or
+  // thanks step they've already rated, so finalise instead of declining.
   const handleBackdrop = () => {
     if (resolveTimer.current) return;
     if (step === 'feedback') skipFeedback();
+    else if (step === 'thanks') finishFiveStar();
     else onDismiss();
   };
 
@@ -164,7 +192,7 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
                     <Text style={styles.laterText}>{t('rateUsMaybeLater')}</Text>
                   </Pressable>
                 </>
-              ) : (
+              ) : step === 'feedback' ? (
                 <>
                   <Animated.View style={[styles.iconWrap, iconStyle]}>
                     <Ionicons name="chatbubble-ellipses" size={28} color="#ffe27a" />
@@ -195,6 +223,19 @@ export default function ReviewPromptModal({ visible, onRate, onDismiss }: Props)
                   <Pressable onPress={skipFeedback} style={styles.laterBtn} hitSlop={6}>
                     <Text style={styles.laterText}>{t('rateUsSkip')}</Text>
                   </Pressable>
+                </>
+              ) : (
+                <>
+                  <Animated.View style={[styles.iconWrap, iconStyle]}>
+                    <Ionicons name="heart" size={28} color={GOLD} />
+                  </Animated.View>
+                  <Text style={styles.title}>{t('rateUsFiveTitle')}</Text>
+                  <Text style={styles.tagline}>{t('rateUsFiveSubtitle')}</Text>
+                  <View style={styles.starRow}>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Ionicons key={i} name="star" size={28} color={GOLD} style={styles.thanksStar} />
+                    ))}
+                  </View>
                 </>
               )}
             </Pressable>
@@ -264,6 +305,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   starBtn: { paddingHorizontal: 4, paddingVertical: 2 },
+  thanksStar: { marginHorizontal: 2 },
   input: {
     alignSelf: 'stretch',
     minHeight: 84,

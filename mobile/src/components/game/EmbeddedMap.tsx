@@ -43,6 +43,8 @@ interface Props {
   /** Focus a round (number) or fit all (null). */
   activeRound?: number | null;
   isDuel?: boolean;
+  /** Highlighted player id from the Final Scores list; filters results pins. */
+  selectedPlayer?: string | null;
 
   // ── live map (route='map') ──────────────────────────────────────────────
   /** The answer/panorama location ({lat,long}); drives reveal + hint. */
@@ -91,6 +93,7 @@ export default function EmbeddedMap({
   rounds,
   activeRound,
   isDuel,
+  selectedPlayer,
   location,
   guessPosition,
   onGuessPositionChange,
@@ -144,6 +147,7 @@ export default function EmbeddedMap({
         activeRound: activeRound ?? null,
         myId: '',
         isDuel: !!isDuel,
+        selectedPlayer: selectedPlayer ?? null,
       };
     }
     return {
@@ -186,6 +190,7 @@ export default function EmbeddedMap({
     rounds,
     activeRound,
     isDuel,
+    selectedPlayer,
   ]);
 
   const lastSentRef = useRef('');

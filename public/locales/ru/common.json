@@ -807,5 +807,7 @@
   "rateUsSend": "Отправить",
   "rateUsSkip": "Закрыть",
   "rateUsFeedbackSent": "Отзыв отправлен - спасибо!",
-  "rateUsFeedbackError": "Не удалось отправить отзыв. Попробуйте снова."
+  "rateUsFeedbackError": "Не удалось отправить отзыв. Попробуйте снова.",
+  "rateUsFiveTitle": "Спасибо!",
+  "rateUsFiveSubtitle": "Рады, что вам нравится WorldGuessr! Открываем магазин, чтобы вы оставили короткий отзыв…"
 }

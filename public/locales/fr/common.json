@@ -807,5 +807,7 @@
   "rateUsSend": "Envoyer",
   "rateUsSkip": "Fermer",
   "rateUsFeedbackSent": "Commentaire envoyé - merci !",
-  "rateUsFeedbackError": "Échec de l'envoi du commentaire. Réessayez."
+  "rateUsFeedbackError": "Échec de l'envoi du commentaire. Réessayez.",
+  "rateUsFiveTitle": "Merci !",
+  "rateUsFiveSubtitle": "Ravis que WorldGuessr vous plaise ! Direction la boutique pour laisser un avis rapide…"
 }

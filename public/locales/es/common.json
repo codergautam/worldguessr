@@ -807,5 +807,7 @@
   "rateUsSend": "Enviar",
   "rateUsSkip": "Cerrar",
   "rateUsFeedbackSent": "¡Comentario enviado, gracias!",
-  "rateUsFeedbackError": "No se pudo enviar tu comentario. Inténtalo de nuevo."
+  "rateUsFeedbackError": "No se pudo enviar tu comentario. Inténtalo de nuevo.",
+  "rateUsFiveTitle": "¡Gracias!",
+  "rateUsFiveSubtitle": "¡Nos alegra mucho que disfrutes WorldGuessr! Te llevamos a la tienda para dejar una reseña rápida…"
 }
