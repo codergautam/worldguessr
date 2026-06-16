@@ -904,15 +904,19 @@ export default function GameScreen() {
   }, [isLoading, miniMapShown, gameState.isShowingResult]);
 
   const expandedMapHeight = getExpandedMapHeight(width, height);
+  // True full-screen height for the result reveal — add the top inset so the
+  // bottom-anchored map covers the Android status-bar strip (edge-to-edge)
+  // instead of stopping `insets.top` short. Mirrors GameSurface.
+  const fullMapHeight = height + insets.top;
   // mapSlideAnim value for the open mini-map (mapHeight uses a constant full-range
   // so reveal animates mini→full smoothly instead of jumping).
-  const miniFraction = height > 0 ? expandedMapHeight / height : 0.5;
+  const miniFraction = fullMapHeight > 0 ? expandedMapHeight / fullMapHeight : 0.5;
 
   // Map height interpolation: 0 = hidden (0px), 1 = expanded map height (or 100% when answer shown)
   const mapHeight = mapSlideAnim.interpolate({
     inputRange: [0, 1],
     // CONSTANT range so reveal animates mini→full smoothly instead of jumping.
-    outputRange: [0, height],
+    outputRange: [0, fullMapHeight],
   });
 
   // Fetch locations from server based on currentMapSlug (singleplayer only)
@@ -2085,7 +2089,7 @@ export default function GameScreen() {
               reveal can't produce the WebView's "content snaps to top:0" flicker.
               The map draws into a bottom band INSIDE the page (mapBandFraction) so
               the guessing fit matches the old mini-map. */}
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height }}>
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: fullMapHeight }}>
             {mapMounted && (
               <EmbeddedMap
                 route="map"

@@ -222,10 +222,16 @@ function GameSurface(
   const { width, height } = useWindowDimensions();
 
   const expandedMapHeight = getExpandedMapHeight(width, height);
+  // True full-screen height for the result reveal. Under Android edge-to-edge,
+  // useWindowDimensions().height excludes the status-bar strip, so a bottom-anchored
+  // map of just `height` stops `insets.top` short of the top — leaving a gap during
+  // the full-screen show-answer reveal. Add the top inset back so the reveal is
+  // genuinely edge-to-edge (harmless overshoot if `height` already covers it).
+  const fullMapHeight = height + insets.top;
   // mapSlideAnim value for the open mini-map. Because mapHeight interpolates to a
   // CONSTANT full-height range, the mini state is this fraction — so reveal can
   // animate the height smoothly from mini → full instead of jumping.
-  const miniFraction = height > 0 ? expandedMapHeight / height : 0.5;
+  const miniFraction = fullMapHeight > 0 ? expandedMapHeight / fullMapHeight : 0.5;
 
   // ── State ──────────────────────────────────────────────────────────────
   const [streetViewLoaded, setStreetViewLoaded] = useState(false);
@@ -511,7 +517,7 @@ function GameSurface(
     inputRange: [0, 1],
     // CONSTANT range (not swapped on result) so reveal animates mini→full
     // smoothly (mapSlideAnim miniFraction → 1) instead of jumping.
-    outputRange: [0, height],
+    outputRange: [0, fullMapHeight],
   });
 
   const showFab =
@@ -714,8 +720,9 @@ function GameSurface(
               // "content snaps to top:0 then reflows" flicker. The map is drawn into
               // a bottom band INSIDE the page (mapBandFraction) so the guessing fit
               // is identical to the old mini-map, and the reveal is just a CSS
-              // expand of an already-full WebView.
-              height,
+              // expand of an already-full WebView. Full height includes the top
+              // inset so the revealed map reaches under the Android status bar.
+              height: fullMapHeight,
             }}
           >
             {mapMounted && (
