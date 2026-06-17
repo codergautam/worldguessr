@@ -26,8 +26,9 @@ jobs:
 
     - name: Install and Build
       run: |
-        npm i
-        npm run build
+        corepack enable
+        pnpm install --no-frozen-lockfile
+        pnpm run build
 
     - name: Deploy to SchoolGuessr Pages branch
       uses: peaceiris/actions-gh-pages@v4

@@ -25,10 +25,12 @@ jobs:
         node-version: '18'
 
     - name: Install dependencies
-      run: npm i
+      run: |
+        corepack enable
+        pnpm install --no-frozen-lockfile
 
     - name: Build GameDistribution version
-      run: npm run build
+      run: pnpm run build
 
     - name: Get branch name
       id: branch
