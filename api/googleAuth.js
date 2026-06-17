@@ -6,8 +6,29 @@ import { createPublicKey, createVerify } from "crypto";
 import timezoneToCountry, { VALID_COUNTRY_CODES } from "../serverUtils/timezoneToCountry.js";
 import { syncedClearCache } from '../serverUtils/cacheBus.js';
 import { getLeague } from '../components/utils/leagues.js';
+import { findBannedIdentity } from '../serverUtils/bannedIdentities.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+/**
+ * Refuse account creation for an identity that was permanently banned, or deleted
+ * while perm-banned (see BannedIdentity). Returns true if it sent a 403 response
+ * (caller must stop). Only ever called on the NEW-account path, so a legitimate
+ * returning user is never affected.
+ */
+async function blockIfBannedIdentity(res, { email, appleId }, timings, startTotal) {
+  const blocked = await findBannedIdentity({ email, appleId });
+  if (!blocked) return false;
+  timings.total = Date.now() - startTotal;
+  timings.blockedReSignup = blocked.type;
+  console.log('[googleAuth] blocked banned identity re-signup:', JSON.stringify(timings));
+  res.status(403).json({
+    error: blocked.publicNote || 'This account has been banned and cannot be recreated.',
+    banned: true,
+    banType: 'permanent',
+  });
+  return true;
+}
 const DEFAULT_APPLE_AUDIENCE = 'com.codergautamyt.worldguessr';
 let appleKeysCache = { fetchedAt: 0, keys: [] };
 
@@ -231,6 +252,8 @@ export default async function handler(req, res) {
       timings.appleLookup = Date.now() - startLookup;
 
       if (!existingUser) {
+        // Refuse re-registration of a blocklisted (perm-banned/deleted) identity.
+        if (await blockIfBannedIdentity(res, { email, appleId }, timings, startTotal)) return;
         timings.isNewUser = true;
         const newSecret = createUUID();
         const newUser = new User({ email, appleId, secret: newSecret });
@@ -327,6 +350,8 @@ export default async function handler(req, res) {
       timings.emailLookup = Date.now() - startEmailLookup;
 
       if (!existingUser) {
+        // Refuse re-registration of a blocklisted (perm-banned/deleted) identity.
+        if (await blockIfBannedIdentity(res, { email }, timings, startTotal)) return;
         timings.isNewUser = true;
         const startNewUser = Date.now();
         const newSecret = createUUID();
@@ -578,6 +603,8 @@ export default async function handler(req, res) {
       timings.emailLookup = Date.now() - startEmailLookup;
       let secret = null;
       if (!existingUser) {
+        // Refuse re-registration of a blocklisted (perm-banned/deleted) identity.
+        if (await blockIfBannedIdentity(res, { email }, timings, startTotal)) return;
         timings.isNewUser = true;
         const startNewUser = Date.now();
         // countryCode is auto-assigned ONLY from an explicit, valid client-provided

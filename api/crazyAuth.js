@@ -6,6 +6,7 @@ import User, { USERNAME_COLLATION } from "../models/User.js";
 import timezoneToCountry from "../serverUtils/timezoneToCountry.js";
 import cachegoose from 'recachegoose';
 import { getLeague } from '../components/utils/leagues.js';
+import { findBannedIdentity } from '../serverUtils/bannedIdentities.js';
 
 const USERNAME_CHANGE_COOLDOWN = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -141,6 +142,19 @@ export default async function handler(req, res) {
       pendingNameChangePublicNote: user.pendingNameChangePublicNote || null,
       // Extended data (publicAccount + eloRank combined)
       ...extendedData
+    });
+  }
+
+  // Refuse re-registration of a blocklisted (perm-banned/deleted) identity before
+  // creating a fresh CrazyGames account.
+  const blocked = await findBannedIdentity({ crazyGamesId: userId });
+  if (blocked) {
+    timings.total = Date.now() - startTotal;
+    console.log('[crazyAuth] blocked banned identity re-signup:', JSON.stringify(timings));
+    return res.status(403).json({
+      error: blocked.publicNote || 'This account has been banned and cannot be recreated.',
+      banned: true,
+      banType: 'permanent',
     });
   }
 

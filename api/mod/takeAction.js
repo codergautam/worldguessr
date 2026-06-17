@@ -9,6 +9,7 @@ import DailyLeaderboard from '../../models/DailyLeaderboard.js';
 import { leagues } from '../../components/utils/leagues.js';
 import { syncedClearCache } from '../../serverUtils/cacheBus.js';
 import { invalidateDailyPublicCache } from '../dailyChallenge/results.js';
+import { addBannedIdentity, removeBannedIdentity } from '../../serverUtils/bannedIdentities.js';
 
 /**
  * Remove a user from every daily leaderboard surface.
@@ -603,6 +604,17 @@ export default async function handler(req, res) {
           banPublicNote: publicNote || null // Shown to user
         });
 
+        // Blocklist this identity so a deleted/re-registered account can't evade
+        // the ban (perm bans only — see BannedIdentity). Best-effort: never blocks
+        // the ban itself. Removed again on unban below.
+        await addBannedIdentity({
+          user: targetUser,
+          type: 'ban_permanent',
+          reason,
+          publicNote: publicNote || null,
+          moderator,
+        });
+
         // Enforce ban immediately via WebSocket if player is connected
         if (process.env.MAINTENANCE_SECRET) {
           try {
@@ -929,6 +941,10 @@ export default async function handler(req, res) {
           banPublicNote: null // Clear the public note on unban
           // Note: We keep banReason for historical reference
         });
+
+        // Reversing the ban restores sign-up access: drop any blocklist entry so
+        // this identity can create/keep an account again.
+        await removeBannedIdentity(targetUserId);
 
         // Create moderation log
         moderationLog = await ModerationLog.create({

@@ -4,6 +4,7 @@ const playerGuessSchema = new mongoose.Schema({
   playerId: { type: String, required: true }, // accountId for logged in users, socketId for guests
   username: { type: String, required: true },
   accountId: { type: String, default: null }, // null for guest players
+  countryCode: { type: String, default: null }, // player's flag at game time (null if unset/guest)
 
   // Guess data
   guessLat: { type: Number, required: false, default: null },
@@ -42,6 +43,7 @@ const playerSummarySchema = new mongoose.Schema({
   playerId: { type: String, required: true },
   username: { type: String, required: true },
   accountId: { type: String, default: null },
+  countryCode: { type: String, default: null }, // player's flag at game time (null if unset/guest)
 
   // Final scores
   totalPoints: { type: Number, required: true },
