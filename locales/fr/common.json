@@ -809,5 +809,8 @@
   "rateUsFeedbackSent": "Commentaire envoyé - merci !",
   "rateUsFeedbackError": "Échec de l'envoi du commentaire. Réessayez.",
   "rateUsFiveTitle": "Merci !",
-  "rateUsFiveSubtitle": "Ravis que WorldGuessr vous plaise ! Direction la boutique pour laisser un avis rapide…"
+  "rateUsFiveSubtitle": "Ravis que WorldGuessr vous plaise ! Direction la boutique pour laisser un avis rapide…",
+  "updateRequiredTitle": "Mise à jour requise",
+  "updateRequiredMessage": "Une nouvelle version de WorldGuessr est disponible. Veuillez la mettre à jour pour continuer à jouer.",
+  "updateNow": "Mettre à jour"
 }
