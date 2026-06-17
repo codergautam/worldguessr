@@ -2,7 +2,7 @@
   "expo": {
     "name": "WorldGuessr",
     "slug": "worldguessr",
-    "version": "1.0.6",
+    "version": "2.2.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "buildNumber": "3",
+      "buildNumber": "5",
       "bundleIdentifier": "com.codergautamyt.worldguessr",
       "associatedDomains": [
         "applinks:worldguessr.com",
@@ -45,7 +45,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#112b18"
       },
-      "versionCode": 3,
+      "versionCode": 5,
       "edgeToEdgeEnabled": true,
       "package": "com.codergautamyt.worldguessr",
       "intentFilters": [

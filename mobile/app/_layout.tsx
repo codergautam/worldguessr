@@ -21,10 +21,12 @@ import { useSettingsStore } from '../src/store/settingsStore';
 import { useReviewPromptStore } from '../src/store/reviewPromptStore';
 import { useWebSocket } from '../src/hooks/useWebSocket';
 import { useDeepLinkInvite } from '../src/hooks/useDeepLinkInvite';
+import { useForceUpdate } from '../src/hooks/useForceUpdate';
 import ToastProvider from '../src/components/multiplayer/ToastProvider';
 import ActionableNotifications from '../src/components/multiplayer/ActionableNotifications';
 import WsIndicator from '../src/components/multiplayer/WsIndicator';
 import SetUsernameModal from '../src/components/SetUsernameModal';
+import ForceUpdateModal from '../src/components/ForceUpdateModal';
 import GlobalErrorBoundary from '../src/components/GlobalErrorBoundary';
 import { initAds, preloadInterstitial } from '../src/services/ads';
 import { initAnalytics } from '../src/services/analytics';
@@ -60,6 +62,11 @@ export default function RootLayout() {
 
   // Handle party invite deep links (?party=CODE / worldguessr://?party=CODE)
   useDeepLinkInvite();
+
+  // Gate stale builds on breaking releases: checks the per-platform minimum
+  // supported version (worldguessr.com/minVersion{Ios,Android}.txt) on launch and
+  // on every foreground. True ⇒ render the blocking, non-dismissible update modal.
+  const updateRequired = useForceUpdate();
 
   useEffect(() => {
     Asset.loadAsync(imageAssets).then(() => setAssetsLoaded(true));
@@ -151,6 +158,10 @@ export default function RootLayout() {
               Mounted last + at root so its modal overlays EVERYTHING (home,
               onboarding, game) and cannot be bypassed. */}
           <SetUsernameModal />
+          {/* Mounted last so the hard update gate overlays EVERYTHING — home,
+              onboarding, game, even the set-username modal. There is no way past
+              it but to update. */}
+          <ForceUpdateModal visible={updateRequired} />
         </GlobalErrorBoundary>
       </SafeAreaProvider>
     </GestureHandlerRootView>
