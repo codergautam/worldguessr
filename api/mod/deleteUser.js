@@ -8,6 +8,7 @@ import NameChangeRequest from '../../models/NameChangeRequest.js';
 import DailyChallengeScore from '../../models/DailyChallengeScore.js';
 import DailyLeaderboard from '../../models/DailyLeaderboard.js';
 import GuestProfile from '../../models/GuestProfile.js';
+import { addBannedIdentity } from '../../serverUtils/bannedIdentities.js';
 
 /**
  * Delete User API - Staff Only
@@ -263,6 +264,20 @@ export default async function handler(req, res) {
 
     // 11. Delete NameChangeRequests
     await NameChangeRequest.deleteMany({ 'user.accountId': targetUser._id.toString() });
+
+    // 11b. If we're deleting a user who is PERMANENTLY banned, blocklist their
+    //      identity so they can't re-register to evade the ban (the account row is
+    //      about to be gone, so the blocklist is the only thing left to match on).
+    //      Deleting a non-banned / temp-banned user does NOT blocklist them.
+    if (targetUser.banned && targetUser.banType === 'permanent') {
+      await addBannedIdentity({
+        user: targetUser,
+        type: 'user_deleted',
+        reason,
+        publicNote: targetUser.banPublicNote || null,
+        moderator,
+      });
+    }
 
     // 12. Finally, delete the user account
     const userResult = await User.deleteOne({ _id: targetUser._id });

@@ -71,6 +71,14 @@ import GameDistributionBanner from "./bannerAdGameDistribution";
 
 const ROUND_OVER_FADE_MS = 500;
 
+// After sending a publicDuel/unrankedDuel join we wait this long for the server's
+// `queueJoined` ack (ranked also sends `publicDuelRange`). No ack => the join never
+// registered server-side, so we bail off the searching screen with a toast instead
+// of leaving the user waiting on a queue they were never actually in. The ack is a
+// same-tick server reply, so 8s is well above a normal round-trip. (Mirrors the
+// mobile WS_QUEUE_CONFIRM_TIMEOUT_MS.)
+const WS_QUEUE_CONFIRM_TIMEOUT_MS = 8000;
+
 
 export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
@@ -120,6 +128,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [miniMapShown, setMiniMapShown] = useState(false)
     const [multiplayerEndAnswerHoldExpired, setMultiplayerEndAnswerHoldExpired] = useState(false);
     const multiplayerEndAnswerHoldTimerRef = useRef(null);
+    // Queue-join confirmation watchdog: pending timeout id + a mirror of the latest
+    // multiplayerState so the (delayed) timeout can read fresh state. See
+    // WS_QUEUE_CONFIRM_TIMEOUT_MS and armQueueConfirmWatchdog().
+    const queueConfirmTimerRef = useRef(null);
+    const mpStateRef = useRef(null);
     const [accountModalPage, setAccountModalPage] = useState("profile");
     const [mapModalClosing, setMapModalClosing] = useState(false);
     const loadLocationRequestRef = useRef(0);
@@ -395,7 +408,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 if (diff < 0) return Math.max(prev - step, eloData.elo);
                 return prev;
             });
-        }, 10);
+        }, 50);
 
         return () => clearInterval(interval);
     }, [eloData?.elo]);
@@ -413,6 +426,11 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
 
         async function crazyAuthListener() {
+          // Never let this reject. It runs both as `.then(finish)` below and as
+          // the SDK's registered auth-listener callback; an unguarded throw (the
+          // SDK being disabled / not yet initialized on this domain) would escape
+          // as an unhandled promise rejection.
+          try {
             console.log("crazygames auth listener")
             const user = await window.CrazyGames.SDK.user.getUser();
             if (user) {
@@ -488,6 +506,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     return prev;
                 });
             }
+          } catch (e) {
+            console.error("crazygames auth listener failed", e);
+          }
         }
 
         function finish() {
@@ -1483,6 +1504,34 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         }
     }, [multiplayerState?.connected, multiplayerError])
 
+    // ── Queue-join confirmation watchdog ──────────────────────────────────────
+    // The server acks a queue join with `queueJoined` (ranked also sends
+    // `publicDuelRange`). If neither arrives within WS_QUEUE_CONFIRM_TIMEOUT_MS the
+    // join never registered server-side, so we bail off the searching screen with a
+    // toast instead of leaving the user waiting on a queue they were never in.
+    function clearQueueConfirmWatchdog() {
+        if (queueConfirmTimerRef.current) {
+            clearTimeout(queueConfirmTimerRef.current);
+            queueConfirmTimerRef.current = null;
+        }
+    }
+    function armQueueConfirmWatchdog() {
+        clearQueueConfirmWatchdog();
+        queueConfirmTimerRef.current = setTimeout(() => {
+            queueConfirmTimerRef.current = null;
+            const st = mpStateRef.current;
+            // Already moved on (match started, cancelled, or disconnected) — the
+            // join clearly worked or no longer matters.
+            if (!st || !st.gameQueued || st.inGame) return;
+            // No ack: the server never queued us. Drop us (a no-op server-side if it
+            // never had us), leave the searching screen, and surface the failure.
+            try { ws?.send(JSON.stringify({ type: "leaveQueue" })); } catch (e) {}
+            setMultiplayerState((prev) => ({ ...prev, gameQueued: false, publicDuelRange: null }));
+            setScreen("home");
+            toast(text("queueJoinFailed") || "Couldn't join the queue. Please try again.", { type: 'error', theme: "dark" });
+        }, WS_QUEUE_CONFIRM_TIMEOUT_MS);
+    }
+
     function handleMultiplayerAction(action, ...args) {
         console.log(action)
 
@@ -1504,6 +1553,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             }))
             sendEvent("multiplayer_request_ranked_duel")
             ws.send(JSON.stringify({ type: "publicDuel" }))
+            armQueueConfirmWatchdog()
             })
         }
 
@@ -1519,6 +1569,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             }))
             sendEvent("multiplayer_request_unranked_duel")
             ws.send(JSON.stringify({ type: "unrankedDuel" }))
+            armQueueConfirmWatchdog()
             })
         }
 
@@ -1890,6 +1941,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 toast(data.message === 'uac' ? text('userAlreadyConnected') : data.message, { type: 'error' });
 
             } else if (data.type === "game") {
+                // A match (or private game) started — we're no longer waiting on a
+                // queue ack, so retire the watchdog.
+                clearQueueConfirmWatchdog();
                 // Dispatch global event to close any open modals/screens
                 window.dispatchEvent(new CustomEvent('gameStarting'));
 
@@ -1994,7 +2048,15 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                         }
                     };
                 });
+            } else if (data.type === "queueJoined") {
+                // Server confirms we're actually in the duel queue (sent for BOTH
+                // ranked and unranked). This is the ack the join watchdog waits on;
+                // without it there's no way to tell "queued, waiting" apart from
+                // "server never queued me".
+                clearQueueConfirmWatchdog();
             } else if (data.type === "publicDuelRange") {
+                // Also a valid join confirmation for ranked — retire the watchdog.
+                clearQueueConfirmWatchdog();
                 setMultiplayerState((prev) => ({
                     ...prev,
                     publicDuelRange: data.range
@@ -2231,6 +2293,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     // (useTranslation returns a fresh `t` closure each render).
     const textRef = useRef(text);
     useEffect(() => { textRef.current = text; }, [text]);
+    // Keep the latest multiplayerState readable from the delayed queue-confirm
+    // watchdog (which would otherwise close over a stale snapshot).
+    useEffect(() => { mpStateRef.current = multiplayerState; }, [multiplayerState]);
     const prevWsForCloseRef = useRef(null);
     useEffect(() => {
         if (prevWsForCloseRef.current && !ws) {
@@ -2526,6 +2591,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
 
         } else if (multiplayerState?.gameQueued) {
             console.log("gameQueued")
+            clearQueueConfirmWatchdog();
             ws.send(JSON.stringify({ type: "leaveQueue" }))
 
             setMultiplayerState((prev) => {

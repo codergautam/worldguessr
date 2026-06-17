@@ -630,6 +630,11 @@ app.ws('/wg', {
           duel: false
         }
         playersInQueue.set(player.id, queueDetails);
+        // Explicitly confirm the join so the client has a signal the queue
+        // actually registered. Without this the unranked queue sent nothing back
+        // and the client would spin on the matchmaking screen forever if the join
+        // was dropped (e.g. socket hiccup) or silently rejected.
+        player.send({ type: 'queueJoined', ranked: false });
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
           const ipOctets = player.ip.split('.').slice(0, 3).join('.');
@@ -679,6 +684,9 @@ app.ws('/wg', {
             duel: true
           }
           playersInQueue.set(player.id, queueDetails);
+          // No league => no publicDuelRange below, so this is the only join ack
+          // the client gets for this case.
+          player.send({ type: 'queueJoined', ranked: true });
 
         } else {
           const range = getLeagueRange(player.league);
@@ -699,6 +707,9 @@ app.ws('/wg', {
           type: 'publicDuelRange',
           range
         });
+        // Uniform join ack across all queue branches (publicDuelRange alone is
+        // ELO-display info; queueJoined is the canonical "you're queued" signal).
+        player.send({ type: 'queueJoined', ranked: true });
       }
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 

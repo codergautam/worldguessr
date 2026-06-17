@@ -22,4 +22,4 @@ function getPlatformDistribution() {
   return dist;
 }
 
-export { getActivePlayerCount, getPlatformDistribution, isActivePlayer };
+export { getActivePlayerCount, getPlatformDistribution };

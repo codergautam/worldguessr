@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import customPins from '../public/customPins.json' with { type: "module" };
 import guestNameString from "@/serverUtils/guestNameFromString";
 import CountryFlag from './utils/countryFlag';
+import SafeMapContainer from './SafeMapContainer';
 
 /* ---------------------------------------------------------------------------
  *  Constants
@@ -162,9 +163,28 @@ function getResetTarget(map, extent) {
   return constrainResetTarget(map, target.center, target.zoom);
 }
 
+/** True only when the map container has a real (non-zero) viewport. Leaflet's
+ *  projection math is degenerate at 0×0, so any camera mutation there lands on a
+ *  garbage centre near the maxBounds edge. */
+function hasRenderSize(map) {
+  try {
+    const s = map.getSize();
+    return !!s && s.x > 0 && s.y > 0;
+  } catch {
+    return false;
+  }
+}
+
 function stopMapAnimations(map) {
   if (!map) return;
   try { clearTimeout(map._sizeTimer); } catch {}
+
+  // Cancel the scheduled animation frames DIRECTLY. This halts motion (fly / pan
+  // inertia / zoom) without invoking Leaflet's high-level stop(), which finalises
+  // the pan via PosAnimation._complete → _onPanTransitionEnd → setView. At 0×0
+  // (the map collapsed between rounds) that finaliser projects onto a degenerate
+  // viewport and parks the camera at a garbage centre (~72–88°N) — the long-hunted
+  // "stuck north on next round" carry-over. Frame cancels are safe at any size.
   try {
     if (map._flyToFrame != null && L?.Util?.cancelAnimFrame) {
       L.Util.cancelAnimFrame(map._flyToFrame);
@@ -178,11 +198,26 @@ function stopMapAnimations(map) {
     map._animRequest = null;
   } catch {}
   try {
+    // Pan inertia (PosAnimation): cancel its frame without _complete()'ing, which
+    // would otherwise run the garbage 0×0 setView described above.
+    if (map._panAnim && map._panAnim._animId != null && L?.Util?.cancelAnimFrame) {
+      L.Util.cancelAnimFrame(map._panAnim._animId);
+      map._panAnim._inProgress = false;
+    }
+  } catch {}
+  try {
     if (map.touchZoom?._animRequest != null && L?.Util?.cancelAnimFrame) {
       L.Util.cancelAnimFrame(map.touchZoom._animRequest);
       map.touchZoom._animRequest = null;
     }
   } catch {}
+
+  // The high-level settles below run setView / zoom finalisers — only safe with a
+  // real viewport. At 0×0 we've already halted motion above; leave the camera
+  // untouched and let the size-gated resetters (ExtentFitter / BoundsApplier)
+  // recenter once the container regains size.
+  if (!hasRenderSize(map)) return;
+
   try { map._stop?.(); } catch {}
   try { map._panAnim?.stop?.(); } catch {}
   try {
@@ -218,14 +253,18 @@ function setMaxBoundsWithoutAutoPan(map, bounds) {
 }
 
 function forceCrispViewReset(map, center, zoom) {
+  // Resetting at 0×0 projects onto a degenerate viewport and lands on a garbage
+  // centre; the size-gated callers re-run this once the container has real size.
+  if (!hasRenderSize(map)) return;
   // During reveal Leaflet may be mid fly/pan/zoom animation. A normal fitBounds
   // can inherit that pixel origin and leave scaled, blurry tiles until the user
   // zooms. Cancel animation state first, then apply a target already constrained
   // to the vertical play bounds so the next user interaction has nothing to snap.
   const playBounds = toValidLatLngBounds(VIEW_BOUNDS);
-  const target = constrainResetTarget(map, center, zoom, playBounds);
   stopMapAnimations(map);
   try { map.invalidateSize({ pan: false, animate: false }); } catch {}
+  const target = constrainResetTarget(map, center, zoom, playBounds);
+
   setMaxBoundsWithoutAutoPan(map, null);
   try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
   try { map._resetView?.(target.center, target.zoom, true); } catch {}
@@ -285,10 +324,10 @@ function useResizeWatcher(map, pausedRef) {
  *  Dynamic imports — react-leaflet must be client-only.
  * ------------------------------------------------------------------------ */
 
-const MapContainer = dynamic(
-  () => import("react-leaflet").then((m) => m.MapContainer),
-  { ssr: false }
-);
+// Error-boundaried MapContainer (see SafeMapContainer): a partial leaflet load
+// throws "a.Map is not a constructor" during commit; without the boundary it
+// white-screens the whole app.
+const MapContainer = SafeMapContainer;
 const TileLayer = dynamic(
   () => import("react-leaflet").then((m) => m.TileLayer),
   { ssr: false }
@@ -353,23 +392,40 @@ const ClickHandler = memo(function ClickHandler({
 });
 
 /**
- * Applies maxBounds imperatively. Leaflet's public setMaxBounds() immediately
- * pans the current view inside the new bounds; after answer mode the current
- * view may be far outside Web Mercator, so we attach the bound listener without
- * that automatic pan and clamp synchronously with animation disabled.
+ * Re-applies maxBounds when guessing (re)starts (the reveal lifts them). Runs in
+ * a layout effect — BEFORE the browser paints — and snaps straight to the fit
+ * target (world / extent), not merely clamps to bounds.
+ *
+ * Why reset rather than clamp: the reveal leaves the camera at the answer view,
+ * which can sit at or past the ±85° ceiling. Clamping leaves it parked up north
+ * for one painted frame until ExtentFitter's POST-paint rAF recenters it — a
+ * visible flash, and the long-standing "stuck north on next round" bug when the
+ * carried-over view was beyond the displayable range. Recentering here, pre-paint,
+ * means the guess phase only ever paints at the fit target. ExtentFitter still
+ * owns the size-stable refit afterwards; both use getResetTarget so they agree.
  */
-const BoundsApplier = memo(function BoundsApplier({ bounds }) {
+const BoundsApplier = memo(function BoundsApplier({ bounds, extent }) {
   const map = useMap();
+  // Read the latest extent at apply-time without making it a dep (the array ref
+  // churns every render; the only moment we need it is when `bounds` flips).
+  const extentRef = useRef(extent);
+  extentRef.current = extent;
   useLayoutEffect(() => {
     if (!map) return;
     const latLngBounds = setMaxBoundsWithoutAutoPan(map, bounds);
     if (!latLngBounds) return;
+    // Recentering at 0×0 (map collapsed between rounds) would itself project onto
+    // a degenerate viewport. maxBounds is now set; defer the recenter to when the
+    // container has size — ExtentFitter's size-stable fit will handle it.
+    if (!hasRenderSize(map)) return;
 
     try {
+      // Kill any carried-over camera animation (e.g. flick inertia from panning
+      // the answer view) so it can't keep nudging north after we recenter.
       stopMapAnimations(map);
       const center = map.getCenter();
       const zoom = map.getZoom();
-      const target = constrainResetTarget(map, center, zoom, latLngBounds);
+      const target = getResetTarget(map, extentRef.current);
       if (!center.equals(target.center) || zoom !== target.zoom) {
         try { map.setView(target.center, target.zoom, { animate: false, reset: true }); } catch {}
         try { map._resetView?.(target.center, target.zoom, true); } catch {}
@@ -452,7 +508,15 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, re
         const target = getResetTarget(map, extent);
         forceCrispViewReset(map, target.center, target.zoom);
         finalRafId = requestAnimationFrame(() => {
-          try { forceCrispViewReset(map, map.getCenter(), map.getZoom()); } catch {}
+          // Re-derive the canonical target rather than trusting getCenter(): between
+          // the reset above and this frame, the hard maxBounds clamp (viscosity 1.0)
+          // can shove a tall low-zoom viewport to the ±85° edge. Reading getCenter()
+          // here cemented that drift (logged target≈72°N instead of 30,0); re-fitting
+          // to getResetTarget snaps it back to the intended world/extent view.
+          try {
+            const t = getResetTarget(map, extent);
+            forceCrispViewReset(map, t.center, t.zoom);
+          } catch {}
           needsFitRef.current = false;
           setResettingCamera(false);
         });
@@ -482,6 +546,20 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, re
       rafId = requestAnimationFrame(tick);
     };
 
+    // Recenter IMMEDIATELY (not just via the rAF tick below, which can be starved
+    // while the map is hidden/clipped). Without this, an answer view left past the
+    // ±85° vertical bound — maxBounds is lifted during reveal — gets clamped to the
+    // nearest edge by panInsideMaxBounds and stays stuck at the top/bottom instead
+    // of recentering. The tick loop then refines once the container size settles.
+    // Skip when the container has no size yet (the hidden "play again" case): fitting
+    // at 0×0 is meaningless, so let the tick wait for a real size.
+    if (lastW > 0 && lastH > 0) {
+      try {
+        const t0 = getResetTarget(map, extent);
+        forceCrispViewReset(map, t0.center, t0.zoom);
+      } catch {}
+    }
+
     rafId = requestAnimationFrame(tick);
     fallbackTimer = setTimeout(applyFit, 800);
 
@@ -510,13 +588,45 @@ const ExtentFitter = memo(function ExtentFitter({ extent, answerShown, shown, re
  *      flyTo's cached pixel transform stays valid the whole time.
  */
 const RevealController = memo(function RevealController({
-  answerShown, dest, pinPoint, countryGuessPin, resizingRef, stopCameraAnimations, cameraCancelKey,
+  answerShown, dest, pinPoint, countryGuessPin, resizingRef, stopCameraAnimations, cameraCancelKey, onRevealReady, bandFraction,
 }) {
   const map = useMap();
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY);
 
+  // Band mode (mobile embed): the host grows the in-page band to full on the SAME
+  // render that flips answerShown. Resize + recentre-compensate Leaflet
+  // SYNCHRONOUSLY here, before the browser paints, so there's never a frame where
+  // the container is full-height while Leaflet is still band-sized (which flashed
+  // the visible band grey / looking panned). We capture the band's bottom-centre
+  // geo first (Leaflet still thinks it's band-sized), invalidate to full, then pan
+  // that exact point back to the new bottom-centre — pinning the guessing content
+  // in place so the new space just fills in above (no re-center jump). maxBounds is
+  // lifted on answerShown so this isn't clamped.
+  useLayoutEffect(() => {
+    if (!answerShown || !map || !(bandFraction > 0 && bandFraction < 1)) return;
+    try {
+      const s0 = map.getSize();
+      const anchor = map.containerPointToLatLng([s0.x / 2, s0.y]);
+      map.invalidateSize({ animate: false });
+      const s1 = map.getSize();
+      const cur = map.latLngToContainerPoint(anchor);
+      map.panBy(cur.subtract([s1.x / 2, s1.y]), { animate: false });
+    } catch (e) {}
+  }, [map, answerShown, bandFraction]);
+
   useEffect(() => {
     if (!map || !answerShown || !dest || stopCameraAnimations) return;
+
+    // Fire exactly once, the moment the map has finished resizing to its new
+    // (full) size — the host listens for this to unclip to full-screen with no
+    // resize flicker. Guarded so the resize-cap and the stable-frame paths can't
+    // double-signal.
+    let readySignaled = false;
+    const signalReady = () => {
+      if (readySignaled) return;
+      readySignaled = true;
+      try { onRevealReady && onRevealReady(); } catch (e) {}
+    };
 
     const baseDelay = pinPoint
       ? (isMobile ? REVEAL.pinDelayMobileMs : REVEAL.pinDelayDesktopMs)
@@ -566,14 +676,22 @@ const RevealController = memo(function RevealController({
     const finishResize = () => {
       if (cancelled || !resizingRef.current) return;
       resizingRef.current = false;
+      // Resize is settled and the map is invalidated at full size — safe to show.
+      signalReady();
       if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
       if (resizeCapTimer != null) { clearTimeout(resizeCapTimer); resizeCapTimer = null; }
       const elapsed = performance.now() - resizeStart;
-      const remaining = Math.max(0, baseDelay - elapsed);
+      // Band mode (mobile): fly to the guess/answer extent IMMEDIATELY, concurrent
+      // with the host's slide-up — the re-center has been compensated so the fly
+      // starts cleanly from the guessing view. Other hosts use the normal delay.
+      const remaining = (bandFraction > 0 && bandFraction < 1)
+        ? 0
+        : Math.max(0, baseDelay - elapsed);
       flyTimer = setTimeout(startFly, remaining);
     };
 
     if (!container) {
+      signalReady();
       flyTimer = setTimeout(startFly, baseDelay);
       return () => { cancelled = true; cleanup(); };
     }
@@ -584,6 +702,8 @@ const RevealController = memo(function RevealController({
     let lastH = container.clientHeight;
     let stableFrames = 0;
     const STABLE_FRAMES_REQUIRED = 3;
+    // Band mode does its resize + compensation synchronously in the useLayoutEffect
+    // above; here the tick just confirms the size is stable, then flies.
 
     const tick = () => {
       if (cancelled || !resizingRef.current) return;
@@ -622,6 +742,39 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
   useEffect(() => {
     if (!map) return;
     return () => { try { map.stop(); } catch {} };
+  }, [map]);
+  return null;
+});
+
+/**
+ * Finishes an in-flight PINCH zoom the instant the next touch gesture starts.
+ * While a zoom animation runs, Leaflet's `_animatingZoom` flag makes
+ * `TouchZoom._onTouchStart` bail, so a fast second pinch (and the first pan/tap
+ * after a pinch) is swallowed — the "every other zoom rejected" mobile bug.
+ * Finishing the in-flight zoom on `touchstart` (capture phase, before Leaflet's
+ * own handlers) unblocks it. `stopMapAnimations` clears `_animatingZoom` without
+ * firing synthetic zoom/move events, so it won't disturb the camera controllers
+ * (RevealController / ExtentFitter).
+ *
+ * TOUCH-ONLY by design. On desktop, zoom is the mouse wheel, and Leaflet's
+ * ScrollWheelZoom already accumulates wheel deltas and drives its own animation
+ * correctly. Intercepting `wheel`/`mousedown` here aborted that animation
+ * mid-flight on every tick (clearing `_animatingZoom`, stripping the
+ * `leaflet-zoom-anim` class), desyncing the pane transform from the zoom level
+ * and making desktop zoom jump wildly. Leaving those paths to Leaflet restores
+ * the original (master) desktop behaviour while keeping the mobile pinch fix.
+ */
+const ZoomFix = memo(function ZoomFix() {
+  const map = useMap();
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer?.();
+    if (!container) return;
+    const finishZoom = () => { if (map._animatingZoom) stopMapAnimations(map); };
+    container.addEventListener("touchstart", finishZoom, true);
+    return () => {
+      container.removeEventListener("touchstart", finishZoom, true);
+    };
   }, [map]);
   return null;
 });
@@ -862,6 +1015,9 @@ const MapComponent = ({
   stopCameraAnimations,
   resetKey,
   cameraCancelKey,
+  onRevealReady,
+  bandFraction,
+  lang,
 }) => {
   const { t: text } = useTranslation("common");
   // Single source of truth for "the reveal animation owns invalidateSize".
@@ -956,7 +1112,7 @@ const MapComponent = ({
       </div>
 
       <CameraAnimationStopper active={stopCameraAnimations} cameraCancelKey={cameraCancelKey} resizingRef={resizingRef} />
-      <BoundsApplier bounds={answerShown ? null : VIEW_BOUNDS} />
+      <BoundsApplier bounds={answerShown ? null : VIEW_BOUNDS} extent={gameOptions?.extent} />
       <ClickHandler
         answerShown={answerShown}
         multiplayerState={multiplayerState}
@@ -972,8 +1128,11 @@ const MapComponent = ({
         resizingRef={resizingRef}
         stopCameraAnimations={stopCameraAnimations}
         cameraCancelKey={cameraCancelKey}
+        onRevealReady={onRevealReady}
+        bandFraction={bandFraction}
       />
       <ContainerResizeBridge resizingRef={resizingRef} />
+      <ZoomFix />
 
       {answerShown && (
         <DestMarker location={answerLocation} icon={icons.dest} />
@@ -1026,7 +1185,9 @@ const MapComponent = ({
         // cache hit), so painting them at full opacity is correct and
         // makes the wrap-snap effectively invisible.
         fadeAnimation={false}
-        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${text("lang")}&scale=2`}
+        // `lang` prop (mobile embed) drives the tile-label language deterministically;
+        // web renders Map.js without it and falls back to the i18n's text("lang").
+        url={`https://mt{s}.google.com/vt/lyrs=${options?.mapType ?? 'm'}&x={x}&y={y}&z={z}&hl=${lang || text("lang")}&scale=2`}
         subdomains={['0', '1', '2', '3']}
         attribution='&copy; <a href="https://maps.google.com">Google</a>'
         maxZoom={22}

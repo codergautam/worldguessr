@@ -5,6 +5,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  appleId: {
+    type: String,
+    required: false,
+  },
   secret: {
     type: String,
     required: true,
@@ -201,6 +205,8 @@ const userSchema = new mongoose.Schema({
 
 // Index for email lookups during Google OAuth login
 userSchema.index({ email: 1 });
+// Index for Apple Sign In lookups
+userSchema.index({ appleId: 1 });
 // Index for finding users with expired temp bans
 userSchema.index({ banned: 1, banType: 1, banExpiresAt: 1 });
 // Index for finding users with pending name changes
