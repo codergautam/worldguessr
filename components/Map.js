@@ -1010,6 +1010,28 @@ const MapComponent = ({
         />
       )}
 
+      {/* 2v2: show teammate's live (interim) guess during the guess phase */}
+      {!answerShown && multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state === 'guess' && (() => {
+        const myId = multiplayerState?.gameData?.myId;
+        const players = multiplayerState?.gameData?.players || [];
+        const myTeam = players.find(p => p.id === myId)?.team;
+        const mates = players
+          .filter(p => p.id !== myId && p.team && p.team === myTeam && (p.latLong || p.guess))
+          .map(p => ({ ...p, guess: p.latLong || p.guess }));
+        if (!mates.length) return null;
+        return (
+          <MultiplayerLayer
+            players={mates}
+            myId={myId}
+            dest={null}
+            srcIcon={icons.src2}
+            polandballIcon={icons.polandball}
+            polylineRenderer={canvasRenderer}
+            isCoolMath={isCoolMath}
+          />
+        );
+      })()}
+
       {showHint && location && (
         <HintCircle location={location} gameOptions={gameOptions} round={round} />
       )}

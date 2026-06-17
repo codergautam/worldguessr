@@ -819,7 +819,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 )}
 
 
-{ multiplayerState?.gameData?.duel && multiplayerState?.gameData?.state !== 'end' && (
+{ multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state !== 'end' && (
   <div className={`hbparent ${isStartingDuel ? 'hb-parent' : ''}`}>
     <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
   <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
@@ -869,6 +869,53 @@ start={true || isStartingDuel} isOpponent={true} />
 </p>
 </div>
 )}
+
+{/* 2v2 team health bars: one shared bar per team (your team vs enemy team) */}
+{ multiplayerState?.gameData?.team2v2 && multiplayerState?.gameData?.state !== 'end' && (() => {
+  const players = multiplayerState?.gameData?.players || [];
+  const myId = multiplayerState?.gameData?.myId;
+  const me = players.find(p => p.id === myId);
+  const myTeam = me?.team || 'a';
+  const enemyTeam = myTeam === 'a' ? 'b' : 'a';
+  const teamScores = multiplayerState?.gameData?.teamScores || { a: 5000, b: 5000 };
+  const myNames = players.filter(p => p.team === myTeam).map(p => p.id === myId ? text("you") : p.username).join(' & ');
+  const enemyNames = players.filter(p => p.team === enemyTeam).map(p => p.username).join(' & ');
+  return (
+  <div className={`hbparent ${isStartingDuel ? 'hb-parent' : ''}`}>
+    <div className={`${isStartingDuel ? 'hb-bars' : ''}`}>
+      <div style={{zIndex: 1001, position: "fixed", top: 0, left: 0, pointerEvents: 'none'}}
+        className={(multiplayerState && isStartingDuel) ? 'hb-start1' : ''}>
+        <HealthBar
+          health={teamScores[myTeam]}
+          maxHealth={5000}
+          name={myNames || text("yourTeam")}
+          isStartingDuel={isStartingDuel}
+          start={isStartingDuel} />
+      </div>
+
+      { isStartingDuel && (
+        <p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 50, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          VS
+        </p>
+      ) }
+
+      <div style={{zIndex: 1001, position: "fixed", top: 0, right: 0, pointerEvents: 'none'}}
+        className={isStartingDuel ? 'hb-start2' : ''}>
+        <HealthBar
+          health={teamScores[enemyTeam]}
+          maxHealth={5000}
+          isStartingDuel={isStartingDuel}
+          name={enemyNames || text("enemyTeam")}
+          start={true || isStartingDuel} isOpponent={true} />
+      </div>
+    </div>
+
+    <p style={{zIndex: 1000, pointerEvents: 'none', color: 'white', fontSize: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', display: isStartingDuel ? '' : 'none', marginTop: "10px" }}>
+      {timeToNextMultiplayerEvt}
+    </p>
+  </div>
+  );
+})()}
 
 {/* Duel Anti-Cheat Warning */}
 {multiplayerState?.gameData?.duel && multiplayerState?.gameData?.public && isStartingDuel && (

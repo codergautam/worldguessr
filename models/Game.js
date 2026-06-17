@@ -51,6 +51,9 @@ const playerSummarySchema = new mongoose.Schema({
   // Ranking
   finalRank: { type: Number, required: true }, // 1st, 2nd, 3rd place
 
+  // Team identifier for team modes (e.g. 2v2). null/undefined for solo modes.
+  team: { type: String, default: null }, // 'a' | 'b'
+
   // Duel-specific data (only for ranked duels)
   elo: {
     before: { type: Number, default: null },
@@ -65,7 +68,7 @@ const gameSchema = new mongoose.Schema({
   gameType: {
     type: String,
     required: true,
-    enum: ['singleplayer', 'ranked_duel', 'unranked_multiplayer', 'private_multiplayer', 'daily_challenge']
+    enum: ['singleplayer', 'ranked_duel', 'unranked_multiplayer', 'private_multiplayer', 'daily_challenge', '2v2']
   },
 
   // Game settings
@@ -99,6 +102,7 @@ const gameSchema = new mongoose.Schema({
   // Game result metadata
   result: {
     winner: { type: String, default: null }, // playerId of winner (for duels)
+    winningTeam: { type: String, default: null }, // 'a' | 'b' for team modes (2v2)
     isDraw: { type: Boolean, default: false }, // for duels
     maxPossiblePoints: { type: Number, required: true } // rounds * 5000
   },

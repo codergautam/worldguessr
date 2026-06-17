@@ -1037,6 +1037,85 @@ app.ws('/wg', {
         }
       }
 
+      // ---- 2v2 team mode ----
+      // Pressing 2v2 drops the player straight into a private staging "lobby"
+      // (reuses the party Game in waiting state, max 2, with a join code +
+      // inviteFriend). From there they can share/enter a code, invite a friend,
+      // or hit Find Match — solo (random teammate) or as a full duo.
+      if (json.type === 'create2v2Lobby' && !player.gameId) {
+        if (player.banned) {
+          player.send({ type: 'toast', key: 'accountSuspended', toastType: 'error' });
+          return;
+        }
+        if (maintenanceMode) {
+          player.send({ type: 'toast', key: 'maintenanceModeStarted', toastType: 'error' });
+          return;
+        }
+        const gameId = uuidv4();
+        const game = new Game(gameId, false); // private, acts as staging lobby
+        game.is2v2Lobby = true;
+        game.maxPlayers = 2;
+        games.set(gameId, game);
+        game.addPlayer(player, true); // host
+      }
+
+      if (json.type === 'join2v2Lobby') {
+        if (player.banned) {
+          player.send({ type: 'toast', key: 'accountSuspended', toastType: 'error' });
+          return;
+        }
+        // If already in a real (non-lobby) game, ignore.
+        const current = player.gameId ? games.get(player.gameId) : null;
+        if (current && !current.is2v2Lobby) return;
+
+        const code = json.gameCode;
+        joinGameByCode(code, () => {
+          player.send({ type: 'gameJoinError', error: 'Game is full' });
+        }, () => {
+          player.send({ type: 'gameJoinError', error: 'Invalid game code' });
+        }, (game) => {
+          if (!game.is2v2Lobby || game.id === current?.id) {
+            // Not a 2v2 lobby, or it's the lobby we're already in.
+            player.send({ type: 'gameJoinError', error: 'Invalid game code' });
+            return;
+          }
+          // Validated — leave our own lobby (silently) and join the target.
+          if (current) current.removePlayer(player, true);
+          game.addPlayer(player);
+        });
+      }
+
+      // Find Match from the lobby: works whether you're solo (we'll pair you with
+      // a random teammate) or already a full duo.
+      if (json.type === 'find2v2Match' && player.gameId && games.has(player.gameId)) {
+        const game = games.get(player.gameId);
+        if (!game.is2v2Lobby || !game.players[player.id]?.host) return;
+        if (player.banned) {
+          player.send({ type: 'toast', key: 'accountSuspended', toastType: 'error' });
+          return;
+        }
+        if (maintenanceMode) {
+          player.send({ type: 'toast', key: 'maintenanceModeStarted', toastType: 'error' });
+          return;
+        }
+        const members = Object.values(game.players);
+        // A shared teamId only matters for a full duo; solo players queue
+        // teamId-less so the matchmaker pairs them with a random teammate.
+        const teamId = members.length >= 2 ? uuidv4() : null;
+        const now = Date.now();
+        const memberIds = members.map(m => m.id);
+        for (const id of memberIds) {
+          const sock = players.get(id);
+          if (!sock) continue;
+          sock.gameId = null;
+          sock.inQueue = true;
+          playersInQueue.set(id, { mode: '2v2', teamId, queueTime: now });
+          sock.send({ type: 'enter2v2Queue' });
+        }
+        game.players = {};
+        games.delete(game.id);
+      }
+
       if (json.type === 'getFriends') {
         player.sendFriendData();
       }
@@ -1322,9 +1401,22 @@ try {
       players.set(player.id, newPlayer);
       disconnectedPlayers.set(player.accountId??player.rejoinCode, player.id);
     }
+    // Shift every time anchor forward by the downtime so recovered games resume
+    // with the SAME remaining time on their current phase instead of waking up
+    // with an already-expired nextEvtTime (which makes the 500ms loop race the
+    // game to completion before anyone can reconnect → rejoin lands on 'end').
+    const downtime = Date.now() - gamestate.time;
     for (const game of gamestate.games) {
       console.log(game.id);
       const newGame = Game.fromJSON(game);
+      if (typeof newGame.nextEvtTime === 'number') newGame.nextEvtTime += downtime;
+      if (typeof newGame.startTime === 'number') newGame.startTime += downtime;
+      if (typeof newGame.endTime === 'number') newGame.endTime += downtime;
+      if (newGame.roundStartTimes) {
+        for (const k of Object.keys(newGame.roundStartTimes)) {
+          newGame.roundStartTimes[k] += downtime;
+        }
+      }
       games.set(game.id, newGame);
     }
 
@@ -1443,6 +1535,47 @@ try {
     return pairs;
   }
 
+  // 2v2 team builder: turns the 2v2 queue into a list of 2-player teams.
+  // Pre-formed friend-duos (shared teamId) stay together; remaining solo players
+  // (and survivors of a broken duo) are paired in queue order. Unmatched
+  // leftovers stay in the queue for the next tick.
+  function build2v2Teams(queue) {
+    const entries = Array.from(queue.entries()).filter(([id, q]) => {
+      if (!q || q.mode !== '2v2') return false;
+      const p = players.get(id);
+      if (!p || !p.inQueue || p.gameId) { queue.delete(id); return false; }
+      return true;
+    });
+
+    const usedIds = new Set();
+    const teams = [];
+
+    // 1. Intact pre-formed duos
+    const byTeam = new Map();
+    for (const [id, q] of entries) {
+      if (!q.teamId) continue;
+      if (!byTeam.has(q.teamId)) byTeam.set(q.teamId, []);
+      byTeam.get(q.teamId).push(id);
+    }
+    for (const ids of byTeam.values()) {
+      if (ids.length >= 2) {
+        teams.push([ids[0], ids[1]]);
+        usedIds.add(ids[0]);
+        usedIds.add(ids[1]);
+      }
+    }
+
+    // 2. Pair remaining solos (and broken-duo survivors) in queue order
+    const solos = entries.filter(([id]) => !usedIds.has(id)).map(([id]) => id);
+    for (let i = 0; i + 1 < solos.length; i += 2) {
+      teams.push([solos[i], solos[i + 1]]);
+      usedIds.add(solos[i]);
+      usedIds.add(solos[i + 1]);
+    }
+
+    return teams;
+  }
+
 
 
   // queue handler
@@ -1545,7 +1678,7 @@ try {
       for (const playerData of playersInQueue) {
         const playerId = playerData[0];
         const queueData = playerData[1];
-        if (queueData.duel) {
+        if (queueData.duel || queueData.mode === '2v2') {
           continue;
         }
         const player = players.get(playerId);
@@ -1566,7 +1699,7 @@ try {
 
     }
 
-    if (playersInQueue.size > 1 && [...playersInQueue.values()].filter(r => !r.duel).length > 1) {
+    if (playersInQueue.size > 1 && [...playersInQueue.values()].filter(r => !r.duel && r.mode !== '2v2').length > 1) {
       // create a new public game (non duel)
       const gameId = uuidv4();
       const game = new Game(gameId, true, undefined, undefined, allLocations);
@@ -1579,7 +1712,7 @@ try {
         if (player.gameId) {
           continue;
         }
-        if(playerData[1].duel) {
+        if(playerData[1].duel || playerData[1].mode === '2v2') {
           continue;
         }
         if (playersCanJoin < 1) {
@@ -1588,6 +1721,39 @@ try {
         game.addPlayer(player);
         playersInQueue.delete(playerId);
         playersCanJoin--;
+      }
+    }
+
+    // 2v2 matchmaking: build teams, then pair two teams into a game (4 players).
+    if (playersInQueue.size >= 1) {
+      const teams = build2v2Teams(playersInQueue);
+      for (let i = 0; i + 1 < teams.length; i += 2) {
+        const teamA = teams[i];
+        const teamB = teams[i + 1];
+        const ids = [...teamA, ...teamB];
+        const socks = ids.map(id => players.get(id));
+
+        // Bail if anyone vanished / left the queue between build and create.
+        if (socks.some(s => !s || !s.inQueue || s.gameId)) {
+          for (const id of ids) {
+            const s = players.get(id);
+            if (!s || !s.inQueue) playersInQueue.delete(id);
+          }
+          continue;
+        }
+
+        const gameId = uuidv4();
+        // public=true (loop manages lifecycle like a public duel), team2v2=true.
+        const game = new Game(gameId, true, undefined, undefined, allLocations, false, true);
+        games.set(gameId, game);
+
+        game.addPlayer(socks[0], undefined, 'p1', 'a');
+        game.addPlayer(socks[1], undefined, 'p2', 'a');
+        game.addPlayer(socks[2], undefined, 'p3', 'b');
+        game.addPlayer(socks[3], undefined, 'p4', 'b');
+        for (const id of ids) playersInQueue.delete(id);
+
+        game.start();
       }
     }
 

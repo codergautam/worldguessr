@@ -183,8 +183,22 @@ export default class Player {
               // Only accept UUID format rejoinCodes (contain dashes), reject MongoDB ObjectIds
               const dcPlayerId = disconnectedPlayers.get(json.rejoinCode);
               if(dcPlayerId) {
-                handleReconnect(dcPlayerId, json.rejoinCode);
+                await handleReconnect(dcPlayerId, json.rejoinCode);
                 return;
+              }
+              // Race fallback (mirrors the logged-in "uac" path for guests): on a
+              // fast refresh the new socket's verify can arrive BEFORE the old
+              // socket's close fires, so the old session is still live in `players`
+              // and not yet in disconnectedPlayers. Find it by rejoinCode, kick the
+              // stale socket, and reconnect to it — otherwise we'd mint a brand-new
+              // guest and strand them (e.g. dumped out of a 2v2 lobby to home).
+              for (const p of players.values()) {
+                if (p.id !== this.id && p.rejoinCode === json.rejoinCode) {
+                  try { p.send({ type: 'error', message: 'uac' }); } catch(e){}
+                  try { p.ws?.close(); } catch(e){}
+                  await handleReconnect(p.id, json.rejoinCode);
+                  return;
+                }
               }
             }
 

@@ -1018,6 +1018,25 @@ const GameSummary = ({
                 {draw ? text("draw") : winner ? text("victory") : text("defeat")}
               </h1>
 
+              {data.team2v2 && data.teamScores && (() => {
+                const players = multiplayerState?.gameData?.players || [];
+                const myTeam = players.find(p => p.id === multiplayerState?.gameData?.myId)?.team || 'a';
+                const enemyTeam = myTeam === 'a' ? 'b' : 'a';
+                return (
+                  <div className="twovtwo-result-summary">
+                    <div className="twovtwo-result-team">
+                      <span className="twovtwo-result-label">{text("yourTeam")}</span>
+                      <span className="twovtwo-result-hp">{Math.max(0, Math.round(data.teamScores[myTeam] ?? 0))} ❤️</span>
+                    </div>
+                    <span className="twovtwo-result-vs">{text("vs")}</span>
+                    <div className="twovtwo-result-team">
+                      <span className="twovtwo-result-label">{text("enemyTeam")}</span>
+                      <span className="twovtwo-result-hp">{Math.max(0, Math.round(data.teamScores[enemyTeam] ?? 0))} ❤️</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {typeof data.oldElo === "number" && typeof data.newElo === "number" && (
                 <div className="elo-container">
                   <span className="elo-title">{text("elo")}:</span>
@@ -1113,8 +1132,59 @@ const GameSummary = ({
             </div>
 
             <div className={`rounds-container ${!mobileExpanded ? 'mobile-hidden' : ''}`} ref={roundsContainerRef}>
+              {/* 2v2: team-based round breakdown (best guess of each team) */}
+              {multiplayerState?.gameData?.team2v2 && finalHistory.length > 0 && (() => {
+                const players = multiplayerState?.gameData?.players || [];
+                const teamOf = {};
+                players.forEach(p => { teamOf[p.id] = p.team; });
+                const myTeam = players.find(p => p.id === multiplayerState?.gameData?.myId)?.team || 'a';
+                const enemyTeam = myTeam === 'a' ? 'b' : 'a';
+                return (
+                  <>
+                    <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("roundDetails")}</h3>
+                    {finalHistory.map((round, index) => {
+                      let myBest = 0, enemyBest = 0;
+                      Object.entries(round.players || {}).forEach(([id, pdata]) => {
+                        const pts = pdata?.points || 0;
+                        if (teamOf[id] === myTeam) myBest = Math.max(myBest, pts);
+                        else if (teamOf[id] === enemyTeam) enemyBest = Math.max(enemyBest, pts);
+                      });
+                      const myDmg = myBest < enemyBest ? enemyBest - myBest : 0;
+                      const enemyDmg = enemyBest < myBest ? myBest - enemyBest : 0;
+                      return (
+                        <div
+                          key={index}
+                          className={`round-item round-animation ${activeRound === index ? 'active' : ''}`}
+                          style={{ animationDelay: `${index * 0.1}s` }}
+                          onClick={() => handleRoundClick(index)}
+                        >
+                          <div className="round-header">
+                            <span className="round-number">{text("roundNo", { r: index + 1 })}</span>
+                          </div>
+                          <div className="round-details">
+                            <div className="duel-round-details" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                              <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                <span className="player-name" style={{ fontSize: '0.9em', opacity: '0.8' }}>{text("yourTeam")}</span>
+                                <span className="score-points" style={{ color: getPointsColor(myBest), fontWeight: 'bold' }}>{myBest} {text("pts")}</span>
+                                {myDmg > 0 && <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}>-{myDmg} ❤️</span>}
+                              </div>
+                              <div className="vs-divider" style={{ padding: '0 16px', fontWeight: 'bold', color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.9em' }}>{text("vs")}</div>
+                              <div className="player-score" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                <span className="player-name" style={{ fontSize: '0.9em' }}>{text("enemyTeam")}</span>
+                                <span className="score-points" style={{ color: getPointsColor(enemyBest), fontWeight: 'bold' }}>{enemyBest} {text("pts")}</span>
+                                {enemyDmg > 0 && <span className="health-damage" style={{ color: '#ff6b6b', fontSize: '0.85em' }}>-{enemyDmg} ❤️</span>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              })()}
+
               {/* For ranked duels with 2 players */}
-              {multiplayerState?.gameData?.duel && finalHistory.length > 0 && (
+              {multiplayerState?.gameData?.duel && !multiplayerState?.gameData?.team2v2 && finalHistory.length > 0 && (
                 <>
                   <h3 style={{ padding: '12px 20px', color: 'white', marginBottom: '0', borderBottom: '1px solid rgba(255, 255, 255, 0.1)' }}>{text("roundDetails")}</h3>
                   {finalHistory.map((round, index) => {

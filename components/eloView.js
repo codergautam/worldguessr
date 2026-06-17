@@ -305,6 +305,26 @@ export default function EloView({ eloData, session, isPublic = false, username =
                             <div style={statValueStyle}>{(eloData.win_rate * 100).toFixed(2)}%</div>
                         </div>
                     ) :  null}
+
+                    {/* 2v2 team stats (unranked) — only shown once the user has played 2v2 */}
+                    {((eloData.team2v2_wins || 0) + (eloData.team2v2_losses || 0) + (eloData.team2v2_tied || 0)) > 0 && (
+                        <>
+                            <div style={statItemStyle}>
+                                <div style={statLabelStyle}>{text("twovtwoWon")}</div>
+                                <div style={statValueStyle}>{eloData.team2v2_wins || 0}</div>
+                            </div>
+                            <div style={statItemStyle}>
+                                <div style={statLabelStyle}>{text("twovtwoLost")}</div>
+                                <div style={statValueStyle}>{eloData.team2v2_losses || 0}</div>
+                            </div>
+                            {eloData.team2v2_win_rate ? (
+                                <div style={statItemStyle}>
+                                    <div style={statLabelStyle}>{text("twovtwoWinRate")}</div>
+                                    <div style={statValueStyle}>{(eloData.team2v2_win_rate * 100).toFixed(2)}%</div>
+                                </div>
+                            ) : null}
+                        </>
+                    )}
                 </div>
             </div>
 

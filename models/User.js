@@ -189,6 +189,19 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // 2v2 team mode stats (unranked, no ELO). Defaults keep all existing docs valid.
+  team2v2_wins: {
+    type: Number,
+    default: 0,
+  },
+  team2v2_losses: {
+    type: Number,
+    default: 0,
+  },
+  team2v2_tied: {
+    type: Number,
+    default: 0
+  },
   lastNameChange: {
     type: Date,
     default: 0
