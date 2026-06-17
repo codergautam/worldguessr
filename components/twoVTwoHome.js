@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from '@/components/useTranslations';
-import { FaArrowLeft, FaCopy, FaUserPlus, FaBolt } from 'react-icons/fa';
+import { FaCopy, FaUserPlus, FaBolt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import BannerText from './bannerText';
 import UsernameWithFlag from './utils/usernameWithFlag';
