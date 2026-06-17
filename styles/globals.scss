@@ -3158,34 +3158,6 @@ h1, h2, h3, span, label {
     margin-top: 0;
 }
 
-.twovtwo-lobby-head {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.twovtwo-back-icon {
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    color: white;
-    cursor: pointer;
-    pointer-events: all;
-    transition: background 0.15s ease;
-
-    &:hover { background: rgba(255, 255, 255, 0.18); }
-}
-
 .twovtwo-code-label {
     color: rgba(255, 255, 255, 0.8);
     font-weight: 600;
