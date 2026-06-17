@@ -42,6 +42,33 @@ const genericError = () =>
 const noTokenError = () =>
   t('googleNoSignInToken', undefined, 'Google did not return a sign in token.');
 
+/**
+ * Turn a native Google Sign-In error into a clear, user-facing message instead of
+ * a blanket "try again". Known, user-actionable conditions (Play Services, no
+ * network) get specific copy; DEVELOPER_ERROR (code 10) is a config problem the
+ * user can't fix, so in production it reads as "temporarily unavailable" while in
+ * a dev build it spells out the real cause (SHA-1 / client-id mismatch). Any
+ * unknown code is appended in dev builds only, so prod stays clean.
+ */
+function describeNativeError(e: any, statusCodes: any): string {
+  const code = e?.code != null ? String(e.code) : 'unknown';
+  if (statusCodes && e?.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+    return t('googleSignInNoPlayServices', undefined,
+      'Google Play Services is unavailable or out of date. Update it and try again.');
+  }
+  if (code === '7') { // GoogleSignInStatusCodes NETWORK_ERROR
+    return t('errorNetworkRequest', undefined, 'Network error. Check your connection and try again.');
+  }
+  if (code === '10') { // DEVELOPER_ERROR — signing SHA-1 / client id not registered
+    return __DEV__
+      ? 'Google sign-in misconfigured (DEVELOPER_ERROR / code 10): the app’s signing SHA-1 or client ID is not registered in Google Cloud for this package.'
+      : t('googleSignInUnavailable', undefined,
+          'Google sign-in is temporarily unavailable. Please try again later.');
+  }
+  const base = genericError();
+  return __DEV__ ? `${base} (${code})` : base;
+}
+
 // ── Android: native Google Sign-In (Play Services) ─────────────────────────────
 // Lazily required + configured once, so the native module is only ever touched on
 // Android (never iOS / Expo Go, where it isn't linked).
@@ -73,17 +100,19 @@ async function getAndroidIdToken(): Promise<TokenResult> {
   } catch (e: any) {
     // Cancellation (older API throws instead of returning {type:'cancelled'}) and
     // an in-progress prompt are not real failures — stay silent.
+    let statusCodes: any;
     try {
-      const { statusCodes, isErrorWithCode } = getNativeGoogleSignin();
-      if (isErrorWithCode?.(e)) {
+      const mod = getNativeGoogleSignin();
+      statusCodes = mod.statusCodes;
+      if (mod.isErrorWithCode?.(e)) {
         if (e.code === statusCodes.SIGN_IN_CANCELLED) return { ok: false, cancelled: true };
         if (e.code === statusCodes.IN_PROGRESS) return { ok: false };
       }
     } catch {
       // module unavailable while inspecting the error — fall through to generic.
     }
-    console.error('[useGoogleSignIn] native Google sign-in error:', e);
-    return { ok: false, error: genericError() };
+    console.error('[useGoogleSignIn] native Google sign-in error:', e?.code, e?.message || e);
+    return { ok: false, error: describeNativeError(e, statusCodes) };
   }
 }
 

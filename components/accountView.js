@@ -109,7 +109,10 @@ export default function AccountView({ accountData, setAccountData, supporter, el
         background: 'rgba(255, 255, 255, 0.1)',
         borderRadius: '20px',
         padding: '30px',
-        backdropFilter: 'blur(20px)',
+        // No backdropFilter: this card lives inside the scrollable account-modal
+        // body, where backdrop-filter blur causes white flicker artifacts during
+        // scroll (same reason it was removed from .account-modal-body). The body
+        // backdrop is a near-uniform dark gradient, so the blur added nothing.
         border: '1px solid rgba(255, 255, 255, 0.1)',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
     };

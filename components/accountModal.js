@@ -1,5 +1,5 @@
 import { Modal } from "react-responsive-modal";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AccountView from "./accountView";
 import EloView from "./eloView";
 import GameHistory from "./gameHistory";
@@ -23,6 +23,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
     const [showingGameAnalysis, setShowingGameAnalysis] = useState(false);
     const [isTouchDevice, setIsTouchDevice] = useState(false);
     const [copiedLink, setCopiedLink] = useState(false);
+    const bodyRef = useRef(null);
     const badgeStyle = {
         marginLeft: '15px',
         color: 'black',
@@ -91,6 +92,10 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
             setShowingGameAnalysis(false);
             setSelectedGame(null);
         }
+        // Snap the scroll container back to the top on tab switch — otherwise a
+        // freshly selected tab inherits the previous tab's scrolled-down offset,
+        // which feels broken.
+        if (bodyRef.current) bodyRef.current.scrollTop = 0;
     }, [accountModalPage]);
 
     if (!eloData) return null;
@@ -334,7 +339,7 @@ export default function AccountModal({ session, setSession, shown, setAccountMod
                             </div>
 
                             {/* Content Area - Single scroll container for iOS */}
-                            <div className="account-modal-body" style={{
+                            <div ref={bodyRef} className="account-modal-body" style={{
                                 height: '100%',
                                 overflowY: 'auto',
                                 overflowX: 'hidden',

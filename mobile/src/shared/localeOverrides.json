@@ -29,6 +29,8 @@
   "usernameFlaggedGoToProfileTab": "Your username has been flagged. Please change it from the Profile tab.",
   "appleNoSignInToken": "Apple did not return a sign in token.",
   "googleNoSignInToken": "Google did not return a sign in token.",
+  "googleSignInNoPlayServices": "Google Play Services is unavailable or out of date. Update it and try again.",
+  "googleSignInUnavailable": "Google sign-in is temporarily unavailable. Please try again later.",
   "appleSignInFailed": "Apple sign in failed. Please try again.",
   "continueWithApple": "Continue with Apple",
   "queueLeftDisconnect": "Connection lost — you've left the queue.",

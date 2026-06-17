@@ -1209,13 +1209,16 @@ html {
 .g2_container {
     background: var(--gradLight);
     backdrop-filter: blur(10px);
-    filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+    /* box-shadow (not filter: drop-shadow): drop-shadow on the same element as
+       backdrop-filter triggers white/grey compositing artifacts in Chrome.
+       box-shadow renders identically for these rounded cards without conflict. */
+    box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
 }
 
 .g2_container_harsh {
     background: var(--gradBottomAngle) !important;
     backdrop-filter: blur(10px);
-    filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+    box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
     background-color: rgba(0, 0, 0, 0.25) !important;
 }
 
@@ -1233,7 +1236,7 @@ html {
     background: var(--gradLight);
     background-color: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
-    filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+    box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
 }
 
 .g2_container_style {
@@ -1244,14 +1247,14 @@ html {
 .g2_container_full {
     background: var(--gradFull);
     backdrop-filter: blur(10px);
-    filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+    box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
 }
 
 .g2_container_dark {
     background: var(--gradLight) !important;
     background-color: rgba(0, 0, 0, 0.25) !important;
     backdrop-filter: blur(10px);
-    filter: drop-shadow(0px 6px 7px rgba(0, 0, 0, 0.3));
+    box-shadow: 0px 6px 7px rgba(0, 0, 0, 0.3);
 }
 
 .backBtn {
