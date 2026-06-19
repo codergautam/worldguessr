@@ -16,10 +16,10 @@ jobs:
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: 471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v6.0.3
 
     - name: Set up Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@6.4.0
       with:
         node-version: '18'
 
