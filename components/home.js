@@ -39,6 +39,7 @@ const MapGuessrModal = dynamic(() => import('@/components/mapGuessrModal'), { ss
 import MultiplayerHome from "@/components/multiplayerHome";
 import SetUsernameModal from "@/components/setUsernameModal";
 import EmoteReactions from "@/components/emoteReactions";
+import GameChat from "@/components/gameChat";
 import SettingsModal from "@/components/settingsModal";
 import WelcomeOverlay from "@/components/welcomeOverlay";
 import OnboardingComplete from "@/components/onboardingComplete";
@@ -2885,6 +2886,12 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         rightSide={multiplayerState?.inGame && multiplayerState?.gameData?.state === 'end'}
     />, [ws, multiplayerEmotesEnabled, multiplayerState?.inGame, multiplayerState?.gameData?.myId, multiplayerState?.gameData?.duel, multiplayerState?.gameData?.state])
 
+    const GameChatMemo = React.useMemo(() => <GameChat
+        ws={ws}
+        inGame={multiplayerState?.inGame}
+        myId={multiplayerState?.gameData?.myId}
+    />, [ws, multiplayerState?.inGame, multiplayerState?.gameData?.myId])
+
     // Send pong every 10 seconds if websocket is connected
     useEffect(() => {
         const pongInterval = setInterval(() => {
@@ -2989,6 +2996,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             {mapGuessrModal && <MapGuessrModal isOpen={true} onClose={() => setMapGuessrModal(false)} />}
             {pendingNameChangeModal && <PendingNameChangeModal session={session} isOpen={true} onClose={() => setPendingNameChangeModal(false)} />}
             {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && EmoteReactionsMemo}
+            {!process.env.NEXT_PUBLIC_SCHOOLGUESSR && GameChatMemo}
             <ToastContainer pauseOnFocusLoss={false} />
 
             {welcomeOverlayShown && screen === "onboarding" && (
