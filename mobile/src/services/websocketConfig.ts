@@ -23,6 +23,20 @@ export const WS_INGAME_RECONNECT_ATTEMPTS = 3;
 // reconnect, never data.
 export const WS_LIVENESS_TIMEOUT_MS = 7000;
 
+// Continuous foreground liveness watchdog. While the app is OPEN, a socket can die
+// silently — TCP dropped by a NAT/network change or a frozen JS thread — WITHOUT
+// ws.onclose/onerror ever firing, leaving a "zombie" that still reads readyState
+// OPEN. The foreground check above (WS_LIVENESS_TIMEOUT_MS) only runs on a
+// background→foreground transition, so a zombie that happens while the app stays
+// foregrounded is never noticed: stale online count, multiplayer stuck loading, no
+// reconnect — recoverable only by reopening the app. This watchdog ticks every
+// PING_INTERVAL and, if NO inbound message has arrived for MAX_SILENCE, treats the
+// socket as dead and forces a reconnect. MAX_SILENCE sits well above
+// TIME_SYNC_INTERVAL_MS (the guaranteed ~30s round-trip) plus network slack, so a
+// momentarily slow link never trips it, but a true zombie is caught within ~1 minute.
+export const WS_LIVENESS_PING_INTERVAL_MS = 15000;
+export const WS_LIVENESS_MAX_SILENCE_MS = 45000;
+
 // Heartbeat interval (ported from web home.js:2349-2358)
 export const PONG_INTERVAL_MS = 10000;
 

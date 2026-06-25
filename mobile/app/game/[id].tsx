@@ -559,6 +559,20 @@ export default function GameScreen() {
     && gameData?.state === 'getready'
     && gameData.curRound === 1
     && !gameData.duel);
+  // The round-1 ranked-duel VS-matchup intro (the full-screen GetReadyOverlay). The
+  // health bars are intentionally HIDDEN during this 5s cover — the matchup already
+  // shows both players' names/flags/ELO, so the bars only clutter it. Suppressing the
+  // DuelHUD here also defers its first mount to the 'guess' phase, so each bar's
+  // existing FadeInDown entrance plays exactly as the round begins (the requested
+  // smooth fade-in) with no extra animation code. One source of truth, reused by both
+  // the GetReadyOverlay gate (to show it) and the DuelHUD gate (to hide the bars).
+  // Skipped on a cold mid-duel reconnect (joinedInProgress) — there's no VS intro to
+  // play, so the bars stay up as normal.
+  const showDuelMatchupIntro = !!(isMultiplayer
+    && gameData?.state === 'getready'
+    && gameData.duel
+    && gameData.curRound === 1
+    && !gameData.joinedInProgress);
   // The loading banner covers an UNREADY street view during ACTIVE play only.
   // Never show it during an MP reveal: 'getready' (between-rounds) or 'end'
   // (final). At 'end' the server bumps curRound past totalRounds, which trips the
@@ -2058,9 +2072,13 @@ export default function GameScreen() {
             through every getready reveal — including the final getready (curRound =
             rounds+1) — and hide only at 'end'. The round-timer text no longer rides
             along during reveals (see `duelTimerShown` above), so this renders
-            bars-only during the answer reveal, exactly like web. */}
+            bars-only during the answer reveal, exactly like web. The one mobile-only
+            exception is the round-1 VS-matchup intro (showDuelMatchupIntro): that
+            full-screen cover has no web equivalent, so we hide the bars there and let
+            them fade in at round start. */}
         {isMultiplayer && gameData?.duel && gameData.state !== 'end'
-          && (gameData.state === 'guess' || gameData.state === 'getready') && (
+          && (gameData.state === 'guess' || gameData.state === 'getready')
+          && !showDuelMatchupIntro && (
           <SafeAreaView
             style={[styles.duelHudContainer, { paddingLeft: Math.max(insets.left, spacing.md), paddingRight: Math.max(insets.right, spacing.md) }]}
             edges={['top']}
@@ -2315,8 +2333,7 @@ export default function GameScreen() {
             matching web (components/gameUI.js where health bars stay visible across all states).
             Skipped on a cold reconnect mid-duel (joinedInProgress): drop straight back into
             the live round rather than replaying the VS intro. */}
-        {isMultiplayer && gameData?.state === 'getready' && gameData.duel && gameData.curRound === 1
-          && !gameData.joinedInProgress && (
+        {showDuelMatchupIntro && gameData && (
           // Reanimated exit fade: when the round flips to 'guess' the overlay
           // unmounts, so FadeOut dissolves the "Get Ready!" cover smoothly into
           // the (already-painted) panorama instead of a hard cut.

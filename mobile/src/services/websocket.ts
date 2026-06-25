@@ -21,6 +21,8 @@ import {
   TIME_SYNC_INTERVAL_MS,
   RECONNECT_WINDOW_MS,
   WS_LIVENESS_TIMEOUT_MS,
+  WS_LIVENESS_PING_INTERVAL_MS,
+  WS_LIVENESS_MAX_SILENCE_MS,
 } from './websocketConfig';
 
 const REJOIN_CODE_KEY = 'wg_rejoinCode';
@@ -44,6 +46,10 @@ class WebSocketService {
   private timeSyncInterval: ReturnType<typeof setInterval> | null = null;
   private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   private livenessTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Continuous foreground zombie-socket watchdog (see livenessWatchdog setup in
+  // setupConnection). Distinct from livenessTimeout, which is the one-shot
+  // foreground-transition probe.
+  private livenessWatchdog: ReturnType<typeof setInterval> | null = null;
   private appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
 
   // Reconnect control (replaces web's window.dontReconnect)
@@ -69,6 +75,14 @@ class WebSocketService {
   // Timestamp (ms) of the last timeSync response, used by the liveness watchdog
   // to detect a zombie socket on foreground (capture-and-compare).
   private _lastTimeSyncResponseAt = 0;
+
+  // Timestamp (ms) of the LAST inbound message of ANY type (refreshed in
+  // dispatchMessage). The continuous foreground liveness watchdog compares against
+  // this to detect a zombie socket — OPEN but silent — while the app stays
+  // foregrounded. Any server message (timeSync / t / cnt / game / …) proves the
+  // socket is alive, so this is a finer signal than _lastTimeSyncResponseAt (which
+  // only advances on the ~30s timeSync round-trip).
+  private _lastInboundAt = 0;
 
   // Timestamp (ms) the app was last backgrounded, to decide on foreground
   // whether we've been gone long enough that the server dropped our session.
@@ -648,6 +662,26 @@ class WebSocketService {
     this.timeSyncInterval = setInterval(() => {
       this.sendTimeSync();
     }, TIME_SYNC_INTERVAL_MS);
+
+    // Start the continuous foreground liveness watchdog. Seed _lastInboundAt to now
+    // so a freshly-opened socket (no inbound yet) isn't tripped on the first tick.
+    // Each tick: if the socket still reads OPEN but no message has arrived for
+    // WS_LIVENESS_MAX_SILENCE_MS, TCP died without an onclose (a zombie) — force a
+    // fresh connect+verify, exactly like the foreground-transition path. We respect
+    // the _dontReconnect latch (set on a UAC takeover) so a background timer never
+    // passively fights another device for the session; an explicit foreground reopen
+    // still recovers via handleAppStateChange, which intentionally ignores the latch.
+    this._lastInboundAt = Date.now();
+    this.livenessWatchdog = setInterval(() => {
+      if (
+        this.isConnected &&
+        !this._dontReconnect &&
+        Date.now() - this._lastInboundAt > WS_LIVENESS_MAX_SILENCE_MS
+      ) {
+        console.warn('[WS] Inbound silence — socket is a zombie, forcing reconnect');
+        this.connect(this._secret, true, { isReconnect: this._everConnected });
+      }
+    }, WS_LIVENESS_PING_INTERVAL_MS);
   }
 
   /**
@@ -695,6 +729,10 @@ class WebSocketService {
   // ── Internal: helpers ─────────────────────────────────────
 
   private dispatchMessage(data: any): void {
+    // ANY inbound message proves the socket is still alive — refresh the clock the
+    // foreground liveness watchdog reads (see livenessWatchdog in setupConnection).
+    this._lastInboundAt = Date.now();
+
     // Log all received messages (skip noisy ones)
     if (data.type !== 'pong' && data.type !== 't' && data.type !== 'timeSync') {
       console.log('[WS] <<<<', data.type, JSON.stringify(data).slice(0, 300));
@@ -748,6 +786,13 @@ class WebSocketService {
     if (this.livenessTimeout) {
       clearTimeout(this.livenessTimeout);
       this.livenessTimeout = null;
+    }
+    // Tear down the continuous liveness watchdog too. connect() runs clearIntervals()
+    // before re-opening, so the old watchdog is always cleared before setupConnection
+    // starts a fresh one — no duplicate watchdogs can coexist.
+    if (this.livenessWatchdog) {
+      clearInterval(this.livenessWatchdog);
+      this.livenessWatchdog = null;
     }
   }
 
