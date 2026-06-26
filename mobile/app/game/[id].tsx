@@ -108,6 +108,11 @@ interface RoundResult {
   points: number;
   distance: number;
   timeTaken: number;
+  // The round's answer country, frozen at guess time (world map only). The reveal
+  // banner reads this instead of the live currentLocation, which advances to the
+  // next round when currentRound increments — so "It was {country}" can never flip
+  // to the upcoming round's country while the banner is still on screen.
+  country?: string | null;
 }
 
 // extent = [west, south, east, north] i.e. [minLng, minLat, maxLng, maxLat]
@@ -143,9 +148,14 @@ interface PlayerGuessMarker {
 
 function findRoundHistory(roundHistory: RoundHistoryEntry[] | undefined, roundNumber: number): RoundHistoryEntry | undefined {
   if (!roundHistory || roundNumber < 1) return undefined;
-  return roundHistory.find((entry) => entry.round === roundNumber)
-    ?? roundHistory[roundNumber - 1]
-    ?? roundHistory[roundHistory.length - 1];
+  // EXACT round match only. The server doesn't re-send roundHistory on every
+  // between-round getready — it's sent in full only at game end and on reconnect.
+  // So after a mid-game reconnect, the stale list keeps missing the current round,
+  // and the old positional / last-entry fallbacks then returned an ADJACENT (newest
+  // stored) round → every later reveal showed the WRONG location + pins for the rest
+  // of the game. Returning undefined lets the caller fall through to the always-
+  // correct-by-index gameData.locations[completedRoundNumber - 1] (and live pins).
+  return roundHistory.find((entry) => entry.round === roundNumber);
 }
 
 function buildHistoryPlayerGuesses(history: RoundHistoryEntry | undefined): PlayerGuessMarker[] {
@@ -397,14 +407,42 @@ export default function GameScreen() {
   const duelWarningShownRef = useRef(false);
   const [duelWarningVisible, setDuelWarningVisible] = useState(false);
 
+  // Is THIS game/[id] instance the focused screen? The store's gameData is global and
+  // deliberately sticky for a finished public game (gameShutdown is ignored once
+  // public && state==='end', multiplayerStore.ts), and freezeOnBlur is off, so a
+  // blurred-but-still-mounted multiplayer instance keeps live-rendering. Without a
+  // focus gate it repaints the dead game's full-screen answer map, "You didn't guess!"
+  // banner, and player-count badge — visible behind a newer screen / during a
+  // crossfade (the reported ranked→singleplayer leak). Mirrors web, which mounts the
+  // multiplayer GameUI ONLY under screen==='multiplayer'; here we gate the RENDER
+  // (never the data, so results/reconnect still work) on focus. Tracked via the
+  // navigation focus/blur events — equivalent to @react-navigation's useIsFocused,
+  // which expo-router doesn't re-export and isn't a direct dependency under pnpm.
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+  useEffect(() => {
+    setIsScreenFocused(navigation.isFocused());
+    const unsubFocus = navigation.addListener('focus', () => setIsScreenFocused(true));
+    const unsubBlur = navigation.addListener('blur', () => setIsScreenFocused(false));
+    return () => {
+      unsubFocus();
+      unsubBlur();
+    };
+  }, [navigation]);
+
   // Navigate home if multiplayer game shuts down. A mid-game WS drop tears the
   // game down (useWebSocket.onDisconnect) → !inGame → this pops us home, where we
   // keep reconnecting (yellow WsIndicator).
+  //
+  // Guard on isFocused() (same as the beforeRemove listener below): when /game/results
+  // is pushed on top, THIS screen stays mounted but unfocused. A server gameShutdown
+  // for a party/private game (the public&&end sticky guard in the store doesn't apply)
+  // flips inGame false and would otherwise fire dismissAllSafe from underneath results,
+  // yanking the user off the summary mid-read. Unfocused → results owns the exit.
   useEffect(() => {
-    if (isMultiplayer && !inGame) {
+    if (isMultiplayer && !inGame && navigation.isFocused()) {
       dismissAllSafe();
     }
-  }, [isMultiplayer, inGame]);
+  }, [isMultiplayer, inGame, navigation]);
 
   useEffect(() => {
     if (
@@ -585,6 +623,7 @@ export default function GameScreen() {
     || ((isLoading || !streetViewLoaded)
       && !(isMultiplayer && (gameData?.state === 'getready' || gameData?.state === 'end')));
   const showBetweenRoundMap = isMultiplayer
+    && isScreenFocused
     && gameData?.state === 'getready'
     && gameData.curRound > 1
     && gameData.curRound <= (gameData.rounds ?? 0) // exclude the post-final getready — that's the final reveal, not a between-rounds one
@@ -596,11 +635,16 @@ export default function GameScreen() {
   // handoff `showMapResult` dropped to false for one frame (between-map off,
   // isShowingResult not yet on) → the reveal collapsed and re-animated. This
   // inline flag closes that gap so it plays once and transitions seamlessly.
-  const mpFinalReveal = !!(isMultiplayer && gameData
+  const mpFinalReveal = !!(isMultiplayer && isScreenFocused && gameData
     && (gameData.state === 'end'
       || (gameData.state === 'getready' && gameData.curRound > (gameData.rounds ?? 0)))
     && (gameData.locations?.length ?? 0) > 0);
-  const showMapResult = gameState.isShowingResult || showBetweenRoundMap || mpFinalReveal;
+  // Scope the local-result term to MP+focus so a lingering gameState.isShowingResult
+  // (the sync effect early-returns on a null gameData and never clears it on leave)
+  // can't repaint a stale reveal on a blurred multiplayer instance. Singleplayer is
+  // unaffected (its branch returns above; the else keeps the old behavior).
+  const showMapResult = (isMultiplayer ? (isScreenFocused && gameState.isShowingResult) : gameState.isShowingResult)
+    || showBetweenRoundMap || mpFinalReveal;
   // Once I've submitted this round (server `me.final`, set optimistically on
   // submit, reset each round by clearGuesses), the pin must lock — web doesn't
   // let you move your guess while waiting for the other players. Drives the
@@ -1222,6 +1266,7 @@ export default function GameScreen() {
           actualLat: currentLocation.lat,
           actualLong: currentLocation.long,
           panoId: currentLocation.panoId,
+          country: currentLocation.country,
           points,
           distance,
           timeTaken,
@@ -1314,6 +1359,7 @@ export default function GameScreen() {
             actualLat: currentLocation.lat,
             actualLong: currentLocation.long,
             panoId: currentLocation.panoId,
+            country: currentLocation.country,
             points: 0,
             distance: 0,
             timeTaken,
@@ -1756,7 +1802,7 @@ export default function GameScreen() {
             points={lastGuess.points}
             distance={lastGuess.distance}
             didGuess={lastGuess.guessLat != null && lastGuess.guessLong != null}
-            answerCountry={currentMapSlug === 'all' ? currentLocation?.country ?? null : null}
+            answerCountry={currentMapSlug === 'all' ? lastGuess?.country ?? null : null}
             guessLat={lastGuess.guessLat}
             guessLng={lastGuess.guessLong}
             panoShown={showPano}
@@ -1912,7 +1958,7 @@ export default function GameScreen() {
   // In-match player count (web navbar `#playerCnt`): person icon + number of
   // players in this game. Shown next to the back button for non-duel
   // ("unranked"/party) matches — duels show both players via the health bars.
-  const playersInMatch = isMultiplayer && gameData && !gameData.duel ? gameData.players.length : 0;
+  const playersInMatch = isMultiplayer && isScreenFocused && gameData && !gameData.duel ? gameData.players.length : 0;
   // `mpFinalReveal` (inline-derived) must gate the FAB alongside `isShowingResult`:
   // on the final round the server goes guess → getready(curRound=rounds+1) → end,
   // and at the getready→end handoff `mpGetReady` drops a frame BEFORE the deferred
@@ -2151,7 +2197,13 @@ export default function GameScreen() {
 
         {/* ═══ MOBILE GUESS BUTTONS - above map when map is open ═══ */}
         {/* Matches web: .mobile_minimap__btns.miniMapShown */}
-        {miniMapShown && !gameState.isShowingResult && (
+        {/* Gate on the INLINE reveal flag (showMapResult), not the deferred
+            gameState.isShowingResult: a between-round MP reveal sets isShowingResult
+            only at 'end', so the blue Guess/Waiting row would flash over the
+            full-screen answer reveal for one frame until the deferred miniMapShown
+            reset lands. showMapResult recognizes the reveal synchronously (same fix
+            as the FAB / duel timer above). */}
+        {miniMapShown && !showMapResult && (
           <Animated.View
             style={[
               styles.mapButtonsRow,
@@ -2364,7 +2416,7 @@ export default function GameScreen() {
       {/* Gated by the settings toggle (mirrors web's multiplayerEmotesEnabled). */}
       {emotesEnabled && isMultiplayer && gameData
         && (gameData.state === 'guess' || gameData.state === 'getready' || gameData.state === 'end') && (
-        <EmoteReactions hidden={miniMapShown && !gameState.isShowingResult} hideName={!!gameData.duel} />
+        <EmoteReactions hidden={miniMapShown && !showMapResult} hideName={!!gameData.duel} />
       )}
 
       {/* ═══ LOADING BANNER OVERLAY — shared with onboarding + country guesser ═══ */}

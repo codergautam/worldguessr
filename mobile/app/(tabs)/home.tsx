@@ -21,7 +21,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, getLeague, t } from '../../src/shared';
+import { colors, getLeague, t, formatCompact } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { api } from '../../src/services/api';
@@ -184,7 +184,7 @@ function OnlineCountBadge({
       pointerEvents="none"
     >
       <Text style={[styles.onlineCount, { fontSize }]}>
-        {t('onlineCnt', { cnt: shownCount })}
+        {t('onlineCnt', { cnt: formatCompact(shownCount) })}
       </Text>
     </Animated.View>
   );

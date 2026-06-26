@@ -38,7 +38,9 @@
       "Bash(sudo cat *)",
       "Bash(sudo cp *)",
       "Bash(sudo ls *)",
-      "Bash(sudo tee *)"
+      "Bash(sudo tee *)",
+      "Bash(git show *)",
+      "Read(//c/Users/GAUTAM~1/AppData/Local/Temp/claude/G--projects-worldguessr-worldguessr/de0bfcef-c669-4a93-a23e-2b07d19d68af/scratchpad/**)"
     ],
     "deny": []
   }

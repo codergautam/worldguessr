@@ -45,7 +45,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#112b18"
       },
-      "versionCode": 5,
+      "versionCode": 23,
       "edgeToEdgeEnabled": true,
       "package": "com.codergautamyt.worldguessr",
       "intentFilters": [
