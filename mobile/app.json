@@ -2,7 +2,7 @@
   "expo": {
     "name": "WorldGuessr",
     "slug": "worldguessr",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,6 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "buildNumber": "5",
       "bundleIdentifier": "com.codergautamyt.worldguessr",
       "associatedDomains": [
         "applinks:worldguessr.com",

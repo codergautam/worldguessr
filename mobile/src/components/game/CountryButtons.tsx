@@ -16,6 +16,7 @@ import {
   flagUrl,
   nameFromCode,
 } from '../../shared/data/countryHelpers';
+import { gameUiScale, isTabletSize } from '../../styles/responsive';
 
 const ANIMATED_ONE = new Animated.Value(1);
 
@@ -54,41 +55,33 @@ export default function CountryButtons({
   onPress,
 }: CountryButtonsProps) {
   const { width, height } = useWindowDimensions();
+  const scale = gameUiScale(width, height);
+  const isTablet = isTabletSize(width, height);
+  /** Tablet-scaled value, rounded to the nearest 0.5dp. 1.0× (no-op) on phones. */
+  const sc = (v: number) => Math.round(v * scale * 2) / 2;
   const isContinent = mode === 'continent';
   const items = isContinent ? [...ALL_CONTINENTS] : countries;
   const isShort = height <= 500;
-  const isPhone = width <= 600;
-  const isLarge = width >= 1200;
+  // Tablets are excluded from the phone tier and get their own (below). Phones
+  // keep the existing width<=600 behaviour untouched.
+  const isPhone = width <= 600 && !isTablet;
+  // The app is always a touch device, so — exactly like the web's
+  // `@media (pointer: coarse)` rules — phones AND tablets use the full-width,
+  // wrapping, flex-basis layout (never the desktop content-hug). This is the
+  // fix for the iPad "buttons too small + skewed right with empty left space"
+  // bug: the old code routed tablets down the `undefined`-width hug path.
+  const useFlexLayout = isPhone || isTablet;
   const containerWidth = !compact
     ? width
     : isContinent
     ? isPhone
       ? width - 12
-      : Math.min(width * 0.7, 750)
-    : isPhone || isShort
+      : Math.min(width * (isTablet ? 0.82 : 0.7), isTablet ? 920 : 750)
+    : useFlexLayout || isShort
       ? width - 12
       : undefined;
 
   const buttonMetrics = useMemo(() => {
-    if (isLarge) {
-      return {
-        containerPaddingH: 18,
-        containerPaddingV: 16,
-        containerGap: 10,
-        rowGap: 12,
-        buttonPaddingH: isContinent ? 14 : 18,
-        buttonPaddingV: isContinent ? 10 : 11,
-        buttonGap: 7,
-        buttonRadius: 14,
-        minWidth: isContinent ? 95 : 112,
-        flagWidth: 60,
-        flagHeight: 40,
-        iconSize: 36,
-        promptFont: 16,
-        labelFont: 13.6,
-      };
-    }
-
     if (isShort) {
       return {
         containerPaddingH: compact ? 8 : 10,
@@ -105,6 +98,39 @@ export default function CountryButtons({
         iconSize: compact ? 24 : 30,
         promptFont: compact ? 11.5 : 13,
         labelFont: compact ? 10.4 : 12.2,
+      };
+    }
+
+    if (isTablet) {
+      // Web parity: tablets use the coarse-pointer LAYOUT (handled above via
+      // useFlexLayout/flexBasis) but with sizes scaled up from the phone-compact
+      // baseline by the tablet factor — so flags and labels read at iPad
+      // proportions (intentionally a touch larger than web, which leaves them at
+      // phone px on iPad). `sc()` is 1.0× on phones, so this branch only ever
+      // runs on real tablets.
+      //
+      // The compact COUNTRY guesser (flag buttons) was overshooting on iPads, so
+      // its flag/label/vertical-padding are dialed back a notch — still clearly
+      // larger than the old phone-px baseline, just no longer giant. Continent
+      // buttons and the non-compact onboarding grid are deliberately untouched.
+      const countryCompact = compact && !isContinent;
+      return {
+        containerPaddingH: sc(compact ? 10 : 14),
+        containerPaddingV: sc(compact ? 9 : 13),
+        containerGap: sc(compact ? 6 : 8),
+        rowGap: sc(compact ? 8 : 10),
+        buttonPaddingH: sc(countryCompact ? 9 : compact ? 12 : 16),
+        buttonPaddingV: sc(countryCompact ? 8 : compact ? 11 : 13),
+        buttonGap: sc(5),
+        buttonRadius: sc(compact ? 12 : 14),
+        minWidth: 0,
+        // Non-compact (onboarding) flags trimmed so they don't overshoot ~2x web
+        // on a 12.9" iPad; compact singleplayer flags pulled in from 46→35.
+        flagWidth: sc(countryCompact ? 35 : 48),
+        flagHeight: sc(countryCompact ? 23 : 32),
+        iconSize: sc(compact ? 42 : 46),
+        promptFont: sc(compact ? 14 : 15.5),
+        labelFont: sc(countryCompact ? 11 : compact ? 13 : 14.5),
       };
     }
 
@@ -143,7 +169,7 @@ export default function CountryButtons({
       promptFont: 13.6,
       labelFont: 12,
     };
-  }, [compact, isContinent, isLarge, isPhone, isShort]);
+  }, [compact, isContinent, isTablet, isPhone, isShort, scale]);
 
   const rowWrap = isShort && !isContinent ? 'nowrap' : 'wrap';
 
@@ -193,6 +219,9 @@ export default function CountryButtons({
         !compact && styles.wrapFullBottom,
         {
           width: containerWidth,
+          // Continent wrap is capped at 750 by styles.wrapContinent; lift it on
+          // tablets so the 6-button grid can use the wider scaled container.
+          ...(isContinent && isTablet ? { maxWidth: 920 } : null),
           paddingHorizontal: buttonMetrics.containerPaddingH,
           paddingTop: buttonMetrics.containerPaddingV,
           paddingBottom: buttonMetrics.containerPaddingV + bottomInset,
@@ -202,7 +231,17 @@ export default function CountryButtons({
       pointerEvents="box-none"
     >
       <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFillObject} pointerEvents="none" />
-      <Text style={[styles.prompt, { fontSize: buttonMetrics.promptFont }]}>
+      <Text
+        style={[
+          styles.prompt,
+          {
+            fontSize: buttonMetrics.promptFont,
+            // Only override the fixed lineHeight on tablets (where the font grew);
+            // phones keep styles.prompt.lineHeight (18) exactly — a true no-op.
+            ...(isTablet ? { lineHeight: Math.round(buttonMetrics.promptFont * 1.32) } : null),
+          },
+        ]}
+      >
         {t(isContinent ? 'whichContinent' : 'whichCountry')}
       </Text>
       <View
@@ -224,7 +263,7 @@ export default function CountryButtons({
             ? isContinent
               ? '14%'
               : 0
-            : isPhone
+            : useFlexLayout
               ? isContinent
                 ? '30%'
                 : compact
@@ -306,7 +345,15 @@ export default function CountryButtons({
                       />
                     )}
                     <Text
-                      style={[styles.label, { fontSize: buttonMetrics.labelFont }]}
+                      style={[
+                        styles.label,
+                        {
+                          fontSize: buttonMetrics.labelFont,
+                          // Tablet-only lineHeight bump; phones keep styles.label
+                          // lineHeight (15) untouched.
+                          ...(isTablet ? { lineHeight: Math.round(buttonMetrics.labelFont * 1.2) } : null),
+                        },
+                      ]}
                       numberOfLines={1}
                       ellipsizeMode="tail"
                       adjustsFontSizeToFit

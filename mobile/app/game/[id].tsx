@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, calcPoints, findDistance, getPlayerColor } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
+import { gameUiScale, isTabletSize, useGameUiScale } from '../../src/styles/responsive';
 import { api } from '../../src/services/api';
 import { fetchWithTimeout } from '../../src/services/fetchWithTimeout';
 import { haptics, hapticForScore } from '../../src/services/haptics';
@@ -220,6 +221,9 @@ function BetweenRoundsLeaderboard({
   gameData: GameData;
   timeOffset: number;
 }) {
+  // Scale the title up on tablets so the between-rounds reveal doesn't read tiny
+  // on an iPad (the PlayerList rows keep their own sizing). 1.0× on phones.
+  const { sc, isTablet } = useGameUiScale();
   // Fade the dark leaderboard IN over the last ~5s of getready, then HOLD it at
   // full opacity until the round actually changes. Web parity (components/gameUI.js):
   // the leaderboard fades in on a timer but only fades OUT once the state leaves
@@ -265,7 +269,7 @@ function BetweenRoundsLeaderboard({
         pointerEvents="none"
       >
         <SafeAreaView style={styles.betweenRoundsInner} edges={['top', 'bottom']}>
-          <Text style={styles.betweenRoundsTitle}>{t('leaderboard')}</Text>
+          <Text style={[styles.betweenRoundsTitle, isTablet && { fontSize: sc(30) }]}>{t('leaderboard')}</Text>
           <View style={styles.betweenRoundsListWrap}>
             <PlayerList
               players={gameData.players}
@@ -359,6 +363,12 @@ export default function GameScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { width, height } = useWindowDimensions();
+  // Tablet scaling for the multiplayer HUD (this screen duplicates GameSurface's
+  // controls for the MP path). Mirrors GameSurface so iPad MP players get the
+  // same scaled-up FAB / guess / map controls as singleplayer. 1.0× on phones.
+  const isTablet = isTabletSize(width, height);
+  const uiScale = gameUiScale(width, height);
+  const sc = (v: number) => Math.round(v * uiScale * 2) / 2;
   const insets = useSafeAreaInsets();
   // Duel layout: the two health bars are pinned to the screen corners, so a gap
   // opens in the middle. When that gap is wide enough (landscape, tablets, large
@@ -1887,16 +1897,22 @@ export default function GameScreen() {
                 disabled={activeShowingResult}
                 style={({ pressed }) => [
                   styles.mapSelectorBtn,
+                  isTablet && {
+                    paddingHorizontal: sc(spacing.md),
+                    paddingVertical: sc(spacing.xs + 2),
+                    gap: sc(6),
+                    maxWidth: sc(210),
+                  },
                   activeShowingResult && styles.mapSelectorBtnDisabled,
                   pressed && !activeShowingResult && { opacity: 0.85, transform: [{ scale: 0.97 }] },
                 ]}
                 onPress={() => setMapModalVisible(true)}
               >
-                <Ionicons name="map" size={14} color="rgba(255,255,255,0.85)" />
-                <Text style={styles.mapSelectorText} numberOfLines={1}>
+                <Ionicons name="map" size={sc(14)} color="rgba(255,255,255,0.85)" />
+                <Text style={[styles.mapSelectorText, { fontSize: sc(fontSizes.sm) }]} numberOfLines={1}>
                   {currentMapName}{nmpzEnabled ? ', NMPZ' : ''}
                 </Text>
-                <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.85)" />
+                <Ionicons name="chevron-down" size={sc(14)} color="rgba(255,255,255,0.85)" />
               </Pressable>
               <GameTimer
                 timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
@@ -2241,6 +2257,7 @@ export default function GameScreen() {
                   disabled={disabled}
                   style={({ pressed }) => [
                     styles.guessSubmitBtn,
+                    isTablet && { height: sc(48), borderRadius: sc(14) },
                     pressed && showActive && { opacity: 0.85 },
                   ]}
                 >
@@ -2259,6 +2276,7 @@ export default function GameScreen() {
                     <Text
                       style={[
                         styles.guessSubmitBtnText,
+                        { fontSize: sc(fontSizes.lg) },
                         !showActive && !locked && { opacity: 0.5 },
                         locked && { opacity: 0.85 },
                       ]}
@@ -2276,6 +2294,7 @@ export default function GameScreen() {
               onPress={() => setMiniMapShown(false)}
               style={({ pressed }) => [
                 styles.mapCollapseBtn,
+                isTablet && { width: sc(60), height: sc(48), borderRadius: sc(14) },
                 pressed && { opacity: 0.85 },
               ]}
             >
@@ -2285,7 +2304,7 @@ export default function GameScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.mapCollapseBtnInner}
               >
-                <Ionicons name="arrow-down" size={24} color={colors.white} />
+                <Ionicons name="arrow-down" size={sc(24)} color={colors.white} />
               </LinearGradient>
             </Pressable>
           </Animated.View>
@@ -2328,10 +2347,18 @@ export default function GameScreen() {
                   colors={locked ? ['#3a3a3a', '#2a2a2a'] : [colors.primary, colors.primaryDark]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.guessFabInner}
+                  style={[
+                    styles.guessFabInner,
+                    isTablet && {
+                      paddingHorizontal: sc(24),
+                      paddingVertical: sc(16),
+                      gap: sc(10),
+                      borderRadius: sc(16),
+                    },
+                  ]}
                 >
-                  <Ionicons name="map" size={28} color={colors.white} />
-                  <Text style={styles.guessFabText} numberOfLines={1}>{fabText}</Text>
+                  <Ionicons name="map" size={sc(28)} color={colors.white} />
+                  <Text style={[styles.guessFabText, { fontSize: sc(fontSizes.xl) }]} numberOfLines={1}>{fabText}</Text>
                 </LinearGradient>
               </Pressable>
             </Animated.View>

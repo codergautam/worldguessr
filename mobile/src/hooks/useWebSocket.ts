@@ -172,15 +172,32 @@ export function useWebSocket() {
   // connected (green) and fires onReconnected below.
   useEffect(() => {
     const unsub = wsService.onReconnecting(() => {
-      // A forced reconnect (foreground after a long background, or a zombie-socket
-      // liveness failure) means our socket was already gone — so the server has
-      // dropped us from any matchmaking queue. Pop home instead of showing a dead
-      // radar; an active game / party lobby is left mounted for the replay.
+      // Drop the preserved game state on a forced reconnect, mirroring the web
+      // client whose socket `onclose` resets multiplayerState to initial
+      // (MultiplayerProvider.js). The SERVER is the source of truth for whether
+      // we're still in a game: it keeps a disconnected player rejoinable for only
+      // ~30s (ws.js eviction loop), then deletes the player's session entirely. A
+      // reopen past that window is a brand-new connection the server can't tie to
+      // the old game, so it replies with `verify` but NOTHING about the game — no
+      // `game` replay, no `gameShutdown`. We used to leave inGame/gameData mounted
+      // "for the replay"; when the replay never came (the common case — an app is
+      // easily backgrounded for >30s) the user was stranded on a frozen, dead game
+      // screen, unable to interact. Clearing it here lets the game screen's
+      // `!inGame` effect pop home immediately. If the server DOES still have the
+      // game (we keep the rejoinCode, so a <30s rejoin still works), its `game`
+      // replay flips inGame back on and home.tsx's auto-nav effect re-enters the
+      // game — exactly like web restores its screen from the server payload.
+      // tearDownPhantomQueue also clears a matchmaking queue (never restored on a drop).
       tearDownPhantomQueue();
       useMultiplayerStore.setState({
         connected: false,
         verified: false,
         connecting: true,
+        // A reconnect starts from "not in a game"; only a server replay puts us
+        // back. Matches web's onclose reset and the onDisconnect teardown above.
+        inGame: false,
+        gameData: null,
+        emotes: [],
       });
     });
     return unsub;

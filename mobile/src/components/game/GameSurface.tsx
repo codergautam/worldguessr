@@ -24,6 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../shared';
 import { t } from '../../shared/locale';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
+import { gameUiScale, isTabletSize } from '../../styles/responsive';
 import StreetViewWebView, { StreetViewHandle } from './StreetViewWebView';
 import EmbeddedMap from './EmbeddedMap';
 import ReloadButton from '../ui/ReloadButton';
@@ -220,6 +221,11 @@ function GameSurface(
   const mapType = useSettingsStore((s) => s.mapType);
   const language = useSettingsStore((s) => s.language);
   const { width, height } = useWindowDimensions();
+  // Tablet scaling for the in-game controls (Guess FAB, map-row buttons). Fixed
+  // px controls read small on an iPad; bump them up. Phones: sc is 1.0× (no-op).
+  const isTablet = isTabletSize(width, height);
+  const uiScale = gameUiScale(width, height);
+  const sc = (v: number) => Math.round(v * uiScale * 2) / 2;
 
   const expandedMapHeight = getExpandedMapHeight(width, height);
   // True full-screen height for the result reveal. Under Android edge-to-edge,
@@ -789,16 +795,17 @@ function GameSurface(
                 disabled={hintShown || hintDisabled}
                 style={({ pressed }) => [
                   styles.hintBtn,
+                  isTablet && { height: sc(48), paddingHorizontal: sc(14), borderRadius: sc(14) },
                   (hintShown || hintDisabled) && styles.hintBtnDisabled,
                   pressed && !(hintShown || hintDisabled) && { opacity: 0.85 },
                 ]}
               >
                 <Ionicons
                   name="bulb"
-                  size={18}
+                  size={sc(18)}
                   color={hintShown || hintDisabled ? 'rgba(255,255,255,0.4)' : '#FFC107'}
                 />
-                <Text style={styles.hintBtnText}>{t('hint')}</Text>
+                <Text style={[styles.hintBtnText, { fontSize: sc(fontSizes.md) }]}>{t('hint')}</Text>
               </Pressable>
             )}
             <Pressable
@@ -806,6 +813,7 @@ function GameSurface(
               disabled={!guessPosition}
               style={({ pressed }) => [
                 styles.guessSubmitBtn,
+                isTablet && { height: sc(48), borderRadius: sc(14) },
                 pressed && guessPosition && { opacity: 0.85 },
               ]}
             >
@@ -818,6 +826,7 @@ function GameSurface(
                 <Text
                   style={[
                     styles.guessSubmitBtnText,
+                    { fontSize: sc(fontSizes.lg) },
                     !guessPosition && { opacity: 0.5 },
                   ]}
                 >
@@ -827,7 +836,11 @@ function GameSurface(
             </Pressable>
             <Pressable
               onPress={handleCloseMap}
-              style={({ pressed }) => [styles.mapCollapseBtn, pressed && { opacity: 0.85 }]}
+              style={({ pressed }) => [
+                styles.mapCollapseBtn,
+                isTablet && { width: sc(60), height: sc(48), borderRadius: sc(14) },
+                pressed && { opacity: 0.85 },
+              ]}
             >
               <LinearGradient
                 colors={[colors.primary, colors.primaryDark]}
@@ -835,7 +848,7 @@ function GameSurface(
                 end={{ x: 1, y: 1 }}
                 style={styles.mapCollapseBtnInner}
               >
-                <Ionicons name="arrow-down" size={24} color={colors.white} />
+                <Ionicons name="arrow-down" size={sc(24)} color={colors.white} />
               </LinearGradient>
             </Pressable>
           </Animated.View>
@@ -867,10 +880,18 @@ function GameSurface(
                 colors={[colors.primary, colors.primaryDark]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
-                style={styles.guessFabInner}
+                style={[
+                  styles.guessFabInner,
+                  isTablet && {
+                    paddingHorizontal: sc(24),
+                    paddingVertical: sc(16),
+                    gap: sc(10),
+                    borderRadius: sc(16),
+                  },
+                ]}
               >
-                <Ionicons name="map" size={28} color={colors.white} />
-                <Text style={styles.guessFabText}>{t('guess')}</Text>
+                <Ionicons name="map" size={sc(28)} color={colors.white} />
+                <Text style={[styles.guessFabText, { fontSize: sc(fontSizes.xl) }]}>{t('guess')}</Text>
               </LinearGradient>
             </Pressable>
           </Animated.View>
