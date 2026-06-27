@@ -33,9 +33,9 @@ A free and open-source version of the popular geography game inspired by GeoGues
 ### Prerequisites
 
 Before you start, ensure you have the following installed:
-- [Node.js](https://nodejs.org/en/) (v12.x or later)
+- [Node.js](https://nodejs.org/en/) (v18.18 or later)
 - [npm](https://www.npmjs.com/) (v6.x or later)
-- [pnpm](https://pnpm.io/) (v8.x or later)
+- [pnpm](https://pnpm.io/) (v9.x or later)
 
 ### Installation
 
