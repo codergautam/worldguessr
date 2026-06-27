@@ -16,11 +16,27 @@ const GRAPH_Y_AXIS_LABEL_WIDTH = 42;
 const GRAPH_MIN_PLOT_WIDTH = 170;
 const GRAPH_LEFT_TRIM = 12;
 const GRAPH_X_LABEL_WIDTH = 56;
-const DAY_MS = 1000 * 60 * 60 * 24;
 
 function getDayStart(dateLike: string | number | Date): number {
   const date = new Date(dateLike);
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+/**
+ * Add `n` calendar days to a local-midnight timestamp, returning the new
+ * local-midnight timestamp.
+ *
+ * Must use Date arithmetic (NOT a fixed `n * 24h` step): a fixed 24h step drifts off
+ * local midnight after a DST boundary (a DST day is 23h or 25h long), and the
+ * day-bucket keys in buildDailyProgressionEntries are local midnights. Once the
+ * step desyncs, every later entry's bucket is missed and gets replaced by a flat
+ * synthetic carry-forward, producing a long "elo didn't change" gap plus shifted
+ * date labels. `setDate` rolls over months/years and DST correctly.
+ */
+function addDays(localMidnightMs: number, n: number): number {
+  const date = new Date(localMidnightMs);
+  date.setDate(date.getDate() + n);
+  return date.getTime();
 }
 
 function buildDailyProgressionEntries(
@@ -39,10 +55,10 @@ function buildDailyProgressionEntries(
   let rangeEnd = getDayStart(sortedEntries[sortedEntries.length - 1].timestamp);
 
   if (dateFilter === '7days') {
-    rangeStart = todayStart - 6 * DAY_MS;
+    rangeStart = addDays(todayStart, -6);
     rangeEnd = todayStart;
   } else if (dateFilter === '30days') {
-    rangeStart = todayStart - 29 * DAY_MS;
+    rangeStart = addDays(todayStart, -29);
     rangeEnd = todayStart;
   }
 
@@ -66,7 +82,9 @@ function buildDailyProgressionEntries(
 
   const dailyEntries: ProgressionEntry[] = [];
 
-  for (let day = rangeStart; day <= rangeEnd; day += DAY_MS) {
+  // Step by calendar day (addDays), NOT a fixed 24h step — see addDays: a fixed
+  // 24h step drifts off the local-midnight bucket keys across a DST boundary.
+  for (let day = rangeStart; day <= rangeEnd; day = addDays(day, 1)) {
     const explicitEntry = latestEntryByDay.get(day);
     if (explicitEntry) {
       carryEntry = explicitEntry;
