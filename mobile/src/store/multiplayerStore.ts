@@ -294,7 +294,13 @@ interface MultiplayerState {
   setAllowFriendReqOnServer: (allow: boolean) => void;
   inviteFriendToGame: (friendSocketId: string, friendId?: string) => void;
   acceptGameInvite: (code: string, invitedById: string) => void;
-  joinPrivateGame: (code: string) => void;
+  /**
+   * Join a private game by 6-digit code. `viaLink` distinguishes a tap on a
+   * shared party link (deep-link handler, no join screen mounted) from a manual
+   * code entry on /party/join — it governs how a `gameJoinError` is surfaced
+   * (toast vs. inline). See the gameJoinError handler.
+   */
+  joinPrivateGame: (code: string, viaLink?: boolean) => void;
   leaveGame: () => void;
   resetGame: () => void;
   reset: () => void;
@@ -455,8 +461,11 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   },
   // Join a private game by 6-digit code. Shared by the join-code form and the
   // deep-link handler so there's one path (matches join.tsx handleJoin).
-  joinPrivateGame: (code) => {
-    set({ joinError: null, enteringGameCode: true });
+  // `enteringGameCode` mirrors web's flag: TRUE only for a manual entry (the
+  // /party/join screen is mounted to render `joinError`), FALSE for a link tap
+  // (no such screen) — the gameJoinError handler branches on it.
+  joinPrivateGame: (code, viaLink = false) => {
+    set({ joinError: null, enteringGameCode: !viaLink });
     wsService.send({ type: 'joinPrivateGame', gameCode: code });
   },
 
@@ -788,10 +797,30 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
       return;
     }
 
-    // ── gameJoinError (home.js:1794-1804) ──────────────────
+    // ── gameJoinError (home.js:2184-2206) ──────────────────
     if (data.type === 'gameJoinError') {
+      // Manual entry: the /party/join screen is mounted and renders `joinError`
+      // inline, so just hand it the message.
+      if (state.enteringGameCode) {
+        set({ joinError: data.error });
+        return;
+      }
+      // Joined via a shared party link: no join screen is on screen, so an inline
+      // `joinError` would be invisible (the silent-failure bug). Surface a toast
+      // and drop any half-built game state, exactly like web's else-branch.
+      const errorKey = data.error === 'Game is full' ? 'partyFull' : 'invalidPartyCode';
+      get().pushToast({
+        key: errorKey,
+        toastType: 'error',
+        message: data.error,
+      });
       set({
-        joinError: data.error,
+        joinError: null,
+        enteringGameCode: false,
+        inGame: false,
+        gameData: null,
+        gameQueued: false,
+        emotes: [],
       });
       return;
     }
