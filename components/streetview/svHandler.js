@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { navigate } from '@/lib/basePath';
+import { encodeCoord } from './coordsObfuscation';
 
 const SvEmbedIframe = (params) => {
   const iframeRef = useRef(null);
@@ -12,9 +13,10 @@ const SvEmbedIframe = (params) => {
     let passableParams = {
       nm: params.nm,
       npz: params.npz,
-      showRoadLabels: params.showRoadLabels ,
-      lat: params.lat || null,
-      long: params.long || null,
+      showRoadLabels: params.showRoadLabels,
+      // Encode coordinates to prevent trivial cheating via DevTools
+      _elat: encodeCoord(params.lat || null),
+      _elon: encodeCoord(params.long || null),
       showAnswer: params.showAnswer || false,
       hidden: false, onLoad: undefined };
 
@@ -39,7 +41,10 @@ const SvEmbedIframe = (params) => {
       const panoParam = shouldUsePanoId ? `&pano=${params.panoId}` : '';
       const headingParam = shouldUsePanoId ? `&heading=${params.heading}` : '';
       const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
-      setIframeSrc(`${navigate('/svEmbed')}?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`);
+      // Encode coordinates to prevent trivial cheating via DevTools
+      const elat = encodeCoord(params.lat);
+      const elon = encodeCoord(params.long);
+      setIframeSrc(`${navigate('/svEmbed')}?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&_elat=${elat}&_elon=${elon}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`);
     }
   }, [params?.lat, params?.long, params?.panoId, params?.heading, params?.pitch, params?.nm, params?.npz, params?.showRoadLabels, params?.showAnswer]);
 
@@ -58,7 +63,7 @@ const SvEmbedIframe = (params) => {
       // console.log("Received message from iframe", event.data);
       if (event.data && typeof event.data === "object" && event.data.type === "onLoad") {
         if (window.svIframeStartTime) {
-          console.log(`[PERF] SvEmbedIframe: Received onLoad event after ${(performance.now() - window.svIframeStartTime).toFixed(2)}ms`);
+          // console.log(`[PERF] SvEmbedIframe: Received onLoad event after ${(performance.now() - window.svIframeStartTime).toFixed(2)}ms`);
         }
         params.onLoad();
       }
@@ -83,12 +88,14 @@ const SvEmbedIframe = (params) => {
         const hasValidCoords = params.lat != null && params.long != null;
         
         if (hasValidCoords) {
-          // Build fresh URL with current params to avoid stale coordinates
+          // Build fresh URL with encoded coords to avoid stale coordinates and prevent cheating
           const shouldUsePanoId = false && params.panoId && (params.heading !== null && params.heading !== undefined) && (params.pitch !== null && params.pitch !== undefined);
           const panoParam = shouldUsePanoId ? `&pano=${params.panoId}` : '';
           const headingParam = shouldUsePanoId ? `&heading=${params.heading}` : '';
           const pitchParam = shouldUsePanoId ? `&pitch=${params.pitch}` : '';
-          const freshSrc = `${navigate('/svEmbed')}?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&lat=${params.lat}&long=${params.long}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`;
+          const elat = encodeCoord(params.lat);
+          const elon = encodeCoord(params.long);
+          const freshSrc = `${navigate('/svEmbed')}?nm=${params.nm}&npz=${params.npz}&showRoadLabels=${params.showRoadLabels}&_elat=${elat}&_elon=${elon}${panoParam}${headingParam}${pitchParam}&showAnswer=${params.showAnswer}&hidden=false`;
           iframeRef.current.src = freshSrc;
         }
         // Note: If coords are null/undefined, we intentionally don't reload.
