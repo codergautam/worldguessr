@@ -111,7 +111,7 @@ Don't forget to give the project a star! Thanks again!
 
 ## License
 
-Distributed under the MIT License. You are free to use, modify, and distribute this project for personal or commercial use. See `LICENSE.md` for more information.
+Distributed under the PolyForm Noncommercial License 1.0.0. You are free to use, modify, and distribute this project for noncommercial purposes. See [LICENSE.md](LICENSE.md) for more information.
 
 ## Community
 
