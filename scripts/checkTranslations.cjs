@@ -4,6 +4,30 @@ const readline = require('readline');
 const translate = require('google-translate-free');
 
 const langs = ["en","fr","de","ru","es"];
+
+// Google Translate likes to mangle i18next placeholders ({{name}}) — it can
+// translate them, drop the braces, or insert spaces. Mask them with a token
+// that survives translation across language pairs, then restore after.
+const PH_TOKEN_RE = /xphx(\d+)xphx/gi;
+function maskPlaceholders(text) {
+  const placeholders = [];
+  const masked = text.replace(/\{\{\s*([^{}]+?)\s*\}\}/g, (_, name) => {
+    const idx = placeholders.length;
+    placeholders.push(name.trim());
+    return `xphx${idx}xphx`;
+  });
+  return { masked, placeholders };
+}
+function unmaskPlaceholders(text, placeholders) {
+  let restored = 0;
+  const out = text.replace(PH_TOKEN_RE, (m, idx) => {
+    const i = Number(idx);
+    if (!Number.isInteger(i) || !placeholders[i]) return m;
+    restored++;
+    return `{{${placeholders[i]}}}`;
+  });
+  return { out, ok: restored === placeholders.length };
+}
 const paths = langs.map(lang => path.join(__dirname, `../public/locales/${lang}/common.json`));
 const jsons = paths.map(path => JSON.parse(fs.readFileSync(path)));
 
@@ -67,8 +91,14 @@ if (missingKeys.length > 0) {
 
           for (const lang of missingInLangs) {
             try {
-              const result = await translate(en, { from: 'en', to: lang, client: 'gtx' });
-              const translatedText = result.text;
+              const { masked, placeholders } = maskPlaceholders(en);
+              const result = await translate(masked, { from: 'en', to: lang, client: 'gtx' });
+              const { out: translatedText, ok } = unmaskPlaceholders(result.text, placeholders);
+
+              if (!ok) {
+                console.warn(`Skipped "${key}" -> ${lang}: placeholders mangled by translator (got "${result.text}")`);
+                continue;
+              }
 
               // Find index of this language
               const langIndex = langs.indexOf(lang);

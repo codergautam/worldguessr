@@ -7,6 +7,7 @@ import User from "../../models/User.js";
 import { getLeague } from "../../components/utils/leagues.js";
 import { setElo } from "../../api/eloRank.js";
 import { createUUID } from "../../components/createUUID.js";
+import { getActivePlayerCount } from "../../serverUtils/playerCounts.js";
 export default class Player {
   constructor(ws, id, ip, username=null, accountId=null, gameId=null) {
     this.id = id;
@@ -146,20 +147,25 @@ export default class Player {
       });
       dcPlayer.send({
         type: 'cnt',
-        c: players.size-disconnectedPlayers.size
+        c: getActivePlayerCount()
       });
 
 
       if(dcPlayer.gameId && games.has(dcPlayer.gameId)) {
-        // reconnect to game
-        const game = games.get(dcPlayer.gameId);
-        game.rejoinGame(dcPlayer);
-        dcPlayer.send({
-          type: 'toast',
-          toastType: 'success',
-          key: 'reconnected',
-
-        });
+        if (json.skipRejoin) {
+          // Leave old game instead of rejoining (e.g. joining via party link)
+          const game = games.get(dcPlayer.gameId);
+          game.removePlayer(dcPlayer, true);
+        } else {
+          // reconnect to game
+          const game = games.get(dcPlayer.gameId);
+          game.rejoinGame(dcPlayer);
+          dcPlayer.send({
+            type: 'toast',
+            toastType: 'success',
+            key: 'reconnected',
+          });
+        }
       }
 
       // destroy this player
@@ -193,7 +199,7 @@ export default class Player {
           });
           this.send({
             type: 'cnt',
-            c: players.size-disconnectedPlayers.size
+            c: getActivePlayerCount()
           })
         }
 
@@ -201,6 +207,7 @@ export default class Player {
 
         let valid;
         if(json.secret) {
+          console.log('validating secret', json.secret);
         valid =  await validateSecret(json.secret, User);
         }
         if (valid) {
@@ -281,7 +288,7 @@ export default class Player {
           });
           this.send({
             type: 'cnt',
-            c: players.size-disconnectedPlayers.size
+            c: getActivePlayerCount()
           })
 
           // Always update lastLogin on verify
@@ -361,6 +368,7 @@ export default class Player {
           this.allowFriendReq = valid.allowFriendReq;
 
         } else {
+          console.log('failed to login', json.secret);
           this.send({
             type: 'error',
             message: 'Failed to login',

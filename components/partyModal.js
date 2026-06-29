@@ -59,42 +59,54 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
 
     const isValidRoundTime = isTimerDisabled || (!isNaN(parseInt(localTime)) && parseInt(localTime) >= 10 && parseInt(localTime) <= 300);
 
-    if (selectCountryModalShown) {
-        return (
-            <MapsModal 
-                showAllCountriesOption={true} 
-                shown={selectCountryModalShown} 
-                onClose={() => setSelectCountryModalShown(false)} 
-                session={session} 
-                text={text} 
-                customChooseMapCallback={(map) => {
-                    setMultiplayerState(prev => ({
-                        ...prev, 
-                        createOptions: {
-                            ...prev.createOptions, 
-                            location: map.countryMap || map.slug, 
-                            displayLocation: map.name,
-                            nm: gameOptions?.nm,
-                            npz: gameOptions?.npz,
-                            showRoadName: gameOptions?.showRoadName,
-                        }
-                    }));
-                    setSelectCountryModalShown(false);
-                }} 
-                chosenMap={multiplayerState?.createOptions?.location} 
-                showOptions={true} 
-                gameOptions={gameOptions} 
-                setGameOptions={setGameOptions} 
-            />
-        );
-    }
-    
+    // Build the final options object using clamped input values, push to server,
+    // then close. Used by both Save and outside-click/ESC so the two paths stay
+    // in sync — closing without explicit Save was confusing users into thinking
+    // their changes were lost.
+    const commitAndClose = () => {
+        const roundsNum = parseInt(localRounds);
+        const clampedRounds = Math.max(1, Math.min(20, isNaN(roundsNum) ? 5 : roundsNum));
+
+        let clampedTime;
+        if (isTimerDisabled) {
+            clampedTime = 60 * 60 * 24;
+        } else {
+            const t = parseInt(localTime);
+            clampedTime = Math.max(10, Math.min(300, isNaN(t) ? 30 : t));
+        }
+
+        const finalOptions = {
+            ...multiplayerState.createOptions,
+            rounds: clampedRounds,
+            timePerRound: clampedTime,
+            nm: gameOptions.nm,
+            npz: gameOptions.npz,
+            showRoadName: gameOptions.showRoadName,
+        };
+
+        setMultiplayerState(prev => ({
+            ...prev,
+            createOptions: finalOptions,
+        }));
+
+        handleAction("setPrivateGameOptions", finalOptions);
+        onClose();
+    };
+
+    // Render BOTH modals at once and toggle them via their `open`/`shown`
+    // props. The previous early-return swapped one for the other, which
+    // unmounted the party modal instantly (no exit animation) and produced a
+    // jarring "flash to nothing → maps modal slides in" transition. With both
+    // mounted, react-responsive-modal cross-fades them: the party modal
+    // gracefully fades down while the maps modal slides up.
     return (
-        <Modal 
-            onClose={onClose} 
-            open={shown} 
+        <>
+        <Modal
+            onClose={commitAndClose}
+            open={shown && !selectCountryModalShown}
             center
             showCloseIcon={false}
+            animationDuration={400}
             classNames={{ modal: 'party-modal-container' }}
             styles={{
                 modal: {
@@ -266,25 +278,7 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                     <button
                         className="party-modal__save-btn"
                         disabled={!isValidRoundTime}
-                        onClick={() => {
-                            // Construct the complete options object with all current values
-                            const finalOptions = {
-                                ...multiplayerState.createOptions,
-                                nm: gameOptions.nm,
-                                npz: gameOptions.npz,
-                                showRoadName: gameOptions.showRoadName
-                            };
-
-                            // Update local state
-                            setMultiplayerState(prev => ({
-                                ...prev,
-                                createOptions: finalOptions
-                            }));
-
-                            // Send to server with the complete options
-                            handleAction("setPrivateGameOptions", finalOptions);
-                            onClose();
-                        }}
+                        onClick={commitAndClose}
                     >
                         <FaCheck style={{ marginRight: '8px' }} />
                         {text("save")}
@@ -599,5 +593,32 @@ export default function PartyModal({ onClose, ws, setWs, multiplayerError, multi
                 }
             `}</style>
         </Modal>
+        <MapsModal
+            showAllCountriesOption={true}
+            hideCountryGuessrModes={true}
+            shown={selectCountryModalShown}
+            onClose={() => setSelectCountryModalShown(false)}
+            session={session}
+            text={text}
+            customChooseMapCallback={(map) => {
+                setMultiplayerState(prev => ({
+                    ...prev,
+                    createOptions: {
+                        ...prev.createOptions,
+                        location: map.countryMap || map.slug,
+                        displayLocation: map.name,
+                        nm: gameOptions?.nm,
+                        npz: gameOptions?.npz,
+                        showRoadName: gameOptions?.showRoadName,
+                    }
+                }));
+                setSelectCountryModalShown(false);
+            }}
+            chosenMap={multiplayerState?.createOptions?.location}
+            showOptions={true}
+            gameOptions={gameOptions}
+            setGameOptions={setGameOptions}
+        />
+        </>
     );
 }

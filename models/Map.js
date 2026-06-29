@@ -39,6 +39,13 @@ const mapSchema = new mongoose.Schema({
     type: Object,
     required: true
   },
+  // Cached count of entries in `data`. Set on create/edit; backfilled for
+  // legacy docs by scripts/backfillLocationsCnt.js. Read paths trust this
+  // unconditionally — run the backfill before deploying the simplified
+  // reads, otherwise unmigrated maps will show `undefined` location counts.
+  locationsCnt: {
+    type: Number,
+  },
   description_short: {
     type: String,
     required: true

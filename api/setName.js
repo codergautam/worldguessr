@@ -3,7 +3,7 @@ import User, { USERNAME_COLLATION } from "../models/User.js";
 import { Webhook } from "discord-webhook-node";
 import { USERNAME_CHANGE_COOLDOWN } from "./publicAccount.js";
 import Map from "../models/Map.js";
-import cachegoose from "recachegoose";
+import { syncedClearCache } from "../serverUtils/cacheBus.js";
 import { Filter } from "bad-words";
 import UserStatsService from "../components/utils/userStatsService.js";
 import ModerationLog from "../models/ModerationLog.js";
@@ -132,12 +132,8 @@ export default async function handler(req, res) {
         await map.save();
       }
 
-      // recachegoose clear key publicData_${id}
-      cachegoose.clearCache(`publicData_${user._id.toString()}`, (error) => {
-        if (error) {
-          console.error("Error clearing cache", error);
-        }
-      });
+      syncedClearCache(`publicData_${user._id.toString()}`);
+      syncedClearCache(`userAuth_${user.secret}`);
     }
 
     // Update the user's username

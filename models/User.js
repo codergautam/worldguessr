@@ -5,6 +5,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: false,
   },
+  appleId: {
+    type: String,
+    required: false,
+  },
   secret: {
     type: String,
     required: true,
@@ -99,6 +103,30 @@ const userSchema = new mongoose.Schema({
     type: Number,
     default: 0,
   },
+  dailyStreak: {
+    type: Number,
+    default: 0,
+  },
+  dailyStreakBest: {
+    type: Number,
+    default: 0,
+  },
+  lastDailyDate: {
+    type: String,
+    default: null,
+  },
+  dailyGraceUsedDates: {
+    type: [String],
+    default: [],
+  },
+  dailyHistory: {
+    type: [{
+      date: { type: String },
+      score: { type: Number },
+      rank: { type: Number, default: null },
+    }],
+    default: [],
+  },
   lastLogin: {
     type: Date,
     default: Date.now
@@ -177,6 +205,8 @@ const userSchema = new mongoose.Schema({
 
 // Index for email lookups during Google OAuth login
 userSchema.index({ email: 1 });
+// Index for Apple Sign In lookups
+userSchema.index({ appleId: 1 });
 // Index for finding users with expired temp bans
 userSchema.index({ banned: 1, banType: 1, banExpiresAt: 1 });
 // Index for finding users with pending name changes

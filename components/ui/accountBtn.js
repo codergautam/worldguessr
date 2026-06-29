@@ -47,8 +47,9 @@ export default function AccountBtn({ session, openAccountModal, navbarMode, inCr
 
             {!inCrazyGames ? (
               <>
-            {text("login")}&nbsp;&nbsp;
             <FaGoogle className="home__squarebtnicon" />
+            &nbsp;&nbsp;
+            {text("login")}
             </>
             ): (
               <>

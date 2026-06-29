@@ -112,3 +112,82 @@ export default retryManager;
 export async function retryFetch(url, options = {}, retryKey = url, retryOptions = {}) {
   return retryManager.fetchWithRetry(url, options, retryKey, retryOptions);
 }
+
+/**
+ * Try `primaryUrl` with a single quick attempt; on network error, timeout, or
+ * 5xx, fall through to `fallbackUrl`. Used so that a down auth server doesn't
+ * block users from logging in via the main API.
+ *
+ * 4xx responses are always returned as-is from both primary and fallback —
+ * callers that read error JSON depend on this. Only 5xx and network errors
+ * trigger fallback / retry.
+ *
+ * If `retryOptions` is provided, the fallback URL is retried with exponential
+ * backoff on 5xx/network failures (timeout/maxRetries/baseDelay/maxDelay).
+ * Otherwise the fallback is a single bare fetch. Pass `{}` to opt into the
+ * default retry budget (5 retries, 10s timeout).
+ */
+export async function fetchWithFallback(primaryUrl, fallbackUrl, options = {}, retryKey = primaryUrl, retryOptions = null) {
+  const runFallback = () => {
+    if (!retryOptions) return fetch(fallbackUrl, options);
+    return fetchRetryingOnServerError(fallbackUrl, options, retryKey + ':fallback', retryOptions);
+  };
+
+  if (!fallbackUrl || primaryUrl === fallbackUrl) {
+    return runFallback();
+  }
+
+  const PRIMARY_TIMEOUT = 4000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PRIMARY_TIMEOUT);
+
+  try {
+    const response = await fetch(primaryUrl, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (response.status < 500) {
+      return response;
+    }
+    console.warn(`[RetryFetch] Primary ${primaryUrl} returned ${response.status}, falling back to ${fallbackUrl}`);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn(`[RetryFetch] Primary ${primaryUrl} failed (${err.message}), falling back to ${fallbackUrl}`);
+  }
+
+  return runFallback();
+}
+
+// Like fetchWithRetry but returns 4xx responses as-is instead of throwing.
+// Retries only on network errors, timeouts, and 5xx responses.
+async function fetchRetryingOnServerError(url, options, retryKey, retryOptions) {
+  const SAFE_MAX = 1000;
+  const {
+    timeout = 10000,
+    maxRetries = 5,
+    baseDelay = 1000,
+    maxDelay = 30000,
+  } = retryOptions;
+  const cap = maxRetries === Infinity ? SAFE_MAX : maxRetries;
+
+  let attempt = 0;
+  let lastErr;
+  while (attempt <= cap) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (response.status < 500) return response;
+      lastErr = new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (attempt === cap) return response; // exhausted budget — surface the 5xx
+    } catch (err) {
+      clearTimeout(timeoutId);
+      lastErr = err;
+      if (attempt === cap) throw err;
+    }
+    const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
+    console.log(`[RetryFetch] ${retryKey} retrying in ${delay}ms (${lastErr.message})`);
+    await new Promise(r => setTimeout(r, delay));
+    attempt++;
+  }
+  throw lastErr;
+}

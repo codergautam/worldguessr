@@ -53,13 +53,13 @@ export default function PendingNameChangeModal({ session, onClose, isOpen = true
 
     // Validate username format
     const trimmed = newUsername.trim();
-    if (trimmed.length < 3 || trimmed.length > 20) {
-      setError('Username must be between 3 and 20 characters');
+    if (trimmed.length < 3 || trimmed.length > 30) {
+      setError('Username must be between 3 and 30 characters');
       return;
     }
 
-    if (!/^[a-zA-Z0-9_-]+$/.test(trimmed)) {
-      setError('Username can only contain letters, numbers, underscores, and hyphens');
+    if (!/^[a-zA-Z0-9_]+$/.test(trimmed)) {
+      setError('Username can only contain letters, numbers, and underscores');
       return;
     }
 
@@ -160,10 +160,10 @@ export default function PendingNameChangeModal({ session, onClose, isOpen = true
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="Enter new username..."
                   style={styles.input}
-                  maxLength={20}
+                  maxLength={30}
                   disabled={loading}
                 />
-                <span style={styles.hint}>3-20 characters, letters, numbers, underscores, and hyphens only</span>
+                <span style={styles.hint}>3-30 characters, letters, numbers, and underscores only</span>
               </div>
 
               {error && (

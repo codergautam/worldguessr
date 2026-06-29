@@ -1,5 +1,7 @@
 // In-memory rate limit store
+import { registerStat } from '../serverUtils/statRegistry.js';
 const rateLimitStore = new Map();
+registerStat('utils/rateLimit.rateLimitStore', () => rateLimitStore.size);
 
 // Cleanup interval to prevent memory leaks
 setInterval(() => {

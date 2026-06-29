@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(git commit:*)",
@@ -17,12 +20,26 @@
       "Bash(cat:*)",
       "mcp__ide__getDiagnostics",
       "Bash(npx next build:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx expo install expo-clipboard)",
+      "Bash(pnpm add expo-clipboard)",
       "Bash(npx acorn:*)",
       "WebSearch",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "WebFetch(domain:restcountries.com)",
+      "Bash(git *)",
+      "Bash(git diff *)",
+      "Bash(git push:*)",
+      "Read(//tmp/**)",
+      "Bash(npx tsc *)",
+      "Read(//usr/share/xsessions/**)",
+      "Bash(journalctl --user -b 0 -p err --no-pager)",
+      "Bash(journalctl -b 0 --no-pager)",
+      "Bash(sudo cat *)",
+      "Bash(sudo cp *)",
+      "Bash(sudo ls *)",
+      "Bash(sudo tee *)"
     ],
-    "deny": [
-      "Bash(git push:*)"
-    ]
+    "deny": []
   }
 }

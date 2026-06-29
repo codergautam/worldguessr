@@ -3,6 +3,7 @@ import Map from "../../models/Map.js";
 import User from "../../models/User.js";
 import officialCountryMaps from '../../public/officialCountryMaps.json' with { type: "json" };
 import shuffle from "../../utils/shuffle.js";
+import { registerStat } from '../../serverUtils/statRegistry.js';
 
 let mapCache = {
   popular: {
@@ -21,6 +22,9 @@ let mapCache = {
     persist: 48000000
   }
 }
+registerStat('api/map/mapHome.mapCache.popular.data', () => mapCache.popular.data.length);
+registerStat('api/map/mapHome.mapCache.recent.data', () => mapCache.recent.data.length);
+registerStat('api/map/mapHome.mapCache.spotlight.data', () => mapCache.spotlight.data.length);
 
 export default async function handler(req, res) {
   const timings = {};
@@ -107,8 +111,7 @@ export default async function handler(req, res) {
       accepted: 1,
       reject_reason: 1,
       resubmittable: 1,
-      // count # of data to get locations
-      locationsCnt:  { $size: "$data" }
+      locationsCnt: 1,
     }).lean();
     myMaps = myMaps.map((map) => sendableMap(map, user, hearted_maps?hearted_maps.has(map._id.toString()):false, user.staff, true));
     myMaps.sort((a,b) => a.created_at - b.created_at);
@@ -169,8 +172,8 @@ export default async function handler(req, res) {
       if(method === "recent") {
         maps = await Map.find({ accepted: true }).sort({ lastUpdated: -1 }).limit(100);
       } else if(method === "popular") {
-        maps = await Map.find({ accepted: true })        .select({
-          locationsCnt: { $size: "$data" },
+        maps = await Map.find({ accepted: true }).select({
+          locationsCnt: 1,
           created_at: 1,
           lastUpdated: 1,
           slug: 1,

@@ -4,16 +4,20 @@ import { signIn } from "@/components/auth/auth";
 import gameStorage from "./utils/localStorage";
 import { FaGoogle, FaTrophy, FaChartLine, FaGamepad } from 'react-icons/fa';
 
-export default function SuggestAccountModal({ shown, setOpen }) {
+export default function SuggestAccountModal({ shown, setOpen, showNeverAgain }) {
   const { t: text } = useTranslation("common");
 
   const handleClose = () => {
-    gameStorage.setItem("onboarding", 'done');
     setOpen(false);
   };
 
   const handleGoogleLogin = () => {
     signIn('google');
+  };
+
+  const handleNeverAgain = () => {
+    try { gameStorage.setItem("suggestLoginNeverShow", "1"); } catch(e) {}
+    setOpen(false);
   };
 
   return (
@@ -35,10 +39,49 @@ export default function SuggestAccountModal({ shown, setOpen }) {
       open={shown}
       center
       onClose={handleClose}
-      showCloseIcon={true}
+      showCloseIcon={false}
       animationDuration={200}
     >
-      <div style={{ 
+      <button
+        onClick={handleClose}
+        aria-label="Close"
+        style={{
+          position: 'absolute',
+          top: '12px',
+          right: '12px',
+          width: '32px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'rgba(255, 255, 255, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          color: 'rgba(255, 255, 255, 0.85)',
+          borderRadius: '50%',
+          cursor: 'pointer',
+          fontSize: '16px',
+          lineHeight: 1,
+          padding: 0,
+          fontFamily: 'inherit',
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+          e.currentTarget.style.color = '#fff';
+          e.currentTarget.style.transform = 'scale(1.05)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+          e.currentTarget.style.color = 'rgba(255, 255, 255, 0.85)';
+          e.currentTarget.style.transform = 'scale(1)';
+        }}
+      >
+        ✕
+      </button>
+
+      <div style={{
         marginBottom: '24px',
         animation: 'float 3s ease-in-out infinite'
       }}>
@@ -134,6 +177,30 @@ export default function SuggestAccountModal({ shown, setOpen }) {
           {text("playAsGuest")}
         </button>
       </div>
+
+      {showNeverAgain && (
+        <button
+          onClick={handleNeverAgain}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'rgba(255, 255, 255, 0.45)',
+            fontSize: '0.75rem',
+            fontFamily: 'Lexend, sans-serif',
+            cursor: 'pointer',
+            marginTop: '14px',
+            padding: '4px 8px',
+            textDecoration: 'underline',
+            textDecorationColor: 'rgba(255, 255, 255, 0.3)',
+            textUnderlineOffset: '2px',
+            transition: 'color 0.2s',
+          }}
+          onMouseEnter={(e) => { e.target.style.color = 'rgba(255, 255, 255, 0.8)'; }}
+          onMouseLeave={(e) => { e.target.style.color = 'rgba(255, 255, 255, 0.45)'; }}
+        >
+          {text("neverShowAgain")}
+        </button>
+      )}
 
       <style jsx>{`
         @keyframes float {

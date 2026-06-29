@@ -2,11 +2,7 @@ name: CoolMath Games Build
 
 on:
   push:
-    branches-ignore:
-      - 'gh-pages'
-      - 'gh-pages-dev'
-      - 'coolmath-build'
-      - 'coolmath-build-*'
+    branches: [ "master" ]
   workflow_dispatch:
 
 jobs:
@@ -17,6 +13,7 @@ jobs:
       NEXT_PUBLIC_COOLMATH: true
       NEXT_PUBLIC_API_URL: api.worldguessr.com
       NEXT_PUBLIC_WS_HOST: server.worldguessr.com
+      NEXT_PUBLIC_AUTH_URL: gauth.worldguessr.com
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: 471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com
 
     steps:
@@ -28,10 +25,12 @@ jobs:
         node-version: '18'
 
     - name: Install dependencies
-      run: npm i
+      run: |
+        corepack enable
+        pnpm install --no-frozen-lockfile
 
     - name: Build CoolMath Games version
-      run: npm run build
+      run: pnpm run build
 
     - name: Get branch name
       id: branch

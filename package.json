@@ -4,14 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' UWS_HTTP_MAX_HEADERS_SIZE=16384 nodemon ws/ws --quiet --signal SIGTERM --exec \"node --no-warnings=ExperimentalWarning\" --watch ws/ws.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
-    "devclient": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
-    "dev:gd": "cross-env NEXT_PUBLIC_GAMEDISTRIBUTION=true npm run dev",
+    "preinstall": "npx only-allow pnpm",
+    "dev": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' UWS_HTTP_MAX_HEADERS_SIZE=16384 nodemon ws/ws --quiet --signal SIGTERM --exec \"node --no-warnings=ExperimentalWarning\" --watch ws/ws.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon authServer.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch authServer.js --watch api/googleAuth.js --watch api/setName.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
+    "devclient": "node welcome.js && npx concurrently \"cross-env NODE_OPTIONS='--no-warnings' nodemon server.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch server.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon authServer.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch authServer.js --watch api/googleAuth.js --watch api/setName.js\" \"cross-env NODE_OPTIONS='--no-warnings' nodemon cron.js --quiet --exec \"node --no-warnings=ExperimentalWarning\" --watch cron.js\" \"npx next dev\"",
+    "dev:gd": "cross-env NEXT_PUBLIC_GAMEDISTRIBUTION=true pnpm dev",
     "build": "cross-env next build",
     "start-api": "cross-env  NODE_ENV=production node server.js",
+    "start-auth": "cross-env NODE_ENV=production node authServer.js",
     "start-ws": "cross-env UWS_HTTP_MAX_HEADERS_SIZE=16384 NODE_ENV=production node ws/ws",
     "start-cron": "cross-env NODE_ENV=production node cron.js",
     "heroku-postbuild": "cross-env  next build"
+  },
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "pnpm": ">=9"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
@@ -37,16 +43,17 @@
     "formidable": "^3.5.1",
     "geojson-geometries-lookup": "^0.5.0",
     "google-auth-library": "^9.14.2",
+    "i18n-iso-countries": "^7.14.0",
     "jsonwebtoken": "^9.0.2",
+    "leaflet": "^1.9.4",
     "moment": "^2.30.1",
     "moment-timezone": "^0.5.45",
     "mongoose": "^8.3.3",
     "next": "15.4.5",
     "ol": "^9.1.0",
-    "react": "^18.2.0",
+    "react": "19.1.0",
     "react-chartjs-2": "^5.3.0",
-    "react-chatbot-kit": "^2.2.2",
-    "react-dom": "^18.2.0",
+    "react-dom": "19.1.0",
     "react-horizontal-scrolling-menu": "^7.1.1",
     "react-icons": "^5.1.0",
     "react-leaflet": "^4.2.1",
@@ -66,6 +73,7 @@
     "eslint": "^8",
     "eslint-config-next": "14.2.1",
     "google-translate-free": "^2.4.5",
+    "mapcheckr-cli": "^1.1.1",
     "nodemon": "^3.1.3"
   }
 }

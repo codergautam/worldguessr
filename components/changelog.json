@@ -13,5 +13,11 @@
     "date": "11/26/2025",
     "change":"Happy Thanksgiving! WorldGuessr just received a new update.\n\n### ✨ Minor Improvements\n- Upgraded Minimap with higher resolution tiles for a sharper and more readable view.\n- Faster overall loading times for a smoother gameplay experience.\n- Small stability fixes throughout the game.\n\n### 🛡️ Moderation Enhancements\n- You can now report suspicious players or inappropriate nicknames directly from your ranked duel history. This feature is rolling out gradually.\n- Automatic elo refunds for matches impacted by confirmed cheaters or external googlers.\n- Check the newly added **Moderation** section in your profile page to track your reports and check whether you've received any ELO.\n\n",
     "postedBy": "gautam @ WorldGuessr"
+  },
+  {
+    "version": "2.2.0",
+    "date": "4/28/2026",
+    "change":"WorldGuessr just got a new update!\n\n### ✨ New Ways to Play\n\n* **Daily Challenge** is here! Take on a new adventure every day, chase your best scores, and try to keep your streak alive.\n\n* **Country Guesser** and **Continent Guesser** modes are now available in **singleplayer**, giving casual players an easier way to enjoy WorldGuessr.\n\n### 🛠️ Fixes & Polish\n\n* Fixed various bugs and made several UI improvements across the game to make everything feel smoother.\n\nThanks for playing WorldGuessr and supporting the game!\n\n**PS: 2v2s are coming soon!**\n\n",
+    "postedBy": "gautam @ WorldGuessr"
   }
 ]

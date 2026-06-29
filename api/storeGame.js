@@ -7,7 +7,7 @@ import { createUUID } from '../components/createUUID.js';
 
 // Handle singleplayer game completion
 async function guess(req, res) {
-  const { secret, maxDist, rounds, official, location } = req.body;
+  const { secret, maxDist, rounds, official, location, countryGuesser, countryGuessrSubMode } = req.body;
 
   // secret must be string
   if(typeof secret !== 'string') {
@@ -103,6 +103,8 @@ async function guess(req, res) {
             maxDist: maxDist || 20000,
             timePerRound: null, // No time limit for singleplayer
             official: official !== undefined ? official : true, // Use provided official status or default to true
+            countryGuesser: !!countryGuesser,
+            countryGuessrSubMode: countryGuesser ? (countryGuessrSubMode || 'country') : null,
             showRoadName: false,
             noMove: false,
             noPan: false,
@@ -133,7 +135,7 @@ async function guess(req, res) {
           result: {
             winner: null,
             isDraw: false,
-            maxPossiblePoints: rounds.length * 5000
+            maxPossiblePoints: rounds.length * (countryGuesser ? 1000 : 5000)
           },
           
           multiplayer: {

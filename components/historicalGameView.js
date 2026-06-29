@@ -250,7 +250,7 @@ export default function HistoricalGameView({ game, session, onBack, options, onU
 
   // For multiplayer games, prepare the state
   let multiplayerState = null;
-  if (fullGameData.gameType !== 'singleplayer') {
+  if (fullGameData.gameType !== 'singleplayer' && fullGameData.gameType !== 'daily_challenge') {
     // Use the perspective player's ID
     const myPlayerId = perspectivePlayer?.playerId || perspectivePlayer?.accountId || fullGameData.currentUserId;
 

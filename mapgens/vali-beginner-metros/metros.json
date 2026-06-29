@@ -1,0 +1,1676 @@
+[
+  {
+    "lat": 40.6943,
+    "lng": -73.9249,
+    "city": "New York",
+    "countryCode": "US",
+    "country": "United States",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 34.1141,
+    "lng": -118.4068,
+    "city": "Los Angeles",
+    "countryCode": "US",
+    "country": "United States",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 41.8375,
+    "lng": -87.6866,
+    "city": "Chicago",
+    "countryCode": "US",
+    "country": "United States",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 29.786,
+    "lng": -95.3885,
+    "city": "Houston",
+    "countryCode": "US",
+    "country": "United States",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 25.784,
+    "lng": -80.2101,
+    "city": "Miami",
+    "countryCode": "US",
+    "country": "United States",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 37.7558,
+    "lng": -122.4449,
+    "city": "San Francisco",
+    "countryCode": "US",
+    "country": "United States",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 47.6211,
+    "lng": -122.3244,
+    "city": "Seattle",
+    "countryCode": "US",
+    "country": "United States",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 38.9047,
+    "lng": -77.0163,
+    "city": "Washington",
+    "countryCode": "US",
+    "country": "United States",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 43.7417,
+    "lng": -79.3733,
+    "city": "Toronto",
+    "countryCode": "CA",
+    "country": "Canada",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 45.5089,
+    "lng": -73.5617,
+    "city": "Montreal",
+    "countryCode": "CA",
+    "country": "Canada",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 49.25,
+    "lng": -123.1,
+    "city": "Vancouver",
+    "countryCode": "CA",
+    "country": "Canada",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 51.05,
+    "lng": -114.0667,
+    "city": "Calgary",
+    "countryCode": "CA",
+    "country": "Canada",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 19.4333,
+    "lng": -99.1333,
+    "city": "Mexico City",
+    "countryCode": "MX",
+    "country": "Mexico",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 20.6767,
+    "lng": -103.3475,
+    "city": "Guadalajara",
+    "countryCode": "MX",
+    "country": "Mexico",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 25.6667,
+    "lng": -100.3,
+    "city": "Monterrey",
+    "countryCode": "MX",
+    "country": "Mexico",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 19.0333,
+    "lng": -98.1833,
+    "city": "Puebla",
+    "countryCode": "MX",
+    "country": "Mexico",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 14.6133,
+    "lng": -90.5353,
+    "city": "Guatemala City",
+    "countryCode": "GT",
+    "country": "Guatemala",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 9.9325,
+    "lng": -84.08,
+    "city": "San Jose",
+    "countryCode": "CR",
+    "country": "Costa Rica",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 8.9833,
+    "lng": -79.5167,
+    "city": "Panama City",
+    "countryCode": "PA",
+    "country": "Panama",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 18.4667,
+    "lng": -69.95,
+    "city": "Santo Domingo",
+    "countryCode": "DO",
+    "country": "Dominican Republic",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -34.6033,
+    "lng": -58.3817,
+    "city": "Buenos Aires",
+    "countryCode": "AR",
+    "country": "Argentina",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -31.4167,
+    "lng": -64.1833,
+    "city": "Cordoba",
+    "countryCode": "AR",
+    "country": "Argentina",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -32.9575,
+    "lng": -60.6394,
+    "city": "Rosario",
+    "countryCode": "AR",
+    "country": "Argentina",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -32.8833,
+    "lng": -68.8167,
+    "city": "Mendoza",
+    "countryCode": "AR",
+    "country": "Argentina",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -23.55,
+    "lng": -46.6333,
+    "city": "Sao Paulo",
+    "countryCode": "BR",
+    "country": "Brazil",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -22.9111,
+    "lng": -43.2056,
+    "city": "Rio de Janeiro",
+    "countryCode": "BR",
+    "country": "Brazil",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -12.9747,
+    "lng": -38.4767,
+    "city": "Salvador",
+    "countryCode": "BR",
+    "country": "Brazil",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -15.7939,
+    "lng": -47.8828,
+    "city": "Brasilia",
+    "countryCode": "BR",
+    "country": "Brazil",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -19.9167,
+    "lng": -43.9333,
+    "city": "Belo Horizonte",
+    "countryCode": "BR",
+    "country": "Brazil",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -25.4297,
+    "lng": -49.2711,
+    "city": "Curitiba",
+    "countryCode": "BR",
+    "country": "Brazil",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -33.4372,
+    "lng": -70.6506,
+    "city": "Santiago",
+    "countryCode": "CL",
+    "country": "Chile",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -33.0461,
+    "lng": -71.6197,
+    "city": "Valparaiso",
+    "countryCode": "CL",
+    "country": "Chile",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -36.8282,
+    "lng": -73.0514,
+    "city": "Concepcion",
+    "countryCode": "CL",
+    "country": "Chile",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 4.7111,
+    "lng": -74.0722,
+    "city": "Bogota",
+    "countryCode": "CO",
+    "country": "Colombia",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 6.2308,
+    "lng": -75.5906,
+    "city": "Medellin",
+    "countryCode": "CO",
+    "country": "Colombia",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 3.4206,
+    "lng": -76.5222,
+    "city": "Cali",
+    "countryCode": "CO",
+    "country": "Colombia",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 10.9833,
+    "lng": -74.8019,
+    "city": "Barranquilla",
+    "countryCode": "CO",
+    "country": "Colombia",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -0.22,
+    "lng": -78.5125,
+    "city": "Quito",
+    "countryCode": "EC",
+    "country": "Ecuador",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -2.19,
+    "lng": -79.8875,
+    "city": "Guayaquil",
+    "countryCode": "EC",
+    "country": "Ecuador",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -12.06,
+    "lng": -77.0375,
+    "city": "Lima",
+    "countryCode": "PE",
+    "country": "Peru",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -16.4,
+    "lng": -71.5333,
+    "city": "Arequipa",
+    "countryCode": "PE",
+    "country": "Peru",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -34.8836,
+    "lng": -56.1819,
+    "city": "Montevideo",
+    "countryCode": "UY",
+    "country": "Uruguay",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -25.3,
+    "lng": -57.6333,
+    "city": "Asuncion",
+    "countryCode": "PY",
+    "country": "Paraguay",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -16.4958,
+    "lng": -68.1333,
+    "city": "La Paz",
+    "countryCode": "BO",
+    "country": "Bolivia",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -17.8,
+    "lng": -63.1833,
+    "city": "Santa Cruz",
+    "countryCode": "BO",
+    "country": "Bolivia",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 35.6897,
+    "lng": 139.6922,
+    "city": "Tokyo",
+    "countryCode": "JP",
+    "country": "Japan",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 34.6939,
+    "lng": 135.5022,
+    "city": "Osaka",
+    "countryCode": "JP",
+    "country": "Japan",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 35.1833,
+    "lng": 136.9,
+    "city": "Nagoya",
+    "countryCode": "JP",
+    "country": "Japan",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 43.0619,
+    "lng": 141.3544,
+    "city": "Sapporo",
+    "countryCode": "JP",
+    "country": "Japan",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 37.56,
+    "lng": 126.99,
+    "city": "Seoul",
+    "countryCode": "KR",
+    "country": "Korea, South",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 35.18,
+    "lng": 129.075,
+    "city": "Busan",
+    "countryCode": "KR",
+    "country": "Korea, South",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 35.8717,
+    "lng": 128.6017,
+    "city": "Daegu",
+    "countryCode": "KR",
+    "country": "Korea, South",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 25.0375,
+    "lng": 121.5625,
+    "city": "Taipei",
+    "countryCode": "TW",
+    "country": "Taiwan",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 22.615,
+    "lng": 120.2975,
+    "city": "Kaohsiung",
+    "countryCode": "TW",
+    "country": "Taiwan",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 24.1439,
+    "lng": 120.6794,
+    "city": "Taichung",
+    "countryCode": "TW",
+    "country": "Taiwan",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 22.3,
+    "lng": 114.2,
+    "city": "Hong Kong",
+    "countryCode": "HK",
+    "country": "Hong Kong",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 1.3,
+    "lng": 103.8,
+    "city": "Singapore",
+    "countryCode": "SG",
+    "country": "Singapore",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 3.1478,
+    "lng": 101.6953,
+    "city": "Kuala Lumpur",
+    "countryCode": "MY",
+    "country": "Malaysia",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 5.4144,
+    "lng": 100.3292,
+    "city": "George Town",
+    "countryCode": "MY",
+    "country": "Malaysia",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 1.4556,
+    "lng": 103.7611,
+    "city": "Johor Bahru",
+    "countryCode": "MY",
+    "country": "Malaysia",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 13.7525,
+    "lng": 100.4942,
+    "city": "Bangkok",
+    "countryCode": "TH",
+    "country": "Thailand",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 18.7953,
+    "lng": 98.9986,
+    "city": "Chiang Mai",
+    "countryCode": "TH",
+    "country": "Thailand",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 7.8881,
+    "lng": 98.3975,
+    "city": "Phuket",
+    "countryCode": "TH",
+    "country": "Thailand",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -6.175,
+    "lng": 106.8275,
+    "city": "Jakarta",
+    "countryCode": "ID",
+    "country": "Indonesia",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -7.2458,
+    "lng": 112.7378,
+    "city": "Surabaya",
+    "countryCode": "ID",
+    "country": "Indonesia",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -6.912,
+    "lng": 107.6097,
+    "city": "Bandung",
+    "countryCode": "ID",
+    "country": "Indonesia",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 3.5894,
+    "lng": 98.6739,
+    "city": "Medan",
+    "countryCode": "ID",
+    "country": "Indonesia",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 14.5958,
+    "lng": 120.9772,
+    "city": "Manila",
+    "countryCode": "PH",
+    "country": "Philippines",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 10.32,
+    "lng": 123.75,
+    "city": "Cebu",
+    "countryCode": "PH",
+    "country": "Philippines",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 7.07,
+    "lng": 125.6,
+    "city": "Davao",
+    "countryCode": "PH",
+    "country": "Philippines",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 10.7756,
+    "lng": 106.7019,
+    "city": "Ho Chi Minh City",
+    "countryCode": "VN",
+    "country": "Vietnam",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 21.0,
+    "lng": 105.85,
+    "city": "Hanoi",
+    "countryCode": "VN",
+    "country": "Vietnam",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 16.0541,
+    "lng": 108.2022,
+    "city": "Da Nang",
+    "countryCode": "VN",
+    "country": "Vietnam",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database page"
+  },
+  {
+    "lat": 28.61,
+    "lng": 77.23,
+    "city": "Delhi",
+    "countryCode": "IN",
+    "country": "India",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 19.0761,
+    "lng": 72.8775,
+    "city": "Mumbai",
+    "countryCode": "IN",
+    "country": "India",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 12.9789,
+    "lng": 77.5917,
+    "city": "Bengaluru",
+    "countryCode": "IN",
+    "country": "India",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 13.0825,
+    "lng": 80.275,
+    "city": "Chennai",
+    "countryCode": "IN",
+    "country": "India",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 17.3617,
+    "lng": 78.4747,
+    "city": "Hyderabad",
+    "countryCode": "IN",
+    "country": "India",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 32.08,
+    "lng": 34.78,
+    "city": "Tel Aviv",
+    "countryCode": "IL",
+    "country": "Israel",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 31.7789,
+    "lng": 35.2256,
+    "city": "Jerusalem",
+    "countryCode": "IL",
+    "country": "Israel",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 31.9497,
+    "lng": 35.9328,
+    "city": "Amman",
+    "countryCode": "JO",
+    "country": "Jordan",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 25.2631,
+    "lng": 55.2972,
+    "city": "Dubai",
+    "countryCode": "AE",
+    "country": "United Arab Emirates",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 24.4667,
+    "lng": 54.3667,
+    "city": "Abu Dhabi",
+    "countryCode": "AE",
+    "country": "United Arab Emirates",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 25.2867,
+    "lng": 51.5333,
+    "city": "Doha",
+    "countryCode": "QA",
+    "country": "Qatar",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 6.9344,
+    "lng": 79.8428,
+    "city": "Colombo",
+    "countryCode": "LK",
+    "country": "Sri Lanka",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 41.0136,
+    "lng": 28.955,
+    "city": "Istanbul",
+    "countryCode": "TR",
+    "country": "Turkey",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 39.93,
+    "lng": 32.85,
+    "city": "Ankara",
+    "countryCode": "TR",
+    "country": "Turkey",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 38.42,
+    "lng": 27.14,
+    "city": "Izmir",
+    "countryCode": "TR",
+    "country": "Turkey",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 43.24,
+    "lng": 76.915,
+    "city": "Almaty",
+    "countryCode": "KZ",
+    "country": "Kazakhstan",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 51.1472,
+    "lng": 71.4222,
+    "city": "Astana",
+    "countryCode": "KZ",
+    "country": "Kazakhstan",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 42.8747,
+    "lng": 74.6122,
+    "city": "Bishkek",
+    "countryCode": "KG",
+    "country": "Kyrgyzstan",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 47.9203,
+    "lng": 106.9172,
+    "city": "Ulaanbaatar",
+    "countryCode": "MN",
+    "country": "Mongolia",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 51.5072,
+    "lng": -0.1275,
+    "city": "London",
+    "countryCode": "GB",
+    "country": "United Kingdom",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 53.479,
+    "lng": -2.2452,
+    "city": "Manchester",
+    "countryCode": "GB",
+    "country": "United Kingdom",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 55.9533,
+    "lng": -3.1892,
+    "city": "Edinburgh",
+    "countryCode": "GB",
+    "country": "United Kingdom",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 52.48,
+    "lng": -1.9025,
+    "city": "Birmingham",
+    "countryCode": "GB",
+    "country": "United Kingdom",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 53.35,
+    "lng": -6.2603,
+    "city": "Dublin",
+    "countryCode": "IE",
+    "country": "Ireland",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 51.8972,
+    "lng": -8.47,
+    "city": "Cork",
+    "countryCode": "IE",
+    "country": "Ireland",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 48.8567,
+    "lng": 2.3522,
+    "city": "Paris",
+    "countryCode": "FR",
+    "country": "France",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 45.76,
+    "lng": 4.84,
+    "city": "Lyon",
+    "countryCode": "FR",
+    "country": "France",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 43.2964,
+    "lng": 5.37,
+    "city": "Marseille",
+    "countryCode": "FR",
+    "country": "France",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 43.7034,
+    "lng": 7.2663,
+    "city": "Nice",
+    "countryCode": "FR",
+    "country": "France",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 40.4169,
+    "lng": -3.7033,
+    "city": "Madrid",
+    "countryCode": "ES",
+    "country": "Spain",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 41.3828,
+    "lng": 2.1769,
+    "city": "Barcelona",
+    "countryCode": "ES",
+    "country": "Spain",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 39.47,
+    "lng": -0.3764,
+    "city": "Valencia",
+    "countryCode": "ES",
+    "country": "Spain",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 37.39,
+    "lng": -5.99,
+    "city": "Seville",
+    "countryCode": "ES",
+    "country": "Spain",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 38.7253,
+    "lng": -9.15,
+    "city": "Lisbon",
+    "countryCode": "PT",
+    "country": "Portugal",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 41.1621,
+    "lng": -8.622,
+    "city": "Porto",
+    "countryCode": "PT",
+    "country": "Portugal",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 41.8933,
+    "lng": 12.4828,
+    "city": "Rome",
+    "countryCode": "IT",
+    "country": "Italy",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 45.4669,
+    "lng": 9.19,
+    "city": "Milan",
+    "countryCode": "IT",
+    "country": "Italy",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 40.8333,
+    "lng": 14.25,
+    "city": "Naples",
+    "countryCode": "IT",
+    "country": "Italy",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 45.0792,
+    "lng": 7.6761,
+    "city": "Turin",
+    "countryCode": "IT",
+    "country": "Italy",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 52.3728,
+    "lng": 4.8936,
+    "city": "Amsterdam",
+    "countryCode": "NL",
+    "country": "Netherlands",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 51.92,
+    "lng": 4.48,
+    "city": "Rotterdam",
+    "countryCode": "NL",
+    "country": "Netherlands",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 52.08,
+    "lng": 4.31,
+    "city": "The Hague",
+    "countryCode": "NL",
+    "country": "Netherlands",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 52.0908,
+    "lng": 5.1217,
+    "city": "Utrecht",
+    "countryCode": "NL",
+    "country": "Netherlands",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 50.8467,
+    "lng": 4.3525,
+    "city": "Brussels",
+    "countryCode": "BE",
+    "country": "Belgium",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 51.2178,
+    "lng": 4.4003,
+    "city": "Antwerp",
+    "countryCode": "BE",
+    "country": "Belgium",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 49.6117,
+    "lng": 6.1319,
+    "city": "Luxembourg",
+    "countryCode": "LU",
+    "country": "Luxembourg",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 47.3744,
+    "lng": 8.5411,
+    "city": "Zurich",
+    "countryCode": "CH",
+    "country": "Switzerland",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 46.2017,
+    "lng": 6.1469,
+    "city": "Geneva",
+    "countryCode": "CH",
+    "country": "Switzerland",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 47.5547,
+    "lng": 7.5906,
+    "city": "Basel",
+    "countryCode": "CH",
+    "country": "Switzerland",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 48.2083,
+    "lng": 16.3725,
+    "city": "Vienna",
+    "countryCode": "AT",
+    "country": "Austria",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 52.52,
+    "lng": 13.405,
+    "city": "Berlin",
+    "countryCode": "DE",
+    "country": "Germany",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 48.1375,
+    "lng": 11.575,
+    "city": "Munich",
+    "countryCode": "DE",
+    "country": "Germany",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 55.6761,
+    "lng": 12.5683,
+    "city": "Copenhagen",
+    "countryCode": "DK",
+    "country": "Denmark",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 56.1572,
+    "lng": 10.2107,
+    "city": "Aarhus",
+    "countryCode": "DK",
+    "country": "Denmark",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 59.9133,
+    "lng": 10.7389,
+    "city": "Oslo",
+    "countryCode": "NO",
+    "country": "Norway",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 60.3894,
+    "lng": 5.33,
+    "city": "Bergen",
+    "countryCode": "NO",
+    "country": "Norway",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 63.4297,
+    "lng": 10.3933,
+    "city": "Trondheim",
+    "countryCode": "NO",
+    "country": "Norway",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 59.3294,
+    "lng": 18.0686,
+    "city": "Stockholm",
+    "countryCode": "SE",
+    "country": "Sweden",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 57.7075,
+    "lng": 11.9675,
+    "city": "Gothenburg",
+    "countryCode": "SE",
+    "country": "Sweden",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 55.6058,
+    "lng": 13.0358,
+    "city": "Malmo",
+    "countryCode": "SE",
+    "country": "Sweden",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 60.1708,
+    "lng": 24.9375,
+    "city": "Helsinki",
+    "countryCode": "FI",
+    "country": "Finland",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 61.4981,
+    "lng": 23.76,
+    "city": "Tampere",
+    "countryCode": "FI",
+    "country": "Finland",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 64.1467,
+    "lng": -21.94,
+    "city": "Reykjavik",
+    "countryCode": "IS",
+    "country": "Iceland",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 52.23,
+    "lng": 21.0111,
+    "city": "Warsaw",
+    "countryCode": "PL",
+    "country": "Poland",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 50.0614,
+    "lng": 19.9372,
+    "city": "Krakow",
+    "countryCode": "PL",
+    "country": "Poland",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 51.11,
+    "lng": 17.0325,
+    "city": "Wroclaw",
+    "countryCode": "PL",
+    "country": "Poland",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 54.3475,
+    "lng": 18.6453,
+    "city": "Gdansk",
+    "countryCode": "PL",
+    "country": "Poland",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 50.0875,
+    "lng": 14.4214,
+    "city": "Prague",
+    "countryCode": "CZ",
+    "country": "Czechia",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 49.1925,
+    "lng": 16.6083,
+    "city": "Brno",
+    "countryCode": "CZ",
+    "country": "Czechia",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 48.1439,
+    "lng": 17.1097,
+    "city": "Bratislava",
+    "countryCode": "SK",
+    "country": "Slovakia",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 48.7167,
+    "lng": 21.25,
+    "city": "Kosice",
+    "countryCode": "SK",
+    "country": "Slovakia",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 47.4925,
+    "lng": 19.0514,
+    "city": "Budapest",
+    "countryCode": "HU",
+    "country": "Hungary",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 44.4325,
+    "lng": 26.1039,
+    "city": "Bucharest",
+    "countryCode": "RO",
+    "country": "Romania",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 46.7667,
+    "lng": 23.5833,
+    "city": "Cluj-Napoca",
+    "countryCode": "RO",
+    "country": "Romania",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 45.7597,
+    "lng": 21.23,
+    "city": "Timisoara",
+    "countryCode": "RO",
+    "country": "Romania",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 42.7,
+    "lng": 23.33,
+    "city": "Sofia",
+    "countryCode": "BG",
+    "country": "Bulgaria",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 42.15,
+    "lng": 24.75,
+    "city": "Plovdiv",
+    "countryCode": "BG",
+    "country": "Bulgaria",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 37.9842,
+    "lng": 23.7281,
+    "city": "Athens",
+    "countryCode": "GR",
+    "country": "Greece",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 40.6403,
+    "lng": 22.9347,
+    "city": "Thessaloniki",
+    "countryCode": "GR",
+    "country": "Greece",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 45.8131,
+    "lng": 15.9775,
+    "city": "Zagreb",
+    "countryCode": "HR",
+    "country": "Croatia",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 43.51,
+    "lng": 16.44,
+    "city": "Split",
+    "countryCode": "HR",
+    "country": "Croatia",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 46.0514,
+    "lng": 14.5061,
+    "city": "Ljubljana",
+    "countryCode": "SI",
+    "country": "Slovenia",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 59.4372,
+    "lng": 24.7453,
+    "city": "Tallinn",
+    "countryCode": "EE",
+    "country": "Estonia",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 58.3833,
+    "lng": 26.7167,
+    "city": "Tartu",
+    "countryCode": "EE",
+    "country": "Estonia",
+    "suggestedRadiusMeters": 6000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 56.9489,
+    "lng": 24.1064,
+    "city": "Riga",
+    "countryCode": "LV",
+    "country": "Latvia",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 54.6872,
+    "lng": 25.28,
+    "city": "Vilnius",
+    "countryCode": "LT",
+    "country": "Lithuania",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 54.8972,
+    "lng": 23.8861,
+    "city": "Kaunas",
+    "countryCode": "LT",
+    "country": "Lithuania",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 35.8983,
+    "lng": 14.5125,
+    "city": "Valletta",
+    "countryCode": "MT",
+    "country": "Malta",
+    "suggestedRadiusMeters": 5000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 42.5063,
+    "lng": 1.5218,
+    "city": "Andorra la Vella",
+    "countryCode": "AD",
+    "country": "Andorra",
+    "suggestedRadiusMeters": 5000,
+    "source": "SimpleMaps World Cities Database page"
+  },
+  {
+    "lat": 41.3289,
+    "lng": 19.8178,
+    "city": "Tirana",
+    "countryCode": "AL",
+    "country": "Albania",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 44.82,
+    "lng": 20.46,
+    "city": "Belgrade",
+    "countryCode": "RS",
+    "country": "Serbia",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 41.9961,
+    "lng": 21.4317,
+    "city": "Skopje",
+    "countryCode": "MK",
+    "country": "North Macedonia",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -26.2044,
+    "lng": 28.0456,
+    "city": "Johannesburg",
+    "countryCode": "ZA",
+    "country": "South Africa",
+    "suggestedRadiusMeters": 15000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -33.9253,
+    "lng": 18.4239,
+    "city": "Cape Town",
+    "countryCode": "ZA",
+    "country": "South Africa",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -29.8833,
+    "lng": 31.05,
+    "city": "Durban",
+    "countryCode": "ZA",
+    "country": "South Africa",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -25.7461,
+    "lng": 28.1881,
+    "city": "Pretoria",
+    "countryCode": "ZA",
+    "country": "South Africa",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -24.6581,
+    "lng": 25.9122,
+    "city": "Gaborone",
+    "countryCode": "BW",
+    "country": "Botswana",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -1.2864,
+    "lng": 36.8172,
+    "city": "Nairobi",
+    "countryCode": "KE",
+    "country": "Kenya",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -4.05,
+    "lng": 39.6667,
+    "city": "Mombasa",
+    "countryCode": "KE",
+    "country": "Kenya",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 5.55,
+    "lng": -0.2,
+    "city": "Accra",
+    "countryCode": "GH",
+    "country": "Ghana",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 6.7,
+    "lng": -1.625,
+    "city": "Kumasi",
+    "countryCode": "GH",
+    "country": "Ghana",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 14.6928,
+    "lng": -17.4467,
+    "city": "Dakar",
+    "countryCode": "SN",
+    "country": "Senegal",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 36.8064,
+    "lng": 10.1817,
+    "city": "Tunis",
+    "countryCode": "TN",
+    "country": "Tunisia",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": 0.3136,
+    "lng": 32.5811,
+    "city": "Kampala",
+    "countryCode": "UG",
+    "country": "Uganda",
+    "suggestedRadiusMeters": 9000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -1.9439,
+    "lng": 30.0594,
+    "city": "Kigali",
+    "countryCode": "RW",
+    "country": "Rwanda",
+    "suggestedRadiusMeters": 7000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -33.8678,
+    "lng": 151.21,
+    "city": "Sydney",
+    "countryCode": "AU",
+    "country": "Australia",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -37.8142,
+    "lng": 144.9631,
+    "city": "Melbourne",
+    "countryCode": "AU",
+    "country": "Australia",
+    "suggestedRadiusMeters": 18000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -27.4678,
+    "lng": 153.0281,
+    "city": "Brisbane",
+    "countryCode": "AU",
+    "country": "Australia",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -31.9559,
+    "lng": 115.8606,
+    "city": "Perth",
+    "countryCode": "AU",
+    "country": "Australia",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -34.9275,
+    "lng": 138.6,
+    "city": "Adelaide",
+    "countryCode": "AU",
+    "country": "Australia",
+    "suggestedRadiusMeters": 10000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -36.8406,
+    "lng": 174.74,
+    "city": "Auckland",
+    "countryCode": "NZ",
+    "country": "New Zealand",
+    "suggestedRadiusMeters": 12000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -41.2889,
+    "lng": 174.7772,
+    "city": "Wellington",
+    "countryCode": "NZ",
+    "country": "New Zealand",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  },
+  {
+    "lat": -43.531,
+    "lng": 172.6365,
+    "city": "Christchurch",
+    "countryCode": "NZ",
+    "country": "New Zealand",
+    "suggestedRadiusMeters": 8000,
+    "source": "SimpleMaps World Cities Database (CC BY 4.0)"
+  }
+]

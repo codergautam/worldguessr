@@ -4,6 +4,7 @@ const playerGuessSchema = new mongoose.Schema({
   playerId: { type: String, required: true }, // accountId for logged in users, socketId for guests
   username: { type: String, required: true },
   accountId: { type: String, default: null }, // null for guest players
+  countryCode: { type: String, default: null }, // player's flag at game time (null if unset/guest)
 
   // Guess data
   guessLat: { type: Number, required: false, default: null },
@@ -42,6 +43,7 @@ const playerSummarySchema = new mongoose.Schema({
   playerId: { type: String, required: true },
   username: { type: String, required: true },
   accountId: { type: String, default: null },
+  countryCode: { type: String, default: null }, // player's flag at game time (null if unset/guest)
 
   // Final scores
   totalPoints: { type: Number, required: true },
@@ -65,7 +67,7 @@ const gameSchema = new mongoose.Schema({
   gameType: {
     type: String,
     required: true,
-    enum: ['singleplayer', 'ranked_duel', 'unranked_multiplayer', 'private_multiplayer']
+    enum: ['singleplayer', 'ranked_duel', 'unranked_multiplayer', 'private_multiplayer', 'daily_challenge']
   },
 
   // Game settings
@@ -75,6 +77,8 @@ const gameSchema = new mongoose.Schema({
     maxDist: { type: Number, default: 20000 }, // km
     timePerRound: { type: Number, default: null }, // milliseconds (null for singleplayer, set for multiplayer)
     official: { type: Boolean, default: true }, // affects XP
+    countryGuesser: { type: Boolean, default: false }, // country/continent guesser mode (1000 pts per round)
+    countryGuessrSubMode: { type: String, default: null }, // 'country' or 'continent'
 
     // Additional settings
     showRoadName: { type: Boolean, default: false },

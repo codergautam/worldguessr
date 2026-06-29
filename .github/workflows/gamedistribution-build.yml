@@ -2,13 +2,7 @@ name: GameDistribution Build
 
 on:
   push:
-    branches-ignore:
-      - 'gh-pages'
-      - 'gh-pages-dev'
-      - 'coolmath-build'
-      - 'coolmath-build-*'
-      - 'gamedistribution-build'
-      - 'gamedistribution-build-*'
+    branches: [ "master" ]
   workflow_dispatch:
 
 jobs:
@@ -19,6 +13,7 @@ jobs:
       NEXT_PUBLIC_GAMEDISTRIBUTION: true
       NEXT_PUBLIC_API_URL: api.worldguessr.com
       NEXT_PUBLIC_WS_HOST: server.worldguessr.com
+      NEXT_PUBLIC_AUTH_URL: gauth.worldguessr.com
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: 471080734176-vm588te8pig8tnmvi00b5hr143d64qjk.apps.googleusercontent.com
       NEXT_PUBLIC_BASE_PATH: /fef00656129743768437b7589b7c48b1
     steps:
@@ -30,10 +25,12 @@ jobs:
         node-version: '18'
 
     - name: Install dependencies
-      run: npm i
+      run: |
+        corepack enable
+        pnpm install --no-frozen-lockfile
 
     - name: Build GameDistribution version
-      run: npm run build
+      run: pnpm run build
 
     - name: Get branch name
       id: branch

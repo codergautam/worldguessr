@@ -2,7 +2,7 @@ import Head from "next/head";
 import { useEffect } from "react";
 import { asset } from '@/lib/basePath';
 
-export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false }) {
+export default function HeadContent({ text, inCoolMathGames, inCrazyGames = false, inGameDistribution = false, titleOverride, descOverride, canonicalOverride }) {
   useEffect(() => {
     if (!window.location.search.includes("crazygames") && !process.env.NEXT_PUBLIC_POKI &&
   !process.env.NEXT_PUBLIC_COOLMATH && !process.env.NEXT_PUBLIC_GAMEDISTRIBUTION) {
@@ -163,23 +163,33 @@ ads.js"></script>*/
     }
   }, []);
 
+  const isSchoolGuessr = process.env.NEXT_PUBLIC_SCHOOLGUESSR === "true";
+  const schoolGuessrTitle = "SchoolGuessr - A kid-friendly GeoGuessr game!";
+  const schoolGuessrDesc = "Play SchoolGuessr, a free, kid-friendly geography guessing game made for classrooms. Safe for schools, no chat, no user content.";
+  const resolvedTitle = titleOverride || (isSchoolGuessr
+    ? schoolGuessrTitle
+    : inCoolMathGames
+      ? "WorldGuessr - Play it now at CoolmathGames.com"
+      : text("tabTitle"));
+  const resolvedDesc = descOverride || (isSchoolGuessr ? schoolGuessrDesc : text("shortDescMeta"));
+  const resolvedOgTitle = titleOverride || (isSchoolGuessr ? schoolGuessrTitle : text("fullTitle"));
+  const resolvedOgDesc = descOverride || (isSchoolGuessr ? schoolGuessrDesc : text("fullDescMeta"));
+
   return (
           <Head>
-      <title>
-        { inCoolMathGames ? "WorldGuessr - Play it now at CoolmathGames.com" :
-        text("tabTitle") }
-        </title>
-    <meta property="og:title" content={text("fullTitle")}/>
+      <title>{resolvedTitle}</title>
+    <meta property="og:title" content={resolvedOgTitle}/>
 
     <meta name="description"
-    content={text("shortDescMeta")}
+    content={resolvedDesc}
     />
     <meta property="og:description"
-    content={text("fullDescMeta")}
+    content={resolvedOgDesc}
     />
+    {canonicalOverride && <link rel="canonical" href={canonicalOverride} />}
 
 <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no"/>
-    <link rel="icon" type="image/x-icon" href={asset("/icon.ico")} />
+    <link rel="icon" type={isSchoolGuessr ? "image/png" : "image/x-icon"} href={asset(isSchoolGuessr ? "/schoolguessrlogo.png" : "/icon.ico")} />
 <meta name="google-site-verification" content="7s9wNJJCXTQqp6yr1GiQxREhloXKjtlbOIPTHZhtY04" />
 <meta name="yandex-verification" content="2eb7e8ef6fb55e24" />
 
@@ -196,8 +206,8 @@ ads.js"></script>*/
 {/*  */}
 
 
-    <meta property="og:image" content={asset("/icon_144x144.png")} />
-    <meta property="og:url" content="https://worldguessr.com" />
+    <meta property="og:image" content={asset(isSchoolGuessr ? "/schoolguessrlogo.png" : "/icon_144x144.png")} />
+    <meta property="og:url" content={isSchoolGuessr ? "https://schoolguessr.com" : "https://worldguessr.com"} />
     <meta property="og:type" content="website" />
 </Head>
   )

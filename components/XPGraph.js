@@ -161,7 +161,9 @@ export default function XPGraph({ session, mode = 'xp', isPublic = false, userna
                         rankGain: stat.eloChange ? (stat.eloChange > 0 ? Math.abs(stat.rankImprovement || 0) : -(Math.abs(stat.rankImprovement || 0))) : 0
                     });
                 } else {
-                    // ELO Rank mode
+                    // ELO Rank mode — skip points where elo < 1000. Sub-1000 ranks
+                    // explode (most users sit at 1000) and crush the y-axis scale.
+                    if ((stat.elo ?? 0) < 1000) return;
                     dataPoints.push({
                         x: date,
                         y: stat.eloRank,

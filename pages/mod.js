@@ -126,6 +126,10 @@ export default function ModPage() {
           .mainBody {
             user-select: auto !important;
             overflow: auto !important;
+            background-color: #0d1117 !important;
+          }
+          body::before {
+            display: none !important;
           }
         `}
         </style>

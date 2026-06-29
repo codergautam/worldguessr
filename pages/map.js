@@ -7,7 +7,7 @@ import { useTranslation } from '@/components/useTranslations'
 import config from '@/clientConfig';
 import { getHeaders } from '@/components/auth/auth';
 import { toast } from 'react-toastify';
-import { asset, navigate, stripBase } from '@/lib/basePath';
+import { asset, navigate, stripBase, localePath } from '@/lib/basePath';
 
 export default function MapPage({ }) {
   const router = useRouter();
@@ -287,7 +287,9 @@ export default function MapPage({ }) {
   }, [mapData.data]);*/
 
   const handlePlayButtonClick = () => {
-    window.location.href = `${navigate('/')}?map=${mapData.countryCode || mapData.slug}${window.location.search.includes('crazygames') ? '&crazygames=true' : ''}`;
+    // localePath('/') → '/fr' when we're at /fr/map, so Play lands directly on
+    // the localised home instead of hitting / and bouncing through LocalizedHome.
+    window.location.href = `${localePath('/')}?map=${mapData.countryCode || mapData.slug}${window.location.search.includes('crazygames') ? '&crazygames=true' : ''}`;
   };
 
   return (
@@ -378,7 +380,7 @@ export default function MapPage({ }) {
         <div className={styles.branding}>
           <h1>WorldGuessr</h1>
           <center>
-            <button onClick={() => window.location.href=`${navigate('/')}${
+            <button onClick={() => window.location.href=`${localePath('/')}${
               window.location.search.includes('crazygames') ? '?crazygames=true' : ''
             }`} className={styles.backButton}>
               ← {text('backToGame')}
@@ -439,7 +441,7 @@ export default function MapPage({ }) {
               {mapData.data && (
                 <div className={styles.stat}>
                   <span className={styles.statIcon}>📍</span>
-                  <span className={styles.statValue}>{mapData.locationcnt.toLocaleString()}</span>
+                  <span className={styles.statValue}>{mapData?.locationsCnt?.toLocaleString()}</span>
                   <span className={styles.statLabel}>Locations</span>
                 </div>
               )}

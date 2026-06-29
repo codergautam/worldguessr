@@ -1,9 +1,14 @@
+import Head from 'next/head';
 import { useTranslation } from '@/components/useTranslations';
 
 export default function Banned() {
     const { t: text } = useTranslation('common');
 
     return (
+        <>
+        <Head>
+            <style>{`body::before { display: none !important; }`}</style>
+        </Head>
         <div style={{
             minHeight: '100vh',
             display: 'flex',
@@ -81,5 +86,6 @@ export default function Banned() {
                 ⚠️ {text("appealsNotEmail") || "Appeals are not handled over email."}
             </p>
         </div>
+        </>
     )
 }

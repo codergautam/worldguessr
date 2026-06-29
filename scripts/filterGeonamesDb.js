@@ -36,7 +36,7 @@ cities.forEach(city => {
 console.log('cities-new country counts', newCountryCounts)
 
 
-// save this to a file ./public/cities.json
+// save this to a file ./data/cities.json
 import fs from 'fs'
-fs.writeFileSync('./public/cities.json', JSON.stringify(cities))
+fs.writeFileSync('./data/cities.json', JSON.stringify(cities))
 console.log('cities.json written')

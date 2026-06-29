@@ -80,7 +80,8 @@ export default function ModerationView({ session }) {
         background: 'rgba(255, 255, 255, 0.1)',
         borderRadius: 'clamp(10px, 3vw, 20px)',
         padding: 'clamp(15px, 4vw, 30px)',
-        backdropFilter: 'blur(20px)',
+        // No backdropFilter: inside the scrollable account-modal body, blur causes
+        // white flicker artifacts during scroll. The dark backdrop makes it a no-op.
         border: '1px solid rgba(255, 255, 255, 0.1)',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
     };

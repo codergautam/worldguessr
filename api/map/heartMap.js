@@ -1,8 +1,20 @@
 import Map from '../../models/Map.js';
 import User from '../../models/User.js';
+import { registerStat } from '../../serverUtils/statRegistry.js';
 
 const HEART_COOLDOWN = 500;
-let recentHearts = {}
+let recentHearts = {};
+registerStat('api/map/heartMap.recentHearts', () => Object.keys(recentHearts).length);
+
+// Sweep — entries are only ever used inside the HEART_COOLDOWN window, so
+// anything older than a minute (belt-and-suspenders) is safe to drop. Without
+// this, every unique user who hearts a map stays forever.
+setInterval(() => {
+  const cutoff = Date.now() - 60000;
+  for (const [id, ts] of Object.entries(recentHearts)) {
+    if (ts < cutoff) delete recentHearts[id];
+  }
+}, 60000).unref();
 
 async function handler(req, res) {
   if(!recentHearts) {

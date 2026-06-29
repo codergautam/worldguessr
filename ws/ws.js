@@ -5,9 +5,9 @@ import Player from './classes/Player.js';
 import { v4 as uuidv4 } from 'uuid';
 import User, { USERNAME_COLLATION } from '../models/User.js';
 import mongoose from 'mongoose';
-import { Filter } from 'bad-words';
 import Game from './classes/Game.js';
 import setCorsHeaders from '../serverUtils/setCorsHeaders.js';
+import { getActivePlayerCount, getPlatformDistribution } from '../serverUtils/playerCounts.js';
 
 import lookup from "coordinate_to_country"
 import { players, games, disconnectedPlayers } from '../serverUtils/states.js';
@@ -52,17 +52,15 @@ function pick5RandomArb() {
   while(rand.size < 5) {
     rand.add(arbitraryWorld[Math.floor(Math.random() * arbitraryWorld.length)]);
   }
-  return [...rand].map((r) => ({ lat: r.lat, long: r.lng, country: r.country || 'unknown' }));
+  return [...rand].map((r) => {
+    const loc = { lat: r.lat, long: r.lng, country: r.country || 'unknown' };
+    if (r.heading !== undefined && r.heading !== null) loc.heading = r.heading;
+    if (r.pitch !== undefined && r.pitch !== null) loc.pitch = r.pitch;
+    if (r.panoId) loc.panoId = r.panoId;
+    return loc;
+  });
 }
 
-
-// Load the profanity filter
-const filter = new Filter();
-filter.removeWords('damn')
-
-fs.readFileSync('public/Crazygames_profanity_filter.txt', 'utf8').split('\n').forEach((word) => {
-  filter.addWords(word);
-});
 
 // init state vars
 const dev = process.env.NODE_ENV !== 'production'
@@ -270,20 +268,14 @@ app.get('/playercnt', (res) => {
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'text/plain');
   res.writeStatus('200 OK');
-  res.end(String(players.size - disconnectedPlayers.size));
+  res.end(String(getActivePlayerCount()));
 });
 
 app.get('/platformdist', (res) => {
   setCorsHeaders(res);
   res.writeHeader('Content-Type', 'application/json');
   res.writeStatus('200 OK');
-  const dist = {};
-  for (const player of players.values()) {
-    if (!player.verified || player.disconnected) continue;
-    const p = player.platform || 'empty';
-    dist[p] = (dist[p] || 0) + 1;
-  }
-  res.end(JSON.stringify(dist));
+  res.end(JSON.stringify(getPlatformDistribution()));
 });
 
 // maintenance mode
@@ -638,6 +630,11 @@ app.ws('/wg', {
           duel: false
         }
         playersInQueue.set(player.id, queueDetails);
+        // Explicitly confirm the join so the client has a signal the queue
+        // actually registered. Without this the unranked queue sent nothing back
+        // and the client would spin on the matchmaking screen forever if the join
+        // was dropped (e.g. socket hiccup) or silently rejected.
+        player.send({ type: 'queueJoined', ranked: false });
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
           const ipOctets = player.ip.split('.').slice(0, 3).join('.');
@@ -687,6 +684,9 @@ app.ws('/wg', {
             duel: true
           }
           playersInQueue.set(player.id, queueDetails);
+          // No league => no publicDuelRange below, so this is the only join ack
+          // the client gets for this case.
+          player.send({ type: 'queueJoined', ranked: true });
 
         } else {
           const range = getLeagueRange(player.league);
@@ -707,6 +707,9 @@ app.ws('/wg', {
           type: 'publicDuelRange',
           range
         });
+        // Uniform join ack across all queue branches (publicDuelRange alone is
+        // ELO-display info; queueJoined is the canonical "you're queued" signal).
+        player.send({ type: 'queueJoined', ranked: true });
       }
         if(player.ip !== 'unknown' && player.ip.includes('.')) {
 
@@ -768,21 +771,19 @@ app.ws('/wg', {
         game.setGuess(player.id, latLong, final, round);
       }
 
-      if (json.type === 'chat' && player.gameId && games.has(player.gameId)) {
-
-        let message = json.message;
-        const lastMessage = player.lastMessage || 0;
-        if (typeof message !== 'string' || message.length < 1 || message.length > 200 || Date.now() - lastMessage < 500) {
-          return;
-        }
+      if (json.type === 'emote' && player.gameId && games.has(player.gameId)) {
+        const emote = json.emote;
+        if (!Number.isInteger(emote) || emote < 0 || emote > 9) return;
+        const lastEmote = player.lastEmote || 0;
+        if (Date.now() - lastEmote < 1500) return;
         const game = games.get(player.gameId);
-        message = filter.clean(message);
-        player.lastMessage = Date.now();
+        player.lastEmote = Date.now();
         game.sendAllPlayers({
-          type: 'chat',
+          type: 'emote',
           id: player.id,
           name: player.username,
-          message
+          countryCode: player.countryCode || null,
+          emote
         });
       }
 
@@ -1278,6 +1279,16 @@ app.ws('/wg', {
     if (players.has(ws.id)) {
       const player = players.get(ws.id);
 
+      // A reconnect can move this player id to a new websocket before the old
+      // socket's close event fires. Ignore the stale close so it does not mark
+      // the newly reconnected player as disconnected or remove them from games.
+      if (player.ws !== ws) {
+        if (playersInQueue.has(ws.id)) {
+          playersInQueue.delete(ws.id);
+        }
+        return;
+      }
+
       // handle case where user just made an account and name is not set
       if(!player.username) {
         // disconnect the player
@@ -1341,11 +1352,12 @@ try {
   // update player count
   setInterval(() => {
 
+    const activePlayerCount = getActivePlayerCount();
     for (const player of players.values()) {
       if (player.verified && !player.gameId) {
         player.send({
           type: 'cnt',
-          c: players.size-disconnectedPlayers.size
+          c: activePlayerCount
         });
       }
       player.send({
@@ -1497,7 +1509,7 @@ try {
         if(game.curRound <= game.rounds) {
           game.curRound++;
           game.state = 'getready';
-          game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds ? 5000: 0);
+          game.nextEvtTime = Date.now() + game.waitBetweenRounds - (game.curRound > game.rounds && !game.duel ? 5000: 0);
           game.sendStateUpdate();
 
 
@@ -1520,7 +1532,6 @@ try {
         }
       }
 
-
       // find games that can be joined
       // unranked (meaning non duel) public games
       if (playersInQueue.size < 1) {
@@ -1530,6 +1541,9 @@ try {
         continue;
       }
       if (game.rounds - game.curRound < minRoundsRemaining) {
+        continue;
+      }
+      if (game.state === 'guess' && (game.nextEvtTime - Date.now()) < game.timePerRound / 3) {
         continue;
       }
       if (playerCnt >= game.maxPlayers) {

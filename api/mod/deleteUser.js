@@ -5,6 +5,10 @@ import Game from '../../models/Game.js';
 import Report from '../../models/Report.js';
 import ModerationLog from '../../models/ModerationLog.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
+import DailyChallengeScore from '../../models/DailyChallengeScore.js';
+import DailyLeaderboard from '../../models/DailyLeaderboard.js';
+import GuestProfile from '../../models/GuestProfile.js';
+import { addBannedIdentity } from '../../serverUtils/bannedIdentities.js';
 
 /**
  * Delete User API - Staff Only
@@ -49,7 +53,7 @@ export default async function handler(req, res) {
     if (!moderator || !moderator.staff) {
       return res.status(403).json({ message: 'Unauthorized - staff access required' });
     }
-    if (moderator.username !== 'codergautam') {
+    if (moderator.username !== 'codergautam' && moderator.username !== 'Pascaline') { // TODO: Remove this after testing
       return res.status(403).json({ message: 'Unauthorized - admin access required' });
     }
     // Find target user
@@ -88,7 +92,10 @@ export default async function handler(req, res) {
       sentRequests: await User.countDocuments({ receivedReq: targetUser._id }),
       receivedRequests: await User.countDocuments({ sentReq: targetUser._id }),
       reportsMade: await Report.countDocuments({ 'reportedBy.accountId': targetUser._id.toString() }),
-      reportsAgainst: await Report.countDocuments({ 'reportedUser.accountId': targetUser._id.toString() })
+      reportsAgainst: await Report.countDocuments({ 'reportedUser.accountId': targetUser._id.toString() }),
+      dailyChallengeScores: await DailyChallengeScore.countDocuments({ userId: targetUser._id }),
+      dailyLeaderboardEntries: await DailyLeaderboard.countDocuments({ 'leaderboard.userId': targetUser._id.toString() }),
+      guestProfilesClaimed: await GuestProfile.countDocuments({ claimedBy: targetUser._id })
     };
 
     // Start deletion process
@@ -101,6 +108,9 @@ export default async function handler(req, res) {
       receivedRequestsCleaned: 0,
       reportsMadeAnonymized: 0,
       reportsAgainstAnonymized: 0,
+      dailyChallengeScoresDeleted: 0,
+      dailyLeaderboardsScrubbed: 0,
+      guestProfilesUnclaimed: 0,
       userAccountDeleted: 0
     };
 
@@ -199,7 +209,41 @@ export default async function handler(req, res) {
       deletionStats.reportsAgainstAnonymized = result.modifiedCount;
     }
 
-    // 9. Create moderation log BEFORE deleting user
+    // 9a. Delete daily-challenge score records (purges the player from every
+    //     daily-challenge leaderboard they appear on — previously these ghost
+    //     entries remained visible forever). We do NOT decrement
+    //     DailyChallengeStats counters; they're denormalized aggregates and
+    //     the tiny drift from a rare deletion isn't worth a partial-recompute.
+    if (counts.dailyChallengeScores > 0) {
+      const result = await DailyChallengeScore.deleteMany({ userId: targetUser._id });
+      deletionStats.dailyChallengeScoresDeleted = result.deletedCount;
+    }
+
+    // 9b. Scrub precomputed daily XP/ELO leaderboards — each DailyLeaderboard
+    //     doc has an embedded `leaderboard[]` with per-user rows; $pull
+    //     removes every matching entry across all docs in one pass.
+    if (counts.dailyLeaderboardEntries > 0) {
+      const result = await DailyLeaderboard.updateMany(
+        { 'leaderboard.userId': targetUser._id.toString() },
+        { $pull: { leaderboard: { userId: targetUser._id.toString() } } }
+      );
+      deletionStats.dailyLeaderboardsScrubbed = result.modifiedCount;
+    }
+
+    // 9c. Un-claim any GuestProfile this user claimed. Null-out rather than
+    //     delete — the profile's TTL handles eventual cleanup, and a null
+    //     claimedBy keeps the "already claimed" first-wins semantics intact
+    //     for other users who might have the same guestId (shouldn't, but
+    //     safer than resurrecting it for re-claim by someone else).
+    if (counts.guestProfilesClaimed > 0) {
+      const result = await GuestProfile.updateMany(
+        { claimedBy: targetUser._id },
+        { $set: { claimedBy: null, claimedAt: null } }
+      );
+      deletionStats.guestProfilesUnclaimed = result.modifiedCount;
+    }
+
+    // 10. Create moderation log BEFORE deleting user
     await ModerationLog.create({
       targetUser: {
         accountId: deletedUserInfo.accountId,
@@ -218,10 +262,24 @@ export default async function handler(req, res) {
       })
     });
 
-    // 10. Delete NameChangeRequests
+    // 11. Delete NameChangeRequests
     await NameChangeRequest.deleteMany({ 'user.accountId': targetUser._id.toString() });
 
-    // 11. Finally, delete the user account
+    // 11b. If we're deleting a user who is PERMANENTLY banned, blocklist their
+    //      identity so they can't re-register to evade the ban (the account row is
+    //      about to be gone, so the blocklist is the only thing left to match on).
+    //      Deleting a non-banned / temp-banned user does NOT blocklist them.
+    if (targetUser.banned && targetUser.banType === 'permanent') {
+      await addBannedIdentity({
+        user: targetUser,
+        type: 'user_deleted',
+        reason,
+        publicNote: targetUser.banPublicNote || null,
+        moderator,
+      });
+    }
+
+    // 12. Finally, delete the user account
     const userResult = await User.deleteOne({ _id: targetUser._id });
     deletionStats.userAccountDeleted = userResult.deletedCount;
 
