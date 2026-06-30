@@ -395,6 +395,7 @@ const purgeScheduledDeletions = async () => {
   try {
     const now = new Date();
     const due = await User.find({ scheduledDeletionAt: { $ne: null, $lte: now } })
+      .sort({ scheduledDeletionAt: 1 })
       .limit(DELETION_PURGE_BATCH);
     if (due.length === 0) return;
 
