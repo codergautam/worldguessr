@@ -105,6 +105,8 @@ interface ProfileViewProps {
     canChangeUsername?: boolean;
     daysUntilNameChange?: number;
     recentChange?: boolean;
+    pendingDeletion?: boolean;
+    scheduledDeletionAt?: string;
   };
   onLogout?: () => void;
   onRefreshUser?: () => void | Promise<void>;
@@ -370,6 +372,11 @@ export default function ProfileView({
             banPublicNote={user?.banPublicNote}
             pendingNameChange={user?.pendingNameChange}
             pendingNameChangePublicNote={user?.pendingNameChangePublicNote}
+            username={user?.username}
+            supporter={user?.supporter}
+            onLogout={onLogout}
+            pendingDeletion={user?.pendingDeletion}
+            scheduledDeletionAt={user?.scheduledDeletionAt}
           />
         );
       default:

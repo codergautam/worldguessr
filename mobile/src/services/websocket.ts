@@ -23,6 +23,7 @@ import {
   WS_LIVENESS_TIMEOUT_MS,
   WS_LIVENESS_PING_INTERVAL_MS,
   WS_LIVENESS_MAX_SILENCE_MS,
+  WS_VERIFY_TIMEOUT_MS,
 } from './websocketConfig';
 
 const REJOIN_CODE_KEY = 'wg_rejoinCode';
@@ -50,6 +51,11 @@ class WebSocketService {
   // setupConnection). Distinct from livenessTimeout, which is the one-shot
   // foreground-transition probe.
   private livenessWatchdog: ReturnType<typeof setInterval> | null = null;
+  // One-shot timer armed when a fresh socket sends `verify` (setupConnection). If no
+  // verify reply lands before it fires, the open is treated as failed and we force a
+  // reconnect. Closes the "socket OPENed but never verified" gap — that state emits no
+  // onclose, so without this it would strand the user on a permanent "connecting".
+  private verifyAckTimeout: ReturnType<typeof setTimeout> | null = null;
   private appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
 
   // Reconnect control (replaces web's window.dontReconnect)
@@ -72,17 +78,16 @@ class WebSocketService {
   // True while the current (re)connection attempt is a reconnect of a previously
   // established session — set it, and the next verify fires reconnectedHandlers.
   private _pendingReconnect = false;
-  // Timestamp (ms) of the last timeSync response, used by the liveness watchdog
-  // to detect a zombie socket on foreground (capture-and-compare).
+  // Timestamp (ms) of the last timeSync RESPONSE. This is the heartbeat both liveness
+  // checks key off: it advances ONLY on a real server reply to our timeSync, so unlike
+  // raw inbound traffic (e.g. the server's unconditional 5s `t` keepalive) it can't be
+  // forged by a half-open socket whose uplink is dead. Both verifyLiveness (foreground
+  // transition) and the continuous watchdog capture-and-compare it.
   private _lastTimeSyncResponseAt = 0;
 
-  // Timestamp (ms) of the LAST inbound message of ANY type (refreshed in
-  // dispatchMessage). The continuous foreground liveness watchdog compares against
-  // this to detect a zombie socket — OPEN but silent — while the app stays
-  // foregrounded. Any server message (timeSync / t / cnt / game / …) proves the
-  // socket is alive, so this is a finer signal than _lastTimeSyncResponseAt (which
-  // only advances on the ~30s timeSync round-trip).
-  private _lastInboundAt = 0;
+  // Timestamp (ms) of the last `verify` response. The verify-ack timer capture-compares
+  // it to tell a successful open+verify apart from a socket that OPENed but never verified.
+  private _lastVerifyAt = 0;
 
   // Timestamp (ms) the app was last backgrounded, to decide on foreground
   // whether we've been gone long enough that the server dropped our session.
@@ -477,10 +482,16 @@ class WebSocketService {
   };
 
   /**
-   * Foreground liveness check for a socket that still reads OPEN. Pings the
-   * server (timeSync) and, if no response arrives within WS_LIVENESS_TIMEOUT_MS,
-   * treats the socket as a zombie and forces a reconnect. Capture-and-compare on
+   * Confirming liveness probe for a socket that still reads OPEN. Pings the server
+   * (timeSync) and, if no response arrives within WS_LIVENESS_TIMEOUT_MS, treats the
+   * socket as a zombie and forces a reconnect. Capture-and-compare on
    * `_lastTimeSyncResponseAt` so a routine timeSync tick can't mask a dead socket.
+   *
+   * Shared by both liveness paths: the background→foreground transition
+   * (handleAppStateChange) AND the continuous foreground watchdog (setupConnection),
+   * which calls this once it sees the round-trip heartbeat go stale. Routing the
+   * watchdog through here adds one confirming round-trip before any teardown, so a
+   * merely-slow link or a brief JS-thread freeze can never trigger a false reconnect.
    */
   private verifyLiveness(): void {
     if (!this.isConnected) {
@@ -652,34 +663,61 @@ class WebSocketService {
       tz,
     });
 
+    // Verify-ack watchdog. A socket can OPEN cleanly (onopen fired, readyState OPEN) yet
+    // never get verified — the server's verify handler can throw on a transient DB blip
+    // and silently drop us, or a reconnect can race the server's rejoin bookkeeping. Such
+    // a socket emits no onclose (so handleDisconnect / onReconnectFailed never fire) and
+    // keeps receiving the 5s `t` keepalive, so without this it would sit OPEN-but-unverified
+    // indefinitely — the user stuck "connecting" with every action silently dropped by the
+    // server's verified-gate. If no verify reply lands within WS_VERIFY_TIMEOUT_MS, force a
+    // fresh connect+verify. Generation-guarded so a superseded attempt's stale timer can't
+    // tear down a newer socket; latch-guarded so we never fight a UAC takeover.
+    // dispatchMessage disarms it the moment a verify reply arrives.
+    const verifyGen = this._generation;
+    const verifyBefore = this._lastVerifyAt;
+    if (this.verifyAckTimeout) clearTimeout(this.verifyAckTimeout);
+    this.verifyAckTimeout = setTimeout(() => {
+      this.verifyAckTimeout = null;
+      if (verifyGen !== this._generation || this._dontReconnect || !this.isConnected) return;
+      if (this._lastVerifyAt === verifyBefore) {
+        console.warn('[WS] No verify ack within timeout — forcing reconnect');
+        this.connect(this._secret, true, { isReconnect: this._everConnected });
+      }
+    }, WS_VERIFY_TIMEOUT_MS);
+
     // Start pong heartbeat — ported from home.js:2349-2358
     this.pongInterval = setInterval(() => {
       this.send({ type: 'pong' });
     }, PONG_INTERVAL_MS);
 
-    // Start time sync — ported from home.js:1114-1123
+    // Start time sync — ported from home.js:1114-1123. The reply cadence (TIME_SYNC_INTERVAL_MS,
+    // 10s) doubles as the liveness heartbeat the watchdog below reads (_lastTimeSyncResponseAt).
     this.sendTimeSync();
     this.timeSyncInterval = setInterval(() => {
       this.sendTimeSync();
     }, TIME_SYNC_INTERVAL_MS);
 
-    // Start the continuous foreground liveness watchdog. Seed _lastInboundAt to now
-    // so a freshly-opened socket (no inbound yet) isn't tripped on the first tick.
-    // Each tick: if the socket still reads OPEN but no message has arrived for
-    // WS_LIVENESS_MAX_SILENCE_MS, TCP died without an onclose (a zombie) — force a
-    // fresh connect+verify, exactly like the foreground-transition path. We respect
-    // the _dontReconnect latch (set on a UAC takeover) so a background timer never
-    // passively fights another device for the session; an explicit foreground reopen
-    // still recovers via handleAppStateChange, which intentionally ignores the latch.
-    this._lastInboundAt = Date.now();
+    // Continuous foreground zombie-socket watchdog. Keyed off the last ANSWERED round-trip
+    // (_lastTimeSyncResponseAt), NOT off arbitrary inbound: the server's unconditional 5s
+    // `t` keepalive would otherwise keep a half-open socket (dead uplink, live downlink)
+    // looking alive forever while our sends silently vanish. Seed it to now so a freshly
+    // opened socket isn't tripped before its first round-trip lands.
+    this._lastTimeSyncResponseAt = Date.now();
     this.livenessWatchdog = setInterval(() => {
-      if (
-        this.isConnected &&
-        !this._dontReconnect &&
-        Date.now() - this._lastInboundAt > WS_LIVENESS_MAX_SILENCE_MS
-      ) {
-        console.warn('[WS] Inbound silence — socket is a zombie, forcing reconnect');
-        this.connect(this._secret, true, { isReconnect: this._everConnected });
+      // Respect the _dontReconnect latch (UAC takeover): a background timer must never
+      // passively fight another device for the session. An explicit foreground reopen still
+      // recovers via handleAppStateChange, which intentionally ignores the latch.
+      if (!this.isConnected || this._dontReconnect) return;
+      // A confirming probe (verifyLiveness) is already in flight — let it resolve rather
+      // than stacking a second one.
+      if (this.livenessTimeout) return;
+      // No round-trip completed within the window: the socket is SUSPECT. Don't tear it
+      // down on this signal alone — a slow link or a brief JS-thread freeze can stall the
+      // 30s timeSync without the connection actually being dead. Fire ONE confirming probe
+      // (a fresh timeSync with a short grace) and reconnect only if THAT goes unanswered.
+      if (Date.now() - this._lastTimeSyncResponseAt > WS_LIVENESS_MAX_SILENCE_MS) {
+        console.warn('[WS] No server round-trip within liveness window — probing socket');
+        this.verifyLiveness();
       }
     }, WS_LIVENESS_PING_INTERVAL_MS);
   }
@@ -729,10 +767,6 @@ class WebSocketService {
   // ── Internal: helpers ─────────────────────────────────────
 
   private dispatchMessage(data: any): void {
-    // ANY inbound message proves the socket is still alive — refresh the clock the
-    // foreground liveness watchdog reads (see livenessWatchdog in setupConnection).
-    this._lastInboundAt = Date.now();
-
     // Log all received messages (skip noisy ones)
     if (data.type !== 'pong' && data.type !== 't' && data.type !== 'timeSync') {
       console.log('[WS] <<<<', data.type, JSON.stringify(data).slice(0, 300));
@@ -741,7 +775,10 @@ class WebSocketService {
     // Handle time sync messages internally as well
     if (data.type === 'timeSync') {
       this.updateTimeOffsetFromSync(data.serverNow, data.clientSentAt);
-      // Mark liveness — the foreground watchdog compares against this timestamp.
+      // A timeSync REPLY is our liveness heartbeat: it proves a full round-trip just
+      // completed (our send reached the server and came back). Both verifyLiveness and
+      // the continuous watchdog capture-and-compare this timestamp. Crucially the `t`
+      // keepalive below does NOT touch it, so it can't be forged by a half-open socket.
       this._lastTimeSyncResponseAt = Date.now();
     } else if (data.type === 't') {
       this.updateTimeOffsetFallback(data.t);
@@ -750,6 +787,13 @@ class WebSocketService {
     // Reconnect-toast bookkeeping (Fix C). A `verify` after we'd previously
     // connected, during a pending reconnect, is a successful RE-connection.
     if (data.type === 'verify') {
+      // This socket is fully established — record it (the verify-ack timer
+      // capture-compares _lastVerifyAt) and disarm that timer.
+      this._lastVerifyAt = Date.now();
+      if (this.verifyAckTimeout) {
+        clearTimeout(this.verifyAckTimeout);
+        this.verifyAckTimeout = null;
+      }
       if (this._everConnected && this._pendingReconnect) {
         this.notifyReconnected();
       }
@@ -793,6 +837,13 @@ class WebSocketService {
     if (this.livenessWatchdog) {
       clearInterval(this.livenessWatchdog);
       this.livenessWatchdog = null;
+    }
+    // The verify-ack timer is per-connection; clear it here so a superseded attempt's
+    // pending timer can't force a reconnect against a newer socket. setupConnection
+    // re-arms it on the next open.
+    if (this.verifyAckTimeout) {
+      clearTimeout(this.verifyAckTimeout);
+      this.verifyAckTimeout = null;
     }
   }
 

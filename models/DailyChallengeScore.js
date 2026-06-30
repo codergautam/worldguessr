@@ -24,6 +24,9 @@ const dailyChallengeScoreSchema = new mongoose.Schema({
 
 dailyChallengeScoreSchema.index({ date: 1, userId: 1 }, { unique: true });
 dailyChallengeScoreSchema.index({ date: 1, score: -1 });
+// Deletion cascade: per-user purge. The {date,userId} prefix can't serve a
+// userId-only deleteMany, so this avoids a full collection scan.
+dailyChallengeScoreSchema.index({ userId: 1 });
 
 export default mongoose.models.DailyChallengeScore ||
   mongoose.model('DailyChallengeScore', dailyChallengeScoreSchema);

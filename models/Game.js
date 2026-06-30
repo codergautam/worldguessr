@@ -131,6 +131,7 @@ gameSchema.index({ 'players.accountId': 1, createdAt: -1 }); // User's game hist
 gameSchema.index({ gameType: 1, 'players.accountId': 1, createdAt: -1 }); // User's games by type
 gameSchema.index({ gameId: 1 }); // Unique game lookup
 gameSchema.index({ 'multiplayer.gameCode': 1 }); // Private game code lookup
+gameSchema.index({ 'rounds.playerGuesses.accountId': 1 }); // Deletion cascade: round-guess anonymize (previously a full collection scan)
 
 const Game = mongoose.model('Game', gameSchema);
 

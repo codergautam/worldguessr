@@ -48,7 +48,7 @@ import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
 import GetReadyOverlay from '../../src/components/multiplayer/GetReadyOverlay';
 import DuelHUD, { BAR_WIDTH as DUEL_BAR_WIDTH, BAR_MAX_FRACTION as DUEL_BAR_MAX_FRACTION } from '../../src/components/multiplayer/DuelHUD';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
-import EmoteReactions from '../../src/components/multiplayer/EmoteReactions';
+import EmoteReactions, { EMOTE_TOGGLE_SIZE } from '../../src/components/multiplayer/EmoteReactions';
 import MultiplayerLobby from '../../src/components/multiplayer/MultiplayerLobby';
 import PlayerCountBadge from '../../src/components/multiplayer/PlayerCountBadge';
 import TransitionCurtain from '../../src/components/TransitionCurtain';
@@ -290,13 +290,21 @@ function BetweenRoundsLeaderboard({
 function DuelWarningBanner({
   visible,
   onDismiss,
+  liftAboveEmote,
 }: {
   visible: boolean;
   onDismiss: () => void;
+  // When the bottom-left emote FAB is on screen it shares this corner, so raise the
+  // banner clear of it. We separate VERTICALLY (rather than narrowing the banner like
+  // web's 60%-width centered pill) because our longer ban-warning text would truncate
+  // at that width on phones, and `numberOfLines={2}` must never cut the warning.
+  liftAboveEmote: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const anim = useRef(new Animated.Value(0)).current; // 0 = hidden (below), 1 = shown
   const [mounted, setMounted] = useState(false);
+  // Clear the emote toggle (FAB size + its bottom inset + a gap) when it's present.
+  const emoteClearance = liftAboveEmote ? EMOTE_TOGGLE_SIZE + spacing.lg + spacing.md : 0;
 
   useEffect(() => {
     if (!visible) return;
@@ -332,7 +340,7 @@ function DuelWarningBanner({
       pointerEvents="none"
       style={[
         styles.duelWarningBanner,
-        { bottom: Math.max(insets.bottom, spacing.md) + spacing.md },
+        { bottom: Math.max(insets.bottom, spacing.md) + spacing.md + emoteClearance },
         {
           opacity: anim,
           transform: [
@@ -1089,24 +1097,47 @@ export default function GameScreen() {
     fetchLocations();
   }, [currentMapSlug, isCountryGuesserMode, isMultiplayer, loadNonce]);
 
-  // Multiplayer state='end' arrives with curRound = rounds + 1 (see ws.js:1509-1519),
-  // so clamp to the last real round before indexing locations.
+  // `currentLocation` is the LIVE round — it drives the active Street View pano and the
+  // singleplayer guess/result path. It must NOT be the source for the MP answer reveal:
+  // the reveal always shows the round that was just PLAYED. effectiveRoundIndex clamps to
+  // totalRounds, which lands on the last played round ONLY when the game runs to completion
+  // (curRound overshoots to rounds+1); on an early end it does not (see below).
   const effectiveRoundIndex = Math.min(gameState.currentRound, gameState.totalRounds) - 1;
   const currentLocation = gameState.locations[Math.max(0, effectiveRoundIndex)];
+
+  // Both MP reveals — the between-rounds answer card AND the final reveal — show the round
+  // that was just PLAYED, which is always curRound-1: the server bumps curRound exactly
+  // once past the last SCORED round before it leaves the guess phase (ws.js:1509-1513),
+  // whether that's a normal end (curRound → rounds+1) or an early ranked-duel end when a
+  // player's health hits 0 mid-game (curRound → lastPlayedRound+1, still ≤ rounds). Reading
+  // the live `currentLocation` is only correct on a normal end; on an early end
+  // currentLocation = locations[min(curRound,totalRounds)-1] resolves to the UNPLAYED next
+  // round, flipping the "It was {country}!" banner to — and leaking — a round nobody has
+  // played yet. Indexing the completed round fixes both and mirrors web (whose reveal
+  // latLong only advances when a new guess phase begins) + the singleplayer guess-time
+  // freeze (RoundResult.country, top of file).
   const completedRoundNumber = isMultiplayer && gameData ? gameData.curRound - 1 : 0;
-  const betweenRoundHistory = showBetweenRoundMap && gameData
+  const completedRoundHistory = isMultiplayer && gameData
     ? findRoundHistory(gameData.roundHistory, completedRoundNumber)
     : undefined;
-  const betweenRoundLocation = betweenRoundHistory?.location
-    ?? (showBetweenRoundMap && gameData ? gameData.locations?.[completedRoundNumber - 1] : undefined);
-  const mapActualLocation = showBetweenRoundMap ? betweenRoundLocation : currentLocation;
+  const completedRoundLocation = completedRoundHistory?.location
+    ?? (isMultiplayer && gameData ? gameData.locations?.[completedRoundNumber - 1] : undefined);
+  // Reveal answer = the completed round, falling back to currentLocation only when nothing
+  // has been scored yet (e.g. a forfeit during round 1, completedRoundNumber < 1) so the
+  // banner never goes blank.
+  const mpRevealLocation = completedRoundLocation ?? currentLocation;
+  // MP answer reveals (between-rounds or final) read the completed round; singleplayer keeps
+  // its own currentLocation path (with its frozen RoundResult.country banner).
+  const mapActualLocation = isMultiplayer && (showBetweenRoundMap || mpFinalReveal)
+    ? mpRevealLocation
+    : currentLocation;
   const betweenRoundPlayerGuesses = showBetweenRoundMap && gameData
-    ? (betweenRoundHistory
-        ? buildHistoryPlayerGuesses(betweenRoundHistory)
-        : buildCurrentPlayerGuesses(gameData.players, betweenRoundLocation, gameState.maxDist))
+    ? (completedRoundHistory
+        ? buildHistoryPlayerGuesses(completedRoundHistory)
+        : buildCurrentPlayerGuesses(gameData.players, completedRoundLocation, gameState.maxDist))
     : [];
   const currentRoundPlayerGuesses = isMultiplayer && gameData && (gameState.isShowingResult || mpFinalReveal)
-    ? buildCurrentPlayerGuesses(gameData.players, currentLocation, gameState.maxDist)
+    ? buildCurrentPlayerGuesses(gameData.players, mpRevealLocation, gameState.maxDist)
     : [];
 
   // ── Between-rounds fade-out latch ─────────────────────────────────────────
@@ -2437,11 +2468,17 @@ export default function GameScreen() {
       <DuelWarningBanner
         visible={duelWarningVisible}
         onDismiss={() => setDuelWarningVisible(false)}
+        // The emote FAB renders bottom-left during the same getready window; lift the
+        // banner above it whenever emotes are enabled (it's visible there).
+        liftAboveEmote={emotesEnabled}
       />
 
       {/* ═══ EMOTE REACTIONS — multiplayer, during active play (replaces chat) ═══ */}
-      {/* Gated by the settings toggle (mirrors web's multiplayerEmotesEnabled). */}
-      {emotesEnabled && isMultiplayer && gameData
+      {/* Gated by the settings toggle (mirrors web's multiplayerEmotesEnabled). The
+          `isScreenFocused` gate hands ownership to /game/results once it's pushed on
+          top at 'end' (which renders its own EmoteReactions) — without it BOTH would
+          mount and double-render incoming reactions. */}
+      {emotesEnabled && isMultiplayer && isScreenFocused && gameData
         && (gameData.state === 'guess' || gameData.state === 'getready' || gameData.state === 'end') && (
         <EmoteReactions hidden={miniMapShown && !showMapResult} hideName={!!gameData.duel} />
       )}
@@ -2620,13 +2657,17 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm + 72,
   },
   // Anti-cheat banner — web parity (.duel-warning-container / .duel-warning-content).
-  // zIndex sits above GetReadyOverlay (9999) so it peeks over the duel start cover.
+  // Sits BELOW the emote FAB layer (EmoteReactions container is zIndex 1300) so the
+  // open emote list paints on top of the banner instead of being hidden behind it.
+  // It only needs to beat the scene wrapper (zIndex 0) to cover the duel-start view —
+  // the GetReadyOverlay's internal 9999 lives in that sibling subtree and never
+  // competes here, so the old 10000 (meant to "beat 9999") was unnecessary.
   duelWarningBanner: {
     position: 'absolute',
     left: spacing.lg,
     right: spacing.lg,
     alignItems: 'center',
-    zIndex: 10000,
+    zIndex: 1290,
   },
   duelWarningContent: {
     flexDirection: 'row',

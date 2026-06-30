@@ -140,6 +140,8 @@ export default async function handler(req, res) {
       banPublicNote: user.banPublicNote || null,
       pendingNameChange: user.pendingNameChange || false,
       pendingNameChangePublicNote: user.pendingNameChangePublicNote || null,
+      pendingDeletion: !!user.scheduledDeletionAt,
+      scheduledDeletionAt: user.scheduledDeletionAt || null,
       // Extended data (publicAccount + eloRank combined)
       ...extendedData
     });

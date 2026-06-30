@@ -752,9 +752,23 @@ const ContainerResizeBridge = memo(function ContainerResizeBridge({ resizingRef 
  * `TouchZoom._onTouchStart` bail, so a fast second pinch (and the first pan/tap
  * after a pinch) is swallowed — the "every other zoom rejected" mobile bug.
  * Finishing the in-flight zoom on `touchstart` (capture phase, before Leaflet's
- * own handlers) unblocks it. `stopMapAnimations` clears `_animatingZoom` without
- * firing synthetic zoom/move events, so it won't disturb the camera controllers
- * (RevealController / ExtentFitter).
+ * own handlers) unblocks it.
+ *
+ * We FINISH the zoom via Leaflet's own `_onZoomTransitionEnd` — we do NOT abort it
+ * with `stopMapAnimations`. Aborting only clears `_animatingZoom` and strips the
+ * `leaflet-zoom-anim` class; it never fires `zoomend`, so the canvas renderer's
+ * `_onZoomEnd → path._project()` never runs and every vector (guess/answer lines,
+ * opponent lines, hint circle) keeps the pixel geometry (`_rings`) it had at the
+ * PREVIOUS committed zoom. Markers re-derive their position from lat/lng on every
+ * `zoom` event (Marker.getEvents), so they stay glued to the map while the vectors
+ * sit at a stale offset — the "lines detach from the pins during fast pan/zoom,
+ * then snap back on a clean zoom" glitch (mobile-only because this handler is
+ * touch-only). `_onZoomTransitionEnd` commits the in-flight zoom to its target AND
+ * fires the normal zoom/move(end) events, so the renderer reprojects the vectors in
+ * lock-step with the markers. It only runs while a pinch settle is in flight
+ * (`_animatingZoom`); a camera-controller fly uses `_flyToFrame` and never sets that
+ * flag, so this can't disturb RevealController / ExtentFitter. (Mirrors the
+ * standalone LeafletMap fallback.)
  *
  * TOUCH-ONLY by design. On desktop, zoom is the mouse wheel, and Leaflet's
  * ScrollWheelZoom already accumulates wheel deltas and drives its own animation
@@ -770,7 +784,13 @@ const ZoomFix = memo(function ZoomFix() {
     if (!map) return;
     const container = map.getContainer?.();
     if (!container) return;
-    const finishZoom = () => { if (map._animatingZoom) stopMapAnimations(map); };
+    const finishZoom = () => {
+      if (map._animatingZoom) {
+        // Finish (don't abort) the settle so the canvas renderer reprojects its
+        // vectors to the committed zoom — keeping them locked to the markers.
+        try { map._onZoomTransitionEnd(); } catch {}
+      }
+    };
     container.addEventListener("touchstart", finishZoom, true);
     return () => {
       container.removeEventListener("touchstart", finishZoom, true);
@@ -1041,11 +1061,28 @@ const MapComponent = ({
 
   const answerSnapshot = answerSnapshotRef.current;
   const answerLocation = answerShown ? (answerSnapshot?.location || location) : location;
-  const renderedPinPoint = answerShown ? (answerSnapshot?.pinPoint || pinPoint) : pinPoint;
   const answerCountryGuessPin = answerShown ? (answerSnapshot?.countryGuessPin || countryGuessPin) : countryGuessPin;
   const answerPlayers = answerShown
     ? (answerSnapshot?.players || multiplayerState?.gameData?.players || [])
     : (multiplayerState?.gameData?.players || []);
+
+  // My own guess pin normally comes from `pinPoint` — the spot I clicked, held in
+  // this map's local React state. But that state lives inside the embed (a WebView
+  // on mobile) and is wiped if it remounts/reloads — which happens when the app is
+  // backgrounded or a profile is opened mid-reveal. Opponents and the destination
+  // survive that (both prop/snapshot-driven), so without a fallback my pin silently
+  // vanishes on the answer reveal even though the server scored my guess. Recover it
+  // from my entry in the (snapshotted) players list — the same durable data that
+  // draws everyone else. MultiplayerLayer skips my own id, so this is the ONLY thing
+  // that renders my pin; the fallback only kicks in once the click-state is gone, so
+  // normal reveals are unchanged.
+  const myAnswerGuess = (() => {
+    if (!answerShown) return null;
+    const myId = multiplayerState?.gameData?.myId;
+    const me = myId != null ? answerPlayers.find((p) => p.id === myId) : null;
+    return me?.guess ? { lat: me.guess[0], lng: me.guess[1] } : null;
+  })();
+  const renderedPinPoint = answerShown ? (answerSnapshot?.pinPoint || pinPoint || myAnswerGuess) : pinPoint;
 
   // Single canvas renderer reused across all polylines. Canvas avoids the SVG
   // overlay-pane desync during pan/zoom (one shared transform pipeline with

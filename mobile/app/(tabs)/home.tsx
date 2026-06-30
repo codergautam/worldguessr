@@ -198,6 +198,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, isLoading: authLoading, secret } = useAuthStore();
+  const updateUser = useAuthStore((s) => s.updateUser);
 
   // Daily streak status for the home menu pill (mirrors web's DailyMenuItem).
   const dailyStatus = useDailyMenuStatus(secret ?? null);
@@ -210,6 +211,7 @@ export default function HomeScreen() {
   // hook instead of opening the chooser sheet (see handleLogin).
   const { signIn: googleSignIn, isReady: googleReady } = useGoogleSignIn();
   const [whatsNewDemo, setWhatsNewDemo] = useState(false);
+  const [restoringAccount, setRestoringAccount] = useState(false);
   const [dismissedBanBanner, setDismissedBanBanner] = useState(modPopupDismissedBan);
   const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(modPopupDismissedNameChange);
   const [modPopupReady, setModPopupReady] = useState(false);
@@ -344,6 +346,37 @@ export default function HomeScreen() {
     }
     setAccountSheetVisible(true);
   }, [authLoading, googleReady, googleSignIn]);
+
+  // Restore an account that's within its 7-day deletion grace period. Explicit
+  // user action (we never auto-cancel on login) — see api/cancelDeletion.js.
+  const handleRestoreAccount = useCallback(() => {
+    if (!secret || restoringAccount) return;
+    Alert.alert(
+      t('restoreAccount', undefined, 'Restore Account'),
+      t('restoreAccountConfirm', undefined, 'Cancel the scheduled deletion and keep your account?'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('restoreAccount', undefined, 'Restore'),
+          onPress: async () => {
+            try {
+              setRestoringAccount(true);
+              await api.cancelDeletion(secret);
+              updateUser({ pendingDeletion: false, scheduledDeletionAt: undefined });
+              Alert.alert(
+                t('accountRestoredTitle', undefined, 'Account Restored'),
+                t('accountRestoredBody', undefined, 'Your account is no longer scheduled for deletion.'),
+              );
+            } catch (e: any) {
+              Alert.alert(t('error', undefined, 'Error'), e?.message || String(e));
+            } finally {
+              setRestoringAccount(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [secret, restoringAccount, updateUser]);
 
   // First-launch routing happens in app/index.tsx — it waits for the
   // onboarding flag to load and redirects to /onboarding/play directly,
@@ -825,6 +858,40 @@ export default function HomeScreen() {
 
           {/* Menu */}
           <View style={styles.menu}>
+            {/* Pending-deletion restore banner — shown when the account is inside
+                its 7-day deletion grace window. Tapping prompts to cancel deletion
+                (explicit Restore, never auto-cancel on login). */}
+            {isAuthenticated && user?.pendingDeletion && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modBanner,
+                  styles.modBannerError,
+                  pressed && { opacity: 0.85 },
+                ]}
+                onPress={handleRestoreAccount}
+                disabled={restoringAccount}
+              >
+                <Text style={styles.modBannerEmoji}>🗑️</Text>
+                <View style={styles.modBannerTextWrap}>
+                  <Text style={[styles.modBannerTitle, { color: '#f44336' }]} numberOfLines={2}>
+                    {user?.scheduledDeletionAt
+                      ? t('accountScheduledForDeletion', { date: new Date(user.scheduledDeletionAt).toLocaleDateString() }, 'Your account is scheduled for deletion on {{date}}.')
+                      : t('accountScheduledForDeletionShort', undefined, 'Your account is scheduled for deletion.')}
+                  </Text>
+                  <Text style={styles.modBannerAction} numberOfLines={1}>
+                    {restoringAccount
+                      ? t('loading', undefined, 'Loading…')
+                      : t('restoreAccount', undefined, 'Restore Account')}
+                  </Text>
+                </View>
+                {restoringAccount ? (
+                  <ActivityIndicator size="small" color="rgba(255,255,255,0.7)" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
+                )}
+              </Pressable>
+            )}
+
             {/* Persistent moderation banner — always visible while a mod action
                 is pending, even after the popup is dismissed. Tapping it opens
                 the account screen where full details live. */}

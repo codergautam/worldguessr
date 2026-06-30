@@ -152,6 +152,8 @@ export const api = {
       canChangeUsername?: boolean;
       daysUntilNameChange?: number;
       recentChange?: boolean;
+      pendingDeletion?: boolean;
+      scheduledDeletionAt?: string;
     }>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ id_token: idToken, tz: getDeviceTimezone() }),
@@ -180,6 +182,8 @@ export const api = {
       canChangeUsername?: boolean;
       daysUntilNameChange?: number;
       recentChange?: boolean;
+      pendingDeletion?: boolean;
+      scheduledDeletionAt?: string;
     }>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ apple_identity_token: identityToken, tz: getDeviceTimezone() }),
@@ -220,11 +224,28 @@ export const api = {
       canChangeUsername?: boolean;
       daysUntilNameChange?: number;
       recentChange?: boolean;
+      pendingDeletion?: boolean;
+      scheduledDeletionAt?: string;
     }>('/api/googleAuth', {
       method: 'POST',
       body: JSON.stringify({ secret, tz: getDeviceTimezone() }),
     }, AUTH_URL);
   },
+
+  // Account deletion (7-day grace period). deleteAccount schedules deletion and
+  // logs the user out instantly; cancelDeletion restores within the window.
+  // Both are FAST (no cascade) — the heavy purge runs later in the cron process.
+  deleteAccount: async (secret: string) =>
+    fetchApi<{ success: boolean; scheduledDeletionAt?: string; alreadyScheduled?: boolean }>(
+      '/api/deleteAccount',
+      { method: 'POST', body: JSON.stringify({ secret }) },
+    ),
+
+  cancelDeletion: async (secret: string) =>
+    fetchApi<{ success: boolean; alreadyActive?: boolean }>(
+      '/api/cancelDeletion',
+      { method: 'POST', body: JSON.stringify({ secret }) },
+    ),
 
   checkNameChangeStatus: async (secret: string) => {
     return fetchApi<{

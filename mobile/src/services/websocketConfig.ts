@@ -24,24 +24,58 @@ export const WS_INGAME_RECONNECT_ATTEMPTS = 3;
 export const WS_LIVENESS_TIMEOUT_MS = 7000;
 
 // Continuous foreground liveness watchdog. While the app is OPEN, a socket can die
-// silently — TCP dropped by a NAT/network change or a frozen JS thread — WITHOUT
-// ws.onclose/onerror ever firing, leaving a "zombie" that still reads readyState
-// OPEN. The foreground check above (WS_LIVENESS_TIMEOUT_MS) only runs on a
-// background→foreground transition, so a zombie that happens while the app stays
-// foregrounded is never noticed: stale online count, multiplayer stuck loading, no
-// reconnect — recoverable only by reopening the app. This watchdog ticks every
-// PING_INTERVAL and, if NO inbound message has arrived for MAX_SILENCE, treats the
-// socket as dead and forces a reconnect. MAX_SILENCE sits well above
-// TIME_SYNC_INTERVAL_MS (the guaranteed ~30s round-trip) plus network slack, so a
-// momentarily slow link never trips it, but a true zombie is caught within ~1 minute.
-export const WS_LIVENESS_PING_INTERVAL_MS = 15000;
-export const WS_LIVENESS_MAX_SILENCE_MS = 45000;
+// silently — TCP dropped by a NAT/radio change, or the uplink black-holed while the
+// downlink still delivers (a half-open socket) — WITHOUT ws.onclose/onerror ever
+// firing, leaving a "zombie" that still reads readyState OPEN. The foreground probe
+// above (WS_LIVENESS_TIMEOUT_MS) only runs on a background→foreground transition, so a
+// zombie that strikes while the app stays foregrounded would otherwise never be noticed:
+// actions silently dropped, multiplayer frozen, no reconnect — recoverable only by
+// reopening the app.
+//
+// The watchdog ticks every PING_INTERVAL and keys liveness off the last ANSWERED
+// round-trip (_lastTimeSyncResponseAt), NOT off arbitrary inbound traffic. This is the
+// crux of the zombie bug: the server broadcasts a `t` keepalive to every socket every
+// ~5s unconditionally, so "some message arrived recently" stays true forever even on a
+// half-open socket whose uplink is dead — only a timeSync REPLY proves our send reached
+// the server and came back, and `t` cannot forge it. If no round-trip completes within
+// MAX_SILENCE, the watchdog fires ONE confirming probe (verifyLiveness) before tearing
+// down, so a momentarily slow link or a brief JS-thread freeze costs at most a graceful
+// reconnect, never a false drop.
+//
+// Timing contract (all three values move together):
+//   • TIME_SYNC_INTERVAL_MS (10s) — how often we ask "you there?". A healthy link refreshes
+//     _lastTimeSyncResponseAt every 10s.
+//   • MAX_SILENCE (25s) — how long with NO answered round-trip before we get SUSPICIOUS.
+//     It MUST stay comfortably above the ask interval or a healthy link would trip
+//     suspicion between routine asks and fire needless probes. 25 / 10 = 2.5 missed asks
+//     of headroom, so a single dropped heartbeat (a 20s gap) never trips it — only a
+//     genuinely stalled link does.
+//   • PING_INTERVAL (8s) — how often we CHECK staleness. This is a free timestamp compare
+//     (it sends nothing unless suspicious), so it's tuned for low detection latency.
+// Worst-case automatic detection ≈ MAX_SILENCE + PING_INTERVAL + WS_LIVENESS_TIMEOUT
+// ≈ 25 + 8 + 7 ≈ 40s (typically ~30s); a background→foreground transition recovers a
+// zombie near-instantly via the foreground probe path regardless of these.
+export const WS_LIVENESS_PING_INTERVAL_MS = 8000;
+export const WS_LIVENESS_MAX_SILENCE_MS = 25000;
+
+// A freshly-opened socket sends `verify` immediately (setupConnection) and expects a
+// `verify` reply. A socket can OPEN cleanly yet never get verified — e.g. the server's
+// verify handler threw on a transient DB blip and silently dropped us, or a reconnect
+// raced the server's rejoin bookkeeping — and such a socket emits no onclose, so nothing
+// else would ever notice (the server's verified-gate then drops every action we send).
+// If no verify reply lands within this window, treat the open as failed and force a fresh
+// connect+verify. Generous vs. a normal sub-second verify round-trip, so only a genuinely
+// wedged session trips it.
+export const WS_VERIFY_TIMEOUT_MS = 10000;
 
 // Heartbeat interval (ported from web home.js:2349-2358)
 export const PONG_INTERVAL_MS = 10000;
 
-// Time sync interval (ported from web home.js:1114-1123)
-export const TIME_SYNC_INTERVAL_MS = 30000;
+// Time sync interval. Web (home.js:1114-1123) uses 30s purely for clock sync, but on
+// mobile this round-trip ALSO doubles as the liveness heartbeat the watchdog reads, so it
+// must refresh well inside WS_LIVENESS_MAX_SILENCE_MS (25s). 10s gives the watchdog ~2.5
+// answered round-trips of headroom before it could ever get suspicious on a healthy link.
+export const TIME_SYNC_INTERVAL_MS = 10000;
 
 // The server keeps a disconnected player rejoinable for 30s, then evicts them. We
 // use a slightly smaller client window so a foreground always forces a full

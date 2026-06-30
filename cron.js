@@ -4,6 +4,7 @@ import User from './models/User.js';
 import UserStats from './models/UserStats.js';
 import DailyLeaderboard from './models/DailyLeaderboard.js';
 import UserStatsService from './components/utils/userStatsService.js';
+import { purgeUserCascade } from './serverUtils/purgeUserCascade.js';
 var app = express();
 import cors from 'cors';
 app.use(cors());
@@ -374,6 +375,59 @@ const startDailyLeaderboardTimer = () => {
 
 // Start the timer
 startDailyLeaderboardTimer();
+
+// ============================================================================
+// ACCOUNT DELETION PURGE
+// Self-service account deletions have a 7-day grace period (User.scheduledDeletionAt).
+// Once that passes, permanently purge the account + all associated data via the
+// shared cascade (serverUtils/purgeUserCascade.js). Runs the heavy work OFF the
+// HTTP request path — the in-request mod delete routinely timed out.
+// ============================================================================
+
+const DELETION_PURGE_INTERVAL = 24 * 60 * 60 * 1000; // daily
+const DELETION_PURGE_BATCH = 500;                    // cap per run; next run catches the rest
+
+const purgeScheduledDeletions = async () => {
+  if (!dbEnabled) {
+    console.log('[PURGE] Skipped account-deletion purge - database not connected');
+    return;
+  }
+  try {
+    const now = new Date();
+    const due = await User.find({ scheduledDeletionAt: { $ne: null, $lte: now } })
+      .limit(DELETION_PURGE_BATCH);
+    if (due.length === 0) return;
+
+    console.log(`[PURGE] ${due.length} account(s) past their deletion grace period`);
+    let purged = 0;
+    for (const candidate of due) {
+      // Re-read just before purging: the user may have logged back in and
+      // cancelled (scheduledDeletionAt cleared) between the query and now.
+      const user = await User.findById(candidate._id);
+      if (!user || !user.scheduledDeletionAt || new Date(user.scheduledDeletionAt) > new Date()) {
+        continue;
+      }
+      try {
+        await purgeUserCascade(user, { reason: 'self_service_deletion', isSelfService: true });
+        purged++;
+      } catch (e) {
+        console.error('[PURGE] Failed to purge account', user._id?.toString(), e?.message || e);
+      }
+    }
+    console.log(`[PURGE] Purged ${purged}/${due.length} account(s)`);
+  } catch (e) {
+    console.error('[PURGE] Account-deletion purge run failed:', e?.message || e);
+  }
+};
+
+const startAccountDeletionPurgeTimer = () => {
+  console.log('[PURGE] Account-deletion purge timer started - runs on startup, then daily');
+  // Run on startup so a redeploy near a due time still catches overdue purges.
+  purgeScheduledDeletions();
+  setInterval(purgeScheduledDeletions, DELETION_PURGE_INTERVAL);
+};
+
+startAccountDeletionPurgeTimer();
 
 // ============================================================================
 // COUNTRY LOCATIONS SYSTEM - Uses pre-processed JSON files with embedded country codes

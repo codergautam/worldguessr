@@ -19,6 +19,9 @@ export interface User {
   canChangeUsername?: boolean;
   daysUntilNameChange?: number;
   recentChange?: boolean;
+  /** Set when the account has a pending self-service deletion (7-day grace). */
+  pendingDeletion?: boolean;
+  scheduledDeletionAt?: string;
 }
 
 export interface UserStats {
