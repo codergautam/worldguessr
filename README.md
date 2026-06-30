@@ -20,6 +20,13 @@ A free and open-source version of the popular geography game inspired by GeoGues
 - **Country Streaks:** Test your knowledge and see how many countries you can guess in a row.
 - **Free to run:** The project is open-source and free to run on your own server. Uses the [Google Maps Streetview Embed API](https://developers.google.com/streetview/web), which is completely free compared to the costly SDK used by GeoGuessr.
 
+## Hotkeys
+
+| Key | Action |
+| --- | --- |
+| `Space` | Guess or continue to the next round |
+| `F` | Toggle minimap fullscreen |
+
 ## Acknowledgements
 
 - [Leaflet](https://leafletjs.com/) for the minimap display.
