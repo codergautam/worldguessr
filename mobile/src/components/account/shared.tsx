@@ -5,7 +5,6 @@ import {
   Pressable,
   ActivityIndicator,
   StyleSheet,
-  Platform,
   type LayoutChangeEvent,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
@@ -16,6 +15,29 @@ const GRAPH_Y_AXIS_LABEL_WIDTH = 42;
 const GRAPH_MIN_PLOT_WIDTH = 170;
 const GRAPH_LEFT_TRIM = 12;
 const GRAPH_X_LABEL_WIDTH = 56;
+
+// Plot height handed to <LineChart>. gifted-charts reserves extra chrome below the plot
+// (a hidden x-axis label strip + internal container margins) and we stack our own x-axis
+// label row beneath it, so the chart's real on-screen footprint is taller than this.
+const GRAPH_PLOT_HEIGHT = 220;
+
+// Cold-start estimate of that full footprint (plot + chart chrome + our label row — about
+// 274px for height=220). It reserves the plot area *before* the chart has ever rendered so
+// the slower progression fetch resolves in place instead of growing the card and shoving
+// the content below it down — the jump that made opening the profile feel jarring. It only
+// needs to be close to the real height: the exact value is measured on first render and
+// reused for later opens (see measuredPlotFootprint), so any small difference shows as at
+// most a few px of static space on the very first open of a session — never a jump.
+const GRAPH_PLOT_RESERVED_HEIGHT = 280;
+
+// Real footprint + container width captured the first time a chart lays out, shared across
+// every ProgressionGraph (XP + ELO tabs, re-opens) and module-scoped so they survive the
+// card unmounting when you leave the Account tab. Every graph shares the card width and
+// height={GRAPH_PLOT_HEIGHT}, so one measurement is correct for all of them. Seeding later
+// mounts from these lets re-opens paint the chart immediately — no spinner frame, and the
+// reserved height already matches the chart.
+let measuredPlotFootprint = 0;
+let cachedChartWidth = 0;
 
 function getDayStart(dateLike: string | number | Date): number {
   const date = new Date(dateLike);
@@ -196,139 +218,30 @@ export function ProgressionGraph({
   data,
   loading,
   mode,
-  screenWidth,
   onChartTouch,
 }: {
   data: ProgressionEntry[];
   loading: boolean;
   mode: 'xp' | 'elo';
-  screenWidth: number;
   onChartTouch?: (scrollEnabled: boolean) => void;
 }) {
   const [viewMode, setViewMode] = useState<'value' | 'rank'>('value');
   const [dateFilter, setDateFilter] = useState<DateFilter>('alltime');
-  const [chartContainerWidth, setChartContainerWidth] = useState(0);
-
-  if (loading) {
-    return (
-      <GlassCard>
-        <View style={{ alignItems: 'center', gap: 16, paddingVertical: 20 }}>
-          <ActivityIndicator size="small" color="#4CAF50" />
-          <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontFamily: 'Lexend' }}>
-            {t('loadingGameHistory')}
-          </Text>
-        </View>
-      </GlassCard>
-    );
-  }
-
-  if (data.length === 0) {
-    return (
-      <GlassCard>
-        <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-          <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lexend-SemiBold' }}>
-            {t('noStatsAvailable')}
-          </Text>
-        </View>
-      </GlassCard>
-    );
-  }
-
-  const now = new Date();
-  const chartEntries = buildDailyProgressionEntries(data, dateFilter, now);
-
-  if (chartEntries.length === 0) {
-    return (
-      <GlassCard>
-        <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-          <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lexend-SemiBold' }}>
-            {t('noStatsAvailable')}
-          </Text>
-        </View>
-      </GlassCard>
-    );
-  }
+  // Seed from the cached width so a re-open (or the sibling ELO/XP tab) can render the
+  // chart on the first frame instead of flashing a spinner while it re-measures. The very
+  // first mount of the session starts at 0, keeping the chart gated until measured — which
+  // is what prevents the cold-start two-pass width repaint (see chartReady below).
+  const [chartContainerWidth, setChartContainerWidth] = useState(cachedChartWidth);
 
   const isRankMode = viewMode === 'rank';
   const lineColor = isRankMode ? '#2196F3' : '#4CAF50';
-
-  const rawValues = chartEntries.map((entry) => {
-    if (mode === 'xp') {
-      return isRankMode ? (entry.xpRank ?? 0) : entry.totalXp;
-    }
-    return isRankMode ? (entry.eloRank ?? 0) : (entry.elo ?? 0);
-  });
-
-  const maxVal = Math.max(...rawValues);
-  const minVal = Math.min(...rawValues);
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  let chartValues: number[];
-  let yAxisOffset: number;
-
-  if (isRankMode) {
-    const inverted = rawValues.map((v) => maxVal + 1 - v);
-    const invMin = Math.min(...inverted);
-    const invMax = Math.max(...inverted);
-    const range = invMax - invMin || 1;
-    const pad = Math.max(1, Math.floor(range * 0.1));
-    yAxisOffset = Math.max(0, invMin - pad);
-    chartValues = inverted.map((v) => v - yAxisOffset);
-  } else {
-    const range = maxVal - minVal || 1;
-    const pad = Math.max(1, Math.floor(range * 0.1));
-    yAxisOffset = Math.max(0, minVal - pad);
-    chartValues = rawValues.map((v) => v - yAxisOffset);
-  }
-
-  const chartMax = Math.max(...chartValues);
-
-  const fallbackContainerWidth = Math.max(240, screenWidth - 80);
-  const measuredContainerWidth = chartContainerWidth || fallbackContainerWidth;
-  const chartPlotWidth = Math.max(
-    GRAPH_MIN_PLOT_WIDTH,
-    measuredContainerWidth - GRAPH_Y_AXIS_LABEL_WIDTH - 6 + GRAPH_LEFT_TRIM,
-  );
-  const chartOriginLeft = Math.max(0, GRAPH_Y_AXIS_LABEL_WIDTH - GRAPH_LEFT_TRIM);
-
-  const averagePointSpacing = chartEntries.length > 1
-    ? chartPlotWidth / (chartEntries.length - 1)
-    : chartPlotWidth;
-
-  const displayData = chartEntries.map((entry, i) => ({
-    value: chartValues[i],
-    label: '',
-    timestamp: entry.timestamp,
-    hideDataPoint: entry.isSynthetic,
-  }));
-
-  const xLabelIndices = chartEntries.length > 2
-    ? [0, Math.floor(chartEntries.length / 2), chartEntries.length - 1]
-    : chartEntries.map((_, index) => index);
-  const uniqueLabelIndices = xLabelIndices.filter((value, index, array) => array.indexOf(value) === index);
-  const xLabels = uniqueLabelIndices.map((index) => {
-    const d = new Date(chartEntries[index].timestamp);
-    const pointOffset = chartEntries.length <= 1
-      ? 0
-      : (index / (chartEntries.length - 1)) * chartPlotWidth;
-    const idealLeft = pointOffset - GRAPH_X_LABEL_WIDTH / 2;
-    const left = index === 0
-      ? 0
-      : index === chartEntries.length - 1
-        ? Math.max(0, chartPlotWidth - GRAPH_X_LABEL_WIDTH)
-        : Math.min(
-            Math.max(0, idealLeft),
-            Math.max(0, chartPlotWidth - GRAPH_X_LABEL_WIDTH),
-          );
-
-    return {
-      index,
-      text: `${d.getMonth() + 1}/${d.getDate()}`,
-      left,
-      textAlign: index === 0 ? 'left' : index === chartEntries.length - 1 ? 'right' : 'center',
-    } as const;
-  });
-
+  // Title and the range/mode toggles depend only on the props + local toggle state —
+  // never on the fetched progression — so they render in EVERY state (loading / empty /
+  // loaded). Keeping this chrome mounted while the slower progression request is still
+  // in flight is half of what stops the card from resizing once the data lands; the
+  // other half is reserving the plot area below (GRAPH_PLOT_RESERVED_HEIGHT).
   const filterSuffix =
     dateFilter === '7days'
       ? t('graphFilter7Days', undefined, ' (7 Days)')
@@ -341,106 +254,126 @@ export function ProgressionGraph({
       : isRankMode ? t('eloRankOverTime') : t('eloOverTime');
   const titleText = baseTitle + filterSuffix;
 
-  const formatYLabel = (val: string) => {
-    const num = Number(val) + yAxisOffset;
+  // Bucket the raw entries into one-per-day only once the data has actually arrived.
+  const chartEntries = !loading && data.length > 0
+    ? buildDailyProgressionEntries(data, dateFilter, new Date())
+    : [];
+  const hasChart = chartEntries.length > 0;
+
+  // Hold the chart back until the container has been measured. Drawing it once against a
+  // guessed width and then re-drawing at the measured width makes gifted-charts repaint
+  // the whole area path — a visible one-frame flash on first open. The width is measured
+  // on the first layout pass (well before the network resolves), so by the time data is
+  // ready the chart paints exactly once at the correct width.
+  const chartReady = hasChart && chartContainerWidth > 0;
+
+  // Reserve the chart's footprint in every state so the plot area never changes size.
+  // Falls back to an estimate until the first real measurement lands (see below).
+  const reservedPlotHeight = measuredPlotFootprint || GRAPH_PLOT_RESERVED_HEIGHT;
+
+  let plotContent: React.ReactNode;
+  if (chartReady) {
+    const rawValues = chartEntries.map((entry) => {
+      if (mode === 'xp') {
+        return isRankMode ? (entry.xpRank ?? 0) : entry.totalXp;
+      }
+      return isRankMode ? (entry.eloRank ?? 0) : (entry.elo ?? 0);
+    });
+
+    const maxVal = Math.max(...rawValues);
+    const minVal = Math.min(...rawValues);
+
+    let chartValues: number[];
+    let yAxisOffset: number;
+
     if (isRankMode) {
-      const rank = Math.round(maxVal + 1 - num);
-      if (rank <= 0) return '';
-      return `#${rank}`;
+      const inverted = rawValues.map((v) => maxVal + 1 - v);
+      const invMin = Math.min(...inverted);
+      const invMax = Math.max(...inverted);
+      const range = invMax - invMin || 1;
+      const pad = Math.max(1, Math.floor(range * 0.1));
+      yAxisOffset = Math.max(0, invMin - pad);
+      chartValues = inverted.map((v) => v - yAxisOffset);
+    } else {
+      const range = maxVal - minVal || 1;
+      const pad = Math.max(1, Math.floor(range * 0.1));
+      yAxisOffset = Math.max(0, minVal - pad);
+      chartValues = rawValues.map((v) => v - yAxisOffset);
     }
-    if (num >= 10000) return `${(num / 1000).toFixed(0)}k`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-    return String(Math.round(num));
-  };
 
-  return (
-    <GlassCard>
-      <Text style={sharedStyles.cardTitle}>{titleText}</Text>
+    const chartMax = Math.max(...chartValues);
 
-      <View style={{ gap: 10 }}>
-        <View style={sharedStyles.graphToggleRow}>
-          <View style={sharedStyles.graphTogglePill}>
-            {(['7days', '30days', 'alltime'] as DateFilter[]).map((f) => (
-              <Pressable
-                key={f}
-                style={[
-                  sharedStyles.graphToggleBtn,
-                  dateFilter === f && sharedStyles.graphToggleBtnActive,
-                ]}
-                onPress={() => setDateFilter(f)}
-              >
-                <Text
-                  style={[
-                    sharedStyles.graphToggleText,
-                    dateFilter === f && sharedStyles.graphToggleTextActive,
-                  ]}
-                >
-                  {f === '7days'
-                    ? t('graphRange7DShort', undefined, '7D')
-                    : f === '30days'
-                      ? t('graphRange30DShort', undefined, '30D')
-                      : t('graphRangeAllShort', undefined, 'All')}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
+    const chartPlotWidth = Math.max(
+      GRAPH_MIN_PLOT_WIDTH,
+      chartContainerWidth - GRAPH_Y_AXIS_LABEL_WIDTH - 6 + GRAPH_LEFT_TRIM,
+    );
+    const chartOriginLeft = Math.max(0, GRAPH_Y_AXIS_LABEL_WIDTH - GRAPH_LEFT_TRIM);
 
-        <View style={sharedStyles.graphToggleRow}>
-          <View style={sharedStyles.graphTogglePill}>
-            <Pressable
-              style={[
-                sharedStyles.graphToggleBtn,
-                viewMode === 'value' && sharedStyles.graphToggleBtnActive,
-              ]}
-              onPress={() => setViewMode('value')}
-            >
-              <Text
-                style={[
-                  sharedStyles.graphToggleText,
-                  viewMode === 'value' && sharedStyles.graphToggleTextActive,
-                ]}
-              >
-                {mode === 'xp' ? t('xp') : t('elo')}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={[
-                sharedStyles.graphToggleBtn,
-                viewMode === 'rank' && sharedStyles.graphToggleBtnActive,
-              ]}
-              onPress={() => setViewMode('rank')}
-            >
-              <Text
-                style={[
-                  sharedStyles.graphToggleText,
-                  viewMode === 'rank' && sharedStyles.graphToggleTextActive,
-                ]}
-              >
-                {t('rank')}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
+    const averagePointSpacing = chartEntries.length > 1
+      ? chartPlotWidth / (chartEntries.length - 1)
+      : chartPlotWidth;
 
+    const displayData = chartEntries.map((entry, i) => ({
+      value: chartValues[i],
+      label: '',
+      timestamp: entry.timestamp,
+      hideDataPoint: entry.isSynthetic,
+    }));
+
+    const xLabelIndices = chartEntries.length > 2
+      ? [0, Math.floor(chartEntries.length / 2), chartEntries.length - 1]
+      : chartEntries.map((_, index) => index);
+    const uniqueLabelIndices = xLabelIndices.filter((value, index, array) => array.indexOf(value) === index);
+    const xLabels = uniqueLabelIndices.map((index) => {
+      const d = new Date(chartEntries[index].timestamp);
+      const pointOffset = chartEntries.length <= 1
+        ? 0
+        : (index / (chartEntries.length - 1)) * chartPlotWidth;
+      const idealLeft = pointOffset - GRAPH_X_LABEL_WIDTH / 2;
+      const left = index === 0
+        ? 0
+        : index === chartEntries.length - 1
+          ? Math.max(0, chartPlotWidth - GRAPH_X_LABEL_WIDTH)
+          : Math.min(
+              Math.max(0, idealLeft),
+              Math.max(0, chartPlotWidth - GRAPH_X_LABEL_WIDTH),
+            );
+
+      return {
+        index,
+        text: `${d.getMonth() + 1}/${d.getDate()}`,
+        left,
+        textAlign: index === 0 ? 'left' : index === chartEntries.length - 1 ? 'right' : 'center',
+      } as const;
+    });
+
+    const formatYLabel = (val: string) => {
+      const num = Number(val) + yAxisOffset;
+      if (isRankMode) {
+        const rank = Math.round(maxVal + 1 - num);
+        if (rank <= 0) return '';
+        return `#${rank}`;
+      }
+      if (num >= 10000) return `${(num / 1000).toFixed(0)}k`;
+      if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+      return String(Math.round(num));
+    };
+
+    plotContent = (
+      // Measure the chart's true footprint the first time it lays out and remember it,
+      // so every later open (this tab, the ELO tab, a re-open) reserves the exact height
+      // and the loading spinner occupies the same space the chart will — no growth.
       <View
-        style={{ marginTop: 16 }}
         onLayout={(event: LayoutChangeEvent) => {
-          const nextWidth = event.nativeEvent.layout.width;
-          if (Math.abs(nextWidth - chartContainerWidth) > 1) {
-            setChartContainerWidth(nextWidth);
-          }
+          const height = Math.round(event.nativeEvent.layout.height);
+          if (height > 0) measuredPlotFootprint = height;
         }}
-        onTouchStart={() => onChartTouch?.(false)}
-        onTouchEnd={() => onChartTouch?.(true)}
-        onTouchCancel={() => onChartTouch?.(true)}
       >
         <View style={{ marginLeft: -GRAPH_LEFT_TRIM }}>
           <LineChart
             data={displayData}
             width={chartPlotWidth}
-            height={220}
+            height={GRAPH_PLOT_HEIGHT}
             spacing={averagePointSpacing}
             initialSpacing={0}
             endSpacing={0}
@@ -535,6 +468,118 @@ export function ProgressionGraph({
             </View>
           ))}
         </View>
+      </View>
+    );
+  } else if (!loading && !hasChart) {
+    // Data resolved but there is nothing to plot.
+    plotContent = (
+      <View style={{ height: reservedPlotHeight, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: '#fff', fontSize: 18, fontFamily: 'Lexend-SemiBold' }}>
+          {t('noStatsAvailable')}
+        </Text>
+      </View>
+    );
+  } else {
+    // Still loading (or measuring width) — fill the reserved area with the spinner so the
+    // plot region holds its size and the chart later swaps in without moving anything.
+    plotContent = (
+      <View style={{ height: reservedPlotHeight, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <ActivityIndicator size="small" color="#4CAF50" />
+        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontFamily: 'Lexend' }}>
+          {t('loadingGameHistory')}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <GlassCard>
+      <Text style={sharedStyles.cardTitle}>{titleText}</Text>
+
+      <View style={{ gap: 10 }}>
+        <View style={sharedStyles.graphToggleRow}>
+          <View style={sharedStyles.graphTogglePill}>
+            {(['7days', '30days', 'alltime'] as DateFilter[]).map((f) => (
+              <Pressable
+                key={f}
+                style={[
+                  sharedStyles.graphToggleBtn,
+                  dateFilter === f && sharedStyles.graphToggleBtnActive,
+                ]}
+                onPress={() => setDateFilter(f)}
+              >
+                <Text
+                  style={[
+                    sharedStyles.graphToggleText,
+                    dateFilter === f && sharedStyles.graphToggleTextActive,
+                  ]}
+                >
+                  {f === '7days'
+                    ? t('graphRange7DShort', undefined, '7D')
+                    : f === '30days'
+                      ? t('graphRange30DShort', undefined, '30D')
+                      : t('graphRangeAllShort', undefined, 'All')}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        <View style={sharedStyles.graphToggleRow}>
+          <View style={sharedStyles.graphTogglePill}>
+            <Pressable
+              style={[
+                sharedStyles.graphToggleBtn,
+                viewMode === 'value' && sharedStyles.graphToggleBtnActive,
+              ]}
+              onPress={() => setViewMode('value')}
+            >
+              <Text
+                style={[
+                  sharedStyles.graphToggleText,
+                  viewMode === 'value' && sharedStyles.graphToggleTextActive,
+                ]}
+              >
+                {mode === 'xp' ? t('xp') : t('elo')}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[
+                sharedStyles.graphToggleBtn,
+                viewMode === 'rank' && sharedStyles.graphToggleBtnActive,
+              ]}
+              onPress={() => setViewMode('rank')}
+            >
+              <Text
+                style={[
+                  sharedStyles.graphToggleText,
+                  viewMode === 'rank' && sharedStyles.graphToggleTextActive,
+                ]}
+              >
+                {t('rank')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+
+      {/* The plot area keeps a fixed reserved height across loading/empty/loaded so the
+          card never grows when the progression fetch resolves. onLayout here measures the
+          available width (used to size the chart) — see chartReady. */}
+      <View
+        style={{ marginTop: 16, minHeight: reservedPlotHeight }}
+        onLayout={(event: LayoutChangeEvent) => {
+          const nextWidth = event.nativeEvent.layout.width;
+          if (Math.abs(nextWidth - chartContainerWidth) > 1) {
+            cachedChartWidth = nextWidth;
+            setChartContainerWidth(nextWidth);
+          }
+        }}
+        onTouchStart={() => onChartTouch?.(false)}
+        onTouchEnd={() => onChartTouch?.(true)}
+        onTouchCancel={() => onChartTouch?.(true)}
+      >
+        {plotContent}
       </View>
     </GlassCard>
   );

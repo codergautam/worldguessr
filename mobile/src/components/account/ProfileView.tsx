@@ -9,7 +9,6 @@ import {
   Pressable,
   ActivityIndicator,
   ImageBackground,
-  useWindowDimensions,
   Share,
   Platform,
 } from 'react-native';
@@ -160,7 +159,6 @@ export default function ProfileView({
   const [linkCopied, setLinkCopied] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const { width: screenWidth } = useWindowDimensions();
 
   // Live totals from the auth store. For the OWN profile these are kept current
   // by optimistic game-end updates (singleplayer/daily/duel), so the XP and
@@ -338,7 +336,6 @@ export default function ProfileView({
             onUsernameChanged={handleUsernameChanged}
             progression={progression}
             progressionLoading={progressionLoading}
-            screenWidth={screenWidth}
             onScrollEnable={setScrollEnabled}
             viewingPublicProfile={!isOwnProfile}
           />
@@ -356,7 +353,6 @@ export default function ProfileView({
             eloData={eloData}
             progression={progression}
             progressionLoading={progressionLoading}
-            screenWidth={screenWidth}
             onScrollEnable={setScrollEnabled}
           />
         );

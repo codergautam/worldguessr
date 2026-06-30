@@ -54,7 +54,20 @@ interface MenuButtonProps {
   accessory?: React.ReactNode;
 }
 
-function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps) {
+/**
+ * Shared left-to-right entrance for every row in the home menu — the mode
+ * buttons AND the divider rules between groups. Slides the element in from the
+ * left while fading it up, starting once `ready` flips true (auth settled) plus
+ * `delay`, and only ever once (guarded by a ref so it never replays on a
+ * re-render). Returns the animated style to spread onto an Animated.View.
+ *
+ * Centralising this is what keeps the dividers in lock-step with the buttons:
+ * every menu row reveals as one staggered wave instead of the dividers painting
+ * statically at full opacity before the buttons (and jumping as the post-auth
+ * layout settles). Mirrors web, where `.g2_nav_ui > *` runs `nav_slide_in` on
+ * ALL nav children, the `.g2_nav_hr` dividers included.
+ */
+function useMenuEntrance(delay: number, ready: boolean) {
   const slideAnim = useRef(new Animated.Value(-80)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const hasAnimated = useRef(false);
@@ -78,13 +91,14 @@ function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps
     ]).start();
   }, [ready, delay, slideAnim, opacityAnim]);
 
+  return { transform: [{ translateX: slideAnim }], opacity: opacityAnim };
+}
+
+function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps) {
+  const entranceStyle = useMenuEntrance(delay, ready);
+
   return (
-    <Animated.View
-      style={{
-        transform: [{ translateX: slideAnim }],
-        opacity: opacityAnim,
-      }}
-    >
+    <Animated.View style={entranceStyle}>
       <Pressable
         style={({ pressed }) => [
           styles.menuButton,
@@ -99,6 +113,19 @@ function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps
       </Pressable>
     </Animated.View>
   );
+}
+
+/**
+ * The horizontal rule between menu groups. Shares the menu entrance so the lines
+ * slide in alongside the buttons rather than painting at full opacity on the
+ * first frame — that static early paint, at the pre-auth (compact) layout, was
+ * the "white line flashing higher than where it belongs" before the menu
+ * animated in. Web parity: `.g2_nav_hr` is a `.g2_nav_ui > *` child and rides
+ * the same `nav_slide_in`.
+ */
+function MenuDivider({ delay, ready }: { delay: number; ready: boolean }) {
+  const entranceStyle = useMenuEntrance(delay, ready);
+  return <Animated.View style={[styles.divider, entranceStyle]} />;
 }
 
 function OutlinedTitle({ children }: { children: string }) {
@@ -548,6 +575,19 @@ export default function HomeScreen() {
   // is covering the screen, so don't render the misleading "Login" button behind it.
   const awaitingUsername = isAuthenticated && !user?.username;
 
+  // Pill data for the league badge, derived the instant we know the user is
+  // logged in (every account has an ELO) instead of waiting for the async
+  // `eloData` fetch. The in-flow header placeholder renders the pill from this
+  // so it reserves the pill's height immediately — otherwise the header grows a
+  // frame after login (when `eloData` resolves) and shoves the whole menu, with
+  // its freshly revealed dividers, downward. `eloData` still supplies the
+  // authoritative rank + animated counter once the request returns.
+  const eloForLayout =
+    eloData ??
+    (loggedIn && user?.elo
+      ? { elo: user.elo, rank: 0, league: getLeague(user.elo) }
+      : null);
+
   return (
     <View style={styles.container}>
       <ImageBackground
@@ -629,7 +669,7 @@ export default function HomeScreen() {
                     </Pressable>
                   </View>
 
-                  {eloData && (
+                  {eloForLayout && (
                     <Pressable
                       style={({ pressed }) => [
                         styles.leagueBtn,
@@ -638,13 +678,13 @@ export default function HomeScreen() {
                           paddingHorizontal: headerActionMetrics.leaguePaddingHorizontal,
                           paddingVertical: headerActionMetrics.leaguePaddingVertical,
                         },
-                        { backgroundColor: eloData.league.color },
+                        { backgroundColor: eloForLayout.league.color },
                         pressed && styles.leagueBtnPressed,
                       ]}
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
                       <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
-                        {animatedElo} {t('elo')} {eloData.league.emoji}
+                        {animatedElo} {t('elo')} {eloForLayout.league.emoji}
                       </Text>
                     </Pressable>
                   )}
@@ -784,7 +824,7 @@ export default function HomeScreen() {
                     </Pressable>
                   </View>
 
-                  {eloData && (
+                  {eloForLayout && (
                     <Pressable
                       style={({ pressed }) => [
                         styles.leagueBtn,
@@ -793,13 +833,13 @@ export default function HomeScreen() {
                           paddingHorizontal: headerActionMetrics.leaguePaddingHorizontal,
                           paddingVertical: headerActionMetrics.leaguePaddingVertical,
                         },
-                        { backgroundColor: eloData.league.color },
+                        { backgroundColor: eloForLayout.league.color },
                         pressed && styles.leagueBtnPressed,
                       ]}
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
                       <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
-                        {animatedElo} {t('elo')} {eloData.league.emoji}
+                        {animatedElo} {t('elo')} {eloForLayout.league.emoji}
                       </Text>
                     </Pressable>
                   )}
@@ -927,7 +967,7 @@ export default function HomeScreen() {
               </Pressable>
             )}
 
-            <View style={styles.divider} />
+            <MenuDivider delay={getDelay()} ready={!authLoading} />
 
             <View style={styles.menuGroup}>
               <MenuButton
@@ -963,7 +1003,7 @@ export default function HomeScreen() {
               />
             </View>
 
-            <View style={styles.divider} />
+            <MenuDivider delay={getDelay()} ready={!authLoading} />
 
             <View style={styles.menuGroup}>
               <MenuButton
@@ -980,7 +1020,7 @@ export default function HomeScreen() {
               />
             </View>
 
-            <View style={styles.divider} />
+            <MenuDivider delay={getDelay()} ready={!authLoading} />
 
             <View style={styles.menuGroup}>
               <MenuButton
