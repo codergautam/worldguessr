@@ -94,6 +94,20 @@ const moderationLogSchema = new mongoose.Schema({
     refundDetails: { type: Map, of: Number, default: {} } // { accountId: refundAmount }
   },
 
+  // Games the moderator flagged as the suspicious evidence/trigger for this action.
+  // Each entry snapshots the Game.gameId code plus the opponent at flag time, so the
+  // appeals view can show "vs <opponent>" instead of a raw code. INTERNAL ONLY - shown
+  // to staff during appeals review. Has NO effect on ELO refunds. Must NEVER be exposed
+  // to the banned user (keep it out of the api/userModerationData.js public whitelist).
+  suspiciousGames: {
+    type: [new mongoose.Schema({
+      gameId: { type: String, required: true },
+      opponentUsername: { type: String, default: null },
+      opponentAccountId: { type: String, default: null }
+    }, { _id: false })],
+    default: []
+  },
+
   // Timestamp
   createdAt: {
     type: Date,

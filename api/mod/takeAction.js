@@ -415,7 +415,8 @@ export default async function handler(req, res) {
     duration,         // For temp bans: duration in milliseconds
     durationString,   // For temp bans: human readable duration ("7 days", "30 days", etc.)
     publicNote,       // PUBLIC note - shown to user explaining the action (optional)
-    skipEloRefund     // For permanent bans: skip ELO refund to opponents (optional)
+    skipEloRefund,    // For permanent bans: skip ELO refund to opponents (optional)
+    suspiciousGameIds // Optional: Game.gameId string codes the mod flagged as evidence for this ban (internal only, no refund impact)
   } = req.body;
 
   // Validate required fields
@@ -471,6 +472,39 @@ export default async function handler(req, res) {
       if (!hasInappropriateUsernameReport && reports.length > 0) {
         return res.status(400).json({
           message: 'Force name change can only be used for inappropriate username reports'
+        });
+      }
+    }
+
+    // Validate & sanitize the moderator-flagged suspicious games (evidence for this ban).
+    // Persisted on the ModerationLog purely for appeals review - it does NOT influence
+    // ELO refunds in any way (refunds remain exactly as before, handled per-action below).
+    let suspiciousGames = [];
+    if (Array.isArray(suspiciousGameIds) && suspiciousGameIds.length > 0) {
+      // Dedupe, drop blanks, cap to a sane limit.
+      const requestedGameIds = [...new Set(
+        suspiciousGameIds
+          .filter(g => typeof g === 'string' && g.trim().length > 0)
+          .map(g => g.trim())
+      )].slice(0, 100);
+
+      if (requestedGameIds.length > 0) {
+        // Keep only games that actually exist AND include the target as a player, so the
+        // stored evidence can't be polluted with bogus/typo'd/unrelated game codes.
+        // Snapshot the opponent (the other player) so the appeals view can show
+        // "vs <name>" rather than a raw game code.
+        const matchedGames = await Game.find({
+          gameId: { $in: requestedGameIds },
+          'players.accountId': targetUserId.toString()
+        }).select('gameId players.username players.accountId').lean();
+
+        suspiciousGames = matchedGames.map(g => {
+          const opponent = (g.players || []).find(p => p.accountId !== targetUserId.toString());
+          return {
+            gameId: g.gameId,
+            opponentUsername: opponent?.username || null,
+            opponentAccountId: opponent?.accountId || null
+          };
         });
       }
     }
@@ -698,7 +732,8 @@ export default async function handler(req, res) {
           reason: reason, // Internal reason
           relatedReports: [...resolvedReportsBan, ...previouslyIgnoredBan.reportIds], // Include both pending and retroactive reports
           notes: publicNote || '', // Public note for reference
-          eloRefund: eloRefundResult // Store refund details in log
+          eloRefund: eloRefundResult, // Store refund details in log
+          suspiciousGames // Mod-flagged evidence games (internal only)
         });
 
         break;
@@ -816,7 +851,8 @@ export default async function handler(req, res) {
           reason: reason, // Internal reason
           relatedReports: [...resolvedReportsTempBan, ...previouslyIgnoredTempBan.reportIds], // Include both pending and retroactive reports
           notes: publicNote || '', // Public note for reference
-          eloRefund: eloRefundResult // Store refund details in log
+          eloRefund: eloRefundResult, // Store refund details in log
+          suspiciousGames // Mod-flagged evidence games (internal only)
         });
 
         break;
@@ -1013,6 +1049,7 @@ export default async function handler(req, res) {
       },
       moderationLogId: moderationLog?._id,
       expiresAt: expiresAt,
+      suspiciousGames: suspiciousGames, // Mod-flagged evidence games stored on the log (internal only)
       eloRefund: eloRefundResult, // ELO refund summary (null if no refunds)
       leaderboardScrub: leaderboardScrubResult, // Daily-leaderboard scrub summary (null if not applicable)
       message: getSuccessMessage(action, targetUser.username, eloRefundResult, leaderboardScrubResult)

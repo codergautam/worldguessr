@@ -109,6 +109,7 @@ export default async function handler(req, res) {
       expiresAt: log.expiresAt,
       nameChange: log.nameChange,
       eloRefund: log.eloRefund,
+      suspiciousGames: log.suspiciousGames || [], // Mod-flagged evidence games (staff-only)
       relatedReports: log.relatedReports?.length || 0,
       createdAt: log.createdAt
     }));
