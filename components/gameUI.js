@@ -659,12 +659,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
 
-  function showHint() {
+  const showHint = useCallback(() => {
     if (hintLimitReached || hintShown) return;
 
     setHintShown(true);
     setHintsUsedThisGame((prev) => prev + 1);
-  }
+  }, [hintLimitReached, hintShown, setHintShown]);
   useEffect(() => {
     if (dailyMode) return;
     loadLocation()
@@ -795,30 +795,43 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       : singlePlayerRound
         ? `single:${gameOptions?.location || 'all'}:${singlePlayerRound?.round || ''}:${singlePlayerRound?.done ? 'done' : 'playing'}`
         : `free:${gameOptions?.location || 'all'}:${latLong?.lat ?? ''}:${latLong?.long ?? ''}`;
-  const miniMapFullscreenHotkeyEnabled = shouldShowMiniMap &&
-    !showAnswerOnMap &&
-    !forceHideMiniMap &&
-    !gameOptionsModalShown &&
-    !mapModal &&
-    !showDiscordModal &&
-    !explanationModalShown;
+  const hotkeysBlocked = showAnswerOnMap ||
+    gameOptionsModalShown ||
+    mapModal ||
+    showDiscordModal ||
+    explanationModalShown;
+  const miniMapFullscreenHotkeyEnabled = shouldShowMiniMap && !forceHideMiniMap && !hotkeysBlocked;
+  const hintHotkeyEnabled = !loading &&
+    !singlePlayerRound?.done &&
+    !onboarding?.completed &&
+    !multiplayerState?.inGame &&
+    !hintLimitReached &&
+    !hintShown &&
+    !hotkeysBlocked;
 
   useEffect(() => {
     function keydown(e) {
       if (e.defaultPrevented || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key?.toLowerCase() !== "f") return;
+      const key = e.key?.toLowerCase();
+      if (key !== "f" && key !== "h") return;
       if (isTypingTarget(e.target)) return;
-      if (!miniMapFullscreenHotkeyEnabled) return;
 
-      e.preventDefault();
-      toggleMiniMapFullscreen();
+      if (key === "f") {
+        if (!miniMapFullscreenHotkeyEnabled) return;
+        e.preventDefault();
+        toggleMiniMapFullscreen();
+      } else if (key === "h") {
+        if (!hintHotkeyEnabled) return;
+        e.preventDefault();
+        showHint();
+      }
     }
 
     document.addEventListener('keydown', keydown);
     return () => {
       document.removeEventListener('keydown', keydown);
     };
-  }, [miniMapFullscreenHotkeyEnabled, toggleMiniMapFullscreen]);
+  }, [hintHotkeyEnabled, miniMapFullscreenHotkeyEnabled, showHint, toggleMiniMapFullscreen]);
 
   return (
     <div className="gameUI">

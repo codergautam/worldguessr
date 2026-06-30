@@ -26,6 +26,7 @@ A free and open-source version of the popular geography game inspired by GeoGues
 | --- | --- |
 | `Space` | Guess or continue to the next round |
 | `F` | Toggle minimap fullscreen |
+| `H` | Show hint |
 
 ## Acknowledgements
 
