@@ -24,9 +24,9 @@ A free and open-source version of the popular geography game inspired by GeoGues
 
 | Key | Action |
 | --- | --- |
-| `Space` | Guess or continue to the next round |
-| `F` | Toggle minimap fullscreen |
-| `H` | Show hint |
+| <kbd>Space</kbd> | Guess or continue to the next round |
+| <kbd>F</kbd> | Toggle minimap fullscreen |
+| <kbd>H</kbd> | Show hint |
 
 ## Acknowledgements
 
@@ -67,7 +67,8 @@ Before you start, ensure you have the following installed:
 
 ## Deploying to a VPS / External Server
 
-If you're deploying WorldGuessr on a VPS or any server with an external IP (not localhost), you **must** configure these environment variables in your `.env` file:
+> [!IMPORTANT]
+> If you're deploying WorldGuessr on a VPS or any server with an external IP (not localhost), you **must** configure these environment variables in your `.env` file:
 
 ```bash
 # Replace YOUR_IP with your server's IP address or domain
@@ -102,7 +103,8 @@ NEXT_PUBLIC_WS_HOST=ws.yourdomain.com
 
 3. **API/WS URLs** - Point to your external IP or domain (see above)
 
-For detailed environment variable documentation, see [docs/environment-variables.md](docs/environment-variables.md).
+> [!TIP]
+> For detailed environment variable documentation, see [docs/environment-variables.md](docs/environment-variables.md).
 
 ## Contributing
 
