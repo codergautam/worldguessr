@@ -23,7 +23,6 @@ interface EloTabProps {
   eloData: EloData | null;
   progression: ProgressionEntry[];
   progressionLoading: boolean;
-  screenWidth: number;
   onScrollEnable?: (enabled: boolean) => void;
 }
 
@@ -31,7 +30,6 @@ export default function EloTab({
   eloData,
   progression,
   progressionLoading,
-  screenWidth,
   onScrollEnable,
 }: EloTabProps) {
   if (!eloData) return null;
@@ -108,7 +106,6 @@ export default function EloTab({
         data={progression}
         loading={progressionLoading}
         mode="elo"
-        screenWidth={screenWidth}
         onChartTouch={onScrollEnable}
       />
     </View>

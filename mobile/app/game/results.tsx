@@ -33,6 +33,7 @@ import { dismissAllSafe } from '../../src/utils/navigation';
 import { maybeShowGameInterstitial, runGameInterstitial } from '../../src/services/ads';
 import PlayerName from '../../src/components/PlayerName';
 import EloChangeDisplay from '../../src/components/multiplayer/EloChangeDisplay';
+import EmoteReactions from '../../src/components/multiplayer/EmoteReactions';
 import BackButton from '../../src/components/ui/BackButton';
 import ReviewPromptModal from '../../src/components/ReviewPromptModal';
 import { useReviewPrompt } from '../../src/hooks/useReviewPrompt';
@@ -492,8 +493,16 @@ export default function GameResultsScreen() {
   const units = useSettingsStore((s) => s.units);
   const mapType = useSettingsStore((s) => s.mapType);
   const language = useSettingsStore((s) => s.language);
+  const emotesEnabled = useSettingsStore((s) => s.multiplayerEmotesEnabled);
 
   const isLandscape = width > height;
+
+  // Web keeps the emote sender mounted through `state === 'end'` (home.js, flipped to
+  // `rightSide`), so it stays usable on the summary. Mobile splits results into this
+  // separate route, so we re-mount it here for LIVE multiplayer only — never for
+  // singleplayer or history replays (no live game / WS room to send into). `sendEmote`
+  // is WS-only (no in-game guard) and useWebSocket keeps the socket alive on /game/results.
+  const showEmotes = isLiveMultiplayer && !isHistoryView && emotesEnabled;
 
   const openInGoogleMaps = useCallback((lat: number, lng: number, panoId?: string) => {
     haptics.light();
@@ -755,7 +764,20 @@ export default function GameResultsScreen() {
     // No haptic here: the back button taps fire it via the shared BackButton, and
     // the standalone Home CTA fires it inline — keeping it out avoids a double buzz.
     if (isLiveMultiplayer) {
-      useMultiplayerStore.getState().reset();
+      // Tell the SERVER we're leaving — not just reset() local state. Web parity:
+      // backBtnPressed (home.js) sends `{type:'leaveGame'}` here. When a game ends
+      // naturally the server keeps it in 'end' state (lingering ~2h) and KEEPS our
+      // player.gameId pointing at it — it never auto-frees us. Every "start a game"
+      // handler (publicDuel / unrankedDuel / createPrivateGame / joinPrivateGame) is
+      // gated on `!player.gameId`, so until the server hears `leaveGame` it silently
+      // drops every re-queue. The socket stays open (we still receive `t`/state), so
+      // the client looks connected while none of its inputs take effect — the exact
+      // "finished a game, now multiplayer is dead until I force-restart" bug. A bare
+      // reset() only cleared local state and left the server-side gameId stuck.
+      // leaveGame() sends `{type:'leaveGame'}` then runs reset(), so the local teardown
+      // is unchanged; we just no longer skip telling the server. (No-op server-side if
+      // the game is already gone — the handler guards on games.has(player.gameId).)
+      useMultiplayerStore.getState().leaveGame();
     }
     dismissAllSafe();
   }, [isLiveMultiplayer]);
@@ -1451,6 +1473,8 @@ export default function GameResultsScreen() {
         <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>
           {renderBackButton()}
         </View>
+        {/* Emote sender — bottom-left of the map area; the sidebar owns the right edge. */}
+        {showEmotes && <EmoteReactions hideName={isDuelGame} />}
         {renderReportModal()}
       </View>
     );
@@ -1488,6 +1512,17 @@ export default function GameResultsScreen() {
       <View style={[styles.backButtonContainer, { paddingTop: insets.top + spacing.sm }]}>
         {renderBackButton()}
       </View>
+
+      {/* Emote sender — lifted above the collapsed summary panel so it sits in the map
+          area; reactions rise into the map. Hidden while details are expanded (the panel
+          grows up over this corner), via the component's own fade-out. */}
+      {showEmotes && (
+        <EmoteReactions
+          bottomOffset={collapsedHeight}
+          hidden={detailsExpanded}
+          hideName={isDuelGame}
+        />
+      )}
 
       {/* Bottom panel — matches web .game-summary-sidebar on mobile */}
       <Animated.View

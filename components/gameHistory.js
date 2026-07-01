@@ -5,7 +5,7 @@ import styles from '../styles/gameHistory.module.css';
 import Link from 'next/link';
 import CountryFlag from './utils/countryFlag';
 
-export default function GameHistory({ session, onGameClick, targetUserId = null, targetUserData = null, page = null, setPage = null }) {
+export default function GameHistory({ session, onGameClick, targetUserId = null, targetUserData = null, page = null, setPage = null, selectable = false, selectedGameIds = [], onToggleGame = null }) {
   const { t: text } = useTranslation("common");
   const [games, setGames] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -170,6 +170,24 @@ export default function GameHistory({ session, onGameClick, targetUserId = null,
               className={styles.gameItem}
               onClick={() => onGameClick(game)}
             >
+              {/* Mod-only: flag this game as suspicious evidence for a ban (ranked duels only) */}
+              {selectable && game.gameType === 'ranked_duel' && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedGameIds.includes(game.gameId)}
+                    onChange={(e) => { e.stopPropagation(); if (onToggleGame) onToggleGame(game); }}
+                    style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                  />
+                  <span style={{ fontSize: '0.8rem', color: selectedGameIds.includes(game.gameId) ? '#d29922' : '#8b949e' }}>
+                    {selectedGameIds.includes(game.gameId) ? '🚩 Marked as ban evidence' : 'Mark as suspicious evidence'}
+                  </span>
+                </div>
+              )}
+
               <div className={styles.gameHeader}>
                 <div className={styles.gameType}>
                   <span

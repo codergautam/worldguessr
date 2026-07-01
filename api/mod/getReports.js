@@ -60,9 +60,17 @@ export default async function handler(req, res) {
       stats.total += item.count;
     });
 
-    // Get counts by reason for pending reports (for the filter dropdown)
+    // The actionable pending queue (grouped view + its pagination total) excludes
+    // reports whose target was anonymized to null by an account deletion. Count
+    // stats.pending the same way so the dashboard badge matches the queue the mod
+    // can actually drain (total/other statuses stay as full historical counts).
+    stats.pending = await Report.countDocuments({ status: 'pending', 'reportedUser.accountId': { $ne: null } });
+
+    // Get counts by reason for pending reports (for the filter dropdown).
+    // Mirror the grouped-queue guard: anonymized (null-target) reports aren't
+    // actionable and are excluded from the queue, so don't count them here either.
     const reasonCounts = await Report.aggregate([
-      { $match: { status: 'pending' } },
+      { $match: { status: 'pending', 'reportedUser.accountId': { $ne: null } } },
       {
         $group: {
           _id: '$reason',
@@ -91,8 +99,13 @@ export default async function handler(req, res) {
     
     // If filtering by pending status (and not requesting all), use the special grouping logic
     if (status === 'pending' && !wantAllReports) {
-      // Build match query for pending reports (including optional reason filter)
-      const pendingMatchQuery = { status: 'pending' };
+      // Build match query for pending reports (including optional reason filter).
+      // Exclude reports whose reported user was anonymized to null by an account
+      // deletion: they have no actionable target, would all collapse into a single
+      // bogus "[Deleted User]" group, and can never be cleared (takeAction rejects
+      // a null targetUserId). The deletion cascade now auto-resolves these, but
+      // this guard also keeps any pre-existing/legacy orphans out of the queue.
+      const pendingMatchQuery = { status: 'pending', 'reportedUser.accountId': { $ne: null } };
       if (reason && ['inappropriate_username', 'cheating', 'other'].includes(reason)) {
         pendingMatchQuery.reason = reason;
       }

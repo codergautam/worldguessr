@@ -120,6 +120,12 @@ const gameSchema = new mongoose.Schema({
   // Moderation - tracks if ELO has been refunded for this game (to prevent double refunds on re-ban)
   eloRefunded: { type: Boolean, default: false },
   eloRefundedAt: { type: Date, default: null },
+  // Tracks if the opponents' duel WIN/LOSS counters were reconciled for this
+  // refunded game (so a cheater's games don't drag down victims' win rate).
+  // Separate from eloRefunded so historical refunds can be backfilled exactly
+  // once (scripts/backfillRefundedDuelWinLoss.js); set alongside eloRefunded on
+  // the live refund path (serverUtils/eloRefunds.js).
+  winLossAdjusted: { type: Boolean, default: false },
 
   // Indexes for efficient querying
   createdAt: { type: Date, default: Date.now }
@@ -131,6 +137,7 @@ gameSchema.index({ 'players.accountId': 1, createdAt: -1 }); // User's game hist
 gameSchema.index({ gameType: 1, 'players.accountId': 1, createdAt: -1 }); // User's games by type
 gameSchema.index({ gameId: 1 }); // Unique game lookup
 gameSchema.index({ 'multiplayer.gameCode': 1 }); // Private game code lookup
+gameSchema.index({ 'rounds.playerGuesses.accountId': 1 }); // Deletion cascade: round-guess anonymize (previously a full collection scan)
 
 const Game = mongoose.model('Game', gameSchema);
 

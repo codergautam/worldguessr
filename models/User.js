@@ -200,6 +200,24 @@ const userSchema = new mongoose.Schema({
   profileViews: {
     type: Number,
     default: 0
+  },
+
+  // ===== SELF-SERVICE ACCOUNT DELETION (7-day grace period) =====
+  // When a user requests deletion, scheduledDeletionAt is set to (now + 7 days)
+  // and the user is logged out instantly. Re-login within the window offers a
+  // "Restore" prompt (api/cancelDeletion.js). The cron purge (cron.js ->
+  // serverUtils/purgeUserCascade.js) hard-deletes the account + all associated
+  // data once scheduledDeletionAt has passed. null = not pending.
+  // WARNING: do NOT turn this into a TTL index (expireAfterSeconds) — a TTL would
+  // drop ONLY the User row and orphan every other collection. The purge MUST run
+  // the full cascade.
+  scheduledDeletionAt: {
+    type: Date,
+    default: null
+  },
+  deletionRequestedAt: {
+    type: Date,
+    default: null
   }
 });
 
@@ -228,6 +246,16 @@ userSchema.index({ elo: -1 });
 // Compound indexes for filtering banned/pending users while sorting (covers common query patterns)
 userSchema.index({ banned: 1, pendingNameChange: 1, totalXp: -1 });
 userSchema.index({ banned: 1, pendingNameChange: 1, elo: -1 });
+
+// ===== ACCOUNT DELETION INDEXES =====
+// Background purge query: { scheduledDeletionAt: { $ne: null, $lte: now } }
+userSchema.index({ scheduledDeletionAt: 1 });
+// Reverse-friendship lookups — the deletion cascade $pulls a user out of every
+// other user's friends/sentReq/receivedReq arrays; without these multikey indexes
+// each $pull full-scans the entire Users collection (a primary delete-timeout cause).
+userSchema.index({ friends: 1 });
+userSchema.index({ sentReq: 1 });
+userSchema.index({ receivedReq: 1 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 

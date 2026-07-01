@@ -157,6 +157,7 @@ export default function ModDashboard({ session }) {
   const [actionReason, setActionReason] = useState(''); // Internal reason - NEVER shown to user
   const [actionPublicNote, setActionPublicNote] = useState(''); // Public note - shown to user
   const [skipEloRefund, setSkipEloRefund] = useState(false); // Option to skip ELO refund on permanent bans
+  const [selectedGames, setSelectedGames] = useState([]); // [{ gameId, opponent }] flagged as suspicious ban evidence (internal only)
 
   // Name review queue state
   const [nameRequests, setNameRequests] = useState([]);
@@ -220,6 +221,12 @@ export default function ModDashboard({ session }) {
       return () => clearTimeout(timer);
     }
   }, [highlightedReportId, highlightedUserId]);
+
+  // Clear the suspicious-games evidence selection whenever the moderator switches to a
+  // different user, so one user's flagged games can never bleed into the next user's ban.
+  useEffect(() => {
+    setSelectedGames([]);
+  }, [targetUser?._id]);
 
   // View a specific report in the reports tab
   const viewReportInTab = async (report, keepModalOpen = true) => {
@@ -685,6 +692,16 @@ export default function ModDashboard({ session }) {
     });
   };
 
+  // Toggle a game in/out of the suspicious-games evidence selection (attached to a ban).
+  // Stores the opponent username alongside the code so the UI can show "vs <name>".
+  const toggleSuspiciousGame = (game) => {
+    setSelectedGames(prev =>
+      prev.some(g => g.gameId === game.gameId)
+        ? prev.filter(g => g.gameId !== game.gameId)
+        : [...prev, { gameId: game.gameId, opponent: game.opponent?.username || null }]
+    );
+  };
+
   // Take moderation action
   const takeAction = async (action, targetUserId, reportIds = []) => {
     if (!actionReason.trim()) {
@@ -717,6 +734,11 @@ export default function ModDashboard({ session }) {
         body.skipEloRefund = skipEloRefund;
       }
 
+      // Attach moderator-flagged suspicious games as ban evidence (internal only, no refund impact)
+      if (action === 'ban_permanent' || action === 'ban_temporary') {
+        body.suspiciousGameIds = selectedGames.map(g => g.gameId);
+      }
+
       const response = await fetch(window.cConfig.apiUrl + '/api/mod/takeAction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -730,6 +752,7 @@ export default function ModDashboard({ session }) {
         setActionReason('');
         setActionPublicNote('');
         setSkipEloRefund(false);
+        setSelectedGames([]); // Clear flagged-evidence selection after a successful action
         fetchReports(selectedStatus, selectedReason, reportsPagination.page); // Refresh reports
         // Also refresh user data if we're currently in user lookup tab
         if (targetUser && activeTab === 'users') {
@@ -1009,6 +1032,31 @@ export default function ModDashboard({ session }) {
               </div>
             )}
 
+            {(type === 'ban_permanent' || type === 'ban_temporary') && (
+              <div className={styles.formGroup}>
+                <label>🚩 Suspicious Games Evidence (optional, internal only):</label>
+                {selectedGames.length > 0 ? (
+                  <div style={{ fontSize: '0.85rem', color: '#c9d1d9' }}>
+                    <strong>{selectedGames.length}</strong> game{selectedGames.length !== 1 ? 's' : ''} marked as the trigger for this ban:
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                      {selectedGames.map((g) => (
+                        <span key={g.gameId} title={g.gameId} style={{ background: '#21262d', padding: '2px 8px', borderRadius: '4px', fontSize: '0.78rem', color: '#d29922' }}>
+                          {g.opponent ? `vs ${g.opponent}` : g.gameId}
+                        </span>
+                      ))}
+                    </div>
+                    <small style={{ color: '#6e7681', marginTop: '4px', display: 'block' }}>
+                      Saved with the ban for appeals review. Has no effect on ELO refunds and is never shown to the user.
+                    </small>
+                  </div>
+                ) : (
+                  <small style={{ color: '#6e7681', display: 'block' }}>
+                    No games marked. Close this dialog and tick &quot;Mark as suspicious evidence&quot; on the relevant ranked games in the history below, then re-open this action. Optional — saved for appeals review only, never shown to the user.
+                  </small>
+                )}
+              </div>
+            )}
+
             <div className={styles.formGroup}>
               <label>🔒 Internal Reason (required, NOT shown to user):</label>
               <div className={styles.prefilledButtons}>
@@ -1173,6 +1221,23 @@ export default function ModDashboard({ session }) {
                 <span className={styles.historyMeta}>
                   by {ban.moderator} • {new Date(ban.createdAt).toLocaleDateString()}
                 </span>
+                {ban.suspiciousGames && ban.suspiciousGames.length > 0 && (
+                  <div style={{ flexBasis: '100%', marginTop: '6px', fontSize: '0.8rem', color: '#d29922' }}>
+                    🚩 Flagged games:{' '}
+                    {ban.suspiciousGames.map((g, gi) => (
+                      <span key={g.gameId || gi}>
+                        <span
+                          style={{ color: '#58a6ff', cursor: 'pointer', textDecoration: 'underline' }}
+                          onClick={() => fetchGameById(g.gameId, targetUser?._id)}
+                          title={g.gameId}
+                        >
+                          {g.opponentUsername ? `vs ${g.opponentUsername}` : g.gameId}
+                        </span>
+                        {gi < ban.suspiciousGames.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -1885,6 +1950,9 @@ export default function ModDashboard({ session }) {
                     onGameClick={handleGameClick}
                     page={gameHistoryPage}
                     setPage={setGameHistoryPage}
+                    selectable={true}
+                    selectedGameIds={selectedGames.map(g => g.gameId)}
+                    onToggleGame={toggleSuspiciousGame}
                   />
                 </div>
               ) : (
@@ -2457,6 +2525,25 @@ export default function ModDashboard({ session }) {
                           <div className={styles.auditLogRow}>
                             <span className={styles.auditLogLabel}>Related Reports:</span>
                             <span className={styles.auditLogValue}>{log.relatedReports}</span>
+                          </div>
+                        )}
+                        {log.suspiciousGames && log.suspiciousGames.length > 0 && (
+                          <div className={styles.auditLogRow}>
+                            <span className={styles.auditLogLabel}>Flagged Games:</span>
+                            <span className={styles.auditLogValue}>
+                              {log.suspiciousGames.map((g, gi) => (
+                                <span key={g.gameId || gi}>
+                                  <span
+                                    style={{ color: '#58a6ff', cursor: 'pointer', textDecoration: 'underline' }}
+                                    onClick={() => fetchGameById(g.gameId, log.targetUser.accountId)}
+                                    title={g.gameId}
+                                  >
+                                    {g.opponentUsername ? `vs ${g.opponentUsername}` : g.gameId}
+                                  </span>
+                                  {gi < log.suspiciousGames.length - 1 ? ', ' : ''}
+                                </span>
+                              ))}
+                            </span>
                           </div>
                         )}
                       </div>

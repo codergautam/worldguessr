@@ -119,6 +119,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
     const [pendingNameChangeModal, setPendingNameChangeModal] = useState(false)
     const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(false)
     const [dismissedBanBanner, setDismissedBanBanner] = useState(false)
+    const [dismissedDeletionBanner, setDismissedDeletionBanner] = useState(false)
     const [timeOffset, setTimeOffset] = useState(0)
     const timeSyncRef = useRef({ bestRtt: Infinity, lastSyncAt: 0, lastServerNow: 0 })
     const [loginQueued, setLoginQueued] = useState(false);
@@ -3186,6 +3187,51 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                             }}
                         >
                             {text("viewDetails") || "View Details"}
+                        </button>
+                    </div>
+                )}
+
+                {/* Account Pending Deletion Banner — within the 7-day grace period.
+                    Explicit Restore (we never auto-cancel on login). */}
+                {session?.token?.pendingDeletion && screen === 'home' && !dismissedDeletionBanner && (
+                    <div className="modBanner modBanner--error">
+                        <button
+                            onClick={() => setDismissedDeletionBanner(true)}
+                            className="modBanner__close"
+                            title="Dismiss"
+                        >
+                            ×
+                        </button>
+                        <div className="modBanner__content">
+                            <span>🗑️</span>
+                            <span className="modBanner__text">
+                                {session?.token?.scheduledDeletionAt
+                                    ? text("accountScheduledForDeletion", { date: new Date(session.token.scheduledDeletionAt).toLocaleDateString() })
+                                    : text("accountScheduledForDeletionShort")}
+                            </span>
+                        </div>
+                        <button
+                            className="modBanner__detailsBtn"
+                            onClick={async () => {
+                                try {
+                                    const res = await fetch(window.cConfig.apiUrl + '/api/cancelDeletion', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ secret: session?.token?.secret }),
+                                    });
+                                    if (res.ok) {
+                                        setSession((prev) => prev ? { token: { ...prev.token, pendingDeletion: false, scheduledDeletionAt: null } } : prev);
+                                        toast.success(text("accountRestoredBody"));
+                                    } else {
+                                        const data = await res.json().catch(() => ({}));
+                                        toast.error(data.error || text("deletionAlreadyProcessed"));
+                                    }
+                                } catch (e) {
+                                    toast.error(text("deleteAccountFailed"));
+                                }
+                            }}
+                        >
+                            {text("restoreAccount")}
                         </button>
                     </div>
                 )}

@@ -1,4 +1,4 @@
-export { formatTime, msToTime, formatNumber } from './formatTime';
+export { formatTime, msToTime, formatNumber, formatCompact } from './formatTime';
 export { getPlayerColor } from './playerColor';
 export {
   USERNAME_MIN_LENGTH,

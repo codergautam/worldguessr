@@ -359,6 +359,7 @@ async function buildUserResponse(targetUser) {
       duration: log.durationString,
       expiresAt: log.expiresAt,
       moderator: log.moderator.username,
+      suspiciousGames: log.suspiciousGames || [], // Mod-flagged evidence games (staff-only)
       createdAt: log.createdAt
     }));
 

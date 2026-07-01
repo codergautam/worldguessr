@@ -1,9 +1,13 @@
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import mobileAds, {
   InterstitialAd,
   AdEventType,
   TestIds,
 } from 'react-native-google-mobile-ads';
+import {
+  getTrackingPermissionsAsync,
+  requestTrackingPermissionsAsync,
+} from 'expo-tracking-transparency';
 import { useAuthStore } from '../store/authStore';
 
 // Use Google TEST ads only in dev or when explicitly opted in. In a release
@@ -29,12 +33,62 @@ if (FORCE_TEST) {
   );
 }
 
+// ── App Tracking Transparency (iOS) ──────────────────────────────────────────
+// App Store Guideline 2.1/5.1.2: the ATT prompt must be shown BEFORE any data
+// that could be used to track the user is collected. The Google Mobile Ads SDK
+// reads the IDFA the moment it initializes, so initAds() awaits the ATT
+// resolution before calling mobileAds().initialize(). Until (and unless) the
+// user grants tracking, every ad request is flagged non-personalized.
+// Android has no ATT — personalized ads are allowed there by default.
+let personalizedAdsAllowed = Platform.OS !== 'ios';
+
+function waitForAppActive(): Promise<void> {
+  if (AppState.currentState === 'active') return Promise.resolve();
+  return new Promise((resolve) => {
+    // Poll alongside the listener: at cold launch AppState.currentState can be
+    // a stale 'unknown'/'inactive' snapshot, and if the inactive→active event
+    // slipped past before we subscribed, no further 'change' would ever fire —
+    // hanging ATT and, behind it, all ad init. The poll self-heals that.
+    const finish = () => {
+      sub.remove();
+      clearInterval(poll);
+      resolve();
+    };
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') finish();
+    });
+    const poll = setInterval(() => {
+      if (AppState.currentState === 'active') finish();
+    }, 500);
+  });
+}
+
+async function requestTrackingConsent(): Promise<void> {
+  if (Platform.OS !== 'ios') return;
+  try {
+    let { status } = await getTrackingPermissionsAsync();
+    if (status === 'undetermined') {
+      // iOS silently refuses to present the ATT alert unless the app is in the
+      // active state — cold launches briefly report 'inactive'/'unknown', and a
+      // request fired in that window resolves denied WITHOUT ever showing the
+      // dialog. Wait for 'active' before asking.
+      await waitForAppActive();
+      ({ status } = await requestTrackingPermissionsAsync());
+    }
+    personalizedAdsAllowed = status === 'granted';
+  } catch (err) {
+    // Never let a consent failure block ads entirely — fall through with
+    // personalizedAdsAllowed still false (non-personalized requests only).
+    console.warn('[ads] ATT request failed', err);
+  }
+}
+
 let initPromise: Promise<void> | null = null;
 
 export function initAds(): Promise<void> {
   if (!initPromise) {
-    initPromise = mobileAds()
-      .initialize()
+    initPromise = requestTrackingConsent()
+      .then(() => mobileAds().initialize())
       .then(() => undefined)
       .catch((err) => {
         console.warn('[ads] init failed', err);
@@ -50,7 +104,10 @@ function ensureInterstitial(): InterstitialAd | null {
   if (!INTERSTITIAL_UNIT_ID) return null;
   if (interstitial) return interstitial;
   interstitial = InterstitialAd.createForAdRequest(INTERSTITIAL_UNIT_ID, {
-    requestNonPersonalizedAdsOnly: false,
+    // Personalized only with explicit ATT consent on iOS (always ok on
+    // Android). Interstitials are recreated after every CLOSED, so a request
+    // built before consent resolves self-corrects on the next ad.
+    requestNonPersonalizedAdsOnly: !personalizedAdsAllowed,
   });
   interstitial.addAdEventListener(AdEventType.LOADED, () => {
     interstitialLoading = false;

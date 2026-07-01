@@ -77,7 +77,17 @@ function FloatingEmote({ reaction, hideName }: { reaction: EmoteReaction; hideNa
   );
 }
 
-export default function EmoteReactions({ hidden = false, hideName = false }: { hidden?: boolean; hideName?: boolean }) {
+export default function EmoteReactions({
+  hidden = false,
+  hideName = false,
+  // Extra px to lift the whole FAB (toggle + bar + rising floats) above the bottom.
+  // Used on the results screen so the button clears the summary panel; 0 in-game.
+  bottomOffset = 0,
+}: {
+  hidden?: boolean;
+  hideName?: boolean;
+  bottomOffset?: number;
+}) {
   const insets = useSafeAreaInsets();
   const emotes = useMultiplayerStore((s) => s.emotes);
   const sendEmote = useMultiplayerStore((s) => s.sendEmote);
@@ -134,7 +144,7 @@ export default function EmoteReactions({ hidden = false, hideName = false }: { h
     <Animated.View
       style={[
         styles.container,
-        { bottom: Math.max(insets.bottom, 16) + 16, left: Math.max(insets.left, spacing.md) },
+        { bottom: Math.max(insets.bottom, 16) + 16 + bottomOffset, left: Math.max(insets.left, spacing.md) },
         hideStyle,
       ]}
       pointerEvents={hidden ? 'none' : 'box-none'}
@@ -175,7 +185,10 @@ export default function EmoteReactions({ hidden = false, hideName = false }: { h
   );
 }
 
-const TOGGLE_SIZE = 48;
+// Exported so callers that share this bottom-left corner (e.g. the duel anti-cheat
+// banner in app/game/[id].tsx) can reserve clearance above the FAB.
+export const EMOTE_TOGGLE_SIZE = 48;
+const TOGGLE_SIZE = EMOTE_TOGGLE_SIZE;
 const ABOVE_TOGGLE = TOGGLE_SIZE + 12; // bar/floats sit just above the toggle
 
 const styles = StyleSheet.create({

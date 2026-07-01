@@ -113,10 +113,12 @@ export function useDeepLinkInvite() {
   const lastUrlRef = useRef<string | null>(null);
 
   // Join now if the socket is ready, otherwise stash for the socket-ready effect.
+  // `viaLink: true` so a bad/expired/full code surfaces a toast (this screen
+  // isn't the join form, which is where an inline error would otherwise show).
   const joinParty = (code: string): boolean => {
     const st = useMultiplayerStore.getState();
     if (st.verified && !st.inGame) {
-      st.joinPrivateGame(code);
+      st.joinPrivateGame(code, true);
       return true;
     }
     return false;
@@ -160,7 +162,7 @@ export function useDeepLinkInvite() {
     if (verified && !inGame && pendingPartyRef.current) {
       const code = pendingPartyRef.current;
       pendingPartyRef.current = null;
-      useMultiplayerStore.getState().joinPrivateGame(code);
+      useMultiplayerStore.getState().joinPrivateGame(code, true); // viaLink — toast on failure
     }
   }, [verified, inGame]);
 

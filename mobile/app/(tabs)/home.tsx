@@ -21,7 +21,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { colors, getLeague, t } from '../../src/shared';
+import { colors, getLeague, t, formatCompact } from '../../src/shared';
 import { useAuthStore } from '../../src/store/authStore';
 import { useMultiplayerStore } from '../../src/store/multiplayerStore';
 import { api } from '../../src/services/api';
@@ -54,7 +54,20 @@ interface MenuButtonProps {
   accessory?: React.ReactNode;
 }
 
-function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps) {
+/**
+ * Shared left-to-right entrance for every row in the home menu — the mode
+ * buttons AND the divider rules between groups. Slides the element in from the
+ * left while fading it up, starting once `ready` flips true (auth settled) plus
+ * `delay`, and only ever once (guarded by a ref so it never replays on a
+ * re-render). Returns the animated style to spread onto an Animated.View.
+ *
+ * Centralising this is what keeps the dividers in lock-step with the buttons:
+ * every menu row reveals as one staggered wave instead of the dividers painting
+ * statically at full opacity before the buttons (and jumping as the post-auth
+ * layout settles). Mirrors web, where `.g2_nav_ui > *` runs `nav_slide_in` on
+ * ALL nav children, the `.g2_nav_hr` dividers included.
+ */
+function useMenuEntrance(delay: number, ready: boolean) {
   const slideAnim = useRef(new Animated.Value(-80)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const hasAnimated = useRef(false);
@@ -78,13 +91,14 @@ function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps
     ]).start();
   }, [ready, delay, slideAnim, opacityAnim]);
 
+  return { transform: [{ translateX: slideAnim }], opacity: opacityAnim };
+}
+
+function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps) {
+  const entranceStyle = useMenuEntrance(delay, ready);
+
   return (
-    <Animated.View
-      style={{
-        transform: [{ translateX: slideAnim }],
-        opacity: opacityAnim,
-      }}
-    >
+    <Animated.View style={entranceStyle}>
       <Pressable
         style={({ pressed }) => [
           styles.menuButton,
@@ -99,6 +113,19 @@ function MenuButton({ label, onPress, delay, ready, accessory }: MenuButtonProps
       </Pressable>
     </Animated.View>
   );
+}
+
+/**
+ * The horizontal rule between menu groups. Shares the menu entrance so the lines
+ * slide in alongside the buttons rather than painting at full opacity on the
+ * first frame — that static early paint, at the pre-auth (compact) layout, was
+ * the "white line flashing higher than where it belongs" before the menu
+ * animated in. Web parity: `.g2_nav_hr` is a `.g2_nav_ui > *` child and rides
+ * the same `nav_slide_in`.
+ */
+function MenuDivider({ delay, ready }: { delay: number; ready: boolean }) {
+  const entranceStyle = useMenuEntrance(delay, ready);
+  return <Animated.View style={[styles.divider, entranceStyle]} />;
 }
 
 function OutlinedTitle({ children }: { children: string }) {
@@ -184,7 +211,7 @@ function OnlineCountBadge({
       pointerEvents="none"
     >
       <Text style={[styles.onlineCount, { fontSize }]}>
-        {t('onlineCnt', { cnt: shownCount })}
+        {t('onlineCnt', { cnt: formatCompact(shownCount) })}
       </Text>
     </Animated.View>
   );
@@ -198,6 +225,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated, isLoading: authLoading, secret } = useAuthStore();
+  const updateUser = useAuthStore((s) => s.updateUser);
 
   // Daily streak status for the home menu pill (mirrors web's DailyMenuItem).
   const dailyStatus = useDailyMenuStatus(secret ?? null);
@@ -210,6 +238,7 @@ export default function HomeScreen() {
   // hook instead of opening the chooser sheet (see handleLogin).
   const { signIn: googleSignIn, isReady: googleReady } = useGoogleSignIn();
   const [whatsNewDemo, setWhatsNewDemo] = useState(false);
+  const [restoringAccount, setRestoringAccount] = useState(false);
   const [dismissedBanBanner, setDismissedBanBanner] = useState(modPopupDismissedBan);
   const [dismissedNameChangeBanner, setDismissedNameChangeBanner] = useState(modPopupDismissedNameChange);
   const [modPopupReady, setModPopupReady] = useState(false);
@@ -344,6 +373,37 @@ export default function HomeScreen() {
     }
     setAccountSheetVisible(true);
   }, [authLoading, googleReady, googleSignIn]);
+
+  // Restore an account that's within its 7-day deletion grace period. Explicit
+  // user action (we never auto-cancel on login) — see api/cancelDeletion.js.
+  const handleRestoreAccount = useCallback(() => {
+    if (!secret || restoringAccount) return;
+    Alert.alert(
+      t('restoreAccount', undefined, 'Restore Account'),
+      t('restoreAccountConfirm', undefined, 'Cancel the scheduled deletion and keep your account?'),
+      [
+        { text: t('cancel'), style: 'cancel' },
+        {
+          text: t('restoreAccount', undefined, 'Restore'),
+          onPress: async () => {
+            try {
+              setRestoringAccount(true);
+              await api.cancelDeletion(secret);
+              updateUser({ pendingDeletion: false, scheduledDeletionAt: undefined });
+              Alert.alert(
+                t('accountRestoredTitle', undefined, 'Account Restored'),
+                t('accountRestoredBody', undefined, 'Your account is no longer scheduled for deletion.'),
+              );
+            } catch (e: any) {
+              Alert.alert(t('error', undefined, 'Error'), e?.message || String(e));
+            } finally {
+              setRestoringAccount(false);
+            }
+          },
+        },
+      ],
+    );
+  }, [secret, restoringAccount, updateUser]);
 
   // First-launch routing happens in app/index.tsx — it waits for the
   // onboarding flag to load and redirects to /onboarding/play directly,
@@ -515,6 +575,19 @@ export default function HomeScreen() {
   // is covering the screen, so don't render the misleading "Login" button behind it.
   const awaitingUsername = isAuthenticated && !user?.username;
 
+  // Pill data for the league badge, derived the instant we know the user is
+  // logged in (every account has an ELO) instead of waiting for the async
+  // `eloData` fetch. The in-flow header placeholder renders the pill from this
+  // so it reserves the pill's height immediately — otherwise the header grows a
+  // frame after login (when `eloData` resolves) and shoves the whole menu, with
+  // its freshly revealed dividers, downward. `eloData` still supplies the
+  // authoritative rank + animated counter once the request returns.
+  const eloForLayout =
+    eloData ??
+    (loggedIn && user?.elo
+      ? { elo: user.elo, rank: 0, league: getLeague(user.elo) }
+      : null);
+
   return (
     <View style={styles.container}>
       <ImageBackground
@@ -596,7 +669,7 @@ export default function HomeScreen() {
                     </Pressable>
                   </View>
 
-                  {eloData && (
+                  {eloForLayout && (
                     <Pressable
                       style={({ pressed }) => [
                         styles.leagueBtn,
@@ -605,13 +678,13 @@ export default function HomeScreen() {
                           paddingHorizontal: headerActionMetrics.leaguePaddingHorizontal,
                           paddingVertical: headerActionMetrics.leaguePaddingVertical,
                         },
-                        { backgroundColor: eloData.league.color },
+                        { backgroundColor: eloForLayout.league.color },
                         pressed && styles.leagueBtnPressed,
                       ]}
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
                       <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
-                        {animatedElo} {t('elo')} {eloData.league.emoji}
+                        {animatedElo} {t('elo')} {eloForLayout.league.emoji}
                       </Text>
                     </Pressable>
                   )}
@@ -751,7 +824,7 @@ export default function HomeScreen() {
                     </Pressable>
                   </View>
 
-                  {eloData && (
+                  {eloForLayout && (
                     <Pressable
                       style={({ pressed }) => [
                         styles.leagueBtn,
@@ -760,13 +833,13 @@ export default function HomeScreen() {
                           paddingHorizontal: headerActionMetrics.leaguePaddingHorizontal,
                           paddingVertical: headerActionMetrics.leaguePaddingVertical,
                         },
-                        { backgroundColor: eloData.league.color },
+                        { backgroundColor: eloForLayout.league.color },
                         pressed && styles.leagueBtnPressed,
                       ]}
                       onPress={() => router.navigate('/(tabs)/account')}
                     >
                       <Text style={[styles.leagueBtnText, { fontSize: headerActionMetrics.leagueFontSize }]}>
-                        {animatedElo} {t('elo')} {eloData.league.emoji}
+                        {animatedElo} {t('elo')} {eloForLayout.league.emoji}
                       </Text>
                     </Pressable>
                   )}
@@ -825,6 +898,40 @@ export default function HomeScreen() {
 
           {/* Menu */}
           <View style={styles.menu}>
+            {/* Pending-deletion restore banner — shown when the account is inside
+                its 7-day deletion grace window. Tapping prompts to cancel deletion
+                (explicit Restore, never auto-cancel on login). */}
+            {isAuthenticated && user?.pendingDeletion && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modBanner,
+                  styles.modBannerError,
+                  pressed && { opacity: 0.85 },
+                ]}
+                onPress={handleRestoreAccount}
+                disabled={restoringAccount}
+              >
+                <Text style={styles.modBannerEmoji}>🗑️</Text>
+                <View style={styles.modBannerTextWrap}>
+                  <Text style={[styles.modBannerTitle, { color: '#f44336' }]} numberOfLines={2}>
+                    {user?.scheduledDeletionAt
+                      ? t('accountScheduledForDeletion', { date: new Date(user.scheduledDeletionAt).toLocaleDateString() }, 'Your account is scheduled for deletion on {{date}}.')
+                      : t('accountScheduledForDeletionShort', undefined, 'Your account is scheduled for deletion.')}
+                  </Text>
+                  <Text style={styles.modBannerAction} numberOfLines={1}>
+                    {restoringAccount
+                      ? t('loading', undefined, 'Loading…')
+                      : t('restoreAccount', undefined, 'Restore Account')}
+                  </Text>
+                </View>
+                {restoringAccount ? (
+                  <ActivityIndicator size="small" color="rgba(255,255,255,0.7)" />
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
+                )}
+              </Pressable>
+            )}
+
             {/* Persistent moderation banner — always visible while a mod action
                 is pending, even after the popup is dismissed. Tapping it opens
                 the account screen where full details live. */}
@@ -860,7 +967,7 @@ export default function HomeScreen() {
               </Pressable>
             )}
 
-            <View style={styles.divider} />
+            <MenuDivider delay={getDelay()} ready={!authLoading} />
 
             <View style={styles.menuGroup}>
               <MenuButton
@@ -896,7 +1003,7 @@ export default function HomeScreen() {
               />
             </View>
 
-            <View style={styles.divider} />
+            <MenuDivider delay={getDelay()} ready={!authLoading} />
 
             <View style={styles.menuGroup}>
               <MenuButton
@@ -913,7 +1020,7 @@ export default function HomeScreen() {
               />
             </View>
 
-            <View style={styles.divider} />
+            <MenuDivider delay={getDelay()} ready={!authLoading} />
 
             <View style={styles.menuGroup}>
               <MenuButton

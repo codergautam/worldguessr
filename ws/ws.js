@@ -606,7 +606,24 @@ app.ws('/wg', {
         return;
       }
       if (json.type === 'verify') {
-        player.verify(json);
+        // verify() is async and awaits several DB calls (validateSecret, friend
+        // hydration, lastLogin update). A transient DB rejection used to bubble up as an
+        // unhandledRejection — which logs + writes gamestate via stop() on every blip —
+        // and left the client wedged OPEN-but-unverified with no signal at all. Catch it:
+        //  • if the player never got verified, the failure was on the auth-critical path
+        //    (before `verify` was sent) — tell the client so it stops waiting and retries
+        //    (its verify-ack timer paces the reconnect). NOT failedToLogin: that logs the
+        //    user out, but a DB blip is transient and safe to retry.
+        //  • if it already verified, the failure was in the non-critical tail (friend
+        //    list / lastLogin) and the client is fine — just log, don't disrupt it.
+        player.verify(json).catch((e) => {
+          console.error('Error verifying player', ws.id, e?.message || e, currentDate());
+          if (!players.has(ws.id)) return;
+          const p = players.get(ws.id);
+          if (!p.verified) {
+            p.send({ type: 'error', message: 'verifyError' });
+          }
+        });
         return;
       }
       if (json.type === 'screen' && json.screen && typeof json.screen === 'string') {
@@ -1757,13 +1774,38 @@ try {
      memUsage = (memUsage / 1024 / 1024).toFixed(2) + ' MB';
     console.log('Players:', playerCnt, 'Games:', gameCnt, 'Memory:', memUsage);
   }, 10000)
-  // // Check for pong messages and disconnect inactive clients
-  // setInterval(() => {
-  //   const currentTime = Date.now();
-  //   players.forEach((player) => {
-  //     if (currentTime - player.lastPong > 60000) { // 60 seconds timeout
-  //       console.log(`Disconnecting inactive player ${player.id}`);
-  //       player.ws.close(); // Disconnect the player
-  //     }
-  //   });
-  // }, 10000); // Check every 10 seconds
+  // Reap zombie sockets. Clients send `pong` every ~10s and the server stamps
+  // player.lastPong on each (message handler above). A LIVE socket whose pongs stop for
+  // PONG_TIMEOUT_MS is either a half-open zombie (uplink black-holed — TCP not yet torn
+  // down, so uWS's 300s idleTimeout hasn't fired) or a client wedged unverified (its
+  // pongs are dropped by the verified-gate, so lastPong stays frozen at connect time).
+  // Close our end so the slot frees and the player drops into the disconnectedPlayers
+  // rejoin window — the client (which detects the dead socket on its side and reconnects)
+  // then cleanly rejoins via its rejoinCode/accountId instead of colliding with a still-
+  // "live" zombie and eating a `uac`.
+  //
+  // Only ever touches players with a LIVE ws. Disconnected / gamestate-recovered players
+  // have ws === null and are owned by the 30s disconnectedPlayers eviction loop above —
+  // the original (commented-out) reaper called player.ws.close() unguarded and would have
+  // crashed on exactly those. This is a deliberately CONSERVATIVE backstop: the client's
+  // own ~25-45s zombie detection is the primary recovery, so the reaper mainly exists to
+  // rescue old app versions / crashed clients and free their slots. 120s = 12 missed
+  // pongs, generous slack so only a genuinely dead or long-silent socket trips it; a
+  // reaped player still gets the 30s rejoin window on top (~150s total grace before a game
+  // forfeits them), comfortably above the 30s the product promises a backgrounded player.
+  const PONG_TIMEOUT_MS = 120000;
+  setInterval(() => {
+    const now = Date.now();
+    for (const player of players.values()) {
+      if (!player.ws) continue; // disconnected/rejoinable — owned by the eviction loop
+      if (now - player.lastPong > PONG_TIMEOUT_MS) {
+        console.log('Reaping silent socket (no pong in '
+          + ((now - player.lastPong) / 1000).toFixed(0) + 's):', player.id, currentDate());
+        try {
+          player.ws.close();
+        } catch (e) {
+          console.error('Error closing reaped socket', player.id, e?.message || e, currentDate());
+        }
+      }
+    }
+  }, 10000);

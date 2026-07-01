@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, calcPoints, findDistance, getPlayerColor } from '../../src/shared';
 import { spacing, fontSizes, borderRadius } from '../../src/styles/theme';
+import { gameUiScale, isTabletSize, useGameUiScale } from '../../src/styles/responsive';
 import { api } from '../../src/services/api';
 import { fetchWithTimeout } from '../../src/services/fetchWithTimeout';
 import { haptics, hapticForScore } from '../../src/services/haptics';
@@ -47,7 +48,7 @@ import ClassicEndBanner from '../../src/components/game/ClassicEndBanner';
 import GetReadyOverlay from '../../src/components/multiplayer/GetReadyOverlay';
 import DuelHUD, { BAR_WIDTH as DUEL_BAR_WIDTH, BAR_MAX_FRACTION as DUEL_BAR_MAX_FRACTION } from '../../src/components/multiplayer/DuelHUD';
 import PlayerList from '../../src/components/multiplayer/PlayerList';
-import EmoteReactions from '../../src/components/multiplayer/EmoteReactions';
+import EmoteReactions, { EMOTE_TOGGLE_SIZE } from '../../src/components/multiplayer/EmoteReactions';
 import MultiplayerLobby from '../../src/components/multiplayer/MultiplayerLobby';
 import PlayerCountBadge from '../../src/components/multiplayer/PlayerCountBadge';
 import TransitionCurtain from '../../src/components/TransitionCurtain';
@@ -108,6 +109,11 @@ interface RoundResult {
   points: number;
   distance: number;
   timeTaken: number;
+  // The round's answer country, frozen at guess time (world map only). The reveal
+  // banner reads this instead of the live currentLocation, which advances to the
+  // next round when currentRound increments — so "It was {country}" can never flip
+  // to the upcoming round's country while the banner is still on screen.
+  country?: string | null;
 }
 
 // extent = [west, south, east, north] i.e. [minLng, minLat, maxLng, maxLat]
@@ -143,9 +149,14 @@ interface PlayerGuessMarker {
 
 function findRoundHistory(roundHistory: RoundHistoryEntry[] | undefined, roundNumber: number): RoundHistoryEntry | undefined {
   if (!roundHistory || roundNumber < 1) return undefined;
-  return roundHistory.find((entry) => entry.round === roundNumber)
-    ?? roundHistory[roundNumber - 1]
-    ?? roundHistory[roundHistory.length - 1];
+  // EXACT round match only. The server doesn't re-send roundHistory on every
+  // between-round getready — it's sent in full only at game end and on reconnect.
+  // So after a mid-game reconnect, the stale list keeps missing the current round,
+  // and the old positional / last-entry fallbacks then returned an ADJACENT (newest
+  // stored) round → every later reveal showed the WRONG location + pins for the rest
+  // of the game. Returning undefined lets the caller fall through to the always-
+  // correct-by-index gameData.locations[completedRoundNumber - 1] (and live pins).
+  return roundHistory.find((entry) => entry.round === roundNumber);
 }
 
 function buildHistoryPlayerGuesses(history: RoundHistoryEntry | undefined): PlayerGuessMarker[] {
@@ -210,6 +221,9 @@ function BetweenRoundsLeaderboard({
   gameData: GameData;
   timeOffset: number;
 }) {
+  // Scale the title up on tablets so the between-rounds reveal doesn't read tiny
+  // on an iPad (the PlayerList rows keep their own sizing). 1.0× on phones.
+  const { sc, isTablet } = useGameUiScale();
   // Fade the dark leaderboard IN over the last ~5s of getready, then HOLD it at
   // full opacity until the round actually changes. Web parity (components/gameUI.js):
   // the leaderboard fades in on a timer but only fades OUT once the state leaves
@@ -255,7 +269,7 @@ function BetweenRoundsLeaderboard({
         pointerEvents="none"
       >
         <SafeAreaView style={styles.betweenRoundsInner} edges={['top', 'bottom']}>
-          <Text style={styles.betweenRoundsTitle}>{t('leaderboard')}</Text>
+          <Text style={[styles.betweenRoundsTitle, isTablet && { fontSize: sc(30) }]}>{t('leaderboard')}</Text>
           <View style={styles.betweenRoundsListWrap}>
             <PlayerList
               players={gameData.players}
@@ -276,13 +290,21 @@ function BetweenRoundsLeaderboard({
 function DuelWarningBanner({
   visible,
   onDismiss,
+  liftAboveEmote,
 }: {
   visible: boolean;
   onDismiss: () => void;
+  // When the bottom-left emote FAB is on screen it shares this corner, so raise the
+  // banner clear of it. We separate VERTICALLY (rather than narrowing the banner like
+  // web's 60%-width centered pill) because our longer ban-warning text would truncate
+  // at that width on phones, and `numberOfLines={2}` must never cut the warning.
+  liftAboveEmote: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const anim = useRef(new Animated.Value(0)).current; // 0 = hidden (below), 1 = shown
   const [mounted, setMounted] = useState(false);
+  // Clear the emote toggle (FAB size + its bottom inset + a gap) when it's present.
+  const emoteClearance = liftAboveEmote ? EMOTE_TOGGLE_SIZE + spacing.lg + spacing.md : 0;
 
   useEffect(() => {
     if (!visible) return;
@@ -318,7 +340,7 @@ function DuelWarningBanner({
       pointerEvents="none"
       style={[
         styles.duelWarningBanner,
-        { bottom: Math.max(insets.bottom, spacing.md) + spacing.md },
+        { bottom: Math.max(insets.bottom, spacing.md) + spacing.md + emoteClearance },
         {
           opacity: anim,
           transform: [
@@ -349,6 +371,12 @@ export default function GameScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const { width, height } = useWindowDimensions();
+  // Tablet scaling for the multiplayer HUD (this screen duplicates GameSurface's
+  // controls for the MP path). Mirrors GameSurface so iPad MP players get the
+  // same scaled-up FAB / guess / map controls as singleplayer. 1.0× on phones.
+  const isTablet = isTabletSize(width, height);
+  const uiScale = gameUiScale(width, height);
+  const sc = (v: number) => Math.round(v * uiScale * 2) / 2;
   const insets = useSafeAreaInsets();
   // Duel layout: the two health bars are pinned to the screen corners, so a gap
   // opens in the middle. When that gap is wide enough (landscape, tablets, large
@@ -397,14 +425,42 @@ export default function GameScreen() {
   const duelWarningShownRef = useRef(false);
   const [duelWarningVisible, setDuelWarningVisible] = useState(false);
 
+  // Is THIS game/[id] instance the focused screen? The store's gameData is global and
+  // deliberately sticky for a finished public game (gameShutdown is ignored once
+  // public && state==='end', multiplayerStore.ts), and freezeOnBlur is off, so a
+  // blurred-but-still-mounted multiplayer instance keeps live-rendering. Without a
+  // focus gate it repaints the dead game's full-screen answer map, "You didn't guess!"
+  // banner, and player-count badge — visible behind a newer screen / during a
+  // crossfade (the reported ranked→singleplayer leak). Mirrors web, which mounts the
+  // multiplayer GameUI ONLY under screen==='multiplayer'; here we gate the RENDER
+  // (never the data, so results/reconnect still work) on focus. Tracked via the
+  // navigation focus/blur events — equivalent to @react-navigation's useIsFocused,
+  // which expo-router doesn't re-export and isn't a direct dependency under pnpm.
+  const [isScreenFocused, setIsScreenFocused] = useState(true);
+  useEffect(() => {
+    setIsScreenFocused(navigation.isFocused());
+    const unsubFocus = navigation.addListener('focus', () => setIsScreenFocused(true));
+    const unsubBlur = navigation.addListener('blur', () => setIsScreenFocused(false));
+    return () => {
+      unsubFocus();
+      unsubBlur();
+    };
+  }, [navigation]);
+
   // Navigate home if multiplayer game shuts down. A mid-game WS drop tears the
   // game down (useWebSocket.onDisconnect) → !inGame → this pops us home, where we
   // keep reconnecting (yellow WsIndicator).
+  //
+  // Guard on isFocused() (same as the beforeRemove listener below): when /game/results
+  // is pushed on top, THIS screen stays mounted but unfocused. A server gameShutdown
+  // for a party/private game (the public&&end sticky guard in the store doesn't apply)
+  // flips inGame false and would otherwise fire dismissAllSafe from underneath results,
+  // yanking the user off the summary mid-read. Unfocused → results owns the exit.
   useEffect(() => {
-    if (isMultiplayer && !inGame) {
+    if (isMultiplayer && !inGame && navigation.isFocused()) {
       dismissAllSafe();
     }
-  }, [isMultiplayer, inGame]);
+  }, [isMultiplayer, inGame, navigation]);
 
   useEffect(() => {
     if (
@@ -559,6 +615,20 @@ export default function GameScreen() {
     && gameData?.state === 'getready'
     && gameData.curRound === 1
     && !gameData.duel);
+  // The round-1 ranked-duel VS-matchup intro (the full-screen GetReadyOverlay). The
+  // health bars are intentionally HIDDEN during this 5s cover — the matchup already
+  // shows both players' names/flags/ELO, so the bars only clutter it. Suppressing the
+  // DuelHUD here also defers its first mount to the 'guess' phase, so each bar's
+  // existing FadeInDown entrance plays exactly as the round begins (the requested
+  // smooth fade-in) with no extra animation code. One source of truth, reused by both
+  // the GetReadyOverlay gate (to show it) and the DuelHUD gate (to hide the bars).
+  // Skipped on a cold mid-duel reconnect (joinedInProgress) — there's no VS intro to
+  // play, so the bars stay up as normal.
+  const showDuelMatchupIntro = !!(isMultiplayer
+    && gameData?.state === 'getready'
+    && gameData.duel
+    && gameData.curRound === 1
+    && !gameData.joinedInProgress);
   // The loading banner covers an UNREADY street view during ACTIVE play only.
   // Never show it during an MP reveal: 'getready' (between-rounds) or 'end'
   // (final). At 'end' the server bumps curRound past totalRounds, which trips the
@@ -571,6 +641,7 @@ export default function GameScreen() {
     || ((isLoading || !streetViewLoaded)
       && !(isMultiplayer && (gameData?.state === 'getready' || gameData?.state === 'end')));
   const showBetweenRoundMap = isMultiplayer
+    && isScreenFocused
     && gameData?.state === 'getready'
     && gameData.curRound > 1
     && gameData.curRound <= (gameData.rounds ?? 0) // exclude the post-final getready — that's the final reveal, not a between-rounds one
@@ -582,11 +653,16 @@ export default function GameScreen() {
   // handoff `showMapResult` dropped to false for one frame (between-map off,
   // isShowingResult not yet on) → the reveal collapsed and re-animated. This
   // inline flag closes that gap so it plays once and transitions seamlessly.
-  const mpFinalReveal = !!(isMultiplayer && gameData
+  const mpFinalReveal = !!(isMultiplayer && isScreenFocused && gameData
     && (gameData.state === 'end'
       || (gameData.state === 'getready' && gameData.curRound > (gameData.rounds ?? 0)))
     && (gameData.locations?.length ?? 0) > 0);
-  const showMapResult = gameState.isShowingResult || showBetweenRoundMap || mpFinalReveal;
+  // Scope the local-result term to MP+focus so a lingering gameState.isShowingResult
+  // (the sync effect early-returns on a null gameData and never clears it on leave)
+  // can't repaint a stale reveal on a blurred multiplayer instance. Singleplayer is
+  // unaffected (its branch returns above; the else keeps the old behavior).
+  const showMapResult = (isMultiplayer ? (isScreenFocused && gameState.isShowingResult) : gameState.isShowingResult)
+    || showBetweenRoundMap || mpFinalReveal;
   // Once I've submitted this round (server `me.final`, set optimistically on
   // submit, reset each round by clearGuesses), the pin must lock — web doesn't
   // let you move your guess while waiting for the other players. Drives the
@@ -1021,24 +1097,47 @@ export default function GameScreen() {
     fetchLocations();
   }, [currentMapSlug, isCountryGuesserMode, isMultiplayer, loadNonce]);
 
-  // Multiplayer state='end' arrives with curRound = rounds + 1 (see ws.js:1509-1519),
-  // so clamp to the last real round before indexing locations.
+  // `currentLocation` is the LIVE round — it drives the active Street View pano and the
+  // singleplayer guess/result path. It must NOT be the source for the MP answer reveal:
+  // the reveal always shows the round that was just PLAYED. effectiveRoundIndex clamps to
+  // totalRounds, which lands on the last played round ONLY when the game runs to completion
+  // (curRound overshoots to rounds+1); on an early end it does not (see below).
   const effectiveRoundIndex = Math.min(gameState.currentRound, gameState.totalRounds) - 1;
   const currentLocation = gameState.locations[Math.max(0, effectiveRoundIndex)];
+
+  // Both MP reveals — the between-rounds answer card AND the final reveal — show the round
+  // that was just PLAYED, which is always curRound-1: the server bumps curRound exactly
+  // once past the last SCORED round before it leaves the guess phase (ws.js:1509-1513),
+  // whether that's a normal end (curRound → rounds+1) or an early ranked-duel end when a
+  // player's health hits 0 mid-game (curRound → lastPlayedRound+1, still ≤ rounds). Reading
+  // the live `currentLocation` is only correct on a normal end; on an early end
+  // currentLocation = locations[min(curRound,totalRounds)-1] resolves to the UNPLAYED next
+  // round, flipping the "It was {country}!" banner to — and leaking — a round nobody has
+  // played yet. Indexing the completed round fixes both and mirrors web (whose reveal
+  // latLong only advances when a new guess phase begins) + the singleplayer guess-time
+  // freeze (RoundResult.country, top of file).
   const completedRoundNumber = isMultiplayer && gameData ? gameData.curRound - 1 : 0;
-  const betweenRoundHistory = showBetweenRoundMap && gameData
+  const completedRoundHistory = isMultiplayer && gameData
     ? findRoundHistory(gameData.roundHistory, completedRoundNumber)
     : undefined;
-  const betweenRoundLocation = betweenRoundHistory?.location
-    ?? (showBetweenRoundMap && gameData ? gameData.locations?.[completedRoundNumber - 1] : undefined);
-  const mapActualLocation = showBetweenRoundMap ? betweenRoundLocation : currentLocation;
+  const completedRoundLocation = completedRoundHistory?.location
+    ?? (isMultiplayer && gameData ? gameData.locations?.[completedRoundNumber - 1] : undefined);
+  // Reveal answer = the completed round, falling back to currentLocation only when nothing
+  // has been scored yet (e.g. a forfeit during round 1, completedRoundNumber < 1) so the
+  // banner never goes blank.
+  const mpRevealLocation = completedRoundLocation ?? currentLocation;
+  // MP answer reveals (between-rounds or final) read the completed round; singleplayer keeps
+  // its own currentLocation path (with its frozen RoundResult.country banner).
+  const mapActualLocation = isMultiplayer && (showBetweenRoundMap || mpFinalReveal)
+    ? mpRevealLocation
+    : currentLocation;
   const betweenRoundPlayerGuesses = showBetweenRoundMap && gameData
-    ? (betweenRoundHistory
-        ? buildHistoryPlayerGuesses(betweenRoundHistory)
-        : buildCurrentPlayerGuesses(gameData.players, betweenRoundLocation, gameState.maxDist))
+    ? (completedRoundHistory
+        ? buildHistoryPlayerGuesses(completedRoundHistory)
+        : buildCurrentPlayerGuesses(gameData.players, completedRoundLocation, gameState.maxDist))
     : [];
   const currentRoundPlayerGuesses = isMultiplayer && gameData && (gameState.isShowingResult || mpFinalReveal)
-    ? buildCurrentPlayerGuesses(gameData.players, currentLocation, gameState.maxDist)
+    ? buildCurrentPlayerGuesses(gameData.players, mpRevealLocation, gameState.maxDist)
     : [];
 
   // ── Between-rounds fade-out latch ─────────────────────────────────────────
@@ -1208,6 +1307,7 @@ export default function GameScreen() {
           actualLat: currentLocation.lat,
           actualLong: currentLocation.long,
           panoId: currentLocation.panoId,
+          country: currentLocation.country,
           points,
           distance,
           timeTaken,
@@ -1300,6 +1400,7 @@ export default function GameScreen() {
             actualLat: currentLocation.lat,
             actualLong: currentLocation.long,
             panoId: currentLocation.panoId,
+            country: currentLocation.country,
             points: 0,
             distance: 0,
             timeTaken,
@@ -1742,7 +1843,7 @@ export default function GameScreen() {
             points={lastGuess.points}
             distance={lastGuess.distance}
             didGuess={lastGuess.guessLat != null && lastGuess.guessLong != null}
-            answerCountry={currentMapSlug === 'all' ? currentLocation?.country ?? null : null}
+            answerCountry={currentMapSlug === 'all' ? lastGuess?.country ?? null : null}
             guessLat={lastGuess.guessLat}
             guessLng={lastGuess.guessLong}
             panoShown={showPano}
@@ -1827,16 +1928,22 @@ export default function GameScreen() {
                 disabled={activeShowingResult}
                 style={({ pressed }) => [
                   styles.mapSelectorBtn,
+                  isTablet && {
+                    paddingHorizontal: sc(spacing.md),
+                    paddingVertical: sc(spacing.xs + 2),
+                    gap: sc(6),
+                    maxWidth: sc(210),
+                  },
                   activeShowingResult && styles.mapSelectorBtnDisabled,
                   pressed && !activeShowingResult && { opacity: 0.85, transform: [{ scale: 0.97 }] },
                 ]}
                 onPress={() => setMapModalVisible(true)}
               >
-                <Ionicons name="map" size={14} color="rgba(255,255,255,0.85)" />
-                <Text style={styles.mapSelectorText} numberOfLines={1}>
+                <Ionicons name="map" size={sc(14)} color="rgba(255,255,255,0.85)" />
+                <Text style={[styles.mapSelectorText, { fontSize: sc(fontSizes.sm) }]} numberOfLines={1}>
                   {currentMapName}{nmpzEnabled ? ', NMPZ' : ''}
                 </Text>
-                <Ionicons name="chevron-down" size={14} color="rgba(255,255,255,0.85)" />
+                <Ionicons name="chevron-down" size={sc(14)} color="rgba(255,255,255,0.85)" />
               </Pressable>
               <GameTimer
                 timeRemaining={timerEnabled ? timerDuration : gameState.timePerRound}
@@ -1898,7 +2005,7 @@ export default function GameScreen() {
   // In-match player count (web navbar `#playerCnt`): person icon + number of
   // players in this game. Shown next to the back button for non-duel
   // ("unranked"/party) matches — duels show both players via the health bars.
-  const playersInMatch = isMultiplayer && gameData && !gameData.duel ? gameData.players.length : 0;
+  const playersInMatch = isMultiplayer && isScreenFocused && gameData && !gameData.duel ? gameData.players.length : 0;
   // `mpFinalReveal` (inline-derived) must gate the FAB alongside `isShowingResult`:
   // on the final round the server goes guess → getready(curRound=rounds+1) → end,
   // and at the getready→end handoff `mpGetReady` drops a frame BEFORE the deferred
@@ -2058,9 +2165,13 @@ export default function GameScreen() {
             through every getready reveal — including the final getready (curRound =
             rounds+1) — and hide only at 'end'. The round-timer text no longer rides
             along during reveals (see `duelTimerShown` above), so this renders
-            bars-only during the answer reveal, exactly like web. */}
+            bars-only during the answer reveal, exactly like web. The one mobile-only
+            exception is the round-1 VS-matchup intro (showDuelMatchupIntro): that
+            full-screen cover has no web equivalent, so we hide the bars there and let
+            them fade in at round start. */}
         {isMultiplayer && gameData?.duel && gameData.state !== 'end'
-          && (gameData.state === 'guess' || gameData.state === 'getready') && (
+          && (gameData.state === 'guess' || gameData.state === 'getready')
+          && !showDuelMatchupIntro && (
           <SafeAreaView
             style={[styles.duelHudContainer, { paddingLeft: Math.max(insets.left, spacing.md), paddingRight: Math.max(insets.right, spacing.md) }]}
             edges={['top']}
@@ -2133,7 +2244,13 @@ export default function GameScreen() {
 
         {/* ═══ MOBILE GUESS BUTTONS - above map when map is open ═══ */}
         {/* Matches web: .mobile_minimap__btns.miniMapShown */}
-        {miniMapShown && !gameState.isShowingResult && (
+        {/* Gate on the INLINE reveal flag (showMapResult), not the deferred
+            gameState.isShowingResult: a between-round MP reveal sets isShowingResult
+            only at 'end', so the blue Guess/Waiting row would flash over the
+            full-screen answer reveal for one frame until the deferred miniMapShown
+            reset lands. showMapResult recognizes the reveal synchronously (same fix
+            as the FAB / duel timer above). */}
+        {miniMapShown && !showMapResult && (
           <Animated.View
             style={[
               styles.mapButtonsRow,
@@ -2171,6 +2288,7 @@ export default function GameScreen() {
                   disabled={disabled}
                   style={({ pressed }) => [
                     styles.guessSubmitBtn,
+                    isTablet && { height: sc(48), borderRadius: sc(14) },
                     pressed && showActive && { opacity: 0.85 },
                   ]}
                 >
@@ -2189,6 +2307,7 @@ export default function GameScreen() {
                     <Text
                       style={[
                         styles.guessSubmitBtnText,
+                        { fontSize: sc(fontSizes.lg) },
                         !showActive && !locked && { opacity: 0.5 },
                         locked && { opacity: 0.85 },
                       ]}
@@ -2206,6 +2325,7 @@ export default function GameScreen() {
               onPress={() => setMiniMapShown(false)}
               style={({ pressed }) => [
                 styles.mapCollapseBtn,
+                isTablet && { width: sc(60), height: sc(48), borderRadius: sc(14) },
                 pressed && { opacity: 0.85 },
               ]}
             >
@@ -2215,7 +2335,7 @@ export default function GameScreen() {
                 end={{ x: 1, y: 1 }}
                 style={styles.mapCollapseBtnInner}
               >
-                <Ionicons name="arrow-down" size={24} color={colors.white} />
+                <Ionicons name="arrow-down" size={sc(24)} color={colors.white} />
               </LinearGradient>
             </Pressable>
           </Animated.View>
@@ -2258,10 +2378,18 @@ export default function GameScreen() {
                   colors={locked ? ['#3a3a3a', '#2a2a2a'] : [colors.primary, colors.primaryDark]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
-                  style={styles.guessFabInner}
+                  style={[
+                    styles.guessFabInner,
+                    isTablet && {
+                      paddingHorizontal: sc(24),
+                      paddingVertical: sc(16),
+                      gap: sc(10),
+                      borderRadius: sc(16),
+                    },
+                  ]}
                 >
-                  <Ionicons name="map" size={28} color={colors.white} />
-                  <Text style={styles.guessFabText} numberOfLines={1}>{fabText}</Text>
+                  <Ionicons name="map" size={sc(28)} color={colors.white} />
+                  <Text style={[styles.guessFabText, { fontSize: sc(fontSizes.xl) }]} numberOfLines={1}>{fabText}</Text>
                 </LinearGradient>
               </Pressable>
             </Animated.View>
@@ -2315,8 +2443,7 @@ export default function GameScreen() {
             matching web (components/gameUI.js where health bars stay visible across all states).
             Skipped on a cold reconnect mid-duel (joinedInProgress): drop straight back into
             the live round rather than replaying the VS intro. */}
-        {isMultiplayer && gameData?.state === 'getready' && gameData.duel && gameData.curRound === 1
-          && !gameData.joinedInProgress && (
+        {showDuelMatchupIntro && gameData && (
           // Reanimated exit fade: when the round flips to 'guess' the overlay
           // unmounts, so FadeOut dissolves the "Get Ready!" cover smoothly into
           // the (already-painted) panorama instead of a hard cut.
@@ -2341,13 +2468,19 @@ export default function GameScreen() {
       <DuelWarningBanner
         visible={duelWarningVisible}
         onDismiss={() => setDuelWarningVisible(false)}
+        // The emote FAB renders bottom-left during the same getready window; lift the
+        // banner above it whenever emotes are enabled (it's visible there).
+        liftAboveEmote={emotesEnabled}
       />
 
       {/* ═══ EMOTE REACTIONS — multiplayer, during active play (replaces chat) ═══ */}
-      {/* Gated by the settings toggle (mirrors web's multiplayerEmotesEnabled). */}
-      {emotesEnabled && isMultiplayer && gameData
+      {/* Gated by the settings toggle (mirrors web's multiplayerEmotesEnabled). The
+          `isScreenFocused` gate hands ownership to /game/results once it's pushed on
+          top at 'end' (which renders its own EmoteReactions) — without it BOTH would
+          mount and double-render incoming reactions. */}
+      {emotesEnabled && isMultiplayer && isScreenFocused && gameData
         && (gameData.state === 'guess' || gameData.state === 'getready' || gameData.state === 'end') && (
-        <EmoteReactions hidden={miniMapShown && !gameState.isShowingResult} hideName={!!gameData.duel} />
+        <EmoteReactions hidden={miniMapShown && !showMapResult} hideName={!!gameData.duel} />
       )}
 
       {/* ═══ LOADING BANNER OVERLAY — shared with onboarding + country guesser ═══ */}
@@ -2524,13 +2657,17 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm + 72,
   },
   // Anti-cheat banner — web parity (.duel-warning-container / .duel-warning-content).
-  // zIndex sits above GetReadyOverlay (9999) so it peeks over the duel start cover.
+  // Sits BELOW the emote FAB layer (EmoteReactions container is zIndex 1300) so the
+  // open emote list paints on top of the banner instead of being hidden behind it.
+  // It only needs to beat the scene wrapper (zIndex 0) to cover the duel-start view —
+  // the GetReadyOverlay's internal 9999 lives in that sibling subtree and never
+  // competes here, so the old 10000 (meant to "beat 9999") was unnecessary.
   duelWarningBanner: {
     position: 'absolute',
     left: spacing.lg,
     right: spacing.lg,
     alignItems: 'center',
-    zIndex: 10000,
+    zIndex: 1290,
   },
   duelWarningContent: {
     flexDirection: 'row',

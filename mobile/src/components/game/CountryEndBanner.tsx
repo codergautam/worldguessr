@@ -18,6 +18,7 @@ import {
 } from '../../shared/data/countryHelpers';
 import { localeString, t } from '../../shared';
 import { borderRadius, fontSizes, spacing } from '../../styles/theme';
+import { useGameUiScale } from '../../styles/responsive';
 
 interface Props {
   mode: 'country' | 'continent';
@@ -80,7 +81,14 @@ export default function CountryEndBanner({
   // short viewport — mirrors web's landscape banner tightening.
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
-  const contentMaxWidth = Math.min(width, 720);
+  // Only compact the banner on SHORT viewports (landscape phones); an iPad in
+  // landscape is tall enough to keep the comfortable layout. Matches the
+  // ClassicEndBanner / web `max-height: 500px` treatment.
+  const compactLandscape = landscape && height <= 500;
+  // Tablet scale — fixed theme px (title 18, points 24, …) read small on iPad;
+  // bump them (and paddings) up. Phones unaffected (sc is 1.0×).
+  const { sc, isTablet } = useGameUiScale();
+  const contentMaxWidth = Math.min(width, isTablet ? 840 : 720);
   const centered = { alignSelf: 'center' as const, width: '100%' as const, maxWidth: contentMaxWidth };
 
   const correctName = isContinent
@@ -141,44 +149,50 @@ export default function CountryEndBanner({
     <Animated.View
       style={[
         styles.wrap,
-        landscape && styles.wrapLandscape,
+        compactLandscape && styles.wrapLandscape,
+        isTablet && !compactLandscape && {
+          paddingHorizontal: sc(spacing.lg),
+          paddingTop: sc(spacing.lg),
+          paddingBottom: sc(spacing.lg),
+          gap: sc(spacing.md),
+        },
         { opacity, transform: [{ translateY: slide }] },
       ]}
     >
-      <View style={[styles.row, centered]}>
-        <View style={styles.flagBox}>
+      <View style={[styles.row, centered, isTablet && { gap: sc(spacing.md) }]}>
+        <View style={[styles.flagBox, isTablet && { width: sc(64), height: sc(44) }]}>
           {isContinent ? (
-            <Text style={styles.continentEmoji}>🌍</Text>
+            <Text style={[styles.continentEmoji, { fontSize: sc(30) }]}>🌍</Text>
           ) : (
             <Image source={{ uri: flagUrl(correctCountry) }} style={styles.flag} resizeMode="cover" />
           )}
         </View>
         <View style={styles.textCol}>
-          <Text style={styles.smallLabel}>
+          <Text style={[styles.smallLabel, { fontSize: sc(fontSizes.xs) }]}>
             {t('round', { r: round, mr: totalRounds })} · {isCorrect ? t('correctExclaim', undefined, 'Correct!') : t('notQuite', undefined, 'Not quite')}
           </Text>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={[styles.title, { fontSize: sc(fontSizes.lg) }]} numberOfLines={1}>
             {correctName}
           </Text>
           {!hideQuip && (
-            <Text style={styles.message} numberOfLines={2}>
+            <Text style={[styles.message, { fontSize: sc(fontSizes.sm) }]} numberOfLines={2}>
               {message}
             </Text>
           )}
         </View>
         <View style={styles.pointsCol}>
-          <Text style={[styles.points, { color: isCorrect ? colors.successGlow : colors.errorGlow }]}>
+          <Text style={[styles.points, { fontSize: sc(fontSizes['2xl']), color: isCorrect ? colors.successGlow : colors.errorGlow }]}>
             +{points}
           </Text>
           {streak > 0 && (
             <View style={styles.streakChip}>
-              <Text style={styles.streakText}>🔥 {streak}</Text>
+              <Text style={[styles.streakText, { fontSize: sc(fontSizes.xs) }]}>🔥 {streak}</Text>
             </View>
           )}
         </View>
       </View>
 
-      {factText ? <Text style={[styles.fact, centered]}>{factText}</Text> : null}
+      {factText ? <Text style={[styles.fact, { fontSize: sc(fontSizes.sm), lineHeight: sc(19) }, centered]}>{factText}</Text> : null}
 
       {autoAdvanceMs ? (
         <View style={[styles.progressTrack, centered]}>
@@ -191,9 +205,13 @@ export default function CountryEndBanner({
           colors={[colors.primary, colors.primaryDark]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[styles.nextBtn, landscape && styles.nextBtnLandscape]}
+          style={[
+            styles.nextBtn,
+            compactLandscape && styles.nextBtnLandscape,
+            isTablet && !compactLandscape && { paddingVertical: sc(spacing.md) },
+          ]}
         >
-          <Text style={styles.nextBtnText}>{isFinal ? t('viewResults') : t('nextRound')}</Text>
+          <Text style={[styles.nextBtnText, { fontSize: sc(fontSizes.md) }]}>{isFinal ? t('viewResults') : t('nextRound')}</Text>
         </LinearGradient>
       </Pressable>
     </Animated.View>
