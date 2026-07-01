@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useState, useRef } from "react"
 import dynamic from "next/dynamic";
 import { FaMap } from "react-icons/fa";
 import useWindowDimensions from "./useWindowDimensions";
@@ -28,6 +28,11 @@ const ONBOARDING_MIN_MANUAL_ADVANCE_MS = 6000;
 const MapWidget = dynamic(() => import("../components/Map"), { ssr: false });
 // import RoundOverScreen from "./roundOverScreen";
 const RoundOverScreen = dynamic(() => import("./roundOverScreen"), { ssr: false });
+
+function isTypingTarget(target) {
+  const tagName = target?.tagName?.toUpperCase?.();
+  return tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" || target?.isContentEditable;
+}
 
 export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapShown, setMiniMapShown, singlePlayerRound, setSinglePlayerRound, showDiscordModal, setShowDiscordModal, inCrazyGames, showPanoOnResult, setShowPanoOnResult, countryGuesserCorrect, setCountryGuesserCorrect, otherOptions, onboarding, setOnboarding, countryGuesser, options, timeOffset, ws, multiplayerState, backBtnPressed, setMultiplayerState, countryStreak, setCountryStreak, loading, setLoading, session, gameOptionsModalShown, setGameOptionsModalShown, mapModal, latLong, loadLocation, gameOptions, setGameOptions, showAnswer, setShowAnswer, pinPoint, setPinPoint, hintShown, setHintShown, showCountryButtons, setShowCountryButtons, welcomeOverlayShown, countryGuessrMode, dailyMode, onRoundsComplete }) {
   const { t: text } = useTranslation("common");
@@ -253,6 +258,14 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   }
   const [miniMapExpanded, setMiniMapExpanded] = useState(false)
   const [miniMapFullscreen, setMiniMapFullscreen] = useState(false)
+  const toggleMiniMapFullscreen = useCallback(() => {
+    setMiniMapFullscreen((fullscreen) => {
+      if (!fullscreen) {
+        setMiniMapExpanded(true);
+      }
+      return !fullscreen;
+    });
+  }, []);
   const [roundStartTime, setRoundStartTime] = useState(null);
   const [lostCountryStreak, setLostCountryStreak] = useState(0);
   const [countryGuessrStreak, setCgStreak] = useState(() => {
@@ -521,7 +534,7 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
   useEffect(() => {
     function keydown(e) {
       // Don't trigger game actions if user is typing in an input field
-      if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+      if(isTypingTarget(e.target)) {
         return;
       }
 
@@ -646,12 +659,12 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
 
   const hintLimitReached = singlePlayerRound && hintsUsedThisGame >= 2;
 
-  function showHint() {
+  const showHint = useCallback(() => {
     if (hintLimitReached || hintShown) return;
 
     setHintShown(true);
     setHintsUsedThisGame((prev) => prev + 1);
-  }
+  }, [hintLimitReached, hintShown, setHintShown]);
   useEffect(() => {
     if (dailyMode) return;
     loadLocation()
@@ -782,6 +795,44 @@ export default function GameUI({ inCoolMathGames, inGameDistribution, miniMapSho
       : singlePlayerRound
         ? `single:${gameOptions?.location || 'all'}:${singlePlayerRound?.round || ''}:${singlePlayerRound?.done ? 'done' : 'playing'}`
         : `free:${gameOptions?.location || 'all'}:${latLong?.lat ?? ''}:${latLong?.long ?? ''}`;
+  const hotkeysBlocked = showAnswerOnMap ||
+    gameOptionsModalShown ||
+    mapModal ||
+    showDiscordModal ||
+    explanationModalShown;
+  const miniMapFullscreenHotkeyEnabled = shouldShowMiniMap && !forceHideMiniMap && !hotkeysBlocked;
+  const hintHotkeyEnabled = !loading &&
+    !singlePlayerRound?.done &&
+    !onboarding?.completed &&
+    !multiplayerState?.inGame &&
+    !hintLimitReached &&
+    !hintShown &&
+    !hotkeysBlocked;
+
+  useEffect(() => {
+    function keydown(e) {
+      if (e.defaultPrevented || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = e.key?.toLowerCase();
+      if (key !== "f" && key !== "h") return;
+      if (isTypingTarget(e.target)) return;
+
+      if (key === "f") {
+        if (!miniMapFullscreenHotkeyEnabled) return;
+        e.preventDefault();
+        toggleMiniMapFullscreen();
+      } else if (key === "h") {
+        if (!hintHotkeyEnabled) return;
+        e.preventDefault();
+        showHint();
+      }
+    }
+
+    document.addEventListener('keydown', keydown);
+    return () => {
+      document.removeEventListener('keydown', keydown);
+    };
+  }, [hintHotkeyEnabled, miniMapFullscreenHotkeyEnabled, showHint, toggleMiniMapFullscreen]);
+
   return (
     <div className="gameUI">
 
@@ -919,12 +970,7 @@ session={session}/>
 
 {!showAnswerOnMap && (
 <div className="mapCornerBtns desktop" style={{ visibility: miniMapExpanded ? 'visible' : 'hidden' }}>
-          <button className="cornerBtn" onClick={() => {
-            setMiniMapFullscreen(!miniMapFullscreen)
-            if(!miniMapFullscreen) {
-              setMiniMapExpanded(true)
-            }
-          }}>{miniMapFullscreen  ? (
+          <button className="cornerBtn" type="button" title="Toggle fullscreen map (F)" aria-label="Toggle fullscreen map" onClick={toggleMiniMapFullscreen}>{miniMapFullscreen  ? (
             <FaMinimize />
           ) : (
             <FaExpand />

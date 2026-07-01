@@ -11,7 +11,9 @@
 A free and open-source version of the popular geography game inspired by GeoGuessr. This React based project aims to provide a fun and educational way to explore the world through Google Street View imagery.
 
 ### Play now [here](https://worldguessr.com)!
-#### [Join the Discord community](https://discord.gg/yenVspFmkB)
+
+[![Discord][discord-badge]][discord-url]
+[![License][license-badge]][license-url]
 
 ## Features
 
@@ -20,13 +22,21 @@ A free and open-source version of the popular geography game inspired by GeoGues
 - **Country Streaks:** Test your knowledge and see how many countries you can guess in a row.
 - **Free to run:** The project is open-source and free to run on your own server. Uses the [Google Maps Streetview Embed API](https://developers.google.com/streetview/web), which is completely free compared to the costly SDK used by GeoGuessr.
 
+## Hotkeys
+
+| Key | Action |
+| --- | --- |
+| <kbd>Space</kbd> | Guess or continue to the next round |
+| <kbd>F</kbd> | Toggle minimap fullscreen |
+| <kbd>H</kbd> | Show hint |
+
 ## Acknowledgements
 
 - [Leaflet](https://leafletjs.com/) for the minimap display.
 - [Google Maps API](https://developers.google.com/maps) for the generous free-tier on street view imagery.
 - [Vali](https://github.com/slashP/Vali) by @SlashP for generating balanced locations distributions for all countries.
 - [Next.js](https://nextjs.org/) for the web application.
-- All contributors who helped bring this project to life!
+- All [contributors](https://github.com/codergautam/worldguessr/graphs/contributors?all=1) who helped bring this project to life!
 
 ## Running Locally
 
@@ -59,7 +69,8 @@ Before you start, ensure you have the following installed:
 
 ## Deploying to a VPS / External Server
 
-If you're deploying WorldGuessr on a VPS or any server with an external IP (not localhost), you **must** configure these environment variables in your `.env` file:
+> [!IMPORTANT]
+> If you're deploying WorldGuessr on a VPS or any server with an external IP (not localhost), you **must** configure these environment variables in your `.env` file:
 
 ```bash
 # Replace YOUR_IP with your server's IP address or domain
@@ -94,7 +105,8 @@ NEXT_PUBLIC_WS_HOST=ws.yourdomain.com
 
 3. **API/WS URLs** - Point to your external IP or domain (see above)
 
-For detailed environment variable documentation, see [docs/environment-variables.md](docs/environment-variables.md).
+> [!TIP]
+> For detailed environment variable documentation, see [docs/environment-variables.md](docs/environment-variables.md).
 
 ## Contributing
 
@@ -118,3 +130,8 @@ Distributed under the PolyForm Noncommercial License 1.0.0. You are free to use,
 Join the Discord community [here](https://discord.gg/yenVspFmkB) to discuss new features, report bugs, talk to the developers and connect with other players.
 
 You can email me privately at gautam@worldguessr.com
+
+[discord-badge]: https://img.shields.io/badge/Discord-Join%20community-5865F2?logo=discord&logoColor=white
+[discord-url]: https://discord.gg/yenVspFmkB
+[license-badge]: https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue
+[license-url]: https://polyformproject.org/licenses/noncommercial/1.0.0
