@@ -10,6 +10,7 @@ import DailyChallengeScore from '../models/DailyChallengeScore.js';
 import DailyLeaderboard from '../models/DailyLeaderboard.js';
 import GuestProfile from '../models/GuestProfile.js';
 import { addBannedIdentity } from './bannedIdentities.js';
+import { refundEloForReportedGames } from './eloRefunds.js';
 
 /**
  * Permanently delete a user and ALL associated data — the single shared cascade
@@ -61,6 +62,9 @@ export async function purgeUserCascade(
     receivedRequestsCleaned: 0,
     reportsMadeAnonymized: 0,
     reportsAgainstAnonymized: 0,
+    reportsResolvedOnDeletion: 0,
+    eloRefundedOnDeletion: 0,
+    eloRefundOpponentsAffected: 0,
     dailyChallengeScoresDeleted: 0,
     dailyLeaderboardsScrubbed: 0,
     guestProfilesUnclaimed: 0,
@@ -78,6 +82,73 @@ export async function purgeUserCascade(
   // 2b. Clues created by user — LEAK fix: neither old delete path handled these.
   deletionStats.cluesDeleted =
     (await Clue.deleteMany({ created_by: accountId })).deletedCount || 0;
+
+  // 2c. Close out & compensate OPEN reports filed AGAINST this user — and do it
+  //     BEFORE the Game rows are anonymized in step 3 (the refund below reads
+  //     players.accountId, which step 3 nulls out). This mirrors a temporary
+  //     ban's remedy so a reported cheater can't escape consequences by
+  //     self-deleting before a mod gets to the queue: every still-open report is
+  //     auto-resolved, the reporters are credited, and ELO lost in the specific
+  //     reported ranked games is refunded to the opponents who reported them.
+  //     Deliberately NOT a full refund (that's the perm-ban remedy) — only the
+  //     reported games, keeping an unreviewed deletion proportionate. For a
+  //     genuinely massive offender a mod will still notice within the 7-day grace
+  //     and can perma-ban (full refund) first; this is the small-case failsafe.
+  //     Idempotent: the atomic status claim + Game.eloRefunded flag make re-runs
+  //     no-ops, and the refund game-set is re-derived from the closed reports so
+  //     a crash mid-step still completes on the next cron pass.
+  const reportResolutionActor = moderator
+    ? { accountId: moderator._id?.toString() || 'system', username: moderator.username || 'system' }
+    : { accountId: 'system', username: 'self-service' };
+  const openReportsAgainst = await Report.find({
+    'reportedUser.accountId': accountId,
+    status: { $in: ['pending', 'reviewed'] },
+  }).select('_id reportedBy.accountId').lean();
+  for (const r of openReportsAgainst) {
+    const claimed = await Report.findOneAndUpdate(
+      { _id: r._id, status: { $in: ['pending', 'reviewed'] } },
+      {
+        status: 'action_taken',
+        actionTaken: 'user_deleted',
+        reviewedBy: reportResolutionActor,
+        reviewedAt: new Date(),
+        moderatorNotes: 'Reported user deleted their account',
+      },
+      { new: false }, // return original so a concurrent claim by a mod loses the race cleanly
+    );
+    if (!claimed) continue; // already resolved by a mod or a prior purge run
+    deletionStats.reportsResolvedOnDeletion += 1;
+    // Credit the reporter — the report was valid (target removed + games refunded).
+    if (claimed.reportedBy?.accountId) {
+      try {
+        await User.findByIdAndUpdate(claimed.reportedBy.accountId, {
+          $inc: { 'reporterStats.helpfulReports': 1 },
+        });
+      } catch (e) {
+        console.error('[purgeUserCascade] reporter credit failed (non-critical):', e?.message || e);
+      }
+    }
+  }
+  // Refund ELO for the reported ranked games (temp-ban-style). Re-derive the game
+  // set from the reports we just closed (actionTaken pins them even though status
+  // is now terminal) so a crash between the loop above and here still refunds on
+  // the next run; Game.eloRefunded prevents any double refund. Best-effort: a
+  // refund failure must never abort the account purge.
+  try {
+    const reportedGameIds = await Report.find({
+      'reportedUser.accountId': accountId,
+      actionTaken: 'user_deleted',
+      gameId: { $nin: [null, ''] },
+    }).distinct('gameId');
+    if (reportedGameIds.length > 0) {
+      const refund = await refundEloForReportedGames(accountId, targetUser.username, reportedGameIds);
+      deletionStats.eloRefundedOnDeletion = refund.totalRefunded || 0;
+      deletionStats.eloRefundOpponentsAffected = refund.opponentsAffected || 0;
+      deletionStats.eloRefundDetailsOnDeletion = refund;
+    }
+  } catch (e) {
+    console.error('[purgeUserCascade] reported-game ELO refund failed (non-critical):', e?.message || e);
+  }
 
   // 3. Anonymize Games. Scrub username, accountId AND playerId — for singleplayer
   //    + daily games playerId == accountId == user._id (storeGame.js /
@@ -138,6 +209,29 @@ export async function purgeUserCascade(
   deletionStats.receivedRequestsCleaned =
     (await User.updateMany({ sentReq: accountObjectId }, { $pull: { sentReq: accountObjectId } }))
       .modifiedCount || 0;
+
+  // 6b. Catch any report filed against this user AFTER step 2c's snapshot — the
+  //     brief race window during this purge, before the User row is removed in
+  //     step 12 (submitReport still resolves the target until then). Resolve them
+  //     to a terminal state so the anonymization below resolves essentially all
+  //     race-window reports. A report filed in the tiny remaining sub-window
+  //     (between here and the step 7-8 anonymization) can still end up pending +
+  //     null, but that is harmless: getReports filters null-target reports out of
+  //     the actionable queue and counts, and resolveOrphanedReports sweeps them.
+  //     These late stragglers don't get step 2c's reporter credit / ELO refund (a
+  //     negligible edge) — only closure. Idempotent: nothing is pending on a re-run.
+  await Report.updateMany(
+    { 'reportedUser.accountId': accountId, status: { $in: ['pending', 'reviewed'] } },
+    {
+      $set: {
+        status: 'action_taken',
+        actionTaken: 'user_deleted',
+        reviewedBy: reportResolutionActor,
+        reviewedAt: new Date(),
+        moderatorNotes: 'Reported user deleted their account',
+      },
+    },
+  );
 
   // 7-8. Anonymize reports made by / against the user.
   deletionStats.reportsMadeAnonymized =
