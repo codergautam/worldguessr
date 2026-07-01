@@ -34,7 +34,7 @@ A free and open-source version of the popular geography game inspired by GeoGues
 - [Google Maps API](https://developers.google.com/maps) for the generous free-tier on street view imagery.
 - [Vali](https://github.com/slashP/Vali) by @SlashP for generating balanced locations distributions for all countries.
 - [Next.js](https://nextjs.org/) for the web application.
-- All contributors who helped bring this project to life!
+- All [contributors](https://github.com/codergautam/worldguessr/graphs/contributors?all=1) who helped bring this project to life!
 
 ## Running Locally
 
