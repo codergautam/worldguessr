@@ -46,7 +46,6 @@ interface ProfileTabProps {
   onUsernameChanged?: () => void;
   progression: ProgressionEntry[];
   progressionLoading: boolean;
-  screenWidth: number;
   onScrollEnable?: (enabled: boolean) => void;
   viewingPublicProfile?: boolean;
 }
@@ -68,7 +67,6 @@ export default function ProfileTab({
   onUsernameChanged,
   progression,
   progressionLoading,
-  screenWidth,
   onScrollEnable,
   viewingPublicProfile,
 }: ProfileTabProps) {
@@ -278,7 +276,6 @@ export default function ProfileTab({
         data={progression}
         loading={progressionLoading}
         mode="xp"
-        screenWidth={screenWidth}
         onChartTouch={onScrollEnable}
       />
 

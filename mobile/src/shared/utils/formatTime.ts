@@ -58,3 +58,25 @@ export function msToTime(duration: number): string {
 export function formatNumber(num: number): string {
   return num.toLocaleString();
 }
+
+/**
+ * Abbreviate a count to a compact K/M/B label so large counts stay short in
+ * tight UI (community map stats, the bottom-right "X online" badge, …). Kept the
+ * canonical home for the formatter the community-map tiles already used:
+ *   494 → "494"   ·   1000 → "1K"   ·   3949 → "3.9K"   ·   3963 → "4K"
+ *   38949 → "39K"   ·   1_500_000 → "1.5M"
+ * Sub-1000 shows verbatim; above that it keeps one significant decimal while the
+ * scaled value is < 10 ("3.9K" but "39K") and strips trailing zeros ("4K").
+ */
+export function formatCompact(n: number): string {
+  if (!n || isNaN(n)) return '0';
+  if (n < 1000) return n.toString();
+  const units = ['K', 'M', 'B'];
+  const tier = (Math.log10(n) / 3) | 0;
+  const suffix = units[tier - 1];
+  const scale = Math.pow(10, tier * 3);
+  const scaled = n / scale;
+  const precision = Math.max(0, 1 - Math.floor(Math.log10(scaled)));
+  const s = scaled.toFixed(precision).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  return `${s}${suffix}`;
+}

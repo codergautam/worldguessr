@@ -2,7 +2,7 @@
   "expo": {
     "name": "WorldGuessr",
     "slug": "worldguessr",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,7 +16,6 @@
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
-      "buildNumber": "5",
       "bundleIdentifier": "com.codergautamyt.worldguessr",
       "associatedDomains": [
         "applinks:worldguessr.com",
@@ -45,25 +44,68 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#112b18"
       },
-      "versionCode": 5,
+      "versionCode": 23,
       "edgeToEdgeEnabled": true,
       "package": "com.codergautamyt.worldguessr",
       "intentFilters": [
         {
           "action": "VIEW",
           "autoVerify": true,
-          "category": ["BROWSABLE", "DEFAULT"],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
           "data": [
-            { "scheme": "https", "host": "worldguessr.com", "path": "/" },
-            { "scheme": "https", "host": "worldguessr.com", "path": "/daily" },
-            { "scheme": "https", "host": "worldguessr.com", "path": "/map" },
-            { "scheme": "https", "host": "worldguessr.com", "pathPrefix": "/map/" },
-            { "scheme": "https", "host": "worldguessr.com", "path": "/user" },
-            { "scheme": "https", "host": "www.worldguessr.com", "path": "/" },
-            { "scheme": "https", "host": "www.worldguessr.com", "path": "/daily" },
-            { "scheme": "https", "host": "www.worldguessr.com", "path": "/map" },
-            { "scheme": "https", "host": "www.worldguessr.com", "pathPrefix": "/map/" },
-            { "scheme": "https", "host": "www.worldguessr.com", "path": "/user" }
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "path": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "path": "/daily"
+            },
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "path": "/map"
+            },
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "pathPrefix": "/map/"
+            },
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "path": "/user"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "path": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "path": "/daily"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "path": "/map"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "pathPrefix": "/map/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "path": "/user"
+            }
           ]
         }
       ],
@@ -106,6 +148,12 @@
             "useFrameworks": "static",
             "buildReactNativeFromSource": true
           }
+        }
+      ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "This identifier will be used to deliver personalized ads to you."
         }
       ]
     ],

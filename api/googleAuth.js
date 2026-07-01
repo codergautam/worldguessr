@@ -111,6 +111,8 @@ function buildAuthResponse(user, extendedData = {}) {
     banPublicNote: user.banPublicNote || null,
     pendingNameChange: user.pendingNameChange,
     pendingNameChangePublicNote: user.pendingNameChangePublicNote || null,
+    pendingDeletion: !!user.scheduledDeletionAt,
+    scheduledDeletionAt: user.scheduledDeletionAt || null,
     ...extendedData,
   };
 }
@@ -431,6 +433,8 @@ export default async function handler(req, res) {
           banPublicNote: checkedUser.banPublicNote || null,
           pendingNameChange: checkedUser.pendingNameChange,
           pendingNameChangePublicNote: checkedUser.pendingNameChangePublicNote || null,
+          pendingDeletion: !!checkedUser.scheduledDeletionAt,
+          scheduledDeletionAt: checkedUser.scheduledDeletionAt || null,
           ...extendedData
         });
       }
@@ -455,7 +459,7 @@ export default async function handler(req, res) {
     const startUserLookup = Date.now();
     const userDb = await User.findOne({
       secret,
-    }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode totalXp created_at totalGamesPlayed lastLogin lastNameChange elo duels_wins duels_losses duels_tied").cache(120, `userAuth_${secret}`);
+    }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote scheduledDeletionAt timeZone countryCode totalXp created_at totalGamesPlayed lastLogin lastNameChange elo duels_wins duels_losses duels_tied").cache(120, `userAuth_${secret}`);
     timings.userLookup = Date.now() - startUserLookup;
     
     if (userDb) {
@@ -498,6 +502,8 @@ export default async function handler(req, res) {
         // Pending name change (public note only - internal reason never exposed)
         pendingNameChange: checkedUser.pendingNameChange,
         pendingNameChangePublicNote: checkedUser.pendingNameChangePublicNote || null,
+        pendingDeletion: !!checkedUser.scheduledDeletionAt,
+        scheduledDeletionAt: checkedUser.scheduledDeletionAt || null,
         // Extended data (publicAccount + eloRank combined)
         ...extendedData
       };
@@ -508,7 +514,7 @@ export default async function handler(req, res) {
         const startRetry = Date.now();
         const userDb2 = await User.findOne({
           secret,
-        }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote timeZone countryCode totalXp created_at totalGamesPlayed lastLogin lastNameChange elo duels_wins duels_losses duels_tied");
+        }).select("_id secret username email staff canMakeClues supporter banned banType banExpiresAt banPublicNote pendingNameChange pendingNameChangePublicNote scheduledDeletionAt timeZone countryCode totalXp created_at totalGamesPlayed lastLogin lastNameChange elo duels_wins duels_losses duels_tied");
         timings.retryLookup = Date.now() - startRetry;
 
         if(userDb2) {
@@ -544,6 +550,8 @@ export default async function handler(req, res) {
             banPublicNote: checkedUser2.banPublicNote || null,
             pendingNameChange: checkedUser2.pendingNameChange,
             pendingNameChangePublicNote: checkedUser2.pendingNameChangePublicNote || null,
+            pendingDeletion: !!checkedUser2.scheduledDeletionAt,
+            scheduledDeletionAt: checkedUser2.scheduledDeletionAt || null,
             // Extended data (publicAccount + eloRank combined)
             ...extendedData2
           };
@@ -694,6 +702,8 @@ export default async function handler(req, res) {
           banPublicNote: checkedUser.banPublicNote || null,
           pendingNameChange: checkedUser.pendingNameChange,
           pendingNameChangePublicNote: checkedUser.pendingNameChangePublicNote || null,
+          pendingDeletion: !!checkedUser.scheduledDeletionAt,
+          scheduledDeletionAt: checkedUser.scheduledDeletionAt || null,
           // Extended data (publicAccount + eloRank combined)
           ...extendedData
         };

@@ -56,6 +56,7 @@ const reportSchema = new mongoose.Schema({
       'ban_permanent',       // User was permanently banned
       'ban_temporary',       // User was temporarily banned
       'force_name_change',   // User was forced to change name
+      'user_deleted',        // Reported user deleted their account — auto-closed + reported games refunded (see purgeUserCascade)
       'warning'              // Warning issued (future use)
     ]
   },

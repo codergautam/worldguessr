@@ -3,13 +3,12 @@ import Report from '../../models/Report.js';
 import ModerationLog from '../../models/ModerationLog.js';
 import NameChangeRequest from '../../models/NameChangeRequest.js';
 import Game from '../../models/Game.js';
-import UserStats from '../../models/UserStats.js';
 import DailyChallengeScore from '../../models/DailyChallengeScore.js';
 import DailyLeaderboard from '../../models/DailyLeaderboard.js';
-import { leagues } from '../../components/utils/leagues.js';
 import { syncedClearCache } from '../../serverUtils/cacheBus.js';
 import { invalidateDailyPublicCache } from '../dailyChallenge/results.js';
 import { addBannedIdentity, removeBannedIdentity } from '../../serverUtils/bannedIdentities.js';
+import { refundEloToOpponents, refundEloForReportedGames } from '../../serverUtils/eloRefunds.js';
 
 /**
  * Remove a user from every daily leaderboard surface.
@@ -54,275 +53,6 @@ async function scrubFromDailyLeaderboards(targetUserId) {
   return {
     dailyChallengeScoresDisqualified: dcResult.modifiedCount,
     dailyLeaderboardsScrubbed: dlResult.modifiedCount
-  };
-}
-
-/**
- * Refund ELO to opponents who lost ELO playing against a banned user
- *
- * @param {string} bannedUserId - The MongoDB _id of the banned user
- * @param {string} bannedUsername - The username of the banned user
- * @param {string} moderationLogId - The ID of the moderation log entry (optional, set after log is created)
- * @returns {Object} Summary of refunds: { totalRefunded, opponentsAffected, gamesProcessed }
- */
-async function refundEloToOpponents(bannedUserId, bannedUsername, moderationLogId = null) {
-  const bannedAccountId = bannedUserId.toString();
-
-  // Find all ranked_duel games where the banned user participated
-  // Use atomic findOneAndUpdate to prevent race conditions - only one request can claim each game
-  const gameIds = await Game.find({
-    gameType: 'ranked_duel',
-    'players.accountId': bannedAccountId,
-    eloRefunded: { $ne: true }
-  }).distinct('_id');
-
-  let totalRefunded = 0;
-  let gamesProcessed = 0;
-  let gamesMarkedRefunded = 0;
-  const opponentRefunds = {}; // { opponentAccountId: totalRefund }
-
-  // Process each game atomically - use findOneAndUpdate to claim the game
-  for (const gameId of gameIds) {
-    // Atomically mark game as refunded and get its data
-    // Only succeeds if eloRefunded is still not true (prevents race condition)
-    const game = await Game.findOneAndUpdate(
-      {
-        _id: gameId,
-        eloRefunded: { $ne: true }
-      },
-      {
-        eloRefunded: true,
-        eloRefundedAt: new Date()
-      },
-      { new: false } // Return the original document before update
-    );
-
-    // If game is null, another request already claimed it - skip
-    if (!game) continue;
-
-    gamesMarkedRefunded++;
-
-    // Find the opponent(s) who lost ELO in this game
-    for (const player of game.players) {
-      // Skip the banned user
-      if (player.accountId === bannedAccountId) continue;
-
-      // Skip if no ELO data or no loss
-      if (!player.elo || !player.elo.change || player.elo.change >= 0) continue;
-
-      // Skip guests (no accountId)
-      if (!player.accountId) continue;
-
-      // Calculate refund amount (absolute value of loss)
-      const refundAmount = Math.abs(player.elo.change);
-
-      // Track refund per opponent
-      if (!opponentRefunds[player.accountId]) {
-        opponentRefunds[player.accountId] = 0;
-      }
-      opponentRefunds[player.accountId] += refundAmount;
-      totalRefunded += refundAmount;
-      gamesProcessed++;
-    }
-  }
-
-  // Get MAX_ELO from leagues
-  const MAX_ELO = leagues.nomad.max;
-
-  // Apply refunds to each affected opponent
-  const refundPromises = [];
-  for (const [opponentAccountId, refundAmount] of Object.entries(opponentRefunds)) {
-    // Get current user to check their ELO before refund
-    refundPromises.push(
-      User.findById(opponentAccountId).then(async (opponentUser) => {
-        if (!opponentUser) return;
-
-        const currentElo = opponentUser.elo || 0;
-        const newEloUncapped = currentElo + refundAmount;
-
-        // Cap the new ELO at MAX_ELO - don't let refunds push users above the cap
-        const newElo = Math.min(newEloUncapped, MAX_ELO);
-        const actualRefund = newElo - currentElo;
-
-        // Update User model with the capped ELO
-        const updatedUser = await User.findByIdAndUpdate(
-          opponentAccountId,
-          { $set: { elo: newElo } },
-          { new: true }
-        );
-
-        if (updatedUser) {
-          // Get current ELO rank (excluding banned users)
-          const higherEloCount = await User.countDocuments({ 
-            elo: { $gt: updatedUser.elo },
-            banned: { $ne: true },
-          });
-          const newEloRank = higherEloCount + 1;
-
-          // Get most recent xpRank from UserStats for this user
-          const mostRecentStats = await UserStats.findOne({ userId: opponentAccountId })
-            .sort({ timestamp: -1 })
-            .select('xpRank')
-            .lean();
-          const xpRank = mostRecentStats?.xpRank || 1;
-
-          // Create UserStats entry to record the ELO refund
-          await UserStats.create({
-            userId: opponentAccountId,
-            timestamp: new Date(),
-            totalXp: updatedUser.totalXp || 0,
-            xpRank: xpRank,
-            elo: updatedUser.elo,
-            eloRank: newEloRank,
-            triggerEvent: 'elo_refund',
-            gameId: null,
-            eloRefundDetails: {
-              amount: actualRefund,
-              bannedUserId: bannedAccountId,
-              bannedUsername: bannedUsername,
-              moderationLogId: moderationLogId ? moderationLogId.toString() : null
-            }
-          });
-        }
-      })
-    );
-  }
-
-  await Promise.all(refundPromises);
-
-  return {
-    totalRefunded,
-    opponentsAffected: Object.keys(opponentRefunds).length,
-    gamesProcessed,
-    gamesMarkedRefunded,
-    refundDetails: opponentRefunds // { accountId: refundAmount }
-  };
-}
-
-/**
- * Refund ELO to opponents only for specific games linked to reports (used for temp bans)
- *
- * @param {string} bannedUserId - The MongoDB _id of the banned user
- * @param {string} bannedUsername - The username of the banned user
- * @param {string[]} reportedGameIds - Array of game IDs (string codes) from reports
- * @param {string} moderationLogId - The ID of the moderation log entry (optional)
- * @returns {Object} Summary of refunds: { totalRefunded, opponentsAffected, gamesProcessed }
- */
-async function refundEloForReportedGames(bannedUserId, bannedUsername, reportedGameIds, moderationLogId = null) {
-  if (!reportedGameIds || reportedGameIds.length === 0) {
-    return { totalRefunded: 0, opponentsAffected: 0, gamesProcessed: 0, gamesMarkedRefunded: 0, refundDetails: {} };
-  }
-
-  const bannedAccountId = bannedUserId.toString();
-
-  // Find only the specific reported ranked_duel games that haven't been refunded
-  // Reports store gameId as the string game code, which maps to Game.gameId
-  const gameMongoIds = await Game.find({
-    gameId: { $in: reportedGameIds },
-    gameType: 'ranked_duel',
-    'players.accountId': bannedAccountId,
-    eloRefunded: { $ne: true }
-  }).distinct('_id');
-
-  let totalRefunded = 0;
-  let gamesProcessed = 0;
-  let gamesMarkedRefunded = 0;
-  const opponentRefunds = {};
-
-  for (const gameMongoId of gameMongoIds) {
-    const game = await Game.findOneAndUpdate(
-      {
-        _id: gameMongoId,
-        eloRefunded: { $ne: true }
-      },
-      {
-        eloRefunded: true,
-        eloRefundedAt: new Date()
-      },
-      { new: false }
-    );
-
-    if (!game) continue;
-
-    gamesMarkedRefunded++;
-
-    for (const player of game.players) {
-      if (player.accountId === bannedAccountId) continue;
-      if (!player.elo || !player.elo.change || player.elo.change >= 0) continue;
-      if (!player.accountId) continue;
-
-      const refundAmount = Math.abs(player.elo.change);
-
-      if (!opponentRefunds[player.accountId]) {
-        opponentRefunds[player.accountId] = 0;
-      }
-      opponentRefunds[player.accountId] += refundAmount;
-      totalRefunded += refundAmount;
-      gamesProcessed++;
-    }
-  }
-
-  const MAX_ELO = leagues.nomad.max;
-
-  const refundPromises = [];
-  for (const [opponentAccountId, refundAmount] of Object.entries(opponentRefunds)) {
-    refundPromises.push(
-      User.findById(opponentAccountId).then(async (opponentUser) => {
-        if (!opponentUser) return;
-
-        const currentElo = opponentUser.elo || 0;
-        const newEloUncapped = currentElo + refundAmount;
-        const newElo = Math.min(newEloUncapped, MAX_ELO);
-        const actualRefund = newElo - currentElo;
-
-        const updatedUser = await User.findByIdAndUpdate(
-          opponentAccountId,
-          { $set: { elo: newElo } },
-          { new: true }
-        );
-
-        if (updatedUser) {
-          const higherEloCount = await User.countDocuments({
-            elo: { $gt: updatedUser.elo },
-            banned: { $ne: true },
-          });
-          const newEloRank = higherEloCount + 1;
-
-          const mostRecentStats = await UserStats.findOne({ userId: opponentAccountId })
-            .sort({ timestamp: -1 })
-            .select('xpRank')
-            .lean();
-          const xpRank = mostRecentStats?.xpRank || 1;
-
-          await UserStats.create({
-            userId: opponentAccountId,
-            timestamp: new Date(),
-            totalXp: updatedUser.totalXp || 0,
-            xpRank: xpRank,
-            elo: updatedUser.elo,
-            eloRank: newEloRank,
-            triggerEvent: 'elo_refund',
-            gameId: null,
-            eloRefundDetails: {
-              amount: actualRefund,
-              bannedUserId: bannedAccountId,
-              bannedUsername: bannedUsername,
-              moderationLogId: moderationLogId ? moderationLogId.toString() : null
-            }
-          });
-        }
-      })
-    );
-  }
-
-  await Promise.all(refundPromises);
-
-  return {
-    totalRefunded,
-    opponentsAffected: Object.keys(opponentRefunds).length,
-    gamesProcessed,
-    gamesMarkedRefunded,
-    refundDetails: opponentRefunds
   };
 }
 
@@ -415,7 +145,8 @@ export default async function handler(req, res) {
     duration,         // For temp bans: duration in milliseconds
     durationString,   // For temp bans: human readable duration ("7 days", "30 days", etc.)
     publicNote,       // PUBLIC note - shown to user explaining the action (optional)
-    skipEloRefund     // For permanent bans: skip ELO refund to opponents (optional)
+    skipEloRefund,    // For permanent bans: skip ELO refund to opponents (optional)
+    suspiciousGameIds // Optional: Game.gameId string codes the mod flagged as evidence for this ban (internal only, no refund impact)
   } = req.body;
 
   // Validate required fields
@@ -471,6 +202,39 @@ export default async function handler(req, res) {
       if (!hasInappropriateUsernameReport && reports.length > 0) {
         return res.status(400).json({
           message: 'Force name change can only be used for inappropriate username reports'
+        });
+      }
+    }
+
+    // Validate & sanitize the moderator-flagged suspicious games (evidence for this ban).
+    // Persisted on the ModerationLog purely for appeals review - it does NOT influence
+    // ELO refunds in any way (refunds remain exactly as before, handled per-action below).
+    let suspiciousGames = [];
+    if (Array.isArray(suspiciousGameIds) && suspiciousGameIds.length > 0) {
+      // Dedupe, drop blanks, cap to a sane limit.
+      const requestedGameIds = [...new Set(
+        suspiciousGameIds
+          .filter(g => typeof g === 'string' && g.trim().length > 0)
+          .map(g => g.trim())
+      )].slice(0, 100);
+
+      if (requestedGameIds.length > 0) {
+        // Keep only games that actually exist AND include the target as a player, so the
+        // stored evidence can't be polluted with bogus/typo'd/unrelated game codes.
+        // Snapshot the opponent (the other player) so the appeals view can show
+        // "vs <name>" rather than a raw game code.
+        const matchedGames = await Game.find({
+          gameId: { $in: requestedGameIds },
+          'players.accountId': targetUserId.toString()
+        }).select('gameId players.username players.accountId').lean();
+
+        suspiciousGames = matchedGames.map(g => {
+          const opponent = (g.players || []).find(p => p.accountId !== targetUserId.toString());
+          return {
+            gameId: g.gameId,
+            opponentUsername: opponent?.username || null,
+            opponentAccountId: opponent?.accountId || null
+          };
         });
       }
     }
@@ -698,7 +462,8 @@ export default async function handler(req, res) {
           reason: reason, // Internal reason
           relatedReports: [...resolvedReportsBan, ...previouslyIgnoredBan.reportIds], // Include both pending and retroactive reports
           notes: publicNote || '', // Public note for reference
-          eloRefund: eloRefundResult // Store refund details in log
+          eloRefund: eloRefundResult, // Store refund details in log
+          suspiciousGames // Mod-flagged evidence games (internal only)
         });
 
         break;
@@ -816,7 +581,8 @@ export default async function handler(req, res) {
           reason: reason, // Internal reason
           relatedReports: [...resolvedReportsTempBan, ...previouslyIgnoredTempBan.reportIds], // Include both pending and retroactive reports
           notes: publicNote || '', // Public note for reference
-          eloRefund: eloRefundResult // Store refund details in log
+          eloRefund: eloRefundResult, // Store refund details in log
+          suspiciousGames // Mod-flagged evidence games (internal only)
         });
 
         break;
@@ -1013,6 +779,7 @@ export default async function handler(req, res) {
       },
       moderationLogId: moderationLog?._id,
       expiresAt: expiresAt,
+      suspiciousGames: suspiciousGames, // Mod-flagged evidence games stored on the log (internal only)
       eloRefund: eloRefundResult, // ELO refund summary (null if no refunds)
       leaderboardScrub: leaderboardScrubResult, // Daily-leaderboard scrub summary (null if not applicable)
       message: getSuccessMessage(action, targetUser.username, eloRefundResult, leaderboardScrubResult)

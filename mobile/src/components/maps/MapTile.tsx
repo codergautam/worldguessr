@@ -9,19 +9,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { MapItem } from '../../services/api';
-
-export function formatNumber(n: number): string {
-  if (!n || isNaN(n)) return '0';
-  if (n < 1000) return n.toString();
-  const units = ['K', 'M', 'B'];
-  const tier = (Math.log10(n) / 3) | 0;
-  const suffix = units[tier - 1];
-  const scale = Math.pow(10, tier * 3);
-  const scaled = n / scale;
-  const precision = Math.max(0, 1 - Math.floor(Math.log10(scaled)));
-  let s = scaled.toFixed(precision).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
-  return `${s}${suffix}`;
-}
+import { formatCompact as formatNumber } from '../../shared';
 
 export default function MapTile({
   map,

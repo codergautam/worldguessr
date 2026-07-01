@@ -14,6 +14,7 @@ import Animated, {
 import { colors } from '../../shared';
 import { t } from '../../shared/locale';
 import { fontSizes } from '../../styles/theme';
+import { useGameUiScale } from '../../styles/responsive';
 import useAnimatedNumber from '../../hooks/useAnimatedNumber';
 
 interface GameTimerProps {
@@ -83,6 +84,9 @@ export default function GameTimer({
   variant = 'default',
 }: GameTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState(initialTime);
+  // Tablet scale: this HUD pill uses fixed theme px (md/xs) that read small on an
+  // iPad. Bump the text + pill padding up. Phones: sc is 1.0× (no-op).
+  const { sc, isTablet } = useGameUiScale();
   // critical: 0 = normal skin, 1 = red critical skin (smoothly tweened).
   const critical = useSharedValue(0);
   // breathe: 0↔1 loop while critical, drives glow/brightness only.
@@ -239,12 +243,12 @@ export default function GameTimer({
   // round-only label for the "infinite round" sentinel, otherwise round + seconds.
   if (variant === 'duel') {
     return (
-      <Animated.View style={[styles.pill, styles.pillDuel, pillAnimStyle]}>
+      <Animated.View style={[styles.pill, styles.pillDuel, isTablet && { paddingHorizontal: sc(20), paddingVertical: sc(10), borderRadius: sc(16) }, pillAnimStyle]}>
         <Animated.View
           style={[StyleSheet.absoluteFill, styles.glowOverlay, glowOverlayStyle]}
           pointerEvents="none"
         />
-        <Animated.Text style={[styles.duelText, criticalTextStyle]}>
+        <Animated.Text style={[styles.duelText, { fontSize: sc(fontSizes.md) }, criticalTextStyle]}>
           {isInfiniteRound
             ? t('round', { r: currentRound, mr: totalRounds })
             : t('roundTimer', { r: currentRound, mr: totalRounds, t: timeRemaining.toFixed(1) })}
@@ -254,15 +258,15 @@ export default function GameTimer({
   }
 
   return (
-    <Animated.View style={[styles.pill, pillAnimStyle]}>
+    <Animated.View style={[styles.pill, isTablet && { paddingHorizontal: sc(20), paddingTop: sc(8), paddingBottom: sc(12), borderRadius: sc(16) }, pillAnimStyle]}>
       <Animated.View
         style={[StyleSheet.absoluteFill, styles.glowOverlay, glowOverlayStyle]}
         pointerEvents="none"
       />
-      <Text style={styles.roundLabel}>
+      <Text style={[styles.roundLabel, { fontSize: sc(fontSizes.xs) }]}>
         {t('round', { r: currentRound, mr: totalRounds })}
       </Text>
-      <Text style={styles.mainRow}>
+      <Text style={[styles.mainRow, { fontSize: sc(fontSizes.md) }]}>
         {shouldShowCountdown ? (
           <>
             <Animated.Text style={[styles.countdown, criticalTextStyle]}>

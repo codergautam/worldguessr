@@ -14,6 +14,7 @@ import { KM_TO_MILES } from '../../shared/units';
 import { nameFromCode } from '../../shared/data/countryHelpers';
 import { findCountryLocal } from '../../shared/game/findCountry';
 import { useSettingsStore } from '../../store/settingsStore';
+import { useGameUiScale } from '../../styles/responsive';
 
 // Faithful port of web's components/endBanner.js (classic / daily pin round):
 //  • Show Map / Show Street View toggle (top-right)
@@ -82,7 +83,20 @@ export default function ClassicEndBanner({
   // doesn't eat the short viewport.
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
-  const maxCardWidth = Math.min(landscape ? width * 0.6 : width - 48, 420);
+  // The cramped "landscape" banner styling targets SHORT viewports (landscape
+  // phones, web's `max-height: 500px`). An iPad in landscape is wide AND tall,
+  // so it must keep the comfortable portrait styling — gate compaction on phones.
+  const compactLandscape = landscape && height <= 500;
+  // Tablet scale: the web banner uses em/vw/vh fonts that grow to ~24–29px on an
+  // iPad; our fixed px don't, so on tablets we scale the text/padding up (sc())
+  // and widen the content cap. Phones are unaffected (sc is 1.0×, cap stays 420).
+  const { sc, isTablet } = useGameUiScale();
+  const maxCardWidth = Math.min(landscape ? width * 0.6 : width - 48, isTablet ? 600 : 420);
+  // The Show Street View / Show Map toggle is an understated corner link on web.
+  // Scale it at a DAMPENED rate so it doesn't balloon relative to the body text
+  // on tablets (the "giant space-taking button" complaint) — it grows a little,
+  // the body grows more, so the toggle reads smaller in proportion than before.
+  const scTop = (v: number) => Math.round((v + (sc(v) - v) * 0.45) * 2) / 2;
 
   // Units-aware "your guess was Nkm/Nmi away" — mirrors web's endBanner.js.
   const units = useSettingsStore((s) => s.units);
@@ -143,7 +157,15 @@ export default function ClassicEndBanner({
       style={[
         styles.card,
         { maxWidth: maxCardWidth },
-        landscape ? styles.cardLandscape : compact && styles.cardCompact,
+        compactLandscape ? styles.cardLandscape : compact && styles.cardCompact,
+        // Tablet: scale the card padding up with the larger text so the banner
+        // doesn't read as a small pill on a big screen.
+        isTablet && !compactLandscape && {
+          paddingTop: sc(14),
+          paddingHorizontal: sc(20),
+          paddingBottom: sc(20),
+          borderRadius: sc(10),
+        },
       ]}
     >
       <LinearGradient
@@ -157,29 +179,31 @@ export default function ClassicEndBanner({
 
       {onTogglePano && (
         <Pressable onPress={onTogglePano} hitSlop={10} style={styles.topBtn}>
-          <Text style={styles.topBtnText}>{panoShown ? t('showMap') : t('showPano')}</Text>
+          <Text style={[styles.topBtnText, { fontSize: scTop(14) }]}>
+            {panoShown ? t('showMap') : t('showPano')}
+          </Text>
         </Pressable>
       )}
 
-      <View style={[styles.content, landscape && styles.contentLandscape]}>
+      <View style={[styles.content, compactLandscape && styles.contentLandscape, isTablet && { gap: sc(8) }]}>
         {wrongCountryName ? (
           <>
-            <Animated.Text style={[styles.mainTxt, landscape && styles.mainTxtLandscape, popStyle]}>
+            <Animated.Text style={[styles.mainTxt, { fontSize: sc(compactLandscape ? 16 : 20) }, popStyle]}>
               {t('incorrectCountryWas', { country: wrongCountryName })}
             </Animated.Text>
             {distanceText ? (
-              <Text style={[styles.smallMainTxt, landscape && styles.smallMainTxtLandscape]}>
+              <Text style={[styles.smallMainTxt, { fontSize: sc(compactLandscape ? 13 : 15) }]}>
                 {distanceText}
               </Text>
             ) : null}
           </>
         ) : (
-          <Animated.Text style={[styles.mainTxt, landscape && styles.mainTxtLandscape, popStyle]}>
+          <Animated.Text style={[styles.mainTxt, { fontSize: sc(compactLandscape ? 16 : 20) }, popStyle]}>
             {distanceText ?? t('didntGuess')}
           </Animated.Text>
         )}
 
-        <Text style={[styles.points, landscape && styles.pointsLandscape]}>
+        <Text style={[styles.points, { fontSize: sc(compactLandscape ? 12 : 13) }]}>
           {t('gotPoints', { p: Math.round(points) })}
         </Text>
 
@@ -187,31 +211,53 @@ export default function ClassicEndBanner({
             while the run is alive, or a muted "lost your N streak" line. */}
         {streak != null && streak > 0 ? (
           <View style={styles.streakBadge}>
-            <Text style={styles.streakText}>🔥 {t('onCountryStreak', { streak })}</Text>
+            <Text style={[styles.streakText, { fontSize: sc(13) }]}>🔥 {t('onCountryStreak', { streak })}</Text>
           </View>
         ) : lostStreak != null && lostStreak > 0 ? (
-          <Text style={styles.lostStreakText}>
+          <Text style={[styles.lostStreakText, { fontSize: sc(13) }]}>
             {t('lostCountryStreak', { streak: lostStreak })}
           </Text>
         ) : null}
 
         {factText ? (
-          <Text style={[styles.fact, landscape && styles.factLandscape]}>{factText}</Text>
+          <Text
+            style={[
+              styles.fact,
+              // Scale lineHeight + maxWidth with the font so multi-line onboarding
+              // facts don't clip/overlap on large iPads (lineHeight was fixed at 18).
+              { fontSize: sc(compactLandscape ? 12 : 13), lineHeight: sc(compactLandscape ? 16 : 18), maxWidth: sc(400) },
+              compactLandscape && styles.factLandscape,
+            ]}
+          >
+            {factText}
+          </Text>
         ) : null}
       </View>
 
       {footerSlot}
 
       {onNext ? (
-        <View style={[styles.btnRow, landscape && styles.btnRowLandscape]}>
+        <View style={[styles.btnRow, compactLandscape && styles.btnRowLandscape, isTablet && { marginTop: sc(16) }]}>
           <Pressable onPress={onNext} style={({ pressed }) => [pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }]}>
             <LinearGradient
               colors={['#245734', '#2e7042']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.playAgain, landscape && styles.playAgainLandscape]}
+              style={[
+                styles.playAgain,
+                compactLandscape && styles.playAgainLandscape,
+                isTablet && !compactLandscape && {
+                  paddingVertical: sc(16),
+                  paddingHorizontal: sc(40),
+                  minWidth: sc(200),
+                  borderRadius: sc(12),
+                },
+              ]}
             >
-              <Text style={[styles.playAgainText, landscape && styles.playAgainTextLandscape]}>
+              <Text style={[styles.playAgainText, { fontSize: sc(compactLandscape ? 15 : isTablet ? 22 : 18) }]}>
+                {/* Web's primary CTA (.playAgain 1.3em) is LARGER than the result
+                    line (1.2em). Phone keeps 18 (matches web-mobile); tablets use
+                    a 22 base so the CTA stays ≥ mainTxt and lands in web's band. */}
                 {isFinal ? t('viewResults') : t('nextRound')}
               </Text>
             </LinearGradient>

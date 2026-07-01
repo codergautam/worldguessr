@@ -239,12 +239,26 @@ export default function OnboardingPlay() {
     cb();
   };
 
+  // Launch a destination chosen from the onboarding-complete modal. The onboarding
+  // screen is the navigation stack ROOT for first-time users (app/index.tsx
+  // redirects here), so a plain router.push leaves it sitting UNDERNEATH the game —
+  // and the in-game "exit to home" (dismissAllSafe → POP_TO_TOP) then pops back to
+  // it, re-showing this modal instead of going home. Install home as the stack base
+  // (replace), THEN push the destination, so the stack is [home, destination] and
+  // backing out of the game lands on home. expo-router drains the replace before the
+  // push, so the [home, destination] result is deterministic. (The Home and
+  // Community-Maps cards navigate with a single router.replace and are already
+  // correct — they don't push anything on top.)
+  const launchFromOnboarding = (dest: Parameters<typeof router.push>[0]) => {
+    router.replace('/(tabs)/home');
+    router.push(dest);
+  };
+
   const onClassicCard = () => {
     onboardingAnalytics.continue('classic');
     onboardingAnalytics.end(settledMode, 'classic');
     finish(() => {
-      dismissAllSafe();
-      router.push({
+      launchFromOnboarding({
         pathname: '/game/[id]',
         params: { id: 'singleplayer', map: 'all', rounds: '5' },
       });
@@ -257,8 +271,7 @@ export default function OnboardingPlay() {
       onboardingAnalytics.end(settledMode, 'duel');
       finish(() => {
         useMultiplayerStore.getState().joinQueue('publicDuel');
-        dismissAllSafe();
-        router.push('/queue');
+        launchFromOnboarding('/queue');
       });
     });
   };
@@ -277,8 +290,7 @@ export default function OnboardingPlay() {
     onboardingAnalytics.end(settledMode, 'countryguesser');
     finish(() => {
       AsyncStorage.setItem(SINGLEPLAYER_DEFAULT_MODE_KEY, 'countryGuesser').catch(() => {});
-      dismissAllSafe();
-      router.push({
+      launchFromOnboarding({
         pathname: '/game/[id]',
         params: { id: 'singleplayer', map: 'all', rounds: '10', mode: 'countryGuesser' },
       });

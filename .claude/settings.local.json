@@ -38,7 +38,9 @@
       "Bash(sudo cat *)",
       "Bash(sudo cp *)",
       "Bash(sudo ls *)",
-      "Bash(sudo tee *)"
+      "Bash(sudo tee *)",
+      "Bash(git show *)",
+      "PowerShell(node --check serverUtils/eloRefunds.js; node --check serverUtils/purgeUserCascade.js; node --check scripts/backfillRefundedDuelWinLoss.js; node --check scripts/resolveOrphanedReports.js; node --check api/mod/takeAction.js; node --check api/mod/getReports.js; node --check api/eloRank.js; node --check models/Game.js; node --check models/Report.js; Write-Output 'ALL SYNTAX OK')"
     ],
     "deny": []
   }

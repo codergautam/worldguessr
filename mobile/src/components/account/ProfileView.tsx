@@ -9,7 +9,6 @@ import {
   Pressable,
   ActivityIndicator,
   ImageBackground,
-  useWindowDimensions,
   Share,
   Platform,
 } from 'react-native';
@@ -105,6 +104,8 @@ interface ProfileViewProps {
     canChangeUsername?: boolean;
     daysUntilNameChange?: number;
     recentChange?: boolean;
+    pendingDeletion?: boolean;
+    scheduledDeletionAt?: string;
   };
   onLogout?: () => void;
   onRefreshUser?: () => void | Promise<void>;
@@ -158,7 +159,6 @@ export default function ProfileView({
   const [linkCopied, setLinkCopied] = useState(false);
 
   const scrollViewRef = useRef<ScrollView>(null);
-  const { width: screenWidth } = useWindowDimensions();
 
   // Live totals from the auth store. For the OWN profile these are kept current
   // by optimistic game-end updates (singleplayer/daily/duel), so the XP and
@@ -336,7 +336,6 @@ export default function ProfileView({
             onUsernameChanged={handleUsernameChanged}
             progression={progression}
             progressionLoading={progressionLoading}
-            screenWidth={screenWidth}
             onScrollEnable={setScrollEnabled}
             viewingPublicProfile={!isOwnProfile}
           />
@@ -354,7 +353,6 @@ export default function ProfileView({
             eloData={eloData}
             progression={progression}
             progressionLoading={progressionLoading}
-            screenWidth={screenWidth}
             onScrollEnable={setScrollEnabled}
           />
         );
@@ -370,6 +368,11 @@ export default function ProfileView({
             banPublicNote={user?.banPublicNote}
             pendingNameChange={user?.pendingNameChange}
             pendingNameChangePublicNote={user?.pendingNameChangePublicNote}
+            username={user?.username}
+            supporter={user?.supporter}
+            onLogout={onLogout}
+            pendingDeletion={user?.pendingDeletion}
+            scheduledDeletionAt={user?.scheduledDeletionAt}
           />
         );
       default:
@@ -399,8 +402,14 @@ export default function ProfileView({
       />
 
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Loading */}
-        {loading && (
+        {/* Initial-load spinner ONLY. On a re-open / focus refetch we already hold
+            profileData, so we keep it on screen (stale-while-revalidate) and let the
+            fresh data swap in place. Gating on `loading` alone would drop the existing
+            profile for this full-screen spinner on every refetch — the jarring
+            "stale → refreshing → identical UI" flicker we're killing here.
+            (refreshAccount() rebuilds the auth-store user object on every focus, which
+            churns fetchProfile's identity and re-fires it — see fetchProfile deps.) */}
+        {loading && !profileData && (
           <View style={styles.centered}>
             <View style={styles.loadingCard}>
               <ActivityIndicator size="large" color="#fff" />
@@ -409,8 +418,9 @@ export default function ProfileView({
           </View>
         )}
 
-        {/* Error */}
-        {error && !loading && (
+        {/* Error screen ONLY when there's nothing to show. A failed BACKGROUND refetch
+            keeps the existing profile up instead of flashing a full-screen error. */}
+        {error && !profileData && (
           <View style={styles.centered}>
             <View style={styles.errorCard}>
               <Text style={styles.errorTitle}>{error}</Text>
@@ -435,8 +445,11 @@ export default function ProfileView({
           </View>
         )}
 
-        {/* Profile Content */}
-        {!loading && !error && profileData && (
+        {/* Profile content stays mounted through background refetches — intentionally
+            NOT gated on `loading`/`error` — so a re-open updates the data in place
+            with no flicker. displayProfileData already merges the live store totals,
+            so the visible stats are fresh even before the refetch resolves. */}
+        {profileData && (
           <View style={styles.profileContainer}>
             {/* Sticky Header */}
             <View style={styles.header}>
