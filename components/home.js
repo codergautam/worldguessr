@@ -37,6 +37,7 @@ const DailyChallengeScreen = dynamic(() => import('@/components/daily/DailyChall
 const AccountModal = dynamic(() => import('@/components/accountModal'), { ssr: false });
 const MapGuessrModal = dynamic(() => import('@/components/mapGuessrModal'), { ssr: false });
 import MultiplayerHome from "@/components/multiplayerHome";
+import TwoVTwoHome from "@/components/twoVTwoHome";
 import SetUsernameModal from "@/components/setUsernameModal";
 import EmoteReactions from "@/components/emoteReactions";
 import SettingsModal from "@/components/settingsModal";
@@ -1676,6 +1677,36 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
             sendEvent("multiplayer_start_game_host")
         }
 
+        // ---- 2v2 team mode ----
+        // Pressing 2v2 opens the team lobby instantly (share/join code, invite,
+        // or Find Match solo or as a duo — all on one screen).
+        if (action === "create2v2Lobby") {
+            setScreen("multiplayer")
+            setMultiplayerState((prev) => ({
+                ...prev,
+                twoVTwoMenu: true, // show the 2v2 screen immediately while the lobby is created
+                joinOptions: { ...initialMultiplayerState.joinOptions },
+            }))
+            ws.send(JSON.stringify({ type: "create2v2Lobby" }))
+            sendEvent("multiplayer_create_2v2_lobby")
+        }
+
+        if (action === "join2v2Lobby" && args[0]) {
+            setScreen("multiplayer")
+            setMultiplayerState((prev) => ({
+                ...prev,
+                twoVTwoMenu: true,
+                joinOptions: { ...prev.joinOptions, error: false, progress: true },
+            }))
+            ws.send(JSON.stringify({ type: "join2v2Lobby", gameCode: args[0] }))
+            sendEvent("multiplayer_join_2v2_lobby", { gameCode: args[0] })
+        }
+
+        if (action === "find2v2Match") {
+            ws.send(JSON.stringify({ type: "find2v2Match" }))
+            sendEvent("multiplayer_find_2v2_match")
+        }
+
         if (action === 'screen') {
             ws.send(JSON.stringify({ type: "screen", screen: args[0] }))
         }
@@ -2055,6 +2086,17 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 // without it there's no way to tell "queued, waiting" apart from
                 // "server never queued me".
                 clearQueueConfirmWatchdog();
+            } else if (data.type === "enter2v2Queue") {
+                // Server moved us from a 2v2 lobby (or solo find) into matchmaking.
+                setScreen("multiplayer")
+                setMultiplayerState((prev) => ({
+                    ...prev,
+                    inGame: false,
+                    gameData: null,
+                    twoVTwoMenu: false,
+                    enteringGameCode: false,
+                    gameQueued: "2v2",
+                }))
             } else if (data.type === "publicDuelRange") {
                 // Also a valid join confirmation for ranked — retire the watchdog.
                 clearQueueConfirmWatchdog();
@@ -2102,10 +2144,27 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                 }
             } else if (data.type === "place") {
                 const id = data.id;
-                const player = multiplayerState?.gameData?.players?.find((p) => p.id === id);
-                if (player) {
-                    player.final = data.final;
-                    player.latLong = data.latLong;
+                if (data.teammate) {
+                    // 2v2 live teammate guess — update via setState so the map
+                    // re-renders the teammate's marker in real time.
+                    setMultiplayerState((prev) => {
+                        if (!prev.gameData?.players) return prev;
+                        return {
+                            ...prev,
+                            gameData: {
+                                ...prev.gameData,
+                                players: prev.gameData.players.map((p) =>
+                                    p.id === id ? { ...p, final: data.final, latLong: data.latLong } : p
+                                )
+                            }
+                        };
+                    });
+                } else {
+                    const player = multiplayerState?.gameData?.players?.find((p) => p.id === id);
+                    if (player) {
+                        player.final = data.final;
+                        player.latLong = data.latLong;
+                    }
                 }
             } else if (data.type === "gameOver") {
                 setLatLong(null)
@@ -2183,7 +2242,7 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                     extent: null
                 }))
             } else if (data.type === "gameJoinError") {
-                if (multiplayerState.enteringGameCode) {
+                if (multiplayerState.enteringGameCode || multiplayerState.twoVTwoMenu || multiplayerState.gameData?.is2v2Lobby) {
                     setMultiplayerState((prev) => ({
                         ...prev,
                         joinOptions: {
@@ -2606,6 +2665,9 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
         } else {
             const afterBack = () => {
                 setScreen("home");
+                if (multiplayerState?.twoVTwoMenu) {
+                    setMultiplayerState((prev) => ({ ...prev, twoVTwoMenu: false, enteringGameCode: false }))
+                }
                 setGameOptions((prev) => ({
                     ...prev,
                     extent: null
@@ -3371,6 +3433,14 @@ export default function Home({ initialScreen, dailyBootstrap } = {}) {
                                                 <button className="g2_nav_text" aria-label="Duels" onClick={() => { handleMultiplayerAction("unrankedDuel") }}>{
                                                     session?.token?.secret ? text("unrankedDuel") : text("findDuel")}</button>
 
+                                                <button className="g2_nav_text" aria-label="2v2" disabled={!multiplayerState.connected || maintenance} onClick={() => {
+                                                    if (!ws || !multiplayerState?.connected) {
+                                                        setConnectionErrorModalShown(true);
+                                                        return;
+                                                    }
+                                                    handleMultiplayerAction("create2v2Lobby")
+                                                }}>{text("twovtwo")}</button>
+
 
 
                                             </div>
@@ -3718,20 +3788,32 @@ singlePlayerRound={singlePlayerRound} setSinglePlayerRound={setSinglePlayerRound
 
 
                 {screen === "multiplayer" && <div className="home__multiplayer">
-                    <MultiplayerHome
-                        partyModalShown={partyModalShown}
-                        setPartyModalShown={setPartyModalShown}
-                        multiplayerError={multiplayerError}
-                        handleAction={handleMultiplayerAction}
-                        session={session}
-                        ws={ws}
-                        setWs={setWs}
-                        multiplayerState={multiplayerState}
-                        setMultiplayerState={setMultiplayerState}
-                        selectCountryModalShown={selectCountryModalShown}
-                        setSelectCountryModalShown={setSelectCountryModalShown}
-                        inCrazyGames={inCrazyGames}
-                    />
+                    {(multiplayerState?.twoVTwoMenu || multiplayerState?.gameQueued === "2v2" || multiplayerState?.gameData?.is2v2Lobby) ? (
+                        <TwoVTwoHome
+                            multiplayerState={multiplayerState}
+                            setMultiplayerState={setMultiplayerState}
+                            handleAction={handleMultiplayerAction}
+                            backBtn={() => backBtnPressed()}
+                            session={session}
+                            inCrazyGames={inCrazyGames}
+                            openFriends={() => { setAccountModalPage('list'); setAccountModalOpen(true); }}
+                        />
+                    ) : (
+                        <MultiplayerHome
+                            partyModalShown={partyModalShown}
+                            setPartyModalShown={setPartyModalShown}
+                            multiplayerError={multiplayerError}
+                            handleAction={handleMultiplayerAction}
+                            session={session}
+                            ws={ws}
+                            setWs={setWs}
+                            multiplayerState={multiplayerState}
+                            setMultiplayerState={setMultiplayerState}
+                            selectCountryModalShown={selectCountryModalShown}
+                            setSelectCountryModalShown={setSelectCountryModalShown}
+                            inCrazyGames={inCrazyGames}
+                        />
+                    )}
                 </div>}
 
                 {multiplayerState.inGame && ["guess", "getready", "end"].includes(multiplayerState.gameData?.state) && (

@@ -15,6 +15,7 @@ export const initialMultiplayerState = {
   inGame: false,
   nextGameQueued: false,
   enteringGameCode: false,
+  twoVTwoMenu: false, // showing the 2v2 entry menu (random teammate / friend)
   nextGameType: null,
   maxRetries: 50,
   currentRetry: 0,

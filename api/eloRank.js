@@ -69,7 +69,13 @@ export default async function handler(req, res) {
       duels_tied: user.duels_tied,
       // `|| 0` guards the 0/0 -> NaN case (e.g. a user whose only ranked games
       // were all refunded), matching crazyAuth/googleAuth's win_rate guard.
-      win_rate: user.duels_wins / (user.duels_wins + user.duels_losses + user.duels_tied) || 0
+      win_rate: user.duels_wins / (user.duels_wins + user.duels_losses + user.duels_tied) || 0,
+      team2v2_wins: user.team2v2_wins || 0,
+      team2v2_losses: user.team2v2_losses || 0,
+      team2v2_tied: user.team2v2_tied || 0,
+      team2v2_win_rate: ((user.team2v2_wins || 0) + (user.team2v2_losses || 0) + (user.team2v2_tied || 0)) > 0
+        ? (user.team2v2_wins || 0) / ((user.team2v2_wins || 0) + (user.team2v2_losses || 0) + (user.team2v2_tied || 0))
+        : 0
      });
   } catch (error) {
     return res.status(500).json({ message: 'An error occurred', error: error.message });

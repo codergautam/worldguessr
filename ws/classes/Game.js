@@ -19,20 +19,28 @@ import shuffle from "../../utils/shuffle.js";
 import continentMapping from '../../public/continentMapping.json' with {type: "json"};
 
 export default class Game {
-  constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false) {
+  constructor(id, publicLobby, location="all", rounds=5, allLocations, isDuel=false, team2v2=false) {
     this.id = id;
     this.code = publicLobby ? null : make6DigitCode();
     this.players = {};
     this.state = 'waiting'; // [waiting, getready, guess, end]
     this.public = publicLobby;
-    this.duel = isDuel;
+    // 2v2 is modeled as a "duel between two teams": duel=true reuses the entire
+    // duel pipeline (timer, health UI, save-skip, forfeit), team2v2=true switches
+    // scoring/persistence to team semantics and disables ELO.
+    this.team2v2 = team2v2;
+    this.duel = isDuel || team2v2;
     this.gameCount = 1; // Track how many times this game has been played
     this.timePerRound = 30000;
     this.waitBetweenRounds = 10000;
-    if(isDuel) {
+    if(this.duel) {
       this.waitBetweenRounds = 8000;
       this.timePerRound = 60000;
 
+    }
+    // Shared per-team health for 2v2 (mirrors the 5000-HP duel model, one bar per team)
+    if(team2v2) {
+      this.teamScores = { a: 5000, b: 5000 };
     }
     this.maxDist = 20000;
     this.startTime = null;
@@ -42,7 +50,7 @@ export default class Game {
     this.location = location;
     this.rounds = rounds;
     this.curRound = 0; // 1 = 1st round
-    this.maxPlayers = 100;
+    this.maxPlayers = team2v2 ? 4 : 100;
     this.extent = null;
     this.displayLocation = null;
     this.readyToEnd = false;
@@ -71,6 +79,10 @@ export default class Game {
       state: this.state,
       public: this.public,
       duel: this.duel,
+      team2v2: this.team2v2,
+      is2v2Lobby: this.is2v2Lobby,
+      teamScores: this.teamScores,
+      roundStartTimes: this.roundStartTimes,
       timePerRound: this.timePerRound,
       waitBetweenRounds: this.waitBetweenRounds,
       maxDist: this.maxDist,
@@ -100,14 +112,14 @@ export default class Game {
     }
   }
   static fromJSON(json) {
-    const gObj = new Game(json.id, json.public, json.location, json.rounds, null, json.duel);
+    const gObj = new Game(json.id, json.public, json.location, json.rounds, null, json.duel, json.team2v2);
     Object.assign(gObj, json);
     return gObj;
 
   }
 
 
-  addPlayer(player, host=false, tag) {
+  addPlayer(player, host=false, tag, team) {
     if(Object.keys(this.players).length >= this.maxPlayers) {
       return;
     }
@@ -116,11 +128,12 @@ export default class Game {
       accountId: player.accountId,
       countryCode: player.countryCode,
       id: player.id,
-      score: this.duel ? 5000 : 0,
+      score: this.team2v2 ? (this.teamScores?.[team] ?? 5000) : (this.duel ? 5000 : 0),
       host: host && !this.public,
       supporter: player.supporter,
       elo: player.elo,
       tag,
+      team, // 'a' | 'b' for 2v2, undefined otherwise
       lastPong: Date.now() // Track the last pong received time
     };
     this.sendAllPlayers({
@@ -162,6 +175,9 @@ export default class Game {
       myId: player.id,
       public: this.public,
       duel: this.duel,
+      team2v2: this.team2v2,
+      is2v2Lobby: this.is2v2Lobby,
+      teamScores: this.teamScores,
       players: Object.values(this.players),
       host: this.players[player.id].host,
       maxDist: this.maxDist,
@@ -204,6 +220,46 @@ export default class Game {
   }
 
   givePoints() {
+    if(this.team2v2) {
+      // Team duel: each team's round score is the CLOSEST (best) guess of its
+      // two members. The losing team's shared health drops by the differential.
+      const loc = this.locations[this.curRound - 1];
+      if(!loc) {
+        console.error('No location found for round', this.curRound, this.locations);
+        return;
+      }
+
+      const teamPoints = { a: 0, b: 0 };
+      for (const player of Object.values(this.players)) {
+        if (!player.guess || !player.team) continue;
+        const pts = calcPoints({
+          lat: loc.lat,
+          lon: loc.long,
+          guessLat: player.guess[0],
+          guessLon: player.guess[1],
+          usedHint: false,
+          maxDist: this.maxDist
+        });
+        teamPoints[player.team] = Math.max(teamPoints[player.team], pts);
+      }
+
+      const diff = Math.abs(teamPoints.a - teamPoints.b);
+      if (teamPoints.a !== teamPoints.b) {
+        const loser = teamPoints.a > teamPoints.b ? 'b' : 'a';
+        this.teamScores[loser] = Math.max(0, this.teamScores[loser] - diff);
+        if (this.teamScores[loser] <= 0) {
+          this.teamScores[loser] = 0;
+          this.readyToEnd = true;
+        }
+      }
+
+      // Sync each player's score to their team's shared health so the existing
+      // serialization + health-bar UI keep working without special-casing.
+      for (const player of Object.values(this.players)) {
+        if (player.team) player.score = this.teamScores[player.team];
+      }
+      return;
+    }
     if(!this.duel) {
     for (const playerId of Object.keys(this.players)) {
       const player = this.players[playerId];
@@ -376,6 +432,9 @@ export default class Game {
       curRound: this.curRound,
       maxPlayers: this.maxPlayers,
       nextEvtTime: this.nextEvtTime,
+      team2v2: this.team2v2,
+      is2v2Lobby: this.is2v2Lobby,
+      teamScores: this.teamScores,
       players: Object.values(this.players),
       generated: this.locations?.length || 0,
       map: this.location,
@@ -548,6 +607,18 @@ export default class Game {
       player.guess = latLong;
     }
 
+    // 2v2: stream interim (non-final) guesses to the teammate ONLY, so partners
+    // can coordinate before locking in without leaking position to the opponents.
+    if (this.team2v2 && !final && player.team) {
+      this.sendTeam(player.team, {
+        type: 'place',
+        id: playerId,
+        final: false,
+        latLong: player.guess,
+        teammate: true
+      }, playerId);
+    }
+
     // Track time taken for this round when player makes final guess
     if(final && this.roundStartTimes[this.curRound]) {
       const timeTaken = Date.now() - this.roundStartTimes[this.curRound];
@@ -568,25 +639,59 @@ export default class Game {
 
   }
   checkRemaining() {
-          // check if all players have placed
+          // If everyone has placed, collapse the round to ~1s regardless of mode.
           let allFinal = true;
+          for (const p of Object.values(this.players)) {
+            if (!p.final) { allFinal = false; break; }
+          }
+          if (allFinal && (this.nextEvtTime - Date.now()) > 1000) {
+            this.nextEvtTime = Date.now() + 1000;
+            this.sendStateUpdate();
+            return;
+          }
+
+          if (this.team2v2) {
+            // 2v2: only drop to 20s once a FULL team (both members) has locked in.
+            const teamHasMembers = { a: false, b: false };
+            const teamLocked = { a: true, b: true };
+            for (const p of Object.values(this.players)) {
+              if (!p.team) continue;
+              teamHasMembers[p.team] = true;
+              if (!p.final) teamLocked[p.team] = false;
+            }
+            const aDone = teamHasMembers.a && teamLocked.a;
+            const bDone = teamHasMembers.b && teamLocked.b;
+            if ((aDone || bDone) && (this.nextEvtTime - Date.now()) > 20000) {
+              this.nextEvtTime = Date.now() + 20000;
+              this.sendStateUpdate();
+              // Nudge the players who haven't locked in yet.
+              for (const p of Object.values(this.players)) {
+                if (p.final) continue;
+                const pObj = players.get(p.id);
+                if (pObj) pObj.send({
+                  type: 'toast',
+                  key: 'lastGuesser',
+                  s: 20,
+                  closeOnClick: true,
+                  autoClose: 3000,
+                  toastType: 'info'
+                });
+              }
+            }
+            return;
+          }
+
+          // 1v1 duels / other modes: drop to 20s when exactly one player remains.
           let remainingCount = 0;
           let finalPlayer = null;
           for (const p of Object.values(this.players)) {
             if (!p.final) {
-              allFinal = false;
               remainingCount++;
               finalPlayer = p;
               if(remainingCount > 1) {
                 break;
               }
             }
-          }
-
-
-          if (allFinal && (this.nextEvtTime - Date.now()) > 1000) {
-            this.nextEvtTime = Date.now() + 1000;
-            this.sendStateUpdate();
           }
 
           if(remainingCount === 1 && (this.nextEvtTime - Date.now()) > 20000) {
@@ -746,6 +851,21 @@ export default class Game {
     });
   }
   }
+  // Send a message to every player on a given team, optionally excluding one id.
+  sendTeam(team, json, excludeId) {
+    for (const [playerId, p] of Object.entries(this.players)) {
+      if (p.team !== team) continue;
+      if (excludeId && playerId === excludeId) continue;
+      const sock = players.get(playerId);
+      if (!sock) continue;
+      try {
+        sock.send(json);
+      } catch (e) {
+        console.error('sendTeam: send failed for', playerId, e?.message);
+      }
+    }
+  }
+
   sendAllPlayers(json) {
     for (const playerId of Object.keys(this.players)) {
       const p = players.get(playerId);
@@ -803,7 +923,52 @@ export default class Game {
       });
     }
 
-    if(this.duel && !this.calculationDone) {
+    // 2v2 team finish: no ELO, winner decided by shared team health.
+    if(this.team2v2 && !this.calculationDone) {
+      this.calculationDone = true;
+
+      const a = this.teamScores?.a ?? 0;
+      const b = this.teamScores?.b ?? 0;
+      let winningTeam = null;
+      let draw = false;
+      if (a > b) winningTeam = 'a';
+      else if (b > a) winningTeam = 'b';
+      else draw = true;
+
+      // Notify each player using the duelEnd shape (no elo fields → the
+      // round-over ELO animation stays hidden by its typeof-number guards).
+      for (const player of Object.values(this.players)) {
+        const sock = players.get(player.id);
+        if (!sock) continue;
+        try {
+          sock.send({
+            type: 'duelEnd',
+            team2v2: true,
+            winningTeam,
+            teamScores: this.teamScores,
+            winner: !draw && player.team === winningTeam,
+            draw,
+            timeElapsed: this.endTime - this.startTime
+          });
+        } catch (e) {}
+      }
+
+      // Persist the game + light W/L stats (off the hot path).
+      if (Object.keys(this.players).length) {
+        this.saveInProgress = true;
+        this.save2v2ToMongoDB(winningTeam, draw)
+          .then(() => { this.saveInProgress = false; })
+          .catch(error => {
+            console.error('Error saving 2v2 game to MongoDB:', error);
+            this.saveInProgress = false;
+          });
+      }
+
+      this.sendStateUpdate(true);
+      return;
+    }
+
+    if(this.duel && !this.team2v2 && !this.calculationDone) {
       // find the winner
       // winner is the one with most points
       // or if only 1 player, they win
@@ -1290,6 +1455,136 @@ export default class Game {
 
     } catch (error) {
       console.error('Error saving unranked multiplayer game to MongoDB:', error);
+    }
+  }
+
+  async save2v2ToMongoDB(winningTeam, draw) {
+    try {
+      const allPlayers = Object.values(this.players);
+      const playersWithAccounts = allPlayers.filter(p => p.accountId);
+
+      const users = await Promise.all(playersWithAccounts.map(p => User.findOne({ _id: p.accountId })));
+      const validPlayersWithAccounts = playersWithAccounts.filter((p, index) => users[index] !== null);
+
+      const totalDuration = this.endTime - this.startTime;
+      const maxPossiblePoints = this.roundHistory.length * 5000;
+
+      // Reuse the unranked round shape exactly (per-player guesses per round).
+      const gameRounds = this.roundHistory.map((roundData, index) => {
+        const actualLocation = roundData.location;
+        return {
+          roundNumber: index + 1,
+          location: {
+            lat: actualLocation.lat,
+            long: actualLocation.long,
+            panoId: actualLocation.panoId || null,
+            country: actualLocation.country || null,
+            place: actualLocation.place || null
+          },
+          playerGuesses: allPlayers.map(player => ({
+            playerId: player.id,
+            username: player.username || 'Player',
+            countryCode: player.countryCode || null,
+            accountId: player.accountId || null,
+            guessLat: roundData.players[player.id]?.lat || null,
+            guessLong: roundData.players[player.id]?.long || null,
+            points: roundData.players[player.id]?.points || 0,
+            timeTaken: roundData.players[player.id]?.timeTaken || this.timePerRound / 1000,
+            xpEarned: 0,
+            guessedAt: new Date(this.startTime + (index * this.timePerRound)),
+            usedHint: false
+          })),
+          startedAt: new Date(this.startTime + (index * this.timePerRound)),
+          endedAt: new Date(this.startTime + ((index + 1) * this.timePerRound))
+        };
+      });
+
+      // Sum each player's own round points for a per-player "totalPoints".
+      const personalPoints = (id) => this.roundHistory.reduce((s, r) => s + (r.players[id]?.points || 0), 0);
+
+      const playerSummaries = allPlayers.map(player => {
+        const isWinner = draw || player.team === winningTeam;
+        return {
+          playerId: player.id,
+          username: player.username || 'Player',
+          countryCode: player.countryCode || null,
+          accountId: player.accountId || null,
+          totalPoints: personalPoints(player.id),
+          totalXp: player.accountId ? this.calculatePlayerXp(player.id) : 0,
+          averageTimePerRound: this.calculateAverageTime(player.id),
+          finalRank: isWinner ? 1 : 2,
+          team: player.team || null,
+          elo: { before: null, after: null, change: null }
+        };
+      });
+
+      const gameDoc = new GameModel({
+        gameId: `2v2_${this.id}`,
+        gameType: '2v2',
+
+        settings: {
+          location: this.location || 'all',
+          rounds: this.roundHistory.length,
+          maxDist: this.maxDist || 20000,
+          timePerRound: this.timePerRound || 60000,
+          official: true,
+          showRoadName: this.showRoadName || false,
+          noMove: this.nm || false,
+          noPan: this.npz || false,
+          noZoom: this.npz || false
+        },
+
+        startedAt: new Date(this.startTime),
+        endedAt: new Date(this.endTime),
+        totalDuration: Math.floor(totalDuration / 1000),
+
+        rounds: gameRounds,
+        players: playerSummaries,
+
+        result: {
+          winner: null,
+          winningTeam: draw ? null : winningTeam,
+          isDraw: draw,
+          maxPossiblePoints: maxPossiblePoints
+        },
+
+        multiplayer: {
+          isPublic: false,
+          gameCode: null,
+          hostPlayerId: allPlayers[0]?.id || null,
+          maxPlayers: 4,
+          playerCount: allPlayers.length
+        }
+      });
+
+      await gameDoc.save();
+
+      // Update registered users: totalGamesPlayed, totalXp, and light 2v2 W/L/T.
+      await Promise.all(validPlayersWithAccounts.map(player => {
+        const summary = playerSummaries.find(s => s.accountId === player.accountId);
+        const inc = { totalGamesPlayed: 1, totalXp: summary?.totalXp || 0 };
+        if (draw) inc.team2v2_tied = 1;
+        else if (player.team === winningTeam) inc.team2v2_wins = 1;
+        else inc.team2v2_losses = 1;
+        return User.updateOne({ _id: player.accountId }, { $inc: inc });
+      }));
+
+      // Snapshot stats (runs after User updates so it reads the fresh XP).
+      await Promise.all(validPlayersWithAccounts.map(async (player) => {
+        const summary = playerSummaries.find(s => s.accountId === player.accountId);
+        if (!summary) return;
+        await UserStatsService.recordGameStats(player.accountId, `2v2_${this.id}`, {
+          gameType: '2v2',
+          result: draw ? 'draw' : (player.team === winningTeam ? 'win' : 'loss'),
+          finalScore: summary.totalPoints || 0,
+          duration: totalDuration,
+          playerCount: allPlayers.length
+        });
+      }));
+
+      console.log(`✅ Saved 2v2 game ${gameDoc.gameId} (${validPlayersWithAccounts.length} registered / ${allPlayers.length} total, winner: ${draw ? 'draw' : winningTeam})`);
+    } catch (error) {
+      console.error('Error saving 2v2 game to MongoDB:', error);
     }
   }
 

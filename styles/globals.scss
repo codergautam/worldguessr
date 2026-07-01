@@ -3057,6 +3057,200 @@ h1, h2, h3, span, label {
     animation: errorSlideIn 0.3s ease-out;
 }
 
+/* ---- 2v2 team mode ---- */
+.twovtwo {
+    // No own background: like the party home, let the global street2 backdrop
+    // (body::before in _document.js) show through for the same smooth dark look.
+    pointer-events: all;
+
+    .twovtwo-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 24px;
+        align-items: center;
+
+        button { pointer-events: all; min-width: 200px; }
+    }
+}
+
+.twovtwo-lobby-card {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+    max-width: 860px;
+}
+
+.twovtwo-lobby-title {
+    margin: 0 0 4px 0;
+}
+
+.twovtwo-lobby-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+
+    @media (min-width: 720px) {
+        grid-template-columns: 1fr 1px 1fr;
+        gap: 28px;
+        align-items: stretch;
+
+        // middle divider column
+        &::before {
+            content: "";
+            grid-column: 2;
+            width: 1px;
+            background: rgba(255, 255, 255, 0.18);
+        }
+    }
+}
+
+.twovtwo-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    justify-content: flex-start;
+
+    // panels live in columns 1 and 3 on desktop (column 2 is the divider)
+    @media (min-width: 720px) {
+        &:first-of-type { grid-column: 1; }
+        &:last-of-type { grid-column: 3; }
+    }
+}
+
+.twovtwo-panel-title {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-align: center;
+}
+
+.twovtwo-find {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 1.2rem;
+    padding: 16px;
+    pointer-events: all;
+}
+
+.twovtwo-code-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.twovtwo-code-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 2px;
+}
+
+.twovtwo-join-row {
+    margin-top: 0;
+}
+
+.twovtwo-code-label {
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 600;
+}
+
+.twovtwo-code {
+    color: white;
+    font-size: clamp(1.6rem, 5vw, 2.2rem);
+    font-weight: 800;
+    letter-spacing: 4px;
+}
+
+.twovtwo-copy {
+    background: var(--primary);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    pointer-events: all;
+
+    &:hover { background: var(--primaryDark); }
+}
+
+.twovtwo-hint {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.9rem;
+    margin: 0 0 18px 0;
+}
+
+.twovtwo-roster {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.twovtwo-slot {
+    padding: 14px 18px;
+    border-radius: 12px;
+    font-weight: 600;
+    color: white;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+
+    &.filled {
+        background: rgba(255, 255, 255, 0.16);
+        border-style: solid;
+    }
+}
+
+.twovtwo-slot-empty { color: rgba(255, 255, 255, 0.6); }
+
+.twovtwo-waiting {
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 500;
+}
+
+.twovtwo-result-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    margin: 6px 0 10px 0;
+}
+
+.twovtwo-result-team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.twovtwo-result-label {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    color: white;
+}
+
+.twovtwo-result-hp {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: white;
+}
+
+.twovtwo-result-vs {
+    font-weight: 700;
+    opacity: 0.7;
+    color: white;
+}
+
 @keyframes slideInUp {
     from {
         opacity: 0;
