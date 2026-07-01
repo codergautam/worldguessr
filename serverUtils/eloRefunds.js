@@ -117,8 +117,8 @@ async function processRefundGames(bannedAccountId, bannedUsername, gameMongoIds,
       //     Math.min — unchanged). The atomic $add only changes how the write is
       //     applied: two refund passes on the SAME opponent (a mod ban racing the
       //     cron grace-purge — both now reachable) compose instead of lost-updating.
-      //     Identical to the original read-then-$set in the non-concurrent case —
-      //     see the characterization test. Only opponents who actually lost ELO. ---
+      //     Identical to the original read-then-$set in the non-concurrent case.
+      //     Only opponents who actually lost ELO. ---
       if (refundAmount > 0) {
         const before = await User.findById(opponentAccountId).select('elo').lean();
         if (before) {

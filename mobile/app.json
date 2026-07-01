@@ -51,18 +51,61 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "category": ["BROWSABLE", "DEFAULT"],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
           "data": [
-            { "scheme": "https", "host": "worldguessr.com", "path": "/" },
-            { "scheme": "https", "host": "worldguessr.com", "path": "/daily" },
-            { "scheme": "https", "host": "worldguessr.com", "path": "/map" },
-            { "scheme": "https", "host": "worldguessr.com", "pathPrefix": "/map/" },
-            { "scheme": "https", "host": "worldguessr.com", "path": "/user" },
-            { "scheme": "https", "host": "www.worldguessr.com", "path": "/" },
-            { "scheme": "https", "host": "www.worldguessr.com", "path": "/daily" },
-            { "scheme": "https", "host": "www.worldguessr.com", "path": "/map" },
-            { "scheme": "https", "host": "www.worldguessr.com", "pathPrefix": "/map/" },
-            { "scheme": "https", "host": "www.worldguessr.com", "path": "/user" }
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "path": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "path": "/daily"
+            },
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "path": "/map"
+            },
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "pathPrefix": "/map/"
+            },
+            {
+              "scheme": "https",
+              "host": "worldguessr.com",
+              "path": "/user"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "path": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "path": "/daily"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "path": "/map"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "pathPrefix": "/map/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.worldguessr.com",
+              "path": "/user"
+            }
           ]
         }
       ],
@@ -105,6 +148,12 @@
             "useFrameworks": "static",
             "buildReactNativeFromSource": true
           }
+        }
+      ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "This identifier will be used to deliver personalized ads to you."
         }
       ]
     ],

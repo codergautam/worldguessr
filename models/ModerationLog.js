@@ -91,6 +91,12 @@ const moderationLogSchema = new mongoose.Schema({
     totalRefunded: { type: Number, default: 0 },
     opponentsAffected: { type: Number, default: 0 },
     gamesProcessed: { type: Number, default: 0 },
+    // Win/loss reconciliation counters (see serverUtils/eloRefunds.js): games
+    // claimed via the eloRefunded/winLossAdjusted gate, and how many opponent
+    // duels_losses / duels_tied increments were reversed for those games.
+    gamesMarkedRefunded: { type: Number, default: 0 },
+    lossesReversed: { type: Number, default: 0 },
+    tiesReversed: { type: Number, default: 0 },
     refundDetails: { type: Map, of: Number, default: {} } // { accountId: refundAmount }
   },
 

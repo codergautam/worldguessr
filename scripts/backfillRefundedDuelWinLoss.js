@@ -13,7 +13,8 @@
  *
  * Per game it undoes exactly what setElo recorded at game end:
  *   - draw     -> decrement duels_losses AND duels_tied by 1 for each victim;
- *   - decisive -> decrement duels_losses by 1 for the loser (elo.change < 0).
+ *   - decisive -> decrement duels_losses by 1 for the recorded loser (finalRank 2
+ *                 — NOT elo.change < 0; an underdog loser's change can round to 0).
  * Counters are clamped at 0.
  *
  * Whom it touches: every non-guest player who is NOT the offender. The live path
