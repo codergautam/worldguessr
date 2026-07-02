@@ -1774,38 +1774,3 @@ try {
      memUsage = (memUsage / 1024 / 1024).toFixed(2) + ' MB';
     console.log('Players:', playerCnt, 'Games:', gameCnt, 'Memory:', memUsage);
   }, 10000)
-  // Reap zombie sockets. Clients send `pong` every ~10s and the server stamps
-  // player.lastPong on each (message handler above). A LIVE socket whose pongs stop for
-  // PONG_TIMEOUT_MS is either a half-open zombie (uplink black-holed — TCP not yet torn
-  // down, so uWS's 300s idleTimeout hasn't fired) or a client wedged unverified (its
-  // pongs are dropped by the verified-gate, so lastPong stays frozen at connect time).
-  // Close our end so the slot frees and the player drops into the disconnectedPlayers
-  // rejoin window — the client (which detects the dead socket on its side and reconnects)
-  // then cleanly rejoins via its rejoinCode/accountId instead of colliding with a still-
-  // "live" zombie and eating a `uac`.
-  //
-  // Only ever touches players with a LIVE ws. Disconnected / gamestate-recovered players
-  // have ws === null and are owned by the 30s disconnectedPlayers eviction loop above —
-  // the original (commented-out) reaper called player.ws.close() unguarded and would have
-  // crashed on exactly those. This is a deliberately CONSERVATIVE backstop: the client's
-  // own ~25-45s zombie detection is the primary recovery, so the reaper mainly exists to
-  // rescue old app versions / crashed clients and free their slots. 120s = 12 missed
-  // pongs, generous slack so only a genuinely dead or long-silent socket trips it; a
-  // reaped player still gets the 30s rejoin window on top (~150s total grace before a game
-  // forfeits them), comfortably above the 30s the product promises a backgrounded player.
-  const PONG_TIMEOUT_MS = 120000;
-  setInterval(() => {
-    const now = Date.now();
-    for (const player of players.values()) {
-      if (!player.ws) continue; // disconnected/rejoinable — owned by the eviction loop
-      if (now - player.lastPong > PONG_TIMEOUT_MS) {
-        console.log('Reaping silent socket (no pong in '
-          + ((now - player.lastPong) / 1000).toFixed(0) + 's):', player.id, currentDate());
-        try {
-          player.ws.close();
-        } catch (e) {
-          console.error('Error closing reaped socket', player.id, e?.message || e, currentDate());
-        }
-      }
-    }
-  }, 10000);
